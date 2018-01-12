@@ -10,12 +10,12 @@ circuitBreaker:
   simpleCb:
     maxConnections: 100
     sleepWindow: 15.5s
-    httpMaxRequests: 100
-    httpMaxRequestsPerConnection: 100
-    httpMaxPendingRequests: 100
+    httpMaxRequests: 200
+    httpMaxRequestsPerConnection: 500
+    httpMaxPendingRequests: 50
     httpConsecutiveErrors: 10
     httpDetectionInterval: 30s
     httpMaxEjectionPercent: 100
-    httpMaxRetries: 10
+    httpMaxRetries: 5
 loadBalancing:
   name: RANDOM

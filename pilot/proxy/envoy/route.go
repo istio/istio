@@ -29,6 +29,7 @@ import (
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -165,12 +166,14 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoutes translates a route rule to an Envoy route
-func buildHTTPRoutes(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
+	port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRoutesV2(config, service, port, instances, domain)
+		return buildHTTPRoutesV2(store, config, service, port, instances, domain)
 	default:
 		panic("unsupported rule")
 	}
@@ -296,7 +299,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	instances []*model.ServiceInstance, domain string) []*HTTPRoute {
 
 	rule := config.Spec.(*routingv2.RouteRule)
@@ -304,12 +307,12 @@ func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV2(config, service, port, http, nil, domain))
+			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain))
 		}
 		for _, match := range http.Match {
 			for _, instance := range instances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV2(config, service, port, http, match, domain))
+					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain))
 					break
 				}
 			}
@@ -329,7 +332,7 @@ func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.
 	return routes
 }
 
-func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
@@ -342,7 +345,8 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 		for _, dst := range http.Route {
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
-			cluster := buildOutboundCluster(fqdn, port, dst.Destination.Labels) // TODO: support Destination.Port
+			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
+			cluster := buildOutboundCluster(fqdn, port, labels) // TODO: support Destination.Port
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 				&WeightedClusterEntry{
@@ -378,13 +382,42 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 		}
 	}
 
-	route.ShadowCluster = buildShadowCluster(domain, port, http.Mirror)
+	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror) // FIXME: add any new cluster
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
 	route.Decorator = buildDecorator(config)
 
 	return route
+}
+
+// TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
+// In v1alpha2, cluster names will be built using the subset name instead of labels.
+// This will allow us to remove this function, which is very inefficient.
+func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
+	if subsetName == "" {
+		return
+	}
+
+	destinationRuleConfig := store.DestinationRule(name, domain)
+	if destinationRuleConfig != nil {
+		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+
+		var found bool
+		for _, subset := range destinationRule.Subsets {
+			if subset.Name == subsetName {
+				labels = model.Labels(subset.Labels)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			log.Warnf("Reference to non-existent subset %q", subsetName)
+		}
+	}
+
+	return
 }
 
 func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
@@ -415,10 +448,11 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	}
 }
 
-func buildShadowCluster(domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
+func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
 		fqdn := model.ResolveFQDN(mirror.Name, domain)
-		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
+		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)
+		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, labels).Name}
 	}
 	return nil
 }

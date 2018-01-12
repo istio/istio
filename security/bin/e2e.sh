@@ -11,13 +11,12 @@
 
 set -ex
 
+SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent,node-agent-test"
 
-ARGS="--image $DOCKER_IMAGE"
-
+ARGS=""
 HUB=""
 TAG=""
-
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,15 +49,18 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-# Set certificate output directory
-export CERTS_OUTPUT_DIR=`pwd`/docker
-
-# Build and push docker images
-bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
-
 # Run integration tests
-bazel run $BAZEL_ARGS //security/integration -- $ARGS \
--k $HOME/.kube/config \
---root-cert ${CERTS_OUTPUT_DIR}/istio_ca.crt \
---cert-chain ${CERTS_OUTPUT_DIR}/node_agent.crt \
---alsologtostderr
+go test istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
+-kube-config=$HOME/.kube/config \
+-stderrthreshold=INFO --alsologtostderr
+
+go test istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
+-kube-config=$HOME/.kube/config \
+-stderrthreshold=INFO --alsologtostderr
+
+go test istio.io/istio/security/tests/integration/nodeAgentTest $ARGS  \
+-kube-config=$HOME/.kube/config \
+-root-cert=${SECURITY_ROOT}/docker/istio_ca.crt \
+-cert-chain=${SECURITY_ROOT}/docker/node_agent.crt \
+-stderrthreshold=INFO --alsologtostderr
+

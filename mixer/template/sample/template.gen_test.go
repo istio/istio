@@ -838,55 +838,53 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	return ev.Eval(expr2, attrs)
 }
 
-var baseConfig = istio_mixer_v1_config.GlobalConfig{
-	Manifests: []*istio_mixer_v1_config.AttributeManifest{
-		{
-			Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
-				"str.absent": {
-					ValueType: pb.STRING,
-				},
-				"bool.absent": {
-					ValueType: pb.BOOL,
-				},
-				"double.absent": {
-					ValueType: pb.DOUBLE,
-				},
-				"int64.absent": {
-					ValueType: pb.INT64,
-				},
-				"source.int64": {
-					ValueType: pb.INT64,
-				},
-				"source.bool": {
-					ValueType: pb.BOOL,
-				},
-				"source.double": {
-					ValueType: pb.DOUBLE,
-				},
-				"source.string": {
-					ValueType: pb.STRING,
-				},
-				"source.timestamp": {
-					ValueType: pb.TIMESTAMP,
-				},
-				"source.duration": {
-					ValueType: pb.DURATION,
-				},
-				"source.ip": {
-					ValueType: pb.IP_ADDRESS,
-				},
-				"source.email": {
-					ValueType: pb.EMAIL_ADDRESS,
-				},
-				"source.uri": {
-					ValueType: pb.URI,
-				},
-				"source.labels": {
-					ValueType: pb.STRING_MAP,
-				},
-				"source.dns": {
-					ValueType: pb.DNS_NAME,
-				},
+var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
+	{
+		Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+			"str.absent": {
+				ValueType: pb.STRING,
+			},
+			"bool.absent": {
+				ValueType: pb.BOOL,
+			},
+			"double.absent": {
+				ValueType: pb.DOUBLE,
+			},
+			"int64.absent": {
+				ValueType: pb.INT64,
+			},
+			"source.int64": {
+				ValueType: pb.INT64,
+			},
+			"source.bool": {
+				ValueType: pb.BOOL,
+			},
+			"source.double": {
+				ValueType: pb.DOUBLE,
+			},
+			"source.string": {
+				ValueType: pb.STRING,
+			},
+			"source.timestamp": {
+				ValueType: pb.TIMESTAMP,
+			},
+			"source.duration": {
+				ValueType: pb.DURATION,
+			},
+			"source.ip": {
+				ValueType: pb.IP_ADDRESS,
+			},
+			"source.email": {
+				ValueType: pb.EMAIL_ADDRESS,
+			},
+			"source.uri": {
+				ValueType: pb.URI,
+			},
+			"source.labels": {
+				ValueType: pb.STRING_MAP,
+			},
+			"source.dns": {
+				ValueType: pb.DNS_NAME,
 			},
 		},
 	},
@@ -905,7 +903,7 @@ func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.Attrib
 
 func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) expr.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
-	for _, m := range baseConfig.Manifests {
+	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
 			attrs[an] = at
 		}

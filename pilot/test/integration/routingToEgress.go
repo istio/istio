@@ -19,12 +19,10 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -55,6 +53,18 @@ func (t *routingToEgress) run() error {
 				return t.verifyFaultInjectionByResponseCode("a", "http://httpbin.org", 418)
 			},
 		},
+		{
+			description:   "append http headers in traffic to httpbin.org",
+			configEgress:  "egress-rule-httpbin.yaml.tmpl",
+			configRouting: "rule-route-append-headers-httpbin.yaml.tmpl",
+			check: func() error {
+				return t.verifyRequestHeaders("a", "http://httpbin.org/headers",
+					map[string]string{
+						"istio-custom-header1": "user-defined-value1",
+						"istio-custom-header2": "user-defined-value2",
+					})
+			},
+		},
 	}
 
 	var errs error
@@ -72,6 +82,13 @@ func (t *routingToEgress) run() error {
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
 			log.Info("Success!")
+		}
+
+		if err := t.deleteConfig(cs.configRouting); err != nil {
+			return err
+		}
+		if err := t.deleteConfig(cs.configEgress); err != nil {
+			return err
 		}
 	}
 	return errs
@@ -95,9 +112,30 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 	}
 
 	if strconv.Itoa(respCode) != statusCode {
-		return fmt.Errorf("fault injection verification failed: "+
-			"status code %s, "+
-			"expected status code %d", statusCode, respCode)
+		return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
+			statusCode, respCode)
+	}
+	return nil
+}
+
+func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
+	log.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
+
+	resp := t.clientRequest(src, httpbinURL, 1, "")
+
+	containsAllExpectedHeaders := true
+
+	headerFormat := "\"%s\": \"%s\""
+	for name, value := range expectedHeaders {
+		headerContent := fmt.Sprintf(headerFormat, name, value)
+		if !strings.Contains(strings.ToLower(resp.body), strings.ToLower(headerContent)) {
+			containsAllExpectedHeaders = false
+		}
+	}
+
+	if !containsAllExpectedHeaders {
+		return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
+			resp.body, expectedHeaders)
 	}
 	return nil
 }

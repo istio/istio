@@ -11,19 +11,18 @@ set -e
 : ${ISTIO_NAMESPACE:=istio-system}
 : ${ISTIO_PILOT:=istio-pilot}
 : ${ISTIO_INGRESS:=istio-ingress}
-: ${ISTIO_EGRESS:=istio-egress}
 : ${CLUSTER_NAME:=istio-proxy}
 
 subcommand=$1
 
 function print_help {
-    echo 'istio-proxy-cfg lds sidecar|ingress|egress <pod_name>'
+    echo 'istio-proxy-cfg lds sidecar|ingress <pod_name>'
     echo "    Get listeners built by istio pilot."
     echo ""
-    echo 'istio-proxy-cfg cds sidecar|ingress|egress <pod_name>'
+    echo 'istio-proxy-cfg cds sidecar|ingress <pod_name>'
     echo "    Get clusters built by istio pilot."
     echo ""
-    echo 'istio-proxy-cfg rds sidecar|ingress|egress <route_name> <pod_name>'
+    echo 'istio-proxy-cfg rds sidecar|ingress <route_name> <pod_name>'
     echo "    Get routes built by istio pilot."
     echo "    <route_name> is normally a port number that a service is bound to."
     echo ""
@@ -42,8 +41,8 @@ function print_help {
     echo ""
     echo "pod_name: a string that is a prefix of a pod name."
     echo "          If it matches multiple pod names, all of their proxy"
-    echo "          configuratoin will be displayed."
-    echo "          pod_name is IGNORED in the case of ingress/egress."
+    echo "          configuration will be displayed."
+    echo "          pod_name is IGNORED in the case of ingress."
     echo ""
     echo "Aliases: lds, l, listeners"
     echo "         cds, c, clusters"
@@ -51,7 +50,6 @@ function print_help {
     echo "         sds, s, endpoints"
     echo "         sidecar, side, s"
     echo "         ingress, ing, i"
-    echo "         egress, eg, e"
     echo "         cache_stats, cs, cache"
 }
 
@@ -164,10 +162,6 @@ if [[ $queryfor != sds ]]; then
         ingress|ing|i)
             podname=$ISTIO_INGRESS
             role=ingress
-            ;;
-        egress|eg|e)
-            podname=$ISTIO_EGRESS
-            role=egress
             ;;
         *) error_exit "Unrecognized role ${role}";;
     esac

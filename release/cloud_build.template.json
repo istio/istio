@@ -29,7 +29,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "name": "gcr.io/istio-testing/istio-builder:0.4.5-bazel7-go19",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/update_and_create_archives.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     },
@@ -40,13 +40,13 @@
           "path": "/output"
         }
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "name": "gcr.io/istio-testing/istio-builder:0.4.5-bazel7-go19",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
     }
   ],
   "options": {
-    "machineType": "N1_HIGHCPU_32"
+    "machineType": "N1_HIGHCPU_8"
   },
   "timeout": "3600s",
 }
