@@ -75,7 +75,7 @@ func InitLogging() error {
 	if err != nil {
 		return err
 	}
-	o.OutputPaths = []string{tmpLogFile.Name()}
+	o.OutputPaths = []string{tmpLogFile.Name(), "stdout"}
 	if err := log.Configure(o); err != nil {
 		return err
 	}

@@ -19,7 +19,7 @@ set -x
 
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
-ARGS=(--alsologtostderr)
+ARGS=(-v 3)
 TESTSPATH='tests/e2e/tests'
 
 function print_block() {
