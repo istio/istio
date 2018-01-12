@@ -11,7 +11,7 @@ global:
     hub: gcr.io/istio-testing
     tag: 0.4.0
   security:  
-    enabled: false
+    enabled: true
     hub: gcr.io/istio-testing
     tag: 0.4.0
   mixer:
