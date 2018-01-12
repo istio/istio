@@ -169,7 +169,7 @@ Please see golang testing options for more information.
   # First time you want to run: deploy in namespace e2e and leave it running:
   make e2e_simple E2E_ARGS="--skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable"
   # Subsequent runs if only the TestSimpleIngress (for instance) changes:
-  make e2e_simple E@E_ARGS="--skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress"
+  make e2e_simple E2E_ARGS="--skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress"
   ```
 
 # demo_test.go
