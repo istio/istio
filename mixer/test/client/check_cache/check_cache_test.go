@@ -23,13 +23,13 @@ import (
 )
 
 func TestCheckCache(t *testing.T) {
-	s := env.NewTestSetupV2(t)
+	s := env.NewTestSetupV2(env.CheckCacheTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Need to override mixer test server Referenced field in the check response.
 	// Its default is all fields in the request which could not be used fo test check cache.

@@ -45,7 +45,7 @@ const checkAttributes = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -62,7 +62,7 @@ const checkAttributes = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
@@ -83,7 +83,7 @@ const reportAttributes = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -100,7 +100,7 @@ const reportAttributes = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "sec-istio-auth-userinfo": "eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xvdWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNzU0MjA1fQ==",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -134,7 +134,7 @@ const FailedReportAttributes = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -149,7 +149,7 @@ const FailedReportAttributes = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "authorization": "Bearer invalidtoken",
      "x-istio-attributes": "-",
@@ -171,12 +171,12 @@ const FailedReportAttributes = `
 `
 
 func TestJWTAuth(t *testing.T) {
-	s := env.NewTestSetupV2(t)
+	s := env.NewTestSetupV2(env.JWTAuthTest, t)
 	// pubkey server is the same as backend server.
 	// Empty audiences.
 	env.AddJwtAuth(s.V2().HttpServerConf, &mccpb.JWT{
 		Issuer:              JWT_ISSUER,
-		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", env.BackendPort),
+		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", s.Ports().BackendPort),
 		JwksUriEnvoyCluster: JWT_CLUSTER,
 	})
 	if err := s.SetUp(); err != nil {
@@ -184,7 +184,7 @@ func TestJWTAuth(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	tag := "Good-Token"
 	headers := map[string]string{}

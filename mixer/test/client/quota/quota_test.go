@@ -28,6 +28,7 @@ const (
 
 func TestQuotaCall(t *testing.T) {
 	s := env.NewTestSetup(
+		env.QuotaCallTest,
 		t,
 		env.BasicConfig+","+env.QuotaConfig)
 	if err := s.SetUp(); err != nil {
@@ -35,7 +36,7 @@ func TestQuotaCall(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet v1"

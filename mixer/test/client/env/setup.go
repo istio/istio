@@ -30,23 +30,26 @@ type TestSetup struct {
 	faultInject bool
 	noMixer     bool
 	v2          *V2Conf
+	ports       *Ports
 
 	envoy   *Envoy
 	mixer   *MixerServer
 	backend *HttpServer
 }
 
-func NewTestSetup(t *testing.T, conf string) *TestSetup {
+func NewTestSetup(name uint16, t *testing.T, conf string) *TestSetup {
 	return &TestSetup{
-		t:    t,
-		conf: conf,
+		t:     t,
+		conf:  conf,
+		ports: NewPorts(name),
 	}
 }
 
-func NewTestSetupV2(t *testing.T) *TestSetup {
+func NewTestSetupV2(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
-		t:  t,
-		v2: GetDefaultV2Conf(),
+		t:     t,
+		v2:    GetDefaultV2Conf(),
+		ports: NewPorts(name),
 	}
 }
 
@@ -60,6 +63,10 @@ func (s *TestSetup) SetV2Conf() {
 
 func (s *TestSetup) V2() *V2Conf {
 	return s.v2
+}
+
+func (s *TestSetup) Ports() *Ports {
+	return s.ports
 }
 
 func (s *TestSetup) SetMixerCheckReferenced(ref *mixerpb.ReferencedAttributes) {
@@ -104,7 +111,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2, s.ports)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -112,7 +119,7 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(MixerPort, s.stress)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
@@ -120,7 +127,7 @@ func (s *TestSetup) SetUp() error {
 		}
 	}
 
-	s.backend, err = NewHttpServer(BackendPort)
+	s.backend, err = NewHttpServer(s.ports.BackendPort)
 	if err != nil {
 		log.Printf("unable to create HTTP server %v", err)
 	} else {
@@ -140,7 +147,7 @@ func (s *TestSetup) TearDown() {
 func (s *TestSetup) ReStartEnvoy() {
 	s.envoy.Stop()
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2, s.ports)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {

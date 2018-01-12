@@ -28,7 +28,7 @@ const reportAttributes = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -43,7 +43,7 @@ const reportAttributes = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
@@ -64,7 +64,7 @@ const reportAttributes = `
 `
 
 func TestFaultInject(t *testing.T) {
-	s := env.NewTestSetupV2(t)
+	s := env.NewTestSetupV2(env.FaultInjectTest, t)
 	s.SetFaultInject(true)
 
 	if err := s.SetUp(); err != nil {
@@ -72,7 +72,7 @@ func TestFaultInject(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	tag := "FaultInject"
 	code, _, err := env.HTTPGet(url)

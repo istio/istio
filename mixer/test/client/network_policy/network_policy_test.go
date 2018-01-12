@@ -23,14 +23,14 @@ import (
 
 // Mixer server not running.
 func TestNetworkFailure(t *testing.T) {
-	s := env.NewTestSetup(t, env.BasicConfig)
+	s := env.NewTestSetup(env.NetworkFailureTest, t, env.BasicConfig)
 	s.SetNoMixer(true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ServerProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 
 	tag := "Fail-Open-V1"
 	// Default is fail open policy.

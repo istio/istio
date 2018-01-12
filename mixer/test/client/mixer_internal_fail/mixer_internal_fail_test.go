@@ -24,13 +24,13 @@ import (
 
 // Mixer server returns INTERNAL failure.
 func TestMixerInternalFail(t *testing.T) {
-	s := env.NewTestSetup(t, env.BasicConfig)
+	s := env.NewTestSetup(env.MixerInternalFailTest, t, env.BasicConfig)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ServerProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 
 	// Mixer to return INTERNAL error.
 	s.SetMixerCheckStatus(rpc.Status{

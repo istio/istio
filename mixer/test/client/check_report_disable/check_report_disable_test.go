@@ -32,6 +32,7 @@ const reportOnlyFlags = `
 
 func TestCheckReportDisable(t *testing.T) {
 	s := env.NewTestSetup(
+		env.CheckReportDisableTest,
 		t,
 		env.BasicConfig+","+env.DisableCheckCache+","+env.DisableReportBatch)
 	if err := s.SetUp(); err != nil {
@@ -39,7 +40,7 @@ func TestCheckReportDisable(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	tag := "Both Check and Report v1"
 	if _, _, err := env.HTTPGet(url); err != nil {

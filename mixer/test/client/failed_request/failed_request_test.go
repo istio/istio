@@ -33,7 +33,7 @@ const checkAttributesMixerFail = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -50,7 +50,7 @@ const checkAttributesMixerFail = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
@@ -67,7 +67,7 @@ const reportAttributesMixerFail = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -84,7 +84,7 @@ const reportAttributesMixerFail = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
@@ -110,7 +110,7 @@ const reportAttributesBackendFail = `
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
+  "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
@@ -127,7 +127,7 @@ const reportAttributesBackendFail = `
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
-     ":authority": "localhost:27070",
+     ":authority": "*",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
@@ -148,13 +148,13 @@ const reportAttributesBackendFail = `
 `
 
 func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetupV2(t)
+	s := env.NewTestSetupV2(env.FailedRequestTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	tag := "MixerFail"
 	s.SetMixerCheckStatus(rpc.Status{

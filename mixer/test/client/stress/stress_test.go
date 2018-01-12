@@ -26,11 +26,11 @@ import (
 
 const (
 	concurrent         = 10
-	duration_in_second = 15
+	duration_in_second = 10
 )
 
 func TestStressEnvoy(t *testing.T) {
-	s := env.NewTestSetupV2(t)
+	s := env.NewTestSetupV2(env.StressEnvoyTest, t)
 	s.SetStress(true)
 
 	// Not cache, enable quota
@@ -41,7 +41,7 @@ func TestStressEnvoy(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	var count uint64 = 0
 	for k := 0; k < concurrent; k++ {

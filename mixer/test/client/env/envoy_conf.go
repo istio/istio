@@ -24,22 +24,11 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-const (
-	// These ports should match with used envoy.conf
-	// Default is using one in this folder.
-	ServerProxyPort = 29090
-	ClientProxyPort = 27070
-	TcpProxyPort    = 26060
-	MixerPort       = 29091
-	BackendPort     = 28080
-	AdminPort       = 29001
-)
-
 type ConfParam struct {
-	ClientPort      int
-	ServerPort      int
-	TcpProxyPort    int
-	AdminPort       int
+	ClientPort      uint16
+	ServerPort      uint16
+	TcpProxyPort    uint16
+	AdminPort       uint16
 	MixerServer     string
 	Backend         string
 	ClientConfig    string
@@ -66,7 +55,7 @@ const QuotaConfig = `
 `
 
 // A quota cache is on by default
-const quotaCacheConfig = `
+const QuotaCacheConfig = `
                   "quota_name": "RequestCount"
 `
 
@@ -81,7 +70,7 @@ const DisableCheckCache = `
 `
 
 // A config to disable quota cache
-const disableQuotaCache = `
+const DisableQuotaCache = `
                   "disable_quota_cache": true
 `
 
@@ -326,21 +315,21 @@ func (c *ConfParam) write(path string) error {
 	return tmpl.Execute(f, *c)
 }
 
-func getConf() ConfParam {
+func getConf(ports *Ports) ConfParam {
 	return ConfParam{
-		ClientPort:   ClientProxyPort,
-		ServerPort:   ServerProxyPort,
-		TcpProxyPort: TcpProxyPort,
-		AdminPort:    AdminPort,
-		MixerServer:  fmt.Sprintf("localhost:%d", MixerPort),
-		Backend:      fmt.Sprintf("localhost:%d", BackendPort),
+		ClientPort:   ports.ClientProxyPort,
+		ServerPort:   ports.ServerProxyPort,
+		TcpProxyPort: ports.TcpProxyPort,
+		AdminPort:    ports.AdminPort,
+		MixerServer:  fmt.Sprintf("localhost:%d", ports.MixerPort),
+		Backend:      fmt.Sprintf("localhost:%d", ports.BackendPort),
 		ClientConfig: defaultClientMixerConfig,
 		AccessLog:    "/dev/stdout",
 	}
 }
 
-func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf) error {
-	c := getConf()
+func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
+	c := getConf(ports)
 	c.ServerConfig = conf
 	c.TcpServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags

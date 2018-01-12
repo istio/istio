@@ -45,7 +45,7 @@ const reportAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
-  "destination.port": 28080,
+  "destination.port": "*",
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
@@ -56,6 +56,7 @@ const reportAttributesOkPost = `
 
 func TestDisableTcpCheckCalls(t *testing.T) {
 	s := env.NewTestSetup(
+		env.DisableTcpCheckCallsTest,
 		t,
 		env.BasicConfig+","+env.DisableTcpCheckCalls)
 	if err := s.SetUp(); err != nil {
@@ -63,7 +64,7 @@ func TestDisableTcpCheckCalls(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", env.TcpProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TcpProxyPort)
 
 	// Issues a POST request.
 	tag := "OKPost v1"

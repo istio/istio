@@ -19,11 +19,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 type Envoy struct {
-	cmd *exec.Cmd
+	cmd   *exec.Cmd
+	ports *Ports
 }
 
 // Run command and return the merged output from stderr and stdout, error code
@@ -41,36 +43,38 @@ func Run(name string, args ...string) (s string, err error) {
 	return
 }
 
-func NewEnvoy(conf, flags string, stress, faultInject bool, v2 *V2Conf) (*Envoy, error) {
-	bin_path := "envoy"
-	log.Printf("Envoy binary: %v\n", bin_path)
-
-	conf_path := "/tmp/envoy.conf"
+func NewEnvoy(conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) (*Envoy, error) {
+	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
+	envoy_path := "envoy"
+	conf_path := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
 	log.Printf("Envoy config: in %v\n%v\n", conf_path, conf)
-	if err := CreateEnvoyConf(conf_path, conf, flags, stress, faultInject, v2); err != nil {
+	if err := CreateEnvoyConf(conf_path, conf, flags, stress, faultInject, v2, ports); err != nil {
 		return nil, err
 	}
 
-	var cmd *exec.Cmd
+	args := []string{"-c", conf_path, "--base-id", strconv.Itoa(int(ports.AdminPort))}
 	if stress {
-		cmd = exec.Command(bin_path, "-c", conf_path, "--concurrency", "10")
+		args = append(args, "--concurrency", "10")
 	} else {
-		cmd = exec.Command(bin_path, "-c", conf_path, "-l", "debug", "--concurrency", "1")
+		args = append(args, "-l", "debug", "--concurrency", "1")
 	}
+
+	cmd := exec.Command(envoy_path, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return &Envoy{
-		cmd: cmd,
+		cmd:   cmd,
+		ports: ports,
 	}, nil
 }
 
 func (s *Envoy) Start() error {
 	err := s.cmd.Start()
 	if err == nil {
-		url := fmt.Sprintf("http://localhost:%v/server_info", AdminPort)
+		url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
 		WaitForHttpServer(url)
-		WaitForPort(ClientProxyPort)
-		WaitForPort(ServerProxyPort)
+		WaitForPort(s.ports.ClientProxyPort)
+		WaitForPort(s.ports.ServerProxyPort)
 	}
 	return err
 }

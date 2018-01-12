@@ -260,15 +260,11 @@ security-test:
 	go test ${T} ./security/pkg/...
 	go test ${T} ./security/cmd/...
 
-.PHONY: mixer-client-test
-mixer-client-test:
-	mixer/test/client/run_test.sh
-
 common-test:
 	go test ${T} ./pkg/...
 
 # Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test mixer-client-test
+go-test: pilot-test mixer-test security-test broker-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
