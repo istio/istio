@@ -226,7 +226,6 @@ pilot: ${ISTIO_BIN}/pilot-discovery
 .PHONY: go-test localTestEnv test-bins
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
-GOTEST_P ?= -p 1
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_BIN}/pilot-test-server ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-eurekamirror
@@ -240,11 +239,9 @@ test-bins: $(PILOT_TEST_BINS)
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
 
-# Temp. disable parallel test - flaky consul test.
-# https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test ${GOTEST_P} ${T} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: mixer-test
 mixer-test: mixs
@@ -298,7 +295,7 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	go test ${GOTEST_P} ${T} -race ./pilot/...
+	go test ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
