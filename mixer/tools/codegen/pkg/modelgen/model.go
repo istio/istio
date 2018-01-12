@@ -418,7 +418,7 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
-				return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
+			return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
 		}
 		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
 			return TypeInfo{Name: field.GetTypeName()[1:]},
