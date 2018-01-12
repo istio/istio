@@ -651,16 +651,14 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			name: "egress-rule-tcp",
 			file: egressRuleTCP,
 		},
-
-
 		{
 			name: "egress-rule",
 			file: foreignServiceRule,
 		},
-		//{
-		//	name: "egress-rule-tcp",
-		//	file: foreignServiceRuleTCP,
-		//},
+		{
+			name: "egress-rule-tcp",
+			file: foreignServiceRuleTCP,
+		},
 	}
 
 	for _, testCase := range testCases {

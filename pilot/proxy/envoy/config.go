@@ -510,6 +510,10 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 	listeners = append(listeners, egressTCPListeners...)
 	clusters = append(clusters, egressTCPClusters...)
 
+	foreignServiceTCPListeners, foreignServiceTCPClusters := buildForeignServiceTCPListeners(mesh, sidecar, config)
+	listeners = append(listeners, foreignServiceTCPListeners...)
+	clusters = append(clusters, foreignServiceTCPClusters...)
+
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, sidecar, instances, services, config)
 	httpOutbound = buildEgressHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
@@ -920,7 +924,6 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	}
 
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
-
 	if errs != nil {
 		log.Warnf("Rejected rules: %v", errs)
 	}
@@ -973,7 +976,45 @@ func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 		}
 	}
 
-	return httpConfigs
+	return httpConfigs.normalize() // TODO: is this necessary?
+}
+
+func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
+	config model.IstioConfigStore) (Listeners, Clusters) {
+
+	listeners := make(Listeners, 0)
+	clusters := make(Clusters, 0)
+
+	if node.Type == proxy.Router {
+		return listeners, clusters
+	}
+
+	// TODO: port conflicts?
+	for _, fsConfig := range config.ForeignServices() {
+		fs := fsConfig.Spec.(*routingv2.ForeignService)
+		for _, port := range fs.Ports {
+			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
+				continue
+			}
+
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, port.Number),
+				Port: int(port.Number), Protocol: protocol}
+
+			routes := make([]*TCPRoute, 0)
+			for _, host := range fs.Hosts {
+				route, cluster := buildEgressTCPRoute(host, mesh, modelPort)
+				routes = append(routes, route)
+				clusters = append(clusters, cluster)
+			}
+
+			config := &TCPRouteConfig{Routes: routes}
+			listeners = append(listeners,
+				buildTCPListener(config, WildcardAddress, int(port.Number), protocol))
+		}
+	}
+
+	return listeners, clusters
 }
 
 // buildEgressTCPListeners builds a listener on 0.0.0.0 per each distinct port of all TCP egress
@@ -989,11 +1030,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 		return tcpListeners, tcpClusters
 	}
 
-	// TODO: add logic for foreign service
-	//fsConfigs := config.ForeignServices()
-
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
-
 	if errs != nil {
 		log.Warnf("Rejected rules: %v", errs)
 	}
@@ -1020,7 +1057,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 
 		tcpRoutes := make([]*TCPRoute, 0)
 		for _, rule := range rules {
-			tcpRoute, tcpCluster := buildEgressTCPRoute(rule, mesh, modelPort)
+			tcpRoute, tcpCluster := buildEgressTCPRoute(rule.Destination.Service, mesh, modelPort)
 			tcpRoutes = append(tcpRoutes, tcpRoute)
 			tcpClusters = append(tcpClusters, tcpCluster)
 		}
@@ -1035,12 +1072,11 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 
 // buildEgressTCPRoute builds a tcp route and a cluster per port of a TCP egress service
 // see comment to buildOutboundTCPListeners
-func buildEgressTCPRoute(rule *routing.EgressRule,
+func buildEgressTCPRoute(destination string,
 	mesh *meshconfig.MeshConfig, port *model.Port) (*TCPRoute, *Cluster) {
 
 	// Create a unique orig dst cluster for each service defined by egress rule
 	// So that we can apply circuit breakers, outlier detections, etc., later.
-	destination := rule.Destination.Service
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
 	name := truncateClusterName(key)

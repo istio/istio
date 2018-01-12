@@ -333,6 +333,11 @@ var (
 		file: "testdata/foreign-service-rule.yaml.golden",
 	}
 
+	foreignServiceRuleTCP = fileConfig{
+		meta: model.ConfigMeta{Type: model.ForeignService.Type, Name: "google"},
+		file: "testdata/foreign-service-rule-tcp.yaml.golden",
+	}
+
 	egressRuleCBPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "egress-circuit-breaker"},
 		file: "testdata/egress-rule-cb-policy.yaml.golden",
