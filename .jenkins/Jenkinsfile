@@ -81,8 +81,20 @@ node('docker') {
         sh "cd && ln -sf .dockercfg-quay-creds .dockercfg"
         sh "cd $wkdir && " +
           "make HUB=quay.io/aspenmesh/istio-private TAG=$BUILD_TAG push"
+        gitTag = getTag(wkdir)
+        if (gitTag) {
+          sh "cd $wkdir && " +
+            "make HUB=quay.io/aspenmesh/istio-private TAG=$gitTag push"
+        }
         sh "cd && rm .dockercfg"
       }
     }
   }
+}
+
+String getTag(String wkdir) {
+  return sh(
+    script: "cd $wkdir && " +
+      "git describe --exact-match --tags \$GIT_COMMIT || true"
+  )?.trim()
 }
