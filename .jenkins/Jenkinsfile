@@ -95,6 +95,7 @@ node('docker') {
 String getTag(String wkdir) {
   return sh(
     script: "cd $wkdir && " +
-      "git describe --exact-match --tags \$GIT_COMMIT || true"
-  )?.trim()
+      "git describe --exact-match --tags \$GIT_COMMIT || true",
+    returnStdout: true
+  ).trim()
 }
