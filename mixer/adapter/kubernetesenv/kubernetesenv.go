@@ -166,7 +166,7 @@ func newBuilder(clientFactory clientFactoryFn) *builder {
 	}
 }
 
-func (h *handler) GenerateKubernetesEnvAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
+func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
 	out := &ktmpl.Output{}
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
