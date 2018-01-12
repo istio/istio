@@ -28,12 +28,14 @@ import (
 )
 
 type TestBuilderInfoInventory struct {
-	name string
+	name    string
+	aliases []string
 }
 
-func createBuilderInfo(name string) adapter.Info {
+func createBuilderInfo(name string, aliases []string) adapter.Info {
 	return adapter.Info{
 		Name:               name,
+		Aliases:            aliases,
 		Description:        "mock adapter for testing",
 		SupportedTemplates: []string{sample_report.TemplateName},
 		DefaultConfig:      &types.Empty{},
@@ -42,7 +44,7 @@ func createBuilderInfo(name string) adapter.Info {
 }
 
 func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.Info {
-	return createBuilderInfo(t.name)
+	return createBuilderInfo(t.name, t.aliases)
 }
 
 type fakeHandlerBuilder struct{}
@@ -67,12 +69,12 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 }
 
 func TestRegisterSampleProcessor(t *testing.T) {
-	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+	testBuilderInfoInventory := TestBuilderInfoInventory{name: "foo"}
+	reg := newRegistry([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
-	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
-	if !ok {
+	builderInfo := reg.FindAdapterInfo(testBuilderInfoInventory.name)
+	if builderInfo == nil {
 		t.Errorf("No builderInfo by name %s, expected %v", testBuilderInfoInventory.name, testBuilderInfoInventory)
 	}
 
@@ -83,8 +85,8 @@ func TestRegisterSampleProcessor(t *testing.T) {
 }
 
 func TestCollisionSameNameAdapter(t *testing.T) {
-	testBuilderInfoInventory := TestBuilderInfoInventory{"some name that they both have"}
-	testBuilderInfoInventory2 := TestBuilderInfoInventory{"some name that they both have"}
+	testBuilderInfoInventory := TestBuilderInfoInventory{name: "some name that they both have"}
+	testBuilderInfoInventory2 := TestBuilderInfoInventory{name: "some name that they both have"}
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -92,7 +94,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
@@ -100,8 +102,42 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 	t.Error("Should not reach this statement due to panic.")
 }
 
+func TestAliasCollisions(t *testing.T) {
+	testBuilderInfoInventory := TestBuilderInfoInventory{name: "NAME"}
+	testBuilderInfoInventory2 := TestBuilderInfoInventory{name: "OTHER NAME", aliases: []string{"NAME"}}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected to recover from panic registering duplicate adapter, but recover was nil.")
+		}
+	}()
+
+	_ = newRegistry([]adapter.InfoFn{
+		testBuilderInfoInventory.getNewGetBuilderInfoFn,
+		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
+	)
+
+	t.Error("Should not reach this statement due to panic.")
+}
+
+func TestAliases(t *testing.T) {
+	testBuilderInfoInventory := TestBuilderInfoInventory{name: "N1", aliases: []string{"N2", "N3"}}
+
+	r := newRegistry([]adapter.InfoFn{
+		testBuilderInfoInventory.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
+	)
+
+	b1 := r.FindAdapterInfo("N1")
+	b2 := r.FindAdapterInfo("N2")
+	b3 := r.FindAdapterInfo("N3")
+
+	if b1 == nil || b2 == nil || b3 == nil {
+		t.Errorf("Got nil builder, expecting builders to be available under all 3 names")
+	}
+}
+
 func TestMissingDefaultValue(t *testing.T) {
-	builderCreatorInventory := TestBuilderInfoInventory{"foo"}
+	builderCreatorInventory := TestBuilderInfoInventory{name: "foo"}
 	builderInfo := builderCreatorInventory.getNewGetBuilderInfoFn()
 	builderInfo.DefaultConfig = nil
 
@@ -112,14 +148,14 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
 
 func TestHandlerMap(t *testing.T) {
-	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
+	testBuilderInfoInventory := TestBuilderInfoInventory{name: "foo"}
+	testBuilderInfoInventory2 := TestBuilderInfoInventory{name: "bar"}
 
 	mp := AdapterInfoMap([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
@@ -174,7 +210,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry([]adapter.InfoFn{
 		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 
