@@ -18,25 +18,34 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// Info describes the Adapter and provides a function to a Handler Builder method.
+// Info describes the Adapter and provides a function pointer to create builders.
 type Info struct {
 	// Name returns the official name of the adapter, it must be RFC 1035 compatible DNS label.
 	// Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
 	// Name is used in Istio configuration, therefore it should be descriptive but short.
 	// example: denier
-	// Vendor adapters should use a vendor prefix.
-	// example: mycompany-denier
 	Name string
+
+	// Aliases defines an optional set of alternate names for this adapter. Aliases
+	// are subject to the same naming constraints as the main name. Aliases make it possible
+	// for a single adapter to be referenced using multiple names within configuration. This
+	// is primarily useful for backward compatibility when renaming an adapter.
+	Aliases []string
+
 	// Impl is the package implementing the adapter.
 	// example: "istio.io/istio/mixer/adapter/denier"
 	Impl string
+
 	// Description returns a user-friendly description of the adapter.
 	Description string
+
 	// NewBuilder is a function that creates a Builder which implements Builders associated
 	// with the SupportedTemplates.
 	NewBuilder NewBuilderFn
+
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
 	SupportedTemplates []string
+
 	// DefaultConfig is a default configuration struct for this
 	// adapter. This will be used by the configuration system to establish
 	// the shape of the block of configuration state passed to the HandlerBuilder.Build method.

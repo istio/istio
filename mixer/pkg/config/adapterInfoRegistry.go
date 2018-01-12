@@ -28,8 +28,8 @@ type adapterInfoRegistry struct {
 
 type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string) (bool, string)
 
-// newRegistry2 returns a new adapterInfoRegistry.
-func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
+// newRegistry returns a new adapterInfoRegistry.
+func newRegistry(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
 	r := &adapterInfoRegistry{make(map[string]*adapter.Info)}
 	for idx, info := range infos {
 		log.Debugf("registering [%d] %#v", idx, info)
@@ -37,31 +37,50 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 		if a, ok := r.adapterInfosByName[adptInfo.Name]; ok {
 			// panic only if 2 different adapter.Info objects are trying to identify by the
 			// same Name.
-			msg := fmt.Sprintf("Duplicate registration for '%s' : old = %v new = %v", a.Name, adptInfo, a)
+			msg := fmt.Sprintf("Duplicate registration for '%s' : old = %v new = %v", a.Name, a, adptInfo)
 			log.Error(msg)
 			panic(msg)
-		} else {
-			if adptInfo.NewBuilder == nil {
-				// panic if adapter has not provided the NewBuilder func.
-				msg := fmt.Sprintf("Adapter info %v from adapter %s has nil NewBuilder", adptInfo, adptInfo.Name)
-				log.Error(msg)
-				panic(msg)
-			}
-			if adptInfo.DefaultConfig == nil {
-				// panic if adapter has not provided the DefaultConfig func.
-				msg := fmt.Sprintf("Adapter info %v from adapter %s has nil DefaultConfig", adptInfo, adptInfo.Name)
-				log.Error(msg)
-				panic(msg)
-			}
-			if ok, errMsg := doesBuilderSupportsTemplates(adptInfo, hndlrBldrValidator); !ok {
-				// panic if an Adapter's HandlerBuilder does not implement interfaces that it says it wants to support.
-				msg := fmt.Sprintf("HandlerBuilder from adapter %s does not implement the required interfaces"+
-					" for the templates it supports: %s", adptInfo.Name, errMsg)
-				log.Error(msg)
-				panic(msg)
-			}
+		}
 
-			r.adapterInfosByName[adptInfo.Name] = &adptInfo
+		for _, n := range adptInfo.Aliases {
+			if a, ok := r.adapterInfosByName[n]; ok {
+				// panic only if 2 different adapter.Info objects are trying to identify by the
+				// same Name.
+				msg := fmt.Sprintf("Duplicate registration for '%s' : old = %v new = %v", a.Name, a, adptInfo)
+				log.Error(msg)
+				panic(msg)
+			}
+		}
+
+		if adptInfo.NewBuilder == nil {
+			// panic if adapter has not provided the NewBuilder func.
+			msg := fmt.Sprintf("Adapter info %v from adapter %s has nil NewBuilder", adptInfo, adptInfo.Name)
+			log.Error(msg)
+			panic(msg)
+		}
+
+		if adptInfo.DefaultConfig == nil {
+			// panic if adapter has not provided the DefaultConfig func.
+			msg := fmt.Sprintf("Adapter info %v from adapter %s has nil DefaultConfig", adptInfo, adptInfo.Name)
+			log.Error(msg)
+			panic(msg)
+		}
+
+		if ok, errMsg := doesBuilderSupportsTemplates(adptInfo, hndlrBldrValidator); !ok {
+			// panic if an Adapter's HandlerBuilder does not implement interfaces that it says it wants to support.
+			msg := fmt.Sprintf("HandlerBuilder from adapter %s does not implement the required interfaces"+
+				" for the templates it supports: %s", adptInfo.Name, errMsg)
+			log.Error(msg)
+			panic(msg)
+		}
+
+		// register under it's primary name
+		p := &adptInfo
+		r.adapterInfosByName[adptInfo.Name] = p
+
+		// and register using its pseudonyms
+		for _, n := range adptInfo.Aliases {
+			r.adapterInfosByName[n] = p
 		}
 	}
 	return r
@@ -70,16 +89,12 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 // AdapterInfoMap returns the known adapter.Infos, indexed by their names.
 func AdapterInfoMap(handlerRegFns []adapter.InfoFn,
 	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.Info {
-	return newRegistry2(handlerRegFns, hndlrBldrValidator).adapterInfosByName
+	return newRegistry(handlerRegFns, hndlrBldrValidator).adapterInfosByName
 }
 
 // FindAdapterInfo returns the adapter.Info object with the given name.
-func (r *adapterInfoRegistry) FindAdapterInfo(name string) (b *adapter.Info, found bool) {
-	bi, found := r.adapterInfosByName[name]
-	if !found {
-		return nil, false
-	}
-	return bi, true
+func (r *adapterInfoRegistry) FindAdapterInfo(name string) *adapter.Info {
+	return r.adapterInfosByName[name]
 }
 
 func doesBuilderSupportsTemplates(info adapter.Info, hndlrBldrValidator handlerBuilderValidator) (bool, string) {

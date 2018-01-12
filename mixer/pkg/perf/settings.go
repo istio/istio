@@ -58,8 +58,15 @@ func (s Settings) findTemplate(name string) (template.Info, bool) {
 
 func (s Settings) findAdapter(name string) (adapter.InfoFn, bool) {
 	for _, a := range s.Adapters {
-		if a().Name == name {
+		info := a()
+		if info.Name == name {
 			return a, true
+		}
+
+		for _, n := range info.Aliases {
+			if n == name {
+				return a, true
+			}
 		}
 	}
 
