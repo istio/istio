@@ -145,9 +145,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStore2URL := a.ConfigStoreURL
-	if configStore2URL == "" {
-		configStore2URL = "k8s://"
+	configStoreURL := a.ConfigStoreURL
+	if configStoreURL == "" {
+		configStoreURL = "k8s://"
 	}
 
 	if a.ServiceConfig != "" || a.GlobalConfig != "" {
@@ -155,11 +155,11 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
 		}
-		configStore2URL = "fs://" + s.configDir
+		configStoreURL = "fs://" + s.configDir
 	}
 
 	reg2 := store.NewRegistry(config.StoreInventory()...)
-	store2, err := p.newStore2(reg2, configStore2URL)
+	store2, err := p.newStore2(reg2, configStoreURL)
 	if err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
