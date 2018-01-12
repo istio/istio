@@ -309,7 +309,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
   cp -R $ROOT/samples $DEST_DIR/
 fi
 
-# mixs binary is needed for creating yaml file.
+# mixs binary is needed for creating CRD yaml file.
 (cd $ROOT; make mixs)
 
 mkdir -p $TEMP_DIR/templates
