@@ -1,0 +1,28 @@
+FROM golang:1.9
+
+# We need docker commands to run docker build
+RUN \
+  apt-get update && \
+  apt-get install -y --no-install-recommends apt-transport-https && \
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+  # Double-check that we got an apt-key with docker's fingerprint.
+  apt-key export "9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88" | gpg - && \
+  echo "deb [arch=amd64] https://download.docker.com/linux/debian stretch stable" >> \
+    /etc/apt/sources.list.d/docker.list && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends docker-ce && \
+  rm -rf /var/lib/apt/lists/*
+
+# "make test" uses kubernetes
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.9.1/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \
+  chmod a+x /usr/local/bin/kubectl
+
+# We try to get these from the environment but use Jenkins defaults otherwise
+ARG UID=1000
+ARG GID=1000
+
+# Jenkins will run docker with '-u 1000:1000' so that files inside the container
+# have the same ownership as files outside.  Add a user with this UID so that
+# istio's 'whoami' calls work.
+RUN groupadd -g $GID aspenmesh && \
+    useradd --no-create-home --uid $UID --gid $GID --home-dir /go aspenmesh
