@@ -68,7 +68,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+	reg := newRegistry([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
@@ -92,7 +92,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry([]adapter.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
@@ -112,7 +112,7 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -174,7 +174,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry([]adapter.InfoFn{
 		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 

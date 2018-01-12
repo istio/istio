@@ -35,7 +35,7 @@ import (
 // Create a new controller and a dispatcher.
 // Returns a ready to use dispatcher.
 func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeListener, gp *pool.GoroutinePool,
-	handlerPool *pool.GoroutinePool, identityAttribute string, defaultConfigNamespace string, s store.Store2,
+	handlerPool *pool.GoroutinePool, identityAttribute string, defaultConfigNamespace string, s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]template.Info) (Dispatcher, error) {
 
 	// controller will set Resolver before the dispatcher is used.
@@ -47,7 +47,7 @@ func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeLi
 }
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
-func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
+func startWatch(s store.Store, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
 	ctx := context.Background()
 	kindMap := KindMap(adapterInfo, templateInfo)
@@ -85,7 +85,7 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 }
 
 // startController creates a controller from the given params.
-func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
+func startController(s store.Store, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
 	vocabularyChangeListener VocabularyChangeListener, resolverChangeListener ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
