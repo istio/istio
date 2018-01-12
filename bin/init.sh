@@ -58,6 +58,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
 fi
 
 if [ ! -f $GO_TOP/bin/envoy ] ; then
+    mkdir -p $GO_TOP/bin
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GO_TOP/bin/envoy
 fi
 
