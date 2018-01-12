@@ -57,7 +57,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // within a list.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
@@ -114,7 +114,7 @@ Template field type | Golang type
 `istio.mixer.v1.template.Duration` | `time.Duration`
 `istio.mixer.v1.template.IPAddress` | `net.IP`
 `istio.mixer.v1.template.DNSName` | `adapter.DNSName`
-`istio.mixer.v1.config.descriptor.ValueType` | `interface{}`
+`istio.mixer.v1.template.Value` | `interface{}`
 `map<string, string>` | `map[string]string`
 `map<string, int64>` | `map[string]int64`
 `map<string, double>` | `map[string]float64`
@@ -123,11 +123,11 @@ Template field type | Golang type
 `map<string, istio.mixer.v1.template.Duration>` | `map[string]time.Duration`
 `map<string, istio.mixer.v1.template.IPAddress>` | `map[string]net.IP`
 `map<string, istio.mixer.v1.template.DNSName>` | `map[string]adapter.DNSName`
-`map<string, istio.mixer.v1.config.descriptor.ValueType>` | `map[string]interface{}`
+`map<string, istio.mixer.v1.template.Value>` | `map[string]interface{}`
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.config.descriptor.ValueType` has a special meaning. Use of this type
+The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
@@ -136,7 +136,7 @@ themselves accordingly.
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.config.descriptor.ValueType` has a special meaning. Use of this type
+The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
