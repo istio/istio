@@ -40,8 +40,8 @@ func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapt
 
 	url := "fs://" + path
 
-	reg2 := store.NewRegistry2(cfg.Store2Inventory()...)
-	store2, err := reg2.NewStore2(url)
+	reg2 := store.NewRegistry(cfg.StoreInventory()...)
+	store2, err := reg2.NewStore(url)
 	if err != nil {
 		panic(fmt.Sprintf("unable to crete store2: %s", err.Error()))
 	}
