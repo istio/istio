@@ -33,7 +33,12 @@ export CGO_ENABLE=0
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
 
-GO ?= go
+ifeq ($(origin GO), undefined)
+  GO:=$(shell which go)
+  ifeq ($(GO),)
+    $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
+  endif
+endif
 
 # Compile for linux/amd64 by default.
 export GOOS ?= linux
@@ -51,6 +56,22 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
+
+# go version that's major # * 100 + minor #
+# if you change this value then also update the echo statement in the section that follows
+GO_VERSION_REQUIRED=109
+
+# using a sentinel file so this check is only performed once.  Performance is being
+# favored over the unlikely situation that go gets downgraded to an older version
+check_go_version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+# sed parses out the x.y version (of what may be x.y or x.y.z) and outputs "x y".
+# awk takes the two separate variables and combines them as a single value x*100+y (e.g., 1.9 is 109).
+# This single value allows the major & minor #s to be checked in a single comparison.
+	@if test $(shell go version | sed "s/[a-z| ]*\([0-9]*\)\.\([0-9]*\).*/\1 \2/" | \
+                   awk '{print $$1*100+$$2}') -lt $(GO_VERSION_REQUIRED); \
+		then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
+	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 hub = ""
 tag = ""
