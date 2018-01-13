@@ -17,6 +17,7 @@ package papertrail
 import (
 	"fmt"
 	"html/template"
+	"log/syslog"
 	"net"
 	"regexp"
 	"runtime"
@@ -25,19 +26,17 @@ import (
 	"sync"
 	"time"
 
-	"log/syslog"
-
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/template/logentry"
-
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/template/logentry"
 )
 
 const (
-	defaultRetention = "24h"
-
-	defaultTemplate = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
+	defaultRetention = time.Duration(24 * time.Hour)
+	keyFormat        = "TS:%d-BODY:%s"
+	keyPattern       = "TS:(\\d+)-BODY:(.*)"
+	defaultTemplate  = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
 		`[{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} ` +
 		`{{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 )
@@ -45,8 +44,7 @@ const (
 var defaultWorkerCount = 10
 
 type logInfo struct {
-	labels []string
-	tmpl   *template.Template
+	tmpl *template.Template
 }
 
 // LoggerInterface is the interface for all Papertrail logger types
@@ -54,11 +52,6 @@ type LoggerInterface interface {
 	Log(*logentry.Instance) error
 	Close() error
 }
-
-const (
-	keyFormat  = "TS:%d-BODY:%s"
-	keyPattern = "TS:(\\d+)-BODY:(.*)"
-)
 
 // Logger is a concrete type of LoggerInterface which collects and ships logs to Papertrail
 type Logger struct {
@@ -72,63 +65,58 @@ type Logger struct {
 
 	log adapter.Logger
 
+	env adapter.Env
+
 	maxWorkers int
 
 	loopFactor bool
 }
 
 // NewLogger does some ground work and returns an instance of LoggerInterface
-func NewLogger(paperTrailURL string, logRetentionStr string, logConfigs []*config.Params_LogInfo,
-	logger adapter.Logger) (LoggerInterface, error) {
-
-	retention, err := time.ParseDuration(logRetentionStr)
-	if err != nil {
-		retention, _ = time.ParseDuration(defaultRetention)
-	}
+func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[string]*config.Params_LogInfo,
+	env adapter.Env) (LoggerInterface, error) {
+	logger := env.Logger()
 	if retention.Seconds() <= float64(0) {
-		retention, _ = time.ParseDuration(defaultRetention)
+		retention = defaultRetention
 	}
 
 	logger.Infof("Creating a new paper trail logger for url: %s", paperTrailURL)
 
 	p := &Logger{
 		paperTrailURL:   paperTrailURL,
-		retentionPeriod: time.Duration(retention) * time.Hour,
+		retentionPeriod: retention,
 		cmap:            &sync.Map{},
 		log:             logger,
+		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
 		loopFactor:      true,
 	}
 
 	p.logInfos = map[string]*logInfo{}
 
-	for _, l := range logConfigs {
+	for inst, l := range logConfigs {
 		var templ string
 		if strings.TrimSpace(l.PayloadTemplate) != "" {
 			templ = l.PayloadTemplate
 		} else {
 			templ = defaultTemplate
 		}
-		tmpl, err := template.New(l.InstanceName).Parse(templ)
+		tmpl, err := template.New(inst).Parse(templ)
 		if err != nil {
-			logger.Errorf("AO - failed to evaluate template for log instance: %s, skipping: %v", l.InstanceName, err)
+			logger.Errorf("ao - failed to evaluate template for log instance: %s, skipping: %v", inst, err)
 			continue
 		}
-		p.logInfos[l.InstanceName] = &logInfo{
-			labels: l.LabelNames,
-			tmpl:   tmpl,
+		p.logInfos[inst] = &logInfo{
+			tmpl: tmpl,
 		}
 	}
 
-	go p.flushLogs()
+	env.ScheduleDaemon(p.flushLogs)
 	return p, nil
 }
 
 // Log method receives log messages
 func (p *Logger) Log(msg *logentry.Instance) error {
-	if p.log.VerbosityLevel(config.DebugLevel) {
-		p.log.Infof("AO - In Log method. Received msg: %v", msg)
-	}
 	linfo, ok := p.logInfos[msg.Name]
 	if !ok {
 		return p.log.Errorf("Got an unknown instance of log: %s. Hence Skipping.", msg.Name)
@@ -148,9 +136,6 @@ func (p *Logger) Log(msg *logentry.Instance) error {
 	pool.PutBuffer(buf)
 
 	if len(payload) > 0 {
-		if p.log.VerbosityLevel(config.DebugLevel) {
-			p.log.Infof("AO - In Log method. Now persisting log: %s", msg)
-		}
 		ut := time.Now().UnixNano()
 		p.cmap.Store(fmt.Sprintf(keyFormat, ut, payload), struct{}{})
 	}
@@ -159,12 +144,9 @@ func (p *Logger) Log(msg *logentry.Instance) error {
 
 func (p *Logger) sendLogs(data string) error {
 	var err error
-	if p.log.VerbosityLevel(config.DebugLevel) {
-		p.log.Infof("AO - In sendLogs method. sending msg: %s", string(data))
-	}
 	writer, err := syslog.Dial("udp", p.paperTrailURL, syslog.LOG_EMERG|syslog.LOG_KERN, "istio")
 	if err != nil {
-		return p.log.Errorf("AO - Failed to dial syslog: %v", err)
+		return p.log.Errorf("ao - Failed to dial syslog: %v", err)
 	}
 	defer writer.Close()
 	err = writer.Info(data)
@@ -187,24 +169,12 @@ func (p *Logger) flushLogs() {
 		// workers
 		for i := 0; i < p.maxWorkers; i++ {
 			go func(worker int) {
-				if p.log.VerbosityLevel(config.DebugLevel) {
-					p.log.Infof("AO - flushlogs, worker %d initialized.", (worker + 1))
-					defer p.log.Infof("AO - flushlogs, worker %d signing off.", (worker + 1))
-				}
-
 				for keyI := range hose {
-					if p.log.VerbosityLevel(config.DebugLevel) {
-						p.log.Infof("AO - flushlogs, worker %d took the job.", (worker + 1))
-					}
-
 					key, _ := keyI.(string)
 					match := re.FindStringSubmatch(key)
 					if len(match) > 2 {
 						err = p.sendLogs(match[2]) // which is the actual log msg
 						if err == nil {
-							if p.log.VerbosityLevel(config.DebugLevel) {
-								p.log.Infof("AO - flushLogs, delete key: %s", string(key))
-							}
 							p.cmap.Delete(key)
 							wg.Done()
 							continue
@@ -214,9 +184,6 @@ func (p *Logger) flushLogs() {
 						ts := time.Unix(0, tsN)
 
 						if time.Since(ts) > p.retentionPeriod {
-							if p.log.VerbosityLevel(config.DebugLevel) {
-								p.log.Infof("AO - flushLogs, delete key: %s bcoz it is past retention period.", string(key))
-							}
 							p.cmap.Delete(key)
 						}
 					}

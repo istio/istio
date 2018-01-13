@@ -15,11 +15,9 @@
 package appoptics
 
 import (
-	"encoding/json"
 	"math"
 	"net/http"
 
-	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -62,14 +60,6 @@ type MeasurementsService struct {
 // Create persists the given MeasurementCollection to AppOptics
 func (ms *MeasurementsService) Create(mc []*Measurement) (*http.Response, error) {
 	payload := MeasurementPayload{mc}
-	d, err := json.Marshal(payload)
-	if err != nil {
-		ms.logger.Errorf("AO - Marshal error: %v\n", err)
-		return nil, err
-	}
-	if ms.logger.VerbosityLevel(config.DebugLevel) {
-		ms.logger.Infof("AO - sending data to AppOptics with payload: %v\n", string(d))
-	}
 	req, err := ms.client.NewRequest("POST", "measurements", payload)
 
 	if err != nil {

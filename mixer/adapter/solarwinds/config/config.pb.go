@@ -16,9 +16,15 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/gogo/protobuf/types"
+
+import time "time"
+
+import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -26,6 +32,7 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -34,37 +41,54 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Params struct {
-	AppopticsAccessToken     string               `protobuf:"bytes,1,opt,name=appoptics_access_token,json=appopticsAccessToken,proto3" json:"appoptics_access_token,omitempty"`
-	PapertrailUrl            string               `protobuf:"bytes,2,opt,name=papertrail_url,json=papertrailUrl,proto3" json:"papertrail_url,omitempty"`
-	PapertrailLocalRetention string               `protobuf:"bytes,3,opt,name=papertrail_local_retention,json=papertrailLocalRetention,proto3" json:"papertrail_local_retention,omitempty"`
-	Metrics                  []*Params_MetricInfo `protobuf:"bytes,4,rep,name=metrics" json:"metrics,omitempty"`
-	Logs                     []*Params_LogInfo    `protobuf:"bytes,5,rep,name=logs" json:"logs,omitempty"`
+	// AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics
+	// will NOT be shipped to AppOptics
+	AppopticsAccessToken string `protobuf:"bytes,1,opt,name=appoptics_access_token,json=appopticsAccessToken,proto3" json:"appoptics_access_token,omitempty"`
+	// Optional. Max batch size of metrics to be sent to AppOptics.
+	// AppOptics does not allow batch size greater than 1000.
+	// If this is not specified a default batch size of 1000 will be used.
+	AppopticsBatchSize int32 `protobuf:"varint,2,opt,name=appoptics_batch_size,json=appopticsBatchSize,proto3" json:"appoptics_batch_size,omitempty"`
+	// Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
+	// dropped.
+	PapertrailUrl string `protobuf:"bytes,3,opt,name=papertrail_url,json=papertrailUrl,proto3" json:"papertrail_url,omitempty"`
+	// This is the duration for which logs will be persisted locally until it is shipped to papertrail in the event
+	// of a network failure
+	PapertrailLocalRetentionDuration *time.Duration `protobuf:"bytes,4,opt,name=papertrail_local_retention_duration,json=papertrailLocalRetentionDuration,stdduration" json:"papertrail_local_retention_duration,omitempty"`
+	// A map of Istio metric name to solarwinds metric info.
+	Metrics map[string]*Params_MetricInfo `protobuf:"bytes,5,rep,name=metrics" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// A map of Istio logentry name to solarwinds log info.
+	Logs map[string]*Params_LogInfo `protobuf:"bytes,6,rep,name=logs" json:"logs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Params) Reset()                    { *m = Params{} }
 func (*Params) ProtoMessage()               {}
 func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
 
+// Describes how to represent an Istio metric in Solarwinds AppOptics
 type Params_MetricInfo struct {
-	Name         string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	InstanceName string   `protobuf:"bytes,2,opt,name=instance_name,json=instanceName,proto3" json:"instance_name,omitempty"`
-	Description  string   `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	LabelNames   []string `protobuf:"bytes,4,rep,name=label_names,json=labelNames" json:"label_names,omitempty"`
+	// The name is used to register the metric.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Optional. A human readable description of this metric.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// The names of labels to use: these need to match the dimensions of the Istio metric.
+	LabelNames []string `protobuf:"bytes,3,rep,name=label_names,json=labelNames" json:"label_names,omitempty"`
 }
 
 func (m *Params_MetricInfo) Reset()                    { *m = Params_MetricInfo{} }
 func (*Params_MetricInfo) ProtoMessage()               {}
 func (*Params_MetricInfo) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 0} }
 
+// Describes how to represent an Istio metric in Solarwinds AppOptics
 type Params_LogInfo struct {
-	LabelNames      []string `protobuf:"bytes,1,rep,name=label_names,json=labelNames" json:"label_names,omitempty"`
-	PayloadTemplate string   `protobuf:"bytes,2,opt,name=payload_template,json=payloadTemplate,proto3" json:"payload_template,omitempty"`
-	InstanceName    string   `protobuf:"bytes,3,opt,name=instance_name,json=instanceName,proto3" json:"instance_name,omitempty"`
+	// Optional. A golang text/template template that will be executed to construct the payload for this log entry.
+	// It will be given the full set of variables for the log to use to construct its result.
+	// If it is not provided, a default template in place will be used.
+	PayloadTemplate string `protobuf:"bytes,1,opt,name=payload_template,json=payloadTemplate,proto3" json:"payload_template,omitempty"`
 }
 
 func (m *Params_LogInfo) Reset()                    { *m = Params_LogInfo{} }
 func (*Params_LogInfo) ProtoMessage()               {}
-func (*Params_LogInfo) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 1} }
+func (*Params_LogInfo) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 2} }
 
 func init() {
 	proto.RegisterType((*Params)(nil), "adapter.solarwinds.config.Params")
@@ -92,40 +116,81 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.AppopticsAccessToken)))
 		i += copy(dAtA[i:], m.AppopticsAccessToken)
 	}
+	if m.AppopticsBatchSize != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.AppopticsBatchSize))
+	}
 	if len(m.PapertrailUrl) > 0 {
-		dAtA[i] = 0x12
+		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.PapertrailUrl)))
 		i += copy(dAtA[i:], m.PapertrailUrl)
 	}
-	if len(m.PapertrailLocalRetention) > 0 {
-		dAtA[i] = 0x1a
+	if m.PapertrailLocalRetentionDuration != nil {
+		dAtA[i] = 0x22
 		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.PapertrailLocalRetention)))
-		i += copy(dAtA[i:], m.PapertrailLocalRetention)
+		i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)))
+		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PapertrailLocalRetentionDuration, dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
 	}
 	if len(m.Metrics) > 0 {
-		for _, msg := range m.Metrics {
-			dAtA[i] = 0x22
+		for k, _ := range m.Metrics {
+			dAtA[i] = 0x2a
 			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			v := m.Metrics[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
 			}
-			i += n
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n2, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n2
+			}
 		}
 	}
 	if len(m.Logs) > 0 {
-		for _, msg := range m.Logs {
-			dAtA[i] = 0x2a
+		for k, _ := range m.Logs {
+			dAtA[i] = 0x32
 			i++
-			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			v := m.Logs[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
 			}
-			i += n
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n3
+			}
 		}
 	}
 	return i, nil
@@ -152,21 +217,15 @@ func (m *Params_MetricInfo) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
 		i += copy(dAtA[i:], m.Name)
 	}
-	if len(m.InstanceName) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.InstanceName)))
-		i += copy(dAtA[i:], m.InstanceName)
-	}
 	if len(m.Description) > 0 {
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.Description)))
 		i += copy(dAtA[i:], m.Description)
 	}
 	if len(m.LabelNames) > 0 {
 		for _, s := range m.LabelNames {
-			dAtA[i] = 0x22
+			dAtA[i] = 0x1a
 			i++
 			l = len(s)
 			for l >= 1<<7 {
@@ -197,32 +256,11 @@ func (m *Params_LogInfo) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.LabelNames) > 0 {
-		for _, s := range m.LabelNames {
-			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
 	if len(m.PayloadTemplate) > 0 {
-		dAtA[i] = 0x12
+		dAtA[i] = 0xa
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.PayloadTemplate)))
 		i += copy(dAtA[i:], m.PayloadTemplate)
-	}
-	if len(m.InstanceName) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.InstanceName)))
-		i += copy(dAtA[i:], m.InstanceName)
 	}
 	return i, nil
 }
@@ -243,24 +281,41 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.AppopticsBatchSize != 0 {
+		n += 1 + sovConfig(uint64(m.AppopticsBatchSize))
+	}
 	l = len(m.PapertrailUrl)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = len(m.PapertrailLocalRetention)
-	if l > 0 {
+	if m.PapertrailLocalRetentionDuration != nil {
+		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PapertrailLocalRetentionDuration)
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	if len(m.Metrics) > 0 {
-		for _, e := range m.Metrics {
-			l = e.Size()
-			n += 1 + l + sovConfig(uint64(l))
+		for k, v := range m.Metrics {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
 		}
 	}
 	if len(m.Logs) > 0 {
-		for _, e := range m.Logs {
-			l = e.Size()
-			n += 1 + l + sovConfig(uint64(l))
+		for k, v := range m.Logs {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
 		}
 	}
 	return n
@@ -270,10 +325,6 @@ func (m *Params_MetricInfo) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.InstanceName)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
@@ -293,17 +344,7 @@ func (m *Params_MetricInfo) Size() (n int) {
 func (m *Params_LogInfo) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.LabelNames) > 0 {
-		for _, s := range m.LabelNames {
-			l = len(s)
-			n += 1 + l + sovConfig(uint64(l))
-		}
-	}
 	l = len(m.PayloadTemplate)
-	if l > 0 {
-		n += 1 + l + sovConfig(uint64(l))
-	}
-	l = len(m.InstanceName)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
@@ -327,12 +368,33 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
+	keysForMetrics := make([]string, 0, len(this.Metrics))
+	for k, _ := range this.Metrics {
+		keysForMetrics = append(keysForMetrics, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForMetrics)
+	mapStringForMetrics := "map[string]*Params_MetricInfo{"
+	for _, k := range keysForMetrics {
+		mapStringForMetrics += fmt.Sprintf("%v: %v,", k, this.Metrics[k])
+	}
+	mapStringForMetrics += "}"
+	keysForLogs := make([]string, 0, len(this.Logs))
+	for k, _ := range this.Logs {
+		keysForLogs = append(keysForLogs, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForLogs)
+	mapStringForLogs := "map[string]*Params_LogInfo{"
+	for _, k := range keysForLogs {
+		mapStringForLogs += fmt.Sprintf("%v: %v,", k, this.Logs[k])
+	}
+	mapStringForLogs += "}"
 	s := strings.Join([]string{`&Params{`,
 		`AppopticsAccessToken:` + fmt.Sprintf("%v", this.AppopticsAccessToken) + `,`,
+		`AppopticsBatchSize:` + fmt.Sprintf("%v", this.AppopticsBatchSize) + `,`,
 		`PapertrailUrl:` + fmt.Sprintf("%v", this.PapertrailUrl) + `,`,
-		`PapertrailLocalRetention:` + fmt.Sprintf("%v", this.PapertrailLocalRetention) + `,`,
-		`Metrics:` + strings.Replace(fmt.Sprintf("%v", this.Metrics), "Params_MetricInfo", "Params_MetricInfo", 1) + `,`,
-		`Logs:` + strings.Replace(fmt.Sprintf("%v", this.Logs), "Params_LogInfo", "Params_LogInfo", 1) + `,`,
+		`PapertrailLocalRetentionDuration:` + strings.Replace(fmt.Sprintf("%v", this.PapertrailLocalRetentionDuration), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`Metrics:` + mapStringForMetrics + `,`,
+		`Logs:` + mapStringForLogs + `,`,
 		`}`,
 	}, "")
 	return s
@@ -343,7 +405,6 @@ func (this *Params_MetricInfo) String() string {
 	}
 	s := strings.Join([]string{`&Params_MetricInfo{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
-		`InstanceName:` + fmt.Sprintf("%v", this.InstanceName) + `,`,
 		`Description:` + fmt.Sprintf("%v", this.Description) + `,`,
 		`LabelNames:` + fmt.Sprintf("%v", this.LabelNames) + `,`,
 		`}`,
@@ -355,9 +416,7 @@ func (this *Params_LogInfo) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Params_LogInfo{`,
-		`LabelNames:` + fmt.Sprintf("%v", this.LabelNames) + `,`,
 		`PayloadTemplate:` + fmt.Sprintf("%v", this.PayloadTemplate) + `,`,
-		`InstanceName:` + fmt.Sprintf("%v", this.InstanceName) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -429,6 +488,25 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			m.AppopticsAccessToken = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AppopticsBatchSize", wireType)
+			}
+			m.AppopticsBatchSize = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AppopticsBatchSize |= (int32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field PapertrailUrl", wireType)
 			}
@@ -457,11 +535,11 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			}
 			m.PapertrailUrl = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 3:
+		case 4:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PapertrailLocalRetention", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field PapertrailLocalRetentionDuration", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowConfig
@@ -471,22 +549,26 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthConfig
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.PapertrailLocalRetention = string(dAtA[iNdEx:postIndex])
+			if m.PapertrailLocalRetentionDuration == nil {
+				m.PapertrailLocalRetentionDuration = new(time.Duration)
+			}
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.PapertrailLocalRetentionDuration, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Metrics", wireType)
 			}
@@ -512,12 +594,104 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Metrics = append(m.Metrics, &Params_MetricInfo{})
-			if err := m.Metrics[len(m.Metrics)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
+			if m.Metrics == nil {
+				m.Metrics = make(map[string]*Params_MetricInfo)
 			}
+			var mapkey string
+			var mapvalue *Params_MetricInfo
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Params_MetricInfo{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Metrics[mapkey] = mapvalue
 			iNdEx = postIndex
-		case 5:
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Logs", wireType)
 			}
@@ -543,10 +717,102 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Logs = append(m.Logs, &Params_LogInfo{})
-			if err := m.Logs[len(m.Logs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
+			if m.Logs == nil {
+				m.Logs = make(map[string]*Params_LogInfo)
 			}
+			var mapkey string
+			var mapvalue *Params_LogInfo
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Params_LogInfo{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Logs[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -629,35 +895,6 @@ func (m *Params_MetricInfo) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InstanceName", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.InstanceName = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Description", wireType)
 			}
 			var stringLen uint64
@@ -685,7 +922,7 @@ func (m *Params_MetricInfo) Unmarshal(dAtA []byte) error {
 			}
 			m.Description = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field LabelNames", wireType)
 			}
@@ -766,35 +1003,6 @@ func (m *Params_LogInfo) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LabelNames", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.LabelNames = append(m.LabelNames, string(dAtA[iNdEx:postIndex]))
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field PayloadTemplate", wireType)
 			}
 			var stringLen uint64
@@ -821,35 +1029,6 @@ func (m *Params_LogInfo) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.PayloadTemplate = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InstanceName", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConfig
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthConfig
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.InstanceName = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -980,32 +1159,39 @@ var (
 func init() { proto.RegisterFile("mixer/adapter/solarwinds/config/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 428 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0x3f, 0x6b, 0x14, 0x41,
-	0x18, 0xc6, 0x77, 0xbc, 0xf3, 0x42, 0xde, 0x33, 0x2a, 0x43, 0x90, 0xf5, 0x8a, 0xf1, 0x50, 0x84,
-	0x04, 0xc2, 0x1e, 0xa8, 0x85, 0x85, 0x16, 0x5a, 0x08, 0x42, 0x14, 0x39, 0x62, 0x63, 0xb3, 0xbc,
-	0x99, 0x9b, 0x2c, 0x83, 0xb3, 0x33, 0xc3, 0xcc, 0x88, 0x7f, 0x2a, 0x4b, 0x4b, 0x3f, 0x86, 0xad,
-	0xdf, 0x22, 0x65, 0x4a, 0x4b, 0x77, 0x6d, 0x2c, 0xf3, 0x11, 0x64, 0x67, 0x77, 0xdd, 0x23, 0x87,
-	0x58, 0xed, 0xf0, 0x3c, 0xbf, 0xe7, 0xe1, 0x7d, 0x5f, 0x16, 0x0e, 0x4a, 0xf9, 0x41, 0xb8, 0x05,
-	0xae, 0xd0, 0x06, 0xe1, 0x16, 0xde, 0x28, 0x74, 0xef, 0xa5, 0x5e, 0xf9, 0x05, 0x37, 0xfa, 0x44,
-	0x16, 0xdd, 0x27, 0xb3, 0xce, 0x04, 0x43, 0x6f, 0x76, 0x5c, 0x36, 0x70, 0x59, 0x0b, 0xcc, 0x76,
-	0x0b, 0x53, 0x98, 0x48, 0x2d, 0x9a, 0x57, 0x1b, 0xb8, 0xfd, 0x7d, 0x0c, 0x93, 0x57, 0xe8, 0xb0,
-	0xf4, 0xf4, 0x01, 0xdc, 0x40, 0x6b, 0x8d, 0x0d, 0x92, 0xfb, 0x1c, 0x39, 0x17, 0xde, 0xe7, 0xc1,
-	0xbc, 0x15, 0x3a, 0x25, 0x73, 0xb2, 0xb7, 0xbd, 0xdc, 0xfd, 0xeb, 0x3e, 0x89, 0xe6, 0x51, 0xe3,
-	0xd1, 0xbb, 0x70, 0xd5, 0xa2, 0x15, 0x2e, 0x38, 0x94, 0x2a, 0x7f, 0xe7, 0x54, 0x7a, 0x29, 0xd2,
-	0x3b, 0x83, 0xfa, 0xda, 0x29, 0xfa, 0x08, 0x66, 0x6b, 0x98, 0x32, 0x1c, 0x55, 0xee, 0x44, 0x10,
-	0x3a, 0x48, 0xa3, 0xd3, 0x51, 0x8c, 0xa4, 0x03, 0x71, 0xd8, 0x00, 0xcb, 0xde, 0xa7, 0xcf, 0x60,
-	0xab, 0x14, 0xc1, 0x49, 0xee, 0xd3, 0xf1, 0x7c, 0xb4, 0x37, 0xbd, 0x77, 0x90, 0xfd, 0x73, 0xd1,
-	0xac, 0x5d, 0x27, 0x7b, 0x11, 0x03, 0xcf, 0xf5, 0x89, 0x59, 0xf6, 0x61, 0xfa, 0x18, 0xc6, 0xca,
-	0x14, 0x3e, 0xbd, 0x1c, 0x4b, 0xf6, 0xff, 0x5f, 0x72, 0x68, 0x8a, 0xd8, 0x10, 0x63, 0xb3, 0x2f,
-	0x04, 0x60, 0xa8, 0xa5, 0x14, 0xc6, 0x1a, 0x4b, 0xd1, 0x9d, 0x27, 0xbe, 0xe9, 0x1d, 0xd8, 0x91,
-	0xda, 0x07, 0xd4, 0x5c, 0xe4, 0xd1, 0x6c, 0xaf, 0x71, 0xa5, 0x17, 0x5f, 0x36, 0xd0, 0x1c, 0xa6,
-	0x2b, 0xe1, 0xb9, 0x93, 0x76, 0x6d, 0xfb, 0x75, 0x89, 0xde, 0x82, 0xa9, 0xc2, 0x63, 0xa1, 0x62,
-	0x47, 0xbb, 0xf4, 0xf6, 0x12, 0xa2, 0xd4, 0x34, 0xf8, 0xd9, 0x27, 0xd8, 0xea, 0x66, 0xbb, 0xc8,
-	0x92, 0x8b, 0x2c, 0xdd, 0x87, 0xeb, 0x16, 0x3f, 0x2a, 0x83, 0xab, 0x3c, 0x88, 0xd2, 0x2a, 0x0c,
-	0xfd, 0x58, 0xd7, 0x3a, 0xfd, 0xa8, 0x93, 0x37, 0xc7, 0x1f, 0x6d, 0x8e, 0xff, 0xf4, 0xe1, 0x69,
-	0xc5, 0x92, 0xb3, 0x8a, 0x25, 0x3f, 0x2a, 0x96, 0x9c, 0x57, 0x2c, 0xf9, 0x5c, 0x33, 0xf2, 0xad,
-	0x66, 0xc9, 0x69, 0xcd, 0xc8, 0x59, 0xcd, 0xc8, 0xcf, 0x9a, 0x91, 0xdf, 0x35, 0x4b, 0xce, 0x6b,
-	0x46, 0xbe, 0xfe, 0x62, 0xc9, 0x9b, 0x49, 0x7b, 0xd5, 0xe3, 0x49, 0xfc, 0xe9, 0xee, 0xff, 0x09,
-	0x00, 0x00, 0xff, 0xff, 0x7f, 0x67, 0xf8, 0x68, 0xd5, 0x02, 0x00, 0x00,
+	// 540 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x4f, 0x6f, 0xd3, 0x30,
+	0x1c, 0x8d, 0xfb, 0x6f, 0xd4, 0xe5, 0xcf, 0x64, 0x4d, 0x28, 0xcb, 0xc1, 0x8d, 0x40, 0x48, 0x9d,
+	0x98, 0x12, 0x54, 0x76, 0x98, 0xb8, 0x4c, 0x54, 0x20, 0x81, 0x54, 0x10, 0x0a, 0xe3, 0xc2, 0x25,
+	0x72, 0x53, 0x37, 0x8b, 0xe6, 0xc6, 0x91, 0xed, 0x02, 0xdd, 0x89, 0x8f, 0xc0, 0x91, 0x8f, 0xc0,
+	0x47, 0xe9, 0x71, 0x47, 0x4e, 0x40, 0xc3, 0x85, 0xe3, 0xbe, 0x01, 0x28, 0x76, 0xd2, 0x16, 0x04,
+	0x62, 0xa7, 0x38, 0xef, 0xbd, 0xdf, 0xcb, 0xfb, 0x3d, 0x07, 0xee, 0x4f, 0x93, 0x77, 0x54, 0xf8,
+	0x64, 0x4c, 0x32, 0x45, 0x85, 0x2f, 0x39, 0x23, 0xe2, 0x6d, 0x92, 0x8e, 0xa5, 0x1f, 0xf1, 0x74,
+	0x92, 0xc4, 0xe5, 0xc3, 0xcb, 0x04, 0x57, 0x1c, 0xed, 0x96, 0x3a, 0x6f, 0xad, 0xf3, 0x8c, 0xc0,
+	0xd9, 0x89, 0x79, 0xcc, 0xb5, 0xca, 0x2f, 0x4e, 0x66, 0xc0, 0xc1, 0x31, 0xe7, 0x31, 0xa3, 0xbe,
+	0x7e, 0x1b, 0xcd, 0x26, 0xfe, 0x78, 0x26, 0x88, 0x4a, 0x78, 0x6a, 0xf8, 0x5b, 0x3f, 0x9b, 0xb0,
+	0xf5, 0x82, 0x08, 0x32, 0x95, 0xe8, 0x00, 0xde, 0x24, 0x59, 0xc6, 0x33, 0x95, 0x44, 0x32, 0x24,
+	0x51, 0x44, 0xa5, 0x0c, 0x15, 0x3f, 0xa5, 0xa9, 0x0d, 0x5c, 0xd0, 0x6b, 0x07, 0x3b, 0x2b, 0xf6,
+	0xa1, 0x26, 0x8f, 0x0b, 0x0e, 0xdd, 0x83, 0x6b, 0x3c, 0x1c, 0x11, 0x15, 0x9d, 0x84, 0x32, 0x39,
+	0xa3, 0x76, 0xcd, 0x05, 0xbd, 0x66, 0x80, 0x56, 0xdc, 0xa0, 0xa0, 0x5e, 0x26, 0x67, 0x14, 0xdd,
+	0x81, 0xd7, 0x33, 0x92, 0x51, 0xa1, 0x04, 0x49, 0x58, 0x38, 0x13, 0xcc, 0xae, 0x6b, 0xff, 0x6b,
+	0x6b, 0xf4, 0x95, 0x60, 0x48, 0xc0, 0xdb, 0x1b, 0x32, 0xc6, 0x23, 0xc2, 0x42, 0x41, 0x15, 0x4d,
+	0x8b, 0xf4, 0x61, 0xb5, 0x86, 0xdd, 0x70, 0x41, 0xaf, 0xd3, 0xdf, 0xf5, 0xcc, 0x9e, 0x5e, 0xb5,
+	0xa7, 0xf7, 0xa8, 0x14, 0x0c, 0xae, 0x2c, 0xbe, 0x74, 0xc1, 0xc7, 0xaf, 0x5d, 0x10, 0xb8, 0x6b,
+	0xbf, 0x61, 0x61, 0x17, 0x54, 0x6e, 0x95, 0x16, 0x3d, 0x81, 0x5b, 0x53, 0xaa, 0x44, 0x12, 0x49,
+	0xbb, 0xe9, 0xd6, 0x7b, 0x9d, 0xbe, 0xe7, 0xfd, 0xb3, 0x70, 0xcf, 0xd4, 0xe6, 0x3d, 0x33, 0x03,
+	0x8f, 0x53, 0x25, 0xe6, 0x41, 0x35, 0x8e, 0x8e, 0x60, 0x83, 0xf1, 0x58, 0xda, 0x2d, 0x6d, 0x73,
+	0xf7, 0xff, 0x36, 0x43, 0x1e, 0x97, 0x1e, 0x7a, 0xd0, 0x89, 0x20, 0x34, 0xce, 0x4f, 0xd3, 0x09,
+	0x47, 0x08, 0x36, 0x52, 0x32, 0xa5, 0xe5, 0x4d, 0xe8, 0x33, 0x72, 0x61, 0x67, 0x4c, 0x65, 0x24,
+	0x92, 0x4c, 0x17, 0x51, 0xd3, 0xd4, 0x26, 0x84, 0xba, 0xb0, 0xc3, 0xc8, 0x88, 0xb2, 0xb0, 0xd0,
+	0x4b, 0xbb, 0xee, 0xd6, 0x7b, 0xed, 0x00, 0x6a, 0xe8, 0x79, 0x81, 0x38, 0x27, 0xf0, 0xea, 0x66,
+	0x7c, 0xb4, 0x0d, 0xeb, 0xa7, 0x74, 0x5e, 0x7e, 0xa5, 0x38, 0xa2, 0x01, 0x6c, 0xbe, 0x21, 0x6c,
+	0x66, 0xee, 0xb3, 0xd3, 0xdf, 0xbf, 0x6c, 0x1f, 0x45, 0xea, 0xc0, 0x8c, 0x3e, 0xa8, 0x1d, 0x02,
+	0xe7, 0x00, 0x6e, 0x0d, 0x79, 0xac, 0x77, 0xd9, 0x83, 0xdb, 0x19, 0x99, 0x33, 0x4e, 0xc6, 0xa1,
+	0xa2, 0xd3, 0x8c, 0x11, 0x55, 0xed, 0x75, 0xa3, 0xc4, 0x8f, 0x4b, 0xd8, 0x19, 0xc1, 0xf6, 0xaa,
+	0x97, 0xbf, 0x84, 0x3b, 0xfa, 0x3d, 0xdc, 0xde, 0xa5, 0x5a, 0xfe, 0x23, 0xd9, 0xe0, 0x70, 0xb1,
+	0xc4, 0xd6, 0xf9, 0x12, 0x5b, 0x9f, 0x97, 0xd8, 0xba, 0x58, 0x62, 0xeb, 0x7d, 0x8e, 0xc1, 0xa7,
+	0x1c, 0x5b, 0x8b, 0x1c, 0x83, 0xf3, 0x1c, 0x83, 0x6f, 0x39, 0x06, 0x3f, 0x72, 0x6c, 0x5d, 0xe4,
+	0x18, 0x7c, 0xf8, 0x8e, 0xad, 0xd7, 0x2d, 0xe3, 0x39, 0x6a, 0xe9, 0x9f, 0xed, 0xfe, 0xaf, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x71, 0xca, 0x81, 0x21, 0xc3, 0x03, 0x00, 0x00,
 }

@@ -17,21 +17,19 @@ package papertrail
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
-	"istio.io/istio/mixer/pkg/adapter"
-
+	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 )
 
 func TestNewLogger(t *testing.T) {
-	logger := &LoggerImpl{}
 	type (
 		args struct {
-			paperTrailURL   string
-			logRetentionStr string
-			logConfigs      []*config.Params_LogInfo
-			logger          adapter.Logger
+			paperTrailURL string
+			logRetention  time.Duration
+			logConfigs    map[string]*config.Params_LogInfo
 		}
 		testData struct {
 			name    string
@@ -45,17 +43,18 @@ func TestNewLogger(t *testing.T) {
 			name: "All good",
 			args: args{
 				paperTrailURL: "hello.world.org",
-				logger:        &LoggerImpl{},
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			env := test.NewEnv(t)
+			logger := env.Logger()
 			logger.Infof("Starting %s - test run. . .", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-			got, err := NewLogger(tt.args.paperTrailURL, tt.args.logRetentionStr, tt.args.logConfigs, tt.args.logger)
+			got, err := NewLogger(tt.args.paperTrailURL, tt.args.logRetention, tt.args.logConfigs, env)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewLogger() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -69,15 +68,17 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	logger := &LoggerImpl{}
 	loopFactor := true
 	t.Run("No log info for msg name", func(t *testing.T) {
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 
 		pp := &Logger{
 			paperTrailURL: "hello.world.hey",
-			log:           &LoggerImpl{},
+			log:           logger,
+			env:           env,
 			logInfos:      map[string]*logInfo{},
 			loopFactor:    loopFactor,
 		}
@@ -90,14 +91,14 @@ func TestLog(t *testing.T) {
 	})
 
 	t.Run("All Good", func(t *testing.T) {
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-		ppi, err := NewLogger(fmt.Sprintf("%s:%d", "localhost", 6767), "1h", []*config.Params_LogInfo{
-			{
-				InstanceName: "params1",
-			},
-		}, logger)
+		ppi, err := NewLogger(fmt.Sprintf("%s:%d", "localhost", 6767), time.Duration(time.Hour), map[string]*config.Params_LogInfo{
+			"params1": {},
+		}, env)
 		if err != nil {
 			t.Errorf("No error was expected")
 		}

@@ -22,11 +22,14 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/mixer/adapter/solarwinds/appoptics"
 	"istio.io/istio/mixer/adapter/solarwinds/config"
+	"istio.io/istio/mixer/adapter/solarwinds/internal/appoptics"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
+
+// MeasurementPostMaxBatchSize defines the max number of Measurements to send to the API at once
+const MeasurementPostMaxBatchSize = 1000
 
 type metricsHandlerInterface interface {
 	handleMetric(context.Context, []*metric.Instance) error
@@ -38,17 +41,12 @@ type metricsHandler struct {
 	prepChan chan []*appoptics.Measurement
 
 	stopChan chan struct{}
-	errChan  chan error
 	pushChan chan []*appoptics.Measurement
 
 	loopFactor *bool
 }
 
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
-	if env.Logger().VerbosityLevel(config.DebugLevel) {
-		env.Logger().Infof("AO - Invoking metrics handler build.")
-	}
-
 	buffChanSize := runtime.NumCPU() * 10
 
 	loopFactor := true
@@ -63,44 +61,41 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 
 	var stopChan = make(chan struct{})
 
-	// errorChan is used to track persistence errors and shutdown when too many are seen
-	errorChan := make(chan error)
-
 	if strings.TrimSpace(cfg.AppopticsAccessToken) != "" {
 		lc := appoptics.NewClient(cfg.AppopticsAccessToken, env.Logger())
 
-		go appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, env.Logger())
-		go appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, errorChan, env.Logger())
-		go appoptics.ManagePersistenceErrors(&loopFactor, errorChan, stopChan, env.Logger())
+		batchSize := cfg.AppopticsBatchSize
+		if batchSize <= 0 || batchSize > MeasurementPostMaxBatchSize {
+			batchSize = MeasurementPostMaxBatchSize
+		}
+
+		env.ScheduleDaemon(func() {
+			appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, int(batchSize), env.Logger())
+		})
+		env.ScheduleDaemon(func() {
+			appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, env.Logger())
+		})
 	} else {
-		go func() {
+		env.ScheduleDaemon(func() {
 			// to drain the channel
 			for range prepChan {
 
 			}
-		}()
+		})
 	}
 
 	return &metricsHandler{
 		logger:     env.Logger(),
 		prepChan:   prepChan,
 		stopChan:   stopChan,
-		errChan:    errorChan,
 		pushChan:   pushChan,
 		loopFactor: &loopFactor,
 	}, err
 }
 
 func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {
-	if h.logger.VerbosityLevel(config.DebugLevel) {
-		h.logger.Infof("AO - In the metrics handler. Received metrics: %#v", vals)
-	}
 	measurements := []*appoptics.Measurement{}
 	for _, val := range vals {
-		if h.logger.VerbosityLevel(config.DebugLevel) {
-			h.logger.Infof("AO - In the metrics handler. Evaluating metric: %#v", val)
-			h.logger.Infof("Received Metric Name: %s, Dimensions: %v, Value: %v", val.Name, val.Dimensions, val.Value)
-		}
 		var merticVal float64
 		merticVal = h.aoVal(val.Value)
 
@@ -129,12 +124,8 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 }
 
 func (h *metricsHandler) close() error {
-	if h.logger.VerbosityLevel(config.DebugLevel) {
-		h.logger.Infof("AO - closing metrics handler")
-	}
 	close(h.prepChan)
 	close(h.pushChan)
-	close(h.errChan)
 	close(h.stopChan)
 	*h.loopFactor = false
 
@@ -153,14 +144,14 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 	case string:
 		f, err := strconv.ParseFloat(vv, 64)
 		if err != nil {
-			h.logger.Errorf("AO - Error parsing metric val: %v", vv)
+			h.logger.Errorf("ao - Error parsing metric val: %v", vv)
 			// return math.NaN(), err
 			f = 0
 		}
 		return f
 	default:
 		// return math.NaN(), fmt.Errorf("could not extract numeric value for %v", val)
-		h.logger.Errorf("AO - could not extract numeric value for %v", vv)
+		h.logger.Errorf("ao - could not extract numeric value for %v", vv)
 		return 0
 	}
 }

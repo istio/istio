@@ -15,20 +15,21 @@
 package appoptics
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
+	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestBatchMeasurements(t *testing.T) {
 
 	t.Run("All Good", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test2.NewEnv(t)
+		logger := env.Logger()
+
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 		prepChan := make(chan []*Measurement)
@@ -36,12 +37,13 @@ func TestBatchMeasurements(t *testing.T) {
 		stopChan := make(chan struct{})
 
 		loopFactor := true
+		batchSize := 100
 
-		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, logger)
+		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 
 		go func() {
 			measurements := []*Measurement{}
-			for i := 0; i < MeasurementPostMaxBatchSize+1; i++ {
+			for i := 0; i < batchSize+1; i++ {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
@@ -61,19 +63,20 @@ func TestBatchMeasurements(t *testing.T) {
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test2.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 		prepChan := make(chan []*Measurement)
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
-
+		batchSize := 100
 		loopFactor := true
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, logger)
+		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 		loopFactor = false
 		close(prepChan)
 		close(pushChan)
@@ -94,26 +97,19 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 func TestPersistBatches(t *testing.T) {
 	tests := []struct {
 		name           string
-		expectedCount  int64
+		expectedCount  int32
 		response       *http.Response
 		error          error
 		sendOnStopChan bool
 	}{
 		{
 			name:          "Persist all good",
-			expectedCount: 0,
+			expectedCount: 1,
 			response: &http.Response{
 				Status:     http.StatusText(http.StatusOK),
 				StatusCode: http.StatusOK,
 			},
 			error:          nil,
-			sendOnStopChan: false,
-		},
-		{
-			name:           "Response error",
-			expectedCount:  1,
-			response:       nil,
-			error:          fmt.Errorf("damn"),
 			sendOnStopChan: false,
 		},
 		{
@@ -126,13 +122,13 @@ func TestPersistBatches(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logger := &papertrail.LoggerImpl{}
+			env := test2.NewEnv(t)
+			logger := env.Logger()
 			logger.Infof("Starting %s - test run. . .\n", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
 			pushChan := make(chan []*Measurement)
 			stopChan := make(chan struct{})
-			errChan := make(chan error)
-			var count int64
+			var count int32
 			var wg sync.WaitGroup
 			if test.sendOnStopChan {
 				wg.Add(1)
@@ -149,37 +145,31 @@ func TestPersistBatches(t *testing.T) {
 					}
 				}()
 			}
-			go func() {
-				time.Sleep(time.Millisecond)
-				<-errChan
-				atomic.AddInt64(&count, 1)
-			}()
-
 			loopFactor := true
 
 			go PersistBatches(&loopFactor, &MockServiceAccessor{
 				MockMeasurementsService: func() MeasurementsCommunicator {
 					return &MockMeasurementsService{
 						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
+							atomic.AddInt32(&count, 1)
 							return test.response, test.error
 						},
 					}
 				},
-			}, pushChan, stopChan, errChan, logger)
+			}, pushChan, stopChan, logger)
 
 			time.Sleep(2 * time.Second)
 			logger.Infof("%s - waiting...\n", t.Name())
 			if test.sendOnStopChan {
 				wg.Wait()
 			}
-			if atomic.LoadInt64(&count) != test.expectedCount {
+			if atomic.LoadInt32(&count) != test.expectedCount {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
 			loopFactor = false
 			close(pushChan)
 			close(stopChan)
-			close(errChan)
 		})
 	}
 }

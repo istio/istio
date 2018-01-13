@@ -21,49 +21,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
-
-var paramErrorFixture = `{
-    "measurements": {
-        "summary": {
-            "total": 6,
-            "accepted": 0,
-            "failed": 6
-        }
-    },
-    "errors": [
-        {
-            "param": "time",
-            "value": 1507056682391,
-            "reason": "Is too far in the future (>30 minutes ahead). Check for local clock drift or enable NTP."
-        }
-    ]
-}`
-
-var requestErrorFixture = `{
-  "errors": {
-    "request": [
-      "Please use secured connection through https!",
-      "Please provide credentials for authentication."
-    ]
-  }
-}`
-
-// TODO: this probably represents a bug, as I got this from the same request that produced "paramErrorFixture" above
-// but simply altered the URL scheme to `http` instead of `https`
-var genericErrorSliceFixture = `{
-    "errors": [
-        "must specify metric name or compose parameter"
-    ]
-}`
-
-var textErrorFixture = `Credentials are required to access this resource.`
 
 func TestNewRequest(t *testing.T) {
 
 	t.Run("All good", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 
@@ -75,7 +40,8 @@ func TestNewRequest(t *testing.T) {
 	})
 
 	t.Run("Request error", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 
@@ -89,7 +55,8 @@ func TestNewRequest(t *testing.T) {
 
 func TestDo(t *testing.T) {
 	t.Run("All good", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 
@@ -120,7 +87,8 @@ func TestDo(t *testing.T) {
 	})
 
 	t.Run("Remote error", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 

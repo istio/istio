@@ -21,12 +21,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
+	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestCreate(t *testing.T) {
 	t.Run("All good", func(t *testing.T) {
-		logger := &papertrail.LoggerImpl{}
+		env := test2.NewEnv(t)
+		logger := env.Logger()
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 

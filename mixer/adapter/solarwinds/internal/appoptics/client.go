@@ -17,6 +17,7 @@ package appoptics
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -32,10 +33,8 @@ type ServiceAccessor interface {
 }
 
 const (
-	// MeasurementPostMaxBatchSize defines the max number of Measurements to send to the API at once
-	MeasurementPostMaxBatchSize = 1000
-	defaultBaseURL              = "https://api.appoptics.com/v1/"
-	defaultMediaType            = "application/json"
+	defaultBaseURL   = "https://api.appoptics.com/v1/"
+	defaultMediaType = "application/json"
 )
 
 // Client implements ServiceAccessor
@@ -99,7 +98,7 @@ func (c *Client) NewRequest(method, path string, body interface{}) (*http.Reques
 	req, err := http.NewRequest(method, requestURL.String(), buffer)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while creating request: %v", err)
 	}
 
 	req.SetBasicAuth("token", c.token)

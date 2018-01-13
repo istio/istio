@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
@@ -38,6 +37,11 @@ type (
 		metricsHandler metricsHandlerInterface
 		logHandler     logHandlerInterface
 	}
+)
+
+var (
+	_ metric.HandlerBuilder = &builder{}
+	_ metric.Handler        = &handler{}
 )
 
 // GetInfo returns the Info associated with this adapter.
@@ -70,10 +74,6 @@ func (b *builder) Validate() *adapter.ConfigErrors { return nil }
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
 
-	if logger.VerbosityLevel(config.DebugLevel) {
-		logger.Infof("AO - Invoking AO build.")
-	}
-
 	m, err := newMetricsHandler(ctx, env, b.cfg)
 	if err != nil {
 		return nil, err
@@ -85,30 +85,20 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	return &handler{
 		metricsHandler: m,
 		logHandler:     l,
-		logger:         env.Logger(),
+		logger:         logger,
 	}, nil
 }
 
 func (h *handler) HandleMetric(ctx context.Context, vals []*metric.Instance) error {
-	if h.logger.VerbosityLevel(config.DebugLevel) {
-		h.logger.Infof("AO - In the metrics handler")
-	}
 	return h.metricsHandler.handleMetric(ctx, vals)
 }
 
 func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instance) error {
-	if h.logger.VerbosityLevel(config.DebugLevel) {
-		h.logger.Infof("AO - In the log handler")
-	}
 	return h.logHandler.handleLogEntry(ctx, values)
 }
 
 func (h *handler) Close() error {
 	var err error
-	if h.logger.VerbosityLevel(config.DebugLevel) {
-		h.logger.Infof("AO - closing handler")
-	}
-
 	if h.metricsHandler != nil {
 		err = h.metricsHandler.close()
 		if err != nil {

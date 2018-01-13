@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
-	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
+	"istio.io/istio/mixer/adapter/solarwinds/internal/papertrail"
+	test2 "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 )
 
@@ -55,11 +56,12 @@ func TestNewLogHandler(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logger := &papertrail.LoggerImpl{}
+			env := test2.NewEnv(t)
+			logger := env.Logger()
 			logger.Infof("Starting %s - test run. . .", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-			lh, err := newLogHandler(ctx, &adapterEnvInst{}, test.cfg)
+			lh, err := newLogHandler(ctx, test2.NewEnv(t), test.cfg)
 			if err != nil {
 				t.Errorf("Unexpected error: %v while running test: %s", err, t.Name())
 				return
@@ -74,18 +76,17 @@ func TestNewLogHandler(t *testing.T) {
 
 func TestHandleLogEntry(t *testing.T) {
 	ctx := context.Background()
-	logger := &papertrail.LoggerImpl{}
+	env := test2.NewEnv(t)
+	logger := env.Logger()
 	t.Run("All good", func(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 		port := 34543
 
-		lh, _ := newLogHandler(ctx, &adapterEnvInst{}, &config.Params{
+		lh, _ := newLogHandler(ctx, test2.NewEnv(t), &config.Params{
 			PapertrailUrl: fmt.Sprintf("localhost:%d", port),
-			Logs: []*config.Params_LogInfo{
-				{
-					InstanceName: "params1",
-				},
+			Logs: map[string]*config.Params_LogInfo{
+				"params1": {},
 			},
 		})
 		err := lh.handleLogEntry(ctx, []*logentry.Instance{
@@ -102,7 +103,7 @@ func TestHandleLogEntry(t *testing.T) {
 
 	t.Run("papertrail instance is nil", func(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
-		lh, err := newLogHandler(ctx, &adapterEnvInst{}, &config.Params{})
+		lh, err := newLogHandler(ctx, test2.NewEnv(t), &config.Params{})
 		if err != nil {
 			t.Errorf("Unexpected error while executing test: %s - err: %v", t.Name(), err)
 			return

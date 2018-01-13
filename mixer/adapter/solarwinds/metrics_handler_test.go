@@ -20,13 +20,14 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
-	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
+	test2 "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
 )
 
 func TestNewMetricsHandler(t *testing.T) {
 	ctx := context.Background()
-	logger := &papertrail.LoggerImpl{}
+	env := test2.NewEnv(t)
+	logger := env.Logger()
 	type testData struct {
 		name string
 		cfg  *config.Params
@@ -47,8 +48,7 @@ func TestNewMetricsHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logger.Infof("Starting %s - test run. . .\n", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
-
-			mhi, err := newMetricsHandler(ctx, &adapterEnvInst{}, test.cfg)
+			mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), test.cfg)
 			if err != nil {
 				t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
 				return
@@ -65,13 +65,14 @@ func TestNewMetricsHandler(t *testing.T) {
 
 func TestHandleMetric(t *testing.T) {
 	ctx := context.Background()
-	logger := &papertrail.LoggerImpl{}
+	env := test2.NewEnv(t)
+	logger := env.Logger()
 
 	t.Run("handle metric", func(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-		mhi, err := newMetricsHandler(ctx, &adapterEnvInst{}, &config.Params{})
+		mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), &config.Params{})
 		if err != nil {
 			t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
 			return
