@@ -17,8 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -116,24 +114,6 @@ var (
 				}
 			}
 
-			// Get AZ for proxy
-			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
-			if err != nil {
-				log.Infof("Error retrieving availability zone from pilot: %v", err)
-			} else {
-				body, err := ioutil.ReadAll(azResp.Body)
-				if err != nil {
-					log.Infof("Error reading availability zone response from pilot: %v", err)
-				}
-				if azResp.StatusCode != http.StatusOK {
-					log.Infof("Received %q status from pilot when retrieving availability zone: %v", azResp.StatusCode, string(body))
-				} else {
-					availabilityZone = string(body)
-					log.Infof("Proxy availability zone: %v", availabilityZone)
-				}
-
-			}
-
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := meshconfig.ProxyConfig{}
@@ -143,7 +123,6 @@ var (
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
