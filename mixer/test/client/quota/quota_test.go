@@ -51,7 +51,7 @@ func TestQuotaCall(t *testing.T) {
 		Code:    int32(rpc.RESOURCE_EXHAUSTED),
 		Message: mixerQuotaFailMessage,
 	})
-	code, resp_body, err := env.HTTPPost(url, "text/plain", "Hello World!")
+	code, respBody, err := env.HTTPPost(url, "text/plain", "Hello World!")
 	// Make sure to restore r_status for next request.
 	s.SetMixerQuotaStatus(rpc.Status{})
 	if err != nil {
@@ -60,7 +60,7 @@ func TestQuotaCall(t *testing.T) {
 	if code != 429 {
 		t.Errorf("Status code 429 is expected.")
 	}
-	if resp_body != "RESOURCE_EXHAUSTED:"+mixerQuotaFailMessage {
+	if respBody != "RESOURCE_EXHAUSTED:"+mixerQuotaFailMessage {
 		t.Errorf("Error response body is not expected.")
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)

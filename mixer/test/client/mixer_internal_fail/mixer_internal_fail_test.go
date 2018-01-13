@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mixer_internal_fail
+package mixerInternalFail
 
 import (
 	"fmt"

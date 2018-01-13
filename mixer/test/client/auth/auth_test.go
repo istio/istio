@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	JWT_ISSUER  = "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
-	JWT_CLUSTER = "service1"
+	JwtIssuer  = "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
+	JwtCluster = "service1"
 )
 
 //
@@ -37,7 +37,17 @@ const (
 // * bazel build //src/tools:all
 // * client/custom/gen-auth-token.sh -s src/nginx/t/matching-client-secret.json
 //
-const longLiveToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImIzMzE5YTE0NzUxNGRmN2VlNWU0YmNkZWU1MTM1MGNjODkwY2M4OWUifQ==.eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xvdWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNzU0MjA1fQ==.HKWpc8zLw7NAzlgPphHpQ6fWh7k1cJ0XM7B_9YqcOQYLe8UA9KvOC_4D6cNw7HCaEv8UQufA4d8ErDn5PI3mPxn6m8pciJbcqblXmNN8jCJUSH2OHZsWDdzipHPrt5kxz9onx39m9Zdb_xXAffHREVDXO6eMzNte8ZihZwmZauIT9fbL8BbD74_D5tQvswdjUNAQuTdK6-pBXOH1Qf7fE3V92ESVqUmqM05FkTBfDZw6CGKj47W8ecs0QiLyERth8opCTLsRi5QN1xEPggTpfH_YBZTtsuIybVjiw9UAizWE-ziFWx2qlt9JPEArjvroMfNmJz4gTenbKNuXBMJOQg=="
+const longLiveToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImIzMzE5YTE0Nz" +
+	"UxNGRmN2VlNWU0YmNkZWU1MTM1MGNjODkwY2M4OWUifQ==.eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9h" +
+	"Yml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20" +
+	"iLCJzdWIiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZW" +
+	"xvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xvdWRlb" +
+	"mRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNzU0MjA1fQ==.HKWpc8z" +
+	"Lw7NAzlgPphHpQ6fWh7k1cJ0XM7B_9YqcOQYLe8UA9KvOC_4D6cNw7HCaEv8UQufA4d8ErDn5PI3mPx" +
+	"n6m8pciJbcqblXmNN8jCJUSH2OHZsWDdzipHPrt5kxz9onx39m9Zdb_xXAffHREVDXO6eMzNte8ZihZ" +
+	"wmZauIT9fbL8BbD74_D5tQvswdjUNAQuTdK6-pBXOH1Qf7fE3V92ESVqUmqM05FkTBfDZw6CGKj47W8" +
+	"ecs0QiLyERth8opCTLsRi5QN1xEPggTpfH_YBZTtsuIybVjiw9UAizWE-ziFWx2qlt9JPEArjvroMfN" +
+	"mJz4gTenbKNuXBMJOQg=="
 
 const checkAttributes = `
 {
@@ -68,7 +78,10 @@ const checkAttributes = `
      "x-request-id": "*"
   },
   "request.auth.audiences": "bookstore-esp-echo.cloudendpointsapis.com",
-  "request.auth.principal": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+  "request.auth.principal": "` +
+	"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645" +
+	"741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com" +
+	`",
   "request.auth.claims": {
      "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
      "aud": "bookstore-esp-echo.cloudendpointsapis.com",
@@ -101,13 +114,21 @@ const reportAttributes = `
      ":method": "GET",
      ":path": "/echo",
      ":authority": "*",
-     "sec-istio-auth-userinfo": "eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xvdWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNzU0MjA1fQ==",
+     "sec-istio-auth-userinfo": "` +
+	"eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLm" +
+	"dzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4" +
+	"bGo3OHZ2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG" +
+	"8uY2xvdWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNzU0MjA1fQ==" +
+	`",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
   },
   "request.auth.audiences": "bookstore-esp-echo.cloudendpointsapis.com",
-  "request.auth.principal": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+  "request.auth.principal": "` +
+	"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/6286457418" +
+	"81-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com" +
+	`",
   "request.auth.claims": {
      "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
      "aud": "bookstore-esp-echo.cloudendpointsapis.com",
@@ -175,9 +196,9 @@ func TestJWTAuth(t *testing.T) {
 	// pubkey server is the same as backend server.
 	// Empty audiences.
 	env.AddJwtAuth(s.V2().HttpServerConf, &mccpb.JWT{
-		Issuer:              JWT_ISSUER,
+		Issuer:              JwtIssuer,
 		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", s.Ports().BackendPort),
-		JwksUriEnvoyCluster: JWT_CLUSTER,
+		JwksUriEnvoyCluster: JwtCluster,
 	})
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

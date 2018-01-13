@@ -24,7 +24,7 @@ const (
 	CheckReportAttributesTest
 	CheckReportDisableTest
 	DisableCheckCacheTest
-	DisableTcpCheckCallsTest
+	DisableTCPCheckCallsTest
 	FailedRequestTest
 	FaultInjectTest
 	JWTAuthTest
@@ -32,31 +32,33 @@ const (
 	NetworkFailureTest
 	ReportBatchTest
 	StressEnvoyTest
-	TcpMixerFilterTest
+	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
 )
 
 const (
-	PortBase uint16 = 29000
-	PortStep uint16 = 10
+	portBase uint16 = 29000
+	portStep uint16 = 10
 )
 
+// Ports stores all used ports
 type Ports struct {
 	ClientProxyPort uint16
 	ServerProxyPort uint16
-	TcpProxyPort    uint16
+	TCPProxyPort    uint16
 	MixerPort       uint16
 	BackendPort     uint16
 	AdminPort       uint16
 }
 
+// NewPorts allocate all ports based on test id.
 func NewPorts(name uint16) *Ports {
-	base := PortBase + name*PortStep
+	base := portBase + name*portStep
 	return &Ports{
 		ClientProxyPort: base,
 		ServerProxyPort: base + 1,
-		TcpProxyPort:    base + 2,
+		TCPProxyPort:    base + 2,
 		MixerPort:       base + 3,
 		BackendPort:     base + 4,
 		AdminPort:       base + 5,

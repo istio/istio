@@ -154,7 +154,7 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 
 	if len(all_keys) > 0 {
 		var s string
-		for k, _ := range all_keys {
+		for k := range all_keys {
 			s += k + ", "
 		}
 		return fmt.Errorf("Following attributes are not expected: %s", s)

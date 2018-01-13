@@ -21,30 +21,33 @@ import (
 )
 
 var (
-	MeshIp1 = []byte{1, 1, 1, 1}
-	MeshIp2 = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 204, 152, 189, 116}
-	MeshIp3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
+	meshIP1 = []byte{1, 1, 1, 1}
+	meshIP2 = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 204, 152, 189, 116}
+	meshIP3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
 )
 
+// V2Conf stores v2 config.
 type V2Conf struct {
-	HttpServerConf *mccpb.HttpClientConfig
-	HttpClientConf *mccpb.HttpClientConfig
-	TcpServerConf  *mccpb.TcpClientConfig
+	HTTPServerConf *mccpb.HttpClientConfig
+	HTTPClientConf *mccpb.HttpClientConfig
+	TCPServerConf  *mccpb.TcpClientConfig
 }
 
+// GetDefaultV2Conf get V2 config
 func GetDefaultV2Conf() *V2Conf {
 	return &V2Conf{
-		HttpServerConf: GetDefaultHttpServerConf(),
-		HttpClientConf: GetDefaultHttpClientConf(),
-		TcpServerConf:  GetDefaultTcpServerConf(),
+		HTTPServerConf: GetDefaultHTTPServerConf(),
+		HTTPClientConf: GetDefaultHTTPClientConf(),
+		TCPServerConf:  GetDefaultTCPServerConf(),
 	}
 }
 
-func GetDefaultHttpServerConf() *mccpb.HttpClientConfig {
+// GetDefaultHTTPServerConf get default HTTP server config
+func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 	v2 := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp1}},
+				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
 				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD222"}},
 				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
 			},
@@ -56,22 +59,23 @@ func GetDefaultHttpServerConf() *mccpb.HttpClientConfig {
 	v2.ServiceConfigs[service] = &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp2}},
+				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP2}},
 				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
 				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
 			},
 		},
-		// TODO per-service HttpApiApsec, QuotaSpec
+		// TODO per-service HTTPApiApsec, QuotaSpec
 	}
 
 	return v2
 }
 
-func GetDefaultHttpClientConf() *mccpb.HttpClientConfig {
+// GetDefaultHTTPClientConf get default HTTP client config
+func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 	v2 := &mccpb.HttpClientConfig{
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp3}},
+				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP3}},
 				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD11"}},
 				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ11"}},
 			},
@@ -81,11 +85,12 @@ func GetDefaultHttpClientConf() *mccpb.HttpClientConfig {
 	return v2
 }
 
-func GetDefaultTcpServerConf() *mccpb.TcpClientConfig {
+// GetDefaultTCPServerConf get default TCP server config
+func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 	v2 := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp1}},
+				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
 				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD222"}},
 				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
 			},
@@ -94,6 +99,7 @@ func GetDefaultTcpServerConf() *mccpb.TcpClientConfig {
 	return v2
 }
 
+// SetNetworPolicy set network policy
 func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
 	if v2.Transport == nil {
 		v2.Transport = &mccpb.TransportConfig{}
@@ -105,23 +111,26 @@ func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
 	}
 }
 
-func DisableClientCache(v2 *mccpb.HttpClientConfig, check_cache, quota_cache, report_batch bool) {
+// DisableClientCache disable client cache
+func DisableClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
 	if v2.Transport == nil {
 		v2.Transport = &mccpb.TransportConfig{}
 	}
-	v2.Transport.DisableCheckCache = check_cache
-	v2.Transport.DisableQuotaCache = quota_cache
-	v2.Transport.DisableReportBatch = report_batch
+	v2.Transport.DisableCheckCache = checkCache
+	v2.Transport.DisableQuotaCache = quotaCache
+	v2.Transport.DisableReportBatch = reportBatch
 }
 
-func DisableHttpCheckReport(v2 *mccpb.HttpClientConfig, disable_check, disable_report bool) {
+// DisableHTTPCheckReport disable HTTP check report
+func DisableHTTPCheckReport(v2 *mccpb.HttpClientConfig, disableCheck, disableReport bool) {
 	for _, s := range v2.ServiceConfigs {
-		s.DisableCheckCalls = disable_check
-		s.DisableReportCalls = disable_report
+		s.DisableCheckCalls = disableCheck
+		s.DisableReportCalls = disableReport
 	}
 }
 
-func AddHttpQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
+// AddHTTPQuota add HTTP quota config
+func AddHTTPQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
 	q := &mccpb.QuotaSpec{
 		Rules: make([]*mccpb.QuotaRule, 1),
 	}
@@ -139,11 +148,13 @@ func AddHttpQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
 	}
 }
 
-func DisableTcpCheckReport(v2 *mccpb.TcpClientConfig, disable_check, disable_report bool) {
-	v2.DisableCheckCalls = disable_check
-	v2.DisableReportCalls = disable_report
+// DisableTCPCheckReport disable TCP check report.
+func DisableTCPCheckReport(v2 *mccpb.TcpClientConfig, disableCheck, disableReport bool) {
+	v2.DisableCheckCalls = disableCheck
+	v2.DisableReportCalls = disableReport
 }
 
+// AddJwtAuth add JWT auth.
 func AddJwtAuth(v2 *mccpb.HttpClientConfig, jwt *mccpb.JWT) {
 	for _, s := range v2.ServiceConfigs {
 		if s.EndUserAuthnSpec == nil {

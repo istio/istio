@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package failed_request
+package failedRequest
 
 import (
 	"fmt"
@@ -161,7 +161,7 @@ func TestFailedRequest(t *testing.T) {
 		Code:    int32(rpc.UNAUTHENTICATED),
 		Message: mixerAuthFailMessage,
 	})
-	code, resp_body, err := env.HTTPGet(url)
+	code, respBody, err := env.HTTPGet(url)
 	// Make sure to restore r_status for next request.
 	s.SetMixerCheckStatus(rpc.Status{})
 	if err != nil {
@@ -170,8 +170,8 @@ func TestFailedRequest(t *testing.T) {
 	if code != 401 {
 		t.Errorf("Status code 401 is expected, got %d.", code)
 	}
-	if resp_body != "UNAUTHENTICATED:"+mixerAuthFailMessage {
-		t.Errorf("Error response body is not expected, got: '%s'.", resp_body)
+	if respBody != "UNAUTHENTICATED:"+mixerAuthFailMessage {
+		t.Errorf("Error response body is not expected, got: '%s'.", respBody)
 	}
 	s.VerifyCheck(tag, checkAttributesMixerFail)
 	s.VerifyReport(tag, reportAttributesMixerFail)
@@ -180,15 +180,15 @@ func TestFailedRequest(t *testing.T) {
 	tag = "BackendFail"
 	headers := map[string]string{}
 	headers[env.FailHeader] = "Yes"
-	code, resp_body, err = env.HTTPGetWithHeaders(url, headers)
+	code, respBody, err = env.HTTPGetWithHeaders(url, headers)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 400 {
 		t.Errorf("Status code 400 is expected, got %d.", code)
 	}
-	if resp_body != env.FailBody {
-		t.Errorf("Error response body is not expected, got '%s'.", resp_body)
+	if respBody != env.FailBody {
+		t.Errorf("Error response body is not expected, got '%s'.", respBody)
 	}
 	// Same Check attributes as the first one.
 	s.VerifyCheck(tag, checkAttributesMixerFail)

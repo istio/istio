@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tcp_filter
+package tcpFilter
 
 import (
 	"fmt"
@@ -97,7 +97,7 @@ func TestTcpMixerFilter(t *testing.T) {
 		Code: int32(rpc.UNAUTHENTICATED),
 	})
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
-		t.Errorf("Expect request to fail %s: %v", tag)
+		t.Errorf("Expect request to fail %s: %v", tag, err)
 	}
 	// Reset to a positive one
 	s.SetMixerCheckStatus(rpc.Status{})
@@ -124,7 +124,7 @@ func TestTcpMixerFilter(t *testing.T) {
 		Code: int32(rpc.UNAUTHENTICATED),
 	})
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
-		t.Errorf("Expect request to fail %s: %v", tag)
+		t.Errorf("The request is expected to fail %s, but it did not.", tag)
 	}
 	// Reset to a positive one
 	s.SetMixerCheckStatus(rpc.Status{})

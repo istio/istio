@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	concurrent         = 10
-	duration_in_second = 10
+	concurrent       = 10
+	durationInSecond = 10
 )
 
 func TestStressEnvoy(t *testing.T) {
@@ -43,7 +43,7 @@ func TestStressEnvoy(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
-	var count uint64 = 0
+	var count uint64
 	for k := 0; k < concurrent; k++ {
 		go func() {
 			for true {
@@ -54,8 +54,8 @@ func TestStressEnvoy(t *testing.T) {
 			}
 		}()
 	}
-	time.Sleep(time.Second * time.Duration(duration_in_second))
+	time.Sleep(time.Second * time.Duration(durationInSecond))
 	countFinal := atomic.LoadUint64(&count)
 	log.Printf("Total: %v, concurrent: %v, duration: %v seconds, qps: %v\n",
-		countFinal, concurrent, duration_in_second, countFinal/duration_in_second)
+		countFinal, concurrent, durationInSecond, countFinal/durationInSecond)
 }

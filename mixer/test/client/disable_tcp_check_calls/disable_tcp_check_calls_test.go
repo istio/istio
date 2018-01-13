@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package disable_tcp_check_calls
+package disableTcpCheckCalls
 
 import (
 	"fmt"

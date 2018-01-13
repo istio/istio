@@ -24,22 +24,22 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-type ConfParam struct {
+type confParam struct {
 	ClientPort      uint16
 	ServerPort      uint16
-	TcpProxyPort    uint16
+	TCPProxyPort    uint16
 	AdminPort       uint16
 	MixerServer     string
 	Backend         string
 	ClientConfig    string
 	ServerConfig    string
-	TcpServerConfig string
+	TCPServerConfig string
 	AccessLog       string
 	MixerRouteFlags string
 	FaultFilter     string
 }
 
-// A basic config
+// BasicConfig is a config with basic mixer filter config.
 const BasicConfig = `
                   "mixer_attributes": {
 		      "mesh1.ip": "1.1.1.1",
@@ -48,38 +48,38 @@ const BasicConfig = `
                   }
 `
 
-// A quota config without cache
+// QuotaConfig is a quota config without cache
 const QuotaConfig = `
                   "quota_name": "RequestCount",
                   "quota_amount": "5"
 `
 
-// A quota cache is on by default
+// QuotaCacheConfig is a quota cache is on by default
 const QuotaCacheConfig = `
                   "quota_name": "RequestCount"
 `
 
-// A config to disable all check calls for Tcp proxy
-const DisableTcpCheckCalls = `
+// DisableTCPCheckCalls is a config to disable all check calls for TCP proxy
+const DisableTCPCheckCalls = `
                   "disable_tcp_check_calls": true
 `
 
-// A config to disable check cache
+// DisableCheckCache is a config to disable check cache
 const DisableCheckCache = `
                   "disable_check_cache": true
 `
 
-// A config to disable quota cache
+// DisableQuotaCache is a config to disable quota cache
 const DisableQuotaCache = `
                   "disable_quota_cache": true
 `
 
-// A config to disable report batch
+// DisableReportBatch is a config to disable report batch
 const DisableReportBatch = `
                   "disable_report_batch": true
 `
 
-// A config with network fail close policy
+// NetworkFailClose is a config with network fail close policy
 const NetworkFailClose = `
                   "network_fail_policy": "close"
 `
@@ -223,14 +223,14 @@ const envoyConfTempl = `
       ]
     },
     {
-      "address": "tcp://0.0.0.0:{{.TcpProxyPort}}",
+      "address": "tcp://0.0.0.0:{{.TCPProxyPort}}",
       "bind_to_port": true,
       "filters": [
         {
           "type": "both",
           "name": "mixer",
           "config": {
-{{.TcpServerConfig}}
+{{.TCPServerConfig}}
           }
         },
         {
@@ -301,25 +301,25 @@ const envoyConfTempl = `
 }
 `
 
-func (c *ConfParam) write(path string) error {
+func (c *confParam) write(path string) error {
 	tmpl, err := template.New("test").Parse(envoyConfTempl)
 	if err != nil {
-		return fmt.Errorf("Failed to parse config template: %v", err)
+		return fmt.Errorf("failed to parse config template: %v", err)
 	}
 
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("Failed to create file %v: %v", path, err)
+		return fmt.Errorf("failed to create file %v: %v", path, err)
 	}
 	defer f.Close()
 	return tmpl.Execute(f, *c)
 }
 
-func getConf(ports *Ports) ConfParam {
-	return ConfParam{
+func getConf(ports *Ports) confParam {
+	return confParam{
 		ClientPort:   ports.ClientProxyPort,
 		ServerPort:   ports.ServerProxyPort,
-		TcpProxyPort: ports.TcpProxyPort,
+		TCPProxyPort: ports.TCPProxyPort,
 		AdminPort:    ports.AdminPort,
 		MixerServer:  fmt.Sprintf("localhost:%d", ports.MixerPort),
 		Backend:      fmt.Sprintf("localhost:%d", ports.BackendPort),
@@ -328,10 +328,11 @@ func getConf(ports *Ports) ConfParam {
 	}
 }
 
+// CreateEnvoyConf create envoy config.
 func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
 	c := getConf(ports)
 	c.ServerConfig = conf
-	c.TcpServerConfig = conf
+	c.TCPServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags
 	if flags != "" {
 		c.MixerRouteFlags = flags
@@ -344,9 +345,9 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2C
 	}
 
 	if v2 != nil {
-		c.ServerConfig = getV2Config(v2.HttpServerConf)
-		c.ClientConfig = getV2Config(v2.HttpClientConf)
-		c.TcpServerConfig = getV2Config(v2.TcpServerConf)
+		c.ServerConfig = getV2Config(v2.HTTPServerConf)
+		c.ClientConfig = getV2Config(v2.HTTPClientConf)
+		c.TCPServerConfig = getV2Config(v2.TCPServerConf)
 	}
 	return c.write(path)
 }
