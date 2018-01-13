@@ -74,6 +74,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 	@if test $(shell go version | sed "s/[a-z| ]*\([0-9]*\)\.\([0-9]*\).*/\1 \2/" | \
                    awk '{print $$1*100+$$2}') -lt $(GO_VERSION_REQUIRED); \
 		then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
+	@mkdir -p ${ISTIO_BIN}
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 hub = ""
