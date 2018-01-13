@@ -53,8 +53,8 @@ func (r *resource) Key() Key {
 	return Key{Kind: r.Kind, Namespace: r.Metadata.Namespace, Name: r.Metadata.Name}
 }
 
-// fsStore2 is Store2Backend implementation using filesystem.
-type fsStore2 struct {
+// fsStore is StoreBackend implementation using filesystem.
+type fsStore struct {
 	memstore
 	root          string
 	kinds         map[string]bool
@@ -62,7 +62,7 @@ type fsStore2 struct {
 	shas          map[Key][sha1.Size]byte
 }
 
-var _ Store2Backend = &fsStore2{}
+var _ Backend = &fsStore{}
 
 // parseFile parses the data and returns as a slice of resources. "path" is only used
 // for error reporting.
@@ -120,7 +120,7 @@ func empty(r *resource) bool {
 	return reflect.DeepEqual(*r, *emptyResource)
 }
 
-func (s *fsStore2) readFiles() map[Key]*resource {
+func (s *fsStore) readFiles() map[Key]*resource {
 	result := map[Key]*resource{}
 
 	err := filepath.Walk(s.root, func(path string, info os.FileInfo, err error) error {
@@ -150,7 +150,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 	return result
 }
 
-func (s *fsStore2) checkAndUpdate() {
+func (s *fsStore) checkAndUpdate() {
 	newData := s.readFiles()
 	updated := []Key{}
 	removed := map[Key]bool{}
@@ -180,10 +180,10 @@ func (s *fsStore2) checkAndUpdate() {
 	}
 }
 
-// NewFsStore2 creates a new Store2Backend backed by the filesystem.
-func NewFsStore2(root string) Store2Backend {
-	return &fsStore2{
-		// Not using createMemstore to avoid access of MemstoreWriter for fsstore2.
+// newFsStore creates a new StoreBackend backed by the filesystem.
+func newFsStore(root string) Backend {
+	return &fsStore{
+		// Not using newMemstore to avoid access of MemstoreWriter for fsstore2.
 		memstore:      memstore{data: map[Key]*BackEndResource{}},
 		root:          root,
 		kinds:         map[string]bool{},
@@ -192,8 +192,8 @@ func NewFsStore2(root string) Store2Backend {
 	}
 }
 
-// Init implements Store2Backend interface.
-func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
+// Init implements StoreBackend interface.
+func (s *fsStore) Init(ctx context.Context, kinds []string) error {
 	for _, k := range kinds {
 		s.kinds[k] = true
 	}

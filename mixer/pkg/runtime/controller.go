@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// Controller is responsible for watching configuration using the Store2 API.
+// Controller is responsible for watching configuration using the Store API.
 // Controller produces a resolver and installs it in the dispatcher.
 // Controller consumes potentially inconsistent configuration state from the config store
 // and produces a consistent snapshot.

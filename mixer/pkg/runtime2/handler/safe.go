@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package handler
 
 import (
-	"istio.io/istio/mixer/pkg/config/crd"
-	"istio.io/istio/mixer/pkg/config/store"
+	"fmt"
 )
 
-// StoreInventory returns the inventory of StoreBackend.
-func StoreInventory() []store.RegisterFunc {
-	return []store.RegisterFunc{
-		crd.Register,
-	}
+func safeCall(name string, fn func()) (err error) {
+	// Try to detect panic, even if panic was called with nil.
+	reachedEnd := false
+	defer func() {
+		if reachedEnd {
+			return
+		}
+
+		r := recover()
+		err = fmt.Errorf("panic during %v: '%v' ", name, r)
+	}()
+
+	fn()
+
+	reachedEnd = true
+	return
 }
