@@ -242,6 +242,7 @@ var (
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
 		file: "testdata/destination-hello-v1alpha2.yaml.golden",
 	}
+	//TODO maybe another one for load balancers? not sure if both destinationrule+route
 
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},

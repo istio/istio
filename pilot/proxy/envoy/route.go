@@ -386,6 +386,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
+	route.HashPolicy = buildHashPolicy(http.HashPolicy)
 	route.Decorator = buildDecorator(config)
 
 	return route
@@ -507,6 +508,15 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 			},
 		},
 	}
+}
+
+func buildHashPolicy(policy *routingv2.HashPolicy) *HashPolicy {
+	if policy != nil {
+		return &HashPolicy {
+			HeaderName: policy.GetHeaderName(),
+		}
+	}
+	return nil
 }
 
 func buildDecorator(config model.Config) *Decorator {

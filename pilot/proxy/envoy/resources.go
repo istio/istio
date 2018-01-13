@@ -253,6 +253,11 @@ type Runtime struct {
 	Default int    `json:"default"`
 }
 
+// HashPolicy definition
+type HashPolicy struct {
+	HeaderName string `json:"header_name"`
+}
+
 // Decorator definition
 type Decorator struct {
 	Operation string `json:"operation"`
@@ -289,7 +294,8 @@ type HTTPRoute struct {
 
 	CORSPolicy *CORSPolicy `json:"cors,omitempty"`
 
-	Decorator *Decorator `json:"decorator,omitempty"`
+	HashPolicy *HashPolicy `json:"hash_policy,omitempty"`
+	Decorator  *Decorator  `json:"decorator,omitempty"`
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes
@@ -691,6 +697,7 @@ type Cluster struct {
 	ConnectTimeoutMs         int64             `json:"connect_timeout_ms"`
 	Type                     string            `json:"type"`
 	LbType                   string            `json:"lb_type"`
+	RingHashLbConfig         *RingHashLbConfig `json:"ring_hash_lb_config,omitempty"`
 	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
 	Hosts                    []Host            `json:"hosts,omitempty"`
 	SSLContext               interface{}       `json:"ssl_context,omitempty"`
@@ -703,6 +710,13 @@ type Cluster struct {
 	hostname string
 	port     *model.Port
 	tags     model.Labels
+}
+
+// RingHashLbConfig definition
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ring_hash_lb_config.html#config-cluster-manager-cluster-ring-hash-lb-config
+type RingHashLbConfig struct {
+	MinimumRingSize int  `json:"minimum_ring_size,omitempty"`
+	UseStdHash      bool `json:"use_std_hash,omitempty"`
 }
 
 // CircuitBreaker definition

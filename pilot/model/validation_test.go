@@ -2751,3 +2751,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateLoadBalancer(t *testing.T) {
+	//TODO test load balancing settings
+}
