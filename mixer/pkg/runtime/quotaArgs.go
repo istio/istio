@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package aspect contains the various aspect managers which are responsible for
-// mapping incoming requests into the interface expected by individual types of
-// aspects.
-package aspect
+package runtime
 
 type (
 	// QuotaMethodArgs is supplied by invocations of the Quota method.

@@ -27,7 +27,7 @@ const memstoreScheme = "memstore"
 var memstoreMap = map[string]*memstore{}
 var memstoreMapMutex sync.RWMutex
 
-// memstore is on-memory implementation of Store2Backend. Helpful for testing.
+// memstore is on-memory implementation of StoreBackend. Helpful for testing.
 type memstore struct {
 	mu   sync.RWMutex
 	data map[Key]*BackEndResource
@@ -37,7 +37,7 @@ type memstore struct {
 	watchCh    chan BackendEvent
 }
 
-func createMemstore(u fmt.Stringer) *memstore {
+func newMemstore(u fmt.Stringer) Backend {
 	m := &memstore{data: map[Key]*BackEndResource{}}
 	memstoreMapMutex.Lock()
 	memstoreMap[u.String()] = m
@@ -45,12 +45,12 @@ func createMemstore(u fmt.Stringer) *memstore {
 	return m
 }
 
-// Init implements Store2Backend interface.
+// Init implements StoreBackend interface.
 func (m *memstore) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-// Watch implements Store2Backend interface.
+// Watch implements StoreBackend interface.
 func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	ch := make(chan BackendEvent)
 	m.watchMutex.Lock()
@@ -60,7 +60,7 @@ func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	return ch, nil
 }
 
-// Get implements Store2Backend interface.
+// Get implements StoreBackend interface.
 func (m *memstore) Get(key Key) (*BackEndResource, error) {
 	m.mu.RLock()
 	v, ok := m.data[key]
@@ -71,7 +71,7 @@ func (m *memstore) Get(key Key) (*BackEndResource, error) {
 	return v, nil
 }
 
-// List implements Store2Backend interface.
+// List implements StoreBackend interface.
 func (m *memstore) List() map[Key]*BackEndResource {
 	m.mu.RLock()
 	copied := make(map[Key]*BackEndResource, len(m.data))
