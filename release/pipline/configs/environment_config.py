@@ -13,11 +13,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+EMAIL_LIST = ['laane@google.com', 'istio-engprod@google.com']
+
 AIRFLOW_CONFIG = dict(
     PROJECT_ID='istio-release',
     RELEASE_PROJECT_ID='istio-io',
     MFEST_URL='https://github.com/istio/green-builds',
-    ISTIO_REPO='https://github.com/istio/istio.git',
     MFEST_FILE='build.xml',
     MFEST_COMMIT='master@{{{timestamp}}}',
     VERSION='{major}.{minor}.{patch}-pre{date}-{rc}',

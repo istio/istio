@@ -34,7 +34,7 @@ default_args = {
     'depends_on_past': False,
     # This is the date to when the airlfow pipline tryes to backfil to.
     'start_date': YESTERDAY,
-    'email': ['laane@google.com', 'istio-engprod@google.com'],
+    'email': environment_config.EMAIL_LIST,
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 1,
@@ -68,7 +68,7 @@ def GetSettingTemplate(setting):
 
 
 def MakeCommonDag(name='istio_daily_flow_test',
-                  schedule_interval='15 3 * * *',
+                  schedule_interval='15 9 * * *',
                   monthly=False):
   """Creates the shared part of the daily/monthly dags."""
   common_dag = DAG(
@@ -137,7 +137,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
         'DOCKER_HUB',
         'GCS_BUILD_BUCKET',
         'RELEASE_PROJECT_ID',
-        'ISTIO_REPO',
     ]
 
     for name in config_settings_name:
@@ -161,6 +160,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
         config_settings['GCS_BUILD_BUCKET'], gcs_path)
     config_settings['GCS_FULL_STAGING_PATH'] = '{}/{}'.format(
         config_settings['GCS_STAGING_BUCKET'], gcs_path)
+    config_settings['ISTIO_REPO'] = 'https://github.com/{}/{}.git'.format(
+        config_settings['GITHUB_ORG'],  config_settings['GITHUB_REPO'])
 
     return config_settings
 
@@ -176,15 +177,20 @@ def MakeCommonDag(name='istio_daily_flow_test',
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
     git clone {{ settings.MFEST_URL }} green-builds || exit 2
-    cd green-builds
-    SHA=`grep {{ settings.MFEST_FILE }} | cut -f 6 -d \\"` || exit 3
-    cd ..
+    pushd green-builds
+    SHA=`grep {{ settings.GITHUB_ORG }}/{{ settings.GITHUB_REPO }} {{ settings.MFEST_FILE }} | cut -f 6 -d \\"` || exit 3
+    if [ -z ${SHA} ]; then
+      echo "SHA not found"
+      exit 6
+    fi
+    popd
     git clone {{ settings.ISTIO_REPO }} istio-code
-    cd istio-code/release
+    pushd istio-code/release
     git checkout ${SHA} || exit 4
     gsutil cp *.sh gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/
     gsutil cp *.json gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/
-    cd ../../green-builds
+    popd
+    pushd green-builds
     git checkout {{ settings.MFEST_COMMIT }} || exit 5
     git rev-parse HEAD
     """
