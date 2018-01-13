@@ -28,7 +28,7 @@ import (
 )
 
 type testStore struct {
-	memstore
+	*memstore
 	initErr  error
 	watchErr error
 }
@@ -47,16 +47,18 @@ func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	return t.memstore.Watch(ctx)
 }
 
-func registerTestStore(builders map[string]Store2Builder) {
-	builders["test"] = func(u *url.URL) (Store2Backend, error) {
-		return &testStore{memstore: *createMemstore(u)}, nil
+func registerTestStore(builders map[string]Builder) {
+	builders["test"] = func(u *url.URL) (Backend, error) {
+		return &testStore{
+			memstore: newMemstore(u).(*memstore),
+		}, nil
 	}
 }
 
-func TestStore2(t *testing.T) {
-	r := NewRegistry2(registerTestStore)
+func TestStore(t *testing.T) {
+	r := NewRegistry(registerTestStore)
 	u := "memstore://" + t.Name()
-	s, err := r.NewStore2(u)
+	s, err := r.NewStore(u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,9 +114,9 @@ func TestStore2(t *testing.T) {
 	}
 }
 
-func TestStore2WatchMultiple(t *testing.T) {
-	r := NewRegistry2(registerTestStore)
-	s, err := r.NewStore2("memstore://" + t.Name())
+func TestStoreWatchMultiple(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	s, err := r.NewStore("memstore://" + t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,13 +139,13 @@ func TestStore2WatchMultiple(t *testing.T) {
 	}
 }
 
-func TestStore2Fail(t *testing.T) {
-	r := NewRegistry2(registerTestStore)
-	s, err := r.NewStore2("test://" + t.Name())
+func TestStoreFail(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	s, err := r.NewStore("test://" + t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := s.(*store2).backend.(*testStore)
+	ts := s.(*store).backend.(*testStore)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
 	ts.initErr = errors.New("dummy")
 	if err = s.Init(context.Background(), kinds); err.Error() != "dummy" {
@@ -170,8 +172,8 @@ func TestStore2Fail(t *testing.T) {
 	}
 }
 
-func TestRegistry2(t *testing.T) {
-	r := NewRegistry2(registerTestStore)
+func TestRegistry(t *testing.T) {
+	r := NewRegistry(registerTestStore)
 	for _, c := range []struct {
 		u  string
 		ok bool
@@ -182,7 +184,7 @@ func TestRegistry2(t *testing.T) {
 		{"://", false},
 		{"test://", true},
 	} {
-		_, err := r.NewStore2(c.u)
+		_, err := r.NewStore(c.u)
 		ok := err == nil
 		if ok != c.ok {
 			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)
