@@ -141,6 +141,9 @@ void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
   builder.AddInt64(AttributeName::kResponseSize, info.send_bytes);
   builder.AddDuration(AttributeName::kResponseDuration, info.duration);
   if (!request_->check_status.ok()) {
+    builder.AddInt64(
+        AttributeName::kResponseCode,
+        utils::StatusHttpCode(request_->check_status.error_code()));
     builder.AddInt64(AttributeName::kCheckErrorCode,
                      request_->check_status.error_code());
     builder.AddString(AttributeName::kCheckErrorMessage,
