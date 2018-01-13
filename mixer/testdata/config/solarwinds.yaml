@@ -4,59 +4,59 @@ metadata:
   name: handler
   namespace: istio-system
 spec:
-  appoptics_access_token: SAMPLE_TOKEN
-  papertrail_url: logsX.papertrailapp.com:XXXXX
-  papertrail_local_retention: 24h
+  appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
+  papertrail_url: <PAPERTRAIL URL>
+  papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
   metrics:
-  - name: request_count
-    instance_name: requestcount.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
-    - response_code
-  - name: request_duration
-    instance_name: requestduration.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
-    - response_code
-  - name: request_size
-    instance_name: requestsize.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
-    - response_code
-  - name: response_size
-    instance_name: responsesize.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
-    - response_code
-  - name: tcp_bytes_sent
-    instance_name: tcpbytesent.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
-  - name: tcp_bytes_received
-    instance_name: tcpbytereceived.metric.istio-system
-    label_names:
-    - source_service
-    - source_version
-    - destination_service
-    - destination_version
+    requestcount.metric.istio-system:
+      name: request_count
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    requestduration.metric.istio-system:
+      name: request_duration
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    requestsize.metric.istio-system:
+      name: request_size
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    responsesize.metric.istio-system:
+      name: response_size
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    tcpbytesent.metric.istio-system:
+      name: tcp_bytes_sent
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+    tcpbytereceived.metric.istio-system:
+      name: tcp_bytes_received
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
   logs:
-  - payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
-    instance_name: solarwindslogentry.logentry.istio-system
+    solarwindslogentry.logentry.istio-system:
+      payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
