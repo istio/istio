@@ -38,9 +38,9 @@ OUT=${GO_TOP}/out
 # variable instead of a "recursively expanded" =
 ifeq ($(origin GO), undefined)
   GO:=$(shell which go)
-  ifeq ($(GO),)
-    $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
-  endif
+endif
+ifeq ($(GO),)
+  $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
 endif
 
 # Compile for linux/amd64 by default.
@@ -52,9 +52,9 @@ export GOARCH ?= amd64
 
 
 # @todo allow user to run for a single $PKG only?
-PACKAGES := $(shell $(GO) list ./...)
+PACKAGES_CMD := $(GO) list ./...
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
-GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
+GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
@@ -179,20 +179,20 @@ fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $(GO_FILES)
+	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $(GO_FILES)
+	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $(PACKAGES) || true
+	$(Q) $(GO) vet $$($(PACKAGES_CMD)) || true
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
 check.lint: ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $(PACKAGES); do \
+	$(Q) for p in $$($(PACKAGES_CMD)); do \
 		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
