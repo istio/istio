@@ -33,6 +33,9 @@ export CGO_ENABLE=0
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
 
+# It's more concise to use GO?=$(shell which go)
+# but the following approach uses a more efficient "simply expanded" :=
+# variable instead of a "recursively expanded" =
 ifeq ($(origin GO), undefined)
   GO:=$(shell which go)
   ifeq ($(GO),)
@@ -61,9 +64,9 @@ export ISTIO_BIN=${GO_TOP}/bin
 # if you change this value then also update the echo statement in the section that follows
 GO_VERSION_REQUIRED=109
 
-# using a sentinel file so this check is only performed once.  Performance is being
-# favored over the unlikely situation that go gets downgraded to an older version
-check_go_version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+# using a sentinel file so this check is only performed once per version.  Performance is
+# being favored over the unlikely situation that go gets downgraded to an older version
+check-go-version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 # sed parses out the x.y version (of what may be x.y or x.y.z) and outputs "x y".
 # awk takes the two separate variables and combines them as a single value x*100+y (e.g., 1.9 is 109).
@@ -157,7 +160,7 @@ pre-commit: fmt lint
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: ${DEP}
+init: check-go-version ${DEP}
 	@(DEP=${DEP} bin/init.sh)
 
 # init.sh downloads envoy
