@@ -2752,6 +2752,22 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
-func TestValidateLoadBalancer(t *testing.T) {
-	//TODO test load balancing settings
+func TestValidateHashPolicy(t *testing.T) {
+	cases := []struct {
+		name string
+		in routingv2.HashPolicy
+		valid bool
+	}{
+		{name: "valid hash policy", in: routingv2.HashPolicy{HeaderName: "header"}, valid: true},
+		{name: "invalid hash policy, empty header name", in: routingv2.HashPolicy{}, valid: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateHashPolicy(&tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
 }
