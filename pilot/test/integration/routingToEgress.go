@@ -49,15 +49,41 @@ func (t *routingToEgress) run() error {
 		routingData   map[string]string
 		check         func() error
 	}{
+		// Fault Injection
 		{
 			description:   "inject a http fault in traffic to httpbin.org",
 			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-fault-injection-httpbin.yaml.tmpl",
-			routingData:   nil,
+			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			routingData: map[string]string{
+				"service": "httpbin.org",
+			},
 			check: func() error {
 				return t.verifyFaultInjectionByResponseCode("a", "http://httpbin.org", 418)
 			},
 		},
+		{
+			description:   "inject a http fault in traffic to *.httpbin.org",
+			configEgress:  []string{"egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			routingData: map[string]string{
+				"service": "*.httpbin.org",
+			},
+			check: func() error {
+				return t.verifyFaultInjectionByResponseCode("a", "http://www.httpbin.org", 418)
+			},
+		},
+		{
+			description:   "inject a http fault in traffic to nghttp2.org",
+			configEgress:  []string{"egress-rule-nghttp2.yaml.tmpl"},
+			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			routingData: map[string]string{
+				"service": "nghttp2.org",
+			},
+			check: func() error {
+				return t.verifyFaultInjectionByResponseCode("a", "http://nghttp2.org", 418)
+			},
+		},
+		// Append Headers
 		{
 			description:   "append http headers in traffic to httpbin.org",
 			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
@@ -101,6 +127,20 @@ func (t *routingToEgress) run() error {
 			},
 		},
 		{
+			description:   "redirect traffic from *.httpbin.org/post to httpbin.org/get",
+			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "rule-redirect-to-egress.yaml.tmpl",
+			routingData: map[string]string{
+				"service":   "*.httpbin.org",
+				"from":      "/post",
+				"to":        "/get",
+				"authority": "httpbin.org",
+			},
+			check: func() error {
+				return t.verifyEgressRedirectRewrite("a", "http://www.httpbin.org/post", "httpbin.org", "/get")
+			},
+		},
+		{
 			description:   "redirect traffic from nghttp2.org/post to httpbin.org/get",
 			configEgress:  []string{"egress-rule-nghttp2.yaml.tmpl", "egress-rule-httpbin.yaml.tmpl"},
 			configRouting: "rule-redirect-to-egress.yaml.tmpl",
@@ -141,6 +181,20 @@ func (t *routingToEgress) run() error {
 			},
 			check: func() error {
 				return t.verifyEgressRedirectRewrite("a", "http://httpbin.org/post", "www.httpbin.org", "/get")
+			},
+		},
+		{
+			description:   "rewrite traffic from *.httpbin.org/post to httpbin.org/get",
+			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "rule-rewrite-to-egress.yaml.tmpl",
+			routingData: map[string]string{
+				"service":   "*.httpbin.org",
+				"from":      "/post",
+				"to":        "/get",
+				"authority": "httpbin.org",
+			},
+			check: func() error {
+				return t.verifyEgressRedirectRewrite("a", "http://www.httpbin.org/post", "httpbin.org", "/get")
 			},
 		},
 	}
