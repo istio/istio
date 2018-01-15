@@ -416,10 +416,6 @@ workflows:
           requires:
             - dependencies
             - build
-      - racetest:
-          requires:
-            - dependencies
-            - build
       - e2e-simple:
           requires:
             - test
@@ -497,9 +493,6 @@ workflows:
           requires:
             - dependencies
       - test:
-          requires:
-            - dependencies
-      - racetest:
           requires:
             - dependencies
       - e2e-pilot:
