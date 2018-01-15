@@ -965,7 +965,7 @@ func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				continue
 			}
 
-			intPort := int(port.Number)
+			intPort := int(port.InPort)
 			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
@@ -998,8 +998,9 @@ func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Nod
 				continue
 			}
 
-			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, port.Number),
-				Port: int(port.Number), Protocol: protocol}
+			// TODO: outPort
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, port.InPort),
+				Port: int(port.InPort), Protocol: protocol}
 
 			routes := make([]*TCPRoute, 0)
 			for _, host := range fs.Hosts {
@@ -1010,7 +1011,7 @@ func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Nod
 
 			config := &TCPRouteConfig{Routes: routes}
 			listeners = append(listeners,
-				buildTCPListener(config, WildcardAddress, int(port.Number), protocol))
+				buildTCPListener(config, WildcardAddress, int(port.InPort), protocol))
 		}
 	}
 

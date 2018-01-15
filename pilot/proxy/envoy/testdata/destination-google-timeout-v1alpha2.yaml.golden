@@ -1,0 +1,19 @@
+name: "*.google.com"
+trafficPolicy:
+  loadBalancer:
+    simple: RANDOM
+  connectionPool:
+    tcp:
+      # TODO: connectTimeout: 3s
+      maxConnections: 100
+    http:
+      http1MaxPendingRequests: 50
+      http2MaxRequests: 200
+      maxRequestsPerConnection: 500
+      maxRetries: 5
+  outlierDetection:
+    http:
+      consecutiveErrors: 10
+      interval: 30s
+      baseEjectionTime: 15.5s
+      maxEjectionPercent: 100

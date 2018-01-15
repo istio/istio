@@ -313,6 +313,11 @@ var (
 		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
 	}
 
+	googleTimeoutRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
+		file: "testdata/google-timeout-rule-v1alpha2.yaml.golden",
+	}
+
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",
@@ -336,6 +341,11 @@ var (
 	foreignServiceRuleTCP = fileConfig{
 		meta: model.ConfigMeta{Type: model.ForeignService.Type, Name: "google"},
 		file: "testdata/foreign-service-rule-tcp.yaml.golden",
+	}
+
+	destinationRuleGoogleCB = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "google"},
+		file: "testdata/destination-google-cb-v1alpha2.yaml.golden",
 	}
 
 	egressRuleCBPolicy = fileConfig{
