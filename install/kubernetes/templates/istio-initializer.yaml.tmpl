@@ -9,7 +9,7 @@ metadata:
 data:
   config: |-
     policy: "enabled"
-    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    namespaces: [""] # everything, aka v1.NamespaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: {PILOT_HUB}/proxy_init:{PILOT_TAG}
