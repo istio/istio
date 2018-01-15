@@ -150,10 +150,7 @@ func doEval(test ilt.TestInfo, p *il.Program, fnID uint32) error {
 
 	i := interpreter.New(p, externs)
 	v, err := i.EvalFnID(fnID, b)
-	if e := test.CheckEvaluationResult(v.AsInterface(), err); e != nil {
-		return e
-	}
-	return nil
+	return test.CheckEvaluationResult(v.AsInterface(), err)
 }
 
 func TestCompile(t *testing.T) {
