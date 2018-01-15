@@ -119,6 +119,7 @@ var (
 			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
+			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
