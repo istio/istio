@@ -998,9 +998,14 @@ func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Nod
 				continue
 			}
 
-			// TODO: outPort
-			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, port.InPort),
-				Port: int(port.InPort), Protocol: protocol}
+			// TODO: needs to be tested
+			outPort := int(port.OutPort)
+			if outPort == 0 {
+				outPort = int(port.InPort)
+			}
+
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, outPort),
+				Port: int(outPort), Protocol: protocol}
 
 			routes := make([]*TCPRoute, 0)
 			for _, host := range fs.Hosts {
