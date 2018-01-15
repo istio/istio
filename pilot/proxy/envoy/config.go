@@ -860,11 +860,11 @@ func truncateClusterName(name string) string {
 }
 
 func buildEgressVirtualHost(destination string,
-	mesh *meshconfig.MeshConfig, sidecar proxy.Node, port *model.Port, instances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, sidecar proxy.Node, inPort, outPort *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
 
-	protocolToHandle := port.Protocol
+	protocolToHandle := inPort.Protocol
 	if protocolToHandle == model.ProtocolGRPC {
 		protocolToHandle = model.ProtocolHTTP2
 	}
@@ -872,12 +872,12 @@ func buildEgressVirtualHost(destination string,
 	// Create a unique orig dst cluster for each service defined by egress rule
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	svc := model.Service{Hostname: destination}
-	key := svc.Key(port, nil)
+	key := svc.Key(outPort, nil)
 	name := truncateClusterName(key)
 	externalTrafficCluster = buildOriginalDSTCluster(name, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination
-	externalTrafficCluster.port = port
+	externalTrafficCluster.port = outPort
 	if protocolToHandle == model.ProtocolHTTPS {
 		externalTrafficCluster.SSLContext = &SSLContextExternal{}
 	}
@@ -890,12 +890,12 @@ func buildEgressVirtualHost(destination string,
 		// temporarily set the protocol to HTTP because we require applications
 		// to use http to talk to external services (and we do TLS origination).
 		// buildDestinationHTTPRoutes does not generate route blocks for HTTPS services
-		port.Protocol = model.ProtocolHTTP
+		inPort.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, inPort, instances, config)
 	// reset the protocol to the original value
-	port.Protocol = protocolToHandle
+	inPort.Protocol = protocolToHandle
 
 	if len(routes) > 0 {
 		// Set the destination clusters to the cluster we computed above.
@@ -906,10 +906,10 @@ func buildEgressVirtualHost(destination string,
 		}
 	}
 
-	virtualHostName := destination + ":" + strconv.Itoa(port.Port)
+	virtualHostName := fmt.Sprintf("%s:%d", destination, inPort.Port)
 	return &VirtualHost{
 		Name:    virtualHostName,
-		Domains: appendPortToDomains([]string{destination}, port.Port),
+		Domains: appendPortToDomains([]string{destination}, inPort.Port),
 		Routes:  routes,
 	}
 }
@@ -939,7 +939,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule.Destination.Service, mesh, node, modelPort, instances, config))
+				buildEgressVirtualHost(rule.Destination.Service, mesh, node, modelPort, modelPort, instances, config))
 		}
 	}
 
@@ -965,13 +965,21 @@ func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				continue
 			}
 
-			intPort := int(port.InPort)
-			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
-				Port: intPort, Protocol: protocol}
-			httpConfig := httpConfigs.EnsurePort(intPort)
+			// TODO: in/out port logic needs to be tested
+			outPortInt := int(port.OutPort)
+			if outPortInt == 0 {
+				outPortInt = int(port.InPort)
+			}
+
+			inPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, int(port.InPort)),
+				Port: int(port.InPort), Protocol: protocol}
+			outPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, outPortInt),
+				Port: outPortInt, Protocol: protocol}
+
+			httpConfig := httpConfigs.EnsurePort(int(port.InPort))
 			for _, host := range fs.Hosts {
 				httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-					buildEgressVirtualHost(host, mesh, node, modelPort, instances, config))
+					buildEgressVirtualHost(host, mesh, node, inPort, outPort, instances, config))
 			}
 		}
 	}
