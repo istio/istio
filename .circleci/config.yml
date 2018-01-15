@@ -293,7 +293,7 @@ jobs:
             free
             trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
             make localTestEnv
-            make pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
+            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
       - store_test_results:
           path: /go/out/racetests
 
