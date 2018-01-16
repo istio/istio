@@ -1977,6 +1977,7 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 	return nil
 }
 
+// ValidateForeignService validates a foreign service.
 func ValidateForeignService(config proto.Message) (errs error) {
 	foreignService := config.(*routingv2.ForeignService)
 	for _, host := range foreignService.Hosts {
