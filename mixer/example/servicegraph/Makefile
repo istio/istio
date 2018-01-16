@@ -6,7 +6,7 @@ clean:
 	rm -rf docker/viz
 	rm -f docker/servicegraph
 
-docker: docker/viz docker/servicegraph 
+docker: docker/viz docker/servicegraph
 	cd docker && docker build -t servicegraph -f Dockerfile .
 	cd docker && docker build -t servicegraph_debug -f Dockerfile.debug .
 

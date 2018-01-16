@@ -491,7 +491,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-pushd $MIXER_REPO && go install ./... && mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
+pushd $MIXER_REPO && go install ./... && mixs server --configStoreURL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests

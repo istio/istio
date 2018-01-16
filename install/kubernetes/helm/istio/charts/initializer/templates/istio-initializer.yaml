@@ -18,7 +18,7 @@ metadata:
 data:
   config: |-
     policy: "enabled"
-    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    namespaces: [""] # everything, aka v1.NamespaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: {{$pilot_hub}}/proxy_init:{{$pilot_tag}}

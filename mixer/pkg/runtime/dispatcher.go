@@ -31,7 +31,6 @@ import (
 	adptTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
@@ -55,7 +54,7 @@ type Dispatcher interface {
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
+		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
 }
 
 // Resolver represents the current snapshot of the configuration database
@@ -231,7 +230,7 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 // Quota calls are dispatched to at most one handler.
 // Dispatcher#Quota.
 func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	dispatched := false
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {

@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "726cba4d63d34a7055809986b7942c3eae6c4eb2"
-  version = "v1.12.60"
+  revision = "0cebc639926eb91b0192dae4b28bc808417e764c"
+  version = "v1.12.61"
 
 [[projects]]
   branch = "master"
@@ -749,14 +749,14 @@
     "transport/zipkin",
     "utils"
   ]
-  revision = "f54d8ece0a66e3db6a9247e946eb1e2bd79029ea"
-  version = "v2.11.1"
+  revision = "3ac96c6e679cb60a74589b0d0aa7c70a906183f7"
+  version = "v2.11.2"
 
 [[projects]]
   name = "github.com/uber/jaeger-lib"
   packages = ["metrics"]
-  revision = "5519f3beabf28707fca8d3f47f9cff87dad48d96"
-  version = "v1.3.0"
+  revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
+  version = "v1.3.1"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "37df4fabefb044819e927f44b8487d4cd926d06c"
+  revision = "713cd087da595a636f7754020c50d6978e9cd09e"
 
 [[projects]]
   name = "google.golang.org/appengine"

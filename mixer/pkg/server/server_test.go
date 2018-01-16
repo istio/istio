@@ -192,12 +192,12 @@ func TestErrors(t *testing.T) {
 			case 1:
 				pt.newRuntime = func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener, gp *pool.GoroutinePool,
 					handlerPool *pool.GoroutinePool,
-					identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+					identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 					templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error) {
 					return nil, errors.New("BAD")
 				}
 			case 2:
-				pt.newStore2 = func(r2 *store.Registry2, configURL string) (store.Store2, error) {
+				pt.newStore2 = func(r2 *store.Registry, configURL string) (store.Store, error) {
 					return nil, errors.New("BAD")
 				}
 			case 3:
