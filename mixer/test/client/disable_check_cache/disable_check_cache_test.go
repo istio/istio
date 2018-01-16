@@ -49,7 +49,7 @@ func TestDisableCheckCache(t *testing.T) {
 
 	s.SetV2Conf()
 	// Disable check cache.
-	env.DisableClientCache(s.V2().HttpServerConf, true, false, false)
+	env.DisableClientCache(s.V2().HTTPServerConf, true, false, false)
 	s.ReStartEnvoy()
 
 	tag = "OKGet"

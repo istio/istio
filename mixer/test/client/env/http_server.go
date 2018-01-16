@@ -22,12 +22,14 @@ import (
 	"net/http"
 )
 
+// If HTTP header has non empty FailHeader,
+// HTTP server will fail the request with 400 with FailBody in the response body.
 const (
 	FailHeader = "x-istio-backend-fail"
 	FailBody   = "Bad request from backend."
 )
 
-const PubKey = `
+const publicKey = `
 {
     "keys": [
         {
@@ -62,13 +64,14 @@ const PubKey = `
 }
 `
 
-type HttpServer struct {
+// HTTPServer stores data for a HTTP server.
+type HTTPServer struct {
 	port uint16
 	lis  net.Listener
 }
 
-func pubkey_handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%v", PubKey)
+func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%v", publicKey)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -95,31 +98,37 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func NewHttpServer(port uint16) (*HttpServer, error) {
+// NewHTTPServer creates a new HTTP server.
+func NewHTTPServer(port uint16) (*HTTPServer, error) {
 	log.Printf("Http server listening on port %v\n", port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
-	return &HttpServer{
+	return &HTTPServer{
 		port: port,
 		lis:  lis,
 	}, nil
 }
 
-func (s *HttpServer) Start() {
+// Start starts the server
+func (s *HTTPServer) Start() {
 	go func() {
 		http.HandleFunc("/", handler)
-		http.HandleFunc("/pubkey", pubkey_handler)
-		http.Serve(s.lis, nil)
+		http.HandleFunc("/pubkey", pubkeyHandler)
+		err := http.Serve(s.lis, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}()
 
 	url := fmt.Sprintf("http://localhost:%v/echo", s.port)
-	WaitForHttpServer(url)
+	WaitForHTTPServer(url)
 }
 
-func (s *HttpServer) Stop() {
+// Stop shutdown the server
+func (s *HTTPServer) Stop() {
 	log.Printf("Close HTTP server\n")
 	s.lis.Close()
 	log.Printf("Close HTTP server -- Done\n")

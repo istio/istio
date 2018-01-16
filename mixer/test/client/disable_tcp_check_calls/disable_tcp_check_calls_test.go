@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package disableTcpCheckCalls
+package disableTCPCheckCalls
 
 import (
 	"fmt"
@@ -54,17 +54,17 @@ const reportAttributesOkPost = `
 }
 `
 
-func TestDisableTcpCheckCalls(t *testing.T) {
+func TestDisableTCPCheckCalls(t *testing.T) {
 	s := env.NewTestSetup(
-		env.DisableTcpCheckCallsTest,
+		env.DisableTCPCheckCallsTest,
 		t,
-		env.BasicConfig+","+env.DisableTcpCheckCalls)
+		env.BasicConfig+","+env.DisableTCPCheckCalls)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TcpProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.
 	tag := "OKPost v1"
@@ -80,7 +80,7 @@ func TestDisableTcpCheckCalls(t *testing.T) {
 
 	s.SetV2Conf()
 	// Disable Check
-	env.DisableTcpCheckReport(s.V2().TcpServerConf, true, false)
+	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
 	s.ReStartEnvoy()
 
 	tag = "OKPost"

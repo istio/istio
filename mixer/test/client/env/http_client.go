@@ -26,77 +26,94 @@ import (
 )
 
 // HTTP client time out in second.
-const HttpTimeOut = 5
+const httpTimeOut = 5
 
 // Maximum number of ping the server to wait.
 const maxAttempts = 30
 
+// HTTPFastGet only cares about network error.
 // Issue fast request, only care about network error.
 // Don't care about server response.
 func HTTPFastGet(url string) (err error) {
 	client := &http.Client{}
-	client.Timeout = time.Duration(HttpTimeOut * time.Second)
+	client.Timeout = time.Duration(httpTimeOut * time.Second)
 	_, err = client.Get(url)
 	return err
 }
 
-func HTTPGet(url string) (code int, resp_body string, err error) {
+// HTTPGet send GET
+func HTTPGet(url string) (code int, respBody string, err error) {
 	log.Println("HTTP GET", url)
 	client := &http.Client{}
-	client.Timeout = time.Duration(HttpTimeOut * time.Second)
+	client.Timeout = time.Duration(httpTimeOut * time.Second)
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp_body = string(body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(resp_body)
-	return code, resp_body, nil
+	log.Println(respBody)
+	return code, respBody, nil
 }
 
-func HTTPPost(url string, content_type string, req_body string) (code int, resp_body string, err error) {
+// HTTPPost sends POST
+func HTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
 	log.Println("HTTP POST", url)
 	client := &http.Client{}
-	client.Timeout = time.Duration(HttpTimeOut * time.Second)
-	resp, err := client.Post(url, content_type, strings.NewReader(req_body))
+	client.Timeout = time.Duration(httpTimeOut * time.Second)
+	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp_body = string(body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(resp_body)
-	return code, resp_body, nil
+	log.Println(respBody)
+	return code, respBody, nil
 }
 
-func ShortLiveHTTPPost(url string, content_type string, req_body string) (code int, resp_body string, err error) {
+// ShortLiveHTTPPost send HTTP without keepalive
+func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
 	log.Println("Short live HTTP POST", url)
 	tr := &http.Transport{
 		DisableKeepAlives: true,
 	}
 	client := &http.Client{Transport: tr}
-	resp, err := client.Post(url, content_type, strings.NewReader(req_body))
+	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp_body = string(body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(resp_body)
-	return code, resp_body, nil
+	log.Println(respBody)
+	return code, respBody, nil
 }
 
-func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_body string, err error) {
+// HTTPGetWithHeaders send HTTP with headers
+func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody string, err error) {
 	log.Println("HTTP GET with headers: ", l)
 	client := &http.Client{}
-	client.Timeout = time.Duration(HttpTimeOut * time.Second)
+	client.Timeout = time.Duration(httpTimeOut * time.Second)
 	req := http.Request{}
 
 	req.Header = map[string][]string{}
@@ -104,7 +121,11 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_bod
 		req.Header[k] = []string{v}
 	}
 	req.Method = http.MethodGet
-	req.URL, _ = url.Parse(l)
+	req.URL, err = url.Parse(l)
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
 
 	resp, err := client.Do(&req)
 	if err != nil {
@@ -112,14 +133,19 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_bod
 		return 0, "", err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp_body = string(body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(resp_body)
-	return code, resp_body, nil
+	log.Println(respBody)
+	return code, respBody, nil
 }
 
-func WaitForHttpServer(url string) {
+// WaitForHTTPServer waits for a HTTP server
+func WaitForHTTPServer(url string) {
 	for i := 0; i < maxAttempts; i++ {
 		log.Println("Pinging URL: ", url)
 		code, _, err := HTTPGet(url)
@@ -133,11 +159,12 @@ func WaitForHttpServer(url string) {
 	log.Println("Give up the wait, continue the test...")
 }
 
+// WaitForPort waits for a TCP port
 func WaitForPort(port uint16) {
-	server_port := fmt.Sprintf("localhost:%v", port)
+	serverPort := fmt.Sprintf("localhost:%v", port)
 	for i := 0; i < maxAttempts; i++ {
-		log.Println("Pinging port: ", server_port)
-		_, err := net.Dial("tcp", server_port)
+		log.Println("Pinging port: ", serverPort)
+		_, err := net.Dial("tcp", serverPort)
 		if err == nil {
 			log.Println("The port is up and running...")
 			return

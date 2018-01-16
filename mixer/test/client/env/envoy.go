@@ -20,28 +20,12 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 )
 
 // Envoy stores data for Envoy process
 type Envoy struct {
 	cmd   *exec.Cmd
 	ports *Ports
-}
-
-// Run command and return the merged output from stderr and stdout, error code
-func Run(name string, args ...string) (s string, err error) {
-	log.Println(">", name, strings.Join(args, " "))
-	c := exec.Command(name, args...)
-	bytes, err := c.CombinedOutput()
-	s = string(bytes)
-	for _, line := range strings.Split(s, "\n") {
-		log.Println(line)
-	}
-	if err != nil {
-		log.Println(err)
-	}
-	return
 }
 
 // NewEnvoy creates a new Envoy struct.
@@ -61,6 +45,7 @@ func NewEnvoy(conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *P
 		args = append(args, "-l", "debug", "--concurrency", "1")
 	}
 
+	/* #nosec */
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -75,7 +60,7 @@ func (s *Envoy) Start() error {
 	err := s.cmd.Start()
 	if err == nil {
 		url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-		WaitForHttpServer(url)
+		WaitForHTTPServer(url)
 		WaitForPort(s.ports.ClientProxyPort)
 		WaitForPort(s.ports.ServerProxyPort)
 	}

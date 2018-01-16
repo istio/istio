@@ -75,14 +75,14 @@ const reportAttributesFailPost = `
 }
 `
 
-func TestTcpMixerFilter(t *testing.T) {
-	s := env.NewTestSetup(env.TcpMixerFilterTest, t, env.BasicConfig)
+func TestTCPMixerFilter(t *testing.T) {
+	s := env.NewTestSetup(env.TCPMixerFilterTest, t, env.BasicConfig)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TcpProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.
 	tag := "OKPost v1"

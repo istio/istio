@@ -195,7 +195,7 @@ func TestJWTAuth(t *testing.T) {
 	s := env.NewTestSetupV2(env.JWTAuthTest, t)
 	// pubkey server is the same as backend server.
 	// Empty audiences.
-	env.AddJwtAuth(s.V2().HttpServerConf, &mccpb.JWT{
+	env.AddJwtAuth(s.V2().HTTPServerConf, &mccpb.JWT{
 		Issuer:              JwtIssuer,
 		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", s.Ports().BackendPort),
 		JwksUriEnvoyCluster: JwtCluster,

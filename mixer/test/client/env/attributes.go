@@ -69,6 +69,7 @@ func verifyObjStringMap(actual attribute.StringMap, expected map[string]interfac
 	return nil
 }
 
+// Verify verifes an attributeBug with expected json string.
 // Attributes verification rules:
 //
 // 1) If value is *,  key must exist, but value is not checked.
@@ -84,15 +85,15 @@ func verifyObjStringMap(actual attribute.StringMap, expected map[string]interfac
 // HTTP header "x-istio-attributes" is used to forward attributes between
 // proxy. It should be removed before calling mixer and backend.
 //
-func Verify(b *attribute.MutableBag, json_results string) error {
+func Verify(b *attribute.MutableBag, expectedJSON string) error {
 	var r map[string]interface{}
-	if err := json.Unmarshal([]byte(json_results), &r); err != nil {
+	if err := json.Unmarshal([]byte(expectedJSON), &r); err != nil {
 		return fmt.Errorf("unable to decode json %v", err)
 	}
 
-	all_keys := make(map[string]bool)
+	allKeys := make(map[string]bool)
 	for _, k := range b.Names() {
-		all_keys[k] = true
+		allKeys[k] = true
 	}
 
 	for k, v := range r {
@@ -105,10 +106,10 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 				}
 			} else {
 				if val, ok := b.Get(k); ok {
-					val_string := fmt.Sprintf("%v", val)
-					if val_string != v.(string) {
+					strVal := fmt.Sprintf("%v", val)
+					if strVal != v.(string) {
 						return fmt.Errorf("attribute %+v value doesn't match. Actual %+v, expected %+v",
-							k, val_string, v.(string))
+							k, strVal, v.(string))
 					}
 				} else {
 					return fmt.Errorf("attribute %+v is expected", k)
@@ -135,7 +136,7 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 				case map[string]string:
 					err = verifyRawStringMap(val.(map[string]string), v.(map[string]interface{}))
 				default:
-					return fmt.Errorf("StringMap attribute %+v is of a type %+v that I don't know how to handle ",
+					return fmt.Errorf("attribute %+v is of a unknown type %+v",
 						k, reflect.TypeOf(val))
 				}
 				if err != nil {
@@ -148,16 +149,16 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 			return fmt.Errorf("attribute %+v is of a type %+v that I don't know how to handle ",
 				k, reflect.TypeOf(v))
 		}
-		delete(all_keys, k)
+		delete(allKeys, k)
 
 	}
 
-	if len(all_keys) > 0 {
+	if len(allKeys) > 0 {
 		var s string
-		for k := range all_keys {
+		for k := range allKeys {
 			s += k + ", "
 		}
-		return fmt.Errorf("Following attributes are not expected: %s", s)
+		return fmt.Errorf("following attributes are not expected: %s", s)
 	}
 	return nil
 }

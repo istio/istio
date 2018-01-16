@@ -16,15 +16,16 @@ package quotaCache
 
 import (
 	"fmt"
+	"testing"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
-	"testing"
 )
 
 func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := env.NewTestSetupV2(env.QuotaCacheTest, t)
-	env.AddHttpQuota(s.V2().HttpServerConf, "RequestCount", 1)
+	env.AddHTTPQuota(s.V2().HTTPServerConf, "RequestCount", 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

@@ -28,18 +28,19 @@ import (
 	"istio.io/istio/mixer/pkg/mockapi"
 )
 
+// Handler stores data for Check, Quota and Report.
 type Handler struct {
-	stress   bool
-	ch       chan *attribute.MutableBag
-	count    int
-	r_status rpc.Status
+	stress  bool
+	ch      chan *attribute.MutableBag
+	count   int
+	rStatus rpc.Status
 }
 
 func newHandler(stress bool) *Handler {
 	h := &Handler{
-		stress:   stress,
-		count:    0,
-		r_status: rpc.Status{},
+		stress:  stress,
+		count:   0,
+		rStatus: rpc.Status{},
 	}
 	if !stress {
 		h.ch = make(chan *attribute.MutableBag, 100) // Allow maximum 100 requests
@@ -52,9 +53,10 @@ func (h *Handler) run(bag attribute.Bag) rpc.Status {
 		h.ch <- attribute.CopyBag(bag)
 	}
 	h.count++
-	return h.r_status
+	return h.rStatus
 }
 
+// MixerServer stores data for a mock Mixer server.
 type MixerServer struct {
 	mockapi.AttributesHandler
 
@@ -65,51 +67,55 @@ type MixerServer struct {
 	report *Handler
 	quota  *Handler
 
-	qma          mockapi.QuotaArgs
-	quota_amount int64
-	quota_limit  int64
+	qma         mockapi.QuotaArgs
+	quotaAmount int64
+	quotaLimit  int64
 
-	check_referenced *mixerpb.ReferencedAttributes
-	quota_referenced *mixerpb.ReferencedAttributes
+	checkReferenced *mixerpb.ReferencedAttributes
+	quotaReferenced *mixerpb.ReferencedAttributes
 }
 
+// Check is called by the mock mixer api
 func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (mockapi.CheckResponse, rpc.Status) {
 	result := mockapi.CheckResponse{
 		ValidDuration: mockapi.DefaultValidDuration,
 		ValidUseCount: mockapi.DefaultValidUseCount,
-		Referenced:    ts.check_referenced,
+		Referenced:    ts.checkReferenced,
 	}
 	return result, ts.check.run(bag)
 }
 
+// Report is called by the mock mixer api
 func (ts *MixerServer) Report(bag attribute.Bag) rpc.Status {
 	return ts.report.run(bag)
 }
 
+// Quota is called by the mock mixer api
 func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.QuotaResponse, rpc.Status) {
 	ts.qma = qma
 	status := ts.quota.run(bag)
 	qmr := mockapi.QuotaResponse{}
 	if status.Code == 0 {
-		if ts.quota_limit == 0 {
+		if ts.quotaLimit == 0 {
 			qmr.Amount = qma.Amount
 		} else {
-			if ts.quota_amount < ts.quota_limit {
-				delta := ts.quota_limit - ts.quota_amount
+			if ts.quotaAmount < ts.quotaLimit {
+				delta := ts.quotaLimit - ts.quotaAmount
 				if delta > qma.Amount {
 					qmr.Amount = qma.Amount
 				} else {
 					qmr.Amount = delta
 				}
 			}
-			ts.quota_amount += qmr.Amount
+			ts.quotaAmount += qmr.Amount
 		}
 		qmr.Expiration = time.Minute
 	}
-	qmr.Referenced = ts.quota_referenced
+	qmr.Referenced = ts.quotaReferenced
 	return qmr, status
 }
 
+// NewMixerServer creates a new Mixer server
 func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 	log.Printf("Mixer server listening on port %v\n", port)
 	s := &MixerServer{
@@ -131,15 +137,20 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 	return s, nil
 }
 
-func (s *MixerServer) Start() {
+// Start starts the mixer server
+func (ts *MixerServer) Start() {
 	go func() {
-		_ = s.gs.Serve(s.lis)
-		log.Printf("Mixer server exited\n")
+		err := ts.gs.Serve(ts.lis)
+		if err != nil {
+			log.Fatalf("failed to start mixer server: %v", err)
+		}
+		log.Printf("Mixer server starts\n")
 	}()
 }
 
-func (s *MixerServer) Stop() {
+// Stop shutdown the server
+func (ts *MixerServer) Stop() {
 	log.Printf("Stop Mixer server\n")
-	s.gs.Stop()
+	ts.gs.Stop()
 	log.Printf("Stop Mixer server  -- Done\n")
 }
