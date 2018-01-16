@@ -224,9 +224,8 @@ func TestGcpGetRequestMetadata(t *testing.T) {
 
 func TestGcpRequireTransportSecurity(t *testing.T) {
 	testCases := map[string]struct {
-		token       string
-		expectedErr string
-		expected    bool
+		token    string
+		expected bool
 	}{
 		"Expected true": {
 			expected: true,

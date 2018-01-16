@@ -71,7 +71,7 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 // Remove the local temp dir. Can be manually overrided if necessary.
 func (mixerEnvoyEnv *MixerEnvoyEnv) Cleanup() (err error) {
 	log.Printf("Cleaning up %s", mixerEnvoyEnv.EnvID)
-	os.RemoveAll(mixerEnvoyEnv.TmpDir)
-	os.RemoveAll(mixerEnvoyEnv.configDir)
+	_ = os.RemoveAll(mixerEnvoyEnv.TmpDir)
+	_ = os.RemoveAll(mixerEnvoyEnv.configDir)
 	return
 }

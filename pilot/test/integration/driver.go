@@ -116,7 +116,7 @@ type test interface {
 
 func main() {
 	flag.Parse()
-	log.Configure(log.NewOptions())
+	_ = log.Configure(log.NewOptions())
 
 	if params.Tag == "" {
 		log.Error("No docker tag specified")

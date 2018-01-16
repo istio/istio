@@ -28,7 +28,7 @@ func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	case *config.Params_ApiKey:
 		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
 	case *config.Params_ServiceAccountPath:
-		opts = append(opts, gapiopts.WithServiceAccountFile(cfg.GetServiceAccountPath()))
+		opts = append(opts, gapiopts.WithCredentialsFile(cfg.GetServiceAccountPath()))
 	case *config.Params_AppCredentials:
 		// When using default app credentials the SDK handles everything for us.
 	}
