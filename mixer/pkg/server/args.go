@@ -59,7 +59,7 @@ type Args struct {
 	SingleThreaded bool
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
-	ConfigStore2URL string
+	ConfigStoreURL string
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -136,7 +136,7 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
+	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))

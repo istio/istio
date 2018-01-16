@@ -19,9 +19,9 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
-// Store2Inventory returns the inventory of Store2Backend.
-func Store2Inventory() []store.RegisterFunc2 {
-	return []store.RegisterFunc2{
+// StoreInventory returns the inventory of StoreBackend.
+func StoreInventory() []store.RegisterFunc {
+	return []store.RegisterFunc{
 		crd.Register,
 	}
 }

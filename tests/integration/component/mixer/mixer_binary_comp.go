@@ -86,8 +86,8 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	}
 
 	if err = mixerComp.testProcess.Start(fmt.Sprintf("%s server"+
-		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-		*mixerBinary, mixerConfig, emptyDir)); err != nil {
+		" --configStoreURL=fs://%s",
+		*mixerBinary, mixerConfig)); err != nil {
 		return
 	}
 
