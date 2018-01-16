@@ -174,10 +174,10 @@ ROUTING_V1ALPHA2_PB_GOS := $(ROUTING_V1ALPHA2_PROTOS:.proto=.pb.go)
 # RBAC
 #####################
 
-RBAC_V1 := rbac/v1
-RBAC_PROTO := $(RBAC_V1)/rbac.proto
-RBAC_V1_PROTOS := $(RBAC_PROTO)
-RBAC_V1_PB_GOS := $(RBAC_V1_PROTOS:.proto=.pb.go)
+RBAC_V1ALPHA1 := rbac/v1alpha1
+RBAC_PROTO := $(RBAC_V1ALPHA1)/rbac.proto
+RBAC_V1ALPHA1_PROTOS := $(RBAC_PROTO)
+RBAC_V1ALPHA1_PB_GOS := $(RBAC_V1ALPHA1_PROTOS:.proto=.pb.go)
 
 #####################
 # Install protoc
@@ -343,10 +343,10 @@ $(ROUTING_V1ALPHA2_PB_GOS): $(ROUTING_V1ALPHA2_PROTOS) | $(PROTOC_BIN)
 # rbac/...
 #####################
 
-generate-rbac-go: install-deps download-googleapis-protos protoc.version $(PROTOC_GEN_GO) $(RBAC_V1_PB_GOS)
+generate-rbac-go: install-deps download-googleapis-protos protoc.version $(PROTOC_GEN_GO) $(RBAC_V1ALPHA1_PB_GOS)
 
-$(RBAC_V1_PB_GOS): $(RBAC_V1_PROTOS) | $(PROTOC_BIN)
-	## Generate rbac/v1/*.pb.go
+$(RBAC_V1ALPHA1_PB_GOS): $(RBAC_V1ALPHA1_PROTOS) | $(PROTOC_BIN)
+	## Generate rbac/v1alpha1/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(STD_GO_PLUGIN) $^
 
 # TODO: kill all generated files too ?

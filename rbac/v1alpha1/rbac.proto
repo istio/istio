@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.rbac.v1;
+package istio.rbac.v1alpha1;
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 // objects.
@@ -32,15 +32,15 @@ package istio.rbac.v1;
 //
 // For example, suppose we define an instance of the "authorization" template, named "requestcontext".
 //
-//     apiVersion: "config.istio.io/v1alpha2"
+//     apiVersion: "config.istio.io/v1alpha1"
 //     kind: authorization
 //     metadata:
 //       name: requestcontext
 //       namespace: istio-system
 //     spec:
 //       subject:
-//         user: source.user | ""
-//         groups: source.user | ""
+//         user: request.auth.principal | ""
+//         groups: request.auth.principal | ""
 //         properties:
 //           service: source.service | ""
 //           namespace: source.namespace | ""
@@ -56,8 +56,8 @@ package istio.rbac.v1;
 // access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
 // so it applies to any path in the service.
 //
-//     apiVersion: "config.istio.io/v1alpha2"
-//     kind: servicerole
+//     apiVersion: "config.istio.io/v1alpha1"
+//     kind: ServiceRole
 //     metadata:
 //       name: products-viewer
 //       namespace: default
@@ -66,7 +66,7 @@ package istio.rbac.v1;
 //       - services: ["products.svc.cluster.local"]
 //         methods: ["GET", "HEAD"]
 //         constraints:
-//         - name: "version"
+//         - key: "version"
 //           value: ["v1", "v2"]
 //
 // A ServiceRoleBinding specification includes two parts:
@@ -82,8 +82,8 @@ package istio.rbac.v1;
 // * User "alice@yahoo.com"
 // * "reviews" service in "abc" namespace.
 //
-//     apiVersion: "config.istio.io/v1alpha2"
-//     kind: servicerolebinding
+//     apiVersion: "config.istio.io/v1alpha1"
+//     kind: ServiceRoleBinding
 //     metadata:
 //       name: test-binding-products
 //       namespace: default
@@ -129,12 +129,14 @@ message AccessRule {
   // If set to ["*"], it applies to any method.
   repeated string methods = 3;
 
-  // Definition of a custom constraint.
+  // Definition of a custom constraint. The key of a custom constraint must match
+  // one of the "properties" in the "action" part of the "authorization" template
+  // (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
   message Constraint {
-    // The name of the constraint.
-    string name = 1;
+    // Key of the constraint.
+    string key = 1;
 
-    // The list of valid values for the constraint.
+    // List of valid values for the constraint.
     // Exact match, prefix match, and suffix match are supported for constraint values.
     // For example, the value "v1alpha2" matches
     // "v1alpha2" (exact match), or "v1*" (prefix match),
@@ -148,7 +150,7 @@ message AccessRule {
 }
 
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
-// This represent the "Spec" part of the ServiceRoleBinding object. The name and namespace
+// This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
 // of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
 // object.
 message ServiceRoleBinding {
@@ -159,7 +161,10 @@ message ServiceRoleBinding {
   RoleRef roleRef = 2;
 }
 
-// Subject defines an identity or a group of identities.
+// Subject defines an identity or a group of identities. The identity is either a user or
+// a group or identified by a set of "properties". The name of the "properties" must match
+// the "properties" in the "subject" part of the "authorization" template
+// (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 message Subject {
   // Optional. The user name/ID that the subject represents.
   string user = 1;
