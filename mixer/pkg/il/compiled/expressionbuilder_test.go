@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
 
@@ -37,7 +37,7 @@ func TestCompiledExpressions(t *testing.T) {
 
 		name := "Compiled/" + test.TestName()
 		t.Run(name, func(tt *testing.T) {
-			finder := descriptor.NewFinder(test.Conf())
+			finder := expr.NewFinder(test.Conf())
 
 			builder := NewBuilder(finder)
 			compiled, exprType, err := builder.Compile(test.E)
@@ -63,6 +63,11 @@ func TestCompiledExpressions(t *testing.T) {
 			r, err := compiled.Evaluate(bag)
 			if e := test.CheckEvaluationResult(r, err); e != nil {
 				tt.Fatalf(e.Error())
+				return
+			}
+
+			if !test.CheckReferenced(bag) {
+				tt.Fatalf("Referenced attribute mismatch: '%s' != '%s'", bag.ReferencedList(), test.Referenced)
 				return
 			}
 

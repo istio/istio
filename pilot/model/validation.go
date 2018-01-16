@@ -902,14 +902,14 @@ func ValidateGateway(msg proto.Message) (errs error) {
 }
 
 func validateServer(server *routingv2.Server) (errs error) {
-	if len(server.Domains) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one domain"))
+	if len(server.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
-		for _, domain := range server.Domains {
+		for _, host := range server.Hosts {
 			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
 			// (including CIDR addresses). If it's neither, we report both errors.
-			if err := ValidateWildcardDomain(domain); err != nil {
-				if err2 := ValidateIPv4Subnet(domain); err2 != nil {
+			if err := ValidateWildcardDomain(host); err != nil {
+				if err2 := ValidateIPv4Subnet(host); err2 != nil {
 					errs = appendErrors(errs, err, err2)
 				}
 			}
@@ -918,7 +918,7 @@ func validateServer(server *routingv2.Server) (errs error) {
 	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
 }
 
-func validateServerPort(port *routingv2.Server_Port) (errs error) {
+func validateServerPort(port *routingv2.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
@@ -946,7 +946,7 @@ func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
-		if tls.ClientCaBundle == "" {
+		if tls.CaCertificates == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
@@ -1076,6 +1076,120 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 			egressRulesSupportedProtocols())
 	}
 	return nil
+}
+
+// ValidateDestinationRule checks proxy policies
+func ValidateDestinationRule(msg proto.Message) (errs error) {
+	rule, ok := msg.(*routingv2.DestinationRule)
+	if !ok {
+		return fmt.Errorf("cannot cast to destination rule")
+	}
+
+	// TODO: validate short name / FQDN
+	if rule.Name == "" {
+		errs = multierror.Append(errs, fmt.Errorf("destination rule name cannot be empty"))
+	}
+	errs = appendErrors(errs, validateTrafficPolicy(rule.TrafficPolicy))
+	for _, subset := range rule.Subsets {
+		errs = appendErrors(errs, validateSubset(subset))
+	}
+
+	return
+}
+
+//
+func validateTrafficPolicy(policy *routingv2.TrafficPolicy) (errs error) {
+	if policy == nil {
+		return
+	}
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil {
+		return fmt.Errorf("traffic policy must have at least one field")
+	}
+
+	errs = appendErrors(errs, validateOutlierDetection(policy.OutlierDetection))
+	errs = appendErrors(errs, validateConnectionPool(policy.ConnectionPool))
+	errs = appendErrors(errs, validateLoadBalancer(policy.LoadBalancer))
+	return
+}
+
+func validateOutlierDetection(outlier *routingv2.OutlierDetection) (errs error) {
+	if outlier == nil {
+		return
+	}
+	if outlier.Http == nil {
+		return fmt.Errorf("outlier detection must have at least one field")
+	}
+
+	http := outlier.Http
+	if http.BaseEjectionTime != nil {
+		errs = appendErrors(errs, ValidateDuration(http.BaseEjectionTime))
+	}
+	if http.ConsecutiveErrors < 0 {
+		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
+	}
+	if http.Interval != nil {
+		errs = appendErrors(errs, ValidateDuration(http.Interval))
+	}
+	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
+
+	return
+}
+
+func validateConnectionPool(settings *routingv2.ConnectionPoolSettings) (errs error) {
+	if settings == nil {
+		return
+	}
+	if settings.Http == nil && settings.Tcp == nil {
+		return fmt.Errorf("connection pool must have at least one field")
+	}
+
+	if http := settings.Http; http != nil {
+		if http.Http1MaxPendingRequests < 0 {
+			errs = appendErrors(errs, fmt.Errorf("http1 max pending requests must be non-negative"))
+		}
+		if http.Http2MaxRequests < 0 {
+			errs = appendErrors(errs, fmt.Errorf("http2 max requests must be non-negative"))
+		}
+		if http.MaxRequestsPerConnection < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max requests per connection must be non-negative"))
+		}
+		if http.MaxRetries < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
+		}
+	}
+
+	if tcp := settings.Tcp; tcp != nil {
+		if tcp.MaxConnections < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max connections must be non-negative"))
+		}
+		if tcp.ConnectTimeout != nil {
+			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
+		}
+	}
+
+	return
+}
+
+func validateLoadBalancer(settings *routingv2.LoadBalancerSettings) (errs error) {
+	if settings == nil {
+		return
+	}
+
+	// simple load balancing is always valid
+	// TODO: settings.GetConsistentHash()
+
+	return
+}
+
+func validateSubset(subset *routingv2.Subset) (errs error) {
+	// TODO: validate short name / FQDN
+	if subset.Name == "" {
+		errs = multierror.Append(errs, fmt.Errorf("subset rule name cannot be empty"))
+	}
+	errs = appendErrors(errs, Labels(subset.Labels).Validate())
+	errs = appendErrors(errs, validateTrafficPolicy(subset.TrafficPolicy))
+
+	return
 }
 
 // ValidateDestinationPolicy checks proxy policies
@@ -1805,8 +1919,13 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, Labels(destination.Labels).Validate())
-	// TODO: Name
+	// TODO: validate short name / FQDN
+	if destination.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("route rule destination should not be empty"))
+	}
+
+	// TODO: Subset
+
 	// TODO: Port
 
 	return

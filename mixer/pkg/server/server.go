@@ -65,10 +65,10 @@ type Server struct {
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newILEvaluator func(cacheSize int) (*evaluator.IL, error)
-	newStore2      func(r2 *store.Registry2, configURL string) (store.Store2, error)
+	newStore2      func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime     func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener,
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16) (*monitor, error)
@@ -83,7 +83,7 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newILEvaluator: evaluator.NewILEvaluator,
-		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
+		newStore2:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
@@ -153,9 +153,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStore2URL := a.ConfigStore2URL
-	if configStore2URL == "" {
-		configStore2URL = "k8s://"
+	configStoreURL := a.ConfigStoreURL
+	if configStoreURL == "" {
+		configStoreURL = "k8s://"
 	}
 
 	if a.ServiceConfig != "" || a.GlobalConfig != "" {
@@ -163,11 +163,11 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
 		}
-		configStore2URL = "fs://" + s.configDir
+		configStoreURL = "fs://" + s.configDir
 	}
 
-	reg2 := store.NewRegistry2(config.Store2Inventory()...)
-	store2, err := p.newStore2(reg2, configStore2URL)
+	reg2 := store.NewRegistry(config.StoreInventory()...)
+	store2, err := p.newStore2(reg2, configStoreURL)
 	if err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)

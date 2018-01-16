@@ -29,9 +29,9 @@ import (
 
 const testingCheckDuration = time.Millisecond * 5
 
-func getTempFSStore2() (*fsStore2, string) {
-	fsroot, _ := ioutil.TempDir("/tmp/", "fsStore2-")
-	s := NewFsStore2(fsroot).(*fsStore2)
+func getTempFSStore2() (*fsStore, string) {
+	fsroot, _ := ioutil.TempDir("/tmp/", "fsStore-")
+	s := newFsStore(fsroot).(*fsStore)
 	s.checkDuration = testingCheckDuration
 	return s, fsroot
 }

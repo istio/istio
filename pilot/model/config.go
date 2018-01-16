@@ -245,6 +245,10 @@ type IstioConfigStore interface {
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
+	// DestinationRule returns a destination rule for a service name in a given domain.
+	// Name can be short name or FQDN.
+	DestinationRule(name, domain string) *Config
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -344,6 +348,14 @@ var (
 		Validate:    ValidateDestinationPolicy,
 	}
 
+	// DestinationRule describes destination rules
+	DestinationRule = ProtoSchema{
+		Type:        "destination-rule",
+		Plural:      "destination-rules",
+		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		Validate:    ValidateDestinationRule,
+	}
+
 	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
@@ -400,6 +412,7 @@ var (
 		Gateway,
 		EgressRule,
 		DestinationPolicy,
+		DestinationRule,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
 		QuotaSpec,
@@ -574,30 +587,26 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 	return out
 }
 
+// This logic assumes there is at most one route rule for a given host.
+// If there is more than one the output may be non-deterministic.
 func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	out := make([]Config, 0)
 	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
-	hosts := make(map[string]bool)
-	for _, instance := range instances {
-		hosts[instance.Service.Hostname] = true
-	}
-
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.RouteRule)
 		for _, host := range rule.Hosts {
-			fqdn := ResolveFQDN(host, domain)
-			if hosts[fqdn] {
-				out = append(out, config)
-				break
+			for _, instance := range instances {
+				if ResolveFQDN(host, domain) == instance.Service.Hostname {
+					return []Config{config}
+				}
 			}
 		}
 	}
 
-	return out
+	return nil
 }
 
 func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
@@ -650,6 +659,22 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	}
 
 	return &out
+}
+
+func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
+	configs, err := store.List(DestinationRule.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routingv2.DestinationRule)
+		if ResolveFQDN(rule.Name, domain) == ResolveFQDN(name, domain) {
+			return &config
+		}
+	}
+
+	return nil
 }
 
 // `istio.mixer.v1.config.client.IstioService` and

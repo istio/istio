@@ -50,7 +50,7 @@ type Key struct {
 	Name      string
 }
 
-// BackendEvent is an event used between Store2Backend and Store2.
+// BackendEvent is an event used between Backend and Store.
 type BackendEvent struct {
 	Key
 	Type  ChangeType
@@ -86,7 +86,7 @@ func (k Key) String() string {
 	return k.Name + "." + k.Kind + "." + k.Namespace
 }
 
-// Event represents an event. Used by Store2.Watch.
+// Event represents an event. Used by Store.Watch.
 type Event struct {
 	Key
 	Type ChangeType
@@ -105,9 +105,8 @@ type Validator interface {
 	Validate(ev *Event) error
 }
 
-// Store2Backend defines the typeless storage backend for mixer.
-// TODO: rename to StoreBackend.
-type Store2Backend interface {
+// Backend defines the typeless storage backend for mixer.
+type Backend interface {
 	Init(ctx context.Context, kinds []string) error
 
 	// Watch creates a channel to receive the events.
@@ -120,9 +119,8 @@ type Store2Backend interface {
 	List() map[Key]*BackEndResource
 }
 
-// Store2 defines the access to the storage for mixer.
-// TODO: rename to Store.
-type Store2 interface {
+// Store defines the access to the storage for mixer.
+type Store interface {
 	Init(ctx context.Context, kinds map[string]proto.Message) error
 
 	// Watch creates a channel to receive the events. A store can conduct a single
@@ -138,10 +136,10 @@ type Store2 interface {
 	probe.SupportsProbe
 }
 
-// store2 is the implementation of Store2 interface.
-type store2 struct {
+// store is the implementation of Store interface.
+type store struct {
 	kinds   map[string]proto.Message
-	backend Store2Backend
+	backend Backend
 
 	mu    sync.Mutex
 	queue *eventQueue
@@ -156,7 +154,7 @@ func (s *store2) RegisterProbe(c probe.Controller, name string) {
 // Init initializes the connection with the storage backend. This uses "kinds"
 // for the mapping from the kind's name and its structure in protobuf.
 // The connection will be closed after ctx is done.
-func (s *store2) Init(ctx context.Context, kinds map[string]proto.Message) error {
+func (s *store) Init(ctx context.Context, kinds map[string]proto.Message) error {
 	kindNames := make([]string, 0, len(kinds))
 	for k := range kinds {
 		kindNames = append(kindNames, k)
@@ -169,7 +167,7 @@ func (s *store2) Init(ctx context.Context, kinds map[string]proto.Message) error
 }
 
 // Watch creates a channel to receive the events.
-func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
+func (s *store) Watch(ctx context.Context) (<-chan Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.queue != nil {
@@ -191,7 +189,7 @@ func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
 }
 
 // Get returns a resource's spec to the key.
-func (s *store2) Get(key Key, spec proto.Message) error {
+func (s *store) Get(key Key, spec proto.Message) error {
 	obj, err := s.backend.Get(key)
 	if err != nil {
 		return err
@@ -201,7 +199,7 @@ func (s *store2) Get(key Key, spec proto.Message) error {
 }
 
 // List returns the whole mapping from key to resource specs in the store.
-func (s *store2) List() map[Key]*Resource {
+func (s *store) List() map[Key]*Resource {
 	data := s.backend.List()
 	result := make(map[Key]*Resource, len(data))
 	for k, d := range data {
@@ -222,25 +220,25 @@ func (s *store2) List() map[Key]*Resource {
 	return result
 }
 
-// Store2Builder is the type of function to build a Store2Backend.
-type Store2Builder func(u *url.URL) (Store2Backend, error)
+// Builder is the type of function to build a Backend.
+type Builder func(u *url.URL) (Backend, error)
 
-// RegisterFunc2 is the type to register a builder for URL scheme.
-type RegisterFunc2 func(map[string]Store2Builder)
+// RegisterFunc is the type to register a builder for URL scheme.
+type RegisterFunc func(map[string]Builder)
 
-// Registry2 keeps the relationship between the URL scheme and
-// the Store2Backend implementation.
-type Registry2 struct {
-	builders map[string]Store2Builder
+// Registry keeps the relationship between the URL scheme and
+// the Backend implementation.
+type Registry struct {
+	builders map[string]Builder
 }
 
-// NewRegistry2 creates a new Registry instance for the inventory.
-func NewRegistry2(inventory ...RegisterFunc2) *Registry2 {
-	b := map[string]Store2Builder{}
+// NewRegistry creates a new Registry instance for the inventory.
+func NewRegistry(inventory ...RegisterFunc) *Registry {
+	b := map[string]Builder{}
 	for _, rf := range inventory {
 		rf(b)
 	}
-	return &Registry2{builders: b}
+	return &Registry{builders: b}
 }
 
 // URL types supported by the config store
@@ -249,20 +247,20 @@ const (
 	FSUrl = "fs"
 )
 
-// NewStore2 creates a new Store2 instance with the specified backend.
-func (r *Registry2) NewStore2(configURL string) (Store2, error) {
+// NewStore creates a new Store instance with the specified backend.
+func (r *Registry) NewStore(configURL string) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
 		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
 	}
 
-	var b Store2Backend
+	var b Backend
 	switch u.Scheme {
 	case FSUrl:
-		b = NewFsStore2(u.Path)
+		b = newFsStore(u.Path)
 	case memstoreScheme:
-		b = createMemstore(u)
+		b = newMemstore(u)
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
 			b, err = builder(u)
@@ -272,7 +270,7 @@ func (r *Registry2) NewStore2(configURL string) (Store2, error) {
 		}
 	}
 	if b != nil {
-		return &store2{backend: b}, nil
+		return &store{backend: b}, nil
 	}
 	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
 }

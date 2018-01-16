@@ -276,6 +276,27 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  racetest:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir -p /go/out/racetests
+            go get github.com/jstemmer/go-junit-report
+            free
+            trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
+            make localTestEnv
+            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
+      - store_test_results:
+          path: /go/out/racetests
+
   build:
     <<: *defaults
     resource_class: xlarge
@@ -441,6 +462,9 @@ workflows:
           requires:
             - build
       - test:
+          requires:
+            - dependencies
+      - racetest:
           requires:
             - dependencies
       - e2e-simple:

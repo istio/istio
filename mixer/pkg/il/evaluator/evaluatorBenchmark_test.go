@@ -17,7 +17,7 @@ package evaluator
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
 
@@ -34,7 +34,7 @@ func BenchmarkEvaluator(b *testing.B) {
 			continue
 		}
 
-		finder := descriptor.NewFinder(test.Conf())
+		finder := expr.NewFinder(test.Conf())
 
 		evaluator, err := NewILEvaluator(DefaultCacheSize)
 		if err != nil {

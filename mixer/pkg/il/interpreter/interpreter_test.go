@@ -1683,7 +1683,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			expected: "c",
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() il.StringMap {
-					return ilt.NewStringMap("", map[string]string{"b": "c"})
+					return ilt.NewStringMap("", map[string]string{"b": "c"}, nil)
 				}),
 			},
 		},

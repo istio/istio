@@ -14,8 +14,7 @@ http:
     route:
       - destination:
           name: world
-          labels:
-            version: v1
+          subset: v1
         weight: 100
     fault:
       delay:
