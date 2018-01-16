@@ -2,6 +2,9 @@
 set -exu
 HUB=${1:?"1st arg hub is required"}
 TAG=${2:?"2nd arg tag is required"}
+if [[ -z "${GS_BUCKET:-}" ]]; then
+    GS_BUCKET=${3:-"istio-artifacts"}
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -23,9 +26,9 @@ pilot/bin/push-docker -hub ${HUB} -tag ${TAG} &
 mixer/bin/push-docker -hub ${HUB} -tag ${TAG} &
 security/bin/push-docker -hub ${HUB} -tag ${TAG} &
 
-# Permit $HUB overrides to suppress errors during push
+# Only try to upload if HUB starts with gcr.io
 if [[ "${HUB}" =~ ^gcr\.io ]]; then
-    pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/${TAG}/artifacts/istioctl" &
+    pilot/bin/upload-istioctl -p "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl" &
 fi
 
 FAIL=0

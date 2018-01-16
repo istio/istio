@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package handler
 
-import "istio.io/istio/mixer/pkg/adapter"
+import (
+	"testing"
+)
 
-// Env provides a test environment.
-type Env struct {
-	adapter.Env
+func TestSafeCall(t *testing.T) {
+	worked := false
+	err := safeCall("m", func() {
+		worked = true
+	})
+
+	if !worked {
+		t.Fail()
+	}
+
+	if err != nil {
+		t.Fail()
+	}
+}
+
+func TestSafeCall_Panic(t *testing.T) {
+	err := safeCall("m", func() {
+		panic("panic")
+	})
+
+	if err == nil {
+		t.Fail()
+	}
+}
+
+func TestSafeCall_Panic_Nil(t *testing.T) {
+	err := safeCall("m", func() {
+		panic(nil)
+	})
+
+	if err == nil {
+		t.Fail()
+	}
 }

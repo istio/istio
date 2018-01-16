@@ -344,8 +344,8 @@ func xTestMultiplePolicy(t *testing.T) {
 	cases := []struct {
 		method   string
 		path     string
-		source   string
 		target   string
+		source   string
 		user     string
 		expected rpc.Code
 	}{
@@ -365,7 +365,7 @@ func xTestMultiplePolicy(t *testing.T) {
 		{"GET", "/reviews/bob", "landing_page", "reviews", "ken", rpc.OK},
 		{"GET", "/reviews/ken", "landing_page", "reviews", "ken", rpc.OK},
 		// service
-		{"GET", "/reviews/janet", "landing_page", "review", "janet", rpc.PERMISSION_DENIED},
+		{"GET", "/reviews/janet", "landing_page", "review", "janet", rpc.OK},
 		{"GET", "/reviews/janet", "source_page", "reviews", "janet", rpc.PERMISSION_DENIED},
 	}
 

@@ -51,7 +51,6 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
-DEP:=${ISTIO_BIN}/dep
 
 hub = ""
 tag = ""
@@ -68,6 +67,13 @@ export HUB
 ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
+
+# Discover if user has dep installed -- prefer that
+DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
+
+# Set Google Storage bucket if not set
+GS_BUCKET ?= istio-artifacts
+export GS_BUCKET
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -107,7 +113,7 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	cp Gopkg.lock vendor/Gopkg.lock
 
 ${DEP}:
-	go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && go get -u github.com/golang/dep/cmd/dep
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -479,7 +485,7 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 docker.save: $(DOCKER_TAR_TARGETS)
 
 push: checkvars clean.installgen installgen
-	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
+	$(ISTIO_GO)/bin/push $(HUB) $(TAG) $(GS_BUCKET)
 
 artifacts: docker
 	@echo 'To be added'
@@ -593,4 +599,3 @@ ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BI
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
-

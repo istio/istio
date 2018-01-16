@@ -77,7 +77,7 @@ spec:
         - containerPort: 42422
         args:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
-          - --configStore2URL=k8s://
+          - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
           - --logtostderr
@@ -422,16 +422,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: kubernetesenvs.config.istio.io
+  name: kuberneteses.config.istio.io
   labels:
-    package: adapter.template.kubernetesenv
+    package: adapter.template.kubernetes
     istio: mixer-instance
 spec:
   group: config.istio.io
   names:
-    kind: kubernetesenv
-    plural: kubernetesenvs
-    singular: kubernetesenv
+    kind: kubernetes
+    plural: kuberneteses
+    singular: kubernetes
   scope: Namespaced
   version: v1alpha2
 ---
@@ -551,23 +551,6 @@ spec:
     kind: tracespan
     plural: tracespans
     singular: tracespan
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: reportnothings.config.istio.io
-  labels:
-    package: reportnothing
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: reportnothing
-    plural: reportnothings
-    singular: reportnothing
   scope: Namespaced
   version: v1alpha2
 ---

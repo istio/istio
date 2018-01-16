@@ -165,10 +165,10 @@ func (c *Controller) createInformer(
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
-		!c.pods.informer.HasSynced() {
+		!c.pods.informer.HasSynced() ||
+		!c.nodes.informer.HasSynced() {
 		return false
 	}
-
 	return true
 }
 
@@ -178,6 +178,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
+	go c.nodes.informer.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
@@ -231,17 +232,19 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
+		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
 		return "", false
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
+		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
+		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		return "", false
 	}
-
 	return fmt.Sprintf("%v/%v", region, zone), true
 }
 

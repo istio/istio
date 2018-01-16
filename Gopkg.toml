@@ -105,16 +105,15 @@ required = [
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
+[[constraint]]
+  name = "istio.io/fortio"
+  version = ">= v0.6.2"
+
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "1e8f8ca816bf80996b39c47ea8025058a5177bc3"
-
-[[constraint]]
-  name = "istio.io/fortio"
-  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
-
+  revision = "ba8e7cab9e80a538014df6aa8676b98d398b9779"
 
 ### Begin Mixer codegen dep pinning
 
