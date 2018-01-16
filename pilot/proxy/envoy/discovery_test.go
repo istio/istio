@@ -496,7 +496,7 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 	}
 }
 
-func TestRouteToEgressDiscoveryRedirect(t *testing.T) {
+func TestRouteDiscoveryEgressRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, egressRule, t)
 	addConfig(registry, redirectRouteToEgressRule, t)

@@ -895,8 +895,10 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 		// Set the destination clusters to the cluster we computed above.
 		// Services defined via egress rules do not have labels and hence no weighted clusters
 		for _, route := range routes {
-			route.Cluster = externalTrafficCluster.Name
-			route.clusters = []*Cluster{externalTrafficCluster}
+			if !route.Redirect() {
+				route.Cluster = externalTrafficCluster.Name
+				route.clusters = []*Cluster{externalTrafficCluster}
+			}
 		}
 	}
 
