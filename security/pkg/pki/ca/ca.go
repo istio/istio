@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	apiv1 "k8s.io/api/core/v1"

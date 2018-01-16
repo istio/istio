@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"

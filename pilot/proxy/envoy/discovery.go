@@ -30,11 +30,12 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"time"
+
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
-	"time"
 )
 
 const (

@@ -18,7 +18,6 @@ package kube
 import (
 	"fmt"
 	"os"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -30,8 +29,9 @@ import (
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"os/user"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 // ResolveConfig checks whether to use the in-cluster or out-of-cluster config
@@ -41,14 +41,14 @@ func ResolveConfig(kubeconfig string) (string, error) {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 	if kubeconfig == "" {
-				usr, err := user.Current()
-        if err == nil {
-					defaultCfg := usr.HomeDir + "/.kube/config"
-					_, err := os.Stat(kubeconfig)
-					if err != nil {
-						kubeconfig = defaultCfg
-					}
-				}
+		usr, err := user.Current()
+		if err == nil {
+			defaultCfg := usr.HomeDir + "/.kube/config"
+			_, err := os.Stat(kubeconfig)
+			if err != nil {
+				kubeconfig = defaultCfg
+			}
+		}
 	}
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)

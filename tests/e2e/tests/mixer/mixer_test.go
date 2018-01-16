@@ -28,7 +28,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/prometheus/client_golang/api"
