@@ -113,7 +113,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "ba8e7cab9e80a538014df6aa8676b98d398b9779"
+  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
 
 ### Begin Mixer codegen dep pinning
 
