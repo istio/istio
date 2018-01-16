@@ -230,7 +230,7 @@ type IstioConfigStore interface {
 	// EgressRules lists all egress rules
 	EgressRules() map[string]*routing.EgressRule
 
-	// ForeignServices returns the foreign services configuration for the mesh.
+	// ForeignServices lists all foreign services
 	ForeignServices() []Config
 
 	// RouteRules selects routing rules by source service instances and
@@ -348,7 +348,7 @@ var (
 		Type:        "foreign-service",
 		Plural:      "foreign-services",
 		MessageName: "istio.routing.v1alpha2.ForeignService",
-		Validate:    func (proto.Message) error { return nil }, // FIXME: validation
+		Validate:    ValidateForeignService,
 	}
 
 	// DestinationPolicy describes destination rules

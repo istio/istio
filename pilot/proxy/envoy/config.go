@@ -529,9 +529,9 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 			operation = IngressTraceOperation
 		}
 
-		l := buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
+		listener := buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
 			fmt.Sprintf("%d", port), useRemoteAddress, operation, true, config)
-		listeners = append(listeners, l)
+		listeners = append(listeners, listener)
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
 

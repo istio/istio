@@ -1959,6 +1959,28 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 	return nil
 }
 
+func ValidateForeignService(config proto.Message) (errs error) {
+	foreignService := config.(*routingv2.ForeignService)
+	for _, host := range foreignService.Hosts {
+		errs = appendErrors(errs, ValidateFQDN(host))
+	}
+
+	// TODO: fs.Discovery
+	// TODO: fs.Endpoints
+
+	for _, port := range foreignService.Ports {
+		// TODO: port.Protocol
+		errs = appendErrors(errs, ValidatePort(int(port.InPort)))
+		// TODO: port.Name
+		if port.OutPort != 0 {
+			errs = appendErrors(errs, ValidatePort(int(port.OutPort)))
+		}
+		// TODO: port.TlsUpgrade
+	}
+
+	return
+}
+
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
 // error is nil (allowing validation without branching).
 func appendErrors(err error, errs ...error) error {
