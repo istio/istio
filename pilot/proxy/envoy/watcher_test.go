@@ -144,13 +144,13 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 					called <- true
 				},
 			}
-			node := proxy.Node{
-				Type:      proxy.Ingress,
+			node := model.Node{
+				Type:      model.Ingress,
 				ID:        "id",
 				Domain:    "domain",
 				IPAddress: "ip",
 			}
-			config := proxy.DefaultProxyConfig()
+			config := model.DefaultProxyConfig()
 			config.AvailabilityZone = tt.az
 			pilotStub := httptest.NewServer(
 				&pilotStubHandler{States: tt.pilotStates},
