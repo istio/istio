@@ -946,7 +946,6 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	return httpConfigs.normalize()
 }
 
-
 func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	instances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
