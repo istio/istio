@@ -1919,16 +1919,34 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	// TODO: validate short name / FQDN
-	if destination.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("route rule destination should not be empty"))
+	errs = appendErrors(errs, ValidateWildcardDomain(destination.Name))
+	if destination.Subset != "" {
+		errs = appendErrors(errs, validateSubsetName(destination.Subset))
+	}
+	if destination.Port != nil {
+		errs = appendErrors(errs, validatePortSelector(destination.Port))
 	}
 
-	// TODO: Subset
-
-	// TODO: Port
-
 	return
+}
+
+func validateSubsetName(name string) error {
+	return nil // TODO: validate as DNS1123 label?
+}
+
+func validatePortSelector(selector *routingv2.PortSelector) error {
+	if selector == nil {
+		return nil
+	}
+
+	if name := selector.GetName(); name != "" {
+		if !IsDNS1123Label(name) {
+			return fmt.Errorf("%s is not a valid subset name", name)
+		}
+		return nil
+	}
+
+	return ValidatePort(int(selector.GetNumber()))
 }
 
 func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
@@ -1962,7 +1980,11 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 func ValidateForeignService(config proto.Message) (errs error) {
 	foreignService := config.(*routingv2.ForeignService)
 	for _, host := range foreignService.Hosts {
-		errs = appendErrors(errs, ValidateFQDN(host))
+		if host == "" {
+			errs = appendErrors(errs, fmt.Errorf("host must be non-empty"))
+		}
+		// TODO: validate as CIDR or wildcard DNS name
+		// errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}
 
 	// TODO: fs.Discovery
