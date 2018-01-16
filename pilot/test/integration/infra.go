@@ -483,6 +483,10 @@ func (infra *infra) deleteConfig(inFile string, data map[string]string) error {
 			return err
 		}
 	}
+
+	sleepTime := time.Second * 3
+	log.Infof("Sleeping %v for the config to propagate", sleepTime)
+	time.Sleep(sleepTime)
 	return nil
 }
 
