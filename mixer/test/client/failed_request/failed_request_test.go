@@ -93,6 +93,7 @@ const reportAttributesMixerFail = `
   "response.time": "*",
   "response.size": 41,
   "response.duration": "*",
+  "response.code": 401,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain",
