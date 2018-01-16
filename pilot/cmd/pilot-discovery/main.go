@@ -131,6 +131,8 @@ func init() {
 
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
+
+	rootCmd.RunE = discoveryCmd.RunE
 }
 
 func main() {
