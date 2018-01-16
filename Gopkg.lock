@@ -1029,7 +1029,8 @@
     "periodic",
     "stats"
   ]
-  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
+  revision = "19635c4d749c06541f8202734992a243ef09db70"
+  version = "v0.6.2"
 
 [[projects]]
   branch = "master"
@@ -1274,6 +1275,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "83aa23f3220905091881412201d522ef42ad7142904f66cae8ffb17ebcb45632"
+  inputs-digest = "50d79483060442f7699dd134b8b38a2cdcb9ad523d5dcef5b0001296bb937084"
   solver-name = "gps-cdcl"
   solver-version = 1
