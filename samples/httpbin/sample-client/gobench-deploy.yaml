@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: gobench
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: gobench
+        version: v1
+    spec:
+      containers:
+      - image: piotrminkina/gobench:latest
+        imagePullPolicy: IfNotPresent
+        name: gobench
+        command: ["/bin/sleep","1000d"]

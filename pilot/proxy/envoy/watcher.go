@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -90,6 +91,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
+	go w.retrieveAZ(ctx, time.Duration(time.Second*10))
 
 	<-ctx.Done()
 }
@@ -105,6 +107,31 @@ func (w *watcher) Reload() {
 	config.Hash = h.Sum(nil)
 
 	w.agent.ScheduleConfigUpdate(config)
+}
+
+// retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
+// it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
+func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration) {
+	for w.config.AvailabilityZone == "" {
+		time.Sleep(delay)
+		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+		if err != nil {
+			log.Infof("Error retrieving availability zone from pilot: %v", err)
+		} else {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Infof("Error reading availability zone response from pilot: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+			} else {
+				w.config.AvailabilityZone = string(body)
+				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
+				w.Reload()
+			}
+			resp.Body.Close()
+		}
+	}
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
