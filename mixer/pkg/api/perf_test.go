@@ -25,9 +25,9 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -146,7 +146,7 @@ func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	qr := &adapter.QuotaResult{
 		Status: status.OK,
