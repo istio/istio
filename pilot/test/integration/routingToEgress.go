@@ -281,14 +281,12 @@ func (t *routingToEgress) verifyEgressRedirectRewrite(src, dstURL, targetHost, t
 	log.Infof("Making 1 request (%s) from %s...\n", dstURL, src)
 
 	resp := t.clientRequest(src, dstURL, 1, "")
-
 	if len(resp.code) == 0 || resp.code[0] != httpOk {
 		return fmt.Errorf("redirect verification failed: response status code: %v, expected %v",
 			resp.code, httpOk)
 	}
 
 	var actualRedirection string
-
 	if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.body); len(matches) >= 2 {
 		actualRedirection = matches[1]
 	}
