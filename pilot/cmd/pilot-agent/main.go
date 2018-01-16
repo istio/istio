@@ -121,6 +121,7 @@ var (
 			if err != nil {
 				log.Infof("Error retrieving availability zone from pilot: %v", err)
 			} else {
+				defer azResp.Body.Close()
 				body, err := ioutil.ReadAll(azResp.Body)
 				if err != nil {
 					log.Infof("Error reading availability zone response from pilot: %v", err)
