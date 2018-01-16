@@ -305,6 +305,7 @@
     "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
+    "protoc-gen-go/plugin",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -696,6 +697,12 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/shurcooL/sanitized_anchor_name"
+  packages = ["."]
+  revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
+
+[[projects]]
   name = "github.com/spf13/cobra"
   packages = [
     ".",
@@ -987,6 +994,12 @@
   version = "v0.9.0"
 
 [[projects]]
+  name = "gopkg.in/russross/blackfriday.v2"
+  packages = ["."]
+  revision = "cadec560ec52d93835bf2f15bd794700d3a2473b"
+  version = "v2.0.0"
+
+[[projects]]
   name = "gopkg.in/square/go-jose.v2"
   packages = [
     ".",
@@ -1276,6 +1289,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a29715adf037af9b99c360f7e3a01146a57daba018818b2b11b69ac6c7fa4a47"
+  inputs-digest = "49efb9f184f592ff883c8d6e94a4e86daa0cdebd85cfcef38f6cc582e53bf12c"
   solver-name = "gps-cdcl"
   solver-version = 1

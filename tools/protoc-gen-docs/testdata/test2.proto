@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+// Package-level comment 2
+package testpkg;
+
+message Test2 {
+    // field1 is a field
+    int32 field1 = 1;
+
+    // an array of strings
+    repeated string str = 2;
+
+    double field3 = 3;
+    float field4 = 4;
+    fixed32 field5 = 5;
+    sfixed32 field6 = 6;
+    sint32 field7 = 7;
+    uint32 field8 = 8;
+}
