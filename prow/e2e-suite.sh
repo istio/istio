@@ -55,7 +55,8 @@ fi
 
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
-HUB=${HUB:-"gcr.io/istio-testing"}
+export HUB=${HUB:-"gcr.io/istio-testing"}
+export TAG="${GIT_SHA}"
 
 # Download envoy and go deps
 ${ISTIO_GO}/bin/init.sh
@@ -69,4 +70,4 @@ mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
 trap "cp -a /tmp/istio* ${GOPATH}/src/istio.io/istio/_artifacts" EXIT
 
 echo 'Running Integration Tests'
-make e2e_all
+time make e2e_all
