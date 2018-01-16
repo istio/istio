@@ -17,7 +17,7 @@ jobs:
       # To build docker containers or run tests in a docker
       - setup_remote_docker
       - run: make deb BAZEL_BUILD_ARGS="-j 4"
-      - run: make test_envoy
+      - run: make test
       - save_cache:
           key: repo-cache-{{ checksum "WORKSPACE" }}
           paths:
