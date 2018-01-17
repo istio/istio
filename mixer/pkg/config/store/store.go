@@ -145,7 +145,7 @@ type store struct {
 	queue *eventQueue
 }
 
-func (s *store2) RegisterProbe(c probe.Controller, name string) {
+func (s *store) RegisterProbe(c probe.Controller, name string) {
 	if e, ok := s.backend.(probe.SupportsProbe); ok {
 		e.RegisterProbe(c, name)
 	}

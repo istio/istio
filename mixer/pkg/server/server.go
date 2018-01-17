@@ -195,7 +195,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
 			e.RegisterProbe(s.readinessProbe, "dispatcher")
 		}
-		store2.RegisterProbe(s.readinessProbe, "store2/"+configStore2URL)
+		store2.RegisterProbe(s.readinessProbe, "store2/"+configStoreURL)
 	}
 
 	return s, nil
