@@ -127,8 +127,8 @@ class TcpInstance : public Network::Filter,
     ENVOY_CONN_LOG(debug,
                    "Called TcpInstance onNewConnection: remote {}, local {}",
                    filter_callbacks_->connection(),
-                   filter_callbacks_->connection().remoteAddress().asString(),
-                   filter_callbacks_->connection().localAddress().asString());
+                   filter_callbacks_->connection().remoteAddress()->asString(),
+                   filter_callbacks_->connection().localAddress()->asString());
 
     handler_ = mixer_control_.controller()->CreateRequestHandler();
     if (state_ == State::NotStarted) {
@@ -187,7 +187,7 @@ class TcpInstance : public Network::Filter,
 
   bool GetSourceIpPort(std::string* str_ip, int* port) const {
     return Utils::GetIpPort(
-        filter_callbacks_->connection().remoteAddress().ip(), str_ip, port);
+        filter_callbacks_->connection().remoteAddress()->ip(), str_ip, port);
   }
   bool GetSourceUser(std::string* user) const {
     return Utils::GetSourceUser(&filter_callbacks_->connection(), user);
