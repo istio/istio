@@ -55,9 +55,14 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
     popd
+fi
 
+if [ ! -f $GO_TOP/bin/envoy ] ; then
     mkdir -p $GO_TOP/bin
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GO_TOP/bin/envoy
+fi
 
+if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
     ln -sf $GO_TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
 fi
+
