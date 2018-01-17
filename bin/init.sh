@@ -24,7 +24,7 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=${DEP:-$(shell which dep || echo "${ISTIO_BIN}/dep" )}
+DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
 # Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
