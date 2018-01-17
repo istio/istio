@@ -27,8 +27,8 @@ import (
 )
 
 const (
-  // The default path/file of root cert.
-  defaultRoot = "/etc/certs/root-cert.pem"
+	// The default path/file of root cert.
+	defaultRoot = "/etc/certs/root-cert.pem"
 )
 
 var (
