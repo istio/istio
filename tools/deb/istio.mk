@@ -1,4 +1,4 @@
-.PHONY: deb/build-in-docker sidecar.deb
+.PHONY: deb/build-in-docker sidecar.deb deb
 
 # Make the deb image using the CI/CD image and docker, for users who don't have 'fpm' installed.
 # TODO: use 'which fpm' to detect if fpm is installed on host, consolidate under one target ('deb')
@@ -19,7 +19,7 @@ sidecar.deb: ${OUT}/istio-sidecar.deb
 
 deb: ${OUT}/istio-sidecar.deb
 
-ISTIO_DEB_SRC=tools/deb/istio-start.sh \
+ISTIO_DEB_SRC:=tools/deb/istio-start.sh \
 			  tools/deb/istio-iptables.sh \
 			  tools/deb/istio.service \
 			  tools/deb/istio-auth-node-agent.service \
