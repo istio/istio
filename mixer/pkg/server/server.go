@@ -226,7 +226,7 @@ func (s *Server) Wait() error {
 func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
-		s.Wait()
+		_ = s.Wait()
 	}
 
 	if s.listener != nil {
@@ -254,7 +254,7 @@ func (s *Server) Close() error {
 	}
 
 	// final attempt to purge buffered logs
-	log.Sync()
+	_ = log.Sync()
 
 	return nil
 }
