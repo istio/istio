@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/fortio/fhttp"
+	flog "istio.io/fortio/log"
 	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -500,11 +501,13 @@ func TestRateLimit(t *testing.T) {
 			QPS:        10,
 			Exactly:    100, // will make exactly 100 calls, so run for about 10 seconds
 			NumThreads: 8,
+			Out:        os.Stderr, // Only needed because of log capture issue
 		},
 		HTTPOptions: fhttp.HTTPOptions{
 			URL: url,
 		},
 	}
+
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
@@ -780,6 +783,7 @@ func doMixerRule(ruleName string, do kubeDo) error {
 }
 
 func setTestConfig() error {
+	flog.SetOutput(os.Stderr)
 	cc, err := framework.NewCommonConfig("mixer_test")
 	if err != nil {
 		return err
