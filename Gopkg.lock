@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "0cebc639926eb91b0192dae4b28bc808417e764c"
-  version = "v1.12.61"
+  revision = "b0e76431638de15ec1e6be51b6f745e1f2134fde"
+  version = "v1.12.63"
 
 [[projects]]
   branch = "master"
@@ -331,7 +331,7 @@
   branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
-  revision = "c988f775700b9ab14b5acb7502046fa341daf82d"
+  revision = "922ceac0585d40f97d283d921f872fc50480e06e"
 
 [[projects]]
   branch = "master"
@@ -379,7 +379,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "57f1c660ea6fe700cde9d9c964c820ec985c731e"
+  revision = "936e48acce6798b2efd69db8ac3c8ffe7f67784f"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -390,8 +390,8 @@
 [[projects]]
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "7f08801859139f86dfafd1c296e2cba9a80d292e"
-  version = "v1.6.0"
+  revision = "53c1911da2b537f792e7cafcb446b05ffe33b996"
+  version = "v1.6.1"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "810d7000345868fc619eb81f46307107118f4ae1"
+  revision = "fff93fa7cd278d84afc205751523809c464168ab"
 
 [[projects]]
   branch = "master"
@@ -888,7 +888,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
+  revision = "8ea45f96742f825c49e900f42a01928554b5a6a0"
 
 [[projects]]
   branch = "master"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "713cd087da595a636f7754020c50d6978e9cd09e"
+  revision = "373a4c220f5c90e5b7ff7101779c5be385d171be"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1019,7 +1019,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "ba8e7cab9e80a538014df6aa8676b98d398b9779"
+  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1029,8 +1029,8 @@
     "periodic",
     "stats"
   ]
-  revision = "19635c4d749c06541f8202734992a243ef09db70"
-  version = "v0.6.2"
+  revision = "369a81e3d4f84af156636408f59ecd8711085960"
+  version = "v0.6.3"
 
 [[projects]]
   branch = "master"
@@ -1275,6 +1275,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "50d79483060442f7699dd134b8b38a2cdcb9ad523d5dcef5b0001296bb937084"
+  inputs-digest = "e5ef64c5ee6d9a2ca8152e9e9b9324340b8af18d6ddfdb99db18d4648aa46f36"
   solver-name = "gps-cdcl"
   solver-version = 1
