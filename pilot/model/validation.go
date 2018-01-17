@@ -1171,13 +1171,7 @@ func validateConnectionPool(settings *routingv2.ConnectionPoolSettings) (errs er
 }
 
 func validateLoadBalancer(settings *routingv2.LoadBalancerSettings) (errs error) {
-	if settings == nil {
-		return
-	}
-
-	// simple load balancing is always valid
-	// TODO: settings.GetConsistentHash()
-
+	// load balancing is always valid
 	return
 }
 
@@ -1813,7 +1807,7 @@ func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDuration(http.Timeout))
 	}
-
+	errs = appendErrors(errs, validateHashPolicy(http.HashPolicy))
 	return
 }
 
@@ -1955,6 +1949,13 @@ func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) error {
 func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
+	}
+	return nil
+}
+
+func validateHashPolicy(policy *routingv2.HashPolicy) error {
+	if policy != nil && policy.HeaderName == "" {
+		return errors.New("hash policy must specify a header name")
 	}
 	return nil
 }

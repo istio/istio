@@ -303,6 +303,19 @@ func TestClusterDiscoveryIngressError(t *testing.T) {
 	}
 }
 
+
+func TestClusterDiscoveryRingHashLoadBalancer(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	//TODO v1alpha2 only
+	addConfig(registry, destinationRuleRingHashLoadBalancerV2, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ring-hash.json", t)
+}
+
+
 func TestClusterDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
 	mockDiscovery.ServicesError = errors.New("mock Services() error")
@@ -593,6 +606,17 @@ func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-router-weighted.json", t)
 	}
+}
+
+func TestRouteDiscoveryRouterHashPolicy(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	// TODO: v1alpha2 only
+	addConfig(registry, hashPolicyRouteRuleV2, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-hash-policy.json", t)
 }
 
 func TestListenerDiscoverySidecar(t *testing.T) {

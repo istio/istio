@@ -23,7 +23,6 @@ import (
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pkg/log"
 )
 
 func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
@@ -132,10 +131,14 @@ func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSett
 	}
 
 	if consistent := policy.GetConsistentHash(); consistent != nil {
-		// cluster.LbType = LbTypeRingHash
-		// TODO: need to set special values in the route config
-		// see: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html#ring-hash
-		log.Warn("Consistent hash load balancing type is not currently supported")
+		cluster.LbType = LbTypeRingHash
+		ringSize := int(consistent.GetMinimumRingSize())
+		if ringSize == 0 {
+			ringSize = 1024
+		}
+		cluster.RingHashLbConfig = &RingHashLbConfig{
+			MinimumRingSize: ringSize,
+		}
 	} else {
 		switch policy.GetSimple() {
 		case routingv2.LoadBalancerSettings_LEAST_CONN:

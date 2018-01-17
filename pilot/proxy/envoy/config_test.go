@@ -243,6 +243,11 @@ var (
 		file: "testdata/destination-hello-v1alpha2.yaml.golden",
 	}
 
+	destinationRuleRingHashLoadBalancerV2 = fileConfig {
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-lb-ring-hash"},
+		file: "testdata/destination-lb-ring-hash-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
@@ -321,6 +326,11 @@ var (
 	websocketRouteRuleV2 = fileConfig{
 		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route-v1alpha2.yaml.golden",
+	}
+
+	hashPolicyRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "hash-policy"},
+		file: "testdata/hash-policy-route-v1alpha2.yaml.golden",
 	}
 
 	egressRule = fileConfig{

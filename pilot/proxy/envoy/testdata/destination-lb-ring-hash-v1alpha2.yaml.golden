@@ -1,0 +1,9 @@
+name: hello
+subsets:
+  - name: v0
+    labels:
+      version: v0
+trafficPolicy:
+  loadBalancer:
+    consistentHash:
+      minimumRingSize: 10
