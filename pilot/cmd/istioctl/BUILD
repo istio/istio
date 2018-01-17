@@ -8,6 +8,7 @@ go_library(
         "main.go",
         "mixer.go",
         "register.go",
+        "deregister.go",
     ],
     visibility = ["//visibility:private"],
     deps = [
