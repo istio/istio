@@ -1,0 +1,10 @@
+{
+  "Deadline": "90s",
+  "Linters": {
+    "adapterlinter": "adapterlinter:PATH:LINE:COL:MESSAGE"
+  },
+  "Enable": [
+    "adapterlinter"
+  ]
+}
+
