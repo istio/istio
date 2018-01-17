@@ -33,4 +33,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        env:
+        - name: WITH_ISTIO
+          value: "true"
 ---
