@@ -180,6 +180,15 @@
   version = "v3.1.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/docker/distribution"
+  packages = [
+    "digestset",
+    "reference"
+  ]
+  revision = "277ed486c948042cab91ad367c379524f3b25e18"
+
+[[projects]]
   name = "github.com/emicklei/go-restful"
   packages = [
     ".",
@@ -593,6 +602,12 @@
   version = "v0.5.13"
 
 [[projects]]
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+  version = "v1.0.0-rc1"
+
+[[projects]]
   name = "github.com/opentracing/opentracing-go"
   packages = [
     ".",
@@ -959,6 +974,7 @@
     "credentials",
     "credentials/oauth",
     "encoding",
+    "encoding/gzip",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "internal",
@@ -1082,7 +1098,8 @@
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
-    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+    "pkg/features"
   ]
   revision = "6f29dd12234812844d29f52bd520bb01374619ce"
 
@@ -1134,6 +1151,15 @@
     "third_party/forked/golang/reflect"
   ]
   revision = "68f9c3a1feb3140df59c67ced62d3a5df8e6c9c2"
+
+[[projects]]
+  branch = "master"
+  name = "k8s.io/apiserver"
+  packages = [
+    "pkg/features",
+    "pkg/util/feature"
+  ]
+  revision = "3de2cd9dc7a4ce08dd991553f8a99af6b1b2119f"
 
 [[projects]]
   branch = "release-6.0"
@@ -1272,9 +1298,24 @@
   ]
   revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
+[[projects]]
+  branch = "release-1.9"
+  name = "k8s.io/kubernetes"
+  packages = [
+    "pkg/apis/autoscaling",
+    "pkg/apis/core",
+    "pkg/apis/core/v1",
+    "pkg/apis/extensions",
+    "pkg/apis/networking",
+    "pkg/features",
+    "pkg/util/parsers",
+    "pkg/util/pointer"
+  ]
+  revision = "5fa2db2bd46ac79e5e00a4e6ed24191080aa463b"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5ef64c5ee6d9a2ca8152e9e9b9324340b8af18d6ddfdb99db18d4648aa46f36"
+  inputs-digest = "ae7cf85d60a3e800de6559459b1ffafeccd29cfa557656e587652c4b9f0ec14d"
   solver-name = "gps-cdcl"
   solver-version = 1

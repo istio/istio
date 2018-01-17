@@ -5,7 +5,6 @@ dependencies:
   - name: mixer
     version: 0.3.0
     condition: global.mixer.enabled
-  - name: initializer
+  - name: sidecar-injector
     version: 0.3.0
-    condition: global.initializer.enabled
-  
+    condition: global.sidecar-injector.enabled

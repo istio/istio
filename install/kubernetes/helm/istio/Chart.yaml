@@ -4,7 +4,7 @@ description: Helm chart for complete istio deployment
 keywords:
   - istio
   - security
-  - initializer
+  - sidecar-injector
   - mixer
   - pilot
 sources:
