@@ -102,7 +102,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15004

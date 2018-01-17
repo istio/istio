@@ -34,8 +34,7 @@ import (
 
 	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
-
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 )
 
 type TestAgent struct {
@@ -57,9 +56,9 @@ func TestRunReload(t *testing.T) {
 			called <- true
 		},
 	}
-	config := proxy.DefaultProxyConfig()
-	node := proxy.Node{
-		Type: proxy.Ingress,
+	config := model.DefaultProxyConfig()
+	node := model.Node{
+		Type: model.Ingress,
 		ID:   "random",
 	}
 	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
@@ -145,13 +144,13 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 					called <- true
 				},
 			}
-			node := proxy.Node{
-				Type:      proxy.Ingress,
+			node := model.Node{
+				Type:      model.Ingress,
 				ID:        "id",
 				Domain:    "domain",
 				IPAddress: "ip",
 			}
-			config := proxy.DefaultProxyConfig()
+			config := model.DefaultProxyConfig()
 			config.AvailabilityZone = tt.az
 			pilotStub := httptest.NewServer(
 				&pilotStubHandler{States: tt.pilotStates},
@@ -280,7 +279,7 @@ func TestGenerateCertHash(t *testing.T) {
 	}()
 
 	h := sha256.New()
-	authFiles := []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename}
+	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
 	for _, file := range authFiles {
 		content := []byte(file)
 		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
@@ -307,7 +306,7 @@ func TestGenerateCertHash(t *testing.T) {
 }
 
 func TestEnvoyArgs(t *testing.T) {
-	config := proxy.DefaultProxyConfig()
+	config := model.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
 
@@ -335,7 +334,7 @@ func TestEnvoyArgs(t *testing.T) {
 }
 
 func TestEnvoyRun(t *testing.T) {
-	config := proxy.DefaultProxyConfig()
+	config := model.DefaultProxyConfig()
 	dir := os.Getenv("ISTIO_BIN")
 	var err error
 	if len(dir) == 0 {
