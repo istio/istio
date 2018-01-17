@@ -493,16 +493,18 @@ func TestRateLimit(t *testing.T) {
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-	// run at a large QPS (here 100) for a minute to ensure that enough
-	// traffic is generated to trigger 429s from the rate limit rule
+	// run at a high enough QPS (here 10) to ensure that enough
+	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Duration:   1 * time.Minute,
+			Exactly:    100, // will make exactly 100 calls, so run for about 10 seconds
 			NumThreads: 8,
 		},
+		HTTPOptions: fhttp.HTTPOptions{
+			URL: url,
+		},
 	}
-	opts.Init(url)
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
@@ -517,8 +519,8 @@ func TestRateLimit(t *testing.T) {
 	actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
 	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s)",
-		totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs)
+	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
+		totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := succReqs
