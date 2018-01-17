@@ -2282,9 +2282,6 @@ type TestInfo struct {
 	// tracking checks will be skipped.
 	Referenced []string
 
-	// Type is the expected of the expression upon successful compilation.
-	Type descriptor.ValueType
-
 	// Err contains the expected error message of a failed evaluation.
 	Err string
 
@@ -2303,6 +2300,9 @@ type TestInfo struct {
 
 	// Externs holds any additional externs that should be used during evaluation.
 	Externs map[string]interface{}
+
+	// Type is the expected type of the expression upon successful compilation.
+	Type descriptor.ValueType
 
 	// SkipAst indicates that AST based evaluator should not be used for this test.
 	SkipAst bool

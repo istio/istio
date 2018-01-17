@@ -90,7 +90,7 @@ type pilotStubState struct {
 func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
 	w.WriteHeader(p.States[0].StatusCode)
-	w.Write([]byte(p.States[0].Response))
+	_, _ = w.Write([]byte(p.States[0].Response))
 	p.States = p.States[1:]
 	p.Unlock()
 }

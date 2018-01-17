@@ -58,7 +58,7 @@ func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 			GenerateName: prefix,
 		},
 	}
-	namespace, err := clientset.Core().Namespaces().Create(template)
+	namespace, err := clientset.CoreV1().Namespaces().Create(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to create a namespace (error: %v)", err)
 	}
@@ -241,11 +241,8 @@ func CreateIstioCARoleBinding(clientset kubernetes.Interface, namespace string) 
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	if _, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding)
+	return err
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,

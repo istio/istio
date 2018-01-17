@@ -197,5 +197,5 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
-	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", true, "Use debug images and settings for the sidecar")
+	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 }

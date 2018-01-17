@@ -91,7 +91,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, time.Duration(time.Second*10))
+	go w.retrieveAZ(ctx, time.Second*10)
 
 	<-ctx.Done()
 }
@@ -129,7 +129,7 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration) {
 				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
 				w.Reload()
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}
 }

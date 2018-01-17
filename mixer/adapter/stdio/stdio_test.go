@@ -720,8 +720,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)

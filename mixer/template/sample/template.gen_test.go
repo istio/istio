@@ -78,7 +78,6 @@ type fakeMyApaHandler struct {
 	adapter.Handler
 	retOutput     *istio_mixer_adapter_sample_myapa.Output
 	retError      error
-	cnfgCallInput interface{}
 	procCallInput interface{}
 }
 
