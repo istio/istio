@@ -75,8 +75,12 @@ func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Nod
 	}
 }
 
-// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
-const defaultMinDelay = 10 * time.Second
+const (
+	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
+	defaultMinDelay = 10 * time.Second
+	azRetryInterval = time.Second * 30
+	azRetryAttempts = 10
+)
 
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
@@ -92,7 +96,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, time.Duration(time.Second*10), 10)
+	go w.retrieveAZ(ctx, azRetryInterval, azRetryAttempts)
 
 	<-ctx.Done()
 }
