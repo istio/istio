@@ -24,13 +24,15 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
+DEP=${DEP:-$(shell which dep || echo "${ISTIO_BIN}/dep" )}
+
 # Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
     ${DEP} ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+	  cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
     ${DEP} ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+	  cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
             ( ${DEP} ensure -vendor-only ; \
