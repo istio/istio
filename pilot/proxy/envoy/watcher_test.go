@@ -34,7 +34,6 @@ import (
 	"github.com/howeyc/fsnotify"
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/model"
 )
 
