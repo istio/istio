@@ -43,7 +43,6 @@ go_test(
     deps = [
         "//pilot/model:go_default_library",
         "//pilot/platform/kube:go_default_library",
-        "//pilot/proxy:go_default_library",
         "//pilot/test/mock:go_default_library",
         "//pilot/test/util:go_default_library",
         "//pkg/log:go_default_library",

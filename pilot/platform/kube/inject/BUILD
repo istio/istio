@@ -10,7 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pilot/platform/kube:go_default_library",
-        "//pilot/proxy:go_default_library",
+        "//pilot/model:go_default_library",
         "//pilot/tools/version:go_default_library",
         "//pkg/log:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
@@ -55,7 +55,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pilot/platform/kube:go_default_library",
-        "//pilot/proxy:go_default_library",
+        "//pilot/model:go_default_library",
         "//pilot/test/util:go_default_library",
         "//pilot/tools/version:go_default_library",
         "//tests/k8s:go_default_library",
