@@ -110,7 +110,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Port:        instance.ServicePort,
 			ServicePort: port,
 		},
-
+		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
 			Hostname: serviceHostname(instance.ServiceName),
 			Address:  instance.ServiceAddress,

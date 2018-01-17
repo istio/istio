@@ -27,7 +27,6 @@ import (
 	adptTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
@@ -193,7 +192,7 @@ func TestQuota(t *testing.T) {
 			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
 
 			cr, err := m.Quota(context.Background(), attribute.GetMutableBag(nil),
-				&aspect.QuotaMethodArgs{
+				&QuotaMethodArgs{
 					Quota: "i1",
 				})
 

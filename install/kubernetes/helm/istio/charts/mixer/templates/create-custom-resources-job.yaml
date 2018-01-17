@@ -1,0 +1,35 @@
+{{- $istio_namespace := .Values.global.namespace }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    istio: mixer
+  name: mixer-create-custom-resources-job
+  namespace: {{$istio_namespace}}
+spec:
+  template:
+    metadata:
+      labels:
+        istio: mixer
+      name: mixer-create-custom-resources-job
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube_hub }}:{{ .Values.global.hyperkube_tag }}"
+          command:
+            - ./kubectl
+            - apply
+            - -f
+            - /tmp/mixer/custom-resources.yaml
+          volumeMounts:
+            - mountPath: "/tmp/mixer"
+              name: tmp-configmap-mixer
+      volumes:
+        - name: tmp-configmap-mixer
+          configMap:
+            name: mixer-custom-resources-configmap
+      restartPolicy: Never # CRD might take some time till they are available to comsume

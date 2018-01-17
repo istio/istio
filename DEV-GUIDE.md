@@ -25,6 +25,17 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
+- [Working with CircleCI](#working-with-circleci)
+- [Git workflow](#git-workflow)
+  - [Fork the main repository](#fork-the-main-repository)
+  - [Clone your fork](#clone-your-fork)
+  - [Enable pre commit hook](#enable-pre-commit-hook)
+  - [Create a branch and make changes](#create-a-branch-and-make-changes)
+  - [Keeping your fork in sync](#keeping-your-fork-in-sync)
+  - [Committing changes to your fork](#committing-changes-to-your-fork)
+  - [Creating a pull request](#creating-a-pull-request)
+  - [Getting a code review](#getting-a-code-review)
+  - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -303,6 +314,20 @@ passed both unit and integration tests. We only merge pull requests when
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
 
+## Working with CircleCI
+
+We use CircleCI as one of the systems for continuous integration. Any PR
+will have to pass all CircleCI tests (in addition to Prow tests) before
+being ready to merge. When you fork the Istio repository, you will
+automatically inherit the CircleCI testing environment as well, allowing
+you to fully reproduce our testing infrastructure. If you have already
+signed up for CircleCI, you can test your code changes in your fork against
+the full suite of tests that we run for every PR.
+
+Please refer to the
+[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a 
+detailed guide on using CircleCI with Istio.
+
 ## Git workflow
 
 Below, we outline one of the more common Git workflows that core developers use.
@@ -322,9 +347,9 @@ there is more than one directory in your `$GOPATH`.
 
 ```shell
 cd $ISTIO
-git clone https://github.com/$GITHUB_USER/istio.git
+git clone https://github.com/$GITHUB_USER/istio
 cd istio
-git remote add upstream 'https://github.com/istio/istio.git'
+git remote add upstream 'https://github.com/istio/istio'
 git config --global --add http.followRedirects 1
 ```
 

@@ -1,4 +1,4 @@
-Istio:
+istio:
    deploy_base_config: true
    initializer_enabled: false
    mixer_enabled: true
@@ -18,3 +18,5 @@ global:
    proxy_debug: false
    pilot_hub: gcr.io/istio-testing
    pilot_tag: 0.4.0
+   hyperkube_hub: quay.io/coreos/hyperkube
+   hyperkube_tag: v1.7.6_coreos.0

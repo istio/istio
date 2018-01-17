@@ -147,7 +147,7 @@ jobs:
       - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -176,7 +176,7 @@ jobs:
       - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -241,7 +241,8 @@ jobs:
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F pilot
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/pkg
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/cmd
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F security
@@ -274,6 +275,27 @@ jobs:
             make pilot-test mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
+
+  racetest:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir -p /go/out/racetests
+            go get github.com/jstemmer/go-junit-report
+            free
+            trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
+            make localTestEnv
+            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
+      - store_test_results:
+          path: /go/out/racetests
 
   build:
     <<: *defaults
@@ -440,6 +462,9 @@ workflows:
           requires:
             - build
       - test:
+          requires:
+            - dependencies
+      - racetest:
           requires:
             - dependencies
       - e2e-simple:

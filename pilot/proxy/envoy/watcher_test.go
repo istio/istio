@@ -20,12 +20,19 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
 
 	"istio.io/istio/pilot/proxy"
@@ -71,9 +78,117 @@ func TestRunReload(t *testing.T) {
 	}
 }
 
+type pilotStubHandler struct {
+	sync.Mutex
+	States []pilotStubState
+}
+
+type pilotStubState struct {
+	StatusCode int
+	Response   string
+}
+
+func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.Lock()
+	w.WriteHeader(p.States[0].StatusCode)
+	w.Write([]byte(p.States[0].Response))
+	p.States = p.States[1:]
+	p.Unlock()
+}
+
+func Test_watcher_retrieveAZ(t *testing.T) {
+	tests := []struct {
+		name        string
+		az          string
+		wantReload  bool
+		wantAZ      string
+		pilotStates []pilotStubState
+	}{
+		{
+			name:       "retrieves an AZ and calls for a reload",
+			wantReload: true,
+			wantAZ:     "az1",
+			pilotStates: []pilotStubState{
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "retries if it receives an error",
+			wantReload: true,
+			wantAZ:     "az1",
+			pilotStates: []pilotStubState{
+				{StatusCode: 301, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "retries if it receives non 200 status from pilot",
+			wantReload: true,
+			wantAZ:     "az1",
+			pilotStates: []pilotStubState{
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "do nothing if az is set",
+			az:         "az1",
+			wantAZ:     "az1",
+			wantReload: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := make(chan bool)
+			agent := TestAgent{
+				schedule: func(_ interface{}) {
+					called <- true
+				},
+			}
+			node := proxy.Node{
+				Type:      proxy.Ingress,
+				ID:        "id",
+				Domain:    "domain",
+				IPAddress: "ip",
+			}
+			config := proxy.DefaultProxyConfig()
+			config.AvailabilityZone = tt.az
+			pilotStub := httptest.NewServer(
+				&pilotStubHandler{States: tt.pilotStates},
+			)
+			stubURL, _ := url.Parse(pilotStub.URL)
+			config.DiscoveryAddress = stubURL.Host
+			w := NewWatcher(config, agent, node, nil, nil)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			go w.(*watcher).retrieveAZ(ctx, 0)
+
+			select {
+			case <-called:
+				if !tt.wantReload {
+					t.Errorf("Unexpected reload called")
+				}
+				assert.Equal(t, tt.wantAZ, w.(*watcher).config.AvailabilityZone)
+				cancel()
+			case <-time.After(time.Second):
+				if tt.wantReload {
+					t.Errorf("The callback is not called within time limit " + time.Now().String())
+				}
+				cancel()
+			}
+
+		})
+	}
+}
+
 func TestWatchCerts_Multiple(t *testing.T) {
+
+	lock := sync.Mutex{}
 	called := 0
+
 	callback := func() {
+		lock.Lock()
+		defer lock.Unlock()
 		called++
 	}
 
@@ -93,17 +208,22 @@ func TestWatchCerts_Multiple(t *testing.T) {
 	time.Sleep(maxDelay / 2)
 
 	// Expect no events to be delivered within maxDelay.
+	lock.Lock()
 	if called != 0 {
 		t.Fatalf("Called %d times, want 0", called)
 	}
+	lock.Unlock()
 
 	// wait for quiet period
 	time.Sleep(maxDelay)
 
 	// Expect exactly 1 event to be delivered.
+	lock.Lock()
+	defer lock.Unlock()
 	if called != 1 {
 		t.Fatalf("Called %d times, want 1", called)
 	}
+
 	cancel()
 }
 

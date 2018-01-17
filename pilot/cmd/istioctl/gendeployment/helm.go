@@ -20,7 +20,7 @@ import (
 )
 
 var valuesTemplate = template.Must(template.New("helm").Parse(
-	`Istio:
+	`istio:
    deploy_base_config: true
    initializer_enabled: {{ .Initializer }}
    mixer_enabled: {{ .Mixer }}
@@ -40,6 +40,8 @@ global:
    proxy_debug: {{ .Debug }}
    pilot_hub: {{ .Hub }}
    pilot_tag: {{ .PilotTag }}
+   hyperkube_hub: {{ .HyperkubeHub }}
+   hyperkube_tag: {{ .HyperkubeTag }}
 `))
 
 // fromModel returns a string representation of the values.yaml file for helm config

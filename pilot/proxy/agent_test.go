@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -374,16 +375,24 @@ func TestCascadingAbort(t *testing.T) {
 func TestLockup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	crash := make(chan struct{})
+
 	try := 0
+	lock := sync.Mutex{}
+
 	start := func(config interface{}, epoch int, abort <-chan error) error {
+
+		lock.Lock()
 		if try >= 2 {
 			cancel()
+			lock.Unlock()
 			return nil
 		}
 		try = try + 1
+		lock.Unlock()
 		switch epoch {
 		case 0:
 			<-crash
+
 			return errors.New("crash")
 		case 1:
 			close(crash)
