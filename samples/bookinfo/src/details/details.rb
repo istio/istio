@@ -76,7 +76,7 @@ def get_book_details(id)
 end
 
 def fetch_details_from_external_service(isbn, id)
-    uri = URI.parse('https://www.googleapis.com:443//books/v1/volumes?q=isbn:' + isbn)
+    uri = URI.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:' + isbn)
     http = Net::HTTP.new(uri.host, uri.port)
     http.read_timeout = 5 # seconds
 
