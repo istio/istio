@@ -29,16 +29,16 @@ DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 # Just in case init.sh is called directly, not from Makefile which has a dependency to dep
 if [ ! -f ${DEP} ]; then
     DEP=${ISTIO_BIN}/dep
-  	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+    unset GOOS && go get -u github.com/golang/dep/cmd/dep
 fi
 
 # Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
     ${DEP} ensure -vendor-only
-	  cp Gopkg.lock vendor/Gopkg.lock
+    cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
     ${DEP} ensure -vendor-only
-	  cp Gopkg.lock vendor/Gopkg.lock
+    cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
             ( ${DEP} ensure -vendor-only ; \
@@ -58,7 +58,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     # New version of envoy downloaded. Save it to cache, and clean any old version.
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
 fi
 
