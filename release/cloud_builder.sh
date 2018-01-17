@@ -86,7 +86,6 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
 
-pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} make istioctl-all
 cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl
@@ -95,7 +94,6 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} make istioctl-all
   cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl-stage
 fi
-popd
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
   VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
