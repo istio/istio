@@ -26,6 +26,12 @@ fi
 
 DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
+# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+if [ ! -f ${DEP} ]; then
+    DEP=${ISTIO_BIN}/dep
+  	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+fi
+
 # Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
     ${DEP} ensure -vendor-only
