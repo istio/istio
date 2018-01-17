@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy_test
+package model_test
 
 import (
 	"fmt"
@@ -20,13 +20,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/mock"
 )
 
 func TestServiceNode(t *testing.T) {
 	nodes := []struct {
-		in  proxy.Node
+		in  model.Node
 		out string
 	}{
 		{
@@ -34,8 +33,8 @@ func TestServiceNode(t *testing.T) {
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{
-			in: proxy.Node{
-				Type:   proxy.Ingress,
+			in: model.Node{
+				Type:   model.Ingress,
 				ID:     "random",
 				Domain: "local",
 			},
@@ -48,7 +47,7 @@ func TestServiceNode(t *testing.T) {
 		if out != node.out {
 			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
 		}
-		in, err := proxy.ParseServiceNode(node.out)
+		in, err := model.ParseServiceNode(node.out)
 		if err != nil {
 			t.Errorf("ParseServiceNode(%q) => Got error %v", node.out, err)
 		}
@@ -59,23 +58,23 @@ func TestServiceNode(t *testing.T) {
 }
 
 func TestParsePort(t *testing.T) {
-	if port := proxy.ParsePort("localhost:3000"); port != 3000 {
+	if port := model.ParsePort("localhost:3000"); port != 3000 {
 		t.Errorf("ParsePort(localhost:3000) => Got %d, want 3000", port)
 	}
-	if port := proxy.ParsePort("localhost"); port != 0 {
+	if port := model.ParsePort("localhost"); port != 0 {
 		t.Errorf("ParsePort(localhost) => Got %d, want 0", port)
 	}
 }
 
 func TestDefaultConfig(t *testing.T) {
-	config := proxy.DefaultProxyConfig()
+	config := model.DefaultProxyConfig()
 	if err := model.ValidateProxyConfig(&config); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	if err := model.ValidateMeshConfig(&mesh); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
@@ -88,10 +87,10 @@ defaultConfig:
   configPath: %s
 `, configPath)
 
-	want := proxy.DefaultMeshConfig()
+	want := model.DefaultMeshConfig()
 	want.DefaultConfig.ConfigPath = configPath
 
-	got, err := proxy.ApplyMeshConfigDefaults(yaml)
+	got, err := model.ApplyMeshConfigDefaults(yaml)
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}

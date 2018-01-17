@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
@@ -38,7 +38,7 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
-	return proxy.ApplyMeshConfigDefaults(string(yaml))
+	return model.ApplyMeshConfigDefaults(string(yaml))
 }
 
 // VersionCmd is a sub-command to print version information

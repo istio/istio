@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	role            proxy.Node
+	role            model.Node
 	serviceregistry platform.ServiceRegistry
 
 	// proxy config flags (named identically)
@@ -74,9 +74,9 @@ var (
 				return err
 			}
 			log.Infof("Version %s", version.Line())
-			role.Type = proxy.Sidecar
+			role.Type = model.Sidecar
 			if len(args) > 0 {
-				role.Type = proxy.NodeType(args[0])
+				role.Type = model.NodeType(args[0])
 			}
 
 			// set values from registry platform
@@ -179,15 +179,15 @@ var (
 
 			certs := []envoy.CertSource{
 				{
-					Directory: proxy.AuthCertsPath,
-					Files:     []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename},
+					Directory: model.AuthCertsPath,
+					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
 				},
 			}
 
-			if role.Type == proxy.Ingress {
+			if role.Type == model.Ingress {
 				certs = append(certs, envoy.CertSource{
-					Directory: proxy.IngressCertsPath,
-					Files:     []string{proxy.IngressCertFilename, proxy.IngressKeyFilename},
+					Directory: model.IngressCertsPath,
+					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
 				})
 			}
 
@@ -229,7 +229,7 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 
 	// Flags for proxy configuration
-	values := proxy.DefaultProxyConfig()
+	values := model.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,

@@ -31,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
@@ -106,7 +105,7 @@ func init() {
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
-	proxy.Environment
+	model.Environment
 	server *http.Server
 
 	// TODO Profile and optimize cache eviction policy to avoid
@@ -284,7 +283,7 @@ type DiscoveryServiceOptions struct {
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment proxy.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
@@ -560,19 +559,21 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 			return
 		}
 		resourceCount = uint32(len(endpoints))
-		ds.sdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		if resourceCount > 0 {
+			ds.sdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		}
 	}
 	observeResources(methodName, resourceCount)
 	writeResponse(response, out)
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (proxy.Node, error) {
-	node := request.PathParameter(ServiceNode)
-	role, err := proxy.ParseServiceNode(node)
+func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Node, error) {
+	nodeInfo := request.PathParameter(ServiceNode)
+	svcNode, err := model.ParseServiceNode(nodeInfo)
 	if err != nil {
-		return role, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
+		return svcNode, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
 	}
-	return role, nil
+	return svcNode, nil
 }
 
 // AvailabilityZone responds to requests for an AZ for the given cluster node
@@ -580,12 +581,12 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 	methodName := "AvailabilityZone"
 	incCalls(methodName)
 
-	role, err := ds.parseDiscoveryRequest(request)
+	svcNode, err := ds.parseDiscoveryRequest(request)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	instances, err := ds.HostInstances(map[string]bool{role.IPAddress: true})
+	instances, err := ds.HostInstances(map[string]*model.Node{svcNode.IPAddress: &svcNode})
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
@@ -606,13 +607,13 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseDiscoveryRequest(request)
+		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
 			errorResponse(methodName, response, http.StatusNotFound, "CDS "+err.Error())
 			return
 		}
 
-		clusters, err := buildClusters(ds.Environment, role)
+		clusters, err := buildClusters(ds.Environment, svcNode)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -624,7 +625,9 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			return
 		}
 		resourceCount = uint32(len(clusters))
-		ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		if resourceCount > 0 {
+			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		}
 	}
 	observeResources(methodName, resourceCount)
 	writeResponse(response, out)
@@ -638,13 +641,13 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.ldsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseDiscoveryRequest(request)
+		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
 			errorResponse(methodName, response, http.StatusNotFound, "LDS "+err.Error())
 			return
 		}
 
-		listeners, err := buildListeners(ds.Environment, role)
+		listeners, err := buildListeners(ds.Environment, svcNode)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -657,7 +660,9 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			return
 		}
 		resourceCount = uint32(len(listeners))
-		ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		if resourceCount > 0 {
+			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		}
 	}
 	observeResources(methodName, resourceCount)
 	writeResponse(response, out)
@@ -673,14 +678,14 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.rdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseDiscoveryRequest(request)
+		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
 			errorResponse(methodName, response, http.StatusNotFound, "RDS "+err.Error())
 			return
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
-		routeConfig, err := buildRDSRoute(ds.Mesh, role, routeConfigName,
+		routeConfig, err := buildRDSRoute(ds.Mesh, svcNode, routeConfigName,
 			ds.ServiceDiscovery, ds.IstioConfigStore)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
@@ -692,8 +697,12 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
-		resourceCount = uint32(len(routeConfig.VirtualHosts))
-		ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+		if routeConfig != nil && routeConfig.VirtualHosts != nil {
+			resourceCount = uint32(len(routeConfig.VirtualHosts))
+			if resourceCount > 0 {
+				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+			}
+		}
 	}
 	observeResources(methodName, resourceCount)
 	writeResponse(response, out)
