@@ -78,13 +78,20 @@ kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=
 **Option 1:** Build your own images.
 
 ```
-# Customize .istiorc with your HUB and optional TAG (example: HUB=costinm TAG=mybranch)
+# Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
+# it allows you to customize Makefile rules. For example:
+cat .istiorc.mk
+HUB=costinm
+TAG=mybranch
 
-# Build images on the local docker. 
+# Build images on the local docker.
+make docker
+
+# Build images on the local docker.
 make docker
 
 # Push images to docker registry
-# If you use minikube and its docker environment, images will be  available in minikube for use, 
+# If you use minikube and its docker environment, images will be  available in minikube for use,
 # you can skip this step.
 make push
 
