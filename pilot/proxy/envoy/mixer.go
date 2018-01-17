@@ -28,7 +28,6 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
 
@@ -107,7 +106,7 @@ type FilterMixerConfig struct {
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
+func buildMixerCluster(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
@@ -123,7 +122,7 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []
 		// do nothing
 	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
-		mixerCluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, mixerSAN)
+		mixerCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
 	}
 
 	return mixerCluster
@@ -144,7 +143,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -166,7 +165,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instance
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 	}
 
-	if role.Type == proxy.Sidecar && !outboundRoute {
+	if role.Type == model.Sidecar && !outboundRoute {
 		// Don't forward mixer attributes to the app from inbound sidecar routes
 	} else {
 		v2.ForwardAttributes = &mpb.Attributes{
@@ -263,7 +262,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instance
 }
 
 // Mixer TCP filter config for inbound requests.
-func mixerTCPConfig(role proxy.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
+func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,

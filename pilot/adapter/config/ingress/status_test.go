@@ -27,8 +27,8 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
 
@@ -113,7 +113,7 @@ func TestSyncer(t *testing.T) {
 			},
 		},
 	}
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	mesh.IngressService = svc.Name
 
 	if _, err := client.Core().Services(namespace).Create(&svc); err != nil {

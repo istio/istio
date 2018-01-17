@@ -152,7 +152,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 			return nil, err
 		}
 		for _, endpoint := range endpoints {
-			if addrs[endpoint.ServiceAddress] {
+			if addrs[endpoint.ServiceAddress] != nil {
 				out = append(out, convertInstance(endpoint))
 			}
 		}
