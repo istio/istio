@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Init script downloads or updates envoy and the go dependencies.
+# Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
+# the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
 ISTIO_GO=$ROOT
@@ -14,6 +15,8 @@ GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 OUT=${GO_TOP}/out
 
 export GOPATH=${GOPATH:-$GO_TOP}
+# Normally set by Makefile
+export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
@@ -44,17 +47,21 @@ PROXY=debug-$PROXYVERSION
 if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
+    # New version of envoy downloaded. Save it to cache, and clean any old version.
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
+    rm ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
     popd
 fi
 
 if [ ! -f $GO_TOP/bin/envoy ] ; then
     mkdir -p $GO_TOP/bin
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GO_TOP/bin/envoy
+    # Make sure the envoy binary exists.
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi
 
+# Deprecated, may still be used in some tests
 if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf $GO_TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
+    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
 fi
 
