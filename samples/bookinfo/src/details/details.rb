@@ -110,12 +110,11 @@ def fetch_details_from_external_service(isbn, id)
 end
 
 def get_isbn(book, isbn_type)
-  industryIdentifiers = book['industryIdentifiers']
-  identifiers = industryIdentifiers.select do
+  isbn_dentifiers = book['industryIdentifiers'].select do
     |identifier| identifier['type'] === isbn_type
   end
 
-  return identifiers[0]['identifier']
+  return isbn_dentifiers[0]['identifier']
 end
 
 server.start
