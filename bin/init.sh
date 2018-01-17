@@ -58,7 +58,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     # New version of envoy downloaded. Save it to cache, and clean any old version.
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
     popd
 fi
 
