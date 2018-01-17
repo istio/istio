@@ -20,7 +20,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 )
 
 // Mock values
@@ -42,26 +41,26 @@ var (
 	}
 	HelloInstanceV0 = MakeIP(HelloService, 0)
 	HelloInstanceV1 = MakeIP(HelloService, 1)
-	HelloProxyV0    = proxy.Node{
-		Type:      proxy.Sidecar,
+	HelloProxyV0    = model.Node{
+		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV0,
 		ID:        "v0.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	HelloProxyV1 = proxy.Node{
-		Type:      proxy.Sidecar,
+	HelloProxyV1 = model.Node{
+		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV1,
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Ingress = proxy.Node{
-		Type:      proxy.Ingress,
+	Ingress = model.Node{
+		Type:      model.Ingress,
 		IPAddress: "10.3.3.3",
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Router = proxy.Node{
-		Type:      proxy.Router,
+	Router = model.Node{
+		Type:      model.Router,
 		IPAddress: "10.3.3.5",
 		ID:        "router.default",
 		Domain:    "default.svc.cluster.local",
@@ -211,7 +210,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 }
 
 // HostInstances implements discovery interface
-func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	if sd.HostInstancesError != nil {
 		return nil, sd.HostInstancesError
 	}
@@ -222,7 +221,7 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.Servi
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
-				if addrs[MakeIP(service, v)] {
+				if addrs[MakeIP(service, v)] != nil {
 					for _, port := range service.Ports {
 						out = append(out, MakeInstance(service, port, v, ""))
 					}

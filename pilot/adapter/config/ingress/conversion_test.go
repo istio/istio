@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 )
 
 func TestDecodeIngressRuleName(t *testing.T) {
@@ -71,7 +71,7 @@ func TestEncoding(t *testing.T) {
 }
 
 func TestIngressClass(t *testing.T) {
-	istio := proxy.DefaultMeshConfig().IngressClass
+	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
 		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
@@ -102,7 +102,7 @@ func TestIngressClass(t *testing.T) {
 			},
 		}
 
-		mesh := proxy.DefaultMeshConfig()
+		mesh := model.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 
 		if c.ingressClass != "" {

@@ -338,13 +338,20 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // HostInstances implements a service catalog operation
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(svcNodes map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
+	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				if addrs[ea.IP] {
+				if svcNodes[ea.IP] != nil {
+					if kubeNodes[ea.IP] == nil {
+						err := parseKubeServiceNode(ea.IP, svcNodes[ea.IP], kubeNodes)
+						if err != nil {
+							return out, err
+						}
+					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -364,6 +371,13 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
+								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
+									"with the query for pod %v in namespace %v",
+									ea.IP, pod.GetName(), pod.GetNamespace(),
+									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
+								continue
+							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{

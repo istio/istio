@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package model
 
 import (
-	"errors"
+	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -26,20 +27,19 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/model"
 	"istio.io/istio/pkg/log"
 )
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
 	// Discovery interface for listing services and instances
-	model.ServiceDiscovery
+	ServiceDiscovery
 
 	// Accounts interface for listing service accounts
-	model.ServiceAccounts
+	ServiceAccounts
 
 	// Config interface for listing routing rules
-	model.IstioConfigStore
+	IstioConfigStore
 
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *meshconfig.MeshConfig
@@ -93,11 +93,23 @@ func ParseServiceNode(s string) (Node, error) {
 	out := Node{}
 
 	if len(parts) != 4 {
-		return out, errors.New("missing parts in the service node")
+		return out, fmt.Errorf("missing parts in the service node %q", s)
 	}
 
 	out.Type = NodeType(parts[0])
+
+	switch out.Type {
+	case Sidecar, Ingress, Router:
+	default:
+		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
+	}
 	out.IPAddress = parts[1]
+
+	// Does query from ingress or router have to carry valid IP address?
+	if net.ParseIP(out.IPAddress) == nil && out.Type == Sidecar {
+		return out, fmt.Errorf("invalid IP address %q in the service node %q", out.IPAddress, s)
+	}
+
 	out.ID = parts[2]
 	out.Domain = parts[3]
 	return out, nil
@@ -171,7 +183,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
-	if err := model.ApplyYAML(yaml, &out); err != nil {
+	if err := ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -184,15 +196,15 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := model.ToYAML(prevDefaultConfig)
+		origProxyConfigYAML, err := ToYAML(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := model.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
-	if err := model.ValidateMeshConfig(&out); err != nil {
+	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
 	return &out, nil
