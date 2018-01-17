@@ -21,15 +21,7 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=$(which dep || echo "${GO_TOP}/bin/dep" )
-echo "using dep: ${DEP}"
-
-if [ ${DEP} == "${GO_TOP}/bin/dep" ]; then
-    unset GOOS && go get -u github.com/golang/dep/cmd/dep
-fi
-
-
-# Download dependencies
+# Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
     ${DEP} ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
