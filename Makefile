@@ -15,6 +15,12 @@
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
+BUILD=release
+GCFLAGS:=
+ifeq ($(BUILD),debug)
+	GCFLAGS += GCFLAGS="-N -l"
+endif
+
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 

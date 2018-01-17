@@ -16,6 +16,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
+  - [Building the code with debugger information](#building-the-code-debugger)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
@@ -194,6 +195,41 @@ the use of `-i` flag causes Go to cache intermediate results in
 undesirable as Golang may not erase out of date artifacts from the
 cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
 before rebuilding the code.
+
+### Building the code with debugger information
+
+If you'd like to use a debugger such as delve to debug istio containers, run
+
+```shell
+make BUILD=debug
+```
+
+This build command will cause go compiler to disable compiler optimizations
+and inlining when building istio executables. To debug an istio container in a
+kubernetes environment:
+
+1. Locate the kubernetes node on which your container is running.
+2. Make sure that the node has go tool installed as described in above.
+3. Make sure the node has [delve](https://github.com/derekparker/delve/tree/master/Documentation/installation) installed.
+4. Clone the istio repo from which your debuggable executables
+   have been built onto the node.
+5. Log on to the node and find out the process id that you'd like to debug. For
+   example, if you want to debug pilot, the process name is pilot-discovery.
+   Issue command ```ps -ef | grep pilot-discovery``` to find the process id.
+6. Issue the command ```sudo dlv attach <pilot-pid>``` to start the debug
+   session.
+
+Alternatively, you can use [squash](https://github.com/solo-io/squash) to debug
+your container. You may need to modify the istio Dockerfile to use a base image
+such as alpine (versus scratch in pilot Dockerfiles). One of the benefits of
+using squash is that you don't need to install go tool and delve on every
+kubernetes nodes.
+
+You can choose to build individual istio executables for debugging purpose. For
+example, if you only want to build pilot-discovery for debugging, issue the
+following command:
+
+```make $GOPATH/bin/pilot-discovery BUILD=debug```
 
 ### Building and pushing the containers
 
