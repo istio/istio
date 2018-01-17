@@ -1,0 +1,14 @@
+// regenerate the .pb.go file after any change using
+// protoc ping.proto --go_out=plugins=grpc:.
+syntax = "proto3";
+package fgrpc;
+
+message PingMessage {
+  int64 seq      = 1; // sequence number
+  int64 ts       = 2; // src send ts / dest receive ts
+  string payload = 3; // extra packet data
+}
+
+service PingServer {
+  rpc Ping (PingMessage) returns (PingMessage) {}
+}

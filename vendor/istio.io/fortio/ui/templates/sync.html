@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><title>Φορτίο v{{.Version}}</title>
+<script src="{{.Version}}/static/js/fortio_chart.js"></script>
+<link rel="icon" href="../favicon.ico" />
+<style>
+.checkmark {
+  text-shadow: 2px 1px #000;
+  color: olive;
+  font-size: 1.4em;
+}
+</style>
+</head>
+<body style="background: linear-gradient(to right, #d8aa20 , #c75228);">
+<a href="http://fortio.org/"><img src="{{.LogoPath}}" alt="." height="69" width="45" align="right" /></a>
+<img src="{{.LogoPath}}" alt="." height="92" width="60" align="right" />
+<img src="{{.LogoPath}}" alt="istio logo" height="123" width="80" align="right" />
+<h1>Φορτίο (fortio) v{{.Version}} syncing</h1>
+<p>Syncing {{.URL}}
+<progress id="progressBar" style="width: 100%"></progress>
+<script>
+function setPB(val, max = null) {
+  var pb = document.getElementById('progressBar')
+  pb.value = val
+  if (max) {
+    pb.max = max
+  }
+}
+</script>
+<br />

@@ -1,0 +1,5 @@
+# Getting the source tree ready for running tests (sut)
+FROM fortio/fortio.build:v4
+WORKDIR /go/src/istio.io
+RUN go get google.golang.org/grpc
+COPY . fortio
