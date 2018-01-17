@@ -149,7 +149,7 @@ func (f *factory) buildHandler(
 	for tmplName := range inferredTypes {
 		types = inferredTypes[tmplName]
 		// ti should be there for a valid configuration.
-		ti, _ = f.snapshot.Templates[tmplName]
+		ti = f.snapshot.Templates[tmplName]
 		if ti.SetType != nil { // for case like APA template that does not have SetType
 			ti.SetType(types, builder)
 		}

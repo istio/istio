@@ -107,7 +107,7 @@ func (e *env) teardown() {
 	close(e.stop)
 
 	// Remove the temp dir.
-	os.RemoveAll(e.fsroot)
+	_ = os.RemoveAll(e.fsroot)
 }
 
 func (e *env) watchFor(eventType model.Event) event {
@@ -233,7 +233,7 @@ func TestUpdate(t *testing.T) {
 
 	// Overwrite the original file with the updated.
 	updateFilePath := "testdata/cb-policy.yaml.update"
-	copyFile(updateFilePath, path.Join(e.fsroot, "cb-policy.yaml"))
+	_ = copyFile(updateFilePath, path.Join(e.fsroot, "cb-policy.yaml"))
 
 	// Get the configuration that we expect to be deleted
 	expectedCfgs, err := parseFile(updateFilePath)

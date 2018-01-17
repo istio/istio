@@ -91,6 +91,8 @@ var _ adapter.Env = &FakeEnv{}
 
 // FakeHandlerBuilder is a fake of HandlerBuilder.
 type FakeHandlerBuilder struct {
+	Handler                       *FakeHandler
+	PanicData                     interface{}
 	PanicAtSetAdapterConfig       bool
 	ErrorAtBuild                  bool
 	PanicAtBuild                  bool
@@ -98,9 +100,7 @@ type FakeHandlerBuilder struct {
 	PanicAtValidate               bool
 	HandlerErrorOnClose           bool
 	HandlerPanicOnClose           bool
-	Handler                       *FakeHandler
 	HandlerDoesNotSupportTemplate bool
-	PanicData                     interface{}
 }
 
 // SetAdapterConfig is an implementation of HandlerBuilder.SetAdapterConfig.
@@ -118,7 +118,7 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 
 	if f.ErrorAtValidate {
 		errs := &adapter.ConfigErrors{}
-		errs.Append("field", fmt.Errorf("some validation error"))
+		errs = errs.Append("field", fmt.Errorf("some validation error"))
 		return errs
 	}
 	return nil

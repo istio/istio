@@ -110,7 +110,7 @@ func (c *ServiceAccountController) serviceAccountUpdated(oldObj, newObj interfac
 	if oldSa.GetName() != newSa.GetName() || oldSa.GetNamespace() != newSa.GetNamespace() {
 		oldID := getSpiffeID(oldSa)
 		newID := getSpiffeID(newSa)
-		c.reg.DeleteMapping(oldID, oldID)
-		c.reg.AddMapping(newID, newID)
+		_ = c.reg.DeleteMapping(oldID, oldID)
+		_ = c.reg.AddMapping(newID, newID)
 	}
 }
