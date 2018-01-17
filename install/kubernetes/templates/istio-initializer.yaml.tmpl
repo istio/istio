@@ -13,7 +13,7 @@ data:
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: {PILOT_HUB}/proxy_init:{PILOT_TAG}
-      proxyImage: {PILOT_HUB}/proxy:{PILOT_TAG}
+      proxyImage: {PILOT_HUB}/{PROXY_IMAGE}:{PILOT_TAG}
       verbosity: 2
       version: {PILOT_TAG}
       meshConfigMapName: istio
