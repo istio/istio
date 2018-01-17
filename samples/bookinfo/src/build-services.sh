@@ -39,7 +39,8 @@ pushd $SCRIPTDIR/reviews
     #with ratings black stars
     docker build -t istio/examples-bookinfo-reviews-v2:${ISTIO_VERSION} --build-arg service_version=v2 --build-arg enable_ratings=true .
     #with ratings red stars
-    docker build -t istio/examples-bookinfo-reviews-v3:${ISTIO_VERSION} --build-arg service_version=v3 --build-arg enable_ratings=true --build-arg star_color=red .
+    docker build -t istio/examples-bookinfo-reviews-v3:${ISTIO_VERSION} --build-arg service_version=v3 \
+	   --build-arg enable_ratings=true --build-arg with_istio=true --build-arg star_color=red .
   popd
 popd
 

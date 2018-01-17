@@ -56,8 +56,9 @@ end
 # TODO: provide details on different books.
 def get_book_details(id)
     if ENV['ENABLE_EXTERNAL_BOOK_SERVICE'] === 'true' then
-        # the ISBN of the first book Comedy Of Errors that appears in Amazon.com search
-        isbn = '1420955551'
+      # the ISBN of one of Comedy of Errors on the Amazon
+      # that has Shakespeare as the single author
+        isbn = '0486424618'
         return fetch_details_from_external_service(isbn, id)
     end
 
@@ -75,28 +76,46 @@ def get_book_details(id)
 end
 
 def fetch_details_from_external_service(isbn, id)
-    uri = URI.parse('http://api.bookmooch.com')
+    uri = URI.parse('https://www.googleapis.com:443//books/v1/volumes?q=isbn:' + isbn)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.read_timeout = 5 # seconds
 
-    response = Net::HTTP.start(uri.host, uri.port) do |http|
-        http.read_timeout = 5 # seconds
-        http.get('/api/asin?asins=' + isbn  + '&o=json')
+    unless ENV['WITH_ISTIO'] === 'true' then
+      http.use_ssl = true
     end
 
+    request = Net::HTTP::Get.new(uri.request_uri)
+    response = http.request(request)
+
     json = JSON.parse(response.body)
-    book = json[0]
+    book = json['items'][0]['volumeInfo']
+
+    language = book['language'] === 'en'? 'English' : 'unknown'
+    type = book['printType'] === 'BOOK'? 'paperback' : 'unknown'
+    isbn10 = get_isbn(book, 'ISBN_10')
+    isbn13 = get_isbn(book, 'ISBN_13')
 
     return {
         'id' => id,
-        'author': book['Author'],
-        'year': book['PublicationDate'],
-        'type' => book['Binding'],
-        'pages' => book['NumberOfPages'],
-        'publisher' => book['Publisher'],
-        'language' => 'English', # hardcoded, not returned by bookmooch.com
-        'ISBN-10' => book['ISBN'],
-        'ISBN-13' => '978-1420955552' # hardcoded, not returned by bookmooch.com
+        'author': book['authors'][0],
+        'year': book['publishedDate'],
+        'type' => type,
+        'pages' => book['pageCount'],
+        'publisher' => book['publisher'],
+        'language' => language,
+        'ISBN-10' => isbn10,
+        'ISBN-13' => isbn13
   }
 
+end
+
+def get_isbn(book, isbn_type)
+  industryIdentifiers = book['industryIdentifiers']
+  identifiers = industryIdentifiers.select do
+    |identifier| identifier['type'] === isbn_type
+  end
+
+  return identifiers[0]['identifier']
 end
 
 server.start
