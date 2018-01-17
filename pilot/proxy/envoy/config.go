@@ -723,7 +723,11 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 		endpoint := instance.Endpoint
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
-		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
+		endpointPort := endpoint.PortAlias // endpoint.ServicePort.PortAlias
+		if endpointPort <= 0 {
+			endpointPort = endpoint.Port
+		}
+		cluster := buildInboundCluster(endpointPort, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
 
 		var listener *Listener

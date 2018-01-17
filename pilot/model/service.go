@@ -167,6 +167,14 @@ func (p Protocol) IsHTTP() bool {
 // service catalog.mystore.com
 //  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
+//
+// In addition, it can also have PortAlias. This is Istio concept and require sidecar to work
+// Basically, if defined (non zero value, say 4444), Istio sidecar will route inbound traffic
+// for the endpoint port (e.g 33333 in the above example) to the container/VM/pod port 4444.
+// PortAlias can be defined at service level (same alias setting for all endpoints) or at
+// pod level via service annotation or pod annotation respectively. If the host service
+// instance doesn't have sidecar, this has no effect, i.e traffic will be sent to
+// endpoint Port (e.g 33333).
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
 	Address string `json:"ip_address,omitempty"`
@@ -175,6 +183,15 @@ type NetworkEndpoint struct {
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
 	Port int `json:"port"`
+
+	// PortAlias, if not zero, is the container/VM/pod port that actually
+	// receive traffic. This is Istio concept and require sidecar to work.
+	// It typically is not the same as endpoint port (above) nor
+	// service port (where service is accessed). The PortAlias is extracted
+	// from (k8s) service or pod/container annotations.
+	// e.g:
+	// catalog.mystore.com:8080 -> 172.16.0.1:33333 (sidecar) -> 127.0.0.1:4444
+	PortAlias int `json:"port_alias"`
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,

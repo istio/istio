@@ -5,8 +5,13 @@ metadata:
   name: {{.service}}
   labels:
     app: {{.service}}
-{{if eq .perServiceAuth "true"}}
   annotations:
+    portalias.istio.io/10080: "80"
+    portalias.istio.io/10081: "80"
+    portalias.istio.io/10082: "80"
+    auth.istio.io/10081: NONE
+    auth.istio.io/10082: MUTUAL_TLS
+{{if eq .perServiceAuth "true"}}
     auth.istio.io/80: MUTUAL_TLS
     auth.istio.io/8080: NONE
     auth.istio.io/7070: MUTUAL_TLS
@@ -32,6 +37,14 @@ spec:
   - port: 7070
     targetPort: {{.port6}}
     name: grpc
+  - port: 10080
+    name: http-alias
+  - port: 10081
+    name: http-alias-plaintext
+  - port: 10082
+    name: http-alias-secure
+  - port: 20080
+    name: http-alias-by-pod
   selector:
     app: {{.service}}
 ---
@@ -50,6 +63,8 @@ spec:
       labels:
         app: {{.service}}
         version: {{.version}}
+      annotations:
+        portalias.istio.io/20080: "80"
     spec:
       containers:
       - name: app
@@ -85,6 +100,7 @@ spec:
         - containerPort: {{.port4}}
         - containerPort: 10090
         - containerPort: 19090
+        - containerPort: 20080
 {{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333

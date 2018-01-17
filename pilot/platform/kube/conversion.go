@@ -48,6 +48,21 @@ const (
 	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
 	// authentication policy.
 	PortAuthenticationAnnotationKeyPrefix = "auth.istio.io"
+
+	// PortAliasAnnotationKeyPrefix is the annotation key prefix that used to define
+	// (endpoin) port alias.
+	// Example: the annotation below means the endpoint port 8888 is an alias of 80.
+	// Istio sidecar in this case will intercep inbound traffic on port 8888,
+	// route it to endpoint port 80.
+	//
+	// annotations:
+	//   portalias.istio.io/8888: "80"
+	//
+	// The annotation can be defined in service or pod(container) annotation. In the former, the aliases
+	// will be applied to all endpoints of that services. In the latter, it will be set for
+	// the endpoints that the annotations belong to. In case of the annotations defined in both
+	// place (for the same port), the one in pod will take over.
+	PortAliasAnnotationKeyPrefix = "portalias.istio.io"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -69,6 +84,16 @@ func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) me
 		return meshconfig.AuthenticationPolicy(val)
 	}
 	return meshconfig.AuthenticationPolicy_INHERIT
+}
+
+func extractPortAlias(port int, obj meta_v1.ObjectMeta) int {
+	if obj.Annotations == nil {
+		return 0
+	}
+	if val, ok := strconv.Atoi(obj.Annotations[portAliasAnnotationKey(port)]); ok == nil {
+		return val
+	}
+	return 0
 }
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
@@ -134,6 +159,10 @@ func canonicalToIstioServiceAccount(saname string) string {
 
 func portAuthenticationAnnotationKey(port int) string {
 	return fmt.Sprintf("%s/%d", PortAuthenticationAnnotationKeyPrefix, port)
+}
+
+func portAliasAnnotationKey(port int) string {
+	return fmt.Sprintf("%s/%d", PortAliasAnnotationKeyPrefix, port)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
