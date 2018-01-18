@@ -135,10 +135,8 @@ func (vm *GCPRawVM) Teardown() error {
 			return err
 		}
 	}
-	if _, err := u.Shell(vm.baseCommand("delete")); err != nil {
-		return err
-	}
-	return nil
+	_, err := u.Shell(vm.baseCommand("delete"))
+	return err
 }
 
 // Setup initialize the VM

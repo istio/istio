@@ -110,7 +110,6 @@ func interfaceMap(m interface{}) map[interface{}]interface{} {
 	return ret
 }
 
-// nolint: deadcode
 type testData struct {
 	name      string
 	cfg       string
@@ -120,7 +119,6 @@ type testData struct {
 	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
 }
 
-// nolint: deadcode
 func closeHelper(c io.Closer) {
 	err := c.Close()
 	if err != nil {
@@ -128,7 +126,6 @@ func closeHelper(c io.Closer) {
 	}
 }
 
-// nolint: deadcode
 func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	requestBag.Set(identityAttr, identityAttrDomain)

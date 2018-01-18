@@ -36,7 +36,7 @@ const maxAttempts = 30
 // Don't care about server response.
 func HTTPFastGet(url string) (err error) {
 	client := &http.Client{}
-	client.Timeout = time.Duration(httpTimeOut * time.Second)
+	client.Timeout = httpTimeOut * time.Second
 	_, err = client.Get(url)
 	return err
 }
@@ -45,13 +45,15 @@ func HTTPFastGet(url string) (err error) {
 func HTTPGet(url string) (code int, respBody string, err error) {
 	log.Println("HTTP GET", url)
 	client := &http.Client{}
-	client.Timeout = time.Duration(httpTimeOut * time.Second)
+	client.Timeout = httpTimeOut * time.Second
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -67,13 +69,15 @@ func HTTPGet(url string) (code int, respBody string, err error) {
 func HTTPPost(url string, contentType string, reqBody string) (code int, respBody string, err error) {
 	log.Println("HTTP POST", url)
 	client := &http.Client{}
-	client.Timeout = time.Duration(httpTimeOut * time.Second)
+	client.Timeout = httpTimeOut * time.Second
 	resp, err := client.Post(url, contentType, strings.NewReader(reqBody))
 	if err != nil {
 		log.Println(err)
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -97,7 +101,9 @@ func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int
 		log.Println(err)
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
@@ -113,7 +119,7 @@ func ShortLiveHTTPPost(url string, contentType string, reqBody string) (code int
 func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody string, err error) {
 	log.Println("HTTP GET with headers: ", l)
 	client := &http.Client{}
-	client.Timeout = time.Duration(httpTimeOut * time.Second)
+	client.Timeout = httpTimeOut * time.Second
 	req := http.Request{}
 
 	req.Header = map[string][]string{}
@@ -132,7 +138,9 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, respBody
 		log.Println(err)
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
