@@ -1945,7 +1945,10 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 }
 
 func validateSubsetName(name string) error {
-	return nil // TODO: validate as DNS1123 label?
+	if !IsDNS1123Label(name) {
+		return fmt.Errorf("subnet name is invalid: %s", name)
+	}
+	return nil
 }
 
 func validatePortSelector(selector *routingv2.PortSelector) error {
@@ -1954,10 +1957,7 @@ func validatePortSelector(selector *routingv2.PortSelector) error {
 	}
 
 	if name := selector.GetName(); name != "" {
-		if !IsDNS1123Label(name) {
-			return fmt.Errorf("%s is not a valid subset name", name)
-		}
-		return nil
+		return validateSubsetName(name)
 	}
 
 	return ValidatePort(int(selector.GetNumber()))
