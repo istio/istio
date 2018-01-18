@@ -946,14 +946,14 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	if node.Type == model.Router {
-		// No egress rule support for Routers. As semantics are not clear.
+		// No external service rule support for Routers as semantics are not clear.
 		return httpConfigs
 	}
 
-	fsConfigs := config.ExternalServices()
-	for _, fsConfig := range fsConfigs {
-		fs := fsConfig.Spec.(*routingv2.ExternalService)
-		for _, port := range fs.Ports {
+	externalServiceConfigs := config.ExternalServices()
+	for _, externalServiceConfig := range externalServiceConfigs {
+		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		for _, port := range externalService.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
 				continue
@@ -963,14 +963,14 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				Port: int(port.Number), Protocol: protocol}
 
 			httpConfig := httpConfigs.EnsurePort(int(port.Number))
-			for _, host := range fs.Hosts {
+			for _, host := range externalService.Hosts {
 				httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
 					buildEgressVirtualHost(host, mesh, node, modelPort, instances, config))
 			}
 		}
 	}
 
-	return httpConfigs.normalize() // TODO: is this necessary?
+	return httpConfigs.normalize()
 }
 
 func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
@@ -980,10 +980,10 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, node model.No
 	clusters := make(Clusters, 0)
 
 	if node.Type == model.Router {
+		// No external service rule support for Routers as semantics are not clear.
 		return listeners, clusters
 	}
 
-	// TODO: port conflicts?
 	for _, externalServiceConfig := range config.ExternalServices() {
 		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
 		for _, port := range externalService.Ports {
