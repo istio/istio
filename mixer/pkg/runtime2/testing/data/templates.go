@@ -15,6 +15,7 @@
 package data
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -68,6 +69,11 @@ func createFakeTemplate(name string, s FakeTemplateSettings, variety istio_mixer
 		},
 		SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 
+		},
+		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+			return adapter.CheckResult{
+				ValidUseCount: 32,
+			}, nil
 		},
 		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
 			if s.ErrorAtCreateInstanceBuilder {
