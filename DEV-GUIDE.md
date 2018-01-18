@@ -16,10 +16,13 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building the code with debugger information](#building-the-code-debugger)
+  - [Building individual Istio component](#building-individual-istio-component)
+  - [Building the code with debugger information](#building-the-code-with-debugger-information)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
+  - [Building containers with debugger information](#building-containers-with-debugger-information)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
+  - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
   - [Running tests](#running-tests)
   - [Getting coverage numbers](#getting-coverage-numbers)
   - [Auto-formatting source code](#auto-formatting-source-code)
@@ -196,40 +199,57 @@ undesirable as Golang may not erase out of date artifacts from the
 cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
 before rebuilding the code.
 
-### Building the code with debugger information
+### Building individual Istio component
 
-If you'd like to use a debugger such as delve to debug istio containers, run
+You can build individual Istio components by using their corresponding build
+targets. The following targets are currently defined:
+
+* pilot: build the pilot-discovery executable
+* proxy: build the pilot-agent executable
+* istioctl: build the istioctl executable
+* sidecar_initializer: build the istio-initializer executable
+* mixs: build the mixer server execuable
+* mixc: build the mixer client executable
+* servicegraph: build the servicegraph executable
+* node-agent: build the node_agent executable
+* istio-ca: build the istio_ca executable
+
+For example, you can build pilot-discovery and pilot-agent with the following
+command:
 
 ```shell
-make BUILD=debug
+make pilot proxy
 ```
 
-This build command will cause go compiler to disable compiler optimizations
-and inlining when building istio executables. To debug an istio container in a
-kubernetes environment:
+### Building the code with debugger information
 
-1. Locate the kubernetes node on which your container is running.
-2. Make sure that the node has go tool installed as described in above.
-3. Make sure the node has [delve](https://github.com/derekparker/delve/tree/master/Documentation/installation) installed.
-4. Clone the istio repo from which your debuggable executables
-   have been built onto the node.
-5. Log on to the node and find out the process id that you'd like to debug. For
-   example, if you want to debug pilot, the process name is pilot-discovery.
-   Issue command ```ps -ef | grep pilot-discovery``` to find the process id.
-6. Issue the command ```sudo dlv attach <pilot-pid>``` to start the debug
-   session.
+If you'd like to use a debugger such as [Delve](https://github.com/derekparker/delve) to debug Istio components, run
 
-Alternatively, you can use [squash](https://github.com/solo-io/squash) to debug
-your container. You may need to modify the istio Dockerfile to use a base image
-such as alpine (versus scratch in pilot Dockerfiles). One of the benefits of
-using squash is that you don't need to install go tool and delve on every
-kubernetes nodes.
+```shell
+make DEBUG=all
+```
 
-You can choose to build individual istio executables for debugging purpose. For
-example, if you only want to build pilot-discovery for debugging, issue the
-following command:
+This build command will cause Go compiler to disable compiler optimizations
+and inlining when building Istio executables, and build all of them with
+debugger information.
 
-```make $GOPATH/bin/pilot-discovery BUILD=debug```
+All the Istio components have corresponding debug targets defined by prefixing
+*debug.* to the regular build targets as described in
+[Link](#building-individual-istio-component). For example, to build
+pilot-discovery and pilot-agent with debugger information, issue the command in
+below:
+
+```shell
+make debug.pilot debug.proxy
+```
+
+You can selectively build Istio components with debugger informaion while
+performing a full-blown build. For example, to build pilot-discovery and
+pilot-agent with debugger information only, issue the command in below:
+
+```shell
+make DEBUG=pilot,proxy
+```
 
 ### Building and pushing the containers
 
@@ -243,6 +263,27 @@ Push the containers to your registry:
 
 ```shell
 make push
+```
+
+You can selectively build individual Istio containers by using their corresponding
+build targets. Except for mixs, mixc, istioctl, you can prefix *docker.* to the regular build
+targets as described in [Link](#building-individual-istio-component). To build
+mixer server container, use the target *docker.mixer* or *docker.mixer_debug*.
+
+### Building containers with debugger information
+
+To build all the Istio containers with debugger information, issue the following
+command:
+
+```shell
+make docker DEBUG=all
+```
+
+To build individual Istio containers with debugger information, issue the
+following command for example:
+
+```shell
+make docker.pilot docker.proxy DEBUG=all
 ```
 
 ### Building the Istio manifests
@@ -261,6 +302,29 @@ You can delete any build artifacts with:
 ```shell
 make clean
 ```
+
+### Debug an Istio container with Delve
+
+To debug an Istio container with Delve in a Kubernetes environment:
+
+* Locate the Kubernetes node on which your container is running.
+* Make sure that the node has Go tool installed as described in above.
+* Make sure the node has [Delve installed](https://github.com/derekparker/delve/tree/master/Documentation/installation).
+* Clone the Istio repo from which your debuggable executables
+   have been built onto the node.
+* Log on to the node and find out the process id that you'd like to debug. For
+   example, if you want to debug Pilot, the process name is pilot-discovery.
+   Issue command ```ps -ef | grep pilot-discovery``` to find the process id.
+* Issue the command ```sudo dlv attach <pilot-pid>``` to start the debug
+   session.
+
+You may find this [Delve tutorial](http://blog.ralch.com/tutorial/golang-debug-with-delve/) is useful.
+
+Alternatively, you can use [Squash](https://github.com/solo-io/squash) with
+Delve to debug your container. You may need to modify the Istio Dockerfile to
+use a base image such as alpine (versus scratch in Pilot Dockerfiles). One of
+the benefits of using Squash is that you don't need to install Go tool and Delve
+on every Kubernetes nodes.
 
 ### Running tests
 
