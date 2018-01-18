@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
-		{cbRouteRuleV2, destinationRuleWorldCB, foreignServiceRule, destinationRuleGoogleCB},
+		{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
 	}
 
 	for _, configs := range tests {
@@ -381,7 +381,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	tests := [][]fileConfig{
 		{timeoutRouteRule, egressRule, egressRuleTimeoutRule},
-		{timeoutRouteRuleV2, foreignServiceRule, googleTimeoutRuleV2},
+		{timeoutRouteRuleV2, externalServiceRule, googleTimeoutRuleV2},
 	}
 
 	for _, configs := range tests {
@@ -650,11 +650,11 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "egress-rule",
-			file: foreignServiceRule,
+			file: externalServiceRule,
 		},
 		{
 			name: "egress-rule-tcp",
-			file: foreignServiceRuleTCP,
+			file: externalServiceRuleTCP,
 		},
 	}
 

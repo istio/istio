@@ -1993,19 +1993,19 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 	return nil
 }
 
-// ValidateForeignService validates a foreign service.
-func ValidateForeignService(config proto.Message) (errs error) {
-	foreignService, ok := config.(*routingv2.ForeignService)
+// ValidateExternalService validates a external service.
+func ValidateExternalService(config proto.Message) (errs error) {
+	externalService, ok := config.(*routingv2.ExternalService)
 	if !ok {
-		return fmt.Errorf("cannot cast to foreign service")
+		return fmt.Errorf("cannot cast to external service")
 	}
 
-	errs = appendErrors(errs, validateHosts(foreignService.Hosts))
+	errs = appendErrors(errs, validateHosts(externalService.Hosts))
 
 	// TODO: fs.Discovery
 	// TODO: fs.Endpoints
 
-	for _, port := range foreignService.Ports {
+	for _, port := range externalService.Ports {
 		if !IsDNS1123Label(port.Name) {
 			errs = appendErrors(errs, fmt.Errorf("port name must meet RFC 1123 label criteria"))
 		}

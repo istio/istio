@@ -277,7 +277,7 @@ func buildSidecarListenersClusters(
 		// only HTTP outbound clusters are needed
 		httpOutbound := buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpOutbound = buildEgressHTTPRoutes(mesh, node, instances, config, httpOutbound)
-		httpOutbound = buildForeignServiceHTTPRoutes(mesh, node, instances, config, httpOutbound)
+		httpOutbound = buildExternalServiceHTTPRoutes(mesh, node, instances, config, httpOutbound)
 		clusters = append(clusters,
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
@@ -314,7 +314,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node proxy.Node, routeName strin
 		}
 		httpConfigs = buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpConfigs = buildEgressHTTPRoutes(mesh, node, instances, config, httpConfigs)
-		httpConfigs = buildForeignServiceHTTPRoutes(mesh, node, instances, config, httpConfigs)
+		httpConfigs = buildExternalServiceHTTPRoutes(mesh, node, instances, config, httpConfigs)
 	default:
 		return nil, errors.New("unrecognized node type")
 	}
@@ -510,14 +510,14 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 	listeners = append(listeners, egressTCPListeners...)
 	clusters = append(clusters, egressTCPClusters...)
 
-	foreignServiceTCPListeners, foreignServiceTCPClusters := buildForeignServiceTCPListeners(mesh, sidecar, config)
-	listeners = append(listeners, foreignServiceTCPListeners...)
-	clusters = append(clusters, foreignServiceTCPClusters...)
+	externalServiceTCPListeners, externalServiceTCPClusters := buildExternalServiceTCPListeners(mesh, sidecar, config)
+	listeners = append(listeners, externalServiceTCPListeners...)
+	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, sidecar, instances, services, config)
 	httpOutbound = buildEgressHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
-	httpOutbound = buildForeignServiceHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
+	httpOutbound = buildExternalServiceHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
 
 	for port, routeConfig := range httpOutbound {
 		operation := EgressTraceOperation
@@ -946,7 +946,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	return httpConfigs.normalize()
 }
 
-func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
+func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	instances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
@@ -955,9 +955,9 @@ func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 		return httpConfigs
 	}
 
-	fsConfigs := config.ForeignServices()
+	fsConfigs := config.ExternalServices()
 	for _, fsConfig := range fsConfigs {
-		fs := fsConfig.Spec.(*routingv2.ForeignService)
+		fs := fsConfig.Spec.(*routingv2.ExternalService)
 		for _, port := range fs.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
@@ -978,7 +978,7 @@ func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	return httpConfigs.normalize() // TODO: is this necessary?
 }
 
-func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
+func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 	config model.IstioConfigStore) (Listeners, Clusters) {
 
 	listeners := make(Listeners, 0)
@@ -989,9 +989,9 @@ func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Nod
 	}
 
 	// TODO: port conflicts?
-	for _, fsConfig := range config.ForeignServices() {
-		fs := fsConfig.Spec.(*routingv2.ForeignService)
-		for _, port := range fs.Ports {
+	for _, externalServiceConfig := range config.ExternalServices() {
+		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		for _, port := range externalService.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
@@ -1001,7 +1001,7 @@ func buildForeignServiceTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Nod
 				Port: int(port.Number), Protocol: protocol}
 
 			routes := make([]*TCPRoute, 0)
-			for _, host := range fs.Hosts {
+			for _, host := range externalService.Hosts {
 				route, cluster := buildEgressTCPRoute(host, mesh, modelPort)
 				routes = append(routes, route)
 				clusters = append(clusters, cluster)

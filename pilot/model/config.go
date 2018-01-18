@@ -230,8 +230,8 @@ type IstioConfigStore interface {
 	// EgressRules lists all egress rules
 	EgressRules() map[string]*routing.EgressRule
 
-	// ForeignServices lists all foreign services
-	ForeignServices() []Config
+	// ExternalServices lists all external services
+	ExternalServices() []Config
 
 	// RouteRules selects routing rules by source service instances and
 	// destination service.  A rule must match at least one of the input service
@@ -343,12 +343,12 @@ var (
 		Validate:    ValidateEgressRule,
 	}
 
-	// ForeignService describes foreign services
-	ForeignService = ProtoSchema{
-		Type:        "foreign-service",
-		Plural:      "foreign-services",
-		MessageName: "istio.routing.v1alpha2.ForeignService",
-		Validate:    ValidateForeignService,
+	// ExternalService describes external services
+	ExternalService = ProtoSchema{
+		Type:        "external-service",
+		Plural:      "external-services",
+		MessageName: "istio.routing.v1alpha2.ExternalService",
+		Validate:    ValidateExternalService,
 	}
 
 	// DestinationPolicy describes destination rules
@@ -422,7 +422,7 @@ var (
 		IngressRule,
 		Gateway,
 		EgressRule,
-		ForeignService,
+		ExternalService,
 		DestinationPolicy,
 		DestinationRule,
 		HTTPAPISpec,
@@ -635,8 +635,8 @@ func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
 	return out
 }
 
-func (store *istioConfigStore) ForeignServices() []Config {
-	configs, err := store.List(ForeignService.Type, NamespaceAll)
+func (store *istioConfigStore) ExternalServices() []Config {
+	configs, err := store.List(ExternalService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
