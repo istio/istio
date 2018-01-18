@@ -1,9 +1,7 @@
-{{- if .Values.istio.deploy_base_config }}
-{{- if .Values.global.auth_enabled }}
-{{- if not .Values.istio.ca_demo}}
+{{- if .Values.global.security.enabled }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $ca_hub := .Values.istio.ca_hub }}
-{{- $ca_tag := .Values.istio.ca_tag }}
+{{- $ca_hub := .Values.global.security.hub }}
+{{- $ca_tag := .Values.global.security.tag }}
 ################################
 # istio-CA cluster-wide
 ################################
@@ -41,6 +39,4 @@ spec:
           - --grpc-hostname=istio-ca
           - --self-signed-ca=true
 ---
-{{- end }}
-{{- end }}
 {{- end }}

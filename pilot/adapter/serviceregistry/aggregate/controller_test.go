@@ -173,8 +173,9 @@ func TestGetServiceError(t *testing.T) {
 func TestHostInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
+	var svcNode model.Node
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
 	if err != nil {
 		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
 	}
@@ -188,7 +189,7 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
 	if err != nil {
 		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
 	}
@@ -207,8 +208,9 @@ func TestHostInstancesError(t *testing.T) {
 
 	discovery1.HostInstancesError = errors.New("mock HostInstances() error")
 
+	var svcNode model.Node
 	// Get Instances from client with error
-	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -218,7 +220,7 @@ func TestHostInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}

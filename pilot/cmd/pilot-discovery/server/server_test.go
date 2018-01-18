@@ -85,7 +85,7 @@ func (e *env) teardown() {
 	close(e.stop)
 
 	// Remove the temp dir.
-	os.RemoveAll(e.fsRoot)
+	_ = os.RemoveAll(e.fsRoot)
 }
 
 func createTempDir() string {

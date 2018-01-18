@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 
+	"google.golang.org/grpc/status"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -56,31 +57,31 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
-		return nil, grpc.Errorf(codes.Unauthenticated, "request authenticate failure")
+		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR parsing error (error %v)", err)
-		return nil, grpc.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
+		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
-		return nil, grpc.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
+		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
 	err = s.authorizer.authorize(caller, requestedIDs)
 	if err != nil {
 		log.Warnf("request is not authorized (%v)", err)
-		return nil, grpc.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
+		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
 	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
-		return nil, grpc.Errorf(codes.Internal, "CSR signing error (%v)", err)
+		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
 	response := &pb.Response{

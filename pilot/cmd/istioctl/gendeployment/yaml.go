@@ -53,7 +53,7 @@ func yamlFromInstallation(values, namespace, helmChartDirectory string) (string,
 
 	out := &bytes.Buffer{}
 	for name, data := range files {
-		if len(strings.TrimSpace(string(data))) == 0 {
+		if len(strings.TrimSpace(data)) == 0 {
 			continue
 		}
 		if _, err = fmt.Fprintf(out, "---\n# Source: %q\n", name); err != nil {

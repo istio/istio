@@ -231,21 +231,6 @@ spec:
     - i1.reportnothing.istio-system
 `
 
-// r4UsingH1AndI2Conditional is a simple conditional rule that calls into the noop adapter with checknothing template.
-var r4UsingH1AndI2Conditional = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: r3-h1-i2-conditional
-  namespace: istio-system
-spec:
-  match: attr.int64 == 42
-  actions:
-  - handler: h1.noop
-    instances:
-    - i2.checknothing.istio-system
-`
-
 var r5UsingH1AndI3 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule

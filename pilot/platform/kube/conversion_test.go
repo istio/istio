@@ -368,3 +368,58 @@ func TestProbesToPortsConversion(t *testing.T) {
 		}
 	}
 }
+
+func TestParseKubeServiceNode(t *testing.T) {
+	var svcNode model.Node
+	ipaddr := "128.0.0.1"
+	kubeNodes := make(map[string]*kubeServiceNode)
+
+	svcNode.ID = "router.default"
+	svcNode.Domain = "default.svc.cluster.local"
+
+	err := parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
+	if err != nil {
+		t.Errorf("expected successful return from parseKubeServiceNode, "+
+			"got err = %v", err)
+	}
+
+	if kubeNodes[ipaddr].PodName != "router" || kubeNodes[ipaddr].Domain != svcNode.Domain ||
+		kubeNodes[ipaddr].Namespace != "default" {
+		t.Errorf("invalid kubeNodes, expected PodName=router got %s "+
+			"expected Domain=%s got %s expected Namespace='default' got %s",
+			kubeNodes[ipaddr].PodName, svcNode.Domain, kubeNodes[ipaddr].Domain,
+			kubeNodes[ipaddr].Namespace)
+	}
+}
+
+func TestParseKubeServiceNodeErrors(t *testing.T) {
+	var svcNode model.Node
+	ipaddr := "128.0.0.1"
+	kubeNodes := make(map[string]*kubeServiceNode)
+
+	svcNode.ID = "invalidID"
+	err := parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
+	if err == nil {
+		t.Errorf("expected 'invalid ID' error message")
+	}
+
+	svcNode.ID = "router.default"
+	svcNode.Domain = "invalid.domain"
+	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
+	if err == nil {
+		t.Errorf("expected 'invalid node domain format' error message")
+	}
+
+	svcNode.Domain = "default.svc.cluster.localinvalid"
+	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
+	if err == nil {
+		t.Errorf("expected 'invalid node domain' error message")
+	}
+
+	svcNode.ID = "router.defaultDifferentNamespace"
+	svcNode.Domain = "default.svc.cluster.local"
+	err = parseKubeServiceNode(ipaddr, &svcNode, kubeNodes)
+	if err == nil {
+		t.Errorf("expected 'namespace in ID must be equal' error message")
+	}
+}

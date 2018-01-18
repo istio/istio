@@ -49,15 +49,6 @@ type Args struct {
 	// Maximum number of entries in the expression cache
 	ExpressionEvalCacheSize int
 
-	// Port to use for Mixer's gRPC API
-	APIPort uint16
-
-	// Port to use for exposing mixer self-monitoring information
-	MonitoringPort uint16
-
-	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
-	SingleThreaded bool
-
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	ConfigStoreURL string
 
@@ -80,14 +71,23 @@ type Args struct {
 	// Supplies a string to use for global configuration, overrides ConfigStoreURL
 	GlobalConfig string
 
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// Port to use for Mixer's gRPC API
+	APIPort uint16
+
+	// Port to use for exposing mixer self-monitoring information
+	MonitoringPort uint16
+
+	// Enables gRPC-level tracing
+	EnableGRPCTracing bool
+
+	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
+	SingleThreaded bool
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.

@@ -1,0 +1,11 @@
+apiVersion: config.istio.io/v1alpha1
+kind: RouteRule
+metadata:
+  name: httpbin-default-v1
+spec:
+  destination:
+    name: httpbin
+  precedence: 1
+  route:
+  - labels:
+      version: v1
