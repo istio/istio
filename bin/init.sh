@@ -62,8 +62,8 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     popd
 fi
 
-if [ ! -f $GO_TOP/bin/envoy ] ; then
-    mkdir -p $GO_TOP/bin
+if [ ! -f ${ISTIO_BIN}/envoy ] ; then
+    mkdir -p ${ISTIO_BIN}
     # Make sure the envoy binary exists.
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi
