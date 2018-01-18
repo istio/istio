@@ -57,11 +57,8 @@ ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 HUB=${HUB:-"gcr.io/istio-testing"}
 
-# Download envoy and go deps
-${ISTIO_GO}/bin/init.sh
-
-# Build istioctl, used by  the test.
-make depend.ensure istioctl generate_yaml
+# Download envoy and go deps, and build istioctl used by  the test.
+make depend istioctl generate_yaml
 
 mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
 
