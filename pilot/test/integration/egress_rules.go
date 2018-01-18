@@ -110,6 +110,10 @@ func (t *egressRules) run() error {
 		} else {
 			log.Info("Success!")
 		}
+
+		if err := t.deleteConfig(cs.config, nil); err != nil {
+			return err
+		}
 	}
 	return errs
 }
