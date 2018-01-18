@@ -7,6 +7,9 @@ WORKSPACE=$SCRIPTPATH/..
 
 cd ${WORKSPACE}
 
+GOOS=
+GOARCH=
+
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
