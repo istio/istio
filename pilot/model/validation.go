@@ -1993,12 +1993,8 @@ func ValidateForeignService(config proto.Message) (errs error) {
 
 	for _, port := range foreignService.Ports {
 		// TODO: port.Protocol
-		errs = appendErrors(errs, ValidatePort(int(port.InPort)))
 		// TODO: port.Name
-		if port.OutPort != 0 {
-			errs = appendErrors(errs, ValidatePort(int(port.OutPort)))
-		}
-		// TODO: port.TlsUpgrade
+		errs = appendErrors(errs, ValidatePort(int(port.Number)))
 	}
 
 	return

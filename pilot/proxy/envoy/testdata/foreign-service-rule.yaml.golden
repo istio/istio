@@ -1,12 +1,12 @@
 hosts:
   - "*.google.com"
 ports:
-  - inPort: 80
-    name: http-port
+  - number: 80
+    name: http-number
     protocol: http
-  - inPort: 443
-    name: https-port
+  - number: 443
+    name: https-number
     protocol: https
-  - inPort: 8080
-    name: http2-port
+  - number: 8080
+    name: http2-number
     protocol: http2
