@@ -178,15 +178,16 @@ func (infra *infra) setup() error {
 	}
 
 	if infra.UseInitializer {
-		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-		if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
+		var yaml string
+		if yaml, err = fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
 			return err
 		} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
 			return err
 		}
-		if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 		// InitializerConfiguration will block *all* deployments and

@@ -406,12 +406,12 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 	m.gp.ScheduleWork(func(_ interface{}) {
 		// tracing
 		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
-		span, ctx := opentracing.StartSpanFromContext(ctx, op)
+		span, ctx2 := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 
 		log.Debugf("runAsync %s -> %v", op, *callinfo)
 
-		out := safeDispatch(ctx, do, op)
+		out := safeDispatch(ctx2, do, op)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)

@@ -7,6 +7,7 @@
     "minConfidence": 0.0,
     "lineLength": 160,
     "tests": true,
+    "sort": ["path"],
     "enable": [
         "deadcode",
         "errcheck",
@@ -55,6 +56,7 @@
         "mixer/template/sample/doc.go",
         "mixer/test/spyAdapter/template/doc.go",
         "should have a package comment",
+        "composite literal uses unkeyed fields",
         "genfiles"
     ]
 }
