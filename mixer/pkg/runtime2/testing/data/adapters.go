@@ -23,55 +23,42 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// BuildAdapters builds a standard set of testing adapters. The supplied override is used to override entries in the
-// 'a1' adapter.
-func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
-	var a = map[string]*adapter.Info{
-		// A healthy adapter. It's behavior is overridable.
-		"a1": {
-			Name:               "a1",
-			DefaultConfig:      &types.Empty{},
-			SupportedTemplates: []string{"t1"},
-			NewBuilder: func() adapter.HandlerBuilder {
-				return &FakeHandlerBuilder{}
-			},
-		},
-
-		// an adapter whose builders always fail.
-		"a2-bad-builder": {
-			Name:               "a2-bad-builder",
-			DefaultConfig:      &types.Empty{},
-			SupportedTemplates: []string{"t1"},
-			NewBuilder: func() adapter.HandlerBuilder {
-				return &FakeHandlerBuilder{
-					ErrorAtBuild: true,
-				}
-			},
-		},
-
-		// an adapter whose handler doesn't actually support the template.
-		"a3-handler-does-not-support-template": {
-			Name:               "a3-handler-does-not-support-template",
-			DefaultConfig:      &types.Empty{},
-			SupportedTemplates: []string{"t1"}, // it is a lie!
-			NewBuilder: func() adapter.HandlerBuilder {
-				return &FakeHandlerBuilder{
-					HandlerDoesNotSupportTemplate: true,
-				}
-			},
-		},
+// BuildAdapters builds a standard set of testing adapters. The supplied settings is used to override behavior.
+func BuildAdapters(settings ...FakeAdapterSettings) map[string]*adapter.Info {
+	m := make(map[string]FakeAdapterSettings)
+	for _, setting := range settings {
+		m[setting.Name] = setting
 	}
 
-	if override != nil {
-		if override.NewBuilder != nil {
-			a["a1"].NewBuilder = override.NewBuilder
-		}
-		if override.SupportedTemplates != nil {
-			a["a1"].SupportedTemplates = override.SupportedTemplates
-		}
+	var a = map[string]*adapter.Info{
+		"acheck": createFakeAdapter("acheck", m["acheck"], "tcheck", "thalt"),
+		"apa":    createFakeAdapter("apa", m["apa"], "tapa"),
 	}
 
 	return a
+}
+
+func createFakeAdapter(name string, s FakeAdapterSettings, defaultTemplates ...string) *adapter.Info {
+	templates := defaultTemplates
+	if s.SupportedTemplates != nil {
+		templates = s.SupportedTemplates
+	}
+
+	// A healthy adapter that implements the check interface. It's behavior is configurable.
+	return &adapter.Info{
+		Name:               name,
+		DefaultConfig:      &types.Struct{},
+		SupportedTemplates: templates,
+		NewBuilder: func() adapter.HandlerBuilder {
+			if s.NilBuilder {
+				return nil
+			}
+
+			return &FakeHandlerBuilder{
+				settings: s,
+			}
+		},
+	}
 }
 
 // FakeEnv is a dummy implementation of adapter.Env
@@ -91,32 +78,23 @@ var _ adapter.Env = &FakeEnv{}
 
 // FakeHandlerBuilder is a fake of HandlerBuilder.
 type FakeHandlerBuilder struct {
-	Handler                       *FakeHandler
-	PanicData                     interface{}
-	PanicAtSetAdapterConfig       bool
-	ErrorAtBuild                  bool
-	PanicAtBuild                  bool
-	ErrorAtValidate               bool
-	PanicAtValidate               bool
-	HandlerErrorOnClose           bool
-	HandlerPanicOnClose           bool
-	HandlerDoesNotSupportTemplate bool
+	settings FakeAdapterSettings
 }
 
 // SetAdapterConfig is an implementation of HandlerBuilder.SetAdapterConfig.
-func (f *FakeHandlerBuilder) SetAdapterConfig(adapter.Config) {
-	if f.PanicAtSetAdapterConfig {
-		panic(f.PanicData)
+func (f *FakeHandlerBuilder) SetAdapterConfig(cfg adapter.Config) {
+	if f.settings.PanicAtSetAdapterConfig {
+		panic(f.settings.PanicData)
 	}
 }
 
 // Validate is an implementation of HandlerBuilder.Validate.
 func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
-	if f.PanicAtValidate {
-		panic(f.PanicData)
+	if f.settings.PanicAtValidate {
+		panic(f.settings.PanicData)
 	}
 
-	if f.ErrorAtValidate {
+	if f.settings.ErrorAtValidate {
 		errs := &adapter.ConfigErrors{}
 		errs = errs.Append("field", fmt.Errorf("some validation error"))
 		return errs
@@ -126,47 +104,66 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 
 // Build is an implementation of HandlerBuilder.Build.
 func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
-	if f.PanicAtBuild {
-		panic(f.PanicData)
+	if f.settings.PanicAtBuild {
+		panic(f.settings.PanicData)
 	}
 
-	if f.ErrorAtBuild {
+	if f.settings.ErrorAtBuild {
 		return nil, fmt.Errorf("this adapter is not available at the moment, please come back later")
 	}
 
-	f.Handler = &FakeHandler{
-		ErrorOnHandlerClose:    f.HandlerErrorOnClose,
-		PanicOnHandlerClose:    f.HandlerPanicOnClose,
-		DoesNotSupportTemplate: f.HandlerDoesNotSupportTemplate,
-		PanicData:              f.PanicData,
+	if f.settings.NilHandlerAtBuild {
+		return nil, nil
 	}
-	return f.Handler, nil
+
+	handler := &FakeHandler{
+		settings: f.settings,
+	}
+
+	return handler, nil
 }
 
 var _ adapter.HandlerBuilder = &FakeHandlerBuilder{}
 
 // FakeHandler is a fake implementation of adapter.Handler.
 type FakeHandler struct {
-	CloseCalled bool
-
-	ErrorOnHandlerClose    bool
-	PanicOnHandlerClose    bool
-	DoesNotSupportTemplate bool
-	PanicData              interface{}
+	settings FakeAdapterSettings
 }
 
 // Close is an implementation of adapter.Handler.Close.
 func (f *FakeHandler) Close() error {
-	f.CloseCalled = true
+	if f.settings.CloseCalled != nil {
+		*f.settings.CloseCalled = true
+	}
 
-	if f.ErrorOnHandlerClose {
+	if f.settings.PanicAtHandlerClose {
+		panic(f.settings.PanicData)
+	}
+
+	if f.settings.ErrorAtHandlerClose {
 		return fmt.Errorf("error on close")
 	}
 
-	if f.PanicOnHandlerClose {
-		panic(f.PanicData)
-	}
 	return nil
 }
 
 var _ adapter.Handler = &FakeHandler{}
+
+// FakeAdapterSettings describes the behavior of a fake adapter.
+type FakeAdapterSettings struct {
+	Name                    string
+	PanicAtSetAdapterConfig bool
+	PanicData               interface{}
+	PanicAtValidate         bool
+	ErrorAtValidate         bool
+	ErrorAtBuild            bool
+	PanicAtBuild            bool
+	NilBuilder              bool
+	NilHandlerAtBuild       bool
+	ErrorAtHandlerClose     bool
+	PanicAtHandlerClose     bool
+
+	SupportedTemplates []string
+
+	CloseCalled *bool
+}
