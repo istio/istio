@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/log"
@@ -33,27 +34,67 @@ var errUnregistered = errors.New("unregistered")
 // its prober status.
 type Controller interface {
 	io.Closer
+	Start()
 	register(p *Probe, initial error)
 	onChange(p *Probe, newStatus error)
 }
 
-type controllerBase struct {
-	sync.Mutex
-	statuses map[*Probe]error
-	name     string
+type controllerImpl interface {
+	onClose() error
+	onUpdate(newStatus error)
 }
 
-func (cb *controllerBase) registerBase(p *Probe) {
+type controller struct {
+	sync.Mutex
+	statuses map[*Probe]error
+
+	name          string
+	closec        chan struct{}
+	donec         chan struct{}
+	probeInterval time.Duration
+	impl          controllerImpl
+}
+
+func (cb *controller) Start() {
+	if cb.closec != nil {
+		close(cb.closec)
+	}
+
+	cb.closec = make(chan struct{})
+	cb.donec = make(chan struct{})
+	cb.impl.onUpdate(cb.status())
+	go func() {
+		t := time.NewTicker(cb.probeInterval / 2)
+	loop:
+		for {
+			select {
+			case <-cb.closec:
+				break loop
+			case <-t.C:
+				cb.impl.onUpdate(cb.status())
+			}
+		}
+		close(cb.donec)
+	}()
+}
+
+func (cb *controller) register(p *Probe, initial error) {
 	cb.Lock()
 	defer cb.Unlock()
 	if _, ok := cb.statuses[p]; ok {
 		log.Debugf("%s is already registered to %s", p, cb.name)
 		return
 	}
-	cb.statuses[p] = errUnregistered
+	cb.statuses[p] = initial
 }
 
-func (cb *controllerBase) statusLocked() (err error) {
+func (cb *controller) status() error {
+	cb.Lock()
+	defer cb.Unlock()
+	return cb.statusLocked()
+}
+
+func (cb *controller) statusLocked() (err error) {
 	if len(cb.statuses) == 0 {
 		return fmt.Errorf("%s has no emitters", cb.name)
 	}
@@ -65,75 +106,66 @@ func (cb *controllerBase) statusLocked() (err error) {
 	return err
 }
 
-func (cb *controllerBase) update(p *Probe, newStatus error) error {
+func (cb *controller) onChange(p *Probe, newStatus error) {
 	cb.Lock()
 	defer cb.Unlock()
 	prev := cb.statusLocked()
 	if stat, ok := cb.statuses[p]; !ok || stat == newStatus {
-		return prev
+		return
 	}
 	cb.statuses[p] = newStatus
 	curr := cb.statusLocked()
+	if prev == curr || (prev != nil && curr != nil) {
+		return
+	}
 	if prev == nil && curr != nil {
 		log.Errorf("%s turns unavailable: %v", cb.name, curr)
 	} else if prev != nil {
 		log.Debugf("%s error status: %v", cb.name, curr)
 	}
-	return curr
 }
 
-func (cb *controllerBase) Close() error {
+func (cb *controller) Close() error {
 	cb.Lock()
-	defer cb.Unlock()
 	cb.statuses = map[*Probe]error{}
-	return nil
+	close(cb.closec)
+	cb.Unlock()
+	<-cb.donec
+	return cb.impl.onClose()
 }
 
 type fileController struct {
-	controllerBase
 	path string
 }
 
 // NewFileController creates a new Controller implementation which creates a file
 // at the specified path only when the registered emitters are all available.
-func NewFileController(path string) Controller {
+func NewFileController(path string, period time.Duration) Controller {
 	name := filepath.Base(path)
-	return &fileController{
-		controllerBase: controllerBase{
-			statuses: map[*Probe]error{},
-			name:     name,
-		},
-		path: path,
+	return &controller{
+		statuses:      map[*Probe]error{},
+		name:          name,
+		probeInterval: period,
+		impl:          &fileController{path: path},
 	}
 }
 
-func (fc *fileController) Close() error {
-	fc.controllerBase.Close()
+func (fc *fileController) onClose() error {
 	if _, err := os.Stat(fc.path); os.IsNotExist(err) {
 		return nil
 	}
 	return os.Remove(fc.path)
 }
 
-func (fc *fileController) register(p *Probe, initial error) {
-	fc.registerBase(p)
-	fc.onChange(p, initial)
-}
-
-func (fc *fileController) onChange(p *Probe, newStatus error) {
-	curr := fc.update(p, newStatus)
-	var existed bool
-	if _, err := os.Stat(fc.path); err == nil {
-		existed = true
-	}
-	if curr == nil && !existed {
+func (fc *fileController) onUpdate(newStatus error) {
+	if newStatus == nil {
 		f, err := os.Create(fc.path)
 		if err != nil {
 			log.Errorf("Failed to create the path %s: %v", fc.path, err)
 			return
 		}
 		f.Close()
-	} else if curr != nil && existed {
+	} else {
 		if err := os.Remove(fc.path); err != nil {
 			log.Errorf("Failed to remove the path %s: %v", fc.path, err)
 		}

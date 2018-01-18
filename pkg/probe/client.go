@@ -15,7 +15,9 @@
 package probe
 
 import (
+	"fmt"
 	"os"
+	"time"
 )
 
 // PathExists checks if the specified path exists or not. This will be used
@@ -23,4 +25,32 @@ import (
 func PathExists(path string) error {
 	_, err := os.Stat(path)
 	return err
+}
+
+type Client interface {
+	Check() error
+}
+
+type fileClient struct {
+	path   string
+	period time.Duration
+}
+
+func NewFileClient(path string, period time.Duration) Client {
+	return &fileClient{
+		path:   path,
+		period: period,
+	}
+}
+
+func (fc *fileClient) Check() error {
+	stat, err := os.Stat(fc.path)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	if mtime := stat.ModTime(); now.Sub(mtime) > fc.period*2 {
+		return fmt.Errorf("file %s is too old (last modified time %v, now %v, should be within %v)", fc.path, mtime, now, fc.period)
+	}
+	return nil
 }
