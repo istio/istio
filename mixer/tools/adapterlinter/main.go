@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,10 +29,10 @@ var exitCode int
 
 var invalidImportPaths = map[string]string{
 	"log": "\"log\" import is not recommended; Adapters must instead use env.Logger for logging during execution. " +
-		"This logger understands about which adapter is running and routes the data to the place where the operator " +
+		"This logger understands which adapter is running and routes the data to the place where the operator " +
 		"wants to see it.",
 	"github.com/golang/glog": "\"github.com/golang/glog\" import is not recommended; Adapters must instead use env.Logger for logging during execution. " +
-		"This logger understands about which adapter is running and routes the data to the place where the operator " +
+		"This logger understands which adapter is running and routes the data to the place where the operator " +
 		"wants to see it.",
 }
 
