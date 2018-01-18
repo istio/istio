@@ -20,9 +20,8 @@ usage: ${0} [OPTIONS]
 The following flags are required.
 
        --service          Service name of webhook.
-       --namespace        Namespace where webhook service resides.
+       --namespace        Namespace where webhook service and secret reside.
        --secret           Secret name for CA certificate and server certificate/key pair.
-       --secret-namespace Namespace where secret should be created. Default
 EOF
     exit 1
 }
@@ -41,10 +40,6 @@ while [[ $# -gt 0 ]]; do
             namespace="$2"
             shift
             ;;
-        --secret-namespace)
-            secretNamespace="$2"
-            shift
-            ;;
         *)
             usage
             ;;
@@ -55,7 +50,6 @@ done
 [ -z ${service} ] && usage
 [ -z ${secret} ] && usage
 [ -z ${namespace} ] && usage
-[ -z ${secretNamespace} ] && usage
 
 # verify cfssl toolkit is installed
 if [ ! -x "$(command -v cfssl)" ]; then
@@ -115,14 +109,9 @@ done
 kubectl certificate approve ${csrName}
 kubectl get csr ${csrName} -o jsonpath='{.status.certificate}' | base64 -d > ${tmpdir}/server-cert.pem
 
-# fetch the CA certificate that signed our certificate
-secretToken=$(kubectl -n ${namespace} get serviceaccount default -o jsonpath='{.secrets[0].name}')
-kubectl get secret -n ${namespace} ${secretToken} -o jsonpath='{.data.ca\.crt}' | base64 -d > ${tmpdir}/ca-cert.pem
-
 # create the secret with CA cert and server cert/key
 kubectl create secret generic ${secret} \
-        --from-file=${tmpdir}/ca-cert.pem \
-        --from-file=${tmpdir}/server-key.pem \
-        --from-file=${tmpdir}/server-cert.pem \
+        --from-file=key.pem=${tmpdir}/server-key.pem \
+        --from-file=cert.pem=${tmpdir}/server-cert.pem \
         --dry-run -o yaml |
-    kubectl -n ${secretNamespace} apply -f -
+    kubectl -n ${namespace} apply -f -

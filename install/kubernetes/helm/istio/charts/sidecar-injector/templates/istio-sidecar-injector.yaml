@@ -1,0 +1,104 @@
+{{- $proxy_image := dict "image" "" }}
+{{- if .Values.global.proxy.debug }}
+{{- $_ := set $proxy_image "image" "proxy_debug" }}
+{{- else }}
+{{- $_ := set $proxy_image "image" "proxy" }}
+{{- end }}
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $pilot_hub := .Values.global.pilot.hub }}
+{{- $pilot_tag := .Values.global.pilot.tag }}
+#
+# Istio sidecar injector webhook
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+  namespace: {{ $istio_namespace }}
+data:
+  config: |-
+    policy: "enabled"
+    params:
+      initImage: {{$pilot_hub}}/proxy_init:{{$pilot_tag}}
+      proxyImage: {{$pilot_hub}}/proxy_debug:{{$pilot_tag}}
+      verbosity: 2
+      version: {{$pilot_tag}}
+      meshConfigMapName: istio
+      imagePullPolicy: IfNotPresent
+      debugMode: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-sidecar-injector
+  namespace: {{ $istio_namespace }}
+  labels:
+    istio: sidecar-injector
+spec:
+  ports:
+  - name: https-webhook # optional
+    port: 443
+  selector:
+    istio: sidecar-injector
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: istio-sidecar-injector
+  namespace: {{ $istio_namespace }}
+  labels:
+    istio: sidecar-injector
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: istio-sidecar-injector
+      labels:
+        istio: sidecar-injector
+    spec:
+      serviceAccountName: istio-sidecar-injector-service-account
+      containers:
+        - name: webhook
+          image: {{$pilot_hub}}/sidecar_injector:{{$pilot_tag}}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --tls-cert-file="/etc/istio/certs/cert.pem"
+            - --tls-private-key-file="/etc/istio/certs/key.pem"
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+            readOnly: true
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: certs
+        secret:
+          secretName: sidecar-injector-certs
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: istio-sidecar-injector
+        namespace: {{ $istio_namespace }}
+        path: "/inject"
+      caBundle: @@CA_BUNDLE@@
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    #namespaceSelector:
+    #  - matchExpressions:
+    #      key: "istio-injection"
+    #      operator: "NotIn"
+    #      values: "disabled"
+---

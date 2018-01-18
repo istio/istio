@@ -20,11 +20,16 @@ import (
 	"io"
 	"os"
 
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/tools/version"
@@ -46,6 +51,32 @@ var (
 	inFilename  string
 	outFilename string
 )
+
+const (
+	// ConfigMapKey should match the expected MeshConfig file name
+	ConfigMapKey = "mesh"
+)
+
+// getMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
+func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) { // nolint: lll
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// values in the data are strings, while proto might use a different data type.
+	// therefore, we have to get a value by a key
+	yaml, exists := config.Data[ConfigMapKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
+	}
+
+	mesh, err := model.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
+		return nil, nil, err
+	}
+	return config, mesh, nil
+}
 
 var (
 	injectCmd = &cobra.Command{
@@ -138,7 +169,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			_, meshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
+			_, meshConfig, err := getMeshConfig(client, istioNamespace, meshConfigMapName)
 			if err != nil {
 				return fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
 					"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
@@ -146,8 +177,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 			}
 
 			config := &inject.Config{
-				Policy:            inject.DefaultInjectionPolicy,
-				IncludeNamespaces: []string{v1.NamespaceAll},
+				Policy: inject.DefaultInjectionPolicy,
 				Params: inject.Params{
 					InitImage:       inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
@@ -183,7 +213,7 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", inject.ConfigMapKey))
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump
 	// settings (i.e. sysctl kernel.*) affect all pods in a node and

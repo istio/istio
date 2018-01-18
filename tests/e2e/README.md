@@ -80,11 +80,11 @@ kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=
 ```
 # Customize .istiorc with your HUB and optional TAG (example: HUB=costinm TAG=mybranch)
 
-# Build images on the local docker. 
+# Build images on the local docker.
 make docker
 
 # Push images to docker registry
-# If you use minikube and its docker environment, images will be  available in minikube for use, 
+# If you use minikube and its docker environment, images will be  available in minikube for use,
 # you can skip this step.
 make push
 
@@ -134,7 +134,7 @@ go_test target. The script has a number of options:
 * `--use_local_cluster`
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
-* `--use_initializer` - if you want to do transparent sidecar injection
+* `--use_automatic_injection` - if you want to do transparent sidecar injection
 * `--mixer_hub <mixer image hub>`
 * `--mixer_tag <mixer image tag>`
 * `--pilot_hub <pilot image hub>`

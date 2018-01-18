@@ -325,7 +325,7 @@ signed up for CircleCI, you can test your code changes in your fork against
 the full suite of tests that we run for every PR.
 
 Please refer to the
-[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a 
+[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a
 detailed guide on using CircleCI with Istio.
 
 ## Git workflow

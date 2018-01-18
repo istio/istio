@@ -21,10 +21,8 @@ import (
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
@@ -32,48 +30,34 @@ import (
 
 var (
 	flags = struct {
-		kubeconfig     string
-		meshconfig     string
-		injectConfig   string
-		namespace      string
 		loggingOptions *log.Options
+
+		meshconfig       string
+		injectConfigFile string
+		certFile         string
+		privateKeyFile   string
+		port             int
 	}{
 		loggingOptions: log.NewOptions(),
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "sidecar-initializer",
-		Short: "Kubernetes initializer for Istio sidecar",
+		Use:   "sidecar-injector",
+		Short: "Kubernetes webhook for automatic Istio sidecar injection",
 		RunE: func(*cobra.Command, []string) error {
 			if err := log.Configure(flags.loggingOptions); err != nil {
 				return err
 			}
-			restConfig, client, err := kube.CreateInterface(flags.kubeconfig)
-			if err != nil {
-				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
-			}
 
 			log.Infof("version %s", version.Line())
 
-			config, err := inject.GetInitializerConfig(client, flags.namespace, flags.injectConfig)
+			wh, err := inject.NewWebhook(flags.injectConfigFile, flags.meshconfig, flags.certFile, flags.privateKeyFile, flags.port) // nolint: lll
 			if err != nil {
-				return multierror.Prefix(err, "failed to read initializer configuration")
-			}
-
-			// retrieve mesh configuration separately
-			if config.Params.Mesh, err = cmd.ReadMeshConfig(flags.meshconfig); err != nil {
-				return multierror.Prefix(err, "failed to read mesh configuration.")
-			}
-
-			initializer, err := inject.NewInitializer(restConfig, config, client)
-			if err != nil {
-				return multierror.Prefix(err, "failed to create initializer")
+				return multierror.Prefix(err, "failed to create injection webhook")
 			}
 
 			stop := make(chan struct{})
-
-			go initializer.Run(stop)
-
+			go wh.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
 		},
@@ -81,14 +65,15 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshconfig", "/etc/istio/config/mesh",
+	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
 		"File name for Istio mesh configuration")
-	rootCmd.PersistentFlags().StringVar(&flags.injectConfig, "injectConfig", "istio-inject",
-		"Name of initializer configuration ConfigMap")
-	rootCmd.PersistentFlags().StringVar(&flags.namespace, "namespace", v1.NamespaceDefault, // TODO istio-system?
-		"Namespace of initializer configuration ConfigMap")
+	rootCmd.PersistentFlags().StringVar(&flags.injectConfigFile, "injectConfig", "/etc/istio/inject/config",
+		"File name for Istio injection configuration")
+	rootCmd.PersistentFlags().StringVar(&flags.certFile, "tlsCertFile", "/etc/istio/certs/cert.pem",
+		"File containing the default x509 Certificate for HTTPS.")
+	rootCmd.PersistentFlags().StringVar(&flags.privateKeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",
+		"File containing the default x509 private key matching --tls-cert-file.")
+	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 443, "Webhook port")
 
 	// Attach the Istio logging options to the command.
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
