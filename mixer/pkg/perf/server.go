@@ -96,13 +96,13 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 		setup.Config.EnableLog = true
 
 		o := log.NewOptions()
-		o.SetOutputLevel(log.DebugLevel)
+		_ = o.SetOutputLevel(log.DebugLevel)
 		args.LoggingOptions = o
 	}
 
 	if !setup.Config.EnableLog {
 		o := log.NewOptions()
-		o.SetOutputLevel(log.NoneLevel)
+		_ = o.SetOutputLevel(log.NoneLevel)
 		args.LoggingOptions = o
 	}
 
@@ -110,12 +110,12 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 }
 
 func (s *server) shutdown() {
-	if s != nil {
+	if s.s != nil {
 		if err := s.s.Close(); err != nil {
 			log.Error(err.Error())
-			log.Sync()
+			_ = log.Sync()
 		}
-		s = nil
+		s.s = nil
 	}
 }
 

@@ -357,7 +357,8 @@ func TestHostInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.HostInstances(map[string]bool{"172.19.0.11": true})
+	var svcNode model.Node
+	services, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
 	if err != nil {
 		t.Errorf("client encountered error during HostInstances(): %v", err)
 	}
@@ -379,8 +380,9 @@ func TestHostInstancesError(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
+	var svcNode model.Node
 	ts.Server.Close()
-	instances, err := controller.HostInstances(map[string]bool{"172.19.0.11": true})
+	instances, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
 	if err == nil {
 		t.Error("HostInstances() should return error when client experiences connection problem")
 	}

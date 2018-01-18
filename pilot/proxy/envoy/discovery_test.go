@@ -27,7 +27,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
@@ -56,7 +55,7 @@ func makeDiscoveryService(t *testing.T, r model.ConfigStore, mesh *meshconfig.Me
 	out, err := NewDiscoveryService(
 		&mockController{},
 		nil,
-		proxy.Environment{
+		model.Environment{
 			ServiceDiscovery: mockDiscovery,
 			ServiceAccounts:  mockDiscovery,
 			IstioConfigStore: model.MakeIstioStore(r),
@@ -235,6 +234,16 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	}
 }
 
+func TestClusterDiscoveryEgressRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-redirect-egress.json", t)
+}
+
 func TestClusterDiscoveryWithAuthOptIn(t *testing.T) {
 	// Change mock service security for test.
 	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
@@ -283,17 +292,6 @@ func TestClusterDiscoveryIngress(t *testing.T) {
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ingress.json", t)
-}
-
-func TestClusterDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
 }
 
 func TestClusterDiscoveryRouterError(t *testing.T) {
@@ -493,6 +491,16 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 	}
 }
 
+func TestRouteDiscoveryEgressRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-redirect-egress.json", t)
+}
+
 func TestRouteDiscoveryRewrite(t *testing.T) {
 	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
@@ -525,17 +533,6 @@ func TestRouteDiscoveryWebsocket(t *testing.T) {
 		url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response = makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/lds-websocket.json", t)
-	}
-}
-
-func TestRouteDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
 	}
 }
 
@@ -785,17 +782,6 @@ func TestListenerDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
 	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
-}
-
-func TestListenerDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("unexpected error response from discovery: got %v, want %v",

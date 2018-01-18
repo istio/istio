@@ -32,6 +32,7 @@ import (
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
@@ -55,7 +56,7 @@ type CertSource struct {
 
 type watcher struct {
 	agent    proxy.Agent
-	role     proxy.Node
+	role     model.Node
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -63,7 +64,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role proxy.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -91,7 +92,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, time.Duration(time.Second*10))
+	go w.retrieveAZ(ctx, time.Second*10)
 
 	<-ctx.Done()
 }
@@ -129,7 +130,7 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration) {
 				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
 				w.Reload()
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}
 }

@@ -1,10 +1,10 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: httpbin-fault-rule
+  name: fault-injection-to-egress-rule
 spec:
   destination:
-    service: "httpbin.org"
+    service: "{{.service}}"
   httpFault:
     abort:
       httpStatus: 418

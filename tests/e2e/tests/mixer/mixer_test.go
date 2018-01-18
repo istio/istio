@@ -501,11 +501,8 @@ func TestRateLimit(t *testing.T) {
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
 		},
-		HTTPOptions: fhttp.HTTPOptions{
-			URL: url,
-		},
 	}
-
+	opts.Init(url)
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {

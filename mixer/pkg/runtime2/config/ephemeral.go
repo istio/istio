@@ -53,7 +53,7 @@ func NewEphemeral(
 
 		nextID: 0,
 
-		entries: make(map[store.Key]*store.Resource, 0),
+		entries: make(map[store.Key]*store.Resource),
 
 		cachedAttributes: nil,
 	}

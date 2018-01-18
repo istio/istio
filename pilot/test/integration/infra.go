@@ -48,7 +48,7 @@ const (
 	ingressSecretName = "istio-ingress-certs"
 )
 
-type infra struct { // nolint: aligncheck
+type infra struct { // nolint: maligned
 	Name string
 
 	// docker tags
@@ -115,7 +115,7 @@ func (infra *infra) setup() error {
 		}
 		infra.namespaceCreated = true
 	} else {
-		if _, err := client.Core().Namespaces().Get(infra.Namespace, meta_v1.GetOptions{}); err != nil {
+		if _, err := client.CoreV1().Namespaces().Get(infra.Namespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
@@ -127,7 +127,7 @@ func (infra *infra) setup() error {
 		}
 		infra.istioNamespaceCreated = true
 	} else {
-		if _, err := client.Core().Namespaces().Get(infra.IstioNamespace, meta_v1.GetOptions{}); err != nil {
+		if _, err := client.CoreV1().Namespaces().Get(infra.IstioNamespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
@@ -463,8 +463,8 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	return nil
 }
 
-func (infra *infra) deleteConfig(inFile string) error {
-	config, err := fill(inFile, nil)
+func (infra *infra) deleteConfig(inFile string, data map[string]string) error {
+	config, err := fill(inFile, data)
 	if err != nil {
 		return err
 	}

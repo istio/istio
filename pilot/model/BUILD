@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "context.go",
         "controller.go",
         "conversion.go",
         "egress_rules.go",
@@ -17,6 +18,7 @@ go_library(
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -59,6 +61,7 @@ go_test(
     size = "small",
     srcs = [
         "config_test.go",
+        "context_test.go",
         "conversion_test.go",
         "egress_rules_test.go",
     ],
