@@ -1,6 +1,9 @@
 syntax = "proto3";
 
 package istio.mixer.v1.template;
+
+option go_package="istio.io/api/mixer/v1/template";
+
 import "google/protobuf/descriptor.proto";
 
 // Specifies the varity of the the Template.

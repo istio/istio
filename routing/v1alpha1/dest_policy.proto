@@ -19,6 +19,8 @@ import "routing/v1alpha1/route_rule.proto";
 
 package istio.routing.v1alpha1;
 
+option go_package = "istio.io/api/routing/v1alpha1";
+
 // DestinationPolicy defines client/caller-side policies that determine how
 // to handle traffic bound to a particular destination service. The policy
 // specifies configuration for load balancing and circuit breakers. For

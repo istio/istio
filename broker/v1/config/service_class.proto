@@ -15,6 +15,8 @@ syntax = "proto3";
 
 package istio.broker.v1.config;
 
+option go_package="istio.io/api/broker/v1/config";
+
 // ServiceClass defines a service that are exposed to Istio service consumers.
 // The service is linked into one or more ServicePlan.
 message ServiceClass {

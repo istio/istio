@@ -19,6 +19,8 @@ import "google/protobuf/wrappers.proto";
 
 package istio.routing.v1alpha2;
 
+option go_package = "istio.io/api/routing/v1alpha2";
+
 // ### Glossary & concepts
 //
 // *Service* a unit of application behavior bound to a unique name in a

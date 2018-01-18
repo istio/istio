@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.rbac.v1alpha1;
 
+option go_package="istio.io/api/rbac/v1alpha1";
+
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 // objects.
 //

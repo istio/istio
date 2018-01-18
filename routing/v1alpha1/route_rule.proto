@@ -22,6 +22,8 @@ import "routing/v1alpha1/l4_fault.proto";
 
 package istio.routing.v1alpha1;
 
+option go_package = "istio.io/api/routing/v1alpha1";
+
 // ### Glossary & concepts
 //
 // *Service* is a unit of an application with a unique name that other services

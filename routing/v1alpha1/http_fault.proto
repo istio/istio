@@ -20,6 +20,8 @@ import "google/protobuf/duration.proto";
 
 package istio.routing.v1alpha1;
 
+option go_package = "istio.io/api/routing/v1alpha1";
+
 // HTTPFaultInjection can be used to specify one or more faults to inject
 // while forwarding http requests to the destination specified in the route
 // rule.  Fault specification is part of a route rule. Faults include

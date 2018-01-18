@@ -18,6 +18,8 @@ import "routing/v1alpha2/gateway.proto";
 
 package istio.routing.v1alpha2;
 
+option go_package = "istio.io/api/routing/v1alpha2";
+
 // Service registry entries describe describe the endpoints, ports and
 // protocols of a white-listed set of mesh-external domains and IP blocks
 // that services in the mesh are allowed to access.

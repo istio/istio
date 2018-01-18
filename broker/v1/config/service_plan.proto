@@ -15,6 +15,8 @@ syntax = "proto3";
 
 package istio.broker.v1.config;
 
+option go_package="istio.io/api/broker/v1/config";
+
 // ServicePlan defines the type of services available to Istio service
 // consumers.  One or more services are included in a plan. The plan is flexible
 // and subject to change along with business requirements.

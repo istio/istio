@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.client;
 
+option go_package="istio.io/api/mixer/v1/config/client";
+
 import "gogoproto/gogo.proto";
 import "mixer/v1/config/client/service.proto";
 

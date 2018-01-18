@@ -18,6 +18,8 @@ import "google/protobuf/duration.proto";
 
 package istio.routing.v1alpha1;
 
+option go_package = "istio.io/api/routing/v1alpha1";
+
 // (-- Faults can be injected into the connections from downstream by the
 // Envoy, for testing the failure recovery capabilities of downstream
 // services.  Faults include aborting the connection from downstream

@@ -18,6 +18,8 @@ syntax = "proto3";
 // field datatype to express the equivalent ValueType for the expressions the field can be mapped to.
 package istio.mixer.v1.template;
 
+option go_package="istio.io/api/mixer/v1/template";
+
 // Value is used inside templates for fields that have dynamic types. The actual datatype
 // of the field depends on the datatype of the expression used in the operator configuration.
 message Value {}
