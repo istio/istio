@@ -463,8 +463,8 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	return nil
 }
 
-func (infra *infra) deleteConfig(inFile string) error {
-	config, err := fill(inFile, nil)
+func (infra *infra) deleteConfig(inFile string, data map[string]string) error {
+	config, err := fill(inFile, data)
 	if err != nil {
 		return err
 	}
@@ -483,10 +483,6 @@ func (infra *infra) deleteConfig(inFile string) error {
 			return err
 		}
 	}
-
-	sleepTime := time.Second * 3
-	log.Infof("Sleeping %v for the config to propagate", sleepTime)
-	time.Sleep(sleepTime)
 	return nil
 }
 

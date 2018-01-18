@@ -484,6 +484,16 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 	}
 }
 
+func TestRouteToEgressDiscoveryRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-redirect-egress.json", t)
+}
+
 func TestRouteDiscoveryRewrite(t *testing.T) {
 	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
