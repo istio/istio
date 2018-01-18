@@ -339,12 +339,12 @@ var (
 
 	externalServiceRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/foreign-service-rule.yaml.golden",
+		file: "testdata/external-service-rule.yaml.golden",
 	}
 
 	externalServiceRuleTCP = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/foreign-service-rule-tcp.yaml.golden",
+		file: "testdata/external-service-rule-tcp.yaml.golden",
 	}
 
 	destinationRuleGoogleCB = fileConfig{
