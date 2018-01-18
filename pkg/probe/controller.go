@@ -15,7 +15,6 @@
 package probe
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -26,8 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/log"
 )
-
-var errUnregistered = errors.New("unregistered")
 
 // Controller provides the internal interface to handle events coming
 // from Emitters. Individual controller implementation will update
@@ -166,7 +163,7 @@ func (fc *fileController) onUpdate(newStatus error) {
 			log.Errorf("Failed to create the path %s: %v", fc.path, err)
 			return
 		}
-		f.Close()
+		_ = f.Close()
 	} else {
 		if err := os.Remove(fc.path); err != nil {
 			log.Errorf("Failed to remove the path %s: %v", fc.path, err)
