@@ -311,7 +311,9 @@ func (c *confParam) write(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file %v: %v", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	return tmpl.Execute(f, *c)
 }
 

@@ -66,8 +66,8 @@ function getDeps() {
      go get github.com/coreos/etcd/cmd/etcd
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
-    # Init should be run after cloning the workspace
-    ./init.sh
+     # Init should be run after cloning the workspace
+     ${ISTIO_GO}/bin/init.sh
    fi
 }
 
