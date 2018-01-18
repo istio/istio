@@ -87,11 +87,11 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
 fi
 
 mkdir -p "${OUTPUT_PATH}/istioctl"
-ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} make istioctl-all
+VERBOSE=1 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
 cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   mkdir -p "${OUTPUT_PATH}/istioctl-stage"
-  ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} make istioctl-all
+  VERBOSE=1 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
   cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl-stage
 fi
 
