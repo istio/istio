@@ -109,6 +109,11 @@ type visitor struct {
 	fs      *token.FileSet
 }
 
+/*
+Validates the following:
+1. Disallow use of goroutines
+2. Disallow use of invalid imports.
+*/
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	if node == nil {
 		return nil
@@ -116,34 +121,40 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 
 	switch d := node.(type) {
 	case *ast.GoStmt:
-		v.reports = append(v.reports,
-			report{
-				d.Pos(),
-				fmt.Sprintf("%v:%v:%v:Adapters must use env.ScheduleWork or env.ScheduleDaemon in order to "+
-					"dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer as a "+
-					"whole by catching any panics they produce.",
-					v.fs.Position(d.Pos()).Filename, v.fs.Position(d.Pos()).Line, v.fs.Position(d.Pos()).Column),
-			})
+		v.reports = append(v.reports, v.goroutineReport(d.Pos()))
 	case *ast.ImportSpec:
 		if d.Path != nil {
 			p := strings.Trim(d.Path.Value, "\"")
 			for badImp, reportMsg := range invalidImportPaths {
 				if p == badImp {
-					v.reports = append(v.reports,
-						report{
-							d.Path.Pos(),
-							fmt.Sprintf("%v:%v:%v:%s",
-								v.fs.Position(d.Path.Pos()).Filename,
-								v.fs.Position(d.Path.Pos()).Line,
-								v.fs.Position(d.Path.Pos()).Column,
-								reportMsg),
-						})
+					v.reports = append(v.reports, v.invalidImportReport(d.Path.Pos(), reportMsg))
 				}
 			}
 		}
 	}
 
 	return v
+}
+
+func (v *visitor) invalidImportReport(pos token.Pos, msg string) report {
+	return report{
+		pos,
+		fmt.Sprintf("%v:%v:%v:%s",
+			v.fs.Position(pos).Filename,
+			v.fs.Position(pos).Line,
+			v.fs.Position(pos).Column,
+			msg),
+	}
+}
+
+func (v *visitor) goroutineReport(pos token.Pos) report {
+	return report{
+		pos,
+		fmt.Sprintf("%v:%v:%v:Adapters must use env.ScheduleWork or env.ScheduleDaemon in order to "+
+			"dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer as a "+
+			"whole by catching any panics they produce.",
+			v.fs.Position(pos).Filename, v.fs.Position(pos).Line, v.fs.Position(pos).Column),
+	}
 }
 
 type report struct {
