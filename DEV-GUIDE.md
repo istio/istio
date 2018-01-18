@@ -16,7 +16,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building individual Istio component](#building-individual-istio-component)
+  - [Building individual Istio components](#building-individual-istio-components)
   - [Building the code with debugger information](#building-the-code-with-debugger-information)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building containers with debugger information](#building-containers-with-debugger-information)
@@ -199,7 +199,7 @@ undesirable as Golang may not erase out of date artifacts from the
 cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
 before rebuilding the code.
 
-### Building individual Istio component
+### Building individual Istio components
 
 You can build individual Istio components by using their corresponding build
 targets. The following targets are currently defined:
@@ -235,7 +235,7 @@ debugger information.
 
 All the Istio components have corresponding debug targets defined by prefixing
 *debug.* to the regular build targets as described in
-[Link](#building-individual-istio-component). For example, to build
+[Building individual Istio components](#building-individual-istio-components). For example, to build
 pilot-discovery and pilot-agent with debugger information, issue the command in
 below:
 
@@ -267,7 +267,7 @@ make push
 
 You can selectively build individual Istio containers by using their corresponding
 build targets. Except for mixs, mixc, istioctl, you can prefix *docker.* to the regular build
-targets as described in [Link](#building-individual-istio-component). To build
+targets as described in [Building individual Istio components](#building-individual-istio-components). To build
 mixer server container, use the target *docker.mixer* or *docker.mixer_debug*.
 
 ### Building containers with debugger information
