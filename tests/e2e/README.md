@@ -87,9 +87,6 @@ TAG=mybranch
 # Build images on the local docker.
 make docker
 
-# Build images on the local docker.
-make docker
-
 # Push images to docker registry
 # If you use minikube and its docker environment, images will be  available in minikube for use,
 # you can skip this step.

@@ -499,8 +499,8 @@ func TestRateLimit(t *testing.T) {
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Exactly:    100,       // will make exactly 100 calls, so run for about 10 seconds
-			NumThreads: 5,         // get the same number of calls per connection (100/5=20)
+			Exactly:    200,       // will make exactly 200 calls, so run for about 20 seconds
+			NumThreads: 5,         // get the same number of calls per connection (200/5=40)
 			Out:        os.Stderr, // Only needed because of log capture issue
 		},
 		HTTPOptions: fhttp.HTTPOptions{
@@ -594,11 +594,11 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 
+	want200s *= 1.05 // timing is short, allow 5% extra for rounding errors
 	if got > want200s {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
-	errorf(t, "XXXX ARTIFICIAL FAIL")
 }
 
 func allowRuleSync() {
@@ -784,7 +784,6 @@ func doMixerRule(ruleName string, do kubeDo) error {
 }
 
 func setTestConfig() error {
-	//flog.SetOutput(os.Stdout)
 	cc, err := framework.NewCommonConfig("mixer_test")
 	if err != nil {
 		return err
