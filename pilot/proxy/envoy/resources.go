@@ -300,6 +300,11 @@ type HTTPRoute struct {
 	faults []*HTTPFilter
 }
 
+// Redirect returns true if route contains redirect logic
+func (route *HTTPRoute) Redirect() bool {
+	return route.HostRedirect != "" || route.PathRedirect != ""
+}
+
 // CatchAll returns true if the route matches all requests
 func (route *HTTPRoute) CatchAll() bool {
 	return len(route.Headers) == 0 && route.Path == "" && route.Prefix == "/"
