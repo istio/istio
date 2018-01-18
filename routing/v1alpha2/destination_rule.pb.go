@@ -6,7 +6,7 @@ Package v1alpha2 is a generated protocol buffer package.
 
 It is generated from these files:
 	routing/v1alpha2/destination_rule.proto
-	routing/v1alpha2/foreign_services.proto
+	routing/v1alpha2/external_service.proto
 	routing/v1alpha2/gateway.proto
 	routing/v1alpha2/route_rule.proto
 
@@ -18,8 +18,7 @@ It has these top-level messages:
 	ConnectionPoolSettings
 	OutlierDetection
 	TLSSettings
-	ForeignServices
-	Service
+	ExternalService
 	Gateway
 	Server
 	Port
