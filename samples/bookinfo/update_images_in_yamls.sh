@@ -17,4 +17,4 @@
 set -o errexit
 
 VERSION=$1
-sed -i 's/\(istio\/examples-bookinfo-.*\):[[:digit:]]\.[[:digit:]]\.[[:digit:]]/\1:0.3.0/g' */bookinfo*.yaml
+sed -i 's/\(istio\/examples-bookinfo-.*\):[[:digit:]]\.[[:digit:]]\.[[:digit:]]/\1:$VERSION/g' */bookinfo*.yaml
