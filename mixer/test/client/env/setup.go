@@ -135,7 +135,7 @@ func (s *TestSetup) SetUp() error {
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
-		s.envoy.Start()
+		_ = s.envoy.Start()
 	}
 
 	if !s.noMixer {
@@ -158,7 +158,7 @@ func (s *TestSetup) SetUp() error {
 
 // TearDown shutdown the servers.
 func (s *TestSetup) TearDown() {
-	s.envoy.Stop()
+	_ = s.envoy.Stop()
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
@@ -167,13 +167,13 @@ func (s *TestSetup) TearDown() {
 
 // ReStartEnvoy restarts Envoy
 func (s *TestSetup) ReStartEnvoy() {
-	s.envoy.Stop()
+	_ = s.envoy.Stop()
 	var err error
 	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2, s.ports)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
-		s.envoy.Start()
+		_ = s.envoy.Start()
 	}
 }
 
@@ -213,7 +213,7 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 
 // VerifyQuota verified Quota request data.
 func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
-	_ = <-s.mixer.quota.ch
+	<-s.mixer.quota.ch
 	if s.mixer.qma.Quota != name {
 		s.t.Fatalf("Failed to verify %s quota name: %v, expected: %v\n",
 			tag, s.mixer.qma.Quota, name)
@@ -227,18 +227,18 @@ func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 // DrainMixerAllChannels drain all channels
 func (s *TestSetup) DrainMixerAllChannels() {
 	go func() {
-		for true {
-			_ = <-s.mixer.check.ch
+		for {
+			<-s.mixer.check.ch
 		}
 	}()
 	go func() {
-		for true {
-			_ = <-s.mixer.report.ch
+		for {
+			<-s.mixer.report.ch
 		}
 	}()
 	go func() {
-		for true {
-			_ = <-s.mixer.quota.ch
+		for {
+			<-s.mixer.quota.ch
 		}
 	}()
 }
