@@ -1679,7 +1679,7 @@ func ValidateEndUserAuthenticationPolicySpec(msg proto.Message) error {
 		if jwt.JwksUri == "" {
 			errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
 		}
-		if !strings.HasPrefix(jwt.JwksUri, "http") && !strings.HasPrefix(jwt.JwksUri, "https") {
+		if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
 			errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
 		}
 		if _, err := url.Parse(jwt.JwksUri); err != nil {
