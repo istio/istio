@@ -30,8 +30,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"time"
-
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
@@ -339,11 +337,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws := &restful.WebService{}
 	ws.Produces(restful.MIME_JSON)
-	ws.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
-		now := time.Now()
-		chain.ProcessFilter(req, resp)
-		log.Infoa(req.Request.RequestURI, "->", req.Request.RemoteAddr, time.Now().Sub(now))
-	})
+
 	// List all known services (informational, not invoked by Envoy)
 	ws.Route(ws.
 		GET("/v1/registration").
