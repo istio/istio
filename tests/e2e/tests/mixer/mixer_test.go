@@ -594,7 +594,7 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 
-	want200s *= 1.05 // timing is short, allow 5% extra for rounding errors
+	want200s = math.Ceil(want200s * 1.1) // timing is short, allow 10% extra for rounding errors and quota bucket size
 	if got > want200s {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
