@@ -190,6 +190,6 @@ func With(fields ...zapcore.Field) *zap.Logger {
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 // This call is a wrapper around [logger.Sync](https://godoc.org/go.uber.org/zap#logger.Sync)
-func Sync() {
-	logger.Sync()
+func Sync() error {
+	return logger.Sync()
 }

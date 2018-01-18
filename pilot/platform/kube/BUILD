@@ -9,6 +9,7 @@ go_library(
         "conversion.go",
         "queue.go",
         "register.go",
+        "deregister.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -49,6 +50,7 @@ go_test(
         "conversion_test.go",
         "queue_test.go",
         "register_test.go",
+        "deregister_test.go",
     ],
     data = [":kubeconfig"] + glob(["testdata/*"]),
     library = ":go_default_library",

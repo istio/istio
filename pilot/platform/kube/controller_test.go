@@ -111,7 +111,7 @@ func TestServices(t *testing.T) {
 }
 
 func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
-	_, err := cl.Core().Services(ns).Create(&v1.Service{
+	_, err := cl.CoreV1().Services(ns).Create(&v1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{Name: n},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{

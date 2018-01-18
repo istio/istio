@@ -65,7 +65,7 @@ type registerInstance struct {
 	Instance instance `json:"instance"`
 }
 
-type instance struct { // nolint: aligncheck
+type instance struct { // nolint: maligned
 	ID         string   `json:"instanceId,omitempty"`
 	Hostname   string   `json:"hostName"`
 	App        string   `json:"app"`

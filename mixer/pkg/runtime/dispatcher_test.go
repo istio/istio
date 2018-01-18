@@ -104,7 +104,7 @@ func TestReport(t *testing.T) {
 			}
 		})
 	}
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestCheck(t *testing.T) {
@@ -157,7 +157,7 @@ func TestCheck(t *testing.T) {
 			}
 		})
 	}
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestQuota(t *testing.T) {
@@ -216,7 +216,7 @@ func TestQuota(t *testing.T) {
 		})
 	}
 
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestPreprocess(t *testing.T) {
@@ -241,7 +241,7 @@ func TestPreprocess(t *testing.T) {
 		{name: "errFromTmpl", tn: tname, callErr: err1},
 		{name: "resolverErr", tn: tname, callErr: err1, resolveErr: true},
 	} {
-		t.Run(fmt.Sprintf("%s", s.name), func(t *testing.T) {
+		t.Run(s.name, func(t *testing.T) {
 			fp := &fakeProc{
 				err:              s.callErr,
 				mutableBagResult: s.aBag,

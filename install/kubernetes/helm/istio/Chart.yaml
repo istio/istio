@@ -3,7 +3,7 @@ version: 0.3.0
 description: Helm chart for complete istio deployment
 keywords:
   - istio
-  - auth
+  - security
   - initializer
   - mixer
   - pilot
