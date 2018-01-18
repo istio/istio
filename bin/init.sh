@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Init script downloads or updates envoy and the go dependencies.
+# Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
+# the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
 ISTIO_GO=$ROOT
@@ -14,6 +15,8 @@ GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 OUT=${GO_TOP}/out
 
 export GOPATH=${GOPATH:-$GO_TOP}
+# Normally set by Makefile
+export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
@@ -21,21 +24,21 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=$(which dep || echo "${GO_TOP}/bin/dep" )
-echo "using dep: ${DEP}"
+DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
-if [ ${DEP} == "${GO_TOP}/bin/dep" ]; then
+# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+if [ ! -f ${DEP} ]; then
+    DEP=${ISTIO_BIN}/dep
     unset GOOS && go get -u github.com/golang/dep/cmd/dep
 fi
 
-
-# Download dependencies
+# Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
     ${DEP} ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+    cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
     ${DEP} ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+    cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
             ( ${DEP} ensure -vendor-only ; \
@@ -52,12 +55,21 @@ PROXY=debug-$PROXYVERSION
 if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
+    # New version of envoy downloaded. Save it to cache, and clean any old version.
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
-
-    mkdir -p $GO_TOP/bin
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GO_TOP/bin/envoy
-
-    ln -sf $GO_TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
 fi
+
+if [ ! -f $GO_TOP/bin/envoy ] ; then
+    mkdir -p $GO_TOP/bin
+    # Make sure the envoy binary exists.
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+fi
+
+# Deprecated, may still be used in some tests
+if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
+    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+fi
+
