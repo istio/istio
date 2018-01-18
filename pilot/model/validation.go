@@ -2000,20 +2000,44 @@ func ValidateExternalService(config proto.Message) (errs error) {
 
 	errs = appendErrors(errs, validateHosts(externalService.Hosts))
 
-	// TODO: fs.Discovery
-	// TODO: fs.Endpoints
+	if externalService.Discovery == routingv2.ExternalService_STATIC {
+		if len(externalService.Endpoints) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
+		}
+		for _, endpoint := range externalService.Endpoints {
+			errs = appendErrors(errs, ValidateIPv4Address(endpoint.Address)) // TODO: allow FQDN
+			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			for name, port := range endpoint.Ports {
+				errs = appendErrors(errs,
+					validatePortName(name),
+					ValidatePort(int(port)))
+			}
+		}
+	}
 
 	for _, port := range externalService.Ports {
-		if !IsDNS1123Label(port.Name) {
-			errs = appendErrors(errs, fmt.Errorf("port name must meet RFC 1123 label criteria"))
-		}
-		if ConvertCaseInsensitiveStringToProtocol(port.Protocol) == ProtocolUnsupported {
-			errs = appendErrors(errs, fmt.Errorf("unsupported protocol: %s", port.Protocol))
-		}
-		errs = appendErrors(errs, ValidatePort(int(port.Number)))
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol),
+			ValidatePort(int(port.Number)))
 	}
 
 	return
+}
+
+func validatePortName(name string) error {
+	if !IsDNS1123Label(name) {
+		return fmt.Errorf("invalid port name: %s", name)
+	}
+	return nil
+}
+
+func validateProtocol(protocol string) error {
+	if ConvertCaseInsensitiveStringToProtocol(protocol) == ProtocolUnsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocol)
+	}
+	return nil
 }
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
