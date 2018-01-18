@@ -499,18 +499,14 @@ func TestRateLimit(t *testing.T) {
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Exactly:    100, // will make exactly 100 calls, so run for about 10 seconds
-			NumThreads: 8,
+			Exactly:    100,       // will make exactly 100 calls, so run for about 10 seconds
+			NumThreads: 5,         // get the same number of calls per connection (100/5=20)
 			Out:        os.Stderr, // Only needed because of log capture issue
 		},
 		HTTPOptions: fhttp.HTTPOptions{
 			URL: url,
 		},
 	}
-
-	log.Warnf("XXX0 LOGGER WARNF MESSAGE")
-	fmt.Fprintln(os.Stdout, "XXX1 MESSAGE TO STDOUT")
-	fmt.Fprintln(os.Stderr, "XXX2 MESSAGE TO STDERR")
 
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
