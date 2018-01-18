@@ -110,7 +110,7 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 }
 
 func (s *server) shutdown() {
-	if s != nil {
+	if s.s != nil {
 		if err := s.s.Close(); err != nil {
 			log.Error(err.Error())
 			_ = log.Sync()
