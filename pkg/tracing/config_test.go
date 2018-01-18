@@ -29,11 +29,6 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var (
-	testUser = "test"
-	testPass = "pass"
-)
-
 func TestConfigure(t *testing.T) {
 	srv := &testServer{}
 	zipkinServer := httptest.NewServer(handler(srv.receiveZipkin))
@@ -76,10 +71,10 @@ func TestConfigure(t *testing.T) {
 				span.Finish()
 
 				// force a flush of spans to endpoints
-				closer.Close()
+				_ = closer.Close()
 
 				// force the log to flush
-				log.Sync()
+				_ = log.Sync()
 			})
 
 			if err != nil {
@@ -186,8 +181,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)

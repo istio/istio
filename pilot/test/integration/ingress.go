@@ -141,7 +141,7 @@ func (t *ingress) checkRouteRule() status {
 
 // ensure that IPs/hostnames are in the ingress statuses
 func (t *ingress) checkIngressStatus() status {
-	ings, err := client.Extensions().Ingresses(t.Namespace).List(metav1.ListOptions{})
+	ings, err := client.ExtensionsV1beta1().Ingresses(t.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (t *ingress) teardown() {
 	if !t.Ingress {
 		return
 	}
-	if err := client.Extensions().Ingresses(t.Namespace).
+	if err := client.ExtensionsV1beta1().Ingresses(t.Namespace).
 		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
 		log.Warna(err)
 	}

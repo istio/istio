@@ -63,7 +63,7 @@ func TestSample1(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(resp.Body)
+	_, _ = buf.ReadFrom(resp.Body)
 	bodyReceived := buf.String()
 	if bodyReceived != testID {
 		t.Fatalf("Echo server, [%s] sent, [%s] received", testID, bodyReceived)

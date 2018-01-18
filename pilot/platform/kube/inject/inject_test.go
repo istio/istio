@@ -52,9 +52,6 @@ const unitTestTag = "unittest"
 // and the other .injected "want" YAMLs
 const unitTestHub = "docker.io/istio"
 
-// Default unit test DebugMode parameter
-const unitTestDebugMode = true
-
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		enableAuth      bool

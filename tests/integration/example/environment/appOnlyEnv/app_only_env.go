@@ -63,6 +63,6 @@ func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
 // Remove the local temp dir. Can be manually overrided if necessary.
 func (appOnlyEnv *AppOnlyEnv) Cleanup() (err error) {
 	log.Printf("Cleaning up %s", appOnlyEnv.EnvID)
-	os.RemoveAll(appOnlyEnv.TmpDir)
+	_ = os.RemoveAll(appOnlyEnv.TmpDir)
 	return
 }
