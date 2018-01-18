@@ -23,21 +23,22 @@ import (
 
 func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	logOptions := log.NewOptions()
-	var path string
+	probeOptions := &probe.Options{}
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, args []string) {
-			if path == "" {
-				fatalf("--probe-path is not specified")
+			if !probeOptions.IsValid() {
+				fatalf("Some options are not valid")
 			}
-			if err := probe.PathExists(path); err != nil {
-				fatalf("Fail on inspecting path %s: %v", path, err)
+			if err := probe.NewFileClient(probeOptions).GetStatus(); err != nil {
+				fatalf("Fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
 			printf("OK")
 		},
 	}
 	logOptions.AttachCobraFlags(cmd)
-	cmd.PersistentFlags().StringVar(&path, "probe-path", "", "Path of the file for checking the availability.")
+	cmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "", "Path of the file for checking the availability.")
+	cmd.PersistentFlags().DurationVar(&probeOptions.ProbeInterval, "probe-interval", 0, "Interval for checking the availability.")
 	return cmd
 }

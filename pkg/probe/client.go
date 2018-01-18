@@ -27,30 +27,32 @@ func PathExists(path string) error {
 	return err
 }
 
+// Client is the interface to check the status of a probe controller.
 type Client interface {
-	Check() error
+	GetStatus() error
 }
 
 type fileClient struct {
-	path   string
-	period time.Duration
+	opt *Options
 }
 
-func NewFileClient(path string, period time.Duration) Client {
-	return &fileClient{
-		path:   path,
-		period: period,
-	}
+// NewFileClient creates an instance of Client based on the file status specified
+// in the path. The specified period is the interval of the probe, so if this
+func NewFileClient(opt *Options) Client {
+	return &fileClient{opt}
 }
 
-func (fc *fileClient) Check() error {
-	stat, err := os.Stat(fc.path)
+func (fc *fileClient) GetStatus() error {
+	stat, err := os.Stat(fc.opt.Path)
 	if err != nil {
 		return err
 	}
 	now := time.Now()
-	if mtime := stat.ModTime(); now.Sub(mtime) > fc.period*2 {
-		return fmt.Errorf("file %s is too old (last modified time %v, now %v, should be within %v)", fc.path, mtime, now, fc.period)
+	// Sometimes filesystem / goroutine scheduling takes time, some buffer should be
+	// allowed for the validity of a file.
+	const jitter = 10 * time.Millisecond
+	if mtime := stat.ModTime(); now.Sub(mtime) > fc.opt.ProbeInterval+jitter {
+		return fmt.Errorf("file %s is too old (last modified time %v, should be within %v)", fc.opt.Path, mtime, fc.opt.ProbeInterval+jitter)
 	}
 	return nil
 }

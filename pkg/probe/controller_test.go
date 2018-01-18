@@ -24,7 +24,10 @@ import (
 	"time"
 )
 
-const testDuration = 10 * time.Millisecond
+const (
+	testDuration     = 10 * time.Millisecond
+	testFileDuration = 100 * time.Millisecond
+)
 
 var errClosed = errors.New("closed")
 
@@ -217,7 +220,7 @@ func TestControllerAfterClose(t *testing.T) {
 	}
 }
 
-func TestFileController(t *testing.T) {
+func TestFileControllerMethods(t *testing.T) {
 	d, err := ioutil.TempDir("", t.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -225,79 +228,79 @@ func TestFileController(t *testing.T) {
 	defer os.RemoveAll(d)
 	path := filepath.Join(d, "fc")
 	fc := &fileController{path: path}
-	client := NewFileClient(path, testDuration)
-	if err := client.Check(); err == nil {
+	client := NewFileClient(&Options{path, testFileDuration})
+	if err := client.GetStatus(); err == nil {
 		t.Error("Got nil, Want error")
 	}
 	fc.onUpdate(nil)
-	if err := client.Check(); err != nil {
+	if err := client.GetStatus(); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	time.Sleep(testDuration * 3)
-	if err := client.Check(); err == nil {
+	time.Sleep(testFileDuration * 3)
+	if err := client.GetStatus(); err == nil {
 		t.Error("Got nil, Want error")
 	}
 	fc.onUpdate(nil)
-	if err := client.Check(); err != nil {
+	if err := client.GetStatus(); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	fc.onUpdate(errors.New("dummy"))
-	if err := client.Check(); !os.IsNotExist(err) {
+	if err := client.GetStatus(); !os.IsNotExist(err) {
 		t.Errorf("Got %v, Want not-existed", err)
 	}
 }
 
-func TestFileControllerImpl(t *testing.T) {
+func TestFileController(t *testing.T) {
 	d, err := ioutil.TempDir("", t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(d)
-	path := filepath.Join(d, "fc")
-	fc := NewFileController(path, testDuration)
-	client := NewFileClient(path, testDuration)
+	opt := &Options{filepath.Join(d, "fc"), testFileDuration}
+	fc := NewFileController(opt)
+	client := NewFileClient(opt)
 	fc.Start()
 	defer fc.Close()
 
 	p1 := NewProbe()
 	p1.RegisterProbe(fc, "p1")
-	time.Sleep(testDuration)
-	if err := client.Check(); err == nil {
+	time.Sleep(testFileDuration)
+	if err := client.GetStatus(); err == nil {
 		t.Errorf("Got nil, want error")
 	}
 
 	p1.SetAvailable(nil)
-	time.Sleep(testDuration)
-	if err := client.Check(); err != nil {
+	time.Sleep(testFileDuration)
+	if err := client.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
 
 	p2 := NewProbe()
 	p2.RegisterProbe(fc, "p2")
-	time.Sleep(testDuration)
-	if err := client.Check(); err == nil {
+	time.Sleep(testFileDuration)
+	if err := client.GetStatus(); err == nil {
 		t.Errorf("Got nil, want error")
 	}
 
 	p2.SetAvailable(nil)
-	time.Sleep(testDuration)
-	if err := client.Check(); err != nil {
+	time.Sleep(testFileDuration)
+	if err := client.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
 
-	time.Sleep(testDuration * 2)
-	if err := client.Check(); err != nil {
+	time.Sleep(testFileDuration * 2)
+	if err := client.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
 
 	p1.SetAvailable(errors.New("dummy"))
-	time.Sleep(testDuration)
-	if err := client.Check(); err == nil {
+	time.Sleep(testFileDuration)
+	if err := client.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 
-	time.Sleep(testDuration * 2)
-	if err := client.Check(); err == nil {
+	time.Sleep(testFileDuration * 2)
+	if err := client.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 }

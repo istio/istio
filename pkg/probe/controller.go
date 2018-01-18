@@ -64,6 +64,8 @@ func (cb *controller) Start() {
 	cb.donec = make(chan struct{})
 	cb.impl.onUpdate(cb.status())
 	go func() {
+		// Considering the consumption of the updating status, invoke
+		// onUpdate every half of the specified interval.
 		t := time.NewTicker(cb.probeInterval / 2)
 	loop:
 		for {
@@ -140,13 +142,13 @@ type fileController struct {
 
 // NewFileController creates a new Controller implementation which creates a file
 // at the specified path only when the registered emitters are all available.
-func NewFileController(path string, period time.Duration) Controller {
-	name := filepath.Base(path)
+func NewFileController(opt *Options) Controller {
+	name := filepath.Base(opt.Path)
 	return &controller{
 		statuses:      map[*Probe]error{},
 		name:          name,
-		probeInterval: period,
-		impl:          &fileController{path: path},
+		probeInterval: opt.ProbeInterval,
+		impl:          &fileController{path: opt.Path},
 	}
 }
 

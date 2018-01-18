@@ -23,6 +23,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -79,10 +80,10 @@ type Args struct {
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
-	LivenessProbePath string
+	LivenessProbeOptions *probe.Options
 
 	// The path to the file for readiness probe, similar to LivenessProbePath.
-	ReadinessProbePath string
+	ReadinessProbeOptions *probe.Options
 
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
@@ -112,6 +113,8 @@ func NewArgs() *Args {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
 	}
 }
 

@@ -186,16 +186,18 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
-	if a.LivenessProbePath != "" {
-		s.livenessProbe = probe.NewFileController(a.LivenessProbePath)
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
 		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
 	}
-	if a.ReadinessProbePath != "" {
-		s.readinessProbe = probe.NewFileController(a.ReadinessProbePath)
+	if a.ReadinessProbeOptions.IsValid() {
+		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
 		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
 			e.RegisterProbe(s.readinessProbe, "dispatcher")
 		}
 		store2.RegisterProbe(s.readinessProbe, "store2/"+configStoreURL)
+		s.readinessProbe.Start()
 	}
 
 	return s, nil

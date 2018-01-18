@@ -72,10 +72,14 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttributeDomain"); err != nil {
 		fatalf("unable to hide: %v", err)
 	}
-	serverCmd.PersistentFlags().StringVar(&sa.LivenessProbePath, "livenessProbePath", "",
+	serverCmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", "",
 		"Path to the file for the k8s liveness probe.")
-	serverCmd.PersistentFlags().StringVar(&sa.ReadinessProbePath, "readinessProbePath", "",
+	serverCmd.PersistentFlags().DurationVar(&sa.LivenessProbeOptions.ProbeInterval, "livenessProbeInterval", 0,
+		"Interval of checks for the k8s liveness probe.")
+	serverCmd.PersistentFlags().StringVar(&sa.ReadinessProbeOptions.Path, "readinessProbePath", "",
 		"Path to the file for the k8s readiness probe.")
+	serverCmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.ProbeInterval, "readinessProbeInterval", 0,
+		"Interval of checks for the k8s readiness probe.")
 
 	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
 	// base & docs)
