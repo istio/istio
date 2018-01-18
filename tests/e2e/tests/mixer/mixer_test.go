@@ -533,7 +533,7 @@ func TestRateLimit(t *testing.T) {
 	callsToRatings := succReqs
 
 	// the rate-limit is 1 rps
-	want200s := 1. * opts.Duration.Seconds()
+	want200s := 1. * actualDuration
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
@@ -602,6 +602,7 @@ func TestRateLimit(t *testing.T) {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
+	errorf(t, "XXXX ARTIFICIAL FAIL")
 }
 
 func allowRuleSync() {
