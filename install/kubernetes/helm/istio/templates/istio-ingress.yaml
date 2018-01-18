@@ -1,15 +1,14 @@
-{{- if .Values.istio.deploy_base_config }}
 {{- $proxy_image := dict "image" "" }}
-{{- if .Values.global.proxy_debug }}
+{{- if .Values.global.proxy.debug }}
 {{- $_ := set $proxy_image "image" "proxy_debug" }}
 {{- else }}
 {{- $_ := set $proxy_image "image" "proxy" }}
 {{- end }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $proxy_hub := .Values.global.proxy_hub }}
-{{- $proxy_tag := .Values.global.proxy_tag }}
-{{- $use_nodeport := .Values.istio.ingress.use_nodeport }}
-{{- $nodeport_port := .Values.istio.ingress.nodeport_port | default 32000 }}
+{{- $proxy_hub := .Values.global.proxy.hub }}
+{{- $proxy_tag := .Values.global.proxy.tag }}
+{{- $use_nodeport := .Values.global.ingress.use_nodeport }}
+{{- $nodeport_port := .Values.global.ingress.nodeport_port | default 32000 }}
 ################################
 # istio ingress
 ################################
@@ -85,7 +84,7 @@ spec:
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
-{{- if .Values.global.auth_enabled }}
+{{- if .Values.global.security.enabled }}
         - MUTUAL_TLS
 {{- else }}
         - NONE #--controlPlaneAuthPolicy
@@ -122,4 +121,3 @@ spec:
           secretName: istio-ingress-certs
           optional: true
 ---
-{{- end }}

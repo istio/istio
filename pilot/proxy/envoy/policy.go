@@ -22,7 +22,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
 
@@ -59,7 +58,7 @@ func applyClusterPolicy(cluster *Cluster,
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
-			cluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, serviceAccounts)
+			cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, serviceAccounts)
 		}
 	}
 

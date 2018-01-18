@@ -22,7 +22,6 @@ go_library(
         "//pilot/platform/eureka:go_default_library",
         "//pilot/platform/kube:go_default_library",
         "//pilot/platform/kube/admit:go_default_library",
-        "//pilot/proxy:go_default_library",
         "//pilot/proxy/envoy:go_default_library",
         "//pilot/test/mock:go_default_library",
         "//pilot/tools/version:go_default_library",

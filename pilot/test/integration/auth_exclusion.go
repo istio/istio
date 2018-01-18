@@ -35,10 +35,7 @@ func (r *authExclusion) setup() error {
 func (r *authExclusion) teardown() {}
 
 func (r *authExclusion) run() error {
-	if err := r.makeRequests(); err != nil {
-		return err
-	}
-	return nil
+	return r.makeRequests()
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs

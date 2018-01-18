@@ -1,9 +1,7 @@
-{{- if .Values.istio.deploy_base_config }}
-{{- if .Values.global.auth_enabled }}
-{{- if .Values.global.ca_demo }}
+{{- if .Values.global.security.enabled }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $ca_hub := .Values.global.ca_hub }}
-{{- $ca_tag := .Values.global.ca_tag }}
+{{- $ca_hub := .Values.global.security.hub }}
+{{- $ca_tag := .Values.global.security.tag }}
 ################################
 # istio-CA single namespace
 ################################
@@ -44,6 +42,4 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
-{{- end }}
-{{- end }}
 {{- end }}

@@ -105,8 +105,8 @@ checkvars:
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init:
-	@bin/init.sh
+init: ${DEP}
+	@(DEP=${DEP} bin/init.sh)
 
 # init.sh downloads envoy
 ${ISTIO_BIN}/envoy: init
@@ -137,8 +137,6 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-
-pre-commit: format lint
 
 #-----------------------------------------------------------------------------
 # Target: precommit
