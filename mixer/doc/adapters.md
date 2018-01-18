@@ -89,10 +89,10 @@ AttributeGenerator. The template and its variety determine the signatures of the
 for consuming the associated instances. The `template_variety` also determines under which of the core Mixer behaviors,
 the `instances` for the templates should be created and dispatched to adapters.
 For example:
-* Check template variety instances are created and dispatched only during Mixer's Check API call.
-* Report template variety instances are created and dispatched only during Mixer's Report API call.
-* Quota template variety instances are created and dispatched only during Mixer's Quota API call.
-* AttributeGenerator template variety instances are created and dispatched to adapters for all of Mixer's
+    * *Check* template variety instances are created and dispatched only during Mixer's Check API call.
+    * *Report* template variety instances are created and dispatched only during Mixer's Report API call.
+    * *Quota* template variety instances are created and dispatched only during Mixer's Quota API call.
+    * *AttributeGenerator* template variety instances are created and dispatched to adapters for all of Mixer's
 Check, Report and QUOTA API calls. The processing of these templates happen during the supplementary attribute generation
 phase which happens before the processing any other variety of templates. Adapters that handle `AttributeGenerator`
 templates are called attribute generating adapters. These adapters are responsible
@@ -108,7 +108,7 @@ Individual templates are processed in order to produce five Go artifacts:
 * *Instance* struct: This defines the data that is passed to the adapters at request time. Mixer
 constructs objects of the `Instance` type, based on the request attributes and operator configuration.
 
-* *Output* struct (Only for ATTRIBUTE_GENERATOR templates): This defines the data that is returned to the adapters during
+* *Output* struct (Only for ATTRIBUTE_GENERATOR templates): This defines the data that is returned by the adapters during
 the attribute generation phase (before other check, report, quota handling adapters are invoked). Based on operator
 configuration, Mixer constructs new attributes using the `Output` object.
 
