@@ -1,3 +1,17 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -52,7 +66,7 @@ func doAllDirs(args []string) []string {
 	return reports
 }
 
-func doDir(name string) Reports {
+func doDir(name string) reports {
 	notests := func(info os.FileInfo) bool {
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") &&
 			!strings.HasSuffix(info.Name(), "_test.go") {
@@ -66,17 +80,17 @@ func doDir(name string) Reports {
 		reportErr(fmt.Sprintf("%v", err))
 		return nil
 	}
-	reports := make(Reports, 0)
+	rpts := make(reports, 0)
 	for _, pkg := range pkgs {
 		for _, r := range doPackage(fs, pkg) {
-			reports = append(reports, r)
+			rpts = append(rpts, r)
 		}
 	}
-	sort.Sort(reports)
-	return reports
+	sort.Sort(rpts)
+	return rpts
 }
 
-func doPackage(fs *token.FileSet, pkg *ast.Package) Reports {
+func doPackage(fs *token.FileSet, pkg *ast.Package) reports {
 	v := newVisitor(fs)
 	for _, file := range pkg.Files {
 		ast.Walk(&v, file)
@@ -91,7 +105,7 @@ func newVisitor(fs *token.FileSet) visitor {
 }
 
 type visitor struct {
-	reports Reports
+	reports reports
 	fs      *token.FileSet
 }
 
@@ -103,7 +117,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	switch d := node.(type) {
 	case *ast.GoStmt:
 		v.reports = append(v.reports,
-			Report{
+			report{
 				d.Pos(),
 				fmt.Sprintf("%v:%v:%v:Adapters must use env.ScheduleWork or env.ScheduleDaemon in order to "+
 					"dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer as a "+
@@ -116,7 +130,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			for badImp, reportMsg := range invalidImportPaths {
 				if p == badImp {
 					v.reports = append(v.reports,
-						Report{
+						report{
 							d.Path.Pos(),
 							fmt.Sprintf("%v:%v:%v:%s",
 								v.fs.Position(d.Path.Pos()).Filename,
@@ -132,16 +146,16 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-type Report struct {
+type report struct {
 	pos token.Pos
 	msg string
 }
 
-type Reports []Report
+type reports []report
 
-func (l Reports) Len() int           { return len(l) }
-func (l Reports) Less(i, j int) bool { return l[i].pos < l[j].pos }
-func (l Reports) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l reports) Len() int           { return len(l) }
+func (l reports) Less(i, j int) bool { return l[i].pos < l[j].pos }
+func (l reports) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 
 func reportErr(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
