@@ -92,13 +92,14 @@ For example:
 * Check template variety instances are created and dispatched only during Mixer's Check API call.
 * Report template variety instances are created and dispatched only during Mixer's Report API call.
 * Quota template variety instances are created and dispatched only during Mixer's Quota API call.
-* AttributeGenerator template variety instances are created and dispatched to adapters during
-the supplementary attribute generation phase. Attribute generation happens for all of Mixer's Check, Report and QUOTA
-calls and is done before processing any other variety of templates. During attribute generation phase,
-attribute generating adapters are responsible for generating output data, dictated by the template, which operators
-can use to create new attributes. These new attributes are combined with the attributes from the request to form the
-total set of attributes for the operation. These new attributes can therefore now be used by operators to configure
-instances of other check, report and quota variety templates.
+* AttributeGenerator template variety instances are created and dispatched to adapters for all of Mixer's
+Check, Report and QUOTA API calls. The processing of these templates happen during the supplementary attribute generation
+phase which happens before the processing any other variety of templates. Adapters that handle `AttributeGenerator`
+templates are called attribute generating adapters. These adapters are responsible
+for generating output data, dictated by the template, which operators can use to create new attributes. These new
+attributes are combined with the attributes from the request to form the total set of attributes for the operation.
+These new attributes can therefore now be used by operators to configure instances of other check, report and quota
+variety templates.
 
 ## Generated Go code
 
