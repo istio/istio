@@ -94,14 +94,6 @@ const (
 	// ProxyContainerName is the name for sidecar proxy container
 	ProxyContainerName = "istio-proxy"
 
-	enableCoreDumpContainerName = "enable-core-dump"
-	enableCoreDumpImage         = "alpine"
-
-	istioCertSecretPrefix = "istio."
-
-	istioCertVolumeName        = "istio-certs"
-	istioEnvoyConfigVolumeName = "istio-envoy"
-
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
@@ -329,14 +321,6 @@ IncludeNamespaceSearch:
 	// TODO - add version check for sidecar upgrade
 
 	return !ok
-}
-
-func timeString(dur *duration.Duration) string {
-	out, err := ptypes.Duration(dur)
-	if err != nil {
-		log.Warna(err)
-	}
-	return out.String()
 }
 
 func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
