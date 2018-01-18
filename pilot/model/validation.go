@@ -1761,24 +1761,20 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	return
 }
 
-// TODO: tests
-func validateHost(host string) error {
-	if len(host) == 0 {
-		return fmt.Errorf("host must be non-empty")
+func validateHosts(hosts []string) error {
+	if len(hosts) == 0 {
+		return fmt.Errorf("hosts must contain at least one host")
 	}
-
-	if host[0] >= '0' && host[0] <= '9' { // assume CIDR notation or IP
-		if _, _, err := net.ParseCIDR(host); err != nil {
-			if ip := net.ParseIP(host); ip != nil {
-				return nil // valid IP
+	for _, host := range hosts {
+		// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
+		// (including CIDR addresses). If it's neither, we report both errors.
+		if err := ValidateWildcardDomain(host); err != nil {
+			if err2 := ValidateIPv4Subnet(host); err2 != nil {
+				return appendErrors(err, err2)
 			}
-			return multierror.Prefix(err, "host is not valid CIDR notation or IP address")
 		}
-		return nil
 	}
-
-	// assume RFC 1123 DNS with optional wildcard
-	return ValidateWildcardDomain(host)
+	return nil
 }
 
 func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
@@ -2004,12 +2000,7 @@ func ValidateForeignService(config proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to foreign service")
 	}
 
-	if len(foreignService.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("foreign service must have at least one host"))
-	}
-	for _, host := range foreignService.Hosts {
-		errs = appendErrors(errs, validateHost(host))
-	}
+	errs = appendErrors(errs, validateHosts(foreignService.Hosts))
 
 	// TODO: fs.Discovery
 	// TODO: fs.Endpoints
