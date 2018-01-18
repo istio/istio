@@ -35,8 +35,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "6311d7a76f54cf2b6dea03d737d9bd9a6022ac5f"
-  version = "v9.7.1"
+  revision = "3c16bcd9ea019819c1d7c14055ed74f845f44a8a"
+  version = "v9.8.0"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "b0e76431638de15ec1e6be51b6f745e1f2134fde"
-  version = "v1.12.63"
+  revision = "c13a879e75646fe750d21bcb05bf2cabea9791c1"
+  version = "v1.12.65"
 
 [[projects]]
   branch = "master"
@@ -153,7 +153,7 @@
   branch = "v2"
   name = "github.com/coreos/go-oidc"
   packages = ["."]
-  revision = "5c72298dbabcb77267f45d8648c889e598822495"
+  revision = "065b426bd41667456c1a924468f507673629c46b"
 
 [[projects]]
   name = "github.com/cpuguy83/go-md2man"
@@ -379,7 +379,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "936e48acce6798b2efd69db8ac3c8ffe7f67784f"
+  revision = "382b4ca61357c6d9523b4c299cd222cecc51b423"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -824,7 +824,7 @@
     "jws",
     "jwt"
   ]
-  revision = "30785a2c434e431ef7c507b54617d6a951d5f2b4"
+  revision = "b28fcf2b08a19742b43084fb40ab78ac6c3d8067"
 
 [[projects]]
   branch = "master"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "fff93fa7cd278d84afc205751523809c464168ab"
+  revision = "2c42eef0765b9837fbdab12011af7830f55f88f0"
 
 [[projects]]
   branch = "master"
@@ -888,7 +888,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "8ea45f96742f825c49e900f42a01928554b5a6a0"
+  revision = "af2bfe26b6891a197d033db63786cf8eb6bebd7b"
 
 [[projects]]
   branch = "master"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "373a4c220f5c90e5b7ff7101779c5be385d171be"
+  revision = "fa74edab4387514996aa08b9bc287882c18cb79a"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -959,6 +959,7 @@
     "credentials",
     "credentials/oauth",
     "encoding",
+    "encoding/gzip",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "internal",
@@ -1019,7 +1020,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
+  revision = "9945301114715ab1445b585c6d1435fb0bc729f2"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1275,6 +1276,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5ef64c5ee6d9a2ca8152e9e9b9324340b8af18d6ddfdb99db18d4648aa46f36"
+  inputs-digest = "d3a4ce52282b4bd2cf0bac6eada10afae809a2fa16aa3b26076ce27dc4ded5ab"
   solver-name = "gps-cdcl"
   solver-version = 1
