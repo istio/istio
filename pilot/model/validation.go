@@ -1745,7 +1745,12 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 
 	// TODO: routeRule.Gateways
 
-	errs = appendErrors(errs, validateHosts(routeRule.Hosts))
+	if len(routeRule.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("route rule must have at least one host"))
+	}
+	for _, host := range routeRule.Hosts {
+		errs = appendErrors(errs, validateHost(host))
+	}
 
 	for _, httpRoute := range routeRule.Http {
 		errs = appendErrors(validateHTTPRoute(httpRoute))
@@ -1759,17 +1764,12 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	return
 }
 
-func validateHosts(hosts []string) error {
-	if len(hosts) == 0 {
-		return fmt.Errorf("hosts must contain at least one host")
-	}
-	for _, host := range hosts {
-		// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
-		// (including CIDR addresses). If it's neither, we report both errors.
-		if err := ValidateWildcardDomain(host); err != nil {
-			if err2 := ValidateIPv4Subnet(host); err2 != nil {
-				return appendErrors(err, err2)
-			}
+func validateHost(host string) error {
+	// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
+	// (including CIDR addresses). If it's neither, we report both errors.
+	if err := ValidateWildcardDomain(host); err != nil {
+		if err2 := ValidateIPv4Subnet(host); err2 != nil {
+			return appendErrors(err, err2)
 		}
 	}
 	return nil
@@ -1933,7 +1933,7 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, ValidateWildcardDomain(destination.Name))
+	errs = appendErrors(errs, validateHost(destination.Name))
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
@@ -1998,7 +1998,12 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to external service")
 	}
 
-	errs = appendErrors(errs, validateHosts(externalService.Hosts))
+	if len(externalService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("external service must have at least one host"))
+	}
+	for _, host := range externalService.Hosts {
+		errs = appendErrors(errs, validateHost(host))
+	}
 
 	if externalService.Discovery == routingv2.ExternalService_STATIC {
 		if len(externalService.Endpoints) == 0 {
