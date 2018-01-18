@@ -138,14 +138,14 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
 	// Create Role
 	err = utils.CreateIstioCARole(opts.clientset, opts.namespace)
 	if err != nil {
-		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
+		_ = utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a role (error: %v)", err)
 	}
 
 	// Create RoleBinding
 	err = utils.CreateIstioCARoleBinding(opts.clientset, opts.namespace)
 	if err != nil {
-		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
+		_ = utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a rolebinding (error: %v)", err)
 	}
 
@@ -375,7 +375,9 @@ func readURI(uri string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

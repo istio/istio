@@ -143,7 +143,8 @@ func (h *handler) Close() error {
 	h.lock.Lock()
 	defer h.lock.Lock()
 	for _, svcProc := range h.svcProcMap {
-		svcProc.Close()
+		// TODO: handle Close errors
+		_ = svcProc.Close()
 	}
 	return nil
 }

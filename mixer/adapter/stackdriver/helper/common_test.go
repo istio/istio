@@ -35,13 +35,13 @@ func TestToOpts(t *testing.T) {
 		{"app creds", &config.Params{Creds: &config.Params_AppCredentials{}}, []gapiopts.ClientOption{}},
 		{"service account",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithServiceAccountFile("")}},
+			[]gapiopts.ClientOption{gapiopts.WithCredentialsFile("")}},
 		{"endpoint",
 			&config.Params{Endpoint: "foo.bar"},
 			[]gapiopts.ClientOption{gapiopts.WithEndpoint("")}},
 		{"endpoint + svc account",
 			&config.Params{Endpoint: "foo.bar", Creds: &config.Params_ServiceAccountPath{}},
-			[]gapiopts.ClientOption{gapiopts.WithEndpoint(""), gapiopts.WithServiceAccountFile("")}},
+			[]gapiopts.ClientOption{gapiopts.WithEndpoint(""), gapiopts.WithCredentialsFile("")}},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
