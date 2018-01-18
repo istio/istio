@@ -28,7 +28,9 @@ export GOPATH
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 
-export CGO_ENABLE=0
+# Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
+# to be handled in bin/gobuild.sh
+# export CGO_ENABLED=0
 
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
@@ -112,8 +114,10 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 ${DEP}:
-	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -190,6 +194,7 @@ $(PILOT_GO_BINS): depend
 
 # Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
 # The if/findstring is used to replace osx with darwin, win with windows and anything else (currently linux) with the suffix after the dash.
+# Cross-compiling for Mac on a Linux system seems to have fewer issues if CGO_ENABLED=0 (this is now handled by gobuild.sh).
 ISTIOCTL_LIST:=istioctl-linux istioctl-osx istioctl-win.exe
 $(foreach TGT,$(ISTIOCTL_LIST),$(eval ${OUT}/$(TGT): depend; \
         STATIC=0 GOOS=$(if $(findstring osx,$(TGT)),darwin,$(if $(findstring win,$(TGT)),windows,$(subst istioctl-,,$(TGT)))) \

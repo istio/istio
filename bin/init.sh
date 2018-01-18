@@ -44,9 +44,11 @@ fi
 DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
 # Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 if [ ! -f ${DEP} ]; then
     DEP=${ISTIO_BIN}/dep
-    unset GOOS && go get -u github.com/golang/dep/cmd/dep
+    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 fi
 
 # Download dependencies if needed

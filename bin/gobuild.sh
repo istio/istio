@@ -36,11 +36,10 @@ BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+export CGO_ENABLED=0
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
-else
-    export CGO_ENABLED=0
 fi
 
 # gather buildinfo if not already provided
