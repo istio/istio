@@ -1,7 +1,7 @@
 apiVersion: config.istio.io/v1alpha2
 kind: EgressRule
 metadata:
-  name: httpbin
+  name: httpbin-wildcard
 spec:
   destination:
       service: "*.httpbin.org"
