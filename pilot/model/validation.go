@@ -596,7 +596,7 @@ func ValidateAbort(abort *routing.HTTPFaultInjection_Abort) (errs error) {
 		// TODO No validation yet for grpc_status / http2_error / http_status
 		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
 	case *routing.HTTPFaultInjection_Abort_Http2Error:
-		// TODO No validation yet for grpc_status / http2_error / http_status
+	// TODO No validation yet for grpc_status / http2_error / http_status
 	case *routing.HTTPFaultInjection_Abort_HttpStatus:
 		if err := ValidateAbortHTTPStatus(abort.ErrorType.(*routing.HTTPFaultInjection_Abort_HttpStatus)); err != nil {
 			errs = multierror.Append(errs, err)
@@ -1761,6 +1761,26 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	return
 }
 
+// TODO: tests
+func validateHost(host string) error {
+	if len(host) == 0 {
+		return fmt.Errorf("host must be non-empty")
+	}
+
+	if host[0] >= '0' && host[0] <= '9' { // assume CIDR notation or IP
+		if _, _, err := net.ParseCIDR(host); err != nil {
+			if ip := net.ParseIP(host); ip != nil {
+				return nil // valid IP
+			}
+			return multierror.Prefix(err, "host is not valid CIDR notation or IP address")
+		}
+		return nil
+	}
+
+	// assume RFC 1123 DNS with optional wildcard
+	return ValidateWildcardDomain(host)
+}
+
 func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
 	// check for conflicts
 	if http.Redirect != nil {
@@ -1979,21 +1999,28 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 
 // ValidateForeignService validates a foreign service.
 func ValidateForeignService(config proto.Message) (errs error) {
-	foreignService := config.(*routingv2.ForeignService)
+	foreignService, ok := config.(*routingv2.ForeignService)
+	if !ok {
+		return fmt.Errorf("cannot cast to foreign service")
+	}
+
+	if len(foreignService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("foreign service must have at least one host"))
+	}
 	for _, host := range foreignService.Hosts {
-		if host == "" {
-			errs = appendErrors(errs, fmt.Errorf("host must be non-empty"))
-		}
-		// TODO: validate as CIDR or wildcard DNS name
-		// errs = appendErrors(errs, ValidateWildcardDomain(host))
+		errs = appendErrors(errs, validateHost(host))
 	}
 
 	// TODO: fs.Discovery
 	// TODO: fs.Endpoints
 
 	for _, port := range foreignService.Ports {
-		// TODO: port.Protocol
-		// TODO: port.Name
+		if !IsDNS1123Label(port.Name) {
+			errs = appendErrors(errs, fmt.Errorf("port name must meet RFC 1123 label criteria"))
+		}
+		if ConvertCaseInsensitiveStringToProtocol(port.Protocol) == ProtocolUnsupported {
+			errs = appendErrors(errs, fmt.Errorf("unsupported protocol: %s", port.Protocol))
+		}
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
 	}
 
