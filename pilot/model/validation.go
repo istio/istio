@@ -1745,9 +1745,7 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 
 	// TODO: routeRule.Gateways
 
-	if len(routeRule.Hosts) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one host required"))
-	}
+	errs = appendErrors(errs, validateHosts(routeRule.Hosts))
 
 	for _, httpRoute := range routeRule.Http {
 		errs = appendErrors(validateHTTPRoute(httpRoute))
