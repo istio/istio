@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
+# Init script downloads or updates envoy. Called from Makefile, which sets
 # the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
@@ -31,7 +31,7 @@ OUT=${GO_TOP}/out
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
-export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
+export ISTIO_BIN=${ISTIO_BIN:-${GO_TOP}/bin}
 
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
@@ -42,36 +42,10 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
-
-# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
-# If CGO_ENABLED=0 then go get tries to install in system directories.
-# If -pkgdir <dir> is also used then various additional .a files are present.
-if [ ! -f ${DEP} ]; then
-    DEP=${ISTIO_BIN}/dep
-    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
-fi
-
-# Download dependencies if needed
-if [ ! -d vendor/github.com ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-elif [ ! -f vendor/Gopkg.lock ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-else
-    diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${DEP} ensure -vendor-only ; \
-              cp Gopkg.lock vendor/Gopkg.lock)
-fi
-
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
-# Save envoy in vendor, which is cached
-if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
-    mkdir -p $OUT
-    pushd $OUT
+if [ ! -f ${ISTIO_OUT}/envoy-$PROXYVERSION ] ; then
     # New version of envoy downloaded. Save it to cache, and clean any old version.
 
     DOWNLOAD_COMMAND=""
@@ -99,21 +73,20 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
         exit 1
     fi
 
+    mkdir -p $OUT
+    pushd $OUT
     echo "Downloading envoy $PROXY $PROXYVERSION using $DOWNLOAD_COMMAND"
     ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-    cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
-    popd
-fi
+    rm -f ${ISTIO_OUT}/envoy*
 
-if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     mkdir -p ${ISTIO_OUT}
-    # Make sure the envoy binary exists.
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
-fi
+    cp usr/local/bin/envoy ${ISTIO_OUT}/envoy-$PROXYVERSION
+    popd
 
-# circleCI expects this in the bin directory
-if [ ! -f ${ISTIO_BIN}/envoy ] ; then
+    # Make sure the envoy binary exists.
+    cp ${ISTIO_OUT}/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
+
+    # circleCI expects this in the bin directory
     mkdir -p ${ISTIO_BIN}
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+    cp ${ISTIO_OUT}/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi
