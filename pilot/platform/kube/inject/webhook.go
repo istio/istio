@@ -192,6 +192,11 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	}
 }
 
+// NOTE: It would be great to use an existing package to generate
+// RFC6902 JSON patches. Unfortunately, I wasn't able to create a
+// patch which handled removal correctly with
+// https://github.com/mattbaird/jsonpatch. Our patching needs are
+// fairly simple so generating them manually isn't horrible (yet).
 type rfc6902PatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
