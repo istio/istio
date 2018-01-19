@@ -1,5 +1,5 @@
-GOBIN ?= go
-GO_MINOR_VERSION = $(shell $(GOBIN) version | cut -d . -f 2)
+GOBINARY ?= go
+GO_MINOR_VERSION = $(shell $(GOBINARY) version | cut -d . -f 2)
 
 VERSION_MODULE = istio.io/istio/security/cmd/istio_ca/version
 

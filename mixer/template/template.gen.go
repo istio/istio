@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -113,29 +114,29 @@ func (w *wrapperAttr) DebugString() string {
 var (
 	SupportedTmplInfo = map[string]template.Info{
 
-		adapter_template_kubernetesenv.TemplateName: {
-			Name:               adapter_template_kubernetesenv.TemplateName,
-			Impl:               "adapter.template.kubernetesenv",
-			CtrCfg:             &adapter_template_kubernetesenv.InstanceParam{},
+		adapter_template_kubernetes.TemplateName: {
+			Name:               adapter_template_kubernetes.TemplateName,
+			Impl:               "adapter.template.kubernetes",
+			CtrCfg:             &adapter_template_kubernetes.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
-			BldrInterfaceName:  adapter_template_kubernetesenv.TemplateName + "." + "HandlerBuilder",
-			HndlrInterfaceName: adapter_template_kubernetesenv.TemplateName + "." + "Handler",
+			BldrInterfaceName:  adapter_template_kubernetes.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: adapter_template_kubernetes.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(adapter_template_kubernetesenv.HandlerBuilder)
+				_, ok := hndlrBuilder.(adapter_template_kubernetes.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(adapter_template_kubernetesenv.Handler)
+				_, ok := hndlr.(adapter_template_kubernetes.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *adapter_template_kubernetesenv.InstanceParam,
+				var BuildTemplate func(param *adapter_template_kubernetes.InstanceParam,
 					path string) (proto.Message, error)
 
 				_ = BuildTemplate
 
-				BuildTemplate = func(param *adapter_template_kubernetesenv.InstanceParam,
+				BuildTemplate = func(param *adapter_template_kubernetes.InstanceParam,
 					path string) (proto.Message, error) {
 
 					if param == nil {
@@ -208,9 +209,9 @@ var (
 
 				}
 
-				instParam := cp.(*adapter_template_kubernetesenv.InstanceParam)
+				instParam := cp.(*adapter_template_kubernetes.InstanceParam)
 
-				const fullOutName = "adapter_template_kubernetesenv.output."
+				const fullOutName = "adapter_template_kubernetes.output."
 				for attr, exp := range instParam.AttributeBindings {
 					expr := strings.Replace(exp, "$out.", fullOutName, -1)
 					t1, err := tEvalFn(expr)
@@ -235,87 +236,87 @@ var (
 				{
 					Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
 
-						"adapter_template_kubernetesenv.output.source_pod_ip": {
+						"adapter_template_kubernetes.output.source_pod_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetesenv.output.source_pod_name": {
+						"adapter_template_kubernetes.output.source_pod_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.source_labels": {
+						"adapter_template_kubernetes.output.source_labels": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
 						},
 
-						"adapter_template_kubernetesenv.output.source_namespace": {
+						"adapter_template_kubernetes.output.source_namespace": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.source_service": {
+						"adapter_template_kubernetes.output.source_service": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.source_service_account_name": {
+						"adapter_template_kubernetes.output.source_service_account_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.source_host_ip": {
+						"adapter_template_kubernetes.output.source_host_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_pod_ip": {
+						"adapter_template_kubernetes.output.destination_pod_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_pod_name": {
+						"adapter_template_kubernetes.output.destination_pod_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_labels": {
+						"adapter_template_kubernetes.output.destination_labels": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_namespace": {
+						"adapter_template_kubernetes.output.destination_namespace": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_service": {
+						"adapter_template_kubernetes.output.destination_service": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_service_account_name": {
+						"adapter_template_kubernetes.output.destination_service_account_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.destination_host_ip": {
+						"adapter_template_kubernetes.output.destination_host_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_pod_ip": {
+						"adapter_template_kubernetes.output.origin_pod_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_pod_name": {
+						"adapter_template_kubernetes.output.origin_pod_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_labels": {
+						"adapter_template_kubernetes.output.origin_labels": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_namespace": {
+						"adapter_template_kubernetes.output.origin_namespace": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_service": {
+						"adapter_template_kubernetes.output.origin_service": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_service_account_name": {
+						"adapter_template_kubernetes.output.origin_service_account_name": {
 							ValueType: istio_mixer_v1_config_descriptor.STRING,
 						},
 
-						"adapter_template_kubernetesenv.output.origin_host_ip": {
+						"adapter_template_kubernetes.output.origin_host_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
 					},
@@ -326,13 +327,13 @@ var (
 				mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
 
 				var BuildTemplate func(instName string,
-					param *adapter_template_kubernetesenv.InstanceParam, path string) (
-					*adapter_template_kubernetesenv.Instance, error)
+					param *adapter_template_kubernetes.InstanceParam, path string) (
+					*adapter_template_kubernetes.Instance, error)
 				_ = BuildTemplate
 
 				BuildTemplate = func(instName string,
-					param *adapter_template_kubernetesenv.InstanceParam, path string) (
-					*adapter_template_kubernetesenv.Instance, error) {
+					param *adapter_template_kubernetes.InstanceParam, path string) (
+					*adapter_template_kubernetes.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -388,7 +389,7 @@ var (
 					}
 
 					_ = param
-					return &adapter_template_kubernetesenv.Instance{
+					return &adapter_template_kubernetes.Instance{
 
 						Name: instName,
 
@@ -406,19 +407,19 @@ var (
 					}, nil
 				}
 
-				instParam := inst.(*adapter_template_kubernetesenv.InstanceParam)
+				instParam := inst.(*adapter_template_kubernetes.InstanceParam)
 				instance, err := BuildTemplate(instName, instParam, "")
 				if err != nil {
 					return nil, err
 
 				}
 
-				out, err := handler.(adapter_template_kubernetesenv.Handler).GenerateKubernetesEnvAttributes(ctx, instance)
+				out, err := handler.(adapter_template_kubernetes.Handler).GenerateKubernetesAttributes(ctx, instance)
 				if err != nil {
 					return nil, err
 				}
 				abag := attrs
-				const fullOutName = "adapter_template_kubernetesenv.output."
+				const fullOutName = "adapter_template_kubernetes.output."
 				if out == nil {
 					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
 				} else {
@@ -546,6 +547,204 @@ var (
 				}
 				return resultBag, nil
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispathGenAttrs dispatches the instance to the attribute producing handler.
+			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
+				// Convert the instance from the generic interface{}, to their specialized type.
+				instance := inst.(*adapter_template_kubernetes.Instance)
+
+				// Invoke the handler.
+				out, err := handler.(adapter_template_kubernetes.Handler).GenerateKubernetesAttributes(ctx, instance)
+				if err != nil {
+					return nil, err
+				}
+
+				// Construct a wrapper bag around the returned output message and pass it to the output mapper
+				// to map $out values back to the destination attributes in the ambient context.
+				const fullOutName = "adapter_template_kubernetes.output."
+				outBag := newWrapperAttrBag(
+					func(name string) (value interface{}, found bool) {
+						field := strings.TrimPrefix(name, fullOutName)
+						if len(field) != len(name) {
+							switch field {
+
+							case "source_pod_ip":
+
+								return []uint8(out.SourcePodIp), true
+
+							case "source_pod_name":
+
+								return out.SourcePodName, true
+
+							case "source_labels":
+
+								return out.SourceLabels, true
+
+							case "source_namespace":
+
+								return out.SourceNamespace, true
+
+							case "source_service":
+
+								return out.SourceService, true
+
+							case "source_service_account_name":
+
+								return out.SourceServiceAccountName, true
+
+							case "source_host_ip":
+
+								return []uint8(out.SourceHostIp), true
+
+							case "destination_pod_ip":
+
+								return []uint8(out.DestinationPodIp), true
+
+							case "destination_pod_name":
+
+								return out.DestinationPodName, true
+
+							case "destination_labels":
+
+								return out.DestinationLabels, true
+
+							case "destination_namespace":
+
+								return out.DestinationNamespace, true
+
+							case "destination_service":
+
+								return out.DestinationService, true
+
+							case "destination_service_account_name":
+
+								return out.DestinationServiceAccountName, true
+
+							case "destination_host_ip":
+
+								return []uint8(out.DestinationHostIp), true
+
+							case "origin_pod_ip":
+
+								return []uint8(out.OriginPodIp), true
+
+							case "origin_pod_name":
+
+								return out.OriginPodName, true
+
+							case "origin_labels":
+
+								return out.OriginLabels, true
+
+							case "origin_namespace":
+
+								return out.OriginNamespace, true
+
+							case "origin_service":
+
+								return out.OriginService, true
+
+							case "origin_service_account_name":
+
+								return out.OriginServiceAccountName, true
+
+							case "origin_host_ip":
+
+								return []uint8(out.OriginHostIp), true
+
+							default:
+								return nil, false
+							}
+						}
+						return attrs.Get(name)
+					},
+					func() []string { return attrs.Names() },
+					func() { attrs.Done() },
+					func() string { return attrs.DebugString() },
+				)
+
+				// Mapper will map back $out values in the outBag into ambient attribute names, and return
+				// a bag with these additional attributes.
+				return mapper(outBag)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_adapter_template_kubernetes_Template(expb, param.(*adapter_template_kubernetes.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
+
+			// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
+			//
+			// See template.CreateOutputExpressionsFn for more details.
+			CreateOutputExpressions: func(
+				instanceParam proto.Message,
+				finder expr.AttributeDescriptorFinder,
+				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+				var err error
+				var expType istio_mixer_v1_config_descriptor.ValueType
+
+				// Convert the generic instanceParam to its specialized type.
+				param := instanceParam.(*adapter_template_kubernetes.InstanceParam)
+
+				// Create a mapping of expressions back to the attribute names.
+				expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
+
+				const fullOutName = "adapter_template_kubernetes.output."
+				for attrName, outExpr := range param.AttributeBindings {
+					attrInfo := finder.GetAttribute(attrName)
+					if attrInfo == nil {
+						log.Warnf("attribute not found when mapping outputs: attr='%s', expr='%s'", attrName, outExpr)
+						continue
+					}
+
+					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
+
+					if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
+						return nil, err
+					}
+
+					if attrInfo.ValueType != expType {
+						log.Warnf("attribute type mismatch: attr='%s', attrType='%v', expr='%s', exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
+						continue
+					}
+				}
+
+				return expressions, nil
 			},
 		},
 
@@ -900,6 +1099,59 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*servicecontrolreport.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*servicecontrolreport.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(servicecontrolreport.Handler).HandleServicecontrolReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_servicecontrolreport_Template(expb, param.(*servicecontrolreport.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 
 		apikey.TemplateName: {
@@ -1089,6 +1341,53 @@ var (
 				}
 				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*apikey.Instance)
+
+				// Invoke the handler.
+				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_apikey_Template(expb, param.(*apikey.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -1452,6 +1751,53 @@ var (
 				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
 
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*authorization.Instance)
+
+				// Invoke the handler.
+				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_authorization_Template(expb, param.(*authorization.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 
 		checknothing.TemplateName: {
@@ -1541,6 +1887,53 @@ var (
 				}
 				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*checknothing.Instance)
+
+				// Invoke the handler.
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_checknothing_Template(expb, param.(*checknothing.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -1651,6 +2044,53 @@ var (
 				}
 				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*listentry.Instance)
+
+				// Invoke the handler.
+				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_listentry_Template(expb, param.(*listentry.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -1845,6 +2285,59 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*logentry.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*logentry.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_logentry_Template(expb, param.(*logentry.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 
 		metric.TemplateName: {
@@ -2015,6 +2508,59 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*metric.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*metric.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_metric_Template(expb, param.(*metric.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 
 		quota.TemplateName: {
@@ -2124,6 +2670,53 @@ var (
 				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
 
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*quota.Instance)
+
+				// Invoke the handler.
+				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_quota_Template(expb, param.(*quota.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 
 		reportnothing.TemplateName: {
@@ -2216,6 +2809,59 @@ var (
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*reportnothing.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*reportnothing.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_reportnothing_Template(expb, param.(*reportnothing.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -2450,6 +3096,1806 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*tracespan.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*tracespan.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_tracespan_Template(expb, param.(*tracespan.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 	}
 )
+
+// Builders for all known message types.
+
+// builder struct for constructing an instance of Template.
+type builder_adapter_template_kubernetes_Template struct {
+
+	// builder for field source_uid: string.
+
+	bldSourceUid compiled.Expression
+
+	// builder for field source_ip: net.IP.
+
+	bldSourceIp compiled.Expression
+
+	// builder for field destination_uid: string.
+
+	bldDestinationUid compiled.Expression
+
+	// builder for field destination_ip: net.IP.
+
+	bldDestinationIp compiled.Expression
+
+	// builder for field origin_uid: string.
+
+	bldOriginUid compiled.Expression
+
+	// builder for field origin_ip: net.IP.
+
+	bldOriginIp compiled.Expression
+} // builder_adapter_template_kubernetes_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_adapter_template_kubernetes_Template(
+	expb *compiled.ExpressionBuilder,
+	param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_adapter_template_kubernetes_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldSourceUid, expType, err = expb.Compile(param.SourceUid)
+	if err != nil {
+		return nil, template.NewErrorPath("SourceUid", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.SourceUid)
+		return nil, template.NewErrorPath("SourceUid", err)
+	}
+
+	b.bldSourceIp, expType, err = expb.Compile(param.SourceIp)
+	if err != nil {
+		return nil, template.NewErrorPath("SourceIp", err)
+	}
+
+	b.bldDestinationUid, expType, err = expb.Compile(param.DestinationUid)
+	if err != nil {
+		return nil, template.NewErrorPath("DestinationUid", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.DestinationUid)
+		return nil, template.NewErrorPath("DestinationUid", err)
+	}
+
+	b.bldDestinationIp, expType, err = expb.Compile(param.DestinationIp)
+	if err != nil {
+		return nil, template.NewErrorPath("DestinationIp", err)
+	}
+
+	b.bldOriginUid, expType, err = expb.Compile(param.OriginUid)
+	if err != nil {
+		return nil, template.NewErrorPath("OriginUid", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.OriginUid)
+		return nil, template.NewErrorPath("OriginUid", err)
+	}
+
+	b.bldOriginIp, expType, err = expb.Compile(param.OriginIp)
+	if err != nil {
+		return nil, template.NewErrorPath("OriginIp", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_adapter_template_kubernetes_Template) build(
+	attrs attribute.Bag) (*adapter_template_kubernetes.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &adapter_template_kubernetes.Instance{}
+
+	vString, err = b.bldSourceUid.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("SourceUid", err)
+	}
+	r.SourceUid = vString
+
+	if vIface, err = b.bldSourceIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("SourceIp", err)
+	}
+
+	r.SourceIp = net.IP(vIface.([]uint8))
+
+	vString, err = b.bldDestinationUid.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DestinationUid", err)
+	}
+	r.DestinationUid = vString
+
+	if vIface, err = b.bldDestinationIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("DestinationIp", err)
+	}
+
+	r.DestinationIp = net.IP(vIface.([]uint8))
+
+	vString, err = b.bldOriginUid.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("OriginUid", err)
+	}
+	r.OriginUid = vString
+
+	if vIface, err = b.bldOriginIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("OriginIp", err)
+	}
+
+	r.OriginIp = net.IP(vIface.([]uint8))
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_servicecontrolreport_Template struct {
+
+	// builder for field api_version: string.
+
+	bldApiVersion compiled.Expression
+
+	// builder for field api_operation: string.
+
+	bldApiOperation compiled.Expression
+
+	// builder for field api_protocol: string.
+
+	bldApiProtocol compiled.Expression
+
+	// builder for field api_service: string.
+
+	bldApiService compiled.Expression
+
+	// builder for field api_key: string.
+
+	bldApiKey compiled.Expression
+
+	// builder for field request_time: time.Time.
+
+	bldRequestTime compiled.Expression
+
+	// builder for field request_method: string.
+
+	bldRequestMethod compiled.Expression
+
+	// builder for field request_path: string.
+
+	bldRequestPath compiled.Expression
+
+	// builder for field request_bytes: int64.
+
+	bldRequestBytes compiled.Expression
+
+	// builder for field response_time: time.Time.
+
+	bldResponseTime compiled.Expression
+
+	// builder for field response_code: int64.
+
+	bldResponseCode compiled.Expression
+
+	// builder for field response_bytes: int64.
+
+	bldResponseBytes compiled.Expression
+
+	// builder for field response_latency: time.Duration.
+
+	bldResponseLatency compiled.Expression
+} // builder_servicecontrolreport_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_servicecontrolreport_Template(
+	expb *compiled.ExpressionBuilder,
+	param *servicecontrolreport.InstanceParam) (*builder_servicecontrolreport_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_servicecontrolreport_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldApiVersion, expType, err = expb.Compile(param.ApiVersion)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiVersion)
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	b.bldApiOperation, expType, err = expb.Compile(param.ApiOperation)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiOperation)
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	b.bldApiProtocol, expType, err = expb.Compile(param.ApiProtocol)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiProtocol", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiProtocol)
+		return nil, template.NewErrorPath("ApiProtocol", err)
+	}
+
+	b.bldApiService, expType, err = expb.Compile(param.ApiService)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiService", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiService)
+		return nil, template.NewErrorPath("ApiService", err)
+	}
+
+	b.bldApiKey, expType, err = expb.Compile(param.ApiKey)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiKey)
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	b.bldRequestTime, expType, err = expb.Compile(param.RequestTime)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestTime", err)
+	}
+
+	b.bldRequestMethod, expType, err = expb.Compile(param.RequestMethod)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestMethod", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.RequestMethod)
+		return nil, template.NewErrorPath("RequestMethod", err)
+	}
+
+	b.bldRequestPath, expType, err = expb.Compile(param.RequestPath)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestPath", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.RequestPath)
+		return nil, template.NewErrorPath("RequestPath", err)
+	}
+
+	b.bldRequestBytes, expType, err = expb.Compile(param.RequestBytes)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestBytes", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.RequestBytes)
+		return nil, template.NewErrorPath("RequestBytes", err)
+	}
+
+	b.bldResponseTime, expType, err = expb.Compile(param.ResponseTime)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseTime", err)
+	}
+
+	b.bldResponseCode, expType, err = expb.Compile(param.ResponseCode)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseCode", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.ResponseCode)
+		return nil, template.NewErrorPath("ResponseCode", err)
+	}
+
+	b.bldResponseBytes, expType, err = expb.Compile(param.ResponseBytes)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseBytes", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.ResponseBytes)
+		return nil, template.NewErrorPath("ResponseBytes", err)
+	}
+
+	b.bldResponseLatency, expType, err = expb.Compile(param.ResponseLatency)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseLatency", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_servicecontrolreport_Template) build(
+	attrs attribute.Bag) (*servicecontrolreport.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &servicecontrolreport.Instance{}
+
+	vString, err = b.bldApiVersion.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+	r.ApiVersion = vString
+
+	vString, err = b.bldApiOperation.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+	r.ApiOperation = vString
+
+	vString, err = b.bldApiProtocol.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiProtocol", err)
+	}
+	r.ApiProtocol = vString
+
+	vString, err = b.bldApiService.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiService", err)
+	}
+	r.ApiService = vString
+
+	vString, err = b.bldApiKey.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+	r.ApiKey = vString
+
+	if vIface, err = b.bldRequestTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("RequestTime", err)
+	}
+
+	r.RequestTime = vIface.(time.Time)
+
+	vString, err = b.bldRequestMethod.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestMethod", err)
+	}
+	r.RequestMethod = vString
+
+	vString, err = b.bldRequestPath.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestPath", err)
+	}
+	r.RequestPath = vString
+
+	vInt, err = b.bldRequestBytes.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestBytes", err)
+	}
+	r.RequestBytes = vInt
+
+	if vIface, err = b.bldResponseTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseTime", err)
+	}
+
+	r.ResponseTime = vIface.(time.Time)
+
+	vInt, err = b.bldResponseCode.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseCode", err)
+	}
+	r.ResponseCode = vInt
+
+	vInt, err = b.bldResponseBytes.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseBytes", err)
+	}
+	r.ResponseBytes = vInt
+
+	if vIface, err = b.bldResponseLatency.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseLatency", err)
+	}
+
+	r.ResponseLatency = vIface.(time.Duration)
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_apikey_Template struct {
+
+	// builder for field api: string.
+
+	bldApi compiled.Expression
+
+	// builder for field api_version: string.
+
+	bldApiVersion compiled.Expression
+
+	// builder for field api_operation: string.
+
+	bldApiOperation compiled.Expression
+
+	// builder for field api_key: string.
+
+	bldApiKey compiled.Expression
+
+	// builder for field timestamp: time.Time.
+
+	bldTimestamp compiled.Expression
+} // builder_apikey_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_apikey_Template(
+	expb *compiled.ExpressionBuilder,
+	param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_apikey_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldApi, expType, err = expb.Compile(param.Api)
+	if err != nil {
+		return nil, template.NewErrorPath("Api", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Api)
+		return nil, template.NewErrorPath("Api", err)
+	}
+
+	b.bldApiVersion, expType, err = expb.Compile(param.ApiVersion)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiVersion)
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	b.bldApiOperation, expType, err = expb.Compile(param.ApiOperation)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiOperation)
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	b.bldApiKey, expType, err = expb.Compile(param.ApiKey)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ApiKey)
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	b.bldTimestamp, expType, err = expb.Compile(param.Timestamp)
+	if err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_apikey_Template) build(
+	attrs attribute.Bag) (*apikey.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &apikey.Instance{}
+
+	vString, err = b.bldApi.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Api", err)
+	}
+	r.Api = vString
+
+	vString, err = b.bldApiVersion.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+	r.ApiVersion = vString
+
+	vString, err = b.bldApiOperation.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+	r.ApiOperation = vString
+
+	vString, err = b.bldApiKey.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+	r.ApiKey = vString
+
+	if vIface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	r.Timestamp = vIface.(time.Time)
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_authorization_Template struct {
+
+	// builder for field subject: *Subject.
+
+	bldSubject *builder_authorization_Subject
+
+	// builder for field action: *Action.
+
+	bldAction *builder_authorization_Action
+} // builder_authorization_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_authorization_Template(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.InstanceParam) (*builder_authorization_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	if b.bldSubject, errp = newBuilder_authorization_Subject(expb, param.Subject); !errp.IsNil() {
+		return nil, errp.WithPrefix("Subject")
+	}
+
+	if b.bldAction, errp = newBuilder_authorization_Action(expb, param.Action); !errp.IsNil() {
+		return nil, errp.WithPrefix("Action")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_authorization_Template) build(
+	attrs attribute.Bag) (*authorization.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &authorization.Instance{}
+
+	if r.Subject, errp = b.bldSubject.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Subject")
+	}
+
+	if r.Action, errp = b.bldAction.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Action")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Subject.
+type builder_authorization_Subject struct {
+
+	// builder for field user: string.
+
+	bldUser compiled.Expression
+
+	// builder for field groups: string.
+
+	bldGroups compiled.Expression
+
+	// builder for field properties: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldProperties map[string]compiled.Expression
+} // builder_authorization_Subject
+
+// Instantiates and returns a new builder for Subject, based on the provided instance parameter.
+func newBuilder_authorization_Subject(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.SubjectInstanceParam) (*builder_authorization_Subject, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Subject{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldUser, expType, err = expb.Compile(param.User)
+	if err != nil {
+		return nil, template.NewErrorPath("User", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.User)
+		return nil, template.NewErrorPath("User", err)
+	}
+
+	b.bldGroups, expType, err = expb.Compile(param.Groups)
+	if err != nil {
+		return nil, template.NewErrorPath("Groups", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Groups)
+		return nil, template.NewErrorPath("Groups", err)
+	}
+
+	b.bldProperties = make(map[string]compiled.Expression, len(param.Properties))
+	for k, v := range param.Properties {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
+		}
+
+		b.bldProperties[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_authorization_Subject) build(
+	attrs attribute.Bag) (*authorization.Subject, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &authorization.Subject{}
+
+	vString, err = b.bldUser.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("User", err)
+	}
+	r.User = vString
+
+	vString, err = b.bldGroups.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Groups", err)
+	}
+	r.Groups = vString
+
+	r.Properties = make(map[string]interface{}, len(b.bldProperties))
+
+	for k, v := range b.bldProperties {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
+		}
+
+		r.Properties[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Action.
+type builder_authorization_Action struct {
+
+	// builder for field namespace: string.
+
+	bldNamespace compiled.Expression
+
+	// builder for field service: string.
+
+	bldService compiled.Expression
+
+	// builder for field method: string.
+
+	bldMethod compiled.Expression
+
+	// builder for field path: string.
+
+	bldPath compiled.Expression
+
+	// builder for field properties: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldProperties map[string]compiled.Expression
+} // builder_authorization_Action
+
+// Instantiates and returns a new builder for Action, based on the provided instance parameter.
+func newBuilder_authorization_Action(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.ActionInstanceParam) (*builder_authorization_Action, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Action{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldNamespace, expType, err = expb.Compile(param.Namespace)
+	if err != nil {
+		return nil, template.NewErrorPath("Namespace", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Namespace)
+		return nil, template.NewErrorPath("Namespace", err)
+	}
+
+	b.bldService, expType, err = expb.Compile(param.Service)
+	if err != nil {
+		return nil, template.NewErrorPath("Service", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Service)
+		return nil, template.NewErrorPath("Service", err)
+	}
+
+	b.bldMethod, expType, err = expb.Compile(param.Method)
+	if err != nil {
+		return nil, template.NewErrorPath("Method", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Method)
+		return nil, template.NewErrorPath("Method", err)
+	}
+
+	b.bldPath, expType, err = expb.Compile(param.Path)
+	if err != nil {
+		return nil, template.NewErrorPath("Path", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Path)
+		return nil, template.NewErrorPath("Path", err)
+	}
+
+	b.bldProperties = make(map[string]compiled.Expression, len(param.Properties))
+	for k, v := range param.Properties {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
+		}
+
+		b.bldProperties[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_authorization_Action) build(
+	attrs attribute.Bag) (*authorization.Action, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &authorization.Action{}
+
+	vString, err = b.bldNamespace.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Namespace", err)
+	}
+	r.Namespace = vString
+
+	vString, err = b.bldService.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Service", err)
+	}
+	r.Service = vString
+
+	vString, err = b.bldMethod.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Method", err)
+	}
+	r.Method = vString
+
+	vString, err = b.bldPath.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Path", err)
+	}
+	r.Path = vString
+
+	r.Properties = make(map[string]interface{}, len(b.bldProperties))
+
+	for k, v := range b.bldProperties {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
+		}
+
+		r.Properties[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_checknothing_Template struct {
+} // builder_checknothing_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_checknothing_Template(
+	expb *compiled.ExpressionBuilder,
+	param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_checknothing_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_checknothing_Template) build(
+	attrs attribute.Bag) (*checknothing.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &checknothing.Instance{}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_listentry_Template struct {
+
+	// builder for field value: string.
+
+	bldValue compiled.Expression
+} // builder_listentry_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_listentry_Template(
+	expb *compiled.ExpressionBuilder,
+	param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_listentry_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Value)
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_listentry_Template) build(
+	attrs attribute.Bag) (*listentry.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &listentry.Instance{}
+
+	vString, err = b.bldValue.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+	r.Value = vString
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_logentry_Template struct {
+
+	// builder for field variables: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldVariables map[string]compiled.Expression
+
+	// builder for field timestamp: time.Time.
+
+	bldTimestamp compiled.Expression
+
+	// builder for field severity: string.
+
+	bldSeverity compiled.Expression
+
+	// builder for field monitored_resource_type: string.
+
+	bldMonitoredResourceType compiled.Expression
+
+	// builder for field monitored_resource_dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldMonitoredResourceDimensions map[string]compiled.Expression
+} // builder_logentry_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_logentry_Template(
+	expb *compiled.ExpressionBuilder,
+	param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_logentry_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldVariables = make(map[string]compiled.Expression, len(param.Variables))
+	for k, v := range param.Variables {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Variables["+k+"]", err)
+		}
+
+		b.bldVariables[k] = exp
+	}
+
+	b.bldTimestamp, expType, err = expb.Compile(param.Timestamp)
+	if err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	b.bldSeverity, expType, err = expb.Compile(param.Severity)
+	if err != nil {
+		return nil, template.NewErrorPath("Severity", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Severity)
+		return nil, template.NewErrorPath("Severity", err)
+	}
+
+	b.bldMonitoredResourceType, expType, err = expb.Compile(param.MonitoredResourceType)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.MonitoredResourceType)
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	b.bldMonitoredResourceDimensions = make(map[string]compiled.Expression, len(param.MonitoredResourceDimensions))
+	for k, v := range param.MonitoredResourceDimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
+		}
+
+		b.bldMonitoredResourceDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_logentry_Template) build(
+	attrs attribute.Bag) (*logentry.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &logentry.Instance{}
+
+	r.Variables = make(map[string]interface{}, len(b.bldVariables))
+
+	for k, v := range b.bldVariables {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Variables["+k+"]", err)
+		}
+
+		r.Variables[k] = vIface
+
+	}
+
+	if vIface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	r.Timestamp = vIface.(time.Time)
+
+	vString, err = b.bldSeverity.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Severity", err)
+	}
+	r.Severity = vString
+
+	vString, err = b.bldMonitoredResourceType.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+	r.MonitoredResourceType = vString
+
+	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
+
+	for k, v := range b.bldMonitoredResourceDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
+		}
+
+		r.MonitoredResourceDimensions[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_metric_Template struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field monitored_resource_type: string.
+
+	bldMonitoredResourceType compiled.Expression
+
+	// builder for field monitored_resource_dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldMonitoredResourceDimensions map[string]compiled.Expression
+} // builder_metric_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_metric_Template(
+	expb *compiled.ExpressionBuilder,
+	param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_metric_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldMonitoredResourceType, expType, err = expb.Compile(param.MonitoredResourceType)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.MonitoredResourceType)
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	b.bldMonitoredResourceDimensions = make(map[string]compiled.Expression, len(param.MonitoredResourceDimensions))
+	for k, v := range param.MonitoredResourceDimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
+		}
+
+		b.bldMonitoredResourceDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_metric_Template) build(
+	attrs attribute.Bag) (*metric.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &metric.Instance{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vString, err = b.bldMonitoredResourceType.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+	r.MonitoredResourceType = vString
+
+	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
+
+	for k, v := range b.bldMonitoredResourceDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
+		}
+
+		r.MonitoredResourceDimensions[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_quota_Template struct {
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+} // builder_quota_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_quota_Template(
+	expb *compiled.ExpressionBuilder,
+	param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_quota_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_quota_Template) build(
+	attrs attribute.Bag) (*quota.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &quota.Instance{}
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_reportnothing_Template struct {
+} // builder_reportnothing_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_reportnothing_Template(
+	expb *compiled.ExpressionBuilder,
+	param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_reportnothing_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_reportnothing_Template) build(
+	attrs attribute.Bag) (*reportnothing.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &reportnothing.Instance{}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_tracespan_Template struct {
+
+	// builder for field trace_id: string.
+
+	bldTraceId compiled.Expression
+
+	// builder for field span_id: string.
+
+	bldSpanId compiled.Expression
+
+	// builder for field parent_span_id: string.
+
+	bldParentSpanId compiled.Expression
+
+	// builder for field span_name: string.
+
+	bldSpanName compiled.Expression
+
+	// builder for field start_time: time.Time.
+
+	bldStartTime compiled.Expression
+
+	// builder for field end_time: time.Time.
+
+	bldEndTime compiled.Expression
+
+	// builder for field span_tags: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldSpanTags map[string]compiled.Expression
+} // builder_tracespan_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_tracespan_Template(
+	expb *compiled.ExpressionBuilder,
+	param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_tracespan_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldTraceId, expType, err = expb.Compile(param.TraceId)
+	if err != nil {
+		return nil, template.NewErrorPath("TraceId", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.TraceId)
+		return nil, template.NewErrorPath("TraceId", err)
+	}
+
+	b.bldSpanId, expType, err = expb.Compile(param.SpanId)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanId", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.SpanId)
+		return nil, template.NewErrorPath("SpanId", err)
+	}
+
+	b.bldParentSpanId, expType, err = expb.Compile(param.ParentSpanId)
+	if err != nil {
+		return nil, template.NewErrorPath("ParentSpanId", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.ParentSpanId)
+		return nil, template.NewErrorPath("ParentSpanId", err)
+	}
+
+	b.bldSpanName, expType, err = expb.Compile(param.SpanName)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanName", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.SpanName)
+		return nil, template.NewErrorPath("SpanName", err)
+	}
+
+	b.bldStartTime, expType, err = expb.Compile(param.StartTime)
+	if err != nil {
+		return nil, template.NewErrorPath("StartTime", err)
+	}
+
+	b.bldEndTime, expType, err = expb.Compile(param.EndTime)
+	if err != nil {
+		return nil, template.NewErrorPath("EndTime", err)
+	}
+
+	b.bldSpanTags = make(map[string]compiled.Expression, len(param.SpanTags))
+	for k, v := range param.SpanTags {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("SpanTags["+k+"]", err)
+		}
+
+		b.bldSpanTags[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_tracespan_Template) build(
+	attrs attribute.Bag) (*tracespan.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &tracespan.Instance{}
+
+	vString, err = b.bldTraceId.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("TraceId", err)
+	}
+	r.TraceId = vString
+
+	vString, err = b.bldSpanId.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanId", err)
+	}
+	r.SpanId = vString
+
+	vString, err = b.bldParentSpanId.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("ParentSpanId", err)
+	}
+	r.ParentSpanId = vString
+
+	vString, err = b.bldSpanName.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanName", err)
+	}
+	r.SpanName = vString
+
+	if vIface, err = b.bldStartTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("StartTime", err)
+	}
+
+	r.StartTime = vIface.(time.Time)
+
+	if vIface, err = b.bldEndTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("EndTime", err)
+	}
+
+	r.EndTime = vIface.(time.Time)
+
+	r.SpanTags = make(map[string]interface{}, len(b.bldSpanTags))
+
+	for k, v := range b.bldSpanTags {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("SpanTags["+k+"]", err)
+		}
+
+		r.SpanTags[k] = vIface
+
+	}
+
+	return r, template.ErrorPath{}
+}

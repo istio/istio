@@ -1,0 +1,15 @@
+hosts:
+  - world
+http:
+  - route:
+    - destination:
+        name: world
+        subset: v0
+      weight: 75
+    - destination:
+        name: world
+        subset: v1
+      weight: 25
+    match:
+      - sourceLabels:
+          version: v0

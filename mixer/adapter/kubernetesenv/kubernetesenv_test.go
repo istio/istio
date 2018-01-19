@@ -376,7 +376,7 @@ func TestKubegen_Generate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := kg.(*handler).GenerateKubernetesEnvAttributes(ctx, v.inputs)
+			got, err := kg.(*handler).GenerateKubernetesAttributes(ctx, v.inputs)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}

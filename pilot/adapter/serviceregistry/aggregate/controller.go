@@ -115,7 +115,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	for _, r := range c.registries {

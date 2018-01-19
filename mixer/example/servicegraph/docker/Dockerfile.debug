@@ -1,8 +1,8 @@
 FROM gcr.io/istio-testing/ubuntu_xenial_debug:3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622
 
 WORKDIR /tmp/
-ADD servicegraph /usr/local/bin/
-ADD viz /tmp/js/
+COPY servicegraph /usr/local/bin/
+COPY viz /tmp/js/viz/
 
 EXPOSE 8088
-ENTRYPOINT ["/usr/local/bin/servicegraph", "--assetDir=/tmp"]
+CMD ["/usr/local/bin/servicegraph", "--assetDir=/tmp"]

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Init script downloads or updates envoy and the go dependencies.
+# Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
+# the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
 ISTIO_GO=$ROOT
@@ -10,29 +11,37 @@ set -o nounset
 set -o pipefail
 
 # Set GOPATH to match the expected layout
-TOP=$(cd $(dirname $0)/../../../..; pwd)
-OUT=${TOP}/out
+GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
+OUT=${GO_TOP}/out
 
-export GOPATH=$TOP
+export GOPATH=${GOPATH:-$GO_TOP}
+# Normally set by Makefile
+export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
 # Ensure expected GOPATH setup
-if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        echo "Istio not found in GOPATH/src/istio.io/"
        exit 1
 fi
 
-which dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
+DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
-# Download dependencies
+# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+if [ ! -f ${DEP} ]; then
+    DEP=${ISTIO_BIN}/dep
+    unset GOOS && go get -u github.com/golang/dep/cmd/dep
+fi
+
+# Download dependencies if needed
 if [ ! -d vendor/github.com ]; then
-    ${GOPATH}/bin/dep ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+    ${DEP} ensure -vendor-only
+    cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
-    ${GOPATH}/bin/dep ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
+    ${DEP} ensure -vendor-only
+    cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${GOPATH}/bin/dep ensure -vendor-only ; \
+            ( ${DEP} ensure -vendor-only ; \
               cp Gopkg.lock vendor/Gopkg.lock)
 fi
 
@@ -46,16 +55,21 @@ PROXY=debug-$PROXYVERSION
 if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
+    # New version of envoy downloaded. Save it to cache, and clean any old version.
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
 fi
 
-if [ ! -f $GOPATH/bin/envoy ] ; then
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GOPATH/bin/envoy
+if [ ! -f $GO_TOP/bin/envoy ] ; then
+    mkdir -p $GO_TOP/bin
+    # Make sure the envoy binary exists.
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi
 
+# Deprecated, may still be used in some tests
 if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
+    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
 fi
 

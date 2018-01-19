@@ -90,7 +90,7 @@ func createK8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 }
 
 func newValidator(rvc runtimeValidatorOptions, kinds map[string]proto.Message) (store.BackendValidator, error) {
-	s, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(rvc.configStoreURL)
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(rvc.configStoreURL)
 	if err != nil {
 		return nil, err
 	}

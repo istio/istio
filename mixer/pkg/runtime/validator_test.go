@@ -76,7 +76,7 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2("fs://" + path)
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://" + path)
 	if err != nil {
 		return nil, err
 	}

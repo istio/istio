@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/tools/version"
 )
@@ -51,9 +51,6 @@ const unitTestTag = "unittest"
 // This is the hub to expect in platform/kube/inject/testdata/frontend.yaml.injected
 // and the other .injected "want" YAMLs
 const unitTestHub = "docker.io/istio"
-
-// Default unit test DebugMode parameter
-const unitTestDebugMode = true
 
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
@@ -187,7 +184,7 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		mesh := proxy.DefaultMeshConfig()
+		mesh := model.DefaultMeshConfig()
 		if c.enableAuth {
 			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 		}
@@ -377,7 +374,7 @@ func TestGetMeshConfig(t *testing.T) {
 		},
 	}
 
-	want := proxy.DefaultMeshConfig()
+	want := model.DefaultMeshConfig()
 
 	for _, c := range cases {
 		_, err = cl.CoreV1().ConfigMaps(ns).Create(c.configMap)

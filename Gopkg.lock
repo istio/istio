@@ -35,8 +35,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "809ed2ef5c4c9a60c3c2f3aa9cc11f3a7c2ce59d"
-  version = "v9.6.0"
+  revision = "6311d7a76f54cf2b6dea03d737d9bd9a6022ac5f"
+  version = "v9.7.1"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "f62f7b7c5425f2b1a630932617477bdeac6dc371"
-  version = "v1.12.55"
+  revision = "b0e76431638de15ec1e6be51b6f745e1f2134fde"
+  version = "v1.12.63"
 
 [[projects]]
   branch = "master"
@@ -185,8 +185,14 @@
     ".",
     "log"
   ]
-  revision = "5741799b275a3c4a5a9623a993576d7545cf7b5c"
-  version = "v2.4.0"
+  revision = "2dd44038f0b95ae693b266c5f87593b5d2fdd78d"
+  version = "v2.5.0"
+
+[[projects]]
+  name = "github.com/fluent/fluent-logger-golang"
+  packages = ["fluent"]
+  revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -325,7 +331,7 @@
   branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
-  revision = "fc3c57184028a80ff3979d912cdaf5f08887f98a"
+  revision = "922ceac0585d40f97d283d921f872fc50480e06e"
 
 [[projects]]
   branch = "master"
@@ -373,7 +379,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "fe4853e064e386919340e25c447d0fed6cd8c6ea"
+  revision = "936e48acce6798b2efd69db8ac3c8ffe7f67784f"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -384,8 +390,8 @@
 [[projects]]
   name = "github.com/gorilla/mux"
   packages = ["."]
-  revision = "7f08801859139f86dfafd1c296e2cba9a80d292e"
-  version = "v1.6.0"
+  revision = "53c1911da2b537f792e7cafcb446b05ffe33b996"
+  version = "v1.6.1"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -406,7 +412,7 @@
   branch = "master"
   name = "github.com/grpc-ecosystem/go-grpc-middleware"
   packages = ["."]
-  revision = "967bee733a734780623ac3d7c8e9216e4372ea62"
+  revision = "d0c54e68681ec7999ac17864470f3bee6521ba2b"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -492,8 +498,8 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "7fe0c75c13abdee74b09fcacef5ea1c6bba6a874"
-  version = "0.2.4"
+  revision = "f1ac5984e69fed03e0574a92f70c59f132616ea2"
+  version = "0.3.0"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -615,6 +621,12 @@
   version = "v2.0.1"
 
 [[projects]]
+  name = "github.com/philhofer/fwd"
+  packages = ["."]
+  revision = "bb6d471dc95d4fe11e432687f8b70ff496cf3136"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
@@ -660,7 +672,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "2e54d0b93cba2fd133edc32211dcc32c06ef72ca"
+  revision = "89604d197083d4781071d3c65855d24ecfb0a563"
 
 [[projects]]
   branch = "master"
@@ -680,8 +692,8 @@
 [[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
-  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
-  version = "v1.1.0"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/spf13/cobra"
@@ -711,6 +723,12 @@
   version = "v1.2.0"
 
 [[projects]]
+  name = "github.com/tinylib/msgp"
+  packages = ["msgp"]
+  revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
+  version = "1.0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/tv42/httpunix"
   packages = ["."]
@@ -731,14 +749,14 @@
     "transport/zipkin",
     "utils"
   ]
-  revision = "f54d8ece0a66e3db6a9247e946eb1e2bd79029ea"
-  version = "v2.11.1"
+  revision = "3ac96c6e679cb60a74589b0d0aa7c70a906183f7"
+  version = "v2.11.2"
 
 [[projects]]
   name = "github.com/uber/jaeger-lib"
   packages = ["metrics"]
-  revision = "c48167d9cae5887393dd5e61efd06a4a48b7fbb3"
-  version = "v1.2.1"
+  revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
+  version = "v1.3.1"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -776,7 +794,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8"
+  revision = "13931e22f9e72ea58bb73048bc752b48c6d4d4ac"
 
 [[projects]]
   branch = "master"
@@ -794,7 +812,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "42fe2e1c20de1054d3d30f82cc9fb5b41e2e3767"
+  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
 [[projects]]
   branch = "master"
@@ -821,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "a3f2cbd54cf5dfe3fbaccf76375fdb12f67654c8"
+  revision = "fff93fa7cd278d84afc205751523809c464168ab"
 
 [[projects]]
   branch = "master"
@@ -870,7 +888,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "b790d0ba0332a621d0b58cfd69fa13bd3dc358d2"
+  revision = "8ea45f96742f825c49e900f42a01928554b5a6a0"
 
 [[projects]]
   branch = "master"
@@ -890,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "2c6d8d196bf34219b5c8f453dd2ec079b7f1ab0c"
+  revision = "373a4c220f5c90e5b7ff7101779c5be385d171be"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -958,8 +976,8 @@
     "tap",
     "transport"
   ]
-  revision = "f3955b8e9e244dd4dd4bc4f7b7a23a8445400a76"
-  version = "v1.9.0"
+  revision = "7cea4cc846bcf00cbb27595b07da5de875ef7de9"
+  version = "v1.9.1"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -987,7 +1005,7 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "0e4404da71227dcc02fb1deee803d93e86d08f72"
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
 
 [[projects]]
   name = "istio.io/api"
@@ -1001,7 +1019,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
+  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1011,13 +1029,14 @@
     "periodic",
     "stats"
   ]
-  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
+  revision = "369a81e3d4f84af156636408f59ecd8711085960"
+  version = "v0.6.3"
 
 [[projects]]
   branch = "master"
   name = "istio.io/gogo-genproto"
   packages = ["googleapis/google/rpc"]
-  revision = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd"
+  revision = "67f8f8d47316e96703fa2fd09038285aecdb7535"
 
 [[projects]]
   branch = "release-1.9"
@@ -1065,7 +1084,7 @@
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
   ]
-  revision = "097c49c1906b3527571b6876c7bf47c4487f6c61"
+  revision = "6f29dd12234812844d29f52bd520bb01374619ce"
 
 [[projects]]
   branch = "release-1.9"
@@ -1251,11 +1270,11 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "b16ebc07f5cad97831f961e4b5a9cc1caed33b7e"
+  revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7ea278d6950a4eb41e7ed4930074c04d8fc190ccaec9929973094bc95bac7f79"
+  inputs-digest = "e5ef64c5ee6d9a2ca8152e9e9b9324340b8af18d6ddfdb99db18d4648aa46f36"
   solver-name = "gps-cdcl"
   solver-version = 1

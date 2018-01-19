@@ -44,7 +44,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
@@ -430,7 +430,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 	volumeMounts = append(volumeMounts, v1.VolumeMount{
 		Name:      istioCertVolumeName,
 		ReadOnly:  true,
-		MountPath: proxy.AuthCertsPath,
+		MountPath: model.AuthCertsPath,
 	})
 
 	sa := spec.ServiceAccountName

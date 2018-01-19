@@ -60,9 +60,6 @@ var (
 )
 
 const (
-	// caImage specifies the default istio-ca docker image used for e2e testing *update manually*
-	caImage = "gcr.io/istio-testing/istio-ca:2baec6baacecbd516ea0880573b6fc3cd5736739"
-
 	// retry budget
 	budget = 90
 
@@ -76,7 +73,6 @@ const (
 func init() {
 	flag.StringVar(&params.Hub, "hub", "gcr.io/istio-testing", "Docker hub")
 	flag.StringVar(&params.Tag, "tag", "", "Docker tag")
-	flag.StringVar(&params.CaImage, "ca", caImage, "CA Docker image")
 	flag.StringVar(&params.IstioNamespace, "ns", "",
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&params.Namespace, "n", "",
@@ -107,7 +103,8 @@ func init() {
 	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
 
 	flag.BoolVar(&params.debugImagesAndMode, "debug", true, "Use debug images and mode (false for prod)")
-
+	flag.BoolVar(&params.SkipCleanup, "skip-cleanup", false, "Debug, skip clean up")
+	flag.BoolVar(&params.SkipCleanupOnFailure, "skip-cleanup-on-failure", false, "Debug, skip clean up on failure")
 }
 
 type test interface {
@@ -119,7 +116,7 @@ type test interface {
 
 func main() {
 	flag.Parse()
-	log.Configure(log.NewOptions())
+	_ = log.Configure(log.NewOptions())
 
 	if params.Tag == "" {
 		log.Error("No docker tag specified")
@@ -239,6 +236,7 @@ func runTests(envs ...infra) {
 					tlog("Running test", test.String())
 					if err := test.run(); err != nil {
 						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
+						tlog("Failed", test.String()+" "+err.Error())
 					} else {
 						tlog("Success!", test.String())
 					}
@@ -281,15 +279,22 @@ func runTests(envs ...infra) {
 			}
 		}
 
-		// always remove infra even if the tests fail
-		tlog("Tearing down infrastructure", istio.Name)
-		istio.teardown()
+		cleanup := !istio.SkipCleanup
 
 		if errs == nil {
 			tlog("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
 		} else {
 			tlogError("Failed tests!", errs.Error())
 			result = multierror.Append(result, multierror.Prefix(errs, istio.Name))
+			if istio.SkipCleanupOnFailure {
+				cleanup = false
+			}
+		}
+		if cleanup {
+			tlog("Tearing down infrastructure", istio.Name)
+			istio.teardown()
+		} else {
+			tlog("Skipping teardown", istio.Name)
 		}
 	}
 

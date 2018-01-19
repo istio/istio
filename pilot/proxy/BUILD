@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "agent.go",
-        "context.go",
         "net.go",
         "resolve.go",
     ],
@@ -27,15 +26,4 @@ go_test(
     size = "small",
     srcs = ["agent_test.go"],
     library = ":go_default_library",
-)
-
-go_test(
-    name = "go_default_xtest",
-    size = "small",
-    srcs = ["context_test.go"],
-    deps = [
-        ":go_default_library",
-        "//pilot/model:go_default_library",
-        "//pilot/test/mock:go_default_library",
-    ],
 )

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017-2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import (
 var (
 	buildAppVersion  string
 	buildGitRevision string
-	buildGitBranch   string
 	buildUser        string
 	buildHost        string
 )
@@ -36,7 +35,6 @@ var (
 type BuildInfo struct {
 	Version       string `json:"version"`
 	GitRevision   string `json:"revision"`
-	GitBranch     string `json:"branch"`
 	User          string `json:"user"`
 	Host          string `json:"host"`
 	GolangVersion string `json:"golang_version"`
@@ -50,7 +48,6 @@ var (
 func init() {
 	Info.Version = buildAppVersion
 	Info.GitRevision = buildGitRevision
-	Info.GitBranch = buildGitBranch
 	Info.User = buildUser
 	Info.Host = buildHost
 	Info.GolangVersion = runtime.Version()
@@ -69,13 +66,11 @@ func Line() string {
 func Version() string {
 	return fmt.Sprintf(`Version: %v
 GitRevision: %v
-GitBranch: %v
 User: %v@%v
 GolangVersion: %v
 `,
 		Info.Version,
 		Info.GitRevision,
-		Info.GitBranch,
 		Info.User, Info.Host,
 		Info.GolangVersion)
 }

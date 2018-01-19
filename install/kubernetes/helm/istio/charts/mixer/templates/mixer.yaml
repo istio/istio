@@ -1,0 +1,122 @@
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $proxy_hub := .Values.global.proxy.hub }}
+{{- $proxy_tag := .Values.global.proxy.tag }}
+{{- $mixer_hub := .Values.global.mixer.hub }}
+{{- $mixer_tag := .Values.global.mixer.tag }}
+# Mixer
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+  namespace: {{$istio_namespace}}
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  namespace: {{$istio_namespace}}
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp-plain
+    port: 9091
+  - name: tcp-mtls
+    port: 15004
+  - name: http-health
+    port: 9093
+  - name: configapi
+    port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: {{$istio_namespace}}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+  namespace: {{$istio_namespace}}
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
+      - name: mixer
+        image: {{$mixer_hub}}/mixer:{{$mixer_tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=k8s://
+          - --configDefaultNamespace={{$istio_namespace}}
+          - --zipkinURL=http://zipkin:9411/api/v1/spans
+          - --logtostderr
+          - -v
+          - "2"
+      - name: istio-proxy
+        image: {{$proxy_hub}}/proxy_debug:{{$proxy_tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "2"
+        - --controlPlaneAuthPolicy
+{{- if .Values.global.security.enabled }}
+        - MUTUAL_TLSN
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_mixer_auth.json
+{{- else }}
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_mixer.json
+{{- end }}
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
+      - name: config-volume
+        configMap:
+          name: istio-mixer
+---

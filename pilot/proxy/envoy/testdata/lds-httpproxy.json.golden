@@ -58,6 +58,8 @@
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
+             "disableCheckCalls": true,
+             "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
                "destination.service": {

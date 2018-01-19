@@ -34,7 +34,7 @@ const watchFlushDurationForTest = time.Millisecond
 
 func newValidatorCacheForTest(ctx context.Context, name string) (*validatorCache, store.MemstoreWriter, error) {
 	u := "memstore://" + name
-	s, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(u)
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(u)
 	if err != nil {
 		return nil, nil, err
 	}

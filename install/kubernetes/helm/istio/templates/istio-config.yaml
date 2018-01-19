@@ -1,4 +1,3 @@
-{{- if .Values.istio.deploy_base_config }}
 {{- $istio_namespace := .Values.global.namespace }}
 ################################
 # istio configMap cluster-wide
@@ -11,7 +10,7 @@ metadata:
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
-{{- if .Values.global.auth_enabled }}
+{{- if .Values.global.security.enabled }}
     authPolicy: MUTUAL_TLS
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
 {{- end }}
@@ -80,9 +79,8 @@ data:
       statsdUdpAddress: istio-mixer.{{ $istio_namespace }}:9125
       # Uncomment the following line to enable mutual TLS authentication between
       # sidecars and istio control plane.
-{{- if .Values.global.auth_enabled }}
+{{- if .Values.global.security.enabled }}
       controlPlaneAuthPolicy: MUTUAL_TLS
 {{- end }}
       # controlPlaneAuthPolicy: MUTUAL_TLS
 ---
-{{- end }}

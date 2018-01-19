@@ -9,7 +9,7 @@ The local configuration uses a Kubernetes attribute producing adapter.
 The `KUBECONFIG` environment variable specifies the location of the Kubernetes configuration.
 
 ```shell
-KUBECONFIG=${HOME}/.kube/config bazel-bin/mixer/cmd/mixs/mixs server --logtostderr --configStore2URL=fs://$(pwd)/mixer/testdata/config -v=4
+KUBECONFIG=${HOME}/.kube/config bazel-bin/mixer/cmd/mixs/mixs server --logtostderr --configStoreURL=fs://$(pwd)/mixer/testdata/config -v=4
 ```
 
 You can also run a simple client to interact with the server:

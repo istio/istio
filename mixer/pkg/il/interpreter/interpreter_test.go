@@ -1683,7 +1683,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			expected: "c",
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() il.StringMap {
-					return ilt.NewStringMap("", map[string]string{"b": "c"})
+					return ilt.NewStringMap("", map[string]string{"b": "c"}, nil)
 				}),
 			},
 		},
@@ -2405,7 +2405,6 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		if err != nil {
 			t.Fatal(s.Error())
 		}
-		t.Log(s)
 	}
 	if s.Error() != nil {
 		if len(test.err) == 0 {

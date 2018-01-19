@@ -371,11 +371,26 @@ func (g *generator) generateLor(f *expr.Function, depth int) {
 }
 
 func (g *generator) generateLand(f *expr.Function, depth int) {
-	for _, a := range f.Args {
+	// Short circuit jump point for arguments that evaluate to false.
+	lfalse := g.builder.AllocateLabel()
+
+	// Label for the end of the and block.
+	lend := g.builder.AllocateLabel()
+
+	for i, a := range f.Args {
 		g.generate(a, depth+1, nmNone, "")
+		if i < len(f.Args)-1 {
+			// if this is not the last argument, check and jump to the false label.
+			g.builder.Jz(lfalse)
+		} else {
+			g.builder.Jmp(lend)
+		}
 	}
 
-	g.builder.And()
+	g.builder.SetLabelPos(lfalse)
+	g.builder.APushBool(false)
+
+	g.builder.SetLabelPos(lend)
 }
 
 func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
