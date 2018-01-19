@@ -571,15 +571,15 @@ ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BI
 	   --config-files /var/lib/istio/envoy/sidecar.env \
 	   --config-files /var/lib/istio/envoy/envoy.json \
 	   --description "Istio" \
-	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
-	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
-	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
+	   tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   tools/deb/istio.service=/lib/systemd/system/istio.service \
+	   security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
 	   bin/envoy=/usr/local/bin/envoy \
 	   bin/pilot-agent=/usr/local/bin/pilot-agent \
 	   bin/node_agent=/usr/local/istio/bin/node_agent \
-	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
-	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+	   tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests
