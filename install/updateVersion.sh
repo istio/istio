@@ -310,6 +310,9 @@ function merge_files_docker() {
 }
 
 if [[ "$DEST_DIR" != "$ROOT" ]]; then
+  if [ ! -d "$DEST_DIR" ]; then
+    mkdir -p $DEST_DIR
+  fi
   cp -R $ROOT/install $DEST_DIR/
   cp -R $ROOT/samples $DEST_DIR/
 fi
