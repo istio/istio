@@ -218,22 +218,15 @@ func TestClusterDiscoveryError2(t *testing.T) {
 
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
-		{weightedRouteRule, cbPolicy},
-		{cbRouteRuleV2},
+		{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
+		{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
 	}
 
 	for _, configs := range tests {
 		_, registry, ds := commonSetup(t)
-		// add weighted rule to split into two clusters and set circuit breaker policy
 		for _, config := range configs {
 			addConfig(registry, config, t)
 		}
-		// add egress rule and a circuit breaker for external service (*.google.com)
-		addConfig(registry, egressRule, t)
-		addConfig(registry, egressRuleCBPolicy, t)
-
-		// TODO: v1alpha2 only
-		addConfig(registry, destinationRuleWorldCB, t)
 
 		url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -384,12 +377,16 @@ func TestRouteDiscoveryV1(t *testing.T) {
 }
 
 func TestRouteDiscoveryTimeout(t *testing.T) {
-	for _, timeoutConfig := range []fileConfig{timeoutRouteRule, timeoutRouteRuleV2} {
-		_, registry, ds := commonSetup(t)
-		addConfig(registry, egressRule, t)
+	tests := [][]fileConfig{
+		{timeoutRouteRule, egressRule, egressRuleTimeoutRule},
+		{timeoutRouteRuleV2, externalServiceRule, googleTimeoutRuleV2},
+	}
 
-		addConfig(registry, timeoutConfig, t)
-		addConfig(registry, egressRuleTimeoutRule, t)
+	for _, configs := range tests {
+		_, registry, ds := commonSetup(t)
+		for _, config := range configs {
+			addConfig(registry, config, t)
+		}
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-timeout.json", t)
@@ -647,6 +644,14 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		{
 			name: "egress-rule-tcp",
 			file: egressRuleTCP,
+		},
+		{
+			name: "egress-rule",
+			file: externalServiceRule,
+		},
+		{
+			name: "egress-rule-tcp",
+			file: externalServiceRuleTCP,
 		},
 	}
 

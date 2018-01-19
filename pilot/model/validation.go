@@ -596,7 +596,7 @@ func ValidateAbort(abort *routing.HTTPFaultInjection_Abort) (errs error) {
 		// TODO No validation yet for grpc_status / http2_error / http_status
 		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
 	case *routing.HTTPFaultInjection_Abort_Http2Error:
-		// TODO No validation yet for grpc_status / http2_error / http_status
+	// TODO No validation yet for grpc_status / http2_error / http_status
 	case *routing.HTTPFaultInjection_Abort_HttpStatus:
 		if err := ValidateAbortHTTPStatus(abort.ErrorType.(*routing.HTTPFaultInjection_Abort_HttpStatus)); err != nil {
 			errs = multierror.Append(errs, err)
@@ -1746,7 +1746,10 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	// TODO: routeRule.Gateways
 
 	if len(routeRule.Hosts) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one host required"))
+		errs = appendErrors(errs, fmt.Errorf("route rule must have at least one host"))
+	}
+	for _, host := range routeRule.Hosts {
+		errs = appendErrors(errs, validateHost(host))
 	}
 
 	for _, httpRoute := range routeRule.Http {
@@ -1759,6 +1762,17 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	}
 
 	return
+}
+
+func validateHost(host string) error {
+	// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
+	// (including CIDR addresses). If it's neither, we report both errors.
+	if err := ValidateWildcardDomain(host); err != nil {
+		if err2 := ValidateIPv4Subnet(host); err2 != nil {
+			return appendErrors(err, err2)
+		}
+	}
+	return nil
 }
 
 func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
@@ -1919,16 +1933,34 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	// TODO: validate short name / FQDN
-	if destination.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("route rule destination should not be empty"))
+	errs = appendErrors(errs, validateHost(destination.Name))
+	if destination.Subset != "" {
+		errs = appendErrors(errs, validateSubsetName(destination.Subset))
+	}
+	if destination.Port != nil {
+		errs = appendErrors(errs, validatePortSelector(destination.Port))
 	}
 
-	// TODO: Subset
-
-	// TODO: Port
-
 	return
+}
+
+func validateSubsetName(name string) error {
+	if !IsDNS1123Label(name) {
+		return fmt.Errorf("subnet name is invalid: %s", name)
+	}
+	return nil
+}
+
+func validatePortSelector(selector *routingv2.PortSelector) error {
+	if selector == nil {
+		return nil
+	}
+
+	if name := selector.GetName(); name != "" {
+		return validateSubsetName(name)
+	}
+
+	return ValidatePort(int(selector.GetNumber()))
 }
 
 func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
@@ -1955,6 +1987,60 @@ func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) error {
 func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
+	}
+	return nil
+}
+
+// ValidateExternalService validates a external service.
+func ValidateExternalService(config proto.Message) (errs error) {
+	externalService, ok := config.(*routingv2.ExternalService)
+	if !ok {
+		return fmt.Errorf("cannot cast to external service")
+	}
+
+	if len(externalService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("external service must have at least one host"))
+	}
+	for _, host := range externalService.Hosts {
+		errs = appendErrors(errs, validateHost(host))
+	}
+
+	if externalService.Discovery == routingv2.ExternalService_STATIC {
+		if len(externalService.Endpoints) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
+		}
+		for _, endpoint := range externalService.Endpoints {
+			errs = appendErrors(errs, ValidateIPv4Address(endpoint.Address)) // TODO: allow FQDN
+			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			for name, port := range endpoint.Ports {
+				errs = appendErrors(errs,
+					validatePortName(name),
+					ValidatePort(int(port)))
+			}
+		}
+	}
+
+	for _, port := range externalService.Ports {
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol),
+			ValidatePort(int(port.Number)))
+	}
+
+	return
+}
+
+func validatePortName(name string) error {
+	if !IsDNS1123Label(name) {
+		return fmt.Errorf("invalid port name: %s", name)
+	}
+	return nil
+}
+
+func validateProtocol(protocol string) error {
+	if ConvertCaseInsensitiveStringToProtocol(protocol) == ProtocolUnsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocol)
 	}
 	return nil
 }
