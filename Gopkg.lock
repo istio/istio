@@ -1029,8 +1029,8 @@
     "periodic",
     "stats"
   ]
-  revision = "369a81e3d4f84af156636408f59ecd8711085960"
-  version = "v0.6.3"
+  revision = "4714a911055015c780696a254b0bcb1d0f3d951f"
+  version = "v0.6.4"
 
 [[projects]]
   branch = "master"
