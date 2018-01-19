@@ -112,8 +112,10 @@ func TestBasic(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if err != nil {
@@ -135,8 +137,10 @@ func TestClient(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if err != nil {
@@ -166,8 +170,10 @@ func TestClient(t *testing.T) {
 func TestErrors(t *testing.T) {
 	a := NewArgs()
 	a.APIWorkerPoolSize = -1
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if s != nil || err == nil {
@@ -177,8 +183,7 @@ func TestErrors(t *testing.T) {
 	a = NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
 	a.TracingOptions.LogTraceSpans = true
 
 	for i := 0; i < 20; i++ {
