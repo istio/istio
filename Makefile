@@ -478,16 +478,23 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/certs/cert.crt pilot/docker/certs/cert.key \
-                          pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES)
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
+# This block exists temporarily.  These files need to go in a certs/ subdir, though
+# eventually the dockerfile should be changed to not used the subdir, in which case
+# the files listed in this section can be added to the preceeding section
+$(ISTIO_DOCKER)/certs: ; mkdir -p $(@)
+DOCKER_CERTS_FILES_FROM_SOURCE:=pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+$(foreach FILE,$(DOCKER_CERTS_FILES_FROM_SOURCE), \
+        $(eval $(ISTIO_DOCKER)/certs/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER)/certs; cp $(FILE) $$(@D)))
+
 # pilot docker images
 
 docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server \
-            $(ISTIO_DOCKER)/cert.crt $(ISTIO_DOCKER)/cert.key
+            $(ISTIO_DOCKER)/certs/cert.crt $(ISTIO_DOCKER)/certs/cert.key
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
