@@ -98,9 +98,12 @@ func TestBasicTopLevelFields(t *testing.T) {
 }
 
 func TestTypeFields(t *testing.T) {
-	model, _ := createTestModel(t,
+	model, err := createTestModel(t,
 		"testdata/simple_template.descriptor_set")
 
+	if err != nil {
+		t.Fatal(err)
+	}
 	testSimpleTemplateFields(model.TemplateMessage, t)
 	var res3MsgInfo MessageInfo
 	for _, j := range model.ResourceMessages {
