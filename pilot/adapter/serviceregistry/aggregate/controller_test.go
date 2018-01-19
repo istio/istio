@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 )
 
 // MockController specifies a mock Controller for testing
