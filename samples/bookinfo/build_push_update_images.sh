@@ -16,6 +16,12 @@
 
 set -o errexit
 
+if [ "$#" -ne 1 ]; then
+    echo Missing version parameter
+    echo Usage: build-services.sh \<version\>
+    exit 1
+fi
+
 VERSION=$1
 src/build-services.sh $VERSION
 IMAGES=$(docker images -f reference=istio/examples-bookinfo*:$VERSION --format "{{.Repository}}:$VERSION")
