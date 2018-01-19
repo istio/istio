@@ -46,7 +46,7 @@ import (
     "istio.io/istio/mixer/pkg/expr"
     "istio.io/istio/mixer/pkg/il/compiled"
     "istio.io/istio/pkg/log"
-    "istio.io/api/mixer/v1/config/descriptor"
+    istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
     "istio.io/istio/mixer/pkg/template"
     adptTmpl "istio.io/api/mixer/v1/template"
     "istio.io/istio/mixer/pkg/config/proto"
