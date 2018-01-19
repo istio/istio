@@ -84,7 +84,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Fail if there is such header.
 	if r.Header.Get(FailHeader) != "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(FailBody))
+		_, _ = w.Write([]byte(FailBody))
 		return
 	}
 
@@ -95,7 +95,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 // NewHTTPServer creates a new HTTP server.
@@ -130,6 +130,6 @@ func (s *HTTPServer) Start() {
 // Stop shutdown the server
 func (s *HTTPServer) Stop() {
 	log.Printf("Close HTTP server\n")
-	s.lis.Close()
+	_ = s.lis.Close()
 	log.Printf("Close HTTP server -- Done\n")
 }

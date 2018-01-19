@@ -57,6 +57,7 @@ func TestCompiledExpressions(t *testing.T) {
 
 			if exprType != test.Type {
 				tt.Fatalf("expression type mismatch: '%v' != '%v'", exprType, test.Type)
+				return
 			}
 
 			bag := ilt.NewFakeBag(test.I)

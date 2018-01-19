@@ -90,7 +90,7 @@ func (envManager *TestEnvManager) TearDown() {
 			log.Printf("Failed to cleanup %s: %s", comp.GetName(), err)
 		}
 	}
-	envManager.TestEnv.Cleanup()
+	_ = envManager.TestEnv.Cleanup()
 }
 
 // WaitUntilReady checks and waits until the whole environment is ready

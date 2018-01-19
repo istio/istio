@@ -25,14 +25,17 @@ import (
 
 // NewFakeBag creates a FakeBag and converts map[string]string to StringMap
 func NewFakeBag(attrs map[string]interface{}) *FakeBag {
-	bag := &FakeBag{}
+	bag := &FakeBag{
+		Attrs: make(map[string]interface{}, len(attrs)),
+	}
 	for k, v := range attrs {
 		if sm, ok := v.(map[string]string); ok {
-			attrs[k] = NewStringMap(k, sm, bag)
+			bag.Attrs[k] = NewStringMap(k, sm, bag)
+		} else {
+			bag.Attrs[k] = v
 		}
 	}
 
-	bag.Attrs = attrs
 	bag.referenced = make(map[string]bool)
 	return bag
 }

@@ -272,7 +272,7 @@ func (t testInfo) uploadDir() error {
 func (t testInfo) Teardown() error {
 	if t.Bucket != "" {
 		log.Info("Uploading logs remotely")
-		log.Sync()
+		_ = log.Sync()
 		return t.uploadDir()
 	}
 	return nil
