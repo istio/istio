@@ -26,8 +26,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/memory"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
 
