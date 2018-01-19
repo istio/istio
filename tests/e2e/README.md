@@ -92,7 +92,7 @@ make docker
 # you can skip this step.
 make push
 
-# the hub/tag set in your .istiorc will be used by the test.
+# the hub/tag set in your .istiorc.mk will be used by the test.
 
 ```
 
