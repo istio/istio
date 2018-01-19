@@ -45,3 +45,4 @@ samples/bookinfo/eureka/bookinfo.sidecars.yaml
 /bin/pilot-agent
 /bin/pilot-discovery
 /bin/sidecar-initializer
+/bin/envoy
