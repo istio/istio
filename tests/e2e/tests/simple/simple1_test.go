@@ -72,7 +72,7 @@ func TestSimpleIngress(t *testing.T) {
 	// with "echo debug server ..." on the /debug uri.
 	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	log.Infof("Fetching '%s'", url)
-	attempts := 7 // should not take more than 70s to be live...
+	attempts := 15 // should not take more than 70s to be live...
 	for i := 1; i <= attempts; i++ {
 		if i > 1 {
 			time.Sleep(10 * time.Second) // wait between retries
