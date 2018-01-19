@@ -18,12 +18,6 @@ set -o errexit
 
 VERSION=$1
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-ISTIO_VERSION=$(cat $SCRIPTDIR/../../../istio.RELEASE)
-
-if [ "$VERSION" != "$ISTIO_VERSION" ]; then
-    echo You are setting version $VERSION, \
-	 note that it is different from the current Istio version \($ISTIO_VERSION\)
-fi
 
 pushd $SCRIPTDIR/productpage
   docker build -t istio/examples-bookinfo-productpage-v1:${VERSION} .
