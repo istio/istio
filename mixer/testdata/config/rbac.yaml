@@ -1,0 +1,94 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: authorization
+metadata:
+  name: requestcontext
+  namespace: istio-system
+spec:
+  subject:
+    user: request.auth.principal | ""
+    groups: request.auth.principal | ""
+    properties:
+      service: source.service | ""
+      namespace: source.namespace | ""
+  action:
+    namespace: destination.namespace | ""
+    service: destination.service | ""
+    method: request.method | ""
+    path: request.path | ""
+    properties:
+      version: request.headers["version"] | ""
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rbac
+metadata:
+ name: rbachandler
+ namespace: istio-system
+spec:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rbaccheck
+  namespace: istio-system
+spec:
+  actions:
+  # handler and instance names default to the rule's namespace.
+  - handler: rbachandler.rbac
+    instances:
+    - requestcontext.authorization
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRole
+metadata:
+  name: products-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["products.svc.cluster.local"]
+    methods: ["GET", "HEAD"]
+    constraints:
+    - name: "version"
+      value: ["v1", "v2"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-products
+  namespace: default
+spec:
+  subjects:
+  - properties:
+      user: "alice@yahoo.com"
+  - properties:
+      service: "reviews"
+      namespace: "abc"
+  roleRef:
+    kind: ServiceRole
+    name: "products-viewer"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRole
+metadata:
+  name: book-reader
+  namespace: default
+spec:
+  rules:
+  - services: ["reviews.svc.cluster.local"]
+    methods: ["*"]
+  - services: ["bookstore.svc.cluster.local"]
+    paths: ["/books"]
+    methods: ["GET"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-book
+  namespace: default
+spec:
+  subjects:
+  - properties:
+      namespace: "acme"
+  roleRef:
+    kind: ServiceRole
+    name: "book-reader"
+---

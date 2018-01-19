@@ -1047,6 +1047,7 @@
     "mixer/v1/config/client",
     "mixer/v1/config/descriptor",
     "mixer/v1/template",
+    "rbac/v1alpha1",
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
