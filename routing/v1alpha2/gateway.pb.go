@@ -80,7 +80,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //         - eu.bookinfo.com
 //         tls:
 //           mode: simple #enables HTTPS on this port
-//           serverCert: /etc/certs/servercert.pem
+//           serverCertificate: /etc/certs/servercert.pem
 //           privateKey: /etc/certs/privatekey.pem
 //       - port:
 //           number: 9080
