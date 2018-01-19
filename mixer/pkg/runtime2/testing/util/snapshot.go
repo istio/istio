@@ -22,33 +22,21 @@ import (
 	"path"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	cfg "istio.io/istio/mixer/pkg/config"
-	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 // GetSnapshot creates a config.Snapshot for testing purposes, based on the supplied configuration.
 func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapter.Info, serviceConfig string, globalConfig string) *config.Snapshot {
-	// TODO: This is a horrible hack, but it is the easiest way to get this up and running. We should avoid writing
-	// files to the file-system and simply have an in-memory store for this.
-
-	path, err := createConfigFiles(serviceConfig, globalConfig)
+	store2, err := storetest.SetupStoreForTest(serviceConfig, globalConfig)
 	if err != nil {
-		panic(fmt.Sprintf("Unable to create config files: %s", err.Error()))
-	}
-
-	url := "fs://" + path
-
-	reg2 := store.NewRegistry(cfg.StoreInventory()...)
-	store2, err := reg2.NewStore(url)
-	if err != nil {
-		panic(fmt.Sprintf("unable to crete store2: %s", err.Error()))
+		panic(fmt.Sprintf("unable to crete store2: %v", err))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	if err = store2.Init(ctx, config.KindMap(adapters, templates)); err != nil {
-		panic(fmt.Sprintf("unable to initialize store2: %s", err.Error()))
+	if err := store2.Init(ctx, config.KindMap(adapters, templates)); err != nil {
+		panic(fmt.Sprintf("unable to initialize store2: %v", err))
 	}
 
 	data := store2.List()

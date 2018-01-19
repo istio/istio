@@ -28,7 +28,7 @@ import (
 )
 
 type testStore struct {
-	*memstore
+	*Memstore
 	initErr  error
 	watchErr error
 }
@@ -37,43 +37,38 @@ func (t *testStore) Init(ctx context.Context, kinds []string) error {
 	if t.initErr != nil {
 		return t.initErr
 	}
-	return t.memstore.Init(ctx, kinds)
+	return t.Memstore.Init(ctx, kinds)
 }
 
 func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	if t.watchErr != nil {
 		return nil, t.watchErr
 	}
-	return t.memstore.Watch(ctx)
+	return t.Memstore.Watch(ctx)
 }
 
 func registerTestStore(builders map[string]Builder) {
 	builders["test"] = func(u *url.URL) (Backend, error) {
 		return &testStore{
-			memstore: createOrGetMemstore(u.String()),
+			Memstore: NewMemstore(),
 		}, nil
 	}
 }
 
 func TestStore(t *testing.T) {
-	r := NewRegistry(registerTestStore)
-	u := "memstore://" + t.Name()
-	s, err := r.NewStore(u)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := GetMemstoreWriter(u)
+	m := NewMemstore()
+	s := WithBackend(m)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
-	if err = s.Init(context.Background(), kinds); err != nil {
+	if err := s.Init(context.Background(), kinds); err != nil {
 		t.Fatal(err)
 	}
 	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
 	h1 := &cfg.Handler{}
-	if err = s.Get(k, h1); err != ErrNotFound {
+	if err := s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
 	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
-	if err = s.Get(k, h1); err != nil {
+	if err := s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	want := &cfg.Handler{Name: "default", Adapter: "noop"}
@@ -115,11 +110,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestStoreWatchMultiple(t *testing.T) {
-	r := NewRegistry(registerTestStore)
-	s, err := r.NewStore("memstore://" + t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := WithBackend(NewMemstore())
 
 	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
 		t.Fatal(err)
@@ -178,7 +169,7 @@ func TestRegistry(t *testing.T) {
 		u  string
 		ok bool
 	}{
-		{"memstore://", true},
+		{"memstore://", false},
 		{"mem://", false},
 		{"fs:///", true},
 		{"://", false},

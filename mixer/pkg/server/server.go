@@ -143,16 +143,22 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStoreURL := a.ConfigStoreURL
-	if configStoreURL == "" {
-		configStoreURL = "k8s://"
+	store2 := a.ConfigStore
+	if store2 != nil && a.ConfigStoreURL != "" {
+		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
+	if store2 == nil {
+		configStoreURL := a.ConfigStoreURL
+		if configStoreURL == "" {
+			configStoreURL = "k8s://"
+		}
 
-	reg2 := store.NewRegistry(config.StoreInventory()...)
-	store2, err := p.newStore2(reg2, configStoreURL)
-	if err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		reg2 := store.NewRegistry(config.StoreInventory()...)
+		var err error
+		if store2, err = p.newStore2(reg2, configStoreURL); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		}
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
