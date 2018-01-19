@@ -25,8 +25,9 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/adapter/config/memory"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/test/mock"
+	mock_config "istio.io/istio/pilot/test/mock"
 )
 
 func TestConfigDescriptor(t *testing.T) {
@@ -200,7 +201,7 @@ func TestLabelsEquals(t *testing.T) {
 }
 
 func TestConfigKey(t *testing.T) {
-	config := mock.Make("ns", 2)
+	config := mock_config.Make("ns", 2)
 	want := "mock-config/ns/mock-config2"
 	if key := config.ConfigMeta.Key(); key != want {
 		t.Errorf("config.Key() => got %q, want %q", key, want)
