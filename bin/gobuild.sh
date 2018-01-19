@@ -29,8 +29,6 @@ if [[ "${VERBOSE}" == "1" ]];then
     V="-x"
 fi
 
-GOOS=${GOOS:-linux}
-GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 BUILDINFO=${BUILDINFO:-""}
 LDFLAGS="-extldflags -static"
@@ -52,5 +50,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
+time CGO_ENABLED=0 ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
