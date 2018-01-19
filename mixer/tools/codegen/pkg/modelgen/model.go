@@ -27,6 +27,8 @@ import (
 )
 
 const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
+const fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
+const fullProtoNameOfValueMsg = "istio.mixer.v1.template.Value"
 
 type typeMetadata struct {
 	goName   string
@@ -414,12 +416,10 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 		return TypeInfo{Name: "double"}, TypeInfo{Name: sFLOAT64}, nil
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
 		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
-	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueTypeEnum {
-			desc := g.ObjectNamed(field.GetTypeName())
-			return TypeInfo{Name: field.GetTypeName()[1:], IsValueType: true}, TypeInfo{Name: g.TypeName(desc), IsValueType: true}, nil
-		}
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
+			return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
+		}
 		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
 			return TypeInfo{Name: field.GetTypeName()[1:]},
 				TypeInfo{Name: v.goName, Import: v.goImport},
