@@ -241,6 +241,16 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	}
 }
 
+func TestClusterDiscoveryEgressRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-redirect-egress.json", t)
+}
+
 func TestClusterDiscoveryWithAuthOptIn(t *testing.T) {
 	// Change mock service security for test.
 	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
@@ -482,6 +492,16 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-redirect.json", t)
 	}
+}
+
+func TestRouteDiscoveryEgressRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-redirect-egress.json", t)
 }
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
