@@ -2,7 +2,7 @@
 .project
 .pydevproject
 #Vagrant
-.vagrant/
+tools/vagrant/.vagrant/
 # Intellij
 *.iml
 .idea/
