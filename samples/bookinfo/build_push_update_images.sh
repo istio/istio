@@ -1,4 +1,6 @@
-# Copyright 2017 Istio Authors
+#!/bin/bash
+#
+# Copyright 2018 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,7 +14,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM mysql:8
-# MYSQL_ROOT_PASSWORD must be supplied as an env var
+set -o errexit
 
-COPY ./mysqldb-init.sql /docker-entrypoint-initdb.d/mysqldb-init.sql
+if [ "$#" -ne 1 ]; then
+    echo Missing version parameter
+    echo Usage: build-services.sh \<version\>
+    exit 1
+fi
+
+VERSION=$1
+src/build-services.sh $VERSION
+IMAGES=$(docker images -f reference=istio/examples-bookinfo*:$VERSION --format "{{.Repository}}:$VERSION")
+for IMAGE in $IMAGES; do docker push $IMAGE; done
+sed -i "s/\(istio\/examples-bookinfo-.*\):[[:digit:]]\.[[:digit:]]\.[[:digit:]]/\1:$VERSION/g" */bookinfo*.yaml
+
