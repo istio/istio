@@ -26,5 +26,5 @@ VERSION=$1
 src/build-services.sh $VERSION
 IMAGES=$(docker images -f reference=istio/examples-bookinfo*:$VERSION --format "{{.Repository}}:$VERSION")
 for IMAGE in $IMAGES; do docker push $IMAGE; done
-./update_images_in_yamls.sh $VERSION
+sed -i "s/\(istio\/examples-bookinfo-.*\):[[:digit:]]\.[[:digit:]]\.[[:digit:]]/\1:$VERSION/g" */bookinfo*.yaml
 
