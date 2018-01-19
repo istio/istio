@@ -80,7 +80,7 @@ func (env *CertRotationTestEnv) GetComponents() []framework.Component {
 			},
 			[]string{
 				"--self-signed-ca",
-				"--cert-ttl", "60s",
+				"--workload-cert-ttl", "60s",
 			},
 		),
 	}

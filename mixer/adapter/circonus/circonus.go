@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log" //nolint:adapterlinter
 	"net/url"
 	"time"
 
