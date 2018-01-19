@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package istio.mixer.adapter.sample.check;
 
-import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
 import "mixer/v1/template/standard_types.proto";
 
@@ -15,8 +14,8 @@ message Template {
 }
 
 message Res1 {
-    istio.mixer.v1.config.descriptor.ValueType value = 1;
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+    istio.mixer.v1.template.Value value = 1;
+    map<string, istio.mixer.v1.template.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 
@@ -38,8 +37,8 @@ message Res1 {
 }
 
 message Res2 {
-    istio.mixer.v1.config.descriptor.ValueType value = 1;
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+    istio.mixer.v1.template.Value value = 1;
+    map<string, istio.mixer.v1.template.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 }

@@ -140,7 +140,7 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
@@ -148,10 +148,10 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.config.descriptor.ValueType value = 1;
+   istio.mixer.v1.template.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+   map<string, istio.mixer.v1.template.Value> dimensions = 2;
 }
 ```
 
@@ -260,7 +260,7 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
@@ -268,10 +268,10 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.config.descriptor.ValueType value = 1;
+   istio.mixer.v1.template.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+   map<string, istio.mixer.v1.template.Value> dimensions = 2;
 }
 ```
 
