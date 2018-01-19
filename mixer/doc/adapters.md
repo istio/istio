@@ -91,10 +91,11 @@ the `instances` for the templates should be created and dispatched to adapters.
 For example:
     * *Check* template variety instances are created and dispatched only during Mixer's Check API call.
     * *Report* template variety instances are created and dispatched only during Mixer's Report API call.
-    * *Quota* template variety instances are created and dispatched only during Mixer's Quota API call.
-    * *AttributeGenerator* template variety instances are created and dispatched to adapters for all of Mixer's
-Check, Report and QUOTA API calls. The processing of these templates happen during the supplementary attribute generation
-phase which happens before the processing any other variety of templates. Adapters that handle `AttributeGenerator`
+    * *Quota* template variety instances are created and dispatched only during Mixer's Check API call when queried for
+       quota allocation.
+    * *AttributeGenerator* template variety instances are created and dispatched to adapters for both Check, Report Mixer
+API calls. The processing of these templates happen during the supplementary attribute generation
+phase which happens before processing any other variety of templates. Adapters that handle `AttributeGenerator`
 templates are called attribute generating adapters. These adapters are responsible
 for generating output data, dictated by the template, which operators can use to create new attributes. These new
 attributes are combined with the attributes from the request to form the total set of attributes for the operation.
