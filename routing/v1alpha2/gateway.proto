@@ -25,15 +25,18 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //
 // For example, the following gateway spec sets up a proxy to act as a load
 // balancer exposing port 80 and 9080 (http), 443 (https), and port 2379
-// (TCP) for ingress.  While Istio will configure the proxy to listen on
-// these ports, it is the responsibility of the user to ensure that
-// external traffic to these ports are allowed into the mesh.
+// (TCP) for ingress.  The gateway will be applied to the proxy running on
+// a pod with labels "podRole: gateway-pod". While Istio will configure the
+// proxy to listen on these ports, it is the responsibility of the user to
+// ensure that external traffic to these ports are allowed into the mesh.
 //
 //     apiVersion: config.istio.io/v1alpha2
 //     kind: Gateway
 //     metadata:
 //       name: my-gateway
 //     spec:
+//       selector:
+//       - podRole: gatweway-pod
 //       servers:
 //       - port:
 //           number: 80
@@ -138,6 +141,10 @@ option go_package = "istio.io/api/routing/v1alpha2";
 message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
+
+  // REQUIRED: One or more labels that indicate a specific set of pods/VMs
+  // on which this gateway configuration should be applied.
+  map<string, string> selector = 2;
 }
 
 // Server describes the properties of the proxy on a given load balancer port.
@@ -148,6 +155,8 @@ message Gateway {
 //     metadata:
 //       name: my-ingress
 //     spec:
+//       selector:
+//       - podRole: ingress-gateway
 //       servers:
 //       - port:
 //           number: 80
@@ -160,6 +169,8 @@ message Gateway {
 //     metadata:
 //       name: my-tcp-ingress
 //     spec:
+//       selector:
+//       - podRole: tcp-ingress-pod
 //       servers:
 //       - port:
 //           number: 27018
@@ -172,6 +183,8 @@ message Gateway {
 //     metadata:
 //       name: my-ingress
 //     spec:
+//       selector:
+//       - podRole: ingress-tls
 //       servers:
 //       - port:
 //           number: 443
