@@ -43,6 +43,7 @@ const certExpirationBuffer = time.Minute
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
+	serverCertTTL  time.Duration
 	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
 	hostname       string
@@ -78,7 +79,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
-	cert, err := s.ca.Sign(request.CsrPem)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes) * time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
@@ -119,7 +120,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -134,6 +135,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
+		serverCertTTL:  ttl,
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
@@ -173,7 +175,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM)
+	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL)
 	if err != nil {
 		return nil, err
 	}
