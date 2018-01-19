@@ -251,7 +251,7 @@ func (r *Registry) NewStore(configURL string) (Store, error) {
 	case FSUrl:
 		b = newFsStore(u.Path)
 	case memstoreScheme:
-		b = newMemstore(u)
+		b = createOrGetMemstore(u.String())
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
 			b, err = builder(u)

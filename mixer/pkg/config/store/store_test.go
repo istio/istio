@@ -50,7 +50,7 @@ func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 func registerTestStore(builders map[string]Builder) {
 	builders["test"] = func(u *url.URL) (Backend, error) {
 		return &testStore{
-			memstore: newMemstore(u).(*memstore),
+			memstore: createOrGetMemstore(u.String()),
 		}, nil
 	}
 }

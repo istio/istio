@@ -17,10 +17,8 @@ package server
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
-	"path"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -150,14 +148,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		configStoreURL = "k8s://"
 	}
 
-	if a.ServiceConfig != "" || a.GlobalConfig != "" {
-		if s.configDir, err = serializeConfigs(a.GlobalConfig, a.ServiceConfig); err != nil {
-			_ = s.Close()
-			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
-		}
-		configStoreURL = "fs://" + s.configDir
-	}
-
 	reg2 := store.NewRegistry(config.StoreInventory()...)
 	store2, err := p.newStore2(reg2, configStoreURL)
 	if err != nil {
@@ -179,24 +169,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
 	return s, nil
-}
-
-// Takes the string-based configs and creates a directory with config files from it.
-func serializeConfigs(globalConfig string, serviceConfig string) (string, error) {
-	configDir, err := ioutil.TempDir("", "mixer")
-	if err == nil {
-		s := path.Join(configDir, "service.yaml")
-		if err = ioutil.WriteFile(s, []byte(serviceConfig), 0666); err == nil {
-			g := path.Join(configDir, "global.yaml")
-			if err = ioutil.WriteFile(g, []byte(globalConfig), 0666); err == nil {
-				return configDir, nil
-			}
-		}
-
-		_ = os.RemoveAll(configDir)
-	}
-
-	return "", err
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
