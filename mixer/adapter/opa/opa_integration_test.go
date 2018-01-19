@@ -176,8 +176,10 @@ spec:
 `
 )
 
-//https://github.com/istio/istio/issues/2300
-func xTestServer(t *testing.T) {
+func TestServer(t *testing.T) {
+	//https://github.com/istio/istio/issues/2300
+	t.SkipNow()
+
 	args := server.NewArgs()
 
 	args.APIPort = 0

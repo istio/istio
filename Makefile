@@ -136,8 +136,8 @@ pre-commit: fmt lint
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init:
-	@bin/init.sh
+init: ${DEP}
+	@(DEP=${DEP} bin/init.sh)
 
 # init.sh downloads envoy
 ${ISTIO_BIN}/envoy: init

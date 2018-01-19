@@ -71,10 +71,10 @@ func TestController_Caching(t *testing.T) {
 	ih1, ih2 := new(fakeInstanceHandler), new(fakeInstanceHandler)
 	sh1, sh2 := new(fakeServiceHandler), new(fakeServiceHandler)
 
-	controller.AppendInstanceHandler(ih1.Do)
-	controller.AppendInstanceHandler(ih2.Do)
-	controller.AppendServiceHandler(sh1.Do)
-	controller.AppendServiceHandler(sh2.Do)
+	_ = controller.AppendInstanceHandler(ih1.Do)
+	_ = controller.AppendInstanceHandler(ih2.Do)
+	_ = controller.AppendServiceHandler(sh1.Do)
+	_ = controller.AppendServiceHandler(sh2.Do)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -160,8 +160,8 @@ func TestController_ClientErrors(t *testing.T) {
 	ih1 := new(fakeInstanceHandler)
 	sh1 := new(fakeServiceHandler)
 
-	controller.AppendInstanceHandler(ih1.Do)
-	controller.AppendServiceHandler(sh1.Do)
+	_ = controller.AppendInstanceHandler(ih1.Do)
+	_ = controller.AppendServiceHandler(sh1.Do)
 
 	stop := make(chan struct{})
 	defer close(stop)

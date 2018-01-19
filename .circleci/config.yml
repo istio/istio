@@ -319,45 +319,36 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
-  ## CONTAINER BASED LINT. mukai's linter container does not have all
-  # tools. Install linters in istio's ci container.
-  # lint:
-  #   working_directory: /go/src/istio.io/istio
-  #   docker:
-  #     - image: gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10
-  #   environment:
-  #     GOPATH: /go
-  #   resource_class: xlarge
-  #   steps:
-  #     - checkout
-  #     - restore_cache:
-  #         keys:
-  #           - dep-cache-{{ checksum "Gopkg.lock" }}
-  #     - run: /go/src/istio.io/istio/bin/check_license.sh
-  #     - run:
-  #         no_output_timeout: 15m
-  #         command: |
-  #           cd /go/src/istio.io/istio
-  #           CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
-
-  ## TODO DISBALE ME and use the container based lint
   lint:
-    <<: *integrationDefaults
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
       - checkout
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          no_output_timeout: 15m
-          command: |
-            make lint
+      - run: make lint
+
+  ## TODO DISBALE ME and use the container based lint
+  # lint:
+  #   <<: *integrationDefaults
+  #   steps:
+  #     - type: shell
+  #       name: Initialize Working Directory
+  #       pwd: /
+  #       command: |
+  #         sudo mkdir -p /go/src/istio.io/istio
+  #         sudo chown -R circleci /go
+  #     - checkout
+  #     - restore_cache:
+  #         keys:
+  #           - dep-cache-{{ checksum "Gopkg.lock" }}
+  #     - run:
+  #         no_output_timeout: 15m
+  #         command: |
+  #           make lint
 
   docker-push:
     <<: *defaults

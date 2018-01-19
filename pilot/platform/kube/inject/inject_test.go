@@ -52,9 +52,6 @@ const unitTestTag = "unittest"
 // and the other .injected "want" YAMLs
 const unitTestHub = "docker.io/istio"
 
-// Default unit test DebugMode parameter
-const unitTestDebugMode = true
-
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		enableAuth      bool
@@ -222,7 +219,6 @@ func TestIntoResourceFile(t *testing.T) {
 		if err = IntoResourceFile(config, in, &got); err != nil {
 			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
 		}
-
 		util.CompareContent(got.Bytes(), c.want, t)
 	}
 }

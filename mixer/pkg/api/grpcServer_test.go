@@ -40,8 +40,6 @@ type reportCallback func(ctx context.Context, requestBag attribute.Bag) error
 type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
 	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error)
 
-type preprocCallbackLegacy func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
-
 type testState struct {
 	client     mixerpb.MixerClient
 	connection *grpc.ClientConn
@@ -85,7 +83,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 
 func (ts *testState) deleteGRPCServer() {
 	ts.gs.GracefulStop()
-	ts.gp.Close()
+	_ = ts.gp.Close()
 }
 
 func (ts *testState) createAPIClient(dial string) error {
@@ -445,6 +443,6 @@ func TestFailingPreproc(t *testing.T) {
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.NewOptions()
-	o.SetOutputLevel(log.DebugLevel)
+	_ = o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 }

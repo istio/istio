@@ -170,7 +170,7 @@ func TestBasic(t *testing.T) {
 	// sadly, only testing whether we crash or not...
 	l := With(zap.String("Key", "Value"))
 	l.Debug("Hello")
-	l.Sync()
+	_ = l.Sync()
 }
 
 func TestEnabled(t *testing.T) {
@@ -353,8 +353,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)

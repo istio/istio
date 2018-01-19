@@ -52,7 +52,7 @@ func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
 	}
 	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
 	if err != nil {
-		t.Fatal("unexpected error %v", err)
+		t.Fatalf("unexpected error %v", err)
 	}
 	return store, ctl
 }

@@ -1,0 +1,14 @@
+{
+  "Deadline": "90s",
+  "Linters": {
+    "adapterlinter": {
+      "Command": "adapterlinter",
+      "Pattern": "PATH:LINE:COL:MESSAGE",
+      "PartitionStrategy": "directories"
+    }
+  },
+  "Enable": [
+    "adapterlinter"
+  ]
+}
+

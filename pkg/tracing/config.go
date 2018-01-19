@@ -137,11 +137,12 @@ func (h holder) Close() error {
 		ot.SetGlobalTracer(ot.NoopTracer{})
 	}
 
+	var err error
 	if h.closer != nil {
-		h.closer.Close()
+		err = h.closer.Close()
 	}
 
-	return nil
+	return err
 }
 
 type spanLogger struct{}

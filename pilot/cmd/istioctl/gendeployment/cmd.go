@@ -117,15 +117,7 @@ func getValues(path string, i *installation) (string, error) {
 }
 
 type installation struct {
-	Mixer       bool
-	Pilot       bool
-	CA          bool
-	Ingress     bool
-	Initializer bool
-
 	Namespace string
-	Debug     bool
-	NodePort  uint16
 
 	// todo: support hub per component
 	Hub      string // hub to pull images from
@@ -136,6 +128,15 @@ type installation struct {
 
 	HyperkubeHub string
 	HyperkubeTag string
+
+	NodePort uint16
+	Debug    bool
+
+	Mixer       bool
+	Pilot       bool
+	CA          bool
+	Ingress     bool
+	Initializer bool
 }
 
 func defaultInstall() *installation {

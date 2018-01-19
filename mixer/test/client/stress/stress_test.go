@@ -46,7 +46,7 @@ func TestStressEnvoy(t *testing.T) {
 	var count uint64
 	for k := 0; k < concurrent; k++ {
 		go func() {
-			for true {
+			for {
 				if err := env.HTTPFastGet(url); err != nil {
 					t.Errorf("Failed in request: %v", err)
 				}

@@ -81,5 +81,5 @@ func WaitSignal(stop chan struct{}) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	close(stop)
-	log.Sync()
+	_ = log.Sync()
 }
