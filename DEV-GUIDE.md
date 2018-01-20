@@ -3,6 +3,7 @@
 This document helps you get started to develop code for Istio.
 If you follow this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new),
 so we can improve the doc.
+Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
@@ -325,7 +326,7 @@ signed up for CircleCI, you can test your code changes in your fork against
 the full suite of tests that we run for every PR.
 
 Please refer to the
-[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a 
+[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a
 detailed guide on using CircleCI with Istio.
 
 ## Git workflow
