@@ -263,9 +263,9 @@ function update_istio_install() {
 
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
-  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" istio-initializer.yaml.tmpl
+  execute_sed "s|proxyImage: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|proxyImage: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   popd
 }
 
