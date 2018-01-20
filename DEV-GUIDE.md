@@ -1,7 +1,7 @@
 # Developing for Istio
 
 This document helps you get started to develop code for Istio.
-If you're following this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new).
+If you follow this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new),
 so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
