@@ -41,6 +41,8 @@ import (
 const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
+	defaultWorkloadCertTTL = time.Hour
+
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
 
@@ -63,8 +65,8 @@ type cliOptions struct {
 	selfSignedCA    bool
 	selfSignedCAOrg string
 
-	caCertTTL time.Duration
-	certTTL   time.Duration
+	caCertTTL       time.Duration
+	workloadCertTTL time.Duration
 
 	grpcHostname string
 	grpcPort     int
@@ -117,7 +119,7 @@ func init() {
 
 	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
 		"The TTL of self-signed CA root certificate")
-	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates")
+	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
@@ -199,7 +201,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		log.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
+		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.workloadCertTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
@@ -213,7 +215,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 	caOpts := &ca.IstioCAOptions{
 		CertChainBytes:   certChainBytes,
-		CertTTL:          opts.certTTL,
+		CertTTL:          opts.workloadCertTTL,
 		SigningCertBytes: readFile(opts.signingCertFile),
 		SigningKeyBytes:  readFile(opts.signingKeyFile),
 		RootCertBytes:    readFile(opts.rootCertFile),
