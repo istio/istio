@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"time"
 
 	// TODO(nmittler): Remove this
@@ -75,7 +76,7 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, maxCertTTL time.Duration, org string, namespace string,
+func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
 	core corev1.SecretsGetter) (*IstioCA, error) {
 
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
@@ -168,6 +169,12 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 		return nil, err
 	}
 
+	// If the requested TTL is greater than maxCertTTL, apply maxCertTTL as the TTL.
+	if ttl.Seconds() > ca.maxCertTTL.Seconds() {
+		return nil, fmt.Errorf(
+			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
+	}
+
 	tmpl := ca.generateCertificateTemplate(csr, ttl)
 
 	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)
@@ -187,21 +194,15 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return chain, nil
 }
 
-func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest, requestedTTL time.Duration) *x509.Certificate {
+func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest, ttl time.Duration) *x509.Certificate {
 	exts := append(request.Extensions, request.ExtraExtensions...)
-
-	certTTL := requestedTTL
-	// If the requested TTL is greater than maxCertTTL, apply maxCertTTL as the TTL.
-	if requestedTTL.Seconds() > ca.maxCertTTL.Seconds() {
-		certTTL = ca.maxCertTTL
-	}
 
 	now := time.Now()
 
 	return &x509.Certificate{
 		SerialNumber: genSerialNum(),
 		Subject:      request.Subject,
-		NotAfter:     now.Add(certTTL),
+		NotAfter:     now.Add(ttl),
 		NotBefore:    now,
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
