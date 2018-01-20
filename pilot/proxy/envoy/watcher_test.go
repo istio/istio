@@ -34,6 +34,7 @@ import (
 
 	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
+
 	"istio.io/istio/pilot/model"
 )
 

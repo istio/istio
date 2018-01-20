@@ -122,14 +122,14 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 		time.Sleep(delay)
 		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
-			log.Debugf("Unable to retrieve availability zone from pilot: %v", err)
+			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				log.Debugf("Unable to read availability zone response from pilot: %v", err)
+				log.Infof("Unable to read availability zone response from pilot: %v", err)
 			}
 			if resp.StatusCode != http.StatusOK {
-				log.Debugf("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
 			} else {
 				w.config.AvailabilityZone = string(body)
 				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
@@ -139,6 +139,7 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 		}
 		attempts++
 	}
+	log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
