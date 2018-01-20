@@ -32,12 +32,13 @@ import (
 )
 
 func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
-	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
 	org := "test.ca.org"
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
 	if err != nil {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
@@ -193,12 +194,13 @@ YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
 	org := "test.ca.org"
 	caNamespace := "default"
 
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
 	if ca == nil || err != nil {
 		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
 	}
@@ -334,7 +336,7 @@ func TestSignCSR(t *testing.T) {
 		t.Error(err)
 	}
 
-	certPEM, err := ca.Sign(csrPEM)
+	certPEM, err := ca.Sign(csrPEM, time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
