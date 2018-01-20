@@ -56,7 +56,18 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
     # New version of envoy downloaded. Save it to cache, and clean any old version.
-    curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
+
+    if curl --version | grep Protocols  | grep https; then
+	DOWNLOAD_COMMAND='curl -Lo -'
+    elif command -v wget > /dev/null; then
+	DOWNLOAD_COMMAND='wget -qO -'
+    else
+	echo Error: curl does not support https and wget is not installed. \
+	     Cannot download envoy. Please install wget or add support of https to curl.
+        exit 1
+    fi
+
+    ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
     rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
@@ -72,4 +83,3 @@ fi
 if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
     ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
 fi
-
