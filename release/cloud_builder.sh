@@ -98,8 +98,6 @@ fi
 if [ "${BUILD_DOCKER}" == "true" ]; then
   VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
   cp -r ${GOPATH}/out/docker ${OUTPUT_PATH}
-  # XXX remove this before PR/submit
-  VERBOSE=1 VERSION=$ISTIO_VERSION HUB=gcr.io/delco-experimental TAG=pushtest make docker.push
 fi
 
 # log where git thinks the build might be dirty
