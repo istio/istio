@@ -338,7 +338,6 @@ func TestSignCSR(t *testing.T) {
 	}
 
 	requestedTTL := 30 * time.Minute
-
 	certPEM, err := ca.Sign(csrPEM, requestedTTL)
 	if err != nil {
 		t.Error(err)
