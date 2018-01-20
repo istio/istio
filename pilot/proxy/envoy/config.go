@@ -884,13 +884,15 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
-	if len(routes) > 0 {
-		// Set the destination clusters to the cluster we computed above.
-		// Services defined via egress rules do not have labels and hence no weighted clusters
-		for _, route := range routes {
+	// Set the destination clusters to the cluster we computed above.
+	// Services defined via egress rules do not have labels and hence no weighted clusters
+	for _, route := range routes {
+		// redirect rules must have empty Cluster name
+		if !route.Redirect() {
 			route.Cluster = externalTrafficCluster.Name
-			route.clusters = []*Cluster{externalTrafficCluster}
 		}
+		// cluster for default route must be defined
+		route.clusters = []*Cluster{externalTrafficCluster}
 	}
 
 	virtualHostName := destination + ":" + strconv.Itoa(port.Port)

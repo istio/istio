@@ -209,7 +209,7 @@ func runCertificatesRotationTests() error {
 		},
 		[]string{
 			"--self-signed-ca",
-			"--cert-ttl", "60s",
+			"--workload-cert-ttl", "60s",
 		})
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA istio-ca-short")

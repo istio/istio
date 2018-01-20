@@ -40,7 +40,7 @@ export GOOS ?= linux
 export GOARCH ?= amd64
 
 # Optional file including user-specific settings (HUB, TAG, etc)
--include .istiorc
+-include .istiorc.mk
 
 
 # @todo allow user to run for a single $PKG only?

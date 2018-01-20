@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/adapter/serviceregistry/aggregate"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/cloudfoundry"
@@ -44,7 +45,6 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/admit"
 	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )

@@ -22,6 +22,7 @@ pilot/proxy/envoy/envoy
 # lint
 lintconfig.gen.json
 .istiorc
+.istiorc.mk
 # codegen stuff
 bin/protoc-gen-gogoslick*
 bin/protoc-min-version*

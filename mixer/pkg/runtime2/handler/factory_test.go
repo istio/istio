@@ -15,26 +15,20 @@
 package handler
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
-	"istio.io/istio/mixer/pkg/template"
 )
 
 func TestBasic(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(nil)
-
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters()
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 	h, err := f.build(h1, []*config.Instance{i1}, nil)
@@ -48,13 +42,12 @@ func TestBasic(t *testing.T) {
 }
 
 func TestCacheUse(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(nil)
-
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters()
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
@@ -74,13 +67,12 @@ func TestCacheUse(t *testing.T) {
 }
 
 func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(&adapter.Info{SupportedTemplates: []string{"t1", "unknown-template"}})
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SupportedTemplates: []string{"additional-template"}})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
-
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 	h, err := f.build(h1, []*config.Instance{i1}, nil)
@@ -94,16 +86,12 @@ func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
 }
 
 func TestInferError(t *testing.T) {
-	templates := data.BuildTemplates(&template.Info{InferType: func(proto.Message, template.TypeEvalFn) (proto.Message, error) {
-		return nil, fmt.Errorf("data.Fake infer error")
-	}})
-
-	attributes := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", ErrorAtInferType: true})
+	attributes := data.BuildAdapters()
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
-
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
@@ -113,18 +101,12 @@ func TestInferError(t *testing.T) {
 }
 
 func TestNilBuilder(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return nil
-		},
-	})
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", NilBuilder: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
-
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
@@ -134,17 +116,12 @@ func TestNilBuilder(t *testing.T) {
 }
 
 func TestBuilderDoesNotSupportTemplate(t *testing.T) {
-	templates := data.BuildTemplates(&template.Info{
-		BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-			return false
-		},
-	})
-
-	attributes := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", BuilderDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters()
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -155,17 +132,12 @@ func TestBuilderDoesNotSupportTemplate(t *testing.T) {
 }
 
 func TestHandlerDoesNotSupportTemplate(t *testing.T) {
-	templates := data.BuildTemplates(&template.Info{
-		HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-			return false
-		},
-	})
-
-	attributes := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters()
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -177,23 +149,12 @@ func TestHandlerDoesNotSupportTemplate(t *testing.T) {
 
 func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 	// Trigger premature close due to handler not supporting the template.
-	templates := data.BuildTemplates(&template.Info{
-		HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-			return false
-		},
-	})
-
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &data.FakeHandlerBuilder{
-				HandlerErrorOnClose: true,
-			}
-		},
-	})
+	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -205,23 +166,12 @@ func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 
 func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 	// Trigger premature close due to handler not supporting the template.
-	templates := data.BuildTemplates(&template.Info{
-		HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-			return false
-		},
-	})
-
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &data.FakeHandlerBuilder{
-				HandlerPanicOnClose: true,
-			}
-		},
-	})
+	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -232,19 +182,12 @@ func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 }
 
 func TestPanicAtSetAdapterConfig(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &data.FakeHandlerBuilder{
-				PanicAtSetAdapterConfig: true,
-			}
-		},
-	})
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtSetAdapterConfig: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
-
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -255,19 +198,13 @@ func TestPanicAtSetAdapterConfig(t *testing.T) {
 }
 
 func TestFailedValidation(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &data.FakeHandlerBuilder{
-				ErrorAtValidate: true,
-			}
-		},
-	})
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtValidate: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 
@@ -278,19 +215,13 @@ func TestFailedValidation(t *testing.T) {
 }
 
 func TestPanicAtValidation(t *testing.T) {
-	templates := data.BuildTemplates(nil)
-	attributes := data.BuildAdapters(&adapter.Info{
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &data.FakeHandlerBuilder{
-				PanicAtValidate: true,
-			}
-		},
-	})
+	templates := data.BuildTemplates()
+	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtValidate: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
-	h1 := s.Handlers[data.FqnH1]
+	h1 := s.Handlers[data.FqnACheck1]
 
 	f := newFactory(s)
 

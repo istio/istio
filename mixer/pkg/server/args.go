@@ -65,12 +65,6 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Supplies a string to use for service configuration, overrides ConfigStoreURL
-	ServiceConfig string
-
-	// Supplies a string to use for global configuration, overrides ConfigStoreURL
-	GlobalConfig string
-
 	// The logging options to use
 	LoggingOptions *log.Options
 

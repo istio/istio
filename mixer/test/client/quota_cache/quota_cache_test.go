@@ -62,7 +62,11 @@ func TestQuotaCache(t *testing.T) {
 			reject++
 		}
 	}
-	if ok != 10 || reject != 10 {
+	if ok+reject < 20 {
+		t.Fatalf("sum of ok count %v and reject count %v is less than 20", ok, reject)
+	}
+	// ok should be around 10, allow 30% margin (prefetch code may have some margin).
+	if ok > 13 || ok < 7 {
 		t.Fatalf("Unexpected quota ok count %v, reject count %v", ok, reject)
 	}
 	// Less than 5 time of Quota is called.
