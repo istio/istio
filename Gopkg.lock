@@ -959,6 +959,7 @@
     "credentials",
     "credentials/oauth",
     "encoding",
+    "encoding/gzip",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "internal",
@@ -1019,7 +1020,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
+  revision = "2351810b3f4205654878412f1029a3e58feeab2d"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1029,8 +1030,8 @@
     "periodic",
     "stats"
   ]
-  revision = "369a81e3d4f84af156636408f59ecd8711085960"
-  version = "v0.6.3"
+  revision = "4714a911055015c780696a254b0bcb1d0f3d951f"
+  version = "v0.6.4"
 
 [[projects]]
   branch = "master"
@@ -1275,6 +1276,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5ef64c5ee6d9a2ca8152e9e9b9324340b8af18d6ddfdb99db18d4648aa46f36"
+  inputs-digest = "a7df5f753946a4894c3c53c61249374d37591c6257ebc1c8249b35f56273604c"
   solver-name = "gps-cdcl"
   solver-version = 1
