@@ -19,6 +19,7 @@ import (
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/template/authorization"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func setupRbacStore() *RbacStore {
@@ -34,7 +35,7 @@ func setupRbacStore() *RbacStore {
 				Services:    []string{"bookstore"},
 				Paths:       []string{"/books"},
 				Methods:     []string{"GET"},
-				Constraints: []*cpb.AccessRule_Constraint{},
+				Constraints: []*rbacproto.AccessRule_Constraint{},
 			},
 		},
 	}
@@ -61,7 +62,7 @@ func setupRbacStore() *RbacStore {
 			{
 				Services: []string{"products"},
 				Methods:  []string{"*"},
-				Constraints: []*cpb.AccessRule_Constraint{
+				Constraints: []*rbacproto.AccessRule_Constraint{
 					{
 						Key:  "version",
 						Values: []string{"v1", "v2"},
@@ -92,6 +93,63 @@ func setupRbacStore() *RbacStore {
 	rn["role2"] = newRoleInfo(role2Spec)
 	rn["role2"].setBinding("binding2", binding2Spec)
 
+	role3Spec := &rbacproto.ServiceRole{
+		Rules: []*rbacproto.AccessRule{
+			{
+				Services:    []string{"fish*"},
+				Paths:       []string{"/pond/*"},
+				Methods:     []string{"GET"},
+				Constraints: []*rbacproto.AccessRule_Constraint{},
+			},
+		},
+	}
+
+	binding3Spec := &rbacproto.ServiceRoleBinding{
+		Subjects: []*rbacproto.Subject{
+			{
+				Properties: map[string]string{
+					"namespace": "abcfish",
+				},
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role3",
+		},
+	}
+
+	rn["role3"] = newRoleInfo(role3Spec)
+	rn["role3"].setBinding("binding3", binding3Spec)
+
+	role4Spec := &rbacproto.ServiceRole{
+		Rules: []*rbacproto.AccessRule{
+			{
+				Services:    []string{"fish*"},
+				Paths:       []string{"*/review"},
+				Methods:     []string{"GET"},
+				Constraints: []*rbacproto.AccessRule_Constraint{},
+			},
+		},
+	}
+
+	binding4Spec := &rbacproto.ServiceRoleBinding{
+		Subjects: []*rbacproto.Subject{
+			{
+				User: "alice@yahoo.com",
+				Properties: map[string]string{
+					"namespace": "mynamespace",
+					"service": "xyz",
+				},
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role4",
+		},
+	}
+
+	rn["role4"] = newRoleInfo(role4Spec)
+	rn["role4"].setBinding("binding4", binding4Spec)
 	return s
 }
 
@@ -116,6 +174,9 @@ func TestRbacStore_CheckPermission(t *testing.T) {
 		{"ns1", "bookstore", "/books", "GET", "", "acme", "svc1", "svc@gserviceaccount.com", true},
 		{"ns1", "bookstore", "/books", "POST", "", "acme", "svc1", "svc@gserviceaccount.com", false},
 		{"ns1", "bookstore", "/shelf", "GET", "", "acme", "svc1", "svc@gserviceaccount.com", false},
+		{"ns1", "fishpond", "/pond/a", "GET", "v1", "abcfish", "serv", "svc@gserviceaccount.com", true},
+		{"ns1", "fishpond", "/pond/review", "GET", "v1", "mynamespace", "xyz", "alice@yahoo.com", true},
+		{"ns1", "fishpond", "/pond/review", "GET", "v1", "mynamespace", "xyz", "bob@yahoo.com", false},
 	}
 
 	for _, c := range cases {
@@ -134,7 +195,7 @@ func TestRbacStore_CheckPermission(t *testing.T) {
 		instance.Action.Properties = make(map[string]interface{})
 		instance.Action.Properties["version"] = c.version
 
-		result, _ := s.CheckPermission(instance)
+		result, _ := s.CheckPermission(instance, test.NewEnv(t))
 		if result != c.expected {
 			t.Errorf("Does not meet expectation for case %v", c)
 		}

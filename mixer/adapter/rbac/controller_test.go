@@ -20,6 +20,7 @@ import (
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestController_processRbacRoles(t *testing.T) {
@@ -31,8 +32,10 @@ func TestController_processRbacRoles(t *testing.T) {
 					Paths:       []string{"/books"},
 					Methods:     []string{"GET"},
 					Constraints: []*rbacproto.AccessRule_Constraint{
-						Key: "version",
-						Values: []string{"v1", "v2"},
+						{
+							Key: "version",
+							Values: []string{"v1", "v2"},
+						},
 					},
 				},
 			},
@@ -59,7 +62,7 @@ func TestController_processRbacRoles(t *testing.T) {
 		rbacStore:       r,
 	}
 
-	c.processRbacRoles()
+	c.processRbacRoles(test.NewEnv(t))
 
 	wantRole := &rbacproto.ServiceRole{
 		Rules: []*rbacproto.AccessRule{
@@ -68,8 +71,10 @@ func TestController_processRbacRoles(t *testing.T) {
 				Paths:       []string{"/books"},
 				Methods:     []string{"GET"},
 				Constraints: []*rbacproto.AccessRule_Constraint{
-					Key: "version",
-					Values: []string{"v1", "v2"},
+					{
+						Key: "version",
+						Values: []string{"v1", "v2"},
+					},
 				},
 			},
 		},

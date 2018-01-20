@@ -139,9 +139,13 @@ func (rs *RbacStore) CheckPermission(inst *authorization.Instance, env adapter.E
 		for _, binding := range bindings {
 			subjects := binding.GetSubjects()
 			for _, subject := range subjects {
-				if (user == subject.GetUser() ||
-					groups == subject.GetGroup() ||
-					checkSubject(instSub, subject.GetProperties())) {
+				if subject.GetUser() != "" && subject.GetUser() != user {
+					continue
+				}
+				if subject.GetGroup() != "" && subject.GetGroup() != groups {
+					continue
+				}
+				if checkSubject(instSub, subject.GetProperties()) {
 					return true, nil
 				}
 			}
