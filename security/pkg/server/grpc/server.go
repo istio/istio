@@ -79,7 +79,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
-	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes) * time.Minute)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
