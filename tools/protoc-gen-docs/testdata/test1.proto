@@ -32,7 +32,7 @@ message Test {
 
     string field_four = 4;
 
-    Test2 nested = 5;
+    Test2 nested = 5;       // a comment for the nested field
 
     // A sample enum
     enum Color {
@@ -44,6 +44,10 @@ message Test {
 
         // This is used with [this][testpkg.Test.Color]
         BLUE = 2;
+
+        // $hide_from_docs
+        // Orange is the new black
+        ORANGE = 3;
     }
 
     message NestedMsg {
@@ -69,13 +73,19 @@ message Test {
     testpkg2.Test3 nested2 = 12;
     NestedMsg nested3 = 13;
     testpkg2.Test3.Nested nested4 = 14;
-    Test4 nexted5 = 15;
+    Test4 nested5 = 15;
+
+    // $hide_from_docs
+    int32 hidden = 16;
 }
 
 // My sample service
 service Svc {
     // My sample method
     rpc Check(Test) returns (Test2);
+
+    // $hide_from_docs
+    rpc Check2(Test) returns (Test2);
 }
 
 // Some days

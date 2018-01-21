@@ -41,11 +41,7 @@ func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDesc
 	for _, loc := range desc.GetSourceCodeInfo().GetLocation() {
 		if len(loc.Path) > 0 {
 			pv := newPathVector(int(loc.Path[0]))
-			for i, v := range loc.Path {
-				if i == 0 {
-					continue
-				}
-
+			for _, v := range loc.Path[1:] {
 				pv = pv.append(int(v))
 			}
 			f.locations[pv] = loc
@@ -70,9 +66,6 @@ func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDesc
 	// get the transitive close of all messages and enums
 	f.aggregateMessages(f.messages)
 	f.aggregateEnums(f.enums)
-
-	// don't need this anymore
-	f.locations = nil
 
 	return f
 }
