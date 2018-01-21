@@ -167,7 +167,7 @@ func (p *Logger) flushLogs() {
 
 		// workers
 		for i := 0; i < p.maxWorkers; i++ {
-			go func(worker int) {
+			p.env.ScheduleDaemon(func() {
 				for keyI := range hose {
 					key, _ := keyI.(string)
 					match := re.FindStringSubmatch(key)
@@ -187,7 +187,7 @@ func (p *Logger) flushLogs() {
 					}
 					wg.Done()
 				}
-			}(i)
+			})
 		}
 
 		p.cmap.Range(func(k, v interface{}) bool {
