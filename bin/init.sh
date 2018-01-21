@@ -33,14 +33,7 @@ export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
-# Ensure GO version
-GO_VERSION=$(go version | sed 's/go version go\([[:digit:]]\.[[:digit:]]\.[[:digit:]]\).*/\1/g')
-GO_VERSION_MAJOR=$(echo $GO_VERSION | cut -f1 -d.)
-GO_VERSION_MINOR=$(echo $GO_VERSION | cut -f2 -d.)
-if [ "$GO_VERSION_MAJOR" -ne "1" -o "$GO_VERSION_MINOR" -ne "9" ]; then
-    echo Go version is ${GO_VERSION}. Istio compiles with Go 1.9. Please update your go.
-    exit 1
-fi
+$ROOT/bin/verify_go_version.sh
 
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then

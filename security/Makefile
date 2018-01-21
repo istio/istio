@@ -12,9 +12,6 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-GOBINARY ?= go
-GO_MINOR_VERSION = $(shell $(GOBINARY) version | cut -d . -f 2)
-
 VERSION_MODULE = istio.io/istio/security/cmd/istio_ca/version
 
 .PHONY: docker
@@ -23,7 +20,7 @@ VERSION_MODULE = istio.io/istio/security/cmd/istio_ca/version
 default: docker
 
 check.prereqs:
-	@if test $(GO_MINOR_VERSION) -lt 9; then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
+	../bin/verify_go_version.sh
 
 clean:
 	rm -f docker/istio_ca

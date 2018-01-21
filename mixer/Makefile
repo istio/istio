@@ -12,11 +12,6 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-# sed parses out the x.y version (of what may be x.y or x.y.z) and outputs "x y".
-# awk takes the two separate variables and combines them as a single value x*100+y (e.g., 1.9 is 109).
-# This single value allows the major & minor #s to be checked in a single comparison.
-GO_VERSION=$(shell go version | sed "s/[a-z| ]*\([0-9]*\)\.\([0-9]*\).*/\1 \2/" | awk '{print $$1*100+$$2}')
-
 # note: docker/mixs to be phony to make sure rebuilding always.
 .PHONY: docker docker/mixs
 .INTERMEDIATE: check.prereqs
@@ -24,7 +19,7 @@ GO_VERSION=$(shell go version | sed "s/[a-z| ]*\([0-9]*\)\.\([0-9]*\).*/\1 \2/" 
 default: docker
 
 check.prereqs:
-	@if test $(GO_VERSION) -lt 109; then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
+	../bin/verify_go_version.sh
 
 clean:
 	rm -f docker/mixs
