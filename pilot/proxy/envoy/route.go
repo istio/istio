@@ -150,7 +150,7 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	cluster := &Cluster{
 		Name:        name,
 		ServiceName: key,
-		Type:        SDSName,
+		Type:        ClusterTypeSDS,
 		LbType:      DefaultLbType,
 		outbound:    true,
 		hostname:    hostname,
