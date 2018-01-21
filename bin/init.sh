@@ -1,4 +1,19 @@
 #!/bin/bash
+#
+# Copyright 2017,2018 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
@@ -17,6 +32,8 @@ OUT=${GO_TOP}/out
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
+
+$ROOT/bin/verify_go_version.sh
 
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
@@ -72,4 +89,3 @@ fi
 if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
     ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
 fi
-
