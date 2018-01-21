@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,8 +44,7 @@ func newLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (lo
 		if cfg.PapertrailLocalRetentionDuration != nil {
 			retention = *cfg.PapertrailLocalRetentionDuration
 		}
-		ppi, err = papertrail.NewLogger(cfg.PapertrailUrl, retention, cfg.Logs, env)
-		if err != nil {
+		if ppi, err = papertrail.NewLogger(cfg.PapertrailUrl, retention, cfg.Logs, env); err != nil {
 			return nil, err
 		}
 	}
@@ -60,10 +59,8 @@ func (h *logHandler) handleLogEntry(ctx context.Context, values []*logentry.Inst
 	for _, inst := range values {
 		l, _ := h.paperTrailLogger.(*papertrail.Logger)
 		if l != nil {
-			err := h.paperTrailLogger.Log(inst)
-			if err != nil {
-				h.logger.Errorf("ao - log error: %v", err)
-				return err
+			if err := h.paperTrailLogger.Log(inst); err != nil {
+				return h.logger.Errorf("ao - error while recording the log message: %v", err)
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,67 @@ option go_package = "config";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
+
+// Example config usage
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: solarwinds
+// metadata:
+//   name: handler
+//   namespace: istio-system
+// spec:
+//   appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
+//   papertrail_url: <PAPERTRAIL URL>
+//   papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
+//   metrics:
+//     requestcount.metric.istio-system:
+//       name: request_count
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     requestduration.metric.istio-system:
+//       name: request_duration
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     requestsize.metric.istio-system:
+//       name: request_size
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     responsesize.metric.istio-system:
+//       name: response_size
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     tcpbytesent.metric.istio-system:
+//       name: tcp_bytes_sent
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//     tcpbytereceived.metric.istio-system:
+//       name: tcp_bytes_received
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//   logs:
+//     solarwindslogentry.logentry.istio-system:
+//       payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
 
 message Params {
     // AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics

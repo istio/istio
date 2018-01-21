@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ package solarwinds
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -29,7 +31,9 @@ import (
 
 type (
 	builder struct {
-		cfg *config.Params
+		cfg           *config.Params
+		metricTypes   map[string]*metric.Type
+		logentryTypes map[string]*logentry.Type
 	}
 
 	handler struct {
@@ -38,6 +42,8 @@ type (
 		logHandler     logHandlerInterface
 	}
 )
+
+const paperTrailURLPattern = `logs\d+.papertrailapp.com\:\d{3,5}`
 
 var (
 	_ metric.HandlerBuilder = &builder{}
@@ -59,17 +65,45 @@ func GetInfo() adapter.Info {
 	}
 }
 
-//func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	// this is a common adapter config for both log and metric
 	b.cfg = cfg.(*config.Params)
 }
 
-func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
+func (b *builder) SetMetricTypes(mts map[string]*metric.Type) {
+	b.metricTypes = mts
+}
 
-func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {}
+func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
+	b.logentryTypes = entries
+}
 
-func (b *builder) Validate() *adapter.ConfigErrors { return nil }
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if b.cfg.AppopticsBatchSize <= 0 || b.cfg.AppopticsBatchSize > 1000 {
+		ce.Append("appoptics_batch_size", fmt.Errorf("appoptics batch size provided is not in the range from 1 to 1000"))
+	}
+	if b.cfg.PapertrailUrl != "" {
+		re := regexp.MustCompile(paperTrailURLPattern)
+		if !re.MatchString(b.cfg.PapertrailUrl) {
+			ce.Append("paper_trail_url", fmt.Errorf("papertrail url provided is invalid: %v", b.cfg.PapertrailUrl))
+		}
+	}
+
+	for inst := range b.cfg.Metrics {
+		_, ok := b.metricTypes[inst]
+		if !ok {
+			ce.Append("metrics", fmt.Errorf("%s is an invalid metric instance name", inst))
+		}
+	}
+
+	for inst := range b.cfg.Logs {
+		_, ok := b.logentryTypes[inst]
+		if !ok {
+			ce.Append("metrics", fmt.Errorf("%s is an invalid logentry instance name", inst))
+		}
+	}
+	return
+}
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
@@ -98,18 +132,11 @@ func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instanc
 }
 
 func (h *handler) Close() error {
-	var err error
 	if h.metricsHandler != nil {
-		err = h.metricsHandler.close()
-		if err != nil {
-			return err
-		}
+		h.metricsHandler.close()
 	}
 	if h.logHandler != nil {
-		err = h.logHandler.close()
-		if err != nil {
-			return err
-		}
+		h.logHandler.close()
 	}
 	return nil
 }

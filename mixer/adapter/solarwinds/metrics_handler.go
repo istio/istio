@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package solarwinds
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -51,7 +50,6 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 
 	loopFactor := true
 
-	var err error
 	// prepChan holds groups of Measurements to be batched
 	prepChan := make(chan []*appoptics.Measurement, buffChanSize)
 
@@ -90,7 +88,7 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		stopChan:   stopChan,
 		pushChan:   pushChan,
 		loopFactor: &loopFactor,
-	}, err
+	}, nil
 }
 
 func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {
@@ -106,11 +104,13 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 			Tags:  appoptics.MeasurementTags{},
 		}
 		for k, v := range val.Dimensions {
-			switch v.(type) {
-			case int, int32, int64:
-				m.Tags[k] = fmt.Sprintf("%d", v)
+			switch vv := v.(type) {
+			case int:
+			case int32:
+			case int64:
+				m.Tags[k] = strconv.FormatInt(vv, 10)
 			case float64:
-				m.Tags[k] = fmt.Sprintf("%f", v)
+				m.Tags[k] = strconv.FormatFloat(vv, 'f', -1, 64)
 			default:
 				m.Tags[k], _ = v.(string)
 			}
@@ -145,12 +145,10 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 		f, err := strconv.ParseFloat(vv, 64)
 		if err != nil {
 			h.logger.Errorf("ao - Error parsing metric val: %v", vv)
-			// return math.NaN(), err
 			f = 0
 		}
 		return f
 	default:
-		// return math.NaN(), fmt.Errorf("could not extract numeric value for %v", val)
 		h.logger.Errorf("ao - could not extract numeric value for %v", vv)
 		return 0
 	}

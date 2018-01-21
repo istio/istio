@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// ServiceAccessor defines an interface for talking to  via domain-specific service constructs
+// ServiceAccessor defines an interface for talking to AppOptics via domain-specific service constructs
 type ServiceAccessor interface {
 	// MeasurementsService implements an interface for dealing with  Measurements
 	MeasurementsService() MeasurementsCommunicator
@@ -150,12 +150,14 @@ func (c *Client) Do(req *http.Request, respData interface{}) (*http.Response, er
 func checkError(resp *http.Response, log adapter.Logger) error {
 	var errResponse ErrorResponse
 	if resp.StatusCode >= 299 {
-		body, _ := ioutil.ReadAll(resp.Body)
-		err := json.Unmarshal(body, &errResponse)
-		if err == nil {
-			return log.Errorf("Error: %+v", errResponse)
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return log.Errorf("unable to parse response body: %v", err)
 		}
-		return log.Errorf("Error: %s", string(body))
+		if err := json.Unmarshal(body, &errResponse); err == nil {
+			return log.Errorf("json unmarshal error: %+v", errResponse)
+		}
+		return log.Errorf("error: %s", string(body))
 	}
 	return nil
 }

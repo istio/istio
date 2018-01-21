@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -149,8 +149,7 @@ func (p *Logger) sendLogs(data string) error {
 		return p.log.Errorf("ao - Failed to dial syslog: %v", err)
 	}
 	defer writer.Close()
-	err = writer.Info(data)
-	if err != nil {
+	if err = writer.Info(data); err != nil {
 		return p.log.Errorf("failed to send log msg to papertrail: %v", err)
 	}
 	return nil
@@ -173,8 +172,7 @@ func (p *Logger) flushLogs() {
 					key, _ := keyI.(string)
 					match := re.FindStringSubmatch(key)
 					if len(match) > 2 {
-						err = p.sendLogs(match[2]) // which is the actual log msg
-						if err == nil {
+						if err = p.sendLogs(match[2]); err == nil {
 							p.cmap.Delete(key)
 							wg.Done()
 							continue

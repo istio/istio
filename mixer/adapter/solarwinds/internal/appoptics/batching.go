@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 package appoptics
 
 import (
-	"bytes"
-	"net/http"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -70,12 +68,10 @@ func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Mea
 		select {
 		case <-ticker.C:
 			batch := <-pushChan
-			err := persistBatch(lc, batch, logger)
-			if err != nil {
+			if err := persistBatch(lc, batch, logger); err != nil {
 				logger.Errorf("ao - Persistence Errors: %v", err)
 			}
 		case <-stopChan:
-			ticker.Stop()
 			dobrk = true
 		}
 		if dobrk {
@@ -89,21 +85,9 @@ func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Mea
 func persistBatch(lc ServiceAccessor, batch []*Measurement,
 	logger adapter.Logger) error {
 	if len(batch) > 0 {
-		//resp, err := lc.MeasurementsService().Create(batch)
-		_, err := lc.MeasurementsService().Create(batch)
-		if err != nil {
-			logger.Errorf("ao - persist error: %v", err)
-			return err
+		if _, err := lc.MeasurementsService().Create(batch); err != nil {
+			return logger.Errorf("ao - unable to persist log locally due to this error: %v", err)
 		}
-		//dumpResponse(resp, logger)
 	}
 	return nil
-}
-
-func dumpResponse(resp *http.Response, logger adapter.Logger) {
-	buf := new(bytes.Buffer)
-	if resp.Body != nil {
-		buf.ReadFrom(resp.Body)
-		logger.Infof("ao - response body: %s", string(buf.Bytes()))
-	}
 }
