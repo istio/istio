@@ -34,5 +34,5 @@ spec:
       volumes:
         - name: tmp-configmap-mixer
           configMap:
-            name: {{ template "mixer.fullname" . }}
+            name: {{ template "mixer.fullname" . }}-custom-resources
       restartPolicy: Never # CRD might take some time till they are available to comsume

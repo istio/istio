@@ -20,7 +20,7 @@ Service account name.
 */}}
 {{- define "istio.serviceAccountName" -}}
 {{- if .Values.global.rbac.create -}}
-{{- template "istio.name" . -}}
+{{- template "istio.fullname" . -}}
 {{- else }}
 {{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -30,7 +30,7 @@ Service account name.
 Create a fully qualified configmap name.
 */}}
 {{- define "istio.configmap.fullname" -}}
-{{- printf "%s-%s" .Release.Name "istio-config" | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" .Release.Name "istio-mesh-config" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*

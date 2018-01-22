@@ -21,7 +21,7 @@ spec:
       serviceAccountName: {{ template "istio.serviceAccountName" . }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.proxyHub }}:{{ .Values.global.proxyTag }}"
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80

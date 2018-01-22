@@ -50,7 +50,7 @@ spec:
           - name: config-volume
             mountPath: /etc//config
         - name: {{ template "pilot.name" . }}-proxy
-          image: {{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
           ports:
           - containerPort: 15003

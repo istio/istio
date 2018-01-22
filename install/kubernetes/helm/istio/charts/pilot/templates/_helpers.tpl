@@ -20,18 +20,7 @@ Service account name.
 */}}
 {{- define "pilot.serviceAccountName" -}}
 {{- if .Values.global.rbac.create -}}
-{{- template "pilot.name" . -}}
-{{- else }}
-{{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Service account name.
-*/}}
-{{- define "istio.serviceAccountName" -}}
-{{- if .Values.global.rbac.create -}}
-{{- template "istio.name" . -}}
+{{- template "pilot.fullname" . -}}
 {{- else }}
 {{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

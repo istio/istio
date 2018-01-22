@@ -1,17 +1,12 @@
-{{- if .Values.deploy_base_config }}
-################################
-# istio configMap cluster-wide
-################################
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "istio.configmap.fullname" . }}
+  name: {{ template "istio.fullname" . }}
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-  namespace: {{ template "istio.serviceAccountName" . }}
 data:
   mesh: |-
   {{- if .Values.global.securityEnabled }}
@@ -86,4 +81,3 @@ data:
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
     {{- end }}
-{{- end }}

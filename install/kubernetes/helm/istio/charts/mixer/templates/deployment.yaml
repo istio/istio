@@ -22,7 +22,7 @@ spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
         - name: statsd-to-prometheus
-          image: {{ .Values.prometheus.repository }}:{{ .Values.prometheus.tag}}
+          image: "{{ .Values.prometheus.repository }}:{{ .Values.prometheus.tag}}"
           imagePullPolicy: {{ .Values.prometheus.imagePullPolicy }}
           ports:
           - containerPort: 9102
@@ -52,7 +52,7 @@ spec:
           resources:
 {{ toYaml .Values.resources | indent 12 }}
         - name: {{ template "mixer.name" . }}-proxy
-          image: {{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15004
@@ -81,3 +81,11 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.{{ template "mixer.serviceAccountName" . }}
+          optional: true
+      - name: config-volume
+        configMap:
+          name: {{ template "mixer.fullname" . }}

@@ -20,7 +20,7 @@ Service account name.
 */}}
 {{- define "security.serviceAccountName" -}}
 {{- if .Values.global.rbac.create -}}
-{{- template "istio.name" . -}}
+{{- template "security.fullname" . -}}
 {{- else }}
 {{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

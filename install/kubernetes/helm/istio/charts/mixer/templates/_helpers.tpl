@@ -20,7 +20,7 @@ Service account name.
 */}}
 {{- define "mixer.serviceAccountName" -}}
 {{- if .Values.global.rbac.create -}}
-{{- template "mixer.name" . -}}
+{{- template "mixer.fullname" . -}}
 {{- else }}
 {{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
