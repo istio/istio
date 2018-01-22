@@ -1,4 +1,13 @@
-apiVersion: v1
-description: A Helm chart for Kubernetes
-name: test
-version: 0.1.0
+name: istio
+version: 0.3.0
+description: Helm chart for complete istio deployment
+keywords:
+  - istio
+  - security
+  - initializer
+  - mixer
+  - pilot
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
