@@ -19,7 +19,7 @@ import (
 	"sync"
 )
 
-// Memstore is on-memory implementation of StoreBackend. Helpful for testing.
+// Memstore is on-memory implementation of StoreBackend. Used by fsstore and tests.
 type Memstore struct {
 	mu   sync.RWMutex
 	data map[Key]*BackEndResource
@@ -29,6 +29,7 @@ type Memstore struct {
 	watchCh    chan BackendEvent
 }
 
+// NewMemstore creates a new Memstore backend.
 func NewMemstore() *Memstore {
 	return &Memstore{data: map[Key]*BackEndResource{}}
 }

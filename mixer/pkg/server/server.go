@@ -154,7 +154,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg2 := store.NewRegistry(config.StoreInventory()...)
-		var err error
 		if store2, err = p.newStore2(reg2, configStoreURL); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)

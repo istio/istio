@@ -17,9 +17,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/storetest"
@@ -46,22 +43,4 @@ func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapt
 	cancel()
 
 	return e.BuildSnapshot()
-}
-
-func createConfigFiles(serviceConfig string, globalConfig string) (string, error) {
-	dir, err := ioutil.TempDir("", "runtime2-testing")
-	if err != nil {
-		return "", err
-	}
-	s := path.Join(dir, "service.yaml")
-	if err = ioutil.WriteFile(s, []byte(serviceConfig), 0666); err == nil {
-		g := path.Join(dir, "global.yaml")
-		if err = ioutil.WriteFile(g, []byte(globalConfig), 0666); err == nil {
-			return dir, nil
-		}
-
-		_ = os.RemoveAll(dir)
-	}
-
-	return "", err
 }

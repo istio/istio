@@ -72,6 +72,7 @@ type BackEndResource struct {
 	Spec     map[string]interface{}
 }
 
+// Key returns the key of the resource in the store.
 func (ber *BackEndResource) Key() Key {
 	return Key{Kind: ber.Kind, Name: ber.Metadata.Name, Namespace: ber.Metadata.Namespace}
 }
@@ -216,6 +217,8 @@ func (s *store) List() map[Key]*Resource {
 	return result
 }
 
+// WithBackend creates a new Store with a certain backend. This should be used
+// only by tests.
 func WithBackend(b Backend) Store {
 	return &store{backend: b}
 }

@@ -85,6 +85,7 @@ func parseFile(path string, data []byte) []*resource {
 	return resources
 }
 
+// ParseChunk parses a YAML formatted bytes into a BackEndResource.
 func ParseChunk(chunk []byte) (*BackEndResource, error) {
 	r := &BackEndResource{}
 	if err := yaml.Unmarshal(chunk, r); err != nil {
