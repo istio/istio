@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+// $title: My Title
+// $overview: My Overview
+// $location: https://mysite.com/mypage.html
+
+// Package-level comment 1
+package testpkg;
+
+import "google/protobuf/duration.proto";
+import "testdata/test2.proto";
+import "testdata/test3.proto";
+import "testdata/test4.proto";
+
+// Test is a message that I use for testing.
+message Test {
+    // field1 is a field
+    int32 field1 = 1;
+
+    string field2 = 2;
+
+    // an array of strings
+    //
+    // This comment is long and includes
+    // some `preformatted` stuff
+    //
+    // ```
+    // This is a preformatted block
+    //   That contains stuff
+    // ```
+    repeated string field3 = 3;
+
+    string field_four = 4;
+
+    Test2 nested = 5;       // a comment for the nested field
+
+    // A sample enum
+    enum Color {
+        option allow_alias = true;
+        // The color red
+        RED = 0;
+        INDIGO = 0  [deprecated = true];
+        GREEN = 1;
+
+        // This is used with [this][testpkg.Test.Color]
+        BLUE = 2;
+
+        // $hide_from_docs
+        // Orange is the new black
+        ORANGE = 3;
+    }
+
+    message NestedMsg {
+        message Nested2Msg {
+
+        }
+        int32 field = 1;
+        Nested2Msg field2 = 2;
+    }
+
+    Color color = 6;
+    Days days = 7;
+
+    // This is a [Duration][google.protobuf.Duration]
+    google.protobuf.Duration duration = 8 [deprecated = true];
+
+    oneof value {
+        string string_value = 9;
+        int32 int32_value = 10;
+    }
+
+    map<string, Color> mapping = 11;
+    testpkg2.Test3 nested2 = 12;
+    NestedMsg nested3 = 13;
+    testpkg2.Test3.Nested nested4 = 14;
+    Test4 nested5 = 15;
+
+    // $hide_from_docs
+    int32 hidden = 16;
+}
+
+// My sample service
+service Svc {
+    // My sample method
+    rpc Check(Test) returns (Test2);
+
+    // $hide_from_docs
+    rpc Check2(Test) returns (Test2);
+}
+
+// Some days
+enum Days {
+    // Urgh
+    MONDAY = 0;
+    TUESDAY = 1;
+    // Humpday
+    WEDNESDAY = 2;
+}
+
+// $hide_from_docs
+enum HiddenEnum {
+    E1 = 0;
+}
+
+// $hide_from_docs
+message HiddenMessage {
+    int32 f1 = 1;
+}
+
+// $experimental
+enum ExperimentalEnum {
+    E10 = 0;
+}
+
+message ExperimentalField {
+    int32 f1 = 1;   // $experimental
+}

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+// Test4 is a message that I use for testing.
+message Test4 {
+    // field1 is a field
+    int32 field1 = 1;
+
+    // an array of strings
+    repeated string str = 2;
+
+    double field3 = 3;
+    float field4 = 4;
+    fixed32 field5 = 5;
+    sfixed32 field6 = 6;
+    sint32 field7 = 7;
+    uint32 field8 = 8;
+
+    enum Nested {
+        ONE = 0;
+        TWO = 1;
+        THREE = 2;
+    }
+}

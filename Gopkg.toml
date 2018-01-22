@@ -90,10 +90,6 @@ required = [
   revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[constraint]]
-  name = "github.com/russross/blackfriday"
-  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
-
-[[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
 
