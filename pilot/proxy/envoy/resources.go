@@ -61,6 +61,9 @@ const (
 	// ClusterTypeOriginalDST name for clusters of type 'original_dst'
 	ClusterTypeOriginalDST = "original_dst"
 
+	// ClusterTypeSDS name for clusters of type 'sds'
+	ClusterTypeSDS = "sds"
+
 	// LbTypeRoundRobin is the name for round-robin LB
 	LbTypeRoundRobin = "round_robin"
 

@@ -567,7 +567,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 
 		if useDefaultRoute {
 			// default route for the destination is always the lowest priority route
-			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			cluster := buildOutboundCluster(service.Hostname, servicePort, nil, service.External())
 			routes = append(routes, buildDefaultRoute(cluster))
 		}
 
@@ -576,7 +576,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 	case model.ProtocolHTTPS:
 		// as an exception, external name HTTPS port is sent in plain-text HTTP/1.1
 		if service.External() {
-			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			cluster := buildOutboundCluster(service.Hostname, servicePort, nil, service.External())
 			return []*HTTPRoute{buildDefaultRoute(cluster)}
 		}
 
@@ -672,7 +672,8 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 						}
 						cluster = originalDstCluster
 					} else {
-						cluster = buildOutboundCluster(service.Hostname, servicePort, nil)
+						cluster = buildOutboundCluster(service.Hostname, servicePort, nil,
+							service.External())
 						tcpClusters = append(tcpClusters, cluster)
 					}
 					route := buildTCPRoute(cluster, nil)
@@ -684,7 +685,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 					}
 					tcpListeners = append(tcpListeners, listener)
 				} else {
-					cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+					cluster := buildOutboundCluster(service.Hostname, servicePort, nil, service.External())
 					route := buildTCPRoute(cluster, []string{service.Address})
 					config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
 					listener := buildTCPListener(
