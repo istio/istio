@@ -14,6 +14,15 @@
 
 // NOTE: TODO : Auto-generate this file for given templates
 
+// Codegen blocks
+
+// apa template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/apa/tmpl.proto
+
+// report template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/report/reporttmpl.proto
+
+// Package spyAdapter is intended for Mixer testing *ONLY*.
 package spyAdapter
 
 import (
@@ -22,7 +31,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	reportTmpl "istio.io/istio/mixer/test/template/report"
+	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 type (
@@ -36,7 +46,7 @@ type (
 	}
 
 	// AdapterBehavior defines the behavior of the Adapter
-	// nolint: aligncheck
+	// nolint: maligned
 	AdapterBehavior struct {
 		Name    string
 		Builder BuilderBehavior
@@ -44,17 +54,21 @@ type (
 	}
 
 	// HandlerBehavior defines the behavior of the Handler
-	// nolint: aligncheck
+	// nolint: maligned
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
+
+		GenerateSampleApaErr    error
+		GenerateSampleApaOutput *apaTmpl.Output
+		GenerateSampleApaPanic  bool
 
 		CloseErr   error
 		ClosePanic bool
 	}
 
 	// BuilderBehavior defines the behavior of the Builder
-	// nolint: aligncheck
+	// nolint: maligned
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
 
@@ -67,7 +81,7 @@ type (
 		BuildPanic bool
 	}
 
-	// nolint: aligncheck
+	// nolint: maligned
 	builder struct {
 		behavior        BuilderBehavior
 		handlerBehavior HandlerBehavior
@@ -83,6 +97,9 @@ type (
 	handlerData struct {
 		HandleSampleReportInstances []*reportTmpl.Instance
 		HandleSampleReportCount     int
+
+		GenerateSampleApaInstance *apaTmpl.Instance
+		GenerateSampleApaCount    int
 
 		CloseCount int
 	}
@@ -103,6 +120,12 @@ type (
 		BuildEnv   adapter.Env
 	}
 )
+
+var _ reportTmpl.HandlerBuilder = builder{}
+var _ apaTmpl.HandlerBuilder = builder{}
+
+var _ reportTmpl.Handler = handler{}
+var _ apaTmpl.Handler = handler{}
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	b.data.BuildCount++
@@ -153,6 +176,16 @@ func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl
 	return h.behavior.HandleSampleReportErr
 }
 
+func (h handler) GenerateSampleApaAttributes(ctx context.Context, instance *apaTmpl.Instance) (*apaTmpl.Output, error) {
+	h.data.GenerateSampleApaCount++
+	if h.behavior.GenerateSampleApaPanic {
+		panic("GenerateSampleApaAttributes")
+	}
+
+	h.data.GenerateSampleApaInstance = instance
+	return h.behavior.GenerateSampleApaOutput, h.behavior.GenerateSampleApaErr
+}
+
 func (h handler) Close() error {
 	h.data.CloseCount++
 	if h.behavior.ClosePanic {
@@ -173,7 +206,7 @@ func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 		return adapter.Info{
 			Name:               s.Behavior.Name,
 			Description:        "",
-			SupportedTemplates: []string{reportTmpl.TemplateName},
+			SupportedTemplates: []string{reportTmpl.TemplateName, apaTmpl.TemplateName},
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
 					behavior:        s.Behavior.Builder,

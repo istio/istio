@@ -29,15 +29,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/fortio/fhttp"
+	// flog "istio.io/fortio/log"
 	"istio.io/fortio/periodic"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
-	"istio.io/istio/tests/e2e/util"
+	"istio.io/istio/tests/util"
 )
 
 const (
@@ -92,12 +95,12 @@ func (t *testConfig) Setup() (err error) {
 		dest := filepath.Join(t.rulesDir, rule)
 		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
-			glog.Errorf("Failed to read original rule file %s", src)
+			log.Errorf("Failed to read original rule file %s", src)
 			return err
 		}
 		err = ioutil.WriteFile(dest, srcBytes, 0600)
 		if err != nil {
-			glog.Errorf("Failed to write into new rule file %s", dest)
+			log.Errorf("Failed to write into new rule file %s", dest)
 			return err
 		}
 	}
@@ -112,7 +115,7 @@ func (t *testConfig) Setup() (err error) {
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
 	if err = visitProductPage(30*time.Second, 200); err != nil {
-		glog.Infof("initial product page request failed: %v", err)
+		log.Infof("initial product page request failed: %v", err)
 	}
 
 	allowPrometheusSync()
@@ -163,11 +166,11 @@ func dumpK8Env() {
 func podID(labelSelector string) (pod string, err error) {
 	pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
 	if err != nil {
-		glog.Warningf("could not get %s pod: %v", labelSelector, err)
+		log.Warnf("could not get %s pod: %v", labelSelector, err)
 		return
 	}
 	pod = strings.Trim(pod, "'")
-	glog.Infof("%s pod name: %s", labelSelector, pod)
+	log.Infof("%s pod name: %s", labelSelector, pod)
 	return
 }
 
@@ -176,7 +179,7 @@ func podLogs(labelSelector string, container string) {
 	if err != nil {
 		return
 	}
-	glog.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
+	log.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
 	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p", tc.Kube.Namespace, pod, container)
 	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40", tc.Kube.Namespace, pod, container)
 }
@@ -191,16 +194,16 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 	if err != nil {
 		return err
 	}
-	glog.Infof("%s pod name: %s", labelSelector, pod)
+	log.Infof("%s pod name: %s", labelSelector, pod)
 
-	glog.Infof("Setting up %s proxy", labelSelector)
+	log.Infof("Setting up %s proxy", labelSelector)
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
-	glog.Info(portFwdCmd)
+	log.Info(portFwdCmd)
 	if p.portFwdProcess, err = util.RunBackground(portFwdCmd); err != nil {
-		glog.Errorf("Failed to port forward: %s", err)
+		log.Errorf("Failed to port forward: %s", err)
 		return err
 	}
-	glog.Infof("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
+	log.Infof("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
 	return nil
 }
 
@@ -219,18 +222,18 @@ func (p *promProxy) Setup() error {
 }
 
 func (p *promProxy) Teardown() (err error) {
-	glog.Info("Cleaning up mixer proxy")
+	log.Info("Cleaning up mixer proxy")
 	if p.portFwdProcess != nil {
 		err := p.portFwdProcess.Kill()
 		if err != nil {
-			glog.Errorf("Failed to kill port-forward process, pid: %d", p.portFwdProcess.Pid)
+			log.Errorf("Failed to kill port-forward process, pid: %d", p.portFwdProcess.Pid)
 		}
 	}
 	return
 }
 func TestMain(m *testing.M) {
 	flag.Parse()
-	check(framework.InitGlog(), "cannot setup glog")
+	check(framework.InitLogging(), "cannot setup logging")
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
@@ -276,7 +279,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 	allowPrometheusSync()
 
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
 	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
@@ -284,7 +287,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	glog.Infof("promvalue := %s", value.String())
+	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
@@ -317,7 +320,7 @@ func TestTcpMetrics(t *testing.T) {
 	}
 	allowPrometheusSync()
 
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
 	promAPI, err := promAPI()
 	if err != nil {
@@ -329,7 +332,7 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	glog.Infof("promvalue := %s", value.String())
+	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
@@ -349,7 +352,7 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	glog.Infof("promvalue := %s", value.String())
+	log.Infof("promvalue := %s", value.String())
 
 	got, err = vectorValue(value, map[string]string{})
 	if err != nil {
@@ -381,7 +384,7 @@ func TestNewMetrics(t *testing.T) {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
 
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	allowPrometheusSync()
 	promAPI, err := promAPI()
 	if err != nil {
@@ -393,7 +396,7 @@ func TestNewMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	glog.Infof("promvalue := %s", value.String())
+	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
@@ -416,7 +419,7 @@ func TestDenials(t *testing.T) {
 
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
-	glog.Infof("Denials: block productpage if x-user header is missing")
+	log.Infof("Denials: block productpage if x-user header is missing")
 	if err := applyMixerRule(denialRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
@@ -430,13 +433,13 @@ func TestDenials(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// Product page should not be accessible anymore.
-	glog.Infof("Denials: ensure productpage is denied access")
+	log.Infof("Denials: ensure productpage is denied access")
 	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
 
 	// Product page *should be* accessible with x-user header.
-	glog.Infof("Denials: ensure productpage is accessible for testuser")
+	log.Infof("Denials: ensure productpage is accessible for testuser")
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
@@ -491,15 +494,18 @@ func TestRateLimit(t *testing.T) {
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-	// run at a large QPS (here 100) for a minute to ensure that enough
-	// traffic is generated to trigger 429s from the rate limit rule
+	// run at a high enough QPS (here 10) to ensure that enough
+	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Duration:   1 * time.Minute,
-			NumThreads: 8,
+			Exactly:    200,       // will make exactly 200 calls, so run for about 20 seconds
+			NumThreads: 5,         // get the same number of calls per connection (200/5=40)
+			Out:        os.Stderr, // Only needed because of log capture issue
 		},
-		URL: url,
+		HTTPOptions: fhttp.HTTPOptions{
+			URL: url,
+		},
 	}
 
 	// productpage should still return 200s when ratings is rate-limited.
@@ -515,15 +521,15 @@ func TestRateLimit(t *testing.T) {
 	badReqs := res.RetCodes[http.StatusBadRequest]
 	actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
 
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s)",
-		totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs)
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
+		totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
 
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := succReqs
 
 	// the rate-limit is 1 rps
-	want200s := 1. * opts.Duration.Seconds()
+	want200s := 1. * actualDuration
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
@@ -544,7 +550,7 @@ func TestRateLimit(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	glog.Infof("promvalue := %s", value.String())
+	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
 	if err != nil {
@@ -588,6 +594,7 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 
+	want200s = math.Ceil(want200s * 1.1) // timing is short, allow 10% extra for rounding errors and quota bucket size
 	if got > want200s {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
@@ -595,12 +602,12 @@ func TestRateLimit(t *testing.T) {
 }
 
 func allowRuleSync() {
-	glog.Info("Sleeping to allow rules to take effect...")
+	log.Info("Sleeping to allow rules to take effect...")
 	time.Sleep(1 * time.Minute)
 }
 
 func allowPrometheusSync() {
-	glog.Info("Sleeping to allow prometheus to record metrics...")
+	log.Info("Sleeping to allow prometheus to record metrics...")
 	time.Sleep(30 * time.Second)
 }
 
@@ -644,13 +651,13 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 
 // checkProductPageDirect
 func checkProductPageDirect() {
-	glog.Info("checkProductPageDirect")
+	log.Info("checkProductPageDirect")
 	dumpURL("http://localhost:"+productPagePort+"/productpage", false)
 }
 
 // dumpMixerMetrics fetch metrics directly from mixer and dump them
 func dumpMixerMetrics() {
-	glog.Info("dumpMixerMetrics")
+	log.Info("dumpMixerMetrics")
 	dumpURL("http://localhost:"+mixerMetricsPort+"/metrics", true)
 }
 
@@ -659,9 +666,9 @@ func dumpURL(url string, dumpContents bool) {
 		Timeout: 1 * time.Minute,
 	}
 	status, contents, err := get(clnt, url)
-	glog.Infof("%s ==> %d, <%v>", url, status, err)
+	log.Infof("%s ==> %d, <%v>", url, status, err)
 	if dumpContents {
-		glog.Infoln(contents)
+		log.Infof("%v\n", contents)
 	}
 }
 
@@ -682,13 +689,13 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 	}
 	resp, err := clnt.Do(req)
 	if err != nil {
-		glog.Warningf("Error communicating with %s: %v", url, err)
+		log.Warnf("Error communicating with %s: %v", url, err)
 	} else {
-		glog.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
+		log.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
 		var ba []byte
 		ba, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			glog.Warningf("Unable to connect to read from %s: %v", url, err)
+			log.Warnf("Unable to connect to read from %s: %v", url, err)
 			return
 		}
 		contents = string(ba)
@@ -708,11 +715,11 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	for {
 		status, _, err := get(clnt, url, headers...)
 		if err != nil {
-			glog.Warningf("Unable to connect to product page: %v", err)
+			log.Warnf("Unable to connect to product page: %v", err)
 		}
 
 		if status == wantStatus {
-			glog.Infof("Got %d response from product page!", wantStatus)
+			log.Infof("Got %d response from product page!", wantStatus)
 			return nil
 		}
 
@@ -765,7 +772,7 @@ func doMixerRule(ruleName string, do kubeDo) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
 	cb, err := ioutil.ReadFile(rule)
 	if err != nil {
-		glog.Errorf("Cannot read original yaml file %s", rule)
+		log.Errorf("Cannot read original yaml file %s", rule)
 		return err
 	}
 	contents := string(cb)
@@ -812,12 +819,13 @@ func setTestConfig() error {
 
 func check(err error, msg string) {
 	if err != nil {
-		glog.Fatalf("%s. Error %s", msg, err)
+		log.Errorf("%s. Error %s", msg, err)
+		os.Exit(-1)
 	}
 }
 
 func closeResponseBody(r *http.Response) {
 	if err := r.Body.Close(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 	}
 }

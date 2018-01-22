@@ -21,8 +21,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/istio/pilot/proxy"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 )
 
 func TestDecodeIngressRuleName(t *testing.T) {
@@ -70,39 +70,20 @@ func TestEncoding(t *testing.T) {
 	}
 }
 
-func TestIsRegularExpression(t *testing.T) {
-	cases := []struct {
-		s       string
-		isRegex bool
-	}{
-		{"/api/v1/", false},
-		{"/api/v1/.*", true},
-		{"/api/.*/resource", true},
-		{"/api/v[1-9]/resource", true},
-		{"/api/.*/.*", true},
-	}
-
-	for _, c := range cases {
-		if isRegularExpression(c.s) != c.isRegex {
-			t.Errorf("isRegularExpression(%q) => %v, want %v", c.s, !c.isRegex, c.isRegex)
-		}
-	}
-}
-
 func TestIngressClass(t *testing.T) {
-	istio := proxy.DefaultMeshConfig().IngressClass
+	istio := model.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   proxyconfig.MeshConfig_IngressControllerMode
+		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
 		shouldProcess bool
 	}{
-		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: proxyconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
-		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
-		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
+		{ingressMode: meshconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
 		{ingressMode: -1, shouldProcess: false},
 	}
 
@@ -121,7 +102,7 @@ func TestIngressClass(t *testing.T) {
 			},
 		}
 
-		mesh := proxy.DefaultMeshConfig()
+		mesh := model.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 
 		if c.ingressClass != "" {

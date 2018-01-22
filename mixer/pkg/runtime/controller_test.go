@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"testing"
@@ -46,9 +45,10 @@ func TestControllerEmpty(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            make(map[string]*adapter.Info),
 		templateInfo:           make(map[string]template.Info),
-		eval:                   nil,
+		evaluator:              nil,
+		typeChecker:            nil,
 		configState:            make(map[store.Key]*store.Resource),
-		dispatcher:             d,
+		resolverChangeListener: d,
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
@@ -206,9 +206,10 @@ func TestController_workflow(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
-		eval:                   nil,
+		evaluator:              nil,
+		typeChecker:            nil,
 		configState:            configState,
-		dispatcher:             d,
+		resolverChangeListener: d,
 		resolver:               res, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
@@ -669,7 +670,7 @@ func TestController_KindMap(t *testing.T) {
 		},
 	}
 
-	km := kindMap(ai, ti)
+	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
 		"t1":                  &cpb.Instance{},
@@ -682,6 +683,3 @@ func TestController_KindMap(t *testing.T) {
 		t.Fatalf("Got %v\nwant %v", km, want)
 	}
 }
-
-var _ = flag.Lookup("v").Value.Set("99")
-var _ = flag.Lookup("logtostderr").Value.Set("true")

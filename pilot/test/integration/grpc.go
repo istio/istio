@@ -17,7 +17,7 @@ package main
 import (
 	"fmt"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type grpc struct {
@@ -49,7 +49,7 @@ func (t *grpc) makeRequests() error {
 	// from non-envoy client ("t") should fail all the time.
 	srcPods := []string{"a", "b"}
 	dstPods := []string{"a", "b", "d"}
-	if t.Auth == proxyconfig.MeshConfig_NONE {
+	if t.Auth == meshconfig.MeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		srcPods = append(srcPods, "t")
 		dstPods = append(dstPods, "t")

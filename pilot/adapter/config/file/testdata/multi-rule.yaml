@@ -1,0 +1,47 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: multi-rule1
+  namespace: istio-testing
+spec:
+  destination:
+    name: multi-dest1
+  httpReqTimeout:
+    simpleTimeout:
+      timeout: 30s
+  httpReqRetries:
+    simple_retry:
+      attempts: 1
+      perTryTimeout: 5s
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: multi-rule2
+  namespace: istio-testing
+spec:
+  destination:
+    name: multi-dest1
+  httpReqTimeout:
+    simpleTimeout:
+      timeout: 30s
+  httpReqRetries:
+    simple_retry:
+      attempts: 1
+      perTryTimeout: 5s
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: multi-rule3
+  namespace: istio-testing
+spec:
+  destination:
+    name: multi-dest1
+  httpReqTimeout:
+    simpleTimeout:
+      timeout: 30s
+  httpReqRetries:
+    simple_retry:
+      attempts: 1
+      perTryTimeout: 5s

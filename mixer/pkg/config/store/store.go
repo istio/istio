@@ -12,24 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package store provides the interface to the backend storage
-// for the config and the default fsstore implementation.
 package store
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/url"
+	"sync"
+
+	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/pkg/log"
 )
-
-// IndexNotSupported will be used as the returned index value when
-// the KeyValueStore implementation does not support index.
-const IndexNotSupported = -1
-
-// Builder is the type of function to build a KeyValueStore.
-type Builder func(u *url.URL) (KeyValueStore, error)
-
-// RegisterFunc is the type to register a builder for URL scheme.
-type RegisterFunc func(map[string]Builder)
 
 // ChangeType denotes the type of a change
 type ChangeType int
@@ -41,65 +36,189 @@ const (
 	Delete
 )
 
-// Change - A record of mutation to the underlying KeyValueStore.
-type Change struct {
-	// Key that was affected
-	Key string `json:"key"`
-	// Type how did the key change
-	Type ChangeType `json:"change_type"`
-	// change log index number of the change
-	Index int `json:"index"`
+// ErrNotFound is the error to be returned when the given key does not exist in the storage.
+var ErrNotFound = errors.New("not found")
+
+// ErrWatchAlreadyExists is the error to report that the watching channel already exists.
+var ErrWatchAlreadyExists = errors.New("watch already exists")
+
+// Key represents the key to identify a resource in the store.
+type Key struct {
+	Kind      string
+	Namespace string
+	Name      string
 }
 
-// KeyValueStore defines the key value store back end interface used by mixer
-// and Mixer config API server.
-//
-// It should support back ends like redis, etcd and NFS
-// All commands should return a change log index number which can be used
-// to Read changes. If a KeyValueStore does not support it,
-// it should return -1
-type KeyValueStore interface {
-	// Get value at a key, false if not found.
-	Get(key string) (value string, index int, found bool)
-
-	// Set a value.
-	Set(key string, value string) (index int, err error)
-
-	// List keys with the prefix.
-	List(key string, recurse bool) (keys []string, index int, err error)
-
-	// Delete a key.
-	Delete(key string) error
-
-	// Close the storage.
-	Close()
-
-	fmt.Stringer
+// BackendEvent is an event used between Backend and Store.
+type BackendEvent struct {
+	Key
+	Type  ChangeType
+	Value *BackEndResource
 }
 
-// ChangeLogReader read change log from the KV Store
-type ChangeLogReader interface {
-	// Read reads change events >= index
-	Read(index int) ([]Change, error)
+// ResourceMeta is the standard metadata associated with a resource.
+type ResourceMeta struct {
+	Name        string
+	Namespace   string
+	Labels      map[string]string
+	Annotations map[string]string
+	Revision    string
 }
 
-// ChangeNotifier implements change notification machinery for the KeyValueStore.
-type ChangeNotifier interface {
-	// Register StoreListener
-	// KeyValueStore should call this method when there is a change
-	// The client should issue ReadChangeLog to see what has changed if the call is available.
-	// else it should re-read the store, perform diff and apply changes.
-	RegisterListener(s Listener)
+// BackEndResource represents a resources with a raw spec
+type BackEndResource struct {
+	Metadata ResourceMeta
+	Spec     map[string]interface{}
 }
 
-// Listener listens for calls from the store that some keys have changed.
-type Listener interface {
-	// NotifyStoreChanged notify listener that a new change is available.
-	NotifyStoreChanged(index int)
+// Resource represents a resources with converted spec.
+type Resource struct {
+	Metadata ResourceMeta
+	Spec     proto.Message
 }
 
-// Registry keeps the relationship between the URL scheme and the storage
-// implementation.
+// String is the Istio compatible string representation of the resource.
+// Name.Kind.Namespace
+// At the point of use Namespace can be omitted, and it is assumed to be the namespace
+// of the document.
+func (k Key) String() string {
+	return k.Name + "." + k.Kind + "." + k.Namespace
+}
+
+// Event represents an event. Used by Store.Watch.
+type Event struct {
+	Key
+	Type ChangeType
+
+	// Value refers the new value in the updated event. nil if the event type is delete.
+	Value *Resource
+}
+
+// BackendValidator defines the interface to validte unstructured event.
+type BackendValidator interface {
+	Validate(ev *BackendEvent) error
+}
+
+// Validator defines the interface to validate a new change.
+type Validator interface {
+	Validate(ev *Event) error
+}
+
+// Backend defines the typeless storage backend for mixer.
+type Backend interface {
+	Init(ctx context.Context, kinds []string) error
+
+	// Watch creates a channel to receive the events.
+	Watch(ctx context.Context) (<-chan BackendEvent, error)
+
+	// Get returns a resource's spec to the key.
+	Get(key Key) (*BackEndResource, error)
+
+	// List returns the whole mapping from key to resource specs in the store.
+	List() map[Key]*BackEndResource
+}
+
+// Store defines the access to the storage for mixer.
+type Store interface {
+	Init(ctx context.Context, kinds map[string]proto.Message) error
+
+	// Watch creates a channel to receive the events. A store can conduct a single
+	// watch channel at the same time. Multiple calls lead to an error.
+	Watch(ctx context.Context) (<-chan Event, error)
+
+	// Get returns a resource's spec to the key.
+	Get(key Key, spec proto.Message) error
+
+	// List returns the whole mapping from key to resource specs in the store.
+	List() map[Key]*Resource
+}
+
+// store is the implementation of Store interface.
+type store struct {
+	kinds   map[string]proto.Message
+	backend Backend
+
+	mu    sync.Mutex
+	queue *eventQueue
+}
+
+// Init initializes the connection with the storage backend. This uses "kinds"
+// for the mapping from the kind's name and its structure in protobuf.
+// The connection will be closed after ctx is done.
+func (s *store) Init(ctx context.Context, kinds map[string]proto.Message) error {
+	kindNames := make([]string, 0, len(kinds))
+	for k := range kinds {
+		kindNames = append(kindNames, k)
+	}
+	if err := s.backend.Init(ctx, kindNames); err != nil {
+		return err
+	}
+	s.kinds = kinds
+	return nil
+}
+
+// Watch creates a channel to receive the events.
+func (s *store) Watch(ctx context.Context) (<-chan Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.queue != nil {
+		return nil, ErrWatchAlreadyExists
+	}
+	ch, err := s.backend.Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := newQueue(ctx, ch, s.kinds)
+	s.queue = q
+	go func() {
+		<-ctx.Done()
+		s.mu.Lock()
+		s.queue = nil
+		s.mu.Unlock()
+	}()
+	return q.chout, nil
+}
+
+// Get returns a resource's spec to the key.
+func (s *store) Get(key Key, spec proto.Message) error {
+	obj, err := s.backend.Get(key)
+	if err != nil {
+		return err
+	}
+
+	return convert(key, obj.Spec, spec)
+}
+
+// List returns the whole mapping from key to resource specs in the store.
+func (s *store) List() map[Key]*Resource {
+	data := s.backend.List()
+	result := make(map[Key]*Resource, len(data))
+	for k, d := range data {
+		pbSpec, err := cloneMessage(k.Kind, s.kinds)
+		if err != nil {
+			log.Errorf("Failed to clone %s spec: %v", k, err)
+			continue
+		}
+		if err = convert(k, d.Spec, pbSpec); err != nil {
+			log.Errorf("Failed to convert %s spec: %v", k, err)
+			continue
+		}
+		result[k] = &Resource{
+			Metadata: d.Metadata,
+			Spec:     pbSpec,
+		}
+	}
+	return result
+}
+
+// Builder is the type of function to build a Backend.
+type Builder func(u *url.URL) (Backend, error)
+
+// RegisterFunc is the type to register a builder for URL scheme.
+type RegisterFunc func(map[string]Builder)
+
+// Registry keeps the relationship between the URL scheme and
+// the Backend implementation.
 type Registry struct {
 	builders map[string]Builder
 }
@@ -119,20 +238,30 @@ const (
 	FSUrl = "fs"
 )
 
-// NewStore create a new store based on the config URL.
-func (r *Registry) NewStore(configURL string) (KeyValueStore, error) {
+// NewStore creates a new Store instance with the specified backend.
+func (r *Registry) NewStore(configURL string) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
 		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
 	}
 
-	if u.Scheme == FSUrl {
-		return newFSStore(u.Path)
+	var b Backend
+	switch u.Scheme {
+	case FSUrl:
+		b = newFsStore(u.Path)
+	case memstoreScheme:
+		b = createOrGetMemstore(u.String())
+	default:
+		if builder, ok := r.builders[u.Scheme]; ok {
+			b, err = builder(u)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	if builder, ok := r.builders[u.Scheme]; ok {
-		return builder(u)
+	if b != nil {
+		return &store{backend: b}, nil
 	}
-
 	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
 }

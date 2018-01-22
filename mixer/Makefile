@@ -1,4 +1,4 @@
-## Copyright 2016 Istio Authors
+## Copyright 2017,2018 Istio Authors
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -12,27 +12,29 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-SHELL := /bin/bash
+# note: docker/mixs to be phony to make sure rebuilding always.
+.PHONY: docker docker/mixs
+.INTERMEDIATE: check.prereqs
 
-build:
-	@bazel build //...:all
+default: docker
+
+check.prereqs:
+	../bin/verify_go_version.sh
 
 clean:
-	@bazel clean
+	rm -f docker/mixs
+	rm -f docker/ca-certificates.tgz
+	$(MAKE) clean -C example/servicegraph
 
-test:
-	@bazel test //...
 
-lint: build
-	@bin/linters.sh
+docker: docker/mixs docker/ca-certificates.tgz
+	cd docker && docker build -t mixer -f Dockerfile .
+	cd docker && docker build -t mixer_debug -f Dockerfile.debug .
+	$(MAKE) docker -C example/servicegraph
 
-coverage:
-	@bin/codecov.sh
+# fetch debian ca-certs to package in the docker container.
+docker/ca-certificates.tgz: ../docker/ca-certificates.tgz
+	cp ../docker/ca-certificates.tgz ./docker
 
-racetest:
-	@bazel test --features=race //...
-
-gazelle:
-	@bin/gazelle
-
-.PHONY: build clean test lint fmt coverage racetest gazelle
+docker/mixs: check.prereqs
+	../bin/gobuild.sh $@ istio.io/istio/mixer/pkg/version ./cmd/mixs

@@ -24,11 +24,10 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/memory"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -50,13 +49,13 @@ func (ctl *mockController) Run(_ <-chan struct{}) {}
 
 var mockDiscovery *mock.ServiceDiscovery
 
-func makeDiscoveryService(t *testing.T, r model.ConfigStore, mesh *proxyconfig.MeshConfig) *DiscoveryService {
+func makeDiscoveryService(t *testing.T, r model.ConfigStore, mesh *meshconfig.MeshConfig) *DiscoveryService {
 	mockDiscovery = mock.Discovery
 	mockDiscovery.ClearErrors()
 	out, err := NewDiscoveryService(
 		&mockController{},
 		nil,
-		proxy.Environment{
+		model.Environment{
 			ServiceDiscovery: mockDiscovery,
 			ServiceAccounts:  mockDiscovery,
 			IstioConfigStore: model.MakeIstioStore(r),
@@ -101,7 +100,7 @@ func getDiscoveryResponse(ds *DiscoveryService, method, url string, t *testing.T
 	return httpWriter.Result()
 }
 
-func commonSetup(t *testing.T) (*proxyconfig.MeshConfig, model.ConfigStore, *DiscoveryService) {
+func commonSetup(t *testing.T) (*meshconfig.MeshConfig, model.ConfigStore, *DiscoveryService) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
@@ -218,35 +217,57 @@ func TestClusterDiscoveryError2(t *testing.T) {
 }
 
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
+	tests := [][]fileConfig{
+		{weightedRouteRule, cbPolicy},
+		{cbRouteRuleV2},
+	}
+
+	for _, configs := range tests {
+		_, registry, ds := commonSetup(t)
+		// add weighted rule to split into two clusters and set circuit breaker policy
+		for _, config := range configs {
+			addConfig(registry, config, t)
+		}
+		// add egress rule and a circuit breaker for external service (*.google.com)
+		addConfig(registry, egressRule, t)
+		addConfig(registry, egressRuleCBPolicy, t)
+
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleWorldCB, t)
+
+		url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/cds-circuit-breaker.json", t)
+	}
+}
+
+func TestClusterDiscoveryEgressRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	// add weighted rule to split into two clusters
-	addConfig(registry, weightedRouteRule, t)
-	addConfig(registry, cbPolicy, t)
-	// add egress rule and a circuit breaker for external service (*.google.com)
 	addConfig(registry, egressRule, t)
-	addConfig(registry, egressRuleCBPolicy, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
 
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
+	compareResponse(response, "testdata/cds-redirect-egress.json", t)
 }
 
 func TestClusterDiscoveryWithAuthOptIn(t *testing.T) {
 	// Change mock service security for test.
-	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ssl-context-optin.json", t)
 	// Reset mock service security option.
-	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -255,12 +276,12 @@ func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 
 func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) // original dst cluster should not have auth
 
 	// Change mock service security for test.
-	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_NONE
+	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_NONE
 
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -268,26 +289,16 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 	compareResponse(response, "testdata/cds-ssl-context-optout.json", t)
 
 	// Reset mock service security option.
-	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
+	addConfig(registry, egressRuleTCP, t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ingress.json", t)
-}
-
-func TestClusterDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
 }
 
 func TestClusterDiscoveryRouterError(t *testing.T) {
@@ -350,6 +361,8 @@ func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh.MixerAddress = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
+	addConfig(registry, egressRuleTCP, t)
+
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -371,105 +384,158 @@ func TestRouteDiscoveryV1(t *testing.T) {
 }
 
 func TestRouteDiscoveryTimeout(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, egressRule, t)
-	addConfig(registry, timeoutRouteRule, t)
-	addConfig(registry, egressRuleTimeoutRule, t)
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-timeout.json", t)
+	for _, timeoutConfig := range []fileConfig{timeoutRouteRule, timeoutRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, egressRule, t)
+
+		addConfig(registry, timeoutConfig, t)
+		addConfig(registry, egressRuleTimeoutRule, t)
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-timeout.json", t)
+	}
 }
 
 func TestRouteDiscoveryWeighted(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, weightedRouteRule, t)
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-weighted.json", t)
+	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, weightedConfig, t)
+
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleWorld, t)
+
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-weighted.json", t)
+	}
 }
 
 func TestRouteDiscoveryFault(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, faultRouteRule, t)
+	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, faultConfig, t)
 
-	// fault rule is source based: we check that the rule only affect v0 and not v1
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleWorld, t)
+
+		// fault rule is source based: we check that the rule only affect v0 and not v1
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-fault.json", t)
+
+		url = fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
+		response = makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-v1.json", t)
+	}
+}
+
+func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, multiMatchFaultRouteRuleV2, t)
+
+	// TODO: v1alpha2 only
+	addConfig(registry, destinationRuleWorld, t)
+
+	// fault rule is source based: we check that the rule only affects v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-fault.json", t)
+	compareResponse(response, "testdata/rds-fault-v0.json", t)
 
 	url = fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-v1.json", t)
+	compareResponse(response, "testdata/rds-fault-v1.json", t)
 }
 
 func TestRouteDiscoveryMirror(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, mirrorRule, t)
+	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, mirrorConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-mirror.json", t)
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleHello, t)
+
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-mirror.json", t)
+	}
 }
 
 func TestRouteDiscoveryAppendHeaders(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, addHeaderRule, t)
+	for _, addHeaderConfig := range []fileConfig{addHeaderRule, addHeaderRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, addHeaderConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-append-headers.json", t)
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-append-headers.json", t)
+	}
 }
 
 func TestRouteDiscoveryCORSPolicy(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, corsPolicyRule, t)
+	for _, corsConfig := range []fileConfig{corsPolicyRule, corsPolicyRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, corsConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-cors-policy.json", t)
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-cors-policy.json", t)
+	}
 }
 
 func TestRouteDiscoveryRedirect(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, redirectRouteRule, t)
+	for _, redirectConfig := range []fileConfig{redirectRouteRule, redirectRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, redirectConfig, t)
 
-	// fault rule is source based: we check that the rule only affect v0 and not v1
+		// fault rule is source based: we check that the rule only affect v0 and not v1
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-redirect.json", t)
+	}
+}
+
+func TestRouteDiscoveryEgressRedirect(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, redirectRouteToEgressRule, t)
+
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-redirect.json", t)
+	compareResponse(response, "testdata/rds-redirect-egress.json", t)
 }
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, rewriteRouteRule, t)
+	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, rewriteConfig, t)
 
-	// fault rule is source based: we check that the rule only affect v0 and not v1
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-rewrite.json", t)
+	}
+}
+
+func TestRouteDiscoveryMultiMatchRewrite(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, multiMatchRewriteRouteRuleV2, t)
+
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-rewrite.json", t)
+	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha2.json", t)
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, websocketRouteRule, t)
+	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, websocketConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-websocket.json", t)
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-websocket.json", t)
 
-	url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response = makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-websocket.json", t)
-}
-
-func TestRouteDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
+		url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+		response = makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/lds-websocket.json", t)
 	}
 }
 
@@ -487,13 +553,18 @@ func TestRouteDiscoveryIngress(t *testing.T) {
 }
 
 func TestRouteDiscoveryIngressWeighted(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addIngressRoutes(registry, t)
-	addConfig(registry, weightedRouteRule, t)
+	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addIngressRoutes(registry, t)
+		addConfig(registry, weightConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-ingress-weighted.json", t)
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleWorld, t)
+
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-ingress-weighted.json", t)
+	}
 }
 
 func TestRouteDiscoveryRouterError(t *testing.T) {
@@ -508,12 +579,17 @@ func TestRouteDiscoveryRouterError(t *testing.T) {
 }
 
 func TestRouteDiscoveryRouterWeighted(t *testing.T) {
-	_, registry, ds := commonSetup(t)
-	addConfig(registry, weightedRouteRule, t)
+	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
+		_, registry, ds := commonSetup(t)
+		addConfig(registry, weightConfig, t)
 
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-router-weighted.json", t)
+		// TODO: v1alpha2 only
+		addConfig(registry, destinationRuleWorld, t)
+
+		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+		response := makeDiscoveryRequest(ds, "GET", url, t)
+		compareResponse(response, "testdata/rds-router-weighted.json", t)
+	}
 }
 
 func TestListenerDiscoverySidecar(t *testing.T) {
@@ -549,12 +625,28 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			file: weightedRouteRule,
 		},
 		{
+			name: "weighted",
+			file: weightedRouteRuleV2,
+		},
+		{
 			name: "fault",
 			file: faultRouteRule,
 		},
 		{
+			name: "fault",
+			file: faultRouteRuleV2,
+		},
+		{
+			name: "multi-match-fault",
+			file: multiMatchFaultRouteRuleV2,
+		},
+		{
 			name: "egress-rule",
 			file: egressRule,
+		},
+		{
+			name: "egress-rule-tcp",
+			file: egressRuleTCP,
 		},
 	}
 
@@ -563,6 +655,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			_, registry, ds := commonSetup(t)
 
 			if testCase.name != "none" {
+				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha2 only
 				addConfig(registry, testCase.file, t)
 			}
 
@@ -589,7 +682,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 
 			// test with auth
 			mesh = makeMeshConfig()
-			mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response = makeDiscoveryRequest(ds, "GET", url, t)
@@ -607,26 +700,26 @@ func TestListenerDiscoverySidecarAuthOptIn(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 
 	// Auth opt-in on port 80
-	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	mock.HelloService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-v0-none-auth-optin.json", t)
-	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+	mock.HelloService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
 
 	// Auth opt-out on port 80
-	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_NONE
+	mock.HelloService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_NONE
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
-	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+	mock.HelloService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func TestRouteDiscoverySidecarError(t *testing.T) {
@@ -655,13 +748,15 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t)
+	addConfig(registry, egressRuleTCP, t)
+
 	addIngressRoutes(registry, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-ingress.json", t)
 
-	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-ingress.json", t)
@@ -682,17 +777,6 @@ func TestListenerDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
 	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
-}
-
-func TestListenerDiscoveryIngressError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
-	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("unexpected error response from discovery: got %v, want %v",
@@ -732,11 +816,12 @@ func TestListenerDiscoveryRouter(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	addConfig(registry, egressRule, t)
+
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-router.json", t)
 
-	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-router-auth.json", t)
@@ -803,4 +888,69 @@ func TestDiscoveryCache(t *testing.T) {
 		got := makeDiscoveryRequest(ds, "GET", "/cache_stats", t)
 		compareResponse(got, c.wantCache, t)
 	}
+}
+
+func TestDiscoveryService_AvailabilityZone(t *testing.T) {
+	tests := []struct {
+		name          string
+		hostInstances []*model.ServiceInstance
+		err           error
+		want          string
+	}{
+		{
+			name: "golden path returns region/zone",
+			hostInstances: []*model.ServiceInstance{
+				{AvailabilityZone: "region/zone"},
+			},
+			want: "region/zone",
+		},
+		{
+			name: "when no AZ return blank",
+			hostInstances: []*model.ServiceInstance{
+				{},
+			},
+			want: "",
+		},
+		{
+			name:          "when unable to find the given cluster node tell us",
+			hostInstances: []*model.ServiceInstance{},
+			want:          "AvailabilityZone couldn't find the given cluster node",
+		},
+		{
+			name: "when HostInstaces errors return that error",
+			err:  errors.New("bang"),
+			want: "AvailabilityZone bang",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, ds := commonSetup(t)
+			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			mock.Discovery.WantHostInstances = tt.hostInstances
+			mockDiscovery.HostInstancesError = tt.err
+			response := makeDiscoveryRequest(ds, "GET", url, t)
+			if tt.want != string(response) {
+				t.Errorf("wanted %v but received %v", tt.want, string(response))
+			}
+		})
+	}
+}
+
+func TestMixerclientServiceConfig(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, mixerclientAPISpec, t)
+	addConfig(registry, mixerclientAPISpecBinding, t)
+	addConfig(registry, mixerclientQuotaSpec, t)
+	addConfig(registry, mixerclientQuotaSpecBinding, t)
+	addConfig(registry, mixerclientAuthSpec, t)
+	addConfig(registry, mixerclientAuthSpecBinding, t)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-mixerclient-filter.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-mixerclient-filter.json", t)
 }

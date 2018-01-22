@@ -25,9 +25,20 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
+
+type kubeServiceNode struct {
+	// PodName Specifies the name of the POD
+	PodName string
+
+	// Namespace specifies the name of the namespace the pod belongs to
+	Namespace string
+
+	// Domain specifies the pod's domain
+	Domain string
+}
 
 const (
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
@@ -60,15 +71,15 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 
 // Extracts security option for given port from annotation. If there is no such
 // annotation, or the annotation value is not recognized, returns
-// proxyconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) proxyconfig.AuthenticationPolicy {
+// meshconfig.AuthenticationPolicy_INHERIT
+func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) meshconfig.AuthenticationPolicy {
 	if obj.Annotations == nil {
-		return proxyconfig.AuthenticationPolicy_INHERIT
+		return meshconfig.AuthenticationPolicy_INHERIT
 	}
-	if val, ok := proxyconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
-		return proxyconfig.AuthenticationPolicy(val)
+	if val, ok := meshconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
+		return meshconfig.AuthenticationPolicy(val)
 	}
-	return proxyconfig.AuthenticationPolicy_INHERIT
+	return meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
@@ -162,6 +173,52 @@ func parseHostname(hostname string) (name string, namespace string, err error) {
 	return
 }
 
+// parsePodID extracts POD name and namespace from the service node ID
+func parsePodID(nodeID string) (podname string, namespace string, err error) {
+	parts := strings.Split(nodeID, ".")
+	if len(parts) != 2 {
+		err = fmt.Errorf("invalid ID %q. Should be <pod name>.<namespace>", nodeID)
+		return
+	}
+	podname = parts[0]
+	namespace = parts[1]
+	return
+}
+
+// parseDomain extracts the service node's domain
+func parseDomain(nodeDomain string) (namespace string, err error) {
+	parts := strings.Split(nodeDomain, ".")
+	if len(parts) != 4 {
+		err = fmt.Errorf("invalid node domain format %q. Should be <namespace>.svc.cluster.local", nodeDomain)
+		return
+	}
+	if parts[1] != "svc" || parts[2] != "cluster" || parts[3] != "local" {
+		err = fmt.Errorf("invalid node domain %q. Should be <namespace>.svc.cluster.local", nodeDomain)
+		return
+	}
+	namespace = parts[0]
+	return
+}
+
+func parseKubeServiceNode(IPAddress string, node *model.Node, kubeNodes map[string]*kubeServiceNode) (err error) {
+	podname, namespace, err := parsePodID(node.ID)
+	if err != nil {
+		return
+	}
+	namespace1, err := parseDomain(node.Domain)
+	if err != nil {
+		return
+	}
+	if namespace != namespace1 {
+		err = fmt.Errorf("namespace in ID %q must be equal to that in domain %q", node.ID, node.Domain)
+	}
+	kubeNodes[IPAddress] = &kubeServiceNode{
+		PodName:   podname,
+		Namespace: namespace,
+		Domain:    node.Domain}
+	return
+}
+
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
@@ -174,19 +231,9 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 		if i >= 0 {
 			prefix = name[:i]
 		}
-		switch prefix {
-		case "grpc":
-			out = model.ProtocolGRPC
-		case "http":
-			out = model.ProtocolHTTP
-		case "http2":
-			out = model.ProtocolHTTP2
-		case "https":
-			out = model.ProtocolHTTPS
-		case "mongo":
-			out = model.ProtocolMongo
-		case "redis":
-			out = model.ProtocolRedis
+		protocol := model.ConvertCaseInsensitiveStringToProtocol(prefix)
+		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
+			out = protocol
 		}
 	}
 	return out

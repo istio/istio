@@ -19,32 +19,32 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
 
-func TestCompile(t *testing.T) {
-
-	for i, test := range ilt.TestData {
+func TestCompiler_SingleExpressionSession(t *testing.T) {
+	for _, test := range ilt.TestData {
 		// If there is no expression in the test, skip it. It is most likely an interpreter test that directly runs
 		// off IL.
 		if test.E == "" {
 			continue
 		}
 
-		name := fmt.Sprintf("%d '%s'", i, test.E)
-		t.Run(name, func(tt *testing.T) {
+		t.Run(test.TestName(), func(tt *testing.T) {
 
-			conf := test.Conf
-			if conf == nil {
-				conf = ilt.TestConfigs["Default"]
+			finder := expr.NewFinder(test.Conf())
+
+			fns := runtime.ExternFunctionMetadata
+			if test.Fns != nil {
+				fns = append(fns, test.Fns...)
 			}
-			finder := descriptor.NewFinder(conf)
-
-			result, err := Compile(test.E, finder)
+			compiler := New(finder, expr.FuncMap(fns))
+			fnID, _, err := compiler.CompileExpression(test.E)
 
 			if err != nil {
 				if err.Error() != test.CompileErr {
@@ -59,7 +59,133 @@ func TestCompile(t *testing.T) {
 			}
 
 			if test.IL != "" {
-				actual := text.WriteText(result.Program)
+				actual := text.WriteText(compiler.Program())
+				// TODO: Expected IL is written with the original Compile code in mind. Do a little bit of hackery
+				// to calculate the expected name. Hopefully we can fix this once we get rid of the compile method.
+				actual = strings.Replace(actual, "$expression0", "eval", 1)
+
+				if strings.TrimSpace(actual) != strings.TrimSpace(test.IL) {
+					tt.Log("===== EXPECTED ====\n")
+					tt.Log(test.IL)
+					tt.Log("\n====== ACTUAL =====\n")
+					tt.Log(actual)
+					tt.Log("===================\n")
+					tt.Fail()
+					return
+				}
+			}
+
+			// Also perform evaluation
+			if e := doEval(test, compiler.program, fnID); e != nil {
+				t.Errorf(e.Error())
+				return
+			}
+		})
+	}
+}
+
+func TestCompiler_DoubleExpressionSession(t *testing.T) {
+	for _, test := range ilt.TestData {
+		// If there is no expression in the test, skip it. It is most likely an interpreter test that directly runs
+		// off IL.
+		if test.E == "" {
+			continue
+		}
+
+		t.Run(test.TestName(), func(tt *testing.T) {
+
+			finder := expr.NewFinder(test.Conf())
+
+			fns := runtime.ExternFunctionMetadata
+			if test.Fns != nil {
+				fns = append(fns, test.Fns...)
+			}
+			compiler := New(finder, expr.FuncMap(fns))
+			fnID1, _, err := compiler.CompileExpression(test.E)
+			if err != nil {
+				if err.Error() != test.CompileErr {
+					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)
+				}
+				return
+			}
+
+			if test.CompileErr != "" {
+				tt.Fatalf("expected error not found: '%s'", test.CompileErr)
+				return
+			}
+
+			// Compile again
+			fnID2, _, err := compiler.CompileExpression(test.E)
+			if err != nil {
+				tt.Fatalf("Unexpected compile error: '%s'", err.Error())
+			}
+
+			// Evaluate fn1
+			if e := doEval(test, compiler.program, fnID1); e != nil {
+				t.Errorf(e.Error())
+				return
+			}
+
+			// Evaluate fn2
+			if e := doEval(test, compiler.program, fnID2); e != nil {
+				t.Errorf(e.Error())
+				return
+			}
+		})
+	}
+}
+
+func doEval(test ilt.TestInfo, p *il.Program, fnID uint32) error {
+	b := ilt.NewFakeBag(test.I)
+
+	externs := make(map[string]interpreter.Extern)
+	for k, v := range runtime.Externs {
+		externs[k] = v
+	}
+	if test.Externs != nil {
+		for k, v := range test.Externs {
+			externs[k] = interpreter.ExternFromFn(k, v)
+		}
+	}
+
+	i := interpreter.New(p, externs)
+	v, err := i.EvalFnID(fnID, b)
+	return test.CheckEvaluationResult(v.AsInterface(), err)
+}
+
+func TestCompile(t *testing.T) {
+
+	for i, test := range ilt.TestData {
+		// If there is no expression in the test, skip it. It is most likely an interpreter test that directly runs
+		// off IL.
+		if test.E == "" {
+			continue
+		}
+
+		name := fmt.Sprintf("%d '%s'", i, test.TestName())
+		t.Run(name, func(tt *testing.T) {
+
+			finder := expr.NewFinder(test.Conf())
+
+			fns := runtime.ExternFunctionMetadata
+			if test.Fns != nil {
+				fns = append(fns, test.Fns...)
+			}
+			program, err := Compile(test.E, finder, expr.FuncMap(fns))
+			if err != nil {
+				if err.Error() != test.CompileErr {
+					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)
+				}
+				return
+			}
+
+			if test.CompileErr != "" {
+				tt.Fatalf("expected error not found: '%s'", test.CompileErr)
+				return
+			}
+
+			if test.IL != "" {
+				actual := text.WriteText(program)
 				if strings.TrimSpace(actual) != strings.TrimSpace(test.IL) {
 					tt.Log("===== EXPECTED ====\n")
 					tt.Log(test.IL)
@@ -75,10 +201,20 @@ func TestCompile(t *testing.T) {
 			if input == nil {
 				input = map[string]interface{}{}
 			}
-			b := ilt.FakeBag{Attrs: input}
+			b := ilt.NewFakeBag(input)
 
-			i := interpreter.New(result.Program, runtime.Externs)
-			v, err := i.Eval("eval", &b)
+			externs := make(map[string]interpreter.Extern)
+			for k, v := range runtime.Externs {
+				externs[k] = v
+			}
+			if test.Externs != nil {
+				for k, v := range test.Externs {
+					externs[k] = interpreter.ExternFromFn(k, v)
+				}
+			}
+
+			i := interpreter.New(program, externs)
+			v, err := i.Eval("eval", b)
 			if err != nil {
 				if test.Err != err.Error() {
 					tt.Fatalf("expected error not found: E:'%v', A:'%v'", test.Err, err)

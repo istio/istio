@@ -21,29 +21,30 @@ package inject
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	v2alpha1 "k8s.io/api/batch/v2alpha1"
-	v1 "k8s.io/api/core/v1"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+	"k8s.io/api/batch/v2alpha1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/istio/pilot/proxy"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 // per-sidecar policy and status (deployment, job, statefulset, pod, etc)
@@ -91,14 +92,6 @@ const (
 	// ProxyContainerName is the name for sidecar proxy container
 	ProxyContainerName = "istio-proxy"
 
-	enableCoreDumpContainerName = "enable-core-dump"
-	enableCoreDumpImage         = "alpine"
-
-	istioCertSecretPrefix = "istio."
-
-	istioCertVolumeName        = "istio-certs"
-	istioEnvoyConfigVolumeName = "istio-envoy"
-
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
@@ -112,6 +105,23 @@ const (
 	// DefaultInitializerName specifies the name of the initializer.
 	DefaultInitializerName = "sidecar.initializer.istio.io"
 )
+
+// SidecarConfig collects all container types and volumes for
+// sidecar mesh injection
+type SidecarConfig struct {
+	InitContainers []v1.Container `yaml:"initContainers"`
+	Containers     []v1.Container `yaml:"containers"`
+	Volumes        []v1.Volume    `yaml:"volumes"`
+}
+
+// SidecarTemplate contains configurable settings for the sidecar mesh
+// in a format necessary for proper template interpolation
+type SidecarTemplate struct {
+	Spec           *v1.PodSpec
+	ServiceCluster string
+	MConfig        *Params
+	AuthPolicy     string
+}
 
 // InitImageName returns the fully qualified image name for the istio
 // init image given a docker hub and tag and debug flag
@@ -131,15 +141,15 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage       string                  `json:"initImage"`
-	ProxyImage      string                  `json:"proxyImage"`
-	Verbosity       int                     `json:"verbosity"`
-	SidecarProxyUID int64                   `json:"sidecarProxyUID"`
-	Version         string                  `json:"version"`
-	EnableCoreDump  bool                    `json:"enableCoreDump"`
-	DebugMode       bool                    `json:"debugMode"`
-	Mesh            *proxyconfig.MeshConfig `json:"-"`
-	ImagePullPolicy string                  `json:"imagePullPolicy"`
+	InitImage       string                 `json:"initImage"`
+	ProxyImage      string                 `json:"proxyImage"`
+	Verbosity       int                    `json:"verbosity"`
+	SidecarProxyUID int64                  `json:"sidecarProxyUID"`
+	Version         string                 `json:"version"`
+	EnableCoreDump  bool                   `json:"enableCoreDump"`
+	DebugMode       bool                   `json:"debugMode"`
+	Mesh            *meshconfig.MeshConfig `json:"-"`
+	ImagePullPolicy string                 `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
@@ -299,7 +309,7 @@ IncludeNamespaceSearch:
 
 	status, ok := annotations[istioSidecarAnnotationStatusKey]
 
-	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
+	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		obj.GetNamespace(), obj.GetName(), namespacePolicy, useDefault, inject, status, required)
 
 	if !required {
@@ -311,195 +321,42 @@ IncludeNamespaceSearch:
 	return !ok
 }
 
-func timeString(dur *duration.Duration) string {
-	out, err := ptypes.Duration(dur)
-	if err != nil {
-		glog.Warning(err)
-	}
-	return out.String()
-}
-
 func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
-	// proxy initContainer 1.6 spec
-	initArgs := []string{
-		"-p", fmt.Sprintf("%d", p.Mesh.ProxyListenPort),
-		"-u", strconv.FormatInt(p.SidecarProxyUID, 10),
-	}
-	if p.IncludeIPRanges != "" {
-		initArgs = append(initArgs, "-i", p.IncludeIPRanges)
-	}
 
-	var pullPolicy v1.PullPolicy
-	switch p.ImagePullPolicy {
-	case "Always":
-		pullPolicy = v1.PullAlways
-	case "IfNotPresent":
-		pullPolicy = v1.PullIfNotPresent
-	case "Never":
-		pullPolicy = v1.PullNever
-	default:
-		pullPolicy = v1.PullIfNotPresent
-	}
-
-	privTrue := true
-
-	initContainer := v1.Container{
-		Name:            InitContainerName,
-		Image:           p.InitImage,
-		Args:            initArgs,
-		ImagePullPolicy: pullPolicy,
-		SecurityContext: &v1.SecurityContext{
-			Capabilities: &v1.Capabilities{
-				Add: []v1.Capability{"NET_ADMIN"},
-			},
-			// TODO: Determine SELINUX options needed to remove privileged
-			Privileged: &privTrue,
-		},
-	}
-
-	enableCoreDumpContainer := v1.Container{
-		Name:    enableCoreDumpContainerName,
-		Image:   enableCoreDumpImage,
-		Command: []string{"/bin/sh"},
-		Args: []string{
-			"-c",
-			fmt.Sprintf("sysctl -w kernel.core_pattern=%s/core.%%e.%%p.%%t && ulimit -c unlimited",
-				p.Mesh.DefaultConfig.ConfigPath),
-		},
-		ImagePullPolicy: pullPolicy,
-		SecurityContext: &v1.SecurityContext{
-			// TODO: Determine SELINUX options needed to remove privileged
-			Privileged: &privTrue,
-		},
-	}
-
-	spec.InitContainers = append(spec.InitContainers, initContainer)
-
-	if p.EnableCoreDump {
-		spec.InitContainers = append(spec.InitContainers, enableCoreDumpContainer)
-	}
-
-	// sidecar proxy container
-	args := []string{"proxy", "sidecar"}
-
-	if p.Verbosity > 0 {
-		args = append(args, "-v", strconv.Itoa(p.Verbosity))
-	}
-
-	serviceCluster := p.Mesh.DefaultConfig.ServiceCluster
+	st := SidecarTemplate{spec, p.Mesh.DefaultConfig.ServiceCluster, p, p.Mesh.DefaultConfig.ControlPlaneAuthPolicy.String()}
 
 	// If 'app' label is available, use it as the default service cluster
 	if val, ok := metadata.GetLabels()["app"]; ok {
-		serviceCluster = val
+		st.ServiceCluster = val
 	}
 
-	// set all proxy config flags
-	args = append(args, "--configPath", p.Mesh.DefaultConfig.ConfigPath)
-	args = append(args, "--binaryPath", p.Mesh.DefaultConfig.BinaryPath)
-	args = append(args, "--serviceCluster", serviceCluster)
-	args = append(args, "--drainDuration", timeString(p.Mesh.DefaultConfig.DrainDuration))
-	args = append(args, "--parentShutdownDuration", timeString(p.Mesh.DefaultConfig.ParentShutdownDuration))
-	args = append(args, "--discoveryAddress", p.Mesh.DefaultConfig.DiscoveryAddress)
-	args = append(args, "--discoveryRefreshDelay", timeString(p.Mesh.DefaultConfig.DiscoveryRefreshDelay))
-	args = append(args, "--zipkinAddress", p.Mesh.DefaultConfig.ZipkinAddress)
-	args = append(args, "--connectTimeout", timeString(p.Mesh.DefaultConfig.ConnectTimeout))
-	args = append(args, "--statsdUdpAddress", p.Mesh.DefaultConfig.StatsdUdpAddress)
-	args = append(args, "--proxyAdminPort", fmt.Sprintf("%d", p.Mesh.DefaultConfig.ProxyAdminPort))
-	args = append(args, "--controlPlaneAuthPolicy", p.Mesh.DefaultConfig.ControlPlaneAuthPolicy.String())
+	var tmpl bytes.Buffer
 
-	volumeMounts := []v1.VolumeMount{
-		{
-			Name:      istioEnvoyConfigVolumeName,
-			MountPath: p.Mesh.DefaultConfig.ConfigPath,
-		},
+	t := template.Must(template.New("inject").Parse(productionTemplate))
+	if err := t.Execute(&tmpl, &st); err != nil {
+		log.Errora(err)
 	}
 
-	spec.Volumes = append(spec.Volumes,
-		v1.Volume{
-			Name: istioEnvoyConfigVolumeName,
-			VolumeSource: v1.VolumeSource{
-				EmptyDir: &v1.EmptyDirVolumeSource{
-					Medium: v1.StorageMediumMemory,
-				},
-			},
-		})
-
-	volumeMounts = append(volumeMounts, v1.VolumeMount{
-		Name:      istioCertVolumeName,
-		ReadOnly:  true,
-		MountPath: proxy.AuthCertsPath,
-	})
-
-	sa := spec.ServiceAccountName
-	if sa == "" {
-		sa = "default"
-	}
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: istioCertVolumeName,
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName: istioCertSecretPrefix + sa,
-				Optional:   (func(b bool) *bool { return &b })(true),
-			},
-		},
-	})
-
-	// In debug mode we need to be able to write in the proxy container
-	// and change the iptables.
-	readOnly := !p.DebugMode
-	priviledged := p.DebugMode
-
-	sidecar := v1.Container{
-		Name:  ProxyContainerName,
-		Image: p.ProxyImage,
-		Args:  args,
-		Env: []v1.EnvVar{{
-			Name: "POD_NAME",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}, {
-			Name: "POD_NAMESPACE",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		}, {
-			Name: "INSTANCE_IP",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		}},
-		ImagePullPolicy: pullPolicy,
-		SecurityContext: &v1.SecurityContext{
-			RunAsUser:              &p.SidecarProxyUID,
-			ReadOnlyRootFilesystem: &readOnly,
-			Privileged:             &priviledged,
-		},
-		VolumeMounts: volumeMounts,
+	sc := SidecarConfig{}
+	if err := yaml.Unmarshal(tmpl.Bytes(), &sc); err != nil {
+		log.Warnf(err.Error())
 	}
 
-	spec.Containers = append(spec.Containers, sidecar)
+	spec.InitContainers = append(spec.InitContainers, sc.InitContainers...)
+	spec.Containers = append(spec.Containers, sc.Containers...)
+	spec.Volumes = append(spec.Volumes, sc.Volumes...)
 }
 
-func intoObject(c *Config, in interface{}) (interface{}, error) {
+func intoObject(c *Config, in runtime.Object) (interface{}, error) {
 	obj, err := meta.Accessor(in)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := injectScheme.DeepCopy(in)
-	if err != nil {
-		return nil, err
-	}
+	out := in.DeepCopyObject()
 
 	if !injectRequired(c.IncludeNamespaces, ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
-		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
+		log.Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
 		return out, nil
 	}
 

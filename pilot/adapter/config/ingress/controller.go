@@ -21,7 +21,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,13 +30,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 type controller struct {
-	mesh         *proxyconfig.MeshConfig
+	mesh         *meshconfig.MeshConfig
 	domainSuffix string
 
 	client   kubernetes.Interface
@@ -49,14 +51,14 @@ var (
 )
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
+func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	options kube.ControllerOptions) model.ConfigStoreCache {
 	handler := &kube.ChainHandler{}
 
 	// queue requires a time duration for a retry delay after a handler error
 	queue := kube.NewQueue(1 * time.Second)
 
-	glog.V(2).Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
+	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	// informer framework from Kubernetes
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -90,7 +92,7 @@ func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
 			return errors.New("waiting till full synchronization")
 		}
 		if ingress, ok := obj.(*v1beta1.Ingress); ok {
-			glog.V(2).Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
+			log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
 		}
 		return nil
 	})

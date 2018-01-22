@@ -21,30 +21,32 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
-func buildIngressListeners(mesh *proxyconfig.MeshConfig,
+func buildIngressListeners(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
-	ingress proxy.Node) Listeners {
+	ingress model.Node) Listeners {
 	listeners := Listeners{
-		buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 80, "80", true, EgressTraceOperation),
+		buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 80, "80", true, EgressTraceOperation, false, config),
 	}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
-	_, secret := buildIngressRoutes(mesh, instances, discovery, config)
+	_, secret := buildIngressRoutes(mesh, ingress, instances, discovery, config)
 	if secret != "" {
-		listener := buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 443, "443", true, EgressTraceOperation)
+		listener := buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 443, "443", true, EgressTraceOperation, false, config)
 		listener.SSLContext = &SSLContext{
-			CertChainFile:  path.Join(proxy.IngressCertsPath, proxy.IngressCertFilename),
-			PrivateKeyFile: path.Join(proxy.IngressCertsPath, proxy.IngressKeyFilename),
+			CertChainFile:  path.Join(model.IngressCertsPath, model.IngressCertFilename),
+			PrivateKeyFile: path.Join(model.IngressCertsPath, model.IngressKeyFilename),
 			ALPNProtocols:  strings.Join(ListenersALPNProtocols, ","),
 		}
 		listeners = append(listeners, listener)
@@ -53,7 +55,7 @@ func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 	return listeners
 }
 
-func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig, sidecar model.Node,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
@@ -64,21 +66,21 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 
 	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
 	for _, rule := range rules {
-		routes, tls, err := buildIngressRoute(mesh, instances, rule, discovery, config)
+		routes, tls, err := buildIngressRoute(mesh, sidecar, instances, rule, discovery, config)
 		if err != nil {
-			glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
+			log.Warnf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
 		}
 
 		host := "*"
-		ingress := rule.Spec.(*proxyconfig.IngressRule)
+		ingress := rule.Spec.(*routing.IngressRule)
 		if ingress.Match != nil && ingress.Match.Request != nil {
 			if authority, ok := ingress.Match.Request.Headers[model.HeaderAuthority]; ok {
 				switch match := authority.GetMatchType().(type) {
-				case *proxyconfig.StringMatch_Exact:
+				case *routing.StringMatch_Exact:
 					host = match.Exact
 				default:
-					glog.Warningf("Unsupported match type for authority condition %T, falling back to %q", match, host)
+					log.Warnf("Unsupported match type for authority condition %T, falling back to %q", match, host)
 					continue
 				}
 			}
@@ -88,7 +90,7 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 			if tlsAll == "" {
 				tlsAll = tls
 			} else if tlsAll != tls {
-				glog.Warningf("Multiple secrets detected %s and %s", tls, tlsAll)
+				log.Warnf("Multiple secrets detected %s and %s", tls, tlsAll)
 				if tls < tlsAll {
 					tlsAll = tls
 				}
@@ -136,11 +138,11 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *proxyconfig.MeshConfig,
+func buildIngressRoute(mesh *meshconfig.MeshConfig, sidecar model.Node,
 	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
-	ingress := rule.Spec.(*proxyconfig.IngressRule)
+	ingress := rule.Spec.(*routing.IngressRule)
 	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
 	service, err := discovery.GetService(destination)
 	if err != nil {
@@ -159,14 +161,14 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(service, servicePort, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)
 
 	// TODO: not handling header match in ingress apart from uri and authority (uri must not be regex)
 	if len(ingressRoute.Headers) > 0 {
-		if len(ingressRoute.Headers) > 1 || ingressRoute.Headers[0].Name != model.HeaderAuthority {
+		if len(ingressRoute.Headers) > 1 || ingressRoute.Headers[0].Name != headerAuthority {
 			return nil, "", errors.New("header matches in ingress rule not supported")
 		}
 	}
@@ -187,16 +189,16 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 }
 
 // extractPort extracts the destination service port from the given destination,
-func extractPort(svc *model.Service, ingress *proxyconfig.IngressRule) (*model.Port, error) {
+func extractPort(svc *model.Service, ingress *routing.IngressRule) (*model.Port, error) {
 	switch p := ingress.GetDestinationServicePort().(type) {
-	case *proxyconfig.IngressRule_DestinationPort:
+	case *routing.IngressRule_DestinationPort:
 		num := p.DestinationPort
 		port, exists := svc.Ports.GetByPort(int(num))
 		if !exists {
 			return nil, fmt.Errorf("cannot find port %d in %q", num, svc.Hostname)
 		}
 		return port, nil
-	case *proxyconfig.IngressRule_DestinationPortName:
+	case *routing.IngressRule_DestinationPortName:
 		name := p.DestinationPortName
 		port, exists := svc.Ports.Get(name)
 		if !exists {

@@ -9,11 +9,11 @@ metadata:
 data:
   config: |-
     policy: "enabled"
-    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    namespaces: [""] # everything, aka v1.NamespaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: {PILOT_HUB}/proxy_init:{PILOT_TAG}
-      proxyImage: {PILOT_HUB}/proxy_debug:{PILOT_TAG}
+      proxyImage: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
       verbosity: 2
       version: {PILOT_TAG}
       meshConfigMapName: istio
@@ -53,7 +53,6 @@ spec:
           image: {PILOT_HUB}/sidecar_initializer:{PILOT_TAG}
           imagePullPolicy: IfNotPresent
           args:
-            - --port=8083
             - --namespace={ISTIO_NAMESPACE}
             - -v=2
           volumeMounts:

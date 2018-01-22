@@ -21,23 +21,24 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/istio/pilot/proxy"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 // ReadMeshConfig gets mesh configuration from a config file
-func ReadMeshConfig(filename string) (*proxyconfig.MeshConfig, error) {
+func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 	yaml, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
-	return proxy.ApplyMeshConfigDefaults(string(yaml))
+	return model.ApplyMeshConfigDefaults(string(yaml))
 }
 
 // VersionCmd is a sub-command to print version information
@@ -49,7 +50,7 @@ var VersionCmd = &cobra.Command{
 	},
 }
 
-// AddFlags carries over glog flags with new defaults
+// AddFlags adds all command line flags to the given command.
 func AddFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		switch gf.Name {
@@ -65,11 +66,20 @@ func AddFlags(rootCmd *cobra.Command) {
 	})
 }
 
+// SupressGlogWarnings is a hack to make flag.Parsed return true such that glog is happy
+// about the flags having been parsed.  See https://github.com/istio/istio/issues/2127.
+func SupressGlogWarnings() {
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	/* #nosec */
+	_ = fs.Parse([]string{})
+	flag.CommandLine = fs
+}
+
 // WaitSignal awaits for SIGINT or SIGTERM and closes the channel
 func WaitSignal(stop chan struct{}) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	close(stop)
-	glog.Flush()
+	_ = log.Sync()
 }

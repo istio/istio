@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -33,6 +32,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/log"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.
@@ -60,7 +60,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL) (store.Store2Backend, error) {
+func NewStore(u *url.URL) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
@@ -69,7 +69,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 		if timeout, err := time.ParseDuration(retryTimeoutParam); err == nil {
 			retryTimeout = timeout
 		} else {
-			glog.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
+			log.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
 		}
 	}
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -93,10 +93,10 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 	return s, nil
 }
 
-// Register registers this module as a Store2Backend.
+// Register registers this module as a StoreBackend.
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
-func Register(builders map[string]store.Store2Builder) {
+func Register(builders map[string]store.Builder) {
 	builders["k8s"] = NewStore
 	builders["kube"] = NewStore
 	builders["kubernetes"] = NewStore

@@ -178,20 +178,6 @@
     "lb_type": "round_robin"
    },
    {
-    "name": "out.httpbin.default.svc.cluster.local|http",
-    "service_name": "httpbin.default.svc.cluster.local|http",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
-    "name": "out.httpsbin.default.svc.cluster.local|https",
-    "service_name": "httpsbin.default.svc.cluster.local|https",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
     "name": "out.world.default.svc.cluster.local|custom",
     "service_name": "world.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,
@@ -204,12 +190,13 @@
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "random",
-    "max_requests_per_connection": 100,
+    "max_requests_per_connection": 500,
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
-      "max_pending_requests": 100,
-      "max_requests": 100
+      "max_pending_requests": 50,
+      "max_requests": 200,
+      "max_retries": 5
      }
     },
     "outlier_detection": {
@@ -232,12 +219,13 @@
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "random",
-    "max_requests_per_connection": 100,
+    "max_requests_per_connection": 500,
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
-      "max_pending_requests": 100,
-      "max_requests": 100
+      "max_pending_requests": 50,
+      "max_requests": 200,
+      "max_retries": 5
      }
     },
     "outlier_detection": {

@@ -18,5 +18,5 @@ else
     bazel --output_base=$BAZEL_OUTBASE run //mixer/docker:mixer
 fi
 
-docker tag istio/docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG
+docker tag istio/mixer/docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG
 gcloud docker -- push gcr.io/$PROJECT/mixer:$DOCKER_TAG

@@ -40,11 +40,12 @@ func TestGenerator_Generate(t *testing.T) {
 		want     string
 	}{
 		{"AllTemplates", map[string]string{
-			"testdata/check_proto.descriptor_set":   "istio.io/istio/mixer/template/list",
-			"testdata/report2_proto.descriptor_set": "istio.io/istio/mixer/template/metric",
-			"testdata/quota_proto.descriptor_set":   "istio.io/istio/mixer/template/quota",
-			"testdata/report1_proto.descriptor_set": "istio.io/istio/mixer/template/log"},
-			"testdata/AllTemplates.go.golden"},
+			"testdata/check/template_proto.descriptor_set":   "istio.io/istio/mixer/template/list",
+			"testdata/report2/template_proto.descriptor_set": "istio.io/istio/mixer/template/metric",
+			"testdata/quota/template_proto.descriptor_set":   "istio.io/istio/mixer/template/quota",
+			"testdata/apa/template_proto.descriptor_set":     "istio.io/istio/mixer/template/apa",
+			"testdata/report1/template_proto.descriptor_set": "istio.io/istio/mixer/template/log"},
+			"testdata/template.gen.go.golden"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
@@ -58,6 +59,7 @@ func TestGenerator_Generate(t *testing.T) {
 				if !t.Failed() {
 					if removeErr := os.RemoveAll(testTmpDir); removeErr != nil {
 						t.Logf("Could not remove temporary folder %s: %v", testTmpDir, removeErr)
+
 					}
 				} else {
 					t.Logf("Generated data is located at '%s'", testTmpDir)

@@ -20,6 +20,7 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -32,8 +33,8 @@ import (
 )
 
 const (
-	ResourceMsgTypeSuffix      = "Type"
-	ResourceMsgInstParamSuffix = "InstanceParam"
+	resourceMsgTypeSuffix      = "Type"
+	resourceMsgInstParamSuffix = "InstanceParam"
 	fullGoNameOfValueTypeEnum  = "istio_mixer_v1_config_descriptor.ValueType"
 	goFileImportFmt            = `"%s"`
 	protoFileImportFmt         = `import "%s";`
@@ -164,28 +165,38 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 	return imptd, nil
 }
 
-func stringify(protoType modelgen.TypeInfo) string {
-	if protoType.IsMap {
-		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
-	}
-	if protoType.IsResourceMessage {
-		return protoType.Name + ResourceMsgInstParamSuffix
-	}
-	return "string"
-}
+type stringifyFn func(modelgen.TypeInfo) string
 
 func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, error) {
 	imports := make([]string, 0)
+	re := regexp.MustCompile(`(?i)` + model.PackageName + "\\.")
+
+	var stringify stringifyFn
+
+	trimPackageName := func(fullName string) string {
+		return re.ReplaceAllString(fullName, "")
+	}
+
+	stringify = func(protoType modelgen.TypeInfo) string {
+		if protoType.IsMap {
+			return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
+		}
+		if protoType.IsResourceMessage {
+			return trimPackageName(protoType.Name) + resourceMsgInstParamSuffix
+		}
+		return "string"
+	}
 
 	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
 			"valueTypeOrResMsg": valueTypeOrResMsg,
 			"valueTypeOrResMsgFieldTypeName": func(protoTypeInfo modelgen.TypeInfo) string {
 				if protoTypeInfo.IsResourceMessage {
-					return protoTypeInfo.Name + ResourceMsgTypeSuffix
+
+					return trimPackageName(protoTypeInfo.Name) + resourceMsgTypeSuffix
 				}
 				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
-					return toProtoMap(protoTypeInfo.MapKey.Name, protoTypeInfo.MapValue.Name+ResourceMsgTypeSuffix)
+					return toProtoMap(protoTypeInfo.MapKey.Name, trimPackageName(protoTypeInfo.MapValue.Name)+resourceMsgTypeSuffix)
 				}
 				return protoTypeInfo.Name
 			},
@@ -203,10 +214,10 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, err
 				return ""
 			},
 			"getResourcMessageTypeName": func(s string) string {
-				return s + ResourceMsgTypeSuffix
+				return s + resourceMsgTypeSuffix
 			},
 			"getResourcMessageInterfaceParamTypeName": func(s string) string {
-				return s + ResourceMsgInstParamSuffix
+				return s + resourceMsgInstParamSuffix
 			},
 		},
 	).Parse(tmpl.RevisedTemplateTmpl)

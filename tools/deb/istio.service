@@ -1,0 +1,12 @@
+[Unit]
+Description=istio-sidecar: The Istio sidecar
+Documentation=http://istio.io/
+
+[Service]
+ExecStart=/usr/local/bin/istio-start.sh
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

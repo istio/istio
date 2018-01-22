@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // This file contains code to create new objects that are
@@ -34,23 +34,23 @@ import (
 // New creates a new runtime Dispatcher
 // Create a new controller and a dispatcher.
 // Returns a ready to use dispatcher.
-func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-	identityAttribute string, defaultConfigNamespace string,
-	s store.Store2, adapterInfo map[string]*adapter.Info,
-	templateInfo map[string]template.Info) (Dispatcher, error) {
+func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeListener, gp *pool.GoroutinePool,
+	handlerPool *pool.GoroutinePool, identityAttribute string, defaultConfigNamespace string, s store.Store,
+	adapterInfo map[string]*adapter.Info, templateInfo map[string]template.Info) (Dispatcher, error) {
+
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp, identityAttribute)
-	err := startController(s, adapterInfo, templateInfo, eval, d,
+	err := startController(s, adapterInfo, templateInfo, eval, typeChecker, v, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
 	return d, err
 }
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
-func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
+func startWatch(s store.Store, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
 	ctx := context.Background()
-	kindMap := kindMap(adapterInfo, templateInfo)
+	kindMap := KindMap(adapterInfo, templateInfo)
 	if err := s.Init(ctx, kindMap); err != nil {
 		return nil, nil, err
 	}
@@ -62,32 +62,32 @@ func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	return s.List(), watchChan, nil
 }
 
-// kindMap generates a map from object kind to its proto message.
-func kindMap(adapterInfo map[string]*adapter.Info,
+// KindMap generates a map from object kind to its proto message.
+func KindMap(adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) map[string]proto.Message {
 	kindMap := make(map[string]proto.Message)
 	// typed instances
 	for kind, info := range templateInfo {
 		kindMap[kind] = info.CtrCfg
-		glog.Infof("template Kind: %s, %v", kind, info.CtrCfg)
+		log.Infof("template Kind: %s, %v", kind, info.CtrCfg)
 	}
 	// typed handlers
 	for kind, info := range adapterInfo {
 		kindMap[kind] = info.DefaultConfig
-		glog.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
+		log.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &cpb.Rule{}
-	glog.Infof("template Kind: %s", RulesKind)
+	log.Infof("template Kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
-	glog.Infof("template Kind: %s", AttributeManifestKind)
+	log.Infof("template Kind: %s", AttributeManifestKind)
 
 	return kindMap
 }
 
 // startController creates a controller from the given params.
-func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
-	templateInfo map[string]template.Info, eval expr.Evaluator,
-	dispatcher ResolverChangeListener,
+func startController(s store.Store, adapterInfo map[string]*adapter.Info,
+	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
+	vocabularyChangeListener VocabularyChangeListener, resolverChangeListener ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
 
 	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
@@ -96,21 +96,23 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	}
 
 	c := &Controller{
-		adapterInfo:            adapterInfo,
-		templateInfo:           templateInfo,
-		eval:                   eval,
-		configState:            data,
-		dispatcher:             dispatcher,
-		resolver:               &resolver{}, // get an empty resolver
-		identityAttribute:      identityAttribute,
-		defaultConfigNamespace: defaultConfigNamespace,
-		handlerGoRoutinePool:   handlerPool,
-		table:                  make(map[string]*HandlerEntry),
-		createHandlerFactory:   newHandlerFactory,
+		adapterInfo:              adapterInfo,
+		templateInfo:             templateInfo,
+		evaluator:                eval,
+		typeChecker:              checker,
+		configState:              data,
+		resolverChangeListener:   resolverChangeListener,
+		vocabularyChangeListener: vocabularyChangeListener,
+		resolver:                 &resolver{}, // get an empty resolver
+		identityAttribute:        identityAttribute,
+		defaultConfigNamespace:   defaultConfigNamespace,
+		handlerGoRoutinePool:     handlerPool,
+		table:                    make(map[string]*HandlerEntry),
+		createHandlerFactory:     newHandlerFactory,
 	}
 
 	c.publishSnapShot()
-	glog.Infof("Config controller has started with %d config elements", len(c.configState))
+	log.Infof("Config controller has started with %d config elements", len(c.configState))
 	go watchChanges(watchChan, c.applyEvents)
 	return nil
 }

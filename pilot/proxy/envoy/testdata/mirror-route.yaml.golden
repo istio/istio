@@ -2,4 +2,6 @@ destination:
   name: world
 mirror:
   name: hello
+  labels:
+    version: v1
 

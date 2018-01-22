@@ -20,7 +20,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -69,7 +71,7 @@ type cacheHandler struct {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	glog.V(2).Infof("Service controller watching namespace %q", options.WatchedNamespace)
+	log.Infof("Service controller watching namespace %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
@@ -121,9 +123,9 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	}
 	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		glog.V(2).Infof("Error retrieving key: %v", err)
+		log.Infof("Error retrieving key: %v", err)
 	} else {
-		glog.V(6).Infof("Event %s: key %#v", event, k)
+		log.Debugf("Event %s: key %#v", event, k)
 	}
 	return nil
 }
@@ -163,10 +165,10 @@ func (c *Controller) createInformer(
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
-		!c.pods.informer.HasSynced() {
+		!c.pods.informer.HasSynced() ||
+		!c.nodes.informer.HasSynced() {
 		return false
 	}
-
 	return true
 }
 
@@ -176,9 +178,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
+	go c.nodes.informer.Run(stop)
 
 	<-stop
-	glog.V(2).Info("Controller terminated")
+	log.Infof("Controller terminated")
 }
 
 // Services implements a service catalog operation
@@ -198,7 +201,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname string) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("GetService(%s) => error %v", hostname, err)
+		log.Infof("GetService(%s) => error %v", hostname, err)
 		return nil, err
 	}
 	item, exists := c.serviceByKey(name, namespace)
@@ -214,7 +217,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
 	if err != nil {
-		glog.V(2).Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
+		log.Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
 		return nil, false
 	}
 	if !exists {
@@ -229,17 +232,19 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
+		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
 		return "", false
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
+		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
+		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		return "", false
 	}
-
 	return fmt.Sprintf("%v/%v", region, zone), true
 }
 
@@ -253,7 +258,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	managementPorts, err := convertProbesToPorts(&pod.Spec)
 
 	if err != nil {
-		glog.V(2).Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
+		log.Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
 	}
 
 	// We continue despite the error because healthCheckPorts could return a partial
@@ -267,7 +272,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
@@ -333,13 +338,20 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // HostInstances implements a service catalog operation
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(svcNodes map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
+	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				if addrs[ea.IP] {
+				if svcNodes[ea.IP] != nil {
+					if kubeNodes[ea.IP] == nil {
+						err := parseKubeServiceNode(ea.IP, svcNodes[ea.IP], kubeNodes)
+						if err != nil {
+							return out, err
+						}
+					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -359,6 +371,13 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
+								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
+									"with the query for pod %v in namespace %v",
+									ea.IP, pod.GetName(), pod.GetNamespace(),
+									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
+								continue
+							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
@@ -390,7 +409,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 	// the service is deployed on, and the service accounts of the pods.
 	instances, err := c.Instances(hostname, ports, model.LabelsCollection{})
 	if err != nil {
-		glog.Warningf("Instances(%s) error: %v", hostname, err)
+		log.Warnf("Instances(%s) error: %v", hostname, err)
 		return nil
 	}
 	for _, si := range instances {
@@ -403,11 +422,11 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 	// from the service annotation explicitly set by the operators.
 	svc, err := c.GetService(hostname)
 	if err != nil {
-		glog.Warningf("GetService(%s) error: %v", hostname, err)
+		log.Warnf("GetService(%s) error: %v", hostname, err)
 		return nil
 	}
 	if svc == nil {
-		glog.V(2).Infof("GetService(%s) error: service does not exist", hostname)
+		log.Infof("GetService(%s) error: service does not exist", hostname)
 		return nil
 	}
 	for _, serviceAccount := range svc.ServiceAccounts {
@@ -433,7 +452,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			return nil
 		}
 
-		glog.V(2).Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		if svcConv := convertService(svc, c.domainSuffix); svcConv != nil {
 			f(svcConv, event)
@@ -453,7 +472,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 
-		glog.V(2).Infof("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
+		log.Infof("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
 			if svc := convertService(*item, c.domainSuffix); svc != nil {
 				// TODO: we're passing an incomplete instance to the

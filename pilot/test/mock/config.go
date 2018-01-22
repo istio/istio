@@ -20,13 +20,20 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/golang/glog"
+	"github.com/gogo/protobuf/types"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	mpb "istio.io/api/mixer/v1"
+	mccpb "istio.io/api/mixer/v1/config/client"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/model/test"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -34,41 +41,106 @@ var (
 	Types = model.ConfigDescriptor{model.MockConfig}
 
 	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &proxyconfig.RouteRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleRouteRule = &routing.RouteRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		Route: []*proxyconfig.DestinationWeight{
+		Route: []*routing.DestinationWeight{
 			{Weight: 80, Labels: map[string]string{"version": "v1"}},
 			{Weight: 20, Labels: map[string]string{"version": "v2"}},
 		},
 	}
 
 	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &proxyconfig.IngressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleIngressRule = &routing.IngressRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
 		Port: 80,
-		DestinationServicePort: &proxyconfig.IngressRule_DestinationPort{DestinationPort: 80},
+		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
 	}
 
 	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &proxyconfig.EgressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleEgressRule = &routing.EgressRule{
+		Destination: &routing.IstioService{
 			Service: "*cnn.com",
 		},
-		Ports:          []*proxyconfig.EgressRule_Port{{Port: 80, Protocol: "http"}},
+		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
 		UseEgressProxy: false,
 	}
 
 	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &proxyconfig.DestinationPolicy{
-		Destination: &proxyconfig.IstioService{
+	ExampleDestinationPolicy = &routing.DestinationPolicy{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		LoadBalancing: &proxyconfig.LoadBalancing{
-			LbPolicy: &proxyconfig.LoadBalancing_Name{Name: proxyconfig.LoadBalancing_RANDOM},
+		LoadBalancing: &routing.LoadBalancing{
+			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
+		},
+	}
+
+	// ExampleHTTPAPISpec is an example HTTPAPISpec
+	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
+		Attributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+			},
+		},
+		Patterns: []*mccpb.HTTPAPISpecPattern{{
+			Attributes: &mpb.Attributes{
+				Attributes: map[string]*mpb.Attributes_AttributeValue{
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+				},
+			},
+			HttpMethod: "GET",
+			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+				UriTemplate: "/pets/{id}",
+			},
+		}},
+		ApiKeys: []*mccpb.APIKey{{
+			Key: &mccpb.APIKey_Header{
+				Header: "X-API-KEY",
+			},
+		}},
+	}
+
+	// ExampleQuotaSpec is an example QuotaSpec
+	ExampleQuotaSpec = &mccpb.QuotaSpec{
+		Rules: []*mccpb.QuotaRule{{
+			Match: []*mccpb.AttributeMatch{{
+				Clause: map[string]*mccpb.StringMatch{
+					"api.operation": {
+						MatchType: &mccpb.StringMatch_Exact{
+							Exact: "getPet",
+						},
+					},
+				},
+			}},
+			Quotas: []*mccpb.Quota{{
+				Quota:  "fooQuota",
+				Charge: 2,
+			}},
+		}},
+	}
+
+	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
+	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
+		Jwts: []*mccpb.JWT{
+			{
+				Issuer: "https://issuer.example.com",
+				Audiences: []string{
+					"audience_foo.example.com",
+					"audience_bar.example.com",
+				},
+				JwksUri:                "https://www.example.com/oauth/v1/certs",
+				ForwardJwt:             true,
+				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+				Locations: []*mccpb.JWT_Location{{
+					Scheme: &mccpb.JWT_Location_Header{
+						Header: "x-goog-iap-jwt-assertion",
+					},
+				}},
+			},
 		},
 	}
 )
@@ -265,45 +337,33 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
 	name := "example"
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.RouteRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleRouteRule,
-	}); err != nil {
-		t.Errorf("Post(RouteRule) => got %v", err)
+
+	cases := []struct {
+		name string
+		typ  string
+		spec proto.Message
+	}{
+		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
+		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
+		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
+		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
+		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
+		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
+		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
+			ExampleEndUserAuthenticationPolicySpec},
 	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.IngressRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleIngressRule,
-	}); err != nil {
-		t.Errorf("Post(IngressRule) => got %v", err)
-	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.EgressRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleEgressRule,
-	}); err != nil {
-		t.Errorf("Post(EgressRule) => got %v", err)
-	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.DestinationPolicy.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleDestinationPolicy,
-	}); err != nil {
-		t.Errorf("Post(DestinationPolicy) => got %v", err)
+
+	for _, c := range cases {
+		if _, err := store.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      c.typ,
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: c.spec,
+		}); err != nil {
+			t.Errorf("Post(%v) => got %v", c.name, err)
+		}
 	}
 }
 
@@ -312,8 +372,14 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 
+	lock := sync.Mutex{}
+
 	added, deleted := 0, 0
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -326,15 +392,20 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 			}
 			deleted++
 		}
-		glog.Infof("Added %d, deleted %d", added, deleted)
+		log.Infof("Added %d, deleted %d", added, deleted)
 	})
 	go cache.Run(stop)
 
 	// run map invariant sequence
 	CheckMapInvariant(store, t, namespace, n)
 
-	glog.Infof("Waiting till all events are received")
-	util.Eventually(func() bool { return added == n && deleted == n }, t)
+	log.Infof("Waiting till all events are received")
+	util.Eventually(func() bool {
+		lock.Lock()
+		defer lock.Unlock()
+		return added == n && deleted == n
+
+	}, t)
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
@@ -357,7 +428,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 				t.Errorf("Got %#v, %t, expected %#v", elt, exists, o)
 			}
 
-			glog.Infof("Calling Update(%s)", config.Key())
+			log.Infof("Calling Update(%s)", config.Key())
 			revised := Make(namespace, 1)
 			revised.ConfigMeta = elt.ConfigMeta
 			if _, err := cache.Update(revised); err != nil {
@@ -371,7 +442,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 				t.Errorf("Got %#v, %t, expected nonempty", elt, exists)
 			}
 
-			glog.Infof("Calling Delete(%s)", config.Key())
+			log.Infof("Calling Delete(%s)", config.Key())
 			if err := cache.Delete(model.MockConfig.Type, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
@@ -379,7 +450,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			glog.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
 			doneMu.Lock()
 			done = true
@@ -395,7 +466,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	}
 
 	// add and remove
-	glog.Infof("Calling Create(%#v)", o)
+	log.Infof("Calling Create(%#v)", o)
 	if _, err := cache.Create(o); err != nil {
 		t.Error(err)
 	}
@@ -439,7 +510,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	// check again in the controller cache
 	util.Eventually(func() bool {
 		os, _ = cache.List(model.MockConfig.Type, namespace)
-		glog.Infof("cache.List => Got %d, expected %d", len(os), 0)
+		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
@@ -454,8 +525,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	util.Eventually(func() bool {
 		cs, _ := cache.List(model.MockConfig.Type, namespace)
 		os, _ := store.List(model.MockConfig.Type, namespace)
-		glog.Infof("cache.List => Got %d, expected %d", len(cs), n)
-		glog.Infof("store.List => Got %d, expected %d", len(os), n)
+		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
+		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
 	}, t)
 

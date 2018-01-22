@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/prometheus/config/config.proto
+
 // Package prometheus publishes metric values collected by Mixer for
 // ingestion by prometheus.
 package prometheus
@@ -29,6 +31,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/gogo/protobuf/proto"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -339,7 +342,7 @@ func promLabels(l map[string]interface{}) prometheus.Labels {
 	return labels
 }
 
-func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte {
+func computeSha(m proto.Marshaler, log adapter.Logger) [sha1.Size]byte {
 	ba, err := m.Marshal()
 	if err != nil {
 		log.Warningf("Unable to encode %v", err)

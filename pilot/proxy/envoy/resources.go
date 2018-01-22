@@ -19,11 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -60,11 +62,17 @@ const (
 	// ClusterTypeOriginalDST name for clusters of type 'original_dst'
 	ClusterTypeOriginalDST = "original_dst"
 
-	// LbTypeRoundRobin is the name for roundrobin LB
+	// ClusterTypeSDS name for clusters of type 'sds'
+	ClusterTypeSDS = "sds"
+
+	// LbTypeRoundRobin is the name for round-robin LB
 	LbTypeRoundRobin = "round_robin"
 
 	// LbTypeLeastRequest is the name for least request LB
 	LbTypeLeastRequest = "least_request"
+
+	// LbTypeRingHash is the name for ring hash LB
+	LbTypeRingHash = "ring_hash"
 
 	// LbTypeRandom is the name for random LB
 	LbTypeRandom = "random"
@@ -119,6 +127,11 @@ const (
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
+	// headers with special meaning in Envoy
+	headerMethod    = ":method"
+	headerAuthority = ":authority"
+	headerScheme    = ":scheme"
+
 	router  = "router"
 	auto    = "auto"
 	decoder = "decoder"
@@ -132,9 +145,12 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // convertDuration converts to golang duration and logs errors
 func convertDuration(d *duration.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
 	dur, err := ptypes.Duration(d)
 	if err != nil {
-		glog.Warningf("error converting duration %#v, using 0: %v", d, err)
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
 	return dur
 }
@@ -251,6 +267,7 @@ type HTTPRoute struct {
 
 	Path   string `json:"path,omitempty"`
 	Prefix string `json:"prefix,omitempty"`
+	Regex  string `json:"regex,omitempty"`
 
 	PrefixRewrite string `json:"prefix_rewrite,omitempty"`
 	HostRewrite   string `json:"host_rewrite,omitempty"`
@@ -262,7 +279,7 @@ type HTTPRoute struct {
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 
 	Headers      Headers           `json:"headers,omitempty"`
-	TimeoutMS    int64             `json:"timeout_ms,omitempty"`
+	TimeoutMS    int64             `json:"timeout_ms"`
 	RetryPolicy  *RetryPolicy      `json:"retry_policy,omitempty"`
 	OpaqueConfig map[string]string `json:"opaque_config,omitempty"`
 
@@ -284,6 +301,11 @@ type HTTPRoute struct {
 	// faults contains the set of referenced faults in the route; the field is special
 	// and used only to aggregate fault filter information after composing routes
 	faults []*HTTPFilter
+}
+
+// Redirect returns true if route contains redirect logic
+func (route *HTTPRoute) Redirect() bool {
+	return route.HostRedirect != "" || route.PathRedirect != ""
 }
 
 // CatchAll returns true if the route matches all requests

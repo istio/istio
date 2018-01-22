@@ -20,18 +20,83 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/pkg/log"
 )
 
+// Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
+// compilation of expressions.
+type Compiler struct {
+	program   *il.Program
+	finder    expr.AttributeDescriptorFinder
+	functions map[string]expr.FunctionMetadata
+
+	nextFnID int
+}
+
+// New returns a new compiler instance.
+func New(finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) *Compiler {
+	return &Compiler{
+		finder:    finder,
+		program:   il.NewProgram(),
+		functions: functions,
+		nextFnID:  0,
+	}
+}
+
+// CompileExpression creates a new parameterless IL function, using the given expression text as its body. Upon success,
+// it returns the id of the generated function.
+func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType, error) {
+	expression, err := expr.Parse(text)
+	if err != nil {
+		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
+	}
+
+	exprType, err := expression.EvalType(c.finder, c.functions)
+	if err != nil {
+		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
+	}
+
+	g := generator{
+		program:   c.program,
+		builder:   il.NewBuilder(c.program.Strings()),
+		finder:    c.finder,
+		functions: c.functions,
+	}
+
+	returnType := g.toIlType(exprType)
+	g.generate(expression, 0, nmNone, "")
+	if g.err != nil {
+		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, g.err
+	}
+	g.builder.Ret()
+
+	body := g.builder.Build()
+
+	name := fmt.Sprintf("$expression%d", c.nextFnID)
+	c.nextFnID++
+
+	if err = g.program.AddFunction(name, []il.Type{}, returnType, body); err != nil {
+		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
+	}
+
+	return g.program.Functions.IDOf(name), exprType, nil
+}
+
+// Program returns the program instance that is being built by this compiler.
+func (c *Compiler) Program() *il.Program {
+	return c.program
+}
+
 type generator struct {
-	program *il.Program
-	builder *il.Builder
-	finder  expr.AttributeDescriptorFinder
-	err     error
+	program   *il.Program
+	builder   *il.Builder
+	finder    expr.AttributeDescriptorFinder
+	functions map[string]expr.FunctionMetadata
+	err       error
 }
 
 // nilMode is an enum flag for specifying how the emitted code should be handling potential nils.
@@ -57,62 +122,70 @@ type Result struct {
 }
 
 // Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error) {
+func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) (*il.Program, error) {
+	// TODO: This function should either be eliminated entirely, or use the Compiler struct, once we switch over to
+	// to using compiled expressions. Keeping this here in its current form to avoid generation of excessive garbage
+	// in the request path.
+
 	p := il.NewProgram()
 
 	expression, err := expr.Parse(text)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
-	exprType, err := expression.EvalType(finder, expr.FuncMap())
+	exprType, err := expression.EvalType(finder, functions)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	g := generator{
-		program: p,
-		builder: il.NewBuilder(p.Strings()),
-		finder:  finder,
+		program:   p,
+		builder:   il.NewBuilder(p.Strings()),
+		finder:    finder,
+		functions: functions,
 	}
 
 	returnType := g.toIlType(exprType)
 	g.generate(expression, 0, nmNone, "")
 	if g.err != nil {
-		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
-		return Result{}, g.err
+		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		return nil, g.err
 	}
 
 	g.builder.Ret()
 	body := g.builder.Build()
 	if err = g.program.AddFunction("eval", []il.Type{}, returnType, body); err != nil {
 		g.internalError(err.Error())
-		return Result{}, err
+		return nil, err
 	}
 
-	return Result{
-		Program:    p,
-		Expression: expression,
-	}, nil
+	return p, nil
 }
 
-func (g *generator) toIlType(t dpb.ValueType) il.Type {
+func (g *generator) toIlType(t descriptor.ValueType) il.Type {
 	switch t {
-	case dpb.STRING:
+	case descriptor.STRING:
 		return il.String
-	case dpb.BOOL:
+	case descriptor.BOOL:
 		return il.Bool
-	case dpb.INT64:
+	case descriptor.INT64:
 		return il.Integer
-	case dpb.DURATION:
+	case descriptor.DURATION:
 		return il.Duration
-	case dpb.DOUBLE:
+	case descriptor.DOUBLE:
 		return il.Double
-	case dpb.STRING_MAP:
+	case descriptor.STRING_MAP:
 		return il.Interface
-	case dpb.IP_ADDRESS:
+	case descriptor.IP_ADDRESS:
 		return il.Interface
-	case dpb.TIMESTAMP:
+	case descriptor.EMAIL_ADDRESS:
+		return il.Interface
+	case descriptor.DNS_NAME:
+		return il.Interface
+	case descriptor.URI:
+		return il.Interface
+	case descriptor.TIMESTAMP:
 		return il.Interface
 	default:
 		g.internalError("unhandled expression type: '%v'", t)
@@ -121,14 +194,14 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 }
 
 func (g *generator) evalType(e *expr.Expression) il.Type {
-	dvt, _ := e.EvalType(g.finder, expr.FuncMap())
+	dvt, _ := e.EvalType(g.finder, g.functions)
 	return g.toIlType(dvt)
 }
 
 func (g *generator) generate(e *expr.Expression, depth int, mode nilMode, valueJmpLabel string) {
 	switch {
 	case e.Const != nil:
-		g.generateConstant(e.Const)
+		g.generateConstant(e.Const, mode, valueJmpLabel)
 	case e.Var != nil:
 		g.generateVariable(e.Var, mode, valueJmpLabel)
 	case e.Fn != nil:
@@ -206,19 +279,14 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
-	case "ip":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.builder.Call("ip")
-	case "timestamp":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.builder.Call("timestamp")
-	case "match":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.generate(f.Args[1], depth+1, nmNone, "")
-		g.builder.Call("match")
 	default:
-		// TODO: generalize "ip" and "match" case to iterate over Args and append Call
-		g.internalError("function not yet implemented: %s", f.Name)
+		if f.Target != nil {
+			g.generate(f.Target, depth, nmNone, "")
+		}
+		for _, arg := range f.Args {
+			g.generate(arg, depth, nmNone, "")
+		}
+		g.builder.Call(f.Name)
 	}
 }
 
@@ -263,11 +331,11 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 		}
 
 	case il.Interface:
-		dvt, _ := f.Args[0].EvalType(g.finder, expr.FuncMap())
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
 		switch dvt {
-		case dpb.IP_ADDRESS:
+		case descriptor.IP_ADDRESS:
 			g.builder.Call("ip_equal")
-		case dpb.TIMESTAMP:
+		case descriptor.TIMESTAMP:
 			g.builder.Call("timestamp_equal")
 		default:
 			g.internalError("equality for type not yet implemented: %v", exprType)
@@ -303,11 +371,26 @@ func (g *generator) generateLor(f *expr.Function, depth int) {
 }
 
 func (g *generator) generateLand(f *expr.Function, depth int) {
-	for _, a := range f.Args {
+	// Short circuit jump point for arguments that evaluate to false.
+	lfalse := g.builder.AllocateLabel()
+
+	// Label for the end of the and block.
+	lend := g.builder.AllocateLabel()
+
+	for i, a := range f.Args {
 		g.generate(a, depth+1, nmNone, "")
+		if i < len(f.Args)-1 {
+			// if this is not the last argument, check and jump to the false label.
+			g.builder.Jz(lfalse)
+		} else {
+			g.builder.Jmp(lend)
+		}
 	}
 
-	g.builder.And()
+	g.builder.SetLabelPos(lfalse)
+	g.builder.APushBool(false)
+
+	g.builder.SetLabelPos(lend)
 }
 
 func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
@@ -374,6 +457,8 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 }
 
 func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+	// TODO: Optimize code generation to check whether the first argument can be guaranteed to return a value (or error)
+	// If so, we can elide the right-hand-side entirely.
 	switch mode {
 	case nmNone:
 		// If the caller expects non-null result, evaluate Args[1] as non-null, and jump to end if
@@ -397,30 +482,41 @@ func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJ
 	}
 }
 
-func (g *generator) generateConstant(c *expr.Constant) {
+func (g *generator) generateConstant(c *expr.Constant, mode nilMode, valueJmpLabel string) {
 	switch c.Type {
-	case dpb.STRING:
+	case descriptor.STRING:
 		s := c.Value.(string)
 		g.builder.APushStr(s)
-	case dpb.BOOL:
+	case descriptor.BOOL:
 		b := c.Value.(bool)
 		g.builder.APushBool(b)
-	case dpb.INT64:
+	case descriptor.INT64:
 		i := c.Value.(int64)
 		g.builder.APushInt(i)
-	case dpb.DOUBLE:
+	case descriptor.DOUBLE:
 		d := c.Value.(float64)
 		g.builder.APushDouble(d)
-	case dpb.DURATION:
+	case descriptor.DURATION:
 		u := c.Value.(time.Duration)
 		g.builder.APushInt(int64(u))
 	default:
 		g.internalError("unhandled constant type: %v", c.Type)
 	}
+
+	switch mode {
+	case nmNone:
+		break
+
+	case nmJmpOnValue:
+		g.builder.Jmp(valueJmpLabel)
+
+	default:
+		g.internalError("unhandled nil mode: %v", mode)
+	}
 }
 
 func (g *generator) internalError(format string, args ...interface{}) {
-	glog.Warningf("internal compiler error -- "+format, args)
+	log.Warnf("internal compiler error -- "+format, args)
 	if g.err == nil {
 		g.err = fmt.Errorf("internal compiler error -- %s", fmt.Sprintf(format, args...))
 	}

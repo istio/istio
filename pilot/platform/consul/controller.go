@@ -17,29 +17,29 @@ package consul
 import (
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
-	client     *api.Client
-	dataCenter string
-	monitor    Monitor
+	client  *api.Client
+	monitor Monitor
 }
 
 // NewController creates a new Consul controller
-func NewController(addr, datacenter string, interval time.Duration) (*Controller, error) {
+func NewController(addr string, interval time.Duration) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
 	return &Controller{
-		monitor:    NewConsulMonitor(client, interval),
-		client:     client,
-		dataCenter: datacenter,
+		monitor: NewConsulMonitor(client, interval),
+		client:  client,
 	}, err
 }
 
@@ -67,7 +67,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
@@ -82,7 +82,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 func (c *Controller) getServices() (map[string][]string, error) {
 	data, _, err := c.client.Catalog().Services(nil)
 	if err != nil {
-		glog.Warningf("Could not retrieve services from consul: %v", err)
+		log.Warnf("Could not retrieve services from consul: %v", err)
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
-		glog.Warningf("Could not retrieve service catalogue from consul: %v", err)
+		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
 		return nil, err
 	}
 
@@ -114,7 +114,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
@@ -153,7 +153,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 			return nil, err
 		}
 		for _, endpoint := range endpoints {
-			if addrs[endpoint.ServiceAddress] {
+			if addrs[endpoint.ServiceAddress] != nil {
 				out = append(out, convertInstance(endpoint))
 			}
 		}

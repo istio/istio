@@ -21,14 +21,14 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip" // register the gzip compressor
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -39,33 +39,22 @@ type benchState struct {
 	gp           *pool.GoroutinePool
 	s            *grpcServer
 	delayOnClose bool
-
-	legacy *legacyDispatcher
 }
 
-func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
+func (bs *benchState) createGRPCServer() (string, error) {
 	// get the network stuff setup
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", err
 	}
 
-	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(256))
-	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(1024*1024))
-
-	if grpcCompression {
-		grpcOptions = append(grpcOptions, grpc.RPCCompressor(grpc.NewGZIPCompressor()))
-		grpcOptions = append(grpcOptions, grpc.RPCDecompressor(grpc.NewGZIPDecompressor()))
-	}
-
 	// get everything wired up
-	bs.gs = grpc.NewServer(grpcOptions...)
+	bs.gs = grpc.NewServer(grpc.MaxConcurrentStreams(256), grpc.MaxMsgSize(1024*1024))
 
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs.legacy, bs, bs.gp)
+	ms := NewGRPCServer(bs, bs.gp)
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
@@ -78,20 +67,12 @@ func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
 
 func (bs *benchState) deleteGRPCServer() {
 	bs.gs.GracefulStop()
-	bs.gp.Close()
+	_ = bs.gp.Close()
 }
 
-func (bs *benchState) createAPIClient(dial string, grpcCompression bool) error {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-
-	if grpcCompression {
-		opts = append(opts, grpc.WithCompressor(grpc.NewGZIPCompressor()))
-		opts = append(opts, grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
-	}
-
+func (bs *benchState) createAPIClient(dial string) error {
 	var err error
-	if bs.connection, err = grpc.Dial(dial, opts...); err != nil {
+	if bs.connection, err = grpc.Dial(dial, grpc.WithInsecure()); err != nil {
 		return err
 	}
 
@@ -113,18 +94,14 @@ func (bs *benchState) deleteAPIClient() {
 	bs.connection = nil
 }
 
-func prepBenchState(grpcCompression bool) (*benchState, error) {
+func prepBenchState() (*benchState, error) {
 	bs := &benchState{}
-	bs.legacy = &legacyDispatcher{
-		preproc: bs.legacyPreprocess,
-		quota:   bs.legacyQuota,
-	}
-	dial, err := bs.createGRPCServer(grpcCompression)
+	dial, err := bs.createGRPCServer()
 	if err != nil {
 		return nil, err
 	}
 
-	if err = bs.createAPIClient(dial, grpcCompression); err != nil {
+	if err = bs.createAPIClient(dial); err != nil {
 		bs.deleteGRPCServer()
 		return nil, err
 	}
@@ -153,22 +130,13 @@ func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	qr := &adapter.QuotaResult{
 		Status: status.OK,
 		Amount: 42,
 	}
 	return qr, nil
-}
-
-func (bs *benchState) legacyQuota(_ attribute.Bag, _ *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-	qmr := &aspect.QuotaMethodResp{Amount: 42}
-	return qmr, status.OK
-}
-
-func (bs *benchState) legacyPreprocess(_ attribute.Bag, _ *attribute.MutableBag) rpc.Status {
-	return status.OK
 }
 
 func BenchmarkAPI_Unary_GlobalDict_NoCompress(b *testing.B) {
@@ -188,7 +156,7 @@ func BenchmarkAPI_Unary_NoGlobalDict_Compress(b *testing.B) {
 }
 
 func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
-	bs, err := prepBenchState(grpcCompression)
+	bs, err := prepBenchState()
 	if err != nil {
 		b.Fatalf("unable to prep test state %v", err)
 	}
@@ -207,6 +175,11 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 	gp := pool.NewGoroutinePool(32, false)
 	gp.AddWorkers(32)
 
+	var opts []grpc.CallOption
+	if grpcCompression {
+		opts = append(opts, grpc.UseCompressor("gzip"))
+	}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		uuid[4] = byte(i)
@@ -221,12 +194,12 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		}
 
 		wg.Add(1)
-		gp.ScheduleWork(func() {
-			if _, err := bs.client.Check(context.Background(), request); err != nil {
+		gp.ScheduleWork(func(_ interface{}) {
+			if _, err := bs.client.Check(context.Background(), request, opts...); err != nil {
 				b.Errorf("Check2 failed with %v", err)
 			}
 			wg.Done()
-		})
+		}, nil)
 	}
 
 	// wait for all the async work to be done

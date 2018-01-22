@@ -121,9 +121,14 @@ func ilType(t reflect.Type) il.Type {
 		case "Time":
 			return il.Interface
 		}
+	case reflect.Interface:
+		switch t.Name() {
+		case "StringMap":
+			return il.Interface
+		}
 	}
 
-	return il.Unknown
+	panic("Unmapped go type: " + t.Name() + " " + t.String() + " kind:" + t.Kind().String())
 }
 
 // invoke calls the extern function via reflection, using the interpreter's calling convention.
@@ -145,7 +150,7 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 
 		switch e.paramTypes[i] {
 		case il.String:
-			str := s.GetString(stack[ap])
+			str := heap[stack[ap]].(string)
 			ins[i] = reflect.ValueOf(str)
 
 		case il.Bool:
@@ -204,8 +209,9 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 	switch e.returnType {
 	case il.String:
 		str := rv.String()
-		id := s.GetID(str)
-		return id, 0, nil
+		heap[*hp] = str
+		*hp++
+		return *hp - 1, 0, nil
 
 	case il.Bool:
 		if rv.Bool() {

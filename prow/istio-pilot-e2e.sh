@@ -30,9 +30,11 @@ set -u
 set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  export USER=Prow
+
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/istio
   cd ${GOPATH}/src/istio.io/istio
 
@@ -51,4 +53,7 @@ create_cluster 'e2e-pilot'
 
 ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
 HUB="gcr.io/istio-testing"
-make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false"
+
+cd ${GOPATH}/src/istio.io/istio
+./bin/init.sh
+make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false -use-initializer -use-admission-webhook=false"

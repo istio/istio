@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	betaext "k8s.io/api/extensions/v1beta1"
@@ -31,8 +32,9 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/status"
 	"k8s.io/ingress/core/pkg/ingress/store"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 const ingressElectionID = "istio-ingress-controller-leader"
@@ -54,7 +56,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
+func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
 	ingressNamespace string,
 	options kube.ControllerOptions) (*StatusSyncer, error) {
@@ -81,7 +83,7 @@ func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 	if mesh.IngressService != "" {
 		publishService = fmt.Sprintf("%v/%v", ingressNamespace, mesh.IngressService)
 	}
-	glog.V(2).Infof("ingress status syncer publishService %s", publishService)
+	log.Infof("ingress status syncer publishService %s", publishService)
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
 
 	customIngressStatus := func(*betaext.Ingress) []v1.LoadBalancerIngress {
@@ -107,14 +109,14 @@ func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 // convertIngressControllerMode converts Ingress controller mode into k8s ingress status syncer ingress class and
 // default ingress class. Ingress class and default ingress class are used by the syncer to determine whether or not to
 // update the IP of a ingress resource.
-func convertIngressControllerMode(mode proxyconfig.MeshConfig_IngressControllerMode,
+func convertIngressControllerMode(mode meshconfig.MeshConfig_IngressControllerMode,
 	class string) (string, string) {
 	var ingressClass, defaultIngressClass string
 	switch mode {
-	case proxyconfig.MeshConfig_DEFAULT:
+	case meshconfig.MeshConfig_DEFAULT:
 		defaultIngressClass = class
 		ingressClass = class
-	case proxyconfig.MeshConfig_STRICT:
+	case meshconfig.MeshConfig_STRICT:
 		ingressClass = class
 	}
 	return ingressClass, defaultIngressClass

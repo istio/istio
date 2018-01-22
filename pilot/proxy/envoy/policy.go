@@ -18,9 +18,11 @@
 package envoy
 
 import (
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
@@ -37,8 +39,9 @@ func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []str
 func applyClusterPolicy(cluster *Cluster,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore,
-	mesh *proxyconfig.MeshConfig,
-	accounts model.ServiceAccounts) {
+	mesh *meshconfig.MeshConfig,
+	accounts model.ServiceAccounts,
+	domain string) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
 
@@ -51,32 +54,34 @@ func applyClusterPolicy(cluster *Cluster,
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
-			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
-			cluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, serviceAccounts)
+			cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, serviceAccounts)
 		}
 	}
 
 	// apply destination policies
 	policyConfig := config.Policy(instances, cluster.hostname, cluster.tags)
 
+	// if no policy is configured, destination rule if one exists
 	if policyConfig == nil {
+		applyDestinationRule(config, cluster, domain)
 		return
 	}
 
-	policy := policyConfig.Spec.(*proxyconfig.DestinationPolicy)
+	policy := policyConfig.Spec.(*routing.DestinationPolicy)
 
 	// Load balancing policies do not apply for Original DST clusters
 	// as the intent is to go directly to the instance.
 	if policy.LoadBalancing != nil && cluster.Type != ClusterTypeOriginalDST {
 		switch policy.LoadBalancing.GetName() {
-		case proxyconfig.LoadBalancing_ROUND_ROBIN:
+		case routing.LoadBalancing_ROUND_ROBIN:
 			cluster.LbType = LbTypeRoundRobin
-		case proxyconfig.LoadBalancing_LEAST_CONN:
+		case routing.LoadBalancing_LEAST_CONN:
 			cluster.LbType = LbTypeLeastRequest
-		case proxyconfig.LoadBalancing_RANDOM:
+		case routing.LoadBalancing_RANDOM:
 			cluster.LbType = LbTypeRandom
 		}
 	}
@@ -98,7 +103,9 @@ func applyClusterPolicy(cluster *Cluster,
 		if cbconfig.HttpMaxPendingRequests > 0 {
 			cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
 		}
-		//TODO: need to add max_retries as well. Currently it defaults to 3
+		if cbconfig.HttpMaxRetries > 0 {
+			cluster.CircuitBreaker.Default.MaxRetries = int(cbconfig.HttpMaxRetries)
+		}
 
 		cluster.OutlierDetection = &OutlierDetection{}
 
@@ -114,6 +121,131 @@ func applyClusterPolicy(cluster *Cluster,
 		}
 		if cbconfig.HttpMaxEjectionPercent > 0 {
 			cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
+		}
+	}
+}
+
+func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSettings) {
+	if policy == nil || cluster.Type == ClusterTypeOriginalDST {
+		return
+	}
+
+	if consistent := policy.GetConsistentHash(); consistent != nil {
+		// cluster.LbType = LbTypeRingHash
+		// TODO: need to set special values in the route config
+		// see: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html#ring-hash
+		log.Warn("Consistent hash load balancing type is not currently supported")
+	} else {
+		switch policy.GetSimple() {
+		case routingv2.LoadBalancerSettings_LEAST_CONN:
+			cluster.LbType = LbTypeLeastRequest
+		case routingv2.LoadBalancerSettings_RANDOM:
+			cluster.LbType = LbTypeRandom
+		case routingv2.LoadBalancerSettings_PASSTHROUGH:
+			cluster.LbType = LbTypeOriginalDST // FIXME: double-check
+		default:
+			cluster.LbType = LbTypeRoundRobin
+		}
+	}
+}
+
+func buildOutlierDetection(outlier *routingv2.OutlierDetection) *OutlierDetection {
+	if outlier != nil && outlier.Http != nil {
+		out := &OutlierDetection{
+			ConsecutiveErrors:  5,
+			IntervalMS:         10000, // 10s
+			BaseEjectionTimeMS: 30000, // 30s
+			MaxEjectionPercent: 10,
+		}
+
+		if outlier.Http.BaseEjectionTime != nil {
+			out.BaseEjectionTimeMS = protoDurationToMS(outlier.Http.BaseEjectionTime)
+		}
+		if outlier.Http.ConsecutiveErrors > 0 {
+			out.ConsecutiveErrors = int(outlier.Http.ConsecutiveErrors)
+		}
+		if outlier.Http.Interval != nil {
+			out.IntervalMS = protoDurationToMS(outlier.Http.Interval)
+		}
+		if outlier.Http.MaxEjectionPercent > 0 {
+			out.MaxEjectionPercent = int(outlier.Http.MaxEjectionPercent)
+		}
+
+		return out
+	}
+	return nil
+}
+
+func applyConnectionPool(cluster *Cluster, settings *routingv2.ConnectionPoolSettings) {
+	cluster.MaxRequestsPerConnection = 1024 // TODO: set during cluster construction?
+
+	if settings == nil {
+		return
+	}
+
+	// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head) and
+	// outlier detection (which is per pod circuit breaker)
+	cluster.CircuitBreaker = &CircuitBreaker{
+		Default: DefaultCBPriority{
+			MaxConnections:     1024, // TODO: what is the Istio default?
+			MaxPendingRequests: 1024,
+			MaxRequests:        1024,
+			MaxRetries:         3,
+		},
+	}
+
+	if settings.Http != nil {
+		if settings.Http.Http2MaxRequests > 0 {
+			// Envoy only applies MaxRequests in HTTP/2 clusters
+			cluster.CircuitBreaker.Default.MaxRequests = int(settings.Http.Http2MaxRequests)
+		}
+		if settings.Http.Http1MaxPendingRequests > 0 {
+			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
+			cluster.CircuitBreaker.Default.MaxPendingRequests = int(settings.Http.Http1MaxPendingRequests)
+		}
+
+		if settings.Http.MaxRequestsPerConnection > 0 {
+			cluster.MaxRequestsPerConnection = int(settings.Http.MaxRequestsPerConnection)
+		}
+
+		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default value of 3
+		if settings.Http.MaxRetries > 0 {
+			cluster.CircuitBreaker.Default.MaxRetries = int(settings.Http.MaxRetries)
+		}
+	}
+
+	if settings.Tcp != nil {
+		if settings.Tcp.ConnectTimeout != nil {
+			cluster.ConnectTimeoutMs = protoDurationToMS(settings.Tcp.ConnectTimeout)
+		}
+
+		if settings.Tcp.MaxConnections > 0 {
+			cluster.CircuitBreaker.Default.MaxConnections = int(settings.Tcp.MaxConnections)
+		}
+	}
+}
+
+// TODO: write unit tests for sub-functions
+func applyTrafficPolicy(cluster *Cluster, policy *routingv2.TrafficPolicy) {
+	if policy == nil {
+		return
+	}
+	applyLoadBalancePolicy(cluster, policy.LoadBalancer)
+	applyConnectionPool(cluster, policy.ConnectionPool)
+	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
+}
+
+func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domain string) {
+	destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
+	if destinationRuleConfig != nil {
+		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+
+		applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
+		for _, subset := range destinationRule.Subsets {
+			if cluster.tags.Equals(subset.Labels) {
+				applyTrafficPolicy(cluster, subset.TrafficPolicy)
+				break
+			}
 		}
 	}
 }

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +29,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/golang/glog"
+	"istio.io/istio/pkg/log"
 )
 
+var (
+	immediate int64
+)
+
+// CreateClientset creates a new Clientset for the given kubeconfig.
 func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -45,30 +52,33 @@ func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
+// CreateTestNamespace creates a namespace for test. Returns name of the namespace on success, and error if there is any.
 func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string, error) {
 	template := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: prefix,
 		},
 	}
-	namespace, err := clientset.Core().Namespaces().Create(template)
+	namespace, err := clientset.CoreV1().Namespaces().Create(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to create a namespace (error: %v)", err)
 	}
 
 	name := namespace.GetName()
-	glog.Infof("Namespace %v is created", name)
+	log.Infof("Namespace %v is created", name)
 	return name, nil
 }
 
+// DeleteTestNamespace deletes a namespace for test.
 func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error {
-	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{}); err != nil {
+	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{GracePeriodSeconds: &immediate}); err != nil {
 		return fmt.Errorf("failed to delete namespace %q (error: %v)", namespace, err)
 	}
-	glog.Infof("Namespace %v is deleted", namespace)
+	log.Infof("Namespace %v is deleted", namespace)
 	return nil
 }
 
+// CreateService creates a service object and returns a pointer pointing to this object on success.
 func CreateService(clientset kubernetes.Interface, namespace string, name string, port int32,
 	serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	uuid := string(uuid.NewUUID())
@@ -104,15 +114,22 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 	return clientset.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 }
 
+// DeleteService deletes a service.
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
+	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
+// CreatePod creates a pod object and returns a pointer pointing to this object on success.
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
-	uuid := string(uuid.NewUUID())
+	return CreatePodWithCommand(clientset, namespace, image, name, []string{}, []string{})
+}
+
+// CreatePodWithCommand creates a pod object with specific command and arguments and returns a pointer pointing to this object on success.
+func CreatePodWithCommand(clientset kubernetes.Interface, namespace string, image string, name string, command []string, args []string) (*v1.Pod, error) {
+	podUUID := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
-		v1.EnvVar{
+		{
 			Name: "NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
@@ -125,7 +142,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 
 	spec := v1.PodSpec{
 		Containers: []v1.Container{
-			v1.Container{
+			{
 				Env:   env,
 				Name:  fmt.Sprintf("%v-pod-container", name),
 				Image: image,
@@ -133,10 +150,17 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		},
 	}
 
+	if len(command) > 0 {
+		spec.Containers[0].Command = command
+		if len(args) > 0 {
+			spec.Containers[0].Args = args
+		}
+	}
+
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"uuid":      uuid,
+				"uuid":      podUUID,
 				"pod-group": fmt.Sprintf("%v-pod-group", name),
 			},
 			Name: name,
@@ -144,23 +168,30 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		Spec: spec,
 	}
 
-	pod, err := clientset.CoreV1().Pods(namespace).Create(pod)
+	_, err := clientset.CoreV1().Pods(namespace).Create(pod)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := waitForPodRunning(clientset, namespace, uuid, 60*time.Second); err != nil {
+	if err := waitForPodRunning(clientset, namespace, podUUID, 60*time.Second); err != nil {
 		return nil, err
 	}
 
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
-func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
+// DeleteSecret deletes a secret.
+func DeleteSecret(clientset kubernetes.Interface, namespace string, name string) error {
+	return clientset.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
-func CreateRole(clientset kubernetes.Interface, namespace string) error {
+// DeletePod deletes a pod.
+func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
+	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
+// CreateIstioCARole creates a role object named "istio-ca-role".
+func CreateIstioCARole(clientset kubernetes.Interface, namespace string) error {
 	role := rbac.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -188,7 +219,8 @@ func CreateRole(clientset kubernetes.Interface, namespace string) error {
 	return nil
 }
 
-func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
+// CreateIstioCARoleBinding binds role "istio-ca-role" to default service account.
+func CreateIstioCARoleBinding(clientset kubernetes.Interface, namespace string) error {
 	rolebinding := rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -210,11 +242,8 @@ func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	if _, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding)
+	return err
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,
@@ -236,7 +265,7 @@ func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace s
 		case event := <-events:
 			svc := event.Object.(*v1.Service)
 			if len(svc.Status.LoadBalancer.Ingress) > 0 {
-				glog.Infof("LoadBalancer for %v/%v is ready. IP: %v", namespace, svc.GetName(),
+				log.Infof("LoadBalancer for %v/%v is ready. IP: %v", namespace, svc.GetName(),
 					svc.Status.LoadBalancer.Ingress[0].IP)
 				return nil
 			}
@@ -264,7 +293,7 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 		case event := <-events:
 			pod := event.Object.(*v1.Pod)
 			if pod.Status.Phase == v1.PodRunning {
-				glog.Infof("Pod %v/%v is in Running phase", namespace, pod.GetName())
+				log.Infof("Pod %v/%v is in Running phase", namespace, pod.GetName())
 				return nil
 			}
 		case <-time.After(timeToWait - time.Since(startTime)):
@@ -273,6 +302,8 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 	}
 }
 
+// WaitForSecretExist takes name of a secret and watches the secret. Returns the requested secret
+// if it exists, or error on timeouts.
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
 	timeToWait time.Duration) (*v1.Secret, error) {
 	watch, err := clientset.CoreV1().Secrets(namespace).Watch(metav1.ListOptions{})

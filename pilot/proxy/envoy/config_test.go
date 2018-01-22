@@ -24,9 +24,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -228,9 +227,29 @@ const (
 )
 
 var (
+	destinationRuleWorld = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world"},
+		file: "testdata/destination-world-v1alpha2.yaml.golden",
+	}
+
+	destinationRuleWorldCB = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world-cb"},
+		file: "testdata/destination-world-cb-v1alpha2.yaml.golden",
+	}
+
+	destinationRuleHello = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
+		file: "testdata/destination-hello-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
+	}
+
+	cbRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
+		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
 	}
 
 	timeoutRouteRule = fileConfig{
@@ -238,9 +257,19 @@ var (
 		file: "testdata/timeout-route-rule.yaml.golden",
 	}
 
+	timeoutRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "timeout"},
+		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
+	}
+
 	weightedRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "weighted"},
 		file: "testdata/weighted-route.yaml.golden",
+	}
+
+	weightedRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "weighted"},
+		file: "testdata/weighted-route-v1alpha2.yaml.golden",
 	}
 
 	faultRouteRule = fileConfig{
@@ -248,9 +277,29 @@ var (
 		file: "testdata/fault-route.yaml.golden",
 	}
 
+	faultRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "fault"},
+		file: "testdata/fault-route-v1alpha2.yaml.golden",
+	}
+
+	multiMatchFaultRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-fault"},
+		file: "testdata/multi-match-fault-v1alpha2.yaml.golden",
+	}
+
 	redirectRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect"},
 		file: "testdata/redirect-route.yaml.golden",
+	}
+
+	redirectRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
+		file: "testdata/redirect-route-v1alpha2.yaml.golden",
+	}
+
+	redirectRouteToEgressRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect-to-egress"},
+		file: "testdata/redirect-route-to-egress.yaml.golden",
 	}
 
 	rewriteRouteRule = fileConfig{
@@ -258,9 +307,24 @@ var (
 		file: "testdata/rewrite-route.yaml.golden",
 	}
 
+	rewriteRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "rewrite"},
+		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
+	}
+
+	multiMatchRewriteRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-rewrite"},
+		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
+	}
+
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",
+	}
+
+	websocketRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
+		file: "testdata/websocket-route-v1alpha2.yaml.golden",
 	}
 
 	egressRule = fileConfig{
@@ -278,6 +342,11 @@ var (
 		file: "testdata/egress-rule-timeout-route-rule.yaml.golden",
 	}
 
+	egressRuleTCP = fileConfig{
+		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google-cloud-tcp"},
+		file: "testdata/egress-rule-tcp.yaml.golden",
+	}
+
 	ingressRouteRule1 = fileConfig{
 		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "world"},
 		file: "testdata/ingress-route-world.yaml.golden",
@@ -293,14 +362,60 @@ var (
 		file: "testdata/addheaders-route.yaml.golden",
 	}
 
+	addHeaderRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "append-headers"},
+		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
+	}
+
 	corsPolicyRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "cors-policy"},
 		file: "testdata/corspolicy-route.yaml.golden",
 	}
 
+	corsPolicyRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "cors-policy"},
+		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
+	}
+
 	mirrorRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route.yaml.golden",
+	}
+
+	mirrorRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
+		file: "testdata/mirror-route-v1alpha2.yaml.golden",
+	}
+
+	// mixerclient service configuration
+	mixerclientAPISpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpec.Type, Name: "api-spec"},
+		file: "testdata/api-spec.yaml.golden",
+	}
+
+	mixerclientAPISpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpecBinding.Type, Name: "api-spec-binding"},
+		file: "testdata/api-spec-binding.yaml.golden",
+	}
+
+	mixerclientQuotaSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpec.Type, Name: "quota-spec"},
+		file: "testdata/quota-spec.yaml.golden",
+	}
+
+	mixerclientQuotaSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpecBinding.Type, Name: "quota-spec-binding"},
+		file: "testdata/quota-spec-binding.yaml.golden",
+	}
+
+	mixerclientAuthSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpec.Type, Name: "auth-spec"},
+		file: "testdata/auth-spec.yaml.golden",
+	}
+
+	mixerclientAuthSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
+		file: "testdata/auth-spec-binding.yaml.golden",
 	}
 )
 
@@ -332,8 +447,8 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 	}
 }
 
-func makeProxyConfig() proxyconfig.ProxyConfig {
-	proxyConfig := proxy.DefaultProxyConfig()
+func makeProxyConfig() meshconfig.ProxyConfig {
+	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
 	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
@@ -345,14 +460,14 @@ var (
 	pilotSAN = []string{"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
 )
 
-func makeProxyConfigControlPlaneAuth() proxyconfig.ProxyConfig {
+func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
-	proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	return proxyConfig
 }
 
-func makeMeshConfig() proxyconfig.MeshConfig {
-	mesh := proxy.DefaultMeshConfig()
+func makeMeshConfig() meshconfig.MeshConfig {
+	mesh := model.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
@@ -434,6 +549,56 @@ func TestTruncateClusterName(t *testing.T) {
 	prefixLen := MaxClusterNameLength - sha1.Size*2
 	if gt[:prefixLen] != trunc[:prefixLen] {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
+	}
+}
+
+func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
+	cases := []struct {
+		in          string
+		wantAddress string
+		wantName    string
+		wantSSL     bool
+		wantError   bool
+	}{
+		{
+			in:          "https://www.googleapis.com/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
+		},
+		{
+			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
+		},
+		{
+			in:          "http://example.com/oauth2/v1/certs",
+			wantAddress: "example.com:80",
+			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
+			wantSSL:     false,
+		},
+		{
+			in:        ":foo",
+			wantError: true,
+		},
+	}
+	for _, c := range cases {
+		gotName, gotAddress, gotSSL, gotError := buildJWKSURIClusterNameAndAddress(c.in)
+		if c.wantError != (gotError != nil) {
+			t.Errorf("%s returned unexpected error: want %v got %v: %v",
+				c.in, c.wantError, gotError != nil, gotError)
+		} else {
+			if gotAddress != c.wantAddress {
+				t.Errorf("%s: gotAddress %v wantAddress %v", c.in, gotAddress, c.wantAddress)
+			}
+			if gotName != c.wantName {
+				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
+			}
+			if gotSSL != c.wantSSL {
+				t.Errorf("%s: gotSsl %v wantSSL %v", c.in, gotSSL, c.wantSSL)
+			}
+		}
 	}
 }
 

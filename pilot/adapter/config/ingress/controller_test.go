@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,10 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
@@ -126,6 +126,9 @@ var (
 						},
 					},
 				},
+				{
+					Host: "host3.com",
+				},
 			},
 		},
 	}
@@ -133,7 +136,7 @@ var (
 
 func TestConfig(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
@@ -173,7 +176,7 @@ func TestConfig(t *testing.T) {
 
 func TestIngressController(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
@@ -181,8 +184,14 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
+
+	lock := sync.Mutex{}
 	notificationCount := 0
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		notificationCount++
 	})
 	go ctl.Run(stop)
@@ -198,6 +207,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	util.Eventually(func() bool {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		return notificationCount == expectedRuleCount
 	}, t)
 	if notificationCount != expectedRuleCount {
@@ -221,12 +234,12 @@ func TestIngressController(t *testing.T) {
 		if !exists {
 			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key())
 		} else {
-			listRule, ok := listMsg.Spec.(*proxyconfig.IngressRule)
+			listRule, ok := listMsg.Spec.(*routing.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", listMsg.Spec)
 			}
 
-			getRule, ok := getMsg.Spec.(*proxyconfig.IngressRule)
+			getRule, ok := getMsg.Spec.(*routing.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", getMsg)
 			}

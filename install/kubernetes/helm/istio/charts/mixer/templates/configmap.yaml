@@ -1,0 +1,11 @@
+{{- $istio_namespace := .Values.global.namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mixer-custom-resources-configmap
+  namespace: {{$istio_namespace}}
+  labels:
+    istio: mixer
+data:
+  custom-resources.yaml: |-
+    {{- include "config.yaml.tpl" . | indent 4}}

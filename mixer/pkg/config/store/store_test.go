@@ -11,44 +11,183 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package store
 
 import (
+	"context"
 	"errors"
 	"net/url"
-	"strings"
+	"reflect"
 	"testing"
+	"time"
+
+	"github.com/gogo/protobuf/proto"
+
+	cfg "istio.io/istio/mixer/pkg/config/proto"
 )
 
-func testingRegister(m map[string]Builder) {
-	m["test"] = func(u *url.URL) (KeyValueStore, error) {
-		return nil, nil
+type testStore struct {
+	*memstore
+	initErr  error
+	watchErr error
+}
+
+func (t *testStore) Init(ctx context.Context, kinds []string) error {
+	if t.initErr != nil {
+		return t.initErr
+	}
+	return t.memstore.Init(ctx, kinds)
+}
+
+func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+	if t.watchErr != nil {
+		return nil, t.watchErr
+	}
+	return t.memstore.Watch(ctx)
+}
+
+func registerTestStore(builders map[string]Builder) {
+	builders["test"] = func(u *url.URL) (Backend, error) {
+		return &testStore{
+			memstore: createOrGetMemstore(u.String()),
+		}, nil
 	}
 }
 
-func TestNewStore(t *testing.T) {
-	r := NewRegistry(testingRegister)
-	for _, tt := range []struct {
-		url string
-		err error
-	}{
-		{"fs:///tmp", nil},
-		{"redis://:passwd@localhost:6379/1", errors.New("unknown")}, // redis module is not loaded
-		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
-		{"/tmp/testdata/configroot", errors.New("unknown")},
-		{"test:///test/url", nil},
-	} {
-		t.Run(tt.url, func(t *testing.T) {
-			_, err := r.NewStore(tt.url)
-			if err == tt.err {
-				return
-			}
+func TestStore(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	u := "memstore://" + t.Name()
+	s, err := r.NewStore(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := GetMemstoreWriter(u)
+	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
+	if err = s.Init(context.Background(), kinds); err != nil {
+		t.Fatal(err)
+	}
+	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
+	h1 := &cfg.Handler{}
+	if err = s.Get(k, h1); err != ErrNotFound {
+		t.Errorf("Got %v, Want ErrNotFound", err)
+	}
+	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
+	if err = s.Get(k, h1); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	want := &cfg.Handler{Name: "default", Adapter: "noop"}
+	if !reflect.DeepEqual(h1, want) {
+		t.Errorf("Got %v, Want %v", h1, want)
+	}
+	wantList := map[Key]proto.Message{k: want}
 
-			if err != nil {
-				if tt.err == nil || !strings.Contains(err.Error(), tt.err.Error()) {
-					t.Errorf("got %s\nwant %s", err, tt.err)
-				}
-			}
-		})
+	for k, v := range s.List() {
+		vwant := wantList[k]
+		if vwant == nil {
+			t.Fatalf("Did not get key for %s", k)
+		}
+		if !reflect.DeepEqual(v.Spec, vwant) {
+			t.Errorf("Got %+v, Want %+v", v, vwant)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch, err := s.Watch(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
+	wantEv := Event{Key: k, Type: Update,
+		Value: &Resource{
+			Metadata: ResourceMeta{
+				Name:      k.Name,
+				Namespace: k.Namespace,
+			},
+			Spec: want,
+		},
+	}
+
+	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
+		t.Errorf("Got %+v, Want %+v", ev.Value, wantEv.Value)
+	}
+}
+
+func TestStoreWatchMultiple(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	s, err := r.NewStore("memstore://" + t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, err := s.Watch(ctx); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExists {
+		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExists)
+	}
+	cancel()
+	// short sleep to make sure the goroutine for canceling watch status in store.
+	time.Sleep(time.Millisecond * 5)
+	if _, err := s.Watch(context.Background()); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+}
+
+func TestStoreFail(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	s, err := r.NewStore("test://" + t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := s.(*store).backend.(*testStore)
+	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
+	ts.initErr = errors.New("dummy")
+	if err = s.Init(context.Background(), kinds); err.Error() != "dummy" {
+		t.Errorf("Got %v, Want dummy error", err)
+	}
+	ts.initErr = nil
+	if err = s.Init(context.Background(), kinds); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+
+	ts.watchErr = errors.New("watch error")
+	if _, err := s.Watch(context.Background()); err.Error() != "watch error" {
+		t.Errorf("Got %v, Want watch error", err)
+	}
+
+	ts.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
+		"foo": 1,
+	}})
+	ts.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
+		"unknown": "unknown",
+	}})
+	if lst := s.List(); len(lst) != 0 {
+		t.Errorf("Got %v, Want empty", lst)
+	}
+}
+
+func TestRegistry(t *testing.T) {
+	r := NewRegistry(registerTestStore)
+	for _, c := range []struct {
+		u  string
+		ok bool
+	}{
+		{"memstore://", true},
+		{"mem://", false},
+		{"fs:///", true},
+		{"://", false},
+		{"test://", true},
+	} {
+		_, err := r.NewStore(c.u)
+		ok := err == nil
+		if ok != c.ok {
+			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)
+		}
 	}
 }

@@ -20,7 +20,8 @@ package envoy
 import (
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route
@@ -39,8 +40,8 @@ func buildFaultFilters(routeConfig *HTTPRouteConfig) []HTTPFilter {
 	return faults
 }
 
-// buildFaultFilter builds a single fault filter for envoy cluster
-func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection, headers Headers) *HTTPFilter {
+// buildHTTPFaultFilter builds a single fault filter for an Envoy cluster
+func buildHTTPFaultFilter(cluster string, faultRule *routing.HTTPFaultInjection, headers Headers) *HTTPFilter {
 	abort := buildAbortConfig(faultRule.Abort)
 	delay := buildDelayConfig(faultRule.Delay)
 	if abort == nil && delay == nil {
@@ -60,7 +61,7 @@ func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInject
 }
 
 // buildAbortConfig builds the envoy config related to abort spec in a fault filter
-func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFilter {
+func buildAbortConfig(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
 		return nil
 	}
@@ -72,7 +73,7 @@ func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFil
 }
 
 // buildDelayConfig builds the envoy config related to delay spec in a fault filter
-func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFilter {
+func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter {
 	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
 	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
 		return nil
@@ -82,5 +83,62 @@ func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFil
 		Type:     "fixed",
 		Percent:  int(delayRule.Percent),
 		Duration: protoDurationToMS(delayRule.GetFixedDelay()),
+	}
+}
+
+func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInjection, headers Headers) *HTTPFilter {
+	abort := buildAbortConfigV2(faultRule.Abort)
+	delay := buildDelayConfigV2(faultRule.Delay)
+	if abort == nil && delay == nil {
+		return nil
+	}
+
+	return &HTTPFilter{
+		Type: decoder,
+		Name: "fault",
+		Config: FilterFaultConfig{
+			UpstreamCluster: cluster,
+			Headers:         headers,
+			Abort:           abort,
+			Delay:           delay,
+		},
+	}
+}
+
+func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFilter {
+	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
+		return nil
+	}
+
+	percent := int(abortRule.Percent)
+	if percent == 0 {
+		percent = 100 // default to 100 percent
+	}
+
+	return &AbortFilter{
+		Percent:    percent,
+		HTTPStatus: int(abortRule.GetHttpStatus()),
+	}
+}
+
+func buildDelayConfigV2(delayRule *routingv2.HTTPFaultInjection_Delay) *DelayFilter {
+	if delayRule == nil {
+		return nil
+	}
+
+	ms := protoDurationToMS(delayRule.GetFixedDelay())
+	if ms == 0 {
+		return nil
+	}
+
+	percent := int(delayRule.Percent)
+	if percent == 0 {
+		percent = 100 // default to 100 percent
+	}
+
+	return &DelayFilter{
+		Type:     "fixed",
+		Percent:  percent,
+		Duration: ms,
 	}
 }

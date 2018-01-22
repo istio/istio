@@ -9,11 +9,32 @@
 # Bazel
 /bazel-*
 vendor
-*.descriptor_set
 # vi backups
 *.bak
+# python artifacts
+*.pyc
 # Vm setup generated files
 cluster.env
 kubedns
 # pilot
-pilot/platform/config
+pilot/platform/kube/config
+pilot/proxy/envoy/envoy
+# lint
+lintconfig.gen.json
+.istiorc
+.istiorc.mk
+# codegen stuff
+bin/protoc-gen-gogoslick*
+bin/protoc-min-version*
+# Install generated files
+install/consul/istio.yaml
+install/eureka/istio.yaml
+install/kubernetes/helm/istio/values.yaml
+install/kubernetes/istio-auth.yaml
+install/kubernetes/istio-ca-plugin-certs.yaml
+install/kubernetes/istio-initializer.yaml
+install/kubernetes/istio-one-namespace-auth.yaml
+install/kubernetes/istio-one-namespace.yaml
+install/kubernetes/istio.yaml
+samples/bookinfo/consul/bookinfo.sidecars.yaml
+samples/bookinfo/eureka/bookinfo.sidecars.yaml

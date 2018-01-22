@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/test/mock"
 )
 
 // MockController specifies a mock Controller for testing
@@ -43,14 +43,12 @@ var discovery2 *mock.ServiceDiscovery
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[string]*model.Service{
-			mock.HelloService.Hostname:   mock.HelloService,
-			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
+			mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[string]*model.Service{
-			mock.WorldService.Hostname:    mock.WorldService,
-			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
+			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := Registry{
@@ -93,10 +91,8 @@ func TestServices(t *testing.T) {
 
 	// Set up ground truth hostname values
 	serviceMap := map[string]bool{
-		mock.HelloService.Hostname:    false,
-		mock.ExtHTTPService.Hostname:  false,
-		mock.WorldService.Hostname:    false,
-		mock.ExtHTTPSService.Hostname: false,
+		mock.HelloService.Hostname: false,
+		mock.WorldService.Hostname: false,
 	}
 
 	if err != nil {
@@ -177,8 +173,9 @@ func TestGetServiceError(t *testing.T) {
 func TestHostInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
+	var svcNode model.Node
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
 	if err != nil {
 		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
 	}
@@ -192,7 +189,7 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
 	if err != nil {
 		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
 	}
@@ -211,8 +208,9 @@ func TestHostInstancesError(t *testing.T) {
 
 	discovery1.HostInstancesError = errors.New("mock HostInstances() error")
 
+	var svcNode model.Node
 	// Get Instances from client with error
-	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -222,7 +220,7 @@ func TestHostInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}

@@ -46,7 +46,6 @@ const (
 // Interpreter is an interpreted execution engine for the Mixer IL.
 type Interpreter struct {
 	program *il.Program
-	code    []uint32
 	externs map[string]Extern
 	stepper *Stepper
 }
@@ -78,15 +77,9 @@ func (i *Interpreter) EvalFnID(fnID uint32, bag attribute.Bag) (Result, error) {
 	return i.run(fn, bag, false)
 }
 
-// StringTableSize returns the number of entries in the StringTable.
-func (i *Interpreter) StringTableSize() int {
-	return i.program.Strings().Size()
-}
-
 func newIntr(p *il.Program, es map[string]Extern, s *Stepper) *Interpreter {
 	i := Interpreter{
 		program: p,
-		code:    p.ByteCode(),
 		externs: es,
 		stepper: s,
 	}

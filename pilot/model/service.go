@@ -28,7 +28,7 @@ import (
 	"sort"
 	"strings"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -83,7 +83,7 @@ type Port struct {
 	// In combine with the mesh's AuthPolicy, controls authentication for
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
-	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"authentication_policy"`
+	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
 }
 
 // PortList is a set of ports
@@ -112,7 +112,33 @@ const (
 	ProtocolMongo Protocol = "Mongo"
 	// ProtocolRedis declares that the port carries redis traffic
 	ProtocolRedis Protocol = "Redis"
+	// ProtocolUnsupported - value to signify that the protocol is unsupported
+	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
+
+// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
+func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
+	switch strings.ToLower(protocolAsString) {
+	case "tcp":
+		return ProtocolTCP
+	case "udp":
+		return ProtocolUDP
+	case "grpc":
+		return ProtocolGRPC
+	case "http":
+		return ProtocolHTTP
+	case "http2":
+		return ProtocolHTTP2
+	case "https":
+		return ProtocolHTTPS
+	case "mongo":
+		return ProtocolMongo
+	case "redis":
+		return ProtocolRedis
+	}
+
+	return ProtocolUnsupported
+}
 
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
@@ -218,7 +244,7 @@ type ServiceDiscovery interface {
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]bool) ([]*ServiceInstance, error)
+	HostInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -263,8 +289,8 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	if len(labels) == 0 {
 		return true
 	}
-	for _, tag := range labels {
-		if tag.SubsetOf(that) {
+	for _, label := range labels {
+		if label.SubsetOf(that) {
 			return true
 		}
 	}
