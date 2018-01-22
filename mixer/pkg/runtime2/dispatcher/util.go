@@ -15,11 +15,9 @@
 package dispatcher
 
 import (
-	"errors"
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/log"
 )
 
 // getIdentityAttributeValue from the attribute bag, based on the id attribute.
@@ -27,16 +25,12 @@ func getIdentityAttributeValue(attrs attribute.Bag, idAttribute string) (string,
 
 	v, ok := attrs.Get(idAttribute)
 	if !ok {
-		msg := fmt.Sprintf("%s identity not found in attributes: %v", idAttribute, attrs.Names())
-		log.Warnf(msg)
-		return "", errors.New(msg)
+		return "", fmt.Errorf("identity parameter not found: '%s'", idAttribute)
 	}
 
 	var destination string
 	if destination, ok = v.(string); !ok {
-		msg := fmt.Sprintf("%s identity must be string: %v", idAttribute, v)
-		log.Warnf(msg)
-		return "", errors.New(msg)
+		return "", fmt.Errorf("identity parameter is not a string: '%s'", idAttribute)
 	}
 
 	return destination, nil

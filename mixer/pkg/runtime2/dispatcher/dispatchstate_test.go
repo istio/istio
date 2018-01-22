@@ -63,15 +63,15 @@ func TestDispatchStatePool(t *testing.T) {
 
 func TestDispatchState_Clear(t *testing.T) {
 	state := &dispatchState{
-		instance: "instance",
-		session: &session{},
-		quotaResult: adapter.QuotaResult{Amount:64},
-		checkResult: adapter.CheckResult{ValidUseCount:32},
-		err: errors.New("err"),
+		instance:    "instance",
+		session:     &session{},
+		quotaResult: adapter.QuotaResult{Amount: 64},
+		checkResult: adapter.CheckResult{ValidUseCount: 32},
+		err:         errors.New("err"),
 		destination: &routing.Destination{},
-		inputBag: attribute.GetMutableBag(nil),
-		outputBag: attribute.GetMutableBag(nil),
-		quotaArgs: adapter.QuotaArgs{BestEffort: true},
+		inputBag:    attribute.GetMutableBag(nil),
+		outputBag:   attribute.GetMutableBag(nil),
+		quotaArgs:   adapter.QuotaArgs{BestEffort: true},
 		mapper: func(attrs attribute.Bag) (*attribute.MutableBag, error) {
 			return nil, nil
 		},

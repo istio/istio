@@ -23,7 +23,7 @@ import (
 
 func TestGetIdentityAttributeValue(t *testing.T) {
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
-		"ident": "value",
+		"ident":     "value",
 		"nonstring": 23,
 	})
 
@@ -49,12 +49,12 @@ func TestGetIdentityAttributeValue(t *testing.T) {
 func TestGetNamespace(t *testing.T) {
 	tests := []struct {
 		dest string
-		ns string
-	} {
-		{ dest: "", ns: ""},
-		{ dest: "foo", ns: ""},
-		{ dest: "foo.bar", ns: "bar"},
-		{ dest: "foo.bar.baz", ns: "bar"},
+		ns   string
+	}{
+		{dest: "", ns: ""},
+		{dest: "foo", ns: ""},
+		{dest: "foo.bar", ns: "bar"},
+		{dest: "foo.bar.baz", ns: "bar"},
 	}
 
 	for _, tst := range tests {

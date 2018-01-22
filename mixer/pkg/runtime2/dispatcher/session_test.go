@@ -76,18 +76,18 @@ func TestSessionPool_TracingStickiness(t *testing.T) {
 
 func TestSession_Clear(t *testing.T) {
 	s := &session{
-		trace: true,
-		start: time.Now(),
+		trace:            true,
+		start:            time.Now(),
 		activeDispatches: 23,
-		bag: attribute.GetMutableBag(nil),
-		completed: make(chan *dispatchState, 10),
-		err: errors.New("some error"),
-		ctx: context.TODO(),
-		checkResult: &adapter.CheckResult{ ValidUseCount: 53 },
-		quotaResult: &adapter.QuotaResult{ Amount: 23},
-		quotaMethodArgs: runtime.QuotaMethodArgs{BestEffort:true},
-		variety: istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK,
-		responseBag: attribute.GetMutableBag(nil),
+		bag:              attribute.GetMutableBag(nil),
+		completed:        make(chan *dispatchState, 10),
+		err:              errors.New("some error"),
+		ctx:              context.TODO(),
+		checkResult:      &adapter.CheckResult{ValidUseCount: 53},
+		quotaResult:      &adapter.QuotaResult{Amount: 23},
+		quotaMethodArgs:  runtime.QuotaMethodArgs{BestEffort: true},
+		variety:          istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK,
+		responseBag:      attribute.GetMutableBag(nil),
 	}
 
 	s.clear()
@@ -98,7 +98,7 @@ func TestSession_Clear(t *testing.T) {
 	}
 	s.completed = nil
 
-	expected := &session {
+	expected := &session{
 		trace: true,
 	}
 
@@ -109,7 +109,7 @@ func TestSession_Clear(t *testing.T) {
 
 func TestSession_Clear_LeftOverWork(t *testing.T) {
 	s := &session{
-		completed:     make(chan *dispatchState, 10),
+		completed: make(chan *dispatchState, 10),
 	}
 
 	s.completed <- &dispatchState{}
@@ -124,7 +124,7 @@ func TestSession_Clear_LeftOverWork(t *testing.T) {
 
 func TestSession_EnsureParallelism(t *testing.T) {
 	s := &session{
-		completed:     make(chan *dispatchState, 10),
+		completed: make(chan *dispatchState, 10),
 	}
 
 	s.ensureParallelism(5)

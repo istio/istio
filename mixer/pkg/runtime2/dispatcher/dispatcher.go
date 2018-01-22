@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -307,7 +308,7 @@ func (d *Dispatcher) dispatch(session *session) error {
 			err = multierror.Append(err, state.err)
 		}
 
-		st := rpc.Status{ Code: int32(rpc.OK) }
+		st := rpc.Status{Code: int32(rpc.OK)}
 
 		switch session.variety {
 		case istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT:
@@ -315,15 +316,17 @@ func (d *Dispatcher) dispatch(session *session) error {
 
 		case istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK:
 			if session.checkResult == nil {
-				session.checkResult = &state.checkResult
+				r := state.checkResult
+				session.checkResult = &r
 			} else {
-				session.checkResult.Combine(state.checkResult)
+				session.checkResult.CombineCheckResult(&state.checkResult)
 			}
 			st = state.checkResult.Status
 
 		case istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA:
-			if session.quotaResult != nil {
-				session.quotaResult = &state.quotaResult
+			if session.quotaResult == nil {
+				r := state.quotaResult
+				session.quotaResult = &r
 			} else {
 				log.Warnf("Skipping quota op result due to previous value: '%v', op: '%s'",
 					state.quotaResult, state.destination.FriendlyName)
@@ -333,7 +336,8 @@ func (d *Dispatcher) dispatch(session *session) error {
 		case istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 			e := session.responseBag.Merge(state.outputBag)
 			if e != nil {
-				log.Infof("Attributes merging failed %v", e)
+				log.Infof("Attributes merging failed %v", err)
+				err = e
 			}
 		}
 
@@ -371,9 +375,6 @@ func (d *Dispatcher) dispatch(session *session) error {
 }
 
 func (d *Dispatcher) dispatchToHandler(s *dispatchState) {
-	if s.session.activeDispatches == cap(s.session.completed) {
-		panic("Request to execute more parallel tasks than can be handled.")
-	}
 	s.session.activeDispatches++
 
 	d.gp.ScheduleWork(doDispatchToHandler, s)
@@ -382,12 +383,22 @@ func (d *Dispatcher) dispatchToHandler(s *dispatchState) {
 func doDispatchToHandler(param interface{}) {
 	s := param.(*dispatchState)
 
+	reachedEnd := false
+
 	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("execute panic: %v", r)
-			s.err = fmt.Errorf("dispatch panic: %v", r)
-			s.session.completed <- s
+		if reachedEnd {
+			return
 		}
+
+		r := recover()
+		log.Errorf("panic during handler dispatch: %v", r)
+		s.err = fmt.Errorf("panic during handler dispatch: %v", r)
+
+		if log.DebugEnabled() {
+			log.Debugf("stack dump for handler dispatch panic:\n%s", debug.Stack())
+		}
+
+		s.session.completed <- s
 	}()
 
 	ctx := s.session.ctx
@@ -395,9 +406,7 @@ func doDispatchToHandler(param interface{}) {
 	var start time.Time
 	span, ctx, start = s.beginSpan(ctx)
 
-	if log.DebugEnabled() {
-		log.Debugf("begin dispatch: destination='%s' ->", s.destination.FriendlyName)
-	}
+	log.Debugf("begin dispatch: destination='%s' ->", s.destination.FriendlyName)
 
 	switch s.destination.Template.Variety {
 	case istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
@@ -420,12 +429,12 @@ func doDispatchToHandler(param interface{}) {
 		panic(fmt.Sprintf("unknown variety type: '%v'", s.destination.Template.Variety))
 	}
 
-	if log.DebugEnabled() {
-		log.Debugf("complete dispatch: destination='%s' <- {err:%v}", s.destination.FriendlyName, s.err)
-	}
+	log.Debugf("complete dispatch: destination='%s' <- {err:%v}", s.destination.FriendlyName, s.err)
 
 	s.completeSpan(span, time.Since(start), s.err)
 	s.session.completed <- s
+
+	reachedEnd = true
 }
 
 func (s *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, context.Context, time.Time) {

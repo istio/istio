@@ -107,7 +107,7 @@ func newSessionPool(enableTracing bool) *sessionPool {
 		sessions: sync.Pool{
 			New: func() interface{} {
 				return &session{
-					trace:     enableTracing,
+					trace: enableTracing,
 				}
 			},
 		},

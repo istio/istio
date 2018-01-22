@@ -297,7 +297,7 @@ ID: 1
 			data.InstanceCheck1,
 			data.RuleCheck1,
 		},
-		Adapters: data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtBuild: true}),
+		Adapters: data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", ErrorAtBuild: true}),
 		// No routes are set, as the only rule is bad.
 		ExpectedTable: `
 [Routing ExpectedTable]
@@ -313,7 +313,7 @@ ID: 1
 			data.InstanceCheck1,
 			data.RuleCheck1,
 		},
-		Templates: data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true}),
+		Templates: data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true}),
 		ExpectedTable: `
 [Routing ExpectedTable]
 ID: 1
@@ -385,7 +385,7 @@ ID: 1
 			data.InstanceCheck1,
 			data.RuleCheck1,
 		},
-		Templates: data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", ErrorAtCreateInstanceBuilder: true}),
+		Templates: data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", ErrorAtCreateInstanceBuilder: true}),
 		ExpectedTable: `
 [Routing ExpectedTable]
 ID: 1
@@ -411,7 +411,7 @@ ID: 1
 		Configs: []string{
 			data.HandlerAPA1,
 			data.InstanceAPA1,
-			data.RuleApa1,
+			data.RuleAPA1,
 		},
 
 		ExpectedTable: `
@@ -431,9 +431,9 @@ ID: 1
 		Configs: []string{
 			data.HandlerAPA1,
 			data.InstanceAPA1,
-			data.RuleApa1,
+			data.RuleAPA1,
 		},
-		Templates: data.BuildTemplates(data.FakeTemplateSettings{Name: "tapa", ErrorAtCreateOutputExpressions: true}),
+		Templates: data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tapa", ErrorAtCreateOutputExpressions: true}),
 
 		ExpectedTable: `
 [Routing ExpectedTable]
@@ -478,11 +478,11 @@ func TestBuilder(t *testing.T) {
 
 			templates := tst.Templates
 			if templates == nil {
-				templates = data.BuildTemplates()
+				templates = data.BuildTemplates(nil)
 			}
 			adapters := tst.Adapters
 			if adapters == nil {
-				adapters = data.BuildAdapters()
+				adapters = data.BuildAdapters(nil)
 			}
 			t, s := buildTableWithTemplatesAndAdapters(templates, adapters, serviceConfig, tst.Configs, true)
 
@@ -513,7 +513,7 @@ func normalize(str string) string {
 
 // Convenience method for building a routing Table for tests.
 func buildTable(serviceConfig string, globalConfigs []string, debugInfo bool) (*Table, *config.Snapshot) {
-	return buildTableWithTemplatesAndAdapters(data.BuildTemplates(), data.BuildAdapters(), serviceConfig, globalConfigs, debugInfo)
+	return buildTableWithTemplatesAndAdapters(data.BuildTemplates(nil), data.BuildAdapters(nil), serviceConfig, globalConfigs, debugInfo)
 }
 
 // Convenience method for building a routing Table for tests.
