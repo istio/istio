@@ -1,0 +1,11 @@
+replicaCount: 1
+image:
+  repository: docker.io/istio/sidecar_initializer
+  tag: 0.4.0
+  pullPolicy: IfNotPresent
+resources: {}
+nodeSelector: {}
+
+initImage:
+  repository: docker.io/istio/proxy_init
+  tag: 0.4.0

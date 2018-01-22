@@ -1,25 +1,28 @@
-{{- $istio_namespace := .Values.global.namespace }}
 apiVersion: batch/v1
 kind: Job
 metadata:
+  name: {{ template "mixer.fullname" . }}-create-crd
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
     istio: mixer
-  name: mixer-create-custom-resources-job
-  namespace: {{$istio_namespace}}
 spec:
   template:
     metadata:
       labels:
+        app: {{ template "pilot.name" . }}
+        release: {{ .Release.Name }}
         istio: mixer
-      name: mixer-create-custom-resources-job
     spec:
-      serviceAccountName: istio-mixer-service-account
+      serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
         - name: hyperkube
-          image: "{{ .Values.global.hyperkube_hub }}:{{ .Values.global.hyperkube_tag }}"
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
           command:
             - ./kubectl
             - apply
@@ -31,5 +34,5 @@ spec:
       volumes:
         - name: tmp-configmap-mixer
           configMap:
-            name: mixer-custom-resources-configmap
+            name: {{ template "mixer.fullname" . }}
       restartPolicy: Never # CRD might take some time till they are available to comsume

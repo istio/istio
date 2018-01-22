@@ -1,11 +1,12 @@
 dependencies:
   - name: pilot
-    version: 0.3.0
-    condition: global.pilot.enabled
+    version: 0.1.0
+    # condition: global.pilot.enabled
   - name: mixer
-    version: 0.3.0
-    condition: global.mixer.enabled
+    version: 0.1.0
+    # condition: global.mixer.enabled
   - name: initializer
-    version: 0.3.0
-    condition: global.initializer.enabled
-  
+    version: 0.1.0
+    # condition: global.initializer.enabled
+  - name: security
+    version: 0.1.0

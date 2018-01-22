@@ -1,0 +1,13 @@
+replicaCount: 1
+image:
+  repository: docker.io/istio/pilot
+  tag: 0.4.0
+  pullPolicy: IfNotPresent
+resources: {}
+nodeSelector: {}
+
+prometheus:
+  repository: prom/statsd-exporter
+  tag: latest
+  imagePullPolicy: IfNotPresent
+  resources: {}

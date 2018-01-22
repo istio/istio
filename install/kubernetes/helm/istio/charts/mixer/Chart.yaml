@@ -1,10 +1,4 @@
-name: mixer 
-version: 0.3.0
-description: Helm chart for mixer deployment
-keywords:
-  - istio
-  - mixer
-sources:
-  - http://github.com/istio/istio
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
+apiVersion: v1
+description: A Helm chart for Kubernetes
+name: mixer
+version: 0.1.0
