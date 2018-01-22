@@ -142,20 +142,31 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 	return cluster
 }
 
-func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels) *Cluster {
+func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
 	name := truncateClusterName(OutboundClusterPrefix + key)
+	clusterType := ClusterTypeSDS
+
+	if isExternal {
+		clusterType = ClusterTypeStrictDNS
+	}
+
+	hosts := []Host{}
+	if isExternal {
+		hosts = []Host{{URL: fmt.Sprintf("tcp://%s:%d", hostname, port.Port)}}
+	}
 
 	cluster := &Cluster{
 		Name:        name,
 		ServiceName: key,
-		Type:        ClusterTypeSDS,
+		Type:        clusterType,
 		LbType:      DefaultLbType,
 		outbound:    true,
 		hostname:    hostname,
 		port:        port,
 		tags:        labels,
+		Hosts:       hosts,
 	}
 
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
@@ -212,7 +223,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			if dst.Destination != nil {
 				actualDestination = model.ResolveHostname(config.ConfigMeta, dst.Destination)
 			}
-			cluster := buildOutboundCluster(actualDestination, port, dst.Labels)
+			cluster := buildOutboundCluster(actualDestination, port, dst.Labels, service.External())
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters, &WeightedClusterEntry{
 				Name:   cluster.Name,
@@ -227,7 +238,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		}
 	} else {
 		// default route for the destination
-		cluster := buildOutboundCluster(destination, port, nil)
+		cluster := buildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
 		route.clusters = append(route.clusters, cluster)
 	}
@@ -256,7 +267,9 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	if rule.Mirror != nil {
 		fqdnDest := model.ResolveHostname(config.ConfigMeta, rule.Mirror)
 		route.ShadowCluster = &ShadowCluster{
-			Cluster: buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels).Name,
+			//TODO support shadowing between internal and external kubernetes services
+			// currently only shadowing between internal kubernetes services is supported
+			Cluster: buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External()).Name,
 		}
 	}
 
@@ -322,7 +335,7 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 			Prefix: "/",
 		}
 		// default route for the destination
-		cluster := buildOutboundCluster(service.Hostname, port, nil)
+		cluster := buildOutboundCluster(service.Hostname, port, nil, service.External())
 		route.Cluster = cluster.Name
 		route.clusters = append(route.clusters, cluster)
 		routes = append(routes, route)
@@ -337,7 +350,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	route := buildHTTPRouteMatchV2(match)
 
 	if len(http.Route) == 0 { // build default cluster
-		cluster := buildOutboundCluster(service.Hostname, port, nil)
+		cluster := buildOutboundCluster(service.Hostname, port, nil, service.External())
 		route.Cluster = cluster.Name
 		route.clusters = append(route.clusters, cluster)
 	} else {
@@ -345,7 +358,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		for _, dst := range http.Route {
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
-			cluster := buildOutboundCluster(fqdn, port, labels) // TODO: support Destination.Port
+			cluster := buildOutboundCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 				&WeightedClusterEntry{
@@ -451,7 +464,8 @@ func buildShadowCluster(store model.IstioConfigStore, domain string, port *model
 	if mirror != nil {
 		fqdn := model.ResolveFQDN(mirror.Name, domain)
 		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)
-		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, labels).Name}
+		// TODO support shadow cluster for external kubernetes service mirror
+		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, labels, false).Name}
 	}
 	return nil
 }
