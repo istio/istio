@@ -102,6 +102,10 @@ tables of contents or indexes. Finally, `$location` indicates the expected URL f
 documentation. This is used to help downstream processing tools to know where to copy
 the documentation, and is used when creating documentation links from other packages to this one.
 
-If a comment for proto fields, enums, or methods contains the annotation `$hide_from_docs`,
+If a comment for an element contains the annotation `$hide_from_docs`,
 then the associated element will be omitted from the output. This is useful when staging the
 introduction of new features that aren't quite ready for use yet.
+
+If a comment for an element contains the annotation `$experimental`, 
+then the associated element will be marked with the `experimental` CSS class
+such that it can be colored differently.

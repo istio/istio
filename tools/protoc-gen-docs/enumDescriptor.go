@@ -19,50 +19,37 @@ import (
 )
 
 type enumDescriptor struct {
+	baseDesc
 	*descriptor.EnumDescriptorProto
-	file     *fileDescriptor        // File this coreDesc comes from
-	values   []*enumValueDescriptor // The values of this enum
-	typename []string
-	loc      *descriptor.SourceCodeInfo_Location
+	values []*enumValueDescriptor // The values of this enum
 }
 
 type enumValueDescriptor struct {
+	baseDesc
 	*descriptor.EnumValueDescriptorProto
-	loc *descriptor.SourceCodeInfo_Location
 }
 
 func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *messageDescriptor, file *fileDescriptor, path pathVector) *enumDescriptor {
-	e := &enumDescriptor{
-		EnumDescriptorProto: desc,
-		file:                file,
-		loc:                 file.find(path),
+	var qualifiedName []string
+	if parent == nil {
+		qualifiedName = []string{desc.GetName()}
+	} else {
+		qualifiedName = append(parent.qualifiedName(), desc.GetName())
 	}
 
-	if parent == nil {
-		e.typename = []string{desc.GetName()}
-	} else {
-		pname := parent.typeName()
-		e.typename = make([]string, len(pname)+1)
-		copy(e.typename, pname)
-		e.typename[len(e.typename)-1] = desc.GetName()
+	e := &enumDescriptor{
+		EnumDescriptorProto: desc,
+		baseDesc:            newBaseDesc(file, path, qualifiedName),
 	}
 
 	e.values = make([]*enumValueDescriptor, 0, len(desc.Value))
 	for i, ev := range desc.Value {
 		evd := &enumValueDescriptor{
 			EnumValueDescriptorProto: ev,
-			loc: file.find(path.append(enumValuePath, i)),
+			baseDesc:                 newBaseDesc(file, path.append(enumValuePath, i), append(qualifiedName, ev.GetName())),
 		}
 		e.values = append(e.values, evd)
 	}
 
 	return e
-}
-
-func (e *enumDescriptor) fileDesc() *fileDescriptor {
-	return e.file
-}
-
-func (e *enumDescriptor) typeName() (s []string) {
-	return e.typename
 }

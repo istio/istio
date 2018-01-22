@@ -123,13 +123,17 @@ func (g *htmlGenerator) generateFile(pkg *packageDescriptor, files []*fileDescri
 		g.currentFile = file
 
 		for _, enum := range file.allEnums {
-			absName := g.absoluteTypeName(enum)
+			if enum.isHidden() {
+				continue
+			}
+
+			absName := g.absoluteName(enum)
 			known := wellKnownTypes[absName]
 			if known != "" {
 				continue
 			}
 
-			name := g.relativeTypeName(enum)
+			name := g.relativeName(enum)
 			enums = append(enums, name)
 			enumMap[name] = enum
 		}
@@ -141,19 +145,27 @@ func (g *htmlGenerator) generateFile(pkg *packageDescriptor, files []*fileDescri
 				continue
 			}
 
-			absName := g.absoluteTypeName(msg)
+			if msg.isHidden() {
+				continue
+			}
+
+			absName := g.absoluteName(msg)
 			known := wellKnownTypes[absName]
 			if known != "" {
 				continue
 			}
 
-			name := g.relativeTypeName(msg)
+			name := g.relativeName(msg)
 			messages = append(messages, name)
 			messageMap[name] = msg
 		}
 		sort.Strings(messages)
 
 		for _, svc := range file.services {
+			if svc.isHidden() {
+				continue
+			}
+
 			name := *svc.Name
 			services = append(services, name)
 			serviceMap[name] = svc
@@ -273,17 +285,8 @@ func (g *htmlGenerator) generateFileHeader(pkg *packageDescriptor) {
 		}
 	}
 
-	count := 0
-	for _, loc := range pkg.loc {
-		if loc.LeadingComments != nil {
-			g.generateComment(loc, "")
-			count++
-		}
-	}
-
-	if count == 0 {
-		g.warn(nil, "no comment for package %s", pkg.name)
-	}
+	g.currentFile = pkg.files[0]
+	g.generateComment(pkg.loc, pkg.name)
 }
 
 func (g *htmlGenerator) generateFileFooter() {
@@ -293,13 +296,26 @@ func (g *htmlGenerator) generateFileFooter() {
 	}
 }
 
-func (g *htmlGenerator) generateSectionHeading(name string) {
-	if g.grouping {
-		g.emit("<h3 id='", name, "'>", name, "</h3>")
-	} else {
-		g.emit("<h2 id='", name, "'>", name, "</h2>")
+func (g *htmlGenerator) generateSectionHeading(desc coreDesc) {
+	class := ""
+	if desc.isExperimental() {
+		class = "experimental"
 	}
-	g.emit("<section>")
+
+	heading := "h2"
+	if g.grouping {
+		heading = "h3"
+	}
+
+	name := g.relativeName(desc)
+
+	g.emit("<", heading, " id='", name, "'>", name, "</", heading, ">")
+
+	if class != "" {
+		g.emit("<section class='", class, "'>")
+	} else {
+		g.emit("<section>")
+	}
 }
 
 func (g *htmlGenerator) generateSectionTrailing() {
@@ -307,7 +323,7 @@ func (g *htmlGenerator) generateSectionTrailing() {
 }
 
 func (g *htmlGenerator) generateMessage(message *messageDescriptor) {
-	g.generateSectionHeading(g.relativeTypeName(message))
+	g.generateSectionHeading(message)
 	g.generateComment(message.loc, message.GetName())
 
 	if len(message.fields) > 0 {
@@ -320,32 +336,35 @@ func (g *htmlGenerator) generateMessage(message *messageDescriptor) {
 
 		var oneof int32 = -1
 		for _, field := range message.fields {
-			if hasNotImplementedAnnotation(field.loc) {
+			if field.isHidden() {
 				continue
 			}
 
 			fieldName := camelCase(*field.Name)
 			fieldTypeName := g.fieldTypeName(field)
 
-			if field.OneofIndex != nil {
-				class := ""
-				if field.Options != nil && field.Options.GetDeprecated() {
-					class = "deprecated "
-				}
+			class := ""
+			if field.Options != nil && field.Options.GetDeprecated() {
+				class = "deprecated "
+			}
 
+			if field.isExperimental() {
+				class = class + "experimental "
+			}
+
+			if field.OneofIndex != nil {
 				if *field.OneofIndex != oneof {
 					class = class + "oneof oneof-start"
 					oneof = *field.OneofIndex
 				} else {
 					class = class + "oneof"
 				}
-				g.emit("<tr class='", class, "'>")
+			}
+
+			if class != "" {
+				g.emit("<tr id='", g.relativeName(field), "' class='", class, "'>")
 			} else {
-				if field.Options != nil && field.Options.GetDeprecated() {
-					g.emit("<tr class='deprecated' title='Deprecated'>")
-				} else {
-					g.emit("<tr>")
-				}
+				g.emit("<tr id='", g.relativeName(field), "'>")
 			}
 
 			g.emit("<td><code>", fieldName, "</code></td>")
@@ -385,7 +404,7 @@ func (g *htmlGenerator) generateMessage(message *messageDescriptor) {
 }
 
 func (g *htmlGenerator) generateEnum(enum *enumDescriptor) {
-	g.generateSectionHeading(g.relativeTypeName(enum))
+	g.generateSectionHeading(enum)
 	g.generateComment(enum.loc, enum.GetName())
 
 	if len(enum.values) > 0 {
@@ -396,16 +415,25 @@ func (g *htmlGenerator) generateEnum(enum *enumDescriptor) {
 		g.emit("</tr>")
 
 		for _, v := range enum.values {
-			if hasNotImplementedAnnotation(v.loc) {
+			if v.isHidden() {
 				continue
 			}
 
 			name := *v.Name
 
+			class := ""
 			if v.Options != nil && v.Options.GetDeprecated() {
-				g.emit("<tr class='deprecated' title='Deprecated'>")
+				class = "deprecated "
+			}
+
+			if v.isExperimental() {
+				class = class + "experimental "
+			}
+
+			if class != "" {
+				g.emit("<tr id='", g.relativeName(v), "' class='", class, "'>")
 			} else {
-				g.emit("<tr>")
+				g.emit("<tr id='", g.relativeName(v), "'>")
 			}
 			g.emit("<td><code>", name, "</code></td>")
 			g.emit("<td>")
@@ -422,20 +450,29 @@ func (g *htmlGenerator) generateEnum(enum *enumDescriptor) {
 }
 
 func (g *htmlGenerator) generateService(service *serviceDescriptor) {
-	g.generateSectionHeading(service.GetName())
+	g.generateSectionHeading(service)
 	g.generateComment(service.loc, service.GetName())
 
 	for _, method := range service.methods {
-		if hasNotImplementedAnnotation(method.loc) {
+		if method.isHidden() {
 			continue
 		}
 
+		class := ""
 		if method.Options != nil && method.Options.GetDeprecated() {
-			g.emit("<pre class='deprecated' title='Deprecated'><code class='language-proto'>rpc ",
-				method.GetName(), "(", g.relativeTypeName(method.input), ") returns (", g.relativeTypeName(method.output), ")")
+			class = "deprecated "
+		}
+
+		if method.isExperimental() {
+			class = class + "experimental "
+		}
+
+		if class != "" {
+			g.emit("<pre id='", g.relativeName(method), "' class='", class, "'><code class='language-proto'>rpc ",
+				method.GetName(), "(", g.relativeName(method.input), ") returns (", g.relativeName(method.output), ")")
 		} else {
-			g.emit("<pre><code class='language-proto'>rpc ",
-				method.GetName(), "(", g.relativeTypeName(method.input), ") returns (", g.relativeTypeName(method.output), ")")
+			g.emit("<pre id='", g.relativeName(method), "'><code class='language-proto'>rpc ",
+				method.GetName(), "(", g.relativeName(method.input), ") returns (", g.relativeName(method.output), ")")
 		}
 		g.emit("</code></pre>")
 
@@ -454,18 +491,6 @@ func (g *htmlGenerator) emit(str ...string) {
 }
 
 var typeLinkPattern = regexp.MustCompile("\\[.*\\]\\[.*\\]")
-
-func hasNotImplementedAnnotation(loc *descriptor.SourceCodeInfo_Location) bool {
-	com := loc.GetLeadingComments()
-	if com == "" {
-		com = loc.GetTrailingComments()
-		if com == "" {
-			return false
-		}
-	}
-
-	return strings.Contains(com, "$hide_from_docs") || strings.Contains(com, "[#not-implemented-hide:]")
-}
 
 func (g *htmlGenerator) generateComment(loc *descriptor.SourceCodeInfo_Location, name string) {
 	com := loc.GetLeadingComments()
@@ -525,7 +550,7 @@ func (g *htmlGenerator) generateComment(loc *descriptor.SourceCodeInfo_Location,
 				linkName := match[1:end]
 				typeName := match[end+2 : len(match)-1]
 
-				if o, ok := g.model.allCoreDescByName["."+typeName]; ok {
+				if o, ok := g.model.allDescByName["."+typeName]; ok {
 					return g.linkify(o, linkName)
 				}
 
@@ -549,11 +574,8 @@ func (g *htmlGenerator) generateComment(loc *descriptor.SourceCodeInfo_Location,
 
 // well-known types whose documentation we can refer to
 var wellKnownTypes = map[string]string{
-	"google.protobuf.Duration":               "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration",
-	"google.protobuf.Timestamp":              "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Timestamp",
-	"google.api.MetricDescriptor.MetricKind": "https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.metrics#metrickind",
-	"google.api.MetricDescriptor.ValueType":  "https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.metrics#valuetype",
-	"google.api.MetricDescriptor":            "https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.metrics#metricdescriptor",
+	"google.protobuf.Duration":  "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration",
+	"google.protobuf.Timestamp": "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Timestamp",
 }
 
 func (g *htmlGenerator) linkify(o coreDesc, name string) string {
@@ -565,16 +587,18 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 		return name
 	}
 
-	known := wellKnownTypes[g.absoluteTypeName(o)]
+	known := wellKnownTypes[g.absoluteName(o)]
 	if known != "" {
 		return "<a href='" + known + "'>" + name + "</a>"
 	}
 
-	loc := o.fileDesc().parent.location
 	fragment := "#" + dottedName(o)
 
-	if loc != "" && loc != g.currentFile.parent.location {
-		return "<a href='" + loc + fragment + "'>" + name + "</a>"
+	if !o.isHidden() {
+		loc := o.fileDesc().parent.location
+		if loc != "" && loc != g.currentFile.parent.location {
+			return "<a href='" + loc + fragment + "'>" + name + "</a>"
+		}
 	}
 
 	return "<a href='" + fragment + "'>" + name + "</a>"
@@ -583,7 +607,7 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 func (g *htmlGenerator) warn(loc *descriptor.SourceCodeInfo_Location, format string, args ...interface{}) {
 	if g.genWarnings {
 		place := ""
-		if loc != nil {
+		if loc != nil && len(loc.Span) >= 2 {
 			place = fmt.Sprintf("%s:%d:%d:", g.currentFile.GetName(), loc.Span[0], loc.Span[1])
 		}
 
@@ -591,7 +615,7 @@ func (g *htmlGenerator) warn(loc *descriptor.SourceCodeInfo_Location, format str
 	}
 }
 
-func (g *htmlGenerator) relativeTypeName(desc coreDesc) string {
+func (g *htmlGenerator) relativeName(desc coreDesc) string {
 	typeName := dottedName(desc)
 	if desc.fileDesc().parent == g.currentFile.parent {
 		return typeName
@@ -600,7 +624,7 @@ func (g *htmlGenerator) relativeTypeName(desc coreDesc) string {
 	return desc.fileDesc().parent.name + "." + typeName
 }
 
-func (g *htmlGenerator) absoluteTypeName(desc coreDesc) string {
+func (g *htmlGenerator) absoluteName(desc coreDesc) string {
 	typeName := dottedName(desc)
 	return desc.fileDesc().parent.name + "." + typeName
 }
@@ -639,13 +663,13 @@ func (g *htmlGenerator) fieldTypeName(field *fieldDescriptor) string {
 			valType := g.linkify(msg.fields[1].typ, g.fieldTypeName(msg.fields[1]))
 			return "map&lt;" + keyType + ", " + valType + "&gt;"
 		}
-		name = g.relativeTypeName(field.typ)
+		name = g.relativeName(field.typ)
 
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
 		name = "bytes"
 
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		name = g.relativeTypeName(field.typ)
+		name = g.relativeName(field.typ)
 	}
 
 	if field.isRepeated() {
@@ -694,13 +718,13 @@ func (g *htmlGenerator) fieldYAMLTypeName(field *fieldDescriptor) string {
 			valType := g.linkify(msg.fields[1].typ, g.fieldTypeName(msg.fields[1]))
 			return "map&lt;" + keyType + ", " + valType + "&gt;"
 		}
-		name = g.relativeTypeName(field.typ)
+		name = g.relativeName(field.typ)
 
 	case descriptor.FieldDescriptorProto_TYPE_BYTES:
 		name = "bytes"
 
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		name = "enum(" + g.relativeTypeName(field.typ) + ")"
+		name = "enum(" + g.relativeName(field.typ) + ")"
 	}
 
 	return name
@@ -880,6 +904,10 @@ var htmlStyle = `
 
 	.deprecated {
 		background: silver;
+	}
+
+	.experimental {
+		background: yellow;
 	}
 </style>
 `

@@ -19,43 +19,33 @@ import (
 )
 
 type serviceDescriptor struct {
+	baseDesc
 	*descriptor.ServiceDescriptorProto
-	file     *fileDescriptor     // File this coreDesc comes from
-	methods  []*methodDescriptor // Methods, if any
-	typename []string
-	loc      *descriptor.SourceCodeInfo_Location
+	methods []*methodDescriptor // Methods, if any
 }
 
 type methodDescriptor struct {
+	baseDesc
 	*descriptor.MethodDescriptorProto
 	input  *messageDescriptor
 	output *messageDescriptor
-	loc    *descriptor.SourceCodeInfo_Location
 }
 
 func newServiceDescriptor(desc *descriptor.ServiceDescriptorProto, file *fileDescriptor, path pathVector) *serviceDescriptor {
-	var methods []*methodDescriptor
+	qualifiedName := []string{desc.GetName()}
+
+	s := &serviceDescriptor{
+		ServiceDescriptorProto: desc,
+		baseDesc:               newBaseDesc(file, path, qualifiedName),
+	}
+
 	for i, m := range desc.Method {
 		md := &methodDescriptor{
 			MethodDescriptorProto: m,
-			loc: file.find(path.append(serviceMethodPath, i)),
+			baseDesc:              newBaseDesc(file, path.append(serviceMethodPath, i), append(qualifiedName, m.GetName())),
 		}
-		methods = append(methods, md)
+		s.methods = append(s.methods, md)
 	}
 
-	return &serviceDescriptor{
-		ServiceDescriptorProto: desc,
-		file:     file,
-		loc:      file.find(path),
-		typename: []string{desc.GetName()},
-		methods:  methods,
-	}
-}
-
-func (s *serviceDescriptor) fileDesc() *fileDescriptor {
-	return s.file
-}
-
-func (s *serviceDescriptor) typeName() []string {
-	return s.typename
+	return s
 }

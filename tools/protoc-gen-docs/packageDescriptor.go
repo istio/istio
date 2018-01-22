@@ -22,10 +22,9 @@ import (
 
 // packageDescriptor describes a package, which is a composition of proto files.
 type packageDescriptor struct {
-	files []*fileDescriptor
-	name  string
-	loc   []*descriptor.SourceCodeInfo_Location
-
+	baseDesc
+	files    []*fileDescriptor
+	name     string
 	title    string
 	overview string
 	location string
@@ -47,25 +46,25 @@ func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto) *
 		p.files = append(p.files, f)
 
 		loc := f.find(newPathVector(packagePath))
+
 		if loc != nil {
-			p.loc = append(p.loc, loc)
-		}
-	}
+			if p.loc == nil {
+				p.loc = loc
+			}
 
-	// extract the package-level options
-	for _, loc := range p.loc {
-		if loc.LeadingDetachedComments != nil {
-			for _, para := range loc.LeadingDetachedComments {
-				lines := strings.Split(para, "\n")
-				for _, l := range lines {
-					l = strings.Trim(l, " ")
+			if loc.LeadingDetachedComments != nil {
+				for _, para := range loc.LeadingDetachedComments {
+					lines := strings.Split(para, "\n")
+					for _, l := range lines {
+						l = strings.Trim(l, " ")
 
-					if strings.HasPrefix(l, title) {
-						p.title = l[len(title):]
-					} else if strings.HasPrefix(l, overview) {
-						p.overview = l[len(overview):]
-					} else if strings.HasPrefix(l, location) {
-						p.location = l[len(location):]
+						if strings.HasPrefix(l, title) {
+							p.title = l[len(title):]
+						} else if strings.HasPrefix(l, overview) {
+							p.overview = l[len(overview):]
+						} else if strings.HasPrefix(l, location) {
+							p.location = l[len(location):]
+						}
 					}
 				}
 			}

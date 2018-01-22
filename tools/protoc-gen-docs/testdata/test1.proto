@@ -96,3 +96,22 @@ enum Days {
     // Humpday
     WEDNESDAY = 2;
 }
+
+// $hide_from_docs
+enum HiddenEnum {
+    E1 = 0;
+}
+
+// $hide_from_docs
+message HiddenMessage {
+    int32 f1 = 1;
+}
+
+// $experimental
+enum ExperimentalEnum {
+    E10 = 0;
+}
+
+message ExperimentalField {
+    int32 f1 = 1;   // $experimental
+}

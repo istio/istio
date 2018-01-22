@@ -19,45 +19,38 @@ import (
 )
 
 type messageDescriptor struct {
+	baseDesc
 	*descriptor.DescriptorProto
-	file     *fileDescriptor      // File this coreDesc comes from
 	parent   *messageDescriptor   // The containing message, if any
 	messages []*messageDescriptor // Inner messages, if any
 	enums    []*enumDescriptor    // Inner enums, if any
 	fields   []*fieldDescriptor   // Fields, if any
-	typename []string
-	loc      *descriptor.SourceCodeInfo_Location
 }
 
 type fieldDescriptor struct {
+	baseDesc
 	*descriptor.FieldDescriptorProto
 	typ coreDesc // Type of data held by this field
-	loc *descriptor.SourceCodeInfo_Location
 }
 
 func newMessageDescriptor(desc *descriptor.DescriptorProto, parent *messageDescriptor, file *fileDescriptor, path pathVector) *messageDescriptor {
+	var qualifiedName []string
+	if parent == nil {
+		qualifiedName = []string{desc.GetName()}
+	} else {
+		qualifiedName = append(parent.qualifiedName(), desc.GetName())
+	}
+
 	m := &messageDescriptor{
 		DescriptorProto: desc,
-		file:            file,
 		parent:          parent,
-		loc:             file.find(path),
-	}
-
-	n := 0
-	for p := m; p != nil; p = p.parent {
-		n++
-	}
-
-	m.typename = make([]string, n, n)
-	for p := m; p != nil; p = p.parent {
-		n--
-		m.typename[n] = p.GetName()
+		baseDesc:        newBaseDesc(file, path, qualifiedName),
 	}
 
 	for i, f := range desc.Field {
 		fd := &fieldDescriptor{
 			FieldDescriptorProto: f,
-			loc:                  file.find(path.append(messageFieldPath, i)),
+			baseDesc:             newBaseDesc(file, path.append(messageFieldPath, i), append(qualifiedName, f.GetName())),
 		}
 
 		m.fields = append(m.fields, fd)
@@ -72,14 +65,6 @@ func newMessageDescriptor(desc *descriptor.DescriptorProto, parent *messageDescr
 	}
 
 	return m
-}
-
-func (m *messageDescriptor) fileDesc() *fileDescriptor {
-	return m.file
-}
-
-func (m *messageDescriptor) typeName() []string {
-	return m.typename
 }
 
 func (f *fieldDescriptor) isRepeated() bool {
