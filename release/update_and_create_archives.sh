@@ -58,13 +58,11 @@ done
 [[ -z "${OUTPUT_PATH}"  ]] && usage
 [[ -z "${VER_STRING}"   ]] && usage
 
-function copy_and_archive() {
+function run_update() {
   # can't seem to set/override PROXY_HUB, FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
   ${ROOT}/install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
                                    -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
                                    -r "${VER_STRING}" -E "${DEBIAN_URL}" -d "${OUTPUT_PATH}"
-  
-  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
   return 0
 }
 
@@ -85,7 +83,8 @@ if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
   COMMON_URL="https://storage.googleapis.com/${GCS_TEST_PATH}"
   ISTIOCTL_URL="${COMMON_URL}/istioctl"
   DEBIAN_URL="${COMMON_URL}/deb"
-  copy_and_archive
+  run_update
+  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}" -i "istioctl-test"
 
   # These files are only used for testing, so use a name to help make this clear
   for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do
@@ -101,4 +100,5 @@ DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
 COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
 ISTIOCTL_URL="${COMMON_URL}/istioctl"
 DEBIAN_URL="${COMMON_URL}/deb"
-copy_and_archive
+run_update
+${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"

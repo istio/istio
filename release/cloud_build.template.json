@@ -20,7 +20,7 @@
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.4.5-bazel7-go19",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/cloud_builder.sh", "-t", "$_VER_STRING", "-o", "/output" ]
+      "args": [ "./release/cloud_builder.sh", "-h", "$_GCR_PATH", "-t", "$_VER_STRING", "-o", "/output" ]
     },
     {
       "volumes": [

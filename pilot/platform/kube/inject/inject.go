@@ -81,7 +81,6 @@ const (
 const (
 	DefaultSidecarProxyUID = int64(1337)
 	DefaultVerbosity       = 2
-	DefaultHub             = "docker.io/istio"
 	DefaultImagePullPolicy = "IfNotPresent"
 )
 
@@ -219,10 +218,10 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 		c.Policy = DefaultInjectionPolicy
 	}
 	if c.Params.InitImage == "" {
-		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
+		c.Params.InitImage = InitImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.ProxyImage == "" {
-		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
+		c.Params.ProxyImage = ProxyImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.SidecarProxyUID == 0 {
 		c.Params.SidecarProxyUID = DefaultSidecarProxyUID

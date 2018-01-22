@@ -26,6 +26,7 @@ set -x
 
 TEMP_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
 BASE_DIR="$TEMP_DIR"
+ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
 VER_STRING=""
 
@@ -33,6 +34,7 @@ function usage() {
   echo "$0
     -d <path> path to use for temp directory                  (optional, randomized default is ${BASE_DIR} )
     -o <path> path where build output/artifacts are stored    (required)
+    -i <name> subdirectory in -o path to use for istioctl     (optional)
     -v <ver>  version info to include in filename (e.g., 1.0) (required)"
   exit 1
 }
@@ -46,6 +48,7 @@ function error_exit() {
 while getopts d:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
+    i) ISTIOCTL_SUBDIR="${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     *) usage;;
@@ -73,7 +76,7 @@ fi
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
-  ${CP} "${OUTPUT_PATH}/istioctl/istioctl-linux" "${istioctl_path}"
+  ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-linux" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czvf \
@@ -85,7 +88,7 @@ function create_linux_archive() {
 function create_osx_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
-  ${CP} "${OUTPUT_PATH}/istioctl/istioctl-osx" "${istioctl_path}"
+  ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-osx" "${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czvf \
@@ -97,7 +100,7 @@ function create_osx_archive() {
 function create_windows_archive() {
   local istioctl_path="${BIN_DIR}/istioctl.exe"
 
-  ${CP} "${OUTPUT_PATH}/istioctl/istioctl-win.exe" "${istioctl_path}"
+  ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
   
   zip -r "${OUTPUT_PATH}/istio_${VER_STRING}_win.zip" "istio-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
