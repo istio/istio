@@ -34,7 +34,7 @@ bind(
     actual = "//external:ssl",
 )
 
-ENVOY_SHA = "352fe35845388333917423e9d5d4e5c3d4872291"  # Jan 16, 2017
+ENVOY_SHA = "352fe35845388333917423e9d5d4e5c3d4872291"  # Jan 16, 2018
 
 http_archive(
     name = "envoy",
