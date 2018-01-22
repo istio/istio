@@ -18,20 +18,15 @@ load(
     "//:repositories.bzl",
     "boringssl_repositories",
     "googletest_repositories",
-    "mixerapi_repositories",
+    "mixerapi_dependencies",
 )
 
 boringssl_repositories()
 googletest_repositories()
-
-mixerapi_repositories()
+mixerapi_dependencies()
 
 git_repository(
-    name = "io_bazel_rules_go",
-    commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
-    remote = "https://github.com/bazelbuild/rules_go.git",
+    name = "org_pubref_rules_protobuf",
+    commit = "563b674a2ce6650d459732932ea2bc98c9c9a9bf",  # Nov 28, 2017 (bazel 0.8.0 support)
+    remote = "https://github.com/pubref/rules_protobuf",
 )
-
-load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_dependencies")
-mixer_api_dependencies()
-

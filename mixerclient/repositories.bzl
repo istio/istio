@@ -112,21 +112,88 @@ cc_library(
         )
 
 
-ISTIO_API = "89f8728eb412e7022ed92c86db8fc24ce8f25dd3"
+ISTIO_API = "a6c74ca9a8b5bba45bafd6d238a27dde4c406da7"
 
 def mixerapi_repositories(bind=True):
-    native.git_repository(
+    BUILD = """
+# Copyright 2018 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "mixer_api_cc_proto",
+    srcs = glob(
+        ["mixer/v1/*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_gogoproto",
+        "//external:cc_wkt_protos",
+        "//external:rpc_status_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "mixer_client_config_cc_proto",
+    srcs = glob(
+        ["mixer/v1/config/client/*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":mixer_api_cc_proto",
+    ],
+)
+
+filegroup(
+    name = "global_dictionary_file",
+    srcs = ["mixer/v1/global_dictionary.yaml"],
+    visibility = ["//visibility:public"],
+)
+
+"""
+    native.new_git_repository(
         name = "mixerapi_git",
+        build_file_content = BUILD,
         commit = ISTIO_API,
         remote = "https://github.com/istio/api.git",
     )
     if bind:
         native.bind(
             name = "mixer_api_cc_proto",
-            actual = "@mixerapi_git//mixer/v1:cc_proto",
+            actual = "@mixerapi_git//:mixer_api_cc_proto",
         )
         native.bind(
             name = "mixer_client_config_cc_proto",
-            actual = "@mixerapi_git//mixer/v1/config/client:cc_proto",
+            actual = "@mixerapi_git//:mixer_client_config_cc_proto",
         )
 
+
+load(":protobuf.bzl", "protobuf_repositories")
+load(":cc_gogo_protobuf.bzl", "cc_gogoproto_repositories")
+load(":x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load(":googleapis.bzl", "googleapis_repositories")
+
+def  mixerapi_dependencies():
+     protobuf_repositories(load_repo=True, bind=True)
+     cc_gogoproto_repositories()
+     go_x_tools_imports_repositories()
+     googleapis_repositories()
+     mixerapi_repositories()
