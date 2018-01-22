@@ -15,6 +15,8 @@
 package env
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"testing"
 
@@ -221,6 +223,32 @@ func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 	if s.mixer.qma.Amount != amount {
 		s.t.Fatalf("Failed to verify %s quota amount: %v, expected: %v\n",
 			tag, s.mixer.qma.Amount, amount)
+	}
+}
+
+// VerifyStats verifies Envoy stats.
+func (s *TestSetup) VerifyStats(actualStats string, expectedStats string) {
+	var actualMap map[string]interface{}
+	if err := json.Unmarshal([]byte(actualStats), &actualMap); err != nil {
+		return fmt.Errorf("unable to decode json %v", err)
+	}
+
+	var expectedMap map[string]interface{}
+	if err := json.Unmarshal([]byte(expectedStats), &expectedMap); err != nil {
+		return fmt.Errorf("unable to decode json %v", err)
+	}
+
+	for eStatsName, eStatsValue := range expectedMap {
+		eStatsVString := eStatsValue.(string)
+
+		aStatsValue, ok = actualMap[eStatsName]
+		if !ok {
+			s.t.Fatalf("Failed to find expected Stat %s\n", eStatsName)
+		}
+		if aStatsVString := aStatsValue.(string); eStatsVString != aStatsVString {
+			s.t.Fatalf("Stats %s does not match. Expected vs Actual: %s vs %s",
+				eStatsName, eStatsVString, aStatsVString)
+		}
 	}
 }
 

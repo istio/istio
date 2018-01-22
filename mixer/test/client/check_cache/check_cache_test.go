@@ -17,10 +17,16 @@ package checkCache
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
+
+const expectedStats = `
+{
+}
+`
 
 func TestCheckCache(t *testing.T) {
 	s := env.NewTestSetupV2(env.CheckCacheTest, t)
@@ -52,4 +58,16 @@ func TestCheckCache(t *testing.T) {
 		// Only the first check is called.
 		s.VerifyCheckCount(tag, 1)
 	}
+
+	// Wait for Envoy stats to get updated.
+	time.Sleep(10 * time.Second)
+	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", s.Ports().AdminPort)
+	code, respBody, err := env.HTTPGet(statsURL)
+	if err != nil {
+		t.Errorf("Failed in stats request: %v", err)
+	}
+	if code != 200 {
+		t.Errorf("Status code 200 is expected, got %d.", code)
+	}
+	s.VerifyStats(respBody, expectedStats)
 }
