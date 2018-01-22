@@ -45,7 +45,7 @@ function error_exit() {
   exit ${2:-1}
 }
 
-while getopts d:o:v: arg ; do
+while getopts d:i:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
     i) ISTIOCTL_SUBDIR="${OPTARG}";;
