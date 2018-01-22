@@ -63,7 +63,7 @@ func applyClusterPolicy(cluster *Cluster,
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(instances, cluster.hostname, cluster.tags)
+	policyConfig := config.Policy(instances, cluster.hostname, cluster.labels)
 
 	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {
@@ -242,7 +242,7 @@ func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domai
 
 		applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
 		for _, subset := range destinationRule.Subsets {
-			if cluster.tags.Equals(subset.Labels) {
+			if cluster.labels.Equals(subset.Labels) {
 				applyTrafficPolicy(cluster, subset.TrafficPolicy)
 				break
 			}

@@ -217,9 +217,9 @@ func (instance *ServiceInstance) Validate() error {
 }
 
 // Validate ensures tag is well-formed
-func (t Labels) Validate() error {
+func (l Labels) Validate() error {
 	var errs error
-	for k, v := range t {
+	for k, v := range l {
 		if !tagRegexp.MatchString(k) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid tag key: %q", k))
 		}
@@ -2005,14 +2005,18 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
+	// TODO: if static, ensure endpoint addresses are IPs / if dns, ensure endpoints addresses are FQDN
 	if externalService.Discovery == routingv2.ExternalService_STATIC {
 		if len(externalService.Endpoints) == 0 {
 			errs = appendErrors(errs,
 				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
 		}
+
 		for _, endpoint := range externalService.Endpoints {
-			errs = appendErrors(errs, ValidateIPv4Address(endpoint.Address)) // TODO: allow FQDN
-			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			errs = appendErrors(errs,
+				ValidateIPv4Address(endpoint.Address),
+				Labels(endpoint.Labels).Validate())
+
 			for name, port := range endpoint.Ports {
 				errs = appendErrors(errs,
 					validatePortName(name),
