@@ -57,13 +57,28 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     pushd $OUT
     # New version of envoy downloaded. Save it to cache, and clean any old version.
 
-    if curl --version | grep Protocols  | grep https; then
-	DOWNLOAD_COMMAND='curl -Lo -'
-    elif command -v wget > /dev/null; then
-	DOWNLOAD_COMMAND='wget -qO -'
+    DOWNLOAD_COMMAND=""
+    if command -v curl > /dev/null; then
+       if curl --version | grep Protocols  | grep https; then
+	   DOWNLOAD_COMMAND='curl -Lo -'
+       else
+           echo curl does not support https, will try wget for downloading files.
+       fi
     else
-	echo Error: curl does not support https and wget is not installed. \
-	     Cannot download envoy. Please install wget or add support of https to curl.
+       echo curl is not installed, will try wget for downloading files.
+    fi
+
+    if [ -z "${DOWNLOAD_COMMAND}" ]; then
+        if command -v wget > /dev/null; then
+	    DOWNLOAD_COMMAND='wget -qO -'
+        else
+            echo wget is not installed.
+        fi
+    fi
+
+    if [ -z "${DOWNLOAD_COMMAND}" ]; then
+        echo Error: curl is not installed or does not support https, wget is not installed. \
+             Cannot download envoy. Please install wget or add support of https to curl.
         exit 1
     fi
 
