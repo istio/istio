@@ -39,7 +39,7 @@ LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 export CGO_ENABLED=0
 
-if [[ " $DEBUG_MODULES " =~ .*\ $BUILD_MODULE\ .* || " $DEBUG_MODULES " =~ .*\ all\ .* ]]; then
+if [[ $DEBUG_MODULES == 1 ]]; then
     GCFLAGS="-N -l"
 fi
 

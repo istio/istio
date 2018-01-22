@@ -16,7 +16,6 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building individual Istio components](#building-individual-istio-components)
   - [Building the code with debugger information](#building-the-code-with-debugger-information)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building containers with debugger information](#building-containers-with-debugger-information)
@@ -199,57 +198,17 @@ undesirable as Golang may not erase out of date artifacts from the
 cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
 before rebuilding the code.
 
-### Building individual Istio components
-
-You can build individual Istio components by using their corresponding build
-targets. The following targets are currently defined:
-
-* pilot: build the pilot-discovery executable
-* proxy: build the pilot-agent executable
-* istioctl: build the istioctl executable
-* sidecar_initializer: build the istio-initializer executable
-* mixs: build the mixer server execuable
-* mixc: build the mixer client executable
-* servicegraph: build the servicegraph executable
-* node-agent: build the node_agent executable
-* istio-ca: build the istio_ca executable
-
-For example, you can build pilot-discovery and pilot-agent with the following
-command:
-
-```shell
-make pilot proxy
-```
-
 ### Building the code with debugger information
 
 If you'd like to use a debugger such as [Delve](https://github.com/derekparker/delve) to debug Istio components, run
 
 ```shell
-make DEBUG=all
+make DEBUG=1
 ```
 
 This build command will cause Go compiler to disable compiler optimizations
 and inlining when building Istio executables, and build all of them with
 debugger information.
-
-All the Istio components have corresponding debug targets defined by prefixing
-*debug.* to the regular build targets as described in
-[Building individual Istio components](#building-individual-istio-components). For example, to build
-pilot-discovery and pilot-agent with debugger information, issue the command in
-below:
-
-```shell
-make debug.pilot debug.proxy
-```
-
-You can selectively build Istio components with debugger informaion while
-performing a full-blown build. For example, to build pilot-discovery and
-pilot-agent with debugger information only, issue the command in below:
-
-```shell
-make DEBUG=pilot,proxy
-```
 
 ### Building and pushing the containers
 
@@ -265,25 +224,13 @@ Push the containers to your registry:
 make push
 ```
 
-You can selectively build individual Istio containers by using their corresponding
-build targets. Except for mixs, mixc, istioctl, you can prefix *docker.* to the regular build
-targets as described in [Building individual Istio components](#building-individual-istio-components). To build
-mixer server container, use the target *docker.mixer* or *docker.mixer_debug*.
-
 ### Building containers with debugger information
 
 To build all the Istio containers with debugger information, issue the following
 command:
 
 ```shell
-make docker DEBUG=all
-```
-
-To build individual Istio containers with debugger information, issue the
-following command for example:
-
-```shell
-make docker.pilot docker.proxy DEBUG=all
+make docker DEBUG=1
 ```
 
 ### Building the Istio manifests

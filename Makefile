@@ -15,27 +15,10 @@
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
-MAPPING_MODULES=pilot.pilot-discovery proxy.pilot-agent istioctl.istioctl sidecar_initializer.sidecar-initializer mixs.mixs mixc.mixc servicegraph.servicegraph node-agent.node_agent istio-ca.istio_ca
-MODULES=pilot proxy istioctl sidecar_initializer mixs mixc servicegraph node-agent istio-ca
-ORIG_DEBUG_MODULES :=
-DEBUG_MODULES :=
-export DEBUG_MODULES
+
+# Invoke make with DEBUG=<anything> will have the binaries built with debugger information
 ifdef DEBUG
-    ifeq (${DEBUG},all)
-        DEBUG_MODULES = all
-        ORIG_DEBUG_MODULES = all
-    else
-        COMMA := ,
-        SPACE :=
-        SPACE +=
-        ORIG_DEBUG_MODULES = $(subst ${COMMA},${SPACE},${DEBUG})
-        VALID_DEBUG_MODULES := $(foreach MOD,${ORIG_DEBUG_MODULES},$(findstring ${MOD},${MODULES}))
-        ifneq (${ORIG_DEBUG_MODULES},${VALID_DEBUG_MODULES})
-           $(error modules "$(filter-out ${VALID_DEBUG_MODULES},${ORIG_DEBUG_MODULES})" don't exist)
-        endif
-        DEBUG_MODULES = $(foreach MAP_MOD,${MAPPING_MODULES},$(if $(findstring $(basename ${MAP_MOD}),${ORIG_DEBUG_MODULES}),$(subst .,,$(suffix ${MAP_MOD}))))
-    endif
-    $(info Build "${ORIG_DEBUG_MODULES}" with debugger information and others without)
+	export DEBUG_MODULES = ALL
 endif
 
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
