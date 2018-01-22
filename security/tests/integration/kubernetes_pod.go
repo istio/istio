@@ -15,7 +15,6 @@
 package integration
 
 import (
-	"flag"
 	"fmt"
 
 	"github.com/golang/glog"
@@ -36,11 +35,6 @@ type (
 		args      []string
 		uuid      string
 	}
-)
-
-var (
-	hub = flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
-	tag = flag.String("tag", "", "Tag for Istio CA image")
 )
 
 // NewKubernetesPod create a K8s pod instance
