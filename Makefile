@@ -174,7 +174,12 @@ check.lint: ; $(info $(H) running golint on packages...)
 
 # @todo gometalinter targets?
 
-build: setup go-build
+build: setup gen-envoy-api go-build
+
+# Generates gogo for Envoy API
+.PHONY: gen-envoy-api
+istio-envoy-api: vendor
+	bin/build-envoy-api.sh
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -328,9 +333,14 @@ racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common
 DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
 
-clean: clean.go clean.installgen
+clean: clean.go clean.installgen clean-gen-envoy-api
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
+
+# Cleans generates gogo for Envoy API
+.PHONY: clean-gen-envoy-api
+istio-envoy-api: vendor
+	bin/build-envoy-api.sh --clean
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
