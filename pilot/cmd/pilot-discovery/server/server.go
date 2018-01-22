@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/adapter/serviceregistry/aggregate"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/pilot-discovery/mock"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/cloudfoundry"
@@ -44,9 +45,7 @@ import (
 	"istio.io/istio/pilot/platform/eureka"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/admit"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
@@ -258,7 +257,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 	if mesh == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		defaultMesh := proxy.DefaultMeshConfig()
+		defaultMesh := model.DefaultMeshConfig()
 		mesh = &defaultMesh
 
 		// Allow some overrides for testing purposes.
@@ -494,7 +493,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := proxy.Environment{
+	environment := model.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: model.MakeIstioStore(s.configController),
 		ServiceDiscovery: s.serviceController,

@@ -226,7 +226,7 @@ func TestServiceDiscovery_HostInstances(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
 	state.mockClient.RoutesOutput.Ret1 <- nil
 
-	instances, err := state.serviceDiscovery.HostInstances(map[string]bool{"": false})
+	instances, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
 	g.Expect(err).To(gomega.BeNil())
 
 	servicePort := &model.Port{
@@ -287,7 +287,7 @@ func TestServiceDiscovery_HostInstances_ClientError(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- nil
 	state.mockClient.RoutesOutput.Ret1 <- errors.New("no instances")
 
-	serviceModel, err := state.serviceDiscovery.HostInstances(map[string]bool{"": false})
+	serviceModel, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
 
 	g.Expect(err).To(gomega.MatchError("getting host instances: no instances"))
 	g.Expect(serviceModel).To(gomega.BeNil())
@@ -300,7 +300,7 @@ func TestServiceDiscovery_HostInstances_NotFound(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- nil
 	state.mockClient.RoutesOutput.Ret1 <- nil
 
-	instances, err := state.serviceDiscovery.HostInstances(map[string]bool{"": false})
+	instances, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(instances).To(gomega.BeNil())
 }

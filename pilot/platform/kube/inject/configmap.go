@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 )
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -46,7 +46,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace,
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := proxy.ApplyMeshConfigDefaults(yaml)
+	mesh, err := model.ApplyMeshConfigDefaults(yaml)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -3,5 +3,4 @@ hosts:
 http:
   - mirror:
       name: hello
-      labels:
-        version: v1
+      subset: v1

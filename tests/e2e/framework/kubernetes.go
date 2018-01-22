@@ -54,7 +54,6 @@ var (
 	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
 	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	skipDelete      = flag.Bool("skip_delete", false, "Skip namespace deletion, for ephemeral machines and to debug after test")
 	initializerFile = flag.String("initializer_file", istioInitializerFile, "Initializer yaml file")
 	clusterWide     = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 
@@ -197,7 +196,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 20
+	maxAttempts := 30
 	namespaceDeleted := false
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
@@ -361,8 +360,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
-		//Need to be updated when the string "proxy_debug" is changed
-		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
+		//Need to be updated when the string "proxy" is changed as the default image name
+		content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
 	}
 	if *caHub != "" && *caTag != "" {
 		//Need to be updated when the string "istio-ca" is changed

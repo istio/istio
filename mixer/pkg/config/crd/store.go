@@ -81,7 +81,7 @@ func waitForSynced(ctx context.Context, informers map[string]cache.SharedInforme
 	return out
 }
 
-// Store offers store.Store2Backend interface through kubernetes custom resource definitions.
+// Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
 	conf         *rest.Config
 	ns           map[string]bool
@@ -99,7 +99,7 @@ type Store struct {
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 }
 
-var _ store.Store2Backend = &Store{}
+var _ store.Backend = &Store{}
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
@@ -162,7 +162,7 @@ func (s *Store) checkAndCreateCaches(
 	return informers, remaining
 }
 
-// Init implements store.Store2Backend interface.
+// Init implements store.StoreBackend interface.
 func (s *Store) Init(ctx context.Context, kinds []string) error {
 	d, err := s.discoveryBuilder(s.conf)
 	if err != nil {
@@ -182,7 +182,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-// Watch implements store.Store2Backend interface.
+// Watch implements store.StoreBackend interface.
 func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 	ch := make(chan store.BackendEvent)
 	s.watchMutex.Lock()
@@ -192,7 +192,7 @@ func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 	return ch, nil
 }
 
-// Get implements store.Store2Backend interface.
+// Get implements store.StoreBackend interface.
 func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 	if s.ns != nil && !s.ns[key.Namespace] {
 		return nil, store.ErrNotFound
@@ -231,7 +231,7 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 	}
 }
 
-// List implements store.Store2Backend interface.
+// List implements store.StoreBackend interface.
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()

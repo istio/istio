@@ -19,6 +19,7 @@ VERSION_FILE="istio.VERSION"
 SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
 DEST_DIR=$ROOT
+COMPONENT_FILES=false
 
 set -o errexit
 set -o pipefail
@@ -42,13 +43,15 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -P ... URL to download pilot debian packages
     -E ... URL to download proxy debian packages
     -d ... directory to store file (optional, defaults to source code tree)
+    -D ... enable debug for proxy (optional, false or true, default is false)
+    -m ... true|false Create the individual component files as well as the all-in-one
 EOF
   exit 2
 }
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:n:p:x:c:a:h:r:A:P:E:d: arg; do
+while getopts :i:n:p:x:c:a:h:r:A:P:E:d:D:m: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -62,6 +65,8 @@ while getopts :i:n:p:x:c:a:h:r:A:P:E:d: arg; do
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     E) PROXY_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
+    D) PROXY_DEBUG="${OPTARG}";;
+    m) COMPONENT_FILES=true;;
     *) usage;;
   esac
 done
@@ -125,6 +130,21 @@ function merge_files() {
   ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
   ISTIO_CA_PLUGIN_CERTS=$DEST/istio-ca-plugin-certs.yaml
 
+
+  if [ "$COMPONENT_FILES" = true ]; then
+    echo "generating component files"
+      COMPONENT_DIR=$DEST/components
+      if [ ! -d "$COMPONENT_DIR" ]; then
+        mkdir -p $COMPONENT_DIR
+      fi
+      cat $SRC/istio-ns.yaml.tmpl >> $COMPONENT_DIR/istio-ns.yaml
+      cat $SRC/istio-rbac-beta.yaml.tmpl >> $COMPONENT_DIR/istio-rbac-beta.yaml
+      cat $SRC/istio-mixer.yaml.tmpl >> $COMPONENT_DIR/istio-mixer.yaml
+      cat $SRC/istio-config.yaml.tmpl >> $COMPONENT_DIR/istio-config.yaml
+      cat $SRC/istio-pilot.yaml.tmpl >> $COMPONENT_DIR/istio-pilot.yaml.yaml
+      cat $SRC/istio-ingress.yaml.tmpl >> $COMPONENT_DIR/istio-ingress.yaml
+  fi
+
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
@@ -176,6 +196,7 @@ export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PROXY_TAG="${PROXY_TAG}"
+export PROXY_DEBUG="${PROXY_DEBUG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
@@ -196,8 +217,9 @@ function update_helm_version() {
 
   execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
   execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
-  execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" values.yaml.tmpl
   execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_DEBUG}|${PROXY_DEBUG}|" values.yaml.tmpl
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
   execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
@@ -225,19 +247,25 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
+  # handle PROXY_DEBUG conversion to proxy_debug or proxy image
+  PROXY_IMAGE="proxy"
+  if [[ "${PROXY_DEBUG}" == "true" ]]; then
+    echo "# Use proxy_debug image"
+    PROXY_IMAGE="proxy_debug"
+  fi
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
 
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
+  execute_sed "s|proxyImage: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|proxyImage: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
-
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   popd
 }
 
@@ -300,6 +328,9 @@ function merge_files_docker() {
 }
 
 if [[ "$DEST_DIR" != "$ROOT" ]]; then
+  if [ ! -d "$DEST_DIR" ]; then
+    mkdir -p $DEST_DIR
+  fi
   cp -R $ROOT/install $DEST_DIR/
   cp -R $ROOT/samples $DEST_DIR/
 fi

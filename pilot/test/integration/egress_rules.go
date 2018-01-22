@@ -55,6 +55,20 @@ func (t *egressRules) run() error {
 			},
 		},
 		{
+			description: "allow external traffic to *.httbin.org",
+			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("http://www.httpbin.org/headers", true)
+			},
+		},
+		{
+			description: "ensure traffic to httbin.org is prohibited when setting *.httbin.org",
+			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("http://httpbin.org/headers", false)
+			},
+		},
+		{
 			description: "allow external http2 traffic to nghttp2.org",
 			config:      "egress-rule-nghttp2.yaml.tmpl",
 			check: func() error {
@@ -95,6 +109,10 @@ func (t *egressRules) run() error {
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
 			log.Info("Success!")
+		}
+
+		if err := t.deleteConfig(cs.config, nil); err != nil {
+			return err
 		}
 	}
 	return errs

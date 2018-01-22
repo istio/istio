@@ -78,17 +78,17 @@ GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
 
 if [[ "${PUSH_DOCKER}" == "true" ]]; then
-  for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar
+  for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar.gz
   do
-    TAR_NAME=$(basename "$TAR_PATH")
+    BASE_NAME=$(basename "$TAR_PATH")
+    TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
     
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
-    gzip "${TAR_PATH}"
-    docker load -i "${TAR_PATH}.gz"
+    docker load -i "${TAR_PATH}"
     docker tag "${IMAGE_NAME}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done

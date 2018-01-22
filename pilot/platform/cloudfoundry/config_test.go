@@ -43,7 +43,7 @@ type testState struct {
 
 func (s *testState) cleanup() {
 	s.creds.CleanupTempFiles()
-	os.RemoveAll(s.configFilePath)
+	_ = os.RemoveAll(s.configFilePath)
 }
 
 func newTestState() *testState {
@@ -151,8 +151,8 @@ func TestConfig_TLSClient_Connects(t *testing.T) {
 	msgs := make(chan string)
 	go func() {
 		for {
-			conn, err := serverListener.Accept()
-			if err != nil {
+			conn, err2 := serverListener.Accept()
+			if err2 != nil {
 				return
 			}
 			b := make([]byte, 6)
@@ -200,15 +200,15 @@ func TestConfig_TLSClient_HasSecureParameters(t *testing.T) {
 
 	rawSubjectData := string(tlsConfig.RootCAs.Subjects()[0])
 	if !strings.Contains(rawSubjectData, "serverCA") {
-		t.Errorf("expected to find substring %q in root CAs subject data")
+		t.Errorf("expected to find substring 'serverCA' in root CAs subject data")
 	}
 }
 
 func TestConfig_TLSClient_Errors(t *testing.T) {
 	// checking that we get useful errors when the config is broken in various ways
 	breakageTypes := map[string]func(path string){
-		"remove":       func(path string) { os.Remove(path) },
-		"writeBadData": func(path string) { ioutil.WriteFile(path, []byte("bad-data"), 0600) },
+		"remove":       func(path string) { _ = os.Remove(path) },
+		"writeBadData": func(path string) { _ = ioutil.WriteFile(path, []byte("bad-data"), 0600) },
 	}
 
 	testCases := []struct {

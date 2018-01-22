@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -31,6 +32,7 @@ import (
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
@@ -54,7 +56,7 @@ type CertSource struct {
 
 type watcher struct {
 	agent    proxy.Agent
-	role     proxy.Node
+	role     model.Node
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -62,7 +64,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role proxy.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -73,8 +75,12 @@ func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role proxy.Nod
 	}
 }
 
-// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
-const defaultMinDelay = 10 * time.Second
+const (
+	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
+	defaultMinDelay = 10 * time.Second
+	azRetryInterval = time.Second * 30
+	azRetryAttempts = 10
+)
 
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
@@ -90,6 +96,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
+	go w.retrieveAZ(ctx, azRetryInterval, azRetryAttempts)
 
 	<-ctx.Done()
 }
@@ -105,6 +112,34 @@ func (w *watcher) Reload() {
 	config.Hash = h.Sum(nil)
 
 	w.agent.ScheduleConfigUpdate(config)
+}
+
+// retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
+// it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
+func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
+	attempts := 0
+	for w.config.AvailabilityZone == "" && attempts <= retries {
+		time.Sleep(delay)
+		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+		if err != nil {
+			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
+		} else {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Infof("Unable to read availability zone response from pilot: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+			} else {
+				w.config.AvailabilityZone = string(body)
+				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
+				w.Reload()
+			}
+			_ = resp.Body.Close()
+		}
+		attempts++
+	}
+	log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
