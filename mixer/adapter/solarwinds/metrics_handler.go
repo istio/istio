@@ -36,13 +36,12 @@ type metricsHandlerInterface interface {
 }
 
 type metricsHandler struct {
-	logger   adapter.Logger
-	prepChan chan []*appoptics.Measurement
-
-	stopChan chan struct{}
-	pushChan chan []*appoptics.Measurement
-
+	logger     adapter.Logger
+	prepChan   chan []*appoptics.Measurement
+	stopChan   chan struct{}
+	pushChan   chan []*appoptics.Measurement
 	loopFactor *bool
+	lc         *appoptics.Client
 }
 
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
@@ -59,8 +58,9 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 
 	var stopChan = make(chan struct{})
 
+	var lc *appoptics.Client
 	if strings.TrimSpace(cfg.AppopticsAccessToken) != "" {
-		lc := appoptics.NewClient(cfg.AppopticsAccessToken, env.Logger())
+		lc = appoptics.NewClient(cfg.AppopticsAccessToken, env.Logger())
 
 		batchSize := cfg.AppopticsBatchSize
 		if batchSize <= 0 || batchSize > MeasurementPostMaxBatchSize {
@@ -73,29 +73,21 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		env.ScheduleDaemon(func() {
 			appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, env.Logger())
 		})
-	} else {
-		env.ScheduleDaemon(func() {
-			// to drain the channel
-			for range prepChan {
-
-			}
-		})
 	}
-
 	return &metricsHandler{
 		logger:     env.Logger(),
 		prepChan:   prepChan,
 		stopChan:   stopChan,
 		pushChan:   pushChan,
 		loopFactor: &loopFactor,
+		lc:         lc,
 	}, nil
 }
 
 func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {
 	measurements := []*appoptics.Measurement{}
 	for _, val := range vals {
-		var merticVal float64
-		merticVal = h.aoVal(val.Value)
+		merticVal := h.aoVal(val.Value)
 
 		m := &appoptics.Measurement{
 			Name:  val.Name,
@@ -103,6 +95,7 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 			Time:  time.Now().Unix(),
 			Tags:  appoptics.MeasurementTags{},
 		}
+
 		for k, v := range val.Dimensions {
 			switch vv := v.(type) {
 			case int:
@@ -115,11 +108,11 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 				m.Tags[k], _ = v.(string)
 			}
 		}
-
 		measurements = append(measurements, m)
 	}
-	h.prepChan <- measurements
-
+	if h.lc != nil {
+		h.prepChan <- measurements
+	}
 	return nil
 }
 
@@ -144,12 +137,12 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 	case string:
 		f, err := strconv.ParseFloat(vv, 64)
 		if err != nil {
-			h.logger.Errorf("ao - Error parsing metric val: %v", vv)
+			_ = h.logger.Errorf("ao - Error parsing metric val: %v", i)
 			f = 0
 		}
 		return f
 	default:
-		h.logger.Errorf("ao - could not extract numeric value for %v", vv)
+		_ = h.logger.Errorf("ao - could not extract numeric value for %v", i)
 		return 0
 	}
 }

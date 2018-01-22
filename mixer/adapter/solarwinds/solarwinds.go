@@ -80,26 +80,26 @@ func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	if b.cfg.AppopticsBatchSize <= 0 || b.cfg.AppopticsBatchSize > 1000 {
-		ce.Append("appoptics_batch_size", fmt.Errorf("appoptics batch size provided is not in the range from 1 to 1000"))
+		ce = ce.Append("appoptics_batch_size", fmt.Errorf("appoptics batch size provided is not in the range from 1 to 1000"))
 	}
 	if b.cfg.PapertrailUrl != "" {
 		re := regexp.MustCompile(paperTrailURLPattern)
 		if !re.MatchString(b.cfg.PapertrailUrl) {
-			ce.Append("paper_trail_url", fmt.Errorf("papertrail url provided is invalid: %v", b.cfg.PapertrailUrl))
+			ce = ce.Append("paper_trail_url", fmt.Errorf("papertrail url provided is invalid: %v", b.cfg.PapertrailUrl))
 		}
 	}
 
 	for inst := range b.cfg.Metrics {
 		_, ok := b.metricTypes[inst]
 		if !ok {
-			ce.Append("metrics", fmt.Errorf("%s is an invalid metric instance name", inst))
+			ce = ce.Append("metrics", fmt.Errorf("%s is an invalid metric instance name", inst))
 		}
 	}
 
 	for inst := range b.cfg.Logs {
 		_, ok := b.logentryTypes[inst]
 		if !ok {
-			ce.Append("metrics", fmt.Errorf("%s is an invalid logentry instance name", inst))
+			ce = ce.Append("metrics", fmt.Errorf("%s is an invalid logentry instance name", inst))
 		}
 	}
 	return
@@ -133,10 +133,10 @@ func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instanc
 
 func (h *handler) Close() error {
 	if h.metricsHandler != nil {
-		h.metricsHandler.close()
+		_ = h.metricsHandler.close()
 	}
 	if h.logHandler != nil {
-		h.logHandler.close()
+		_ = h.logHandler.close()
 	}
 	return nil
 }
