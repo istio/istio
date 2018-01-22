@@ -464,8 +464,8 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	return nil
 }
 
-func (infra *infra) deleteConfig(inFile string) error {
-	config, err := fill(inFile, nil)
+func (infra *infra) deleteConfig(inFile string, data map[string]string) error {
+	config, err := fill(inFile, data)
 	if err != nil {
 		return err
 	}

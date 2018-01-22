@@ -23,6 +23,7 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/istio/mixer/pkg/config/store"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
@@ -134,8 +135,10 @@ func TestReport(t *testing.T) {
 			args.MonitoringPort = 0
 			args.Templates = e2eTmpl.SupportedTmplInfo
 			args.Adapters = adapterInfos
-			args.GlobalConfig = reportGlobalCfg
-			args.ServiceConfig = tt.cfg
+			args.ConfigStoreURL = "memstore://" + t.Name()
+			if err := store.SetupMemstore(args.ConfigStoreURL, reportGlobalCfg, tt.cfg); err != nil {
+				t.Fatal(err)
+			}
 
 			env, err := testEnv.New(args)
 			if err != nil {

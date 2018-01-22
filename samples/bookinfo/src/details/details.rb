@@ -37,13 +37,15 @@ end
 
 server.mount_proc '/details' do |req, res|
     pathParts = req.path.split('/')
+    headers = get_forward_headers(req)
+
     begin
         begin
           id = Integer(pathParts[-1])
         rescue
           raise 'please provide numeric product id'
         end
-        details = get_book_details(id)
+        details = get_book_details(id, headers)
         res.body = details.to_json
         res['Content-Type'] = 'application/json'
     rescue => error
@@ -54,12 +56,12 @@ server.mount_proc '/details' do |req, res|
 end
 
 # TODO: provide details on different books.
-def get_book_details(id)
+def get_book_details(id, headers)
     if ENV['ENABLE_EXTERNAL_BOOK_SERVICE'] === 'true' then
       # the ISBN of one of Comedy of Errors on the Amazon
       # that has Shakespeare as the single author
         isbn = '0486424618'
-        return fetch_details_from_external_service(isbn, id)
+        return fetch_details_from_external_service(isbn, id, headers)
     end
 
     return {
@@ -75,7 +77,7 @@ def get_book_details(id)
     }
 end
 
-def fetch_details_from_external_service(isbn, id)
+def fetch_details_from_external_service(isbn, id, headers)
     uri = URI.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:' + isbn)
     http = Net::HTTP.new(uri.host, uri.port)
     http.read_timeout = 5 # seconds
@@ -93,6 +95,8 @@ def fetch_details_from_external_service(isbn, id)
     end
 
     request = Net::HTTP::Get.new(uri.request_uri)
+    headers.each { |header, value| request[header] = value }
+
     response = http.request(request)
 
     json = JSON.parse(response.body)
@@ -123,6 +127,26 @@ def get_isbn(book, isbn_type)
   end
 
   return isbn_dentifiers[0]['identifier']
+end
+
+def get_forward_headers(request)
+  headers = {}
+  incoming_headers = [ 'x-request-id',
+                       'x-b3-traceid',
+                       'x-b3-spanid',
+                       'x-b3-parentspanid',
+                       'x-b3-sampled',
+                       'x-b3-flags',
+                       'x-ot-span-context'
+                     ]
+
+  request.each do |header, value|
+    if incoming_headers.include? header then
+      headers[header] = value
+    end
+  end
+
+  return headers
 end
 
 server.start

@@ -17,7 +17,7 @@ package compiled
 import (
 	"testing"
 
-	"istio.io/api/mixer/v1/config/descriptor"
+	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
@@ -57,6 +57,7 @@ func TestCompiledExpressions(t *testing.T) {
 
 			if exprType != test.Type {
 				tt.Fatalf("expression type mismatch: '%v' != '%v'", exprType, test.Type)
+				return
 			}
 
 			bag := ilt.NewFakeBag(test.I)
