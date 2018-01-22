@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/mixer/template/authorization"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/authorization"
 )
 
 func setupRbacStore() *RbacStore {
@@ -64,7 +64,7 @@ func setupRbacStore() *RbacStore {
 				Methods:  []string{"*"},
 				Constraints: []*rbacproto.AccessRule_Constraint{
 					{
-						Key:  "version",
+						Key:    "version",
 						Values: []string{"v1", "v2"},
 					},
 				},
@@ -138,7 +138,7 @@ func setupRbacStore() *RbacStore {
 				User: "alice@yahoo.com",
 				Properties: map[string]string{
 					"namespace": "mynamespace",
-					"service": "xyz",
+					"service":   "xyz",
 				},
 			},
 		},

@@ -85,7 +85,7 @@ func startController(s store.Store, r *RbacStore, env adapter.Env) error {
 
 	c := &controller{
 		configState: data,
-		rbacStore: r,
+		rbacStore:   r,
 	}
 
 	c.processRbacRoles(env)
