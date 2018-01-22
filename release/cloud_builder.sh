@@ -89,8 +89,8 @@ mkdir -p "${OUTPUT_PATH}/istioctl"
 # make istioctl just outputs to pilot/cmd/istioctl
 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB}  ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
-   mkdir -p "${OUTPUT_PATH}/istioctl-test"
-   ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl-test"
+   mkdir -p "${OUTPUT_PATH}/istioctl-stage"
+   ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl-stage"
 fi
 popd
 

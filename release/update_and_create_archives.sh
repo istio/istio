@@ -81,10 +81,10 @@ if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
 
   DOCKER_HUB_TAG="gcr.io/${GCR_TEST_PATH},${VER_STRING}"
   COMMON_URL="https://storage.googleapis.com/${GCS_TEST_PATH}"
-  ISTIOCTL_URL="${COMMON_URL}/istioctl"
+  ISTIOCTL_URL="${COMMON_URL}/istioctl-stage"
   DEBIAN_URL="${COMMON_URL}/deb"
   run_update
-  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}" -i "istioctl-test"
+  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}" -i "istioctl-stage"
 
   # These files are only used for testing, so use a name to help make this clear
   for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do
