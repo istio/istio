@@ -56,7 +56,7 @@ func TestController_processRbacRoles(t *testing.T) {
 		}},
 	}
 
-	r := &RbacStore{}
+	r := &configStore{}
 	c := &controller{
 		configState: configState,
 		rbacStore:   r,

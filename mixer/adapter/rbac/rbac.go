@@ -18,6 +18,7 @@ package rbac
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -65,7 +66,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		env.Logger().Errorf("unable to connect to the configuration server: %v", err)
 		return nil, err
 	}
-	r := &RbacStore{}
+	r := &configStore{}
 	err = startController(s, r, env)
 	if err != nil {
 		env.Logger().Errorf("unable to start controller: %v", err)
@@ -75,8 +76,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	return &handler{rbac: r, env: env}, nil
 }
 
+// maxEvents is the likely maximum number of events
+// we can expect in a second. It is used to avoid slice reallocation.
+const maxEvents = 50
+
+var watchFlushDuration = time.Second
+
 // startController creates a controller from the given params.
-func startController(s store.Store, r *RbacStore, env adapter.Env) error {
+func startController(s store.Store, r *configStore, env adapter.Env) error {
 	data, watchChan, err := startWatch(s)
 	if err != nil {
 		env.Logger().Errorf("Error while starting watching CRDs: %v", err)
@@ -89,7 +96,31 @@ func startController(s store.Store, r *RbacStore, env adapter.Env) error {
 	}
 
 	c.processRbacRoles(env)
-	go watchChanges(watchChan, c.applyEvents, env)
+	// Start a goroutine to watch for changes on a channel and
+	// publishes a batch of changes via applyEvents.
+	env.ScheduleDaemon(func() {
+		// consume changes and apply them to data indefinitely
+		var timeChan <-chan time.Time
+		var timer *time.Timer
+		events := make([]*store.Event, 0, maxEvents)
+
+		for {
+			select {
+			case ev := <-watchChan:
+				if len(events) == 0 {
+					timer = time.NewTimer(watchFlushDuration)
+					timeChan = timer.C
+				}
+				events = append(events, &ev)
+			case <-timeChan:
+				timer.Stop()
+				timeChan = nil
+				env.Logger().Infof("Publishing %d events", len(events))
+				c.applyEvents(events, env)
+				events = events[:0]
+			}
+		}
+	})
 	return nil
 }
 

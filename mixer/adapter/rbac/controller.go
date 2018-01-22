@@ -15,8 +15,6 @@
 package rbac
 
 import (
-	"time"
-
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -26,44 +24,8 @@ type controller struct {
 	// Current view of config. It receives updates from the underlying config store.
 	configState map[store.Key]*store.Resource
 
-	// Pointer to RBAC store instance.
-	rbacStore *RbacStore
-}
-
-// applyEventsFn is used for testing
-type applyEventsFn func(events []*store.Event, env adapter.Env)
-
-// maxEvents is the likely maximum number of events
-// we can expect in a second. It is used to avoid slice reallocation.
-const maxEvents = 50
-
-var watchFlushDuration = time.Second
-
-// watchChanges watches for changes on a channel and
-// publishes a batch of changes via applyEvents.
-// watchChanges is started in a goroutine.
-func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn, env adapter.Env) {
-	// consume changes and apply them to data indefinitely
-	var timeChan <-chan time.Time
-	var timer *time.Timer
-	events := make([]*store.Event, 0, maxEvents)
-
-	for {
-		select {
-		case ev := <-wch:
-			if len(events) == 0 {
-				timer = time.NewTimer(watchFlushDuration)
-				timeChan = timer.C
-			}
-			events = append(events, &ev)
-		case <-timeChan:
-			timer.Stop()
-			timeChan = nil
-			env.Logger().Infof("Publishing %d events", len(events))
-			applyEvents(events, env)
-			events = events[:0]
-		}
-	}
+	// Pointer to RBAC config store instance.
+	rbacStore *configStore
 }
 
 // applyEvents applies given events to config state and then publishes a snapshot.
@@ -116,7 +78,7 @@ func (c *controller) processRbacRoles(env adapter.Env) {
 
 			rn := roles[k.Namespace]
 			if rn == nil {
-				env.Logger().Errorf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Namespace)
+				env.Logger().Errorf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Name, k.Namespace)
 				continue
 			}
 			role := rn[roleName]

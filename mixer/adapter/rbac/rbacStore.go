@@ -42,9 +42,9 @@ type rolesByName map[string]*roleInfo
 // maps namespace to a set of roles in the namespace
 type rolesMapByNamespace map[string]rolesByName
 
-// RbacStore contains all ServiceRole and ServiceRoleBinding information.
-// RbacStore implements Rbac interface.
-type RbacStore struct {
+// configStore contains all ServiceRole and ServiceRoleBinding information.
+// configStore implements Rbac interface.
+type configStore struct {
 	// All the roles organized per namespace.
 	roles rolesMapByNamespace
 }
@@ -68,13 +68,13 @@ func (ri *roleInfo) setBinding(name string, spec *rbacproto.ServiceRoleBinding) 
 }
 
 // Update roles in the RBAC store.
-func (rs *RbacStore) changeRoles(roles rolesMapByNamespace) {
+func (rs *configStore) changeRoles(roles rolesMapByNamespace) {
 	rs.roles = roles
 }
 
 // CheckPermission checks permission for a given request. This is the main API called
 // by RBAC adapter at runtime to authorize requests.
-func (rs *RbacStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
 	namespace := inst.Action.Namespace
 	if namespace == "" {
 		env.Logger().Errorf("Missing namespace")
