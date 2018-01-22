@@ -26,6 +26,7 @@
 ### BEGIN Mixer codegen deps
 
 required = [
+  "github.com/googleapis/googleapis",
   "github.com/gogo/protobuf/proto",
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
@@ -33,6 +34,48 @@ required = [
 ]
 
 ### END Mixer codegen deps
+
+### BEGIN Envoy API codegen deps
+#
+#   Revisions under metadata are valid dependencies and are used to
+#   generate go files from protos, like those defined for Envoy's v2
+#   APIs.
+#
+#   See bin/build-envoy-api.sh for details.
+#
+#   Modifying anything under metadata will also need a review of
+#   bin/build-envoy-api.sh for updating protoc imports and plugin
+#	mappings.
+#   GOGO_PROTO_APIs  A space separated list of identifiers for
+#                    each REPO, example: "SOME_API SOME_OTHER_API"
+#   [API]_REPO       The repo to use, example, acme.io/apis
+#   [API]_PROJECT    The project in that repo, example: protoclibs. The
+#                    project must exist under acme.io/apis/protoclibs
+#   [API]_PROTOS     A space separated list of folders containing
+#                    protocol buffer definition files having file
+#                    extension '.proto'. Use * for wildcards, and must
+#                    start with "*/" and end with "*.proto", example:
+#                    "*/service/*.proto */ui/*.proto"
+#   [API]_EXCLUSIONS A space separated list of directories to exclude
+#                    for protobufs that may not be required but are
+#                    problematic in terms of dependencies.
+#   [API]_REVISION   The SHA of the repository's revision.
+[metadata]
+GOGO_PROTO_APIS	= "LYFT_PROTOC_GEN_VALIDATE ENVOYPROXY_DATA_PLANE_API"
+
+LYFT_PROTOC_GEN_VALIDATE_REPO        = "github.com/lyft"
+LYFT_PROTOC_GEN_VALIDATE_PROJECT     = "protoc-gen-validate"
+LYFT_PROTOC_GEN_VALIDATE_PROTOS      = "*/validate/validate.proto"
+LYFT_PROTOC_GEN_VALIDATE_EXCLUSIONS  = ""
+LYFT_PROTOC_GEN_VALIDATE_REVISION    = "8e6aaf55f4954f1ef9d3ee2e8f5a50e79cc04f8f"
+
+ENVOYPROXY_DATA_PLANE_API_REPO       = "github.com/envoyproxy"
+ENVOYPROXY_DATA_PLANE_API_PROJECT    = "data-plane-api"
+ENVOYPROXY_DATA_PLANE_API_PROTOS     = "*/api/*.proto"
+ENVOYPROXY_DATA_PLANE_API_EXCLUSIONS = "*/metrics_service.proto"
+ENVOYPROXY_DATA_PLANE_API_REVISION   = "7d740da8fc19dac2132403b7456bdca477a1b70a"
+
+### END Envoy API codegen deps
 
 [[constraint]]
   name = "github.com/googleapis/googleapis"
