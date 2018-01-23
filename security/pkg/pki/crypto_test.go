@@ -80,7 +80,7 @@ TmngRSxv/dSvGA==
 -----BEGIN EC PARAMETERS-----
 -----END EC PARAMETERS-----`
 
-	keyPKCS8_RSA = `
+	keyPKCS8RSA = `
 -----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC5iMw+Cvt0ZAnj
 l5piKgyoFIlCAD2FeKd0CQaUA9sHk7XuWAXUAHWQrNXRIG/d9uZBedOwFQ/D8GCR
@@ -243,7 +243,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 			errMsg: "failed to parse the ECDSA private key",
 		},
 		"Parse PKCS8 key using RSA algorithm": {
-			pem:     keyPKCS8_RSA,
+			pem:     keyPKCS8RSA,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
 	}
