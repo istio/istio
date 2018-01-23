@@ -7,6 +7,7 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+    istio: istio-initializer
   annotations:
     sidecar.istio.io/inject: "false"
   initializers:
@@ -31,6 +32,7 @@ spec:
           args:
             - --namespace={{ .Release.Namespace }}
             - -v=2
+            - --injectConfig={{ template "initializer.fullname" . }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

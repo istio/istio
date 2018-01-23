@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "mixer.fullname" . }}-create-crd
+  name: {{ template "mixer.fullname" . }}-create-cr
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
@@ -10,19 +10,19 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: mixer
 spec:
   template:
+    name: {{ template "mixer.fullname" . }}-create-cr
     metadata:
       labels:
-        app: {{ template "pilot.name" . }}
+        app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
-        istio: mixer
     spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
         - name: hyperkube
-          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          image: "{{ .Values.hyperkube.repository }}:{{ .Values.hyperkube.tag }}"
+          imagePullPolicy: {{ .Values.hyperkube.imagePullPolicy }}
           command:
             - ./kubectl
             - apply

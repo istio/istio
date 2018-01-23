@@ -17,6 +17,7 @@ spec:
       labels:
         app: {{ template "pilot.name" . }}
         release: {{ .Release.Name }}
+        istio: pilot
     spec:
       serviceAccountName: {{ template "pilot.serviceAccountName" . }}
       containers:
@@ -60,7 +61,7 @@ spec:
           - -v
           - "2"
           - --discoveryAddress
-          - -pilot:15003
+          - {{ template "pilot.fullname" . }}:15003
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS

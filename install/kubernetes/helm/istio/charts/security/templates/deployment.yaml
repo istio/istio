@@ -8,6 +8,7 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+    istio: istio-ca
   annotations:
     sidecar.istio.io/inject: "false"
 spec:

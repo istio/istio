@@ -1,0 +1,32 @@
+{{- if .Values.cleanupOnDelete -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "mixer.fullname" . }}-delete-crd
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    name: {{ template "mixer.fullname" . }}-delete-crd
+    metadata:
+      labels:
+        app: {{ template "mixer.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ template "mixer.serviceAccountName" . }}
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.hyperkube.repository }}:{{ .Values.hyperkube.tag }}"
+          command:
+            - ./kubectl
+            - delete
+            - customresourcedefinitions
+            - --selector=app={{ template "mixer.name" . }}
+        restartPolicy: OnFailure
+{{- end }}
