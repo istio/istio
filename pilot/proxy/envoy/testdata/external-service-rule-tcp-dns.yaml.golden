@@ -1,11 +1,11 @@
 hosts:
-  - "google.com"
+  - "172.217.0.0/16"
 ports:
 - number: 444
   name: tcp-444
   protocol: tcp
 discovery: DNS
-endpoints: # TODO enpoints not required
+endpoints: # TODO endpoints not required according to spec, but they would be here because the host field is not a DNS resolvable address
   - address: lon.google.com
   - address: in.google.com
 

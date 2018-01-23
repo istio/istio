@@ -6,7 +6,7 @@ ports:
     protocol: http
   - number: 443
     name: https-number
-    protocol: https
+    protocol: http # TODO: TLS origination
   - number: 8080
     name: http2-number
     protocol: http2

@@ -596,15 +596,10 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 		file fileConfig
 	}{
 		{name: "http-none", file: externalServiceRule},
-
 		{name: "http-dns", file: externalServiceRuleDNS},
-
 		{name: "http-static", file: externalServiceRuleStatic},
-
 		{name: "tcp-none", file: externalServiceRuleTCP},
-
-		{name: "tcp-dns", file: externalServiceRuleTCPDNS},
-
+		//{name: "tcp-dns", file: externalServiceRuleTCPDNS}, // TODO: spec needs clarification --is this a valid rule?
 		{name: "tcp-static", file: externalServiceRuleTCPStatic},
 	}
 

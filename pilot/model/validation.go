@@ -2025,6 +2025,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		}
 	}
 
+	// TODO: ensure port names map to endpoint port names?
 	for _, port := range externalService.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),

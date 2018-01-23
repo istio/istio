@@ -1,10 +1,21 @@
 hosts:
-  - "google.com"
+  - "*.google.com"
 ports:
   - number: 80
-    name: http-number
+    name: http-port
+    protocol: http
+  - number: 8080
+    name: http-alt-port
     protocol: http
 discovery: STATIC
 endpoints: # TODO ports and labels
   - address: 2.2.2.2
+    ports:
+      http-port: 7080
+      http-alt-port: 18080
   - address: 3.3.3.3
+    ports:
+      http-port: 8080
+      http-alt-port: 80
+
+

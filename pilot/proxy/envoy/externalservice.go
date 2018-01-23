@@ -28,7 +28,7 @@ import (
 func buildExternalServicePort(port *routingv2.Port) *model.Port {
 	protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 	return &model.Port{
-		Name:     fmt.Sprintf("external-%v-%d", protocol, port.Number),
+		Name:     fmt.Sprintf("external-%v-%d", protocol, port.Number), // TODO: use external service port name in building model port name?
 		Port:     int(port.Number),
 		Protocol: protocol,
 	}
@@ -48,7 +48,7 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				httpConfig := httpConfigs.EnsurePort(modelPort.Port)
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-						buildExternalServiceVirtualHost(host, mesh, node, modelPort, instances, config))
+						buildExternalServiceVirtualHost(externalService, port.Name, host, mesh, node, modelPort, instances, config))
 				}
 			default:
 				// handled elsewhere
@@ -74,14 +74,20 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 				switch externalService.Discovery {
 				case routingv2.ExternalService_NONE:
 					for _, host := range externalService.Hosts {
-						cluster := buildExternalServiceCluster(host, modelPort, nil, externalService.Discovery, nil)
+						cluster := buildExternalServiceCluster(host, port.Name, modelPort, nil, externalService.Discovery, nil)
 						route := buildTCPRoute(cluster, []string{host})
 
 						clusters = append(clusters, cluster)
 						routes = append(routes, route)
 					}
 				case routingv2.ExternalService_STATIC:
-					// TODO
+					for _, host := range externalService.Hosts {
+						cluster := buildExternalServiceCluster(host, port.Name, modelPort, nil, externalService.Discovery, externalService.Endpoints)
+						route := buildTCPRoute(cluster, []string{host})
+
+						clusters = append(clusters, cluster)
+						routes = append(routes, route)
+					}
 				case routingv2.ExternalService_DNS:
 					// TODO
 				}
@@ -99,7 +105,7 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 	return listeners, clusters
 }
 
-func buildExternalServiceCluster(address string, port *model.Port, labels model.Labels,
+func buildExternalServiceCluster(address, endpointPortName string, port *model.Port, labels model.Labels,
 	discovery routingv2.ExternalService_Discovery, endpoints []*routingv2.ExternalService_Endpoint) *Cluster {
 
 	service := model.Service{Hostname: address}
@@ -111,8 +117,21 @@ func buildExternalServiceCluster(address string, port *model.Port, labels model.
 	// TODO: port/labels
 	hosts := make([]Host, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(port.Port))
-		hosts = append(hosts, Host{URL: url})
+		var found bool
+		for name, portNumber := range endpoint.Ports {
+			if name == endpointPortName {
+				url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(portNumber))
+				hosts = append(hosts, Host{URL: url})
+
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(port.Port))
+			hosts = append(hosts, Host{URL: url})
+		}
 	}
 
 	var clusterType, lbType string
@@ -153,11 +172,11 @@ func buildExternalServiceCluster(address string, port *model.Port, labels model.
 	}
 }
 
-func buildExternalServiceVirtualHost(destination string,
+func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService, portName, destination string,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
-	cluster := buildExternalServiceCluster(destination, port, nil, routingv2.ExternalService_NONE, nil)
+	cluster := buildExternalServiceCluster(destination, portName, port, nil, externalService.Discovery, externalService.Endpoints)
 
 	// TODO: handle conflict between discovery type none + weighted routes?
 	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
