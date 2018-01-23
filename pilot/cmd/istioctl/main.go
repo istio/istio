@@ -44,8 +44,8 @@ import (
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -483,15 +483,6 @@ and destination policies.
 			return nil
 		},
 	}
-
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Display version information",
-		RunE: func(c *cobra.Command, args []string) error {
-			fmt.Println(version.Version())
-			return nil
-		},
-	}
 )
 
 func init() {
@@ -534,7 +525,7 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 }
 
