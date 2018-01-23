@@ -5,5 +5,12 @@
 		"prodBranch": "master",
 		"file": "src/envoy/mixer/repositories.bzl",
 		"lastStableSHA": "b016813197862be7948c90fbc7e2ae2e40f069f7"
+	},
+	{
+		"name": "ENVOY_SHA",
+		"repoName": "envoyproxy/envoy",
+		"prodBranch": "master",
+		"file": "WORKSPACE",
+		"lastStableSHA": "5c15e351703ad69fe51cfd5d60a4db4dfd69d97b"
 	}
 ]
