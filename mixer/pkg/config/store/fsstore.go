@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -53,11 +54,16 @@ func (r *resource) UnmarshalJSON(bytes []byte) error {
 
 // fsStore is StoreBackend implementation using filesystem.
 type fsStore struct {
-	Memstore
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
-	shas          map[Key][sha1.Size]byte
+
+	mu   sync.RWMutex
+	data map[Key]*resource
+
+	watchMutex sync.RWMutex
+	watchCtx   context.Context
+	watchCh    chan BackendEvent
 }
 
 var _ Backend = &fsStore{}
@@ -142,43 +148,52 @@ func (s *fsStore) readFiles() map[Key]*resource {
 
 func (s *fsStore) checkAndUpdate() {
 	newData := s.readFiles()
-	updated := []Key{}
+	evs := []BackendEvent{}
 	removed := map[Key]bool{}
+	s.mu.Lock()
 	for k := range s.data {
 		removed[k] = true
 	}
 	for k, r := range newData {
-		oldSha, ok := s.shas[k]
-		s.shas[k] = r.sha
+		oldRes, ok := s.data[k]
 		if !ok {
-			updated = append(updated, k)
+			evs = append(evs, BackendEvent{Type: Update, Key: k, Value: r.BackEndResource})
 			continue
 		}
 		delete(removed, k)
-		if r.sha != oldSha {
-			updated = append(updated, k)
+		if r.sha != oldRes.sha {
+			evs = append(evs, BackendEvent{Type: Update, Key: k, Value: r.BackEndResource})
 		}
 	}
-	if len(updated) == 0 && len(removed) == 0 {
+	for k := range removed {
+		evs = append(evs, BackendEvent{Type: Delete, Key: k})
+	}
+	s.data = newData
+	s.mu.Unlock()
+	if len(evs) == 0 {
 		return
 	}
-	for _, k := range updated {
-		s.Put(k, newData[k].BackEndResource)
+
+	s.watchMutex.RLock()
+	defer s.watchMutex.RUnlock()
+	if s.watchCh == nil {
+		return
 	}
-	for k := range removed {
-		s.Delete(k)
+	for _, ev := range evs {
+		select {
+		case <-s.watchCtx.Done():
+		case s.watchCh <- ev:
+		}
 	}
 }
 
 // newFsStore creates a new StoreBackend backed by the filesystem.
 func newFsStore(root string) Backend {
 	return &fsStore{
-		// Not using newMemstore to avoid access of MemstoreWriter for fsstore2.
-		Memstore:      Memstore{data: map[Key]*BackEndResource{}},
 		root:          root,
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
-		shas:          map[Key][sha1.Size]byte{},
+		data:          map[Key]*resource{},
 	}
 }
 
@@ -201,4 +216,36 @@ func (s *fsStore) Init(ctx context.Context, kinds []string) error {
 		}
 	}()
 	return nil
+}
+
+// Watch implements StoreBackend interface.
+func (s *fsStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+	ch := make(chan BackendEvent)
+	s.watchMutex.Lock()
+	s.watchCtx = ctx
+	s.watchCh = ch
+	s.watchMutex.Unlock()
+	return ch, nil
+}
+
+// Get implements StoreBackend interface.
+func (s *fsStore) Get(key Key) (*BackEndResource, error) {
+	s.mu.RLock()
+	v, ok := s.data[key]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return v.BackEndResource, nil
+}
+
+// List implements StoreBackend interface.
+func (s *fsStore) List() map[Key]*BackEndResource {
+	s.mu.RLock()
+	copied := make(map[Key]*BackEndResource, len(s.data))
+	for k, v := range s.data {
+		copied[k] = v.BackEndResource
+	}
+	s.mu.RUnlock()
+	return copied
 }

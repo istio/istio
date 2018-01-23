@@ -17,6 +17,7 @@
 package storetest
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -24,10 +25,41 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
+type memstore struct {
+	data map[store.Key]*store.BackEndResource
+}
+
+func (m *memstore) Init(ctx context.Context, kinds []string) error {
+	return nil
+}
+
+func (m *memstore) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
+	// Watch is not supported in the memstore, but sometimes it needs to be invoked.
+	c := make(chan store.BackendEvent)
+	go func() {
+		<-ctx.Done()
+		close(c)
+	}()
+	return c, nil
+}
+
+func (m *memstore) Get(key store.Key) (*store.BackEndResource, error) {
+	r, ok := m.data[key]
+	if !ok {
+		return nil, store.ErrNotFound
+	}
+	return r, nil
+}
+
+func (m *memstore) List() map[store.Key]*store.BackEndResource {
+	return m.data
+}
+
 // SetupStoreForTest creates an on-memory store backend, initializes its
 // data with the specified specs, and returns a new store with the backend.
+// Note that this store can't change, Watch does not emit any events.
 func SetupStoreForTest(data ...string) (store.Store, error) {
-	m := store.NewMemstore()
+	m := &memstore{data: map[store.Key]*store.BackEndResource{}}
 	var errs error
 	for i, d := range data {
 		for j, chunk := range strings.Split(d, "\n---\n") {
@@ -43,7 +75,7 @@ func SetupStoreForTest(data ...string) (store.Store, error) {
 			if r == nil {
 				continue
 			}
-			m.Put(r.Key(), r)
+			m.data[r.Key()] = r
 		}
 	}
 
