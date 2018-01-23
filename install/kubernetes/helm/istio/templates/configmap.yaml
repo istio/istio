@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.securityEnabled }}
+  {{- if .Values.global.security.enabled }}
     # Uncomment the following line to enable mutual TLS between proxies
     authPolicy: MUTUAL_TLS
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
@@ -76,7 +76,7 @@ data:
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.{{ .Release.Namespace }}:9125
-    {{- if .Values.global.securityEnabled }}
+    {{- if .Values.global.security.enabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS

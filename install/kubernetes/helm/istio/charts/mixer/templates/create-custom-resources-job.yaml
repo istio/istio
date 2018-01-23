@@ -1,10 +1,9 @@
-{{- if .Values.cleanupOnDelete -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "mixer.fullname" . }}-delete-crd
+  name: {{ template "mixer.fullname" . }}-create-cr
   annotations:
-    "helm.sh/hook": pre-delete
+    "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: {{ template "mixer.name" . }}
@@ -13,8 +12,8 @@ metadata:
     heritage: {{ .Release.Service }}
 spec:
   template:
-    name: {{ template "mixer.fullname" . }}-delete-crd
     metadata:
+      name: {{ template "mixer.fullname" . }}-create-cr
       labels:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
@@ -23,10 +22,17 @@ spec:
       containers:
         - name: hyperkube
           image: "{{ .Values.hyperkube.repository }}:{{ .Values.hyperkube.tag }}"
+          imagePullPolicy: {{ .Values.hyperkube.imagePullPolicy }}
           command:
             - ./kubectl
-            - delete
-            - customresourcedefinitions
-            - --selector=app={{ template "mixer.name" . }}
-        restartPolicy: OnFailure
-{{- end }}
+            - apply
+            - -f
+            - /tmp/mixer/custom-resources.yaml
+          volumeMounts:
+            - mountPath: "/tmp/mixer"
+              name: tmp-configmap-mixer
+      volumes:
+        - name: tmp-configmap-mixer
+          configMap:
+            name: {{ template "mixer.fullname" . }}-custom-resources
+      restartPolicy: Never # CRD might take some time till they are available to comsume

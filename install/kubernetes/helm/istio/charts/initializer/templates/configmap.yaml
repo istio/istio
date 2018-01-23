@@ -1,8 +1,6 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  # name: istio-inject
-  # FIXME: how to pass this name to initializer container
   name: {{ template "initializer.fullname" . }}
   labels:
     app: {{ template "initializer.name" . }}

@@ -10,4 +10,4 @@ dependencies:
     condition: initializer.enabled
   - name: security
     version: 0.3.0
-    condition: gloabl.securityEnabled
+    condition: global.security.enabled
