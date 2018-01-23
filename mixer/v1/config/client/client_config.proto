@@ -70,6 +70,11 @@ message TransportConfig {
   }
   // Specifies the policy when failed to connect to Mixer server.
   NetworkFailPolicy network_fail_policy = 4;
+
+  // Specify fresh interval in milliseconds to write mixer client statistics to
+  // Envoy share memory. If not specified, or 0 protobuf default value, the
+  // interval is 10 seconds
+  int32 stats_update_interval_ms = 5;
 }
 
 // Defines the client config for HTTP.
