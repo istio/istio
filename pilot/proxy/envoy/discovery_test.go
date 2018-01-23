@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
+	"strings"
 )
 
 // Implement minimal methods to satisfy model.Controller interface for
@@ -586,6 +587,51 @@ func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-router-weighted.json", t)
+	}
+}
+
+func TestExternalServicesDiscoveryMode(t *testing.T) {
+	testCases := []struct {
+		name string
+		file fileConfig
+	}{
+		{name: "http-none", file: externalServiceRule},
+
+		{name: "http-dns", file: externalServiceRuleDNS},
+
+		{name: "http-static", file: externalServiceRuleStatic},
+
+		{name: "tcp-none", file: externalServiceRuleTCP},
+
+		{name: "tcp-dns", file: externalServiceRuleTCPDNS},
+
+		{name: "tcp-static", file: externalServiceRuleTCPStatic},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, registry, ds := commonSetup(t)
+
+			if testCase.name != "none" {
+				addConfig(registry, testCase.file, t)
+			}
+
+			url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response := makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
+
+			url = fmt.Sprintf("/v1/cds/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/cds-v0-%s.json", testCase.name), t)
+
+			port := 80
+			if strings.Contains(testCase.name, "tcp") {
+				port = 444
+			}
+			url = fmt.Sprintf("/v1/routes/%d/%s/%s", port, "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/rds-v0-%s.json", testCase.name), t)
+		})
 	}
 }
 
