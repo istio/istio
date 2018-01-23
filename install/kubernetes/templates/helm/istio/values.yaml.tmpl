@@ -1,45 +1,93 @@
+
 global:
-  namespace: istio-system
-  initializer:
-    enabled: true
-# 
-# proxy side car and ingress configuration
-# 
+  # RBAC authorization
+  rbac:
+    # create RBAC resources
+    create: false
+    # service account name to associate resources with
+    serviceAccountName: default
+  # proxy side car and ingress configuration
   proxy:
-    hub: {PROXY_HUB}
-    tag: {PROXY_TAG}
-    debug: {PROXY_DEBUG}
-# 
-# pilot configuration
-#
-  pilot:
-    enabled: true
-    hub: {PILOT_HUB}
+    repository: {PILOT_HUB}/{PROXY_IMAGE}
     tag: {PILOT_TAG}
-# 
-# security configuration
-#
+    imagePullPolicy: IfNotPresent
+    resources: {}
+  # istio certificate authority
   security:
     enabled: false
-    hub: {CA_HUB}
-    tag: {CA_TAG}
+
+# istio ingress configuration
+service:
+  # By default istio ingress uses LoadBalancer type of service
+  # to use NodePort, it needs to be enabled and desired port specified
+  nodePort:
+    enabled: false
+    port: 32000
+
+#
+# initializer configuration
+#
+initializer:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: {PILOT_HUB}/sidecar_initializer
+    tag: {PILOT_TAG}
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  initImage:
+    repository: {PILOT_HUB}/proxy_init
+    tag: {PILOT_TAG}
+
 #
 # mixer configuration
 #
-  mixer:
-    enabled: true
-    hub: {MIXER_HUB}
+mixer:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: {MIXER_HUB}/mixer
     tag: {MIXER_TAG}
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  prometheus:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+    resources: {}
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+
 #
-# ingress specific configuration
-# By default istio ingress uses LoadBalancer type of service
-# to use NodePort, it needs to be enabled and desired port specified
+# pilot configuration
 #
-  ingress:
-    use_nodeport: false
-    nodeport_port: 32000
+pilot:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: {PILOT_HUB}/pilot
+    tag: {PILOT_TAG}
+    pullPolicy: IfNotPresent
+
+  resources: {}
+  nodeSelector: {}
+
 #
-# Not recommended for user to configure this. Hyperkube image to use when creating custom objects
+# security configuration
 #
-  hyperkube_hub: {HYPERKUBE_HUB}
-  hyperkube_tag: {HYPERKUBE_TAG}
+security:
+  replicaCount: 1
+  image:
+    repository: {CA_HUB}/istio-ca
+    tag: {CA_TAG}
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}

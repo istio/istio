@@ -1,7 +1,0 @@
-replicaCount: 1
-image:
-  repository: docker.io/istio/istio-ca
-  tag: 0.4.0
-  pullPolicy: IfNotPresent
-resources: {}
-nodeSelector: {}
