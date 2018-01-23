@@ -13,6 +13,10 @@
 //   limitations under the License.
 syntax = "proto3";
 
+// $title: Service Broker
+// $overview: Configuration affecting the Istio service broker
+// $location: https://istio.io/docs/reference/config/istio.broker.v1.config.html
+
 package istio.broker.v1.config;
 
 option go_package="istio.io/api/broker/v1/config";

@@ -17,9 +17,9 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-package istio.routing.v1alpha2;
-
-option go_package = "istio.io/api/routing/v1alpha2";
+// $title: Route Rules
+// $overview: Configuration affecting traffic routing
+// $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 
 // ### Glossary & concepts
 //
@@ -48,9 +48,10 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // actual choice of the version is determined by the sidecar, enabling the
 // application code to decouple itself from the evolution of dependent
 // services.
-//
-//
-//
+package istio.routing.v1alpha2;
+
+option go_package = "istio.io/api/routing/v1alpha2";
+
 // RouteRule provides a custom routing policy based on the destination
 // service and its subsets/versions, the source of the traffic as well as
 // connection and request metadata.  The rule must provide a set of

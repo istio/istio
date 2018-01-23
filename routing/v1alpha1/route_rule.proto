@@ -20,9 +20,9 @@ import "google/protobuf/wrappers.proto";
 import "routing/v1alpha1/http_fault.proto";
 import "routing/v1alpha1/l4_fault.proto";
 
-package istio.routing.v1alpha1;
-
-option go_package = "istio.io/api/routing/v1alpha1";
+// $title: Route Rules
+// $overview: Configuration affecting traffic routing
+// $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 
 // ### Glossary & concepts
 //
@@ -52,9 +52,10 @@ option go_package = "istio.io/api/routing/v1alpha1";
 // without knowledge of individual service versions. The actual choice of
 // the version is determined by Envoy, enabling the application code to
 // decouple itself from the evolution of dependent services.
-//
-//
-//
+package istio.routing.v1alpha1;
+
+option go_package = "istio.io/api/routing/v1alpha1";
+
 // Route rule provides a custom routing policy based on the source and
 // destination service versions and connection/request metadata.  The rule
 // must provide a set of conditions for each protocol (TCP, UDP, HTTP) that

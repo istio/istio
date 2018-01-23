@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package istio.rbac.v1alpha1;
-
-option go_package="istio.io/api/rbac/v1alpha1";
+// $title: RBAC
+// $overview: Configuration affecting resource-based access control
+// $location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 // objects.
@@ -98,6 +98,9 @@ option go_package="istio.io/api/rbac/v1alpha1";
 //       roleRef:
 //         kind: ServiceRole
 //         name: "products-viewer"
+package istio.rbac.v1alpha1;
+
+option go_package="istio.io/api/rbac/v1alpha1";
 
 // ServiceRole specification contains a list of access rules (permissions).
 // This represent the "Spec" part of the ServiceRole object. The name and namespace

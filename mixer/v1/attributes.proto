@@ -14,6 +14,10 @@
 
 syntax = "proto3";
 
+// $title: Mixer
+// $overview: API definitions to interact with Mixer
+// $location: https://istio.io/docs/reference/api/istio.mixer.v1.html
+
 package istio.mixer.v1;
 
 option go_package = "istio.io/api/mixer/v1";

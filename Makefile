@@ -1,9 +1,12 @@
+all: generate
+
 ########################
 # Version info
 ########################
 
 std_go_version := $(shell bin/get_protoc_gen_version.sh golang)
 gogo_version := $(shell bin/get_protoc_gen_version.sh gogo)
+docs_version := $(shell bin/get_protoc_gen_version.sh docs)
 
 ########################
 # protoc args
@@ -17,7 +20,7 @@ out_path = :$(GOPATH)/src
 ########################
 
 protoc_gen_go_path := vendor/github.com/golang/protobuf
-protoc_gen_go := bin/protoc-gen-go-$(std_go_version)
+protoc_gen_go := genbin/protoc-gen-go-$(std_go_version)
 protoc_gen_go_prefix := --plugin=$(protoc_gen_go) --go-$(std_go_version)_out=plugins=grpc,
 protoc_gen_go_plugin := $(protoc_gen_go_prefix)$(out_path)
 
@@ -25,10 +28,10 @@ protoc_gen_go_plugin := $(protoc_gen_go_prefix)$(out_path)
 # protoc_gen_gogo*
 ########################
 
-gogo_vendor_path := vendor/github.com/gogo/protobuf
-protoc_gen_gogo := bin/protoc-gen-gogo-$(gogo_version)
-protoc_gen_gogoslick := bin/protoc-gen-gogoslick-$(gogo_version)
-protoc_min_version := bin/protoc-min-version-$(gogo_version)
+protoc_gen_gogo_path := vendor/github.com/gogo/protobuf
+protoc_gen_gogo := genbin/protoc-gen-gogo-$(gogo_version)
+protoc_gen_gogoslick := genbin/protoc-gen-gogoslick-$(gogo_version)
+protoc_min_version := genbin/protoc-min-version-$(gogo_version)
 
 gogo_plugin_prefix := --plugin=$(protoc_gen_gogo) --gogo-$(gogo_version)_out=plugins=grpc,
 gogoslick_plugin_prefix := --plugin=$(protoc_gen_gogoslick) --gogoslick-$(gogo_version)_out=plugins=grpc,
@@ -53,6 +56,14 @@ gogo_mapping := $(subst $(space),$(empty),$(mapping_with_spaces))
 
 gogo_plugin := $(gogo_plugin_prefix)$(gogo_mapping)$(out_path)
 gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping)$(out_path)
+
+########################
+# protoc_gen_docs
+########################
+
+protoc_gen_docs_path := vendor/github.com/istio/tools
+protoc_gen_docs := genbin/protoc-gen-docs-$(docs-version)
+protoc_gen_docs_plugin := --plugin=$(protoc_gen_docs) --docs-$(docs-version)_out=warnings=true,mode=jekyll_html:
 
 ########################
 # protoc
@@ -92,8 +103,6 @@ endif
 # Deps
 ###################
 
-all: build
-
 $(GOPATH)/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
@@ -108,17 +117,21 @@ $(protoc_gen_go) : vendor
 
 $(protoc_gen_gogo) : vendor
 	@echo "Building protoc-gen-gogo..."
-	go build --pkgdir $(gogo_vendor_path)/protoc-gen-gogo -o $(protoc_gen_gogo) ./$(gogo_vendor_path)/protoc-gen-gogo
+	go build --pkgdir $(protoc_gen_gogo_path)/protoc-gen-gogo -o $(protoc_gen_gogo) ./$(protoc_gen_gogo_path)/protoc-gen-gogo
 
 $(protoc_gen_gogoslick) : vendor
 	@echo "Building protoc-gen-gogoslick..."
-	go build --pkgdir $(gogo_vendor_path)/protoc-gen-gogoslick -o $(protoc_gen_gogoslick) ./$(gogo_vendor_path)/protoc-gen-gogoslick
+	go build --pkgdir $(protoc_gen_gogo_path)/protoc-gen-gogoslick -o $(protoc_gen_gogoslick) ./$(protoc_gen_gogo_path)/protoc-gen-gogoslick
+
+$(protoc_gen_docs) : vendor
+	@echo "Building protoc-gen-docs..."
+	go build --pkgdir $(protoc_gen_docs_path)/tools/protoc-gen-docs -o $(protoc_gen_docs) ./$(protoc_gen_docs_path)/protoc-gen-docs
 
 $(protoc_min_version) : vendor
 	@echo "Building protoc-min-version..."
-	go build --pkgdir $(gogo_vendor_path)/protoc-min-version -o $(protoc_min_version) ./$(gogo_vendor_path)/protoc-min-version
+	go build --pkgdir $(protoc_gen_gogo_path)/protoc-min-version -o $(protoc_min_version) ./$(protoc_gen_gogo_path)/protoc-min-version
 
-binaries : $(protoc_gen_go) $(protoc_gen_gogo) $(protoc_gen_gogoslick) $(protoc_min_version)
+binaries : $(protoc_gen_go) $(protoc_gen_gogo) $(protoc_gen_gogoslick) $(protoc_gen_docs) $(protoc_min_version)
 
 depend: vendor binaries
 
@@ -132,67 +145,86 @@ generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing
 # broker/...
 #####################
 
-broker_v1_protos := $(shell find broker/v1/config -type f -name '*.proto' | sort)
+broker_v1_path := broker/v1/config
+broker_v1_protos := $(shell find $(broker_v1_path) -type f -name '*.proto' | sort)
 broker_v1_pb_gos := $(broker_v1_protos:.proto=.pb.go)
+broker_v1_pb_doc := $(broker_v1_path)/istio.broker.v1.config.pb.html
 
-generate-broker-go: $(broker_v1_pb_gos)
+generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
 
-$(broker_v1_pb_gos): $(broker_v1_protos) | depend $(protoc_gen_go) $(protoc_bin)
-	## Generate broker/v1/config/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $^
+$(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos) | depend $(protoc_gen_go) $(protoc_bin)
+	## Generate broker/v1/config/*.pb.go + $(broker_v1_pb_doc)
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
 
 clean-broker-generated:
 	rm $(broker_v1_pb_gos)
+	rm $(broker_v1_pb_doc)
 
 #####################
 # mesh/...
 #####################
 
-mesh_protos := $(shell find mesh/v1alpha1 -type f -name '*.proto' | sort)
+mesh_path := mesh/v1alpha1
+mesh_protos := $(shell find $(mesh_path) -type f -name '*.proto' | sort)
 mesh_pb_gos := $(mesh_protos:.proto=.pb.go)
+mesh_pb_doc := $(mesh_path)/istio.mesh.v1alpha1.pb.html
 
-generate-mesh-go: $(mesh_pb_gos)
+generate-mesh-go: $(mesh_pb_gos) $(mesh_pb_doc)
 
-$(mesh_pb_gos): $(mesh_protos) | depend $(protoc_GEN_GO) $(protoc_bin)
-	## Generate mesh/v1alpha1/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $^
+$(mesh_pb_gos) $(mesh_pb_doc): $(mesh_protos) | depend $(protoc_gen_GO) $(protoc_bin)
+	## Generate mesh/v1alpha1/*.pb.go + $(mesh_pb_doc)
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
 
 clean-mesh-generated:
 	rm $(mesh_pb_gos)
+	rm $(mesh_pb_doc)
 
 #####################
 # mixer/...
 #####################
 
-mixer_v1_protos :=  $(shell find mixer/v1 -maxdepth 1 -type f -name '*.proto' | sort)
+mixer_v1_path := mixer/v1
+mixer_v1_protos :=  $(shell find $(mixer_v1_path) -maxdepth 1 -type f -name '*.proto' | sort)
 mixer_v1_pb_gos := $(mixer_v1_protos:.proto=.pb.go)
+mixer_v1_pb_doc := $(mixer_v1_path)/istio.mixer.v1.pb.html
 
-mixer_config_client_protos := $(shell find mixer/v1/config/client -maxdepth 1 -type f -name '*.proto' | sort)
+mixer_config_client_path := mixer/v1/config/client
+mixer_config_client_protos := $(shell find $(mixer_config_client_path) -maxdepth 1 -type f -name '*.proto' | sort)
 mixer_config_client_pb_gos := $(mixer_config_client_protos:.proto=.pb.go)
+mixer_config_client_pb_doc := $(mixer_config_client_path)/istio.mixer.v1.config.client.pb.html
 
-mixer_config_descriptor_protos := $(shell find mixer/v1/config/descriptor -maxdepth 1 -type f -name '*.proto' | sort)
+mixer_config_descriptor_path := mixer/v1/config/descriptor
+mixer_config_descriptor_protos := $(shell find $(mixer_config_descriptor_path) -maxdepth 1 -type f -name '*.proto' | sort)
 mixer_config_descriptor_pb_gos := $(mixer_config_descriptor_protos:.proto=.pb.go)
+mixer_config_descriptor_pb_doc := $(mixer_config_descriptor_path)/istio.mixer.v1.config.descriptor.pb.html
 
-mixer_template_protos := $(shell find mixer/v1/template -maxdepth 1 -type f -name '*.proto' | sort)
+mixer_template_path := mixer/v1/template
+mixer_template_protos := $(shell find $(mixer_template_path) -maxdepth 1 -type f -name '*.proto' | sort)
 mixer_template_pb_gos := $(mixer_template_protos:.proto=.pb.go)
+mixer_template_pb_doc := $(mixer_template_path)/istio.mixer.v1.template.pb.html
 
-generate-mixer-go: $(mixer_v1_pb_gos) mixer/v1/config/fixed_cfg.pb.go $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos)
+generate-mixer-go: \
+	$(mixer_v1_pb_gos) $(mixer_v1_pb_doc) \
+	$(mixer_config_client_pb_gos) $(mixer_config_client_pb_doc) \
+	$(mixer_config_descriptor_pb_gos) $(mixer_config_descriptor_pb_doc) \
+	$(mixer_template_pb_gos) $(mixer_template_pb_doc) \
+	mixer/v1/config/fixed_cfg.pb.go \
 
-$(mixer_v1_pb_gos): $(mixer_v1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
-	## Generate mixer/v1/*.pb.go
-	$(protoc) $(proto_path) $(gogoslick_plugin) $^
+$(mixer_v1_pb_gos) $(mixer_v1_pb_doc): $(mixer_v1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate mixer/v1/*.pb.go + $(mixer_v1_pb_doc)
+	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_v1_path) $^
 
-$(mixer_config_client_pb_gos) : $(mixer_config_client_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
-	## Generate mixer/v1/config/client/*.pb.go
-	$(protoc) $(proto_path) $(gogoslick_plugin) $^
+$(mixer_config_client_pb_gos) $(mixer_config_client_pb_doc): $(mixer_config_client_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate mixer/v1/config/client/*.pb.go + $(mixer_config_client_pb_doc)
+	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_client_path) $^
 
-$(mixer_config_descriptor_pb_gos) : $(mixer_config_descriptor_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
-	## Generate mixer/v1/config/descriptor/*.pb.go
-	$(protoc) $(proto_path) $(gogoslick_plugin) $^
+$(mixer_config_descriptor_pb_gos) $(mixer_config_descriptor_pb_doc): $(mixer_config_descriptor_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate mixer/v1/config/descriptor/*.pb.go + $(mixer_config_descriptor_pb_doc)
+	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_descriptor_path) $^
 
-$(mixer_template_pb_gos) : $(mixer_template_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
-	## Generate mixer/v1/template/*.pb.go
-	$(protoc) $(proto_path) $(gogoslick_plugin) $^
+$(mixer_template_pb_gos) $(mixer_template_pb_doc) : $(mixer_template_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate mixer/v1/template/*.pb.go + $(mixer_template_pb_doc)
+	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_template_path) $^
 
 mixer/v1/config/fixed_cfg.pb.go : mixer/v1/config/cfg.proto | depend $(protoc_gen_gogo) $(protoc_bin)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
@@ -202,53 +234,61 @@ mixer/v1/config/fixed_cfg.pb.go : mixer/v1/config/cfg.proto | depend $(protoc_ge
 
 clean-mixer-generated:
 	rm $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) mixer/v1/config/fixed_cfg.pb.go
+	rm $(mixer_v1_pb_doc) $(mixer_config_client_pb_doc) $(mixer_config_descriptor_pb_doc) $(mixer_template_pb_doc)
 
 #####################
 # routing/...
 #####################
 
-routing_v1alpha1_protos := $(shell find routing/v1alpha1 -type f -name '*.proto' | sort)
+routing_v1alpha1_path := routing/v1alpha1
+routing_v1alpha1_protos := $(shell find $(routing_v1alpha1_path) -type f -name '*.proto' | sort)
 routing_v1alpha1_pb_gos := $(routing_v1alpha1_protos:.proto=.pb.go)
+routing_v1alpha1_pb_doc := $(routing_v1alpha1_path)/istio.routing.v1alpha1.pb.html
 
+routing_v1alpha2_path := routing/v1alpha2
 routing_v1alpha2_protos := $(shell find routing/v1alpha2 -type f -name '*.proto' | sort)
 routing_v1alpha2_pb_gos := $(routing_v1alpha2_protos:.proto=.pb.go)
+routing_v1alpha2_pb_doc := $(routing_v1alpha2_path)/istio.routing.v1alpha2.pb.html
 
-generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha2_pb_gos)
+generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha2_pb_gos) $(routing_v1alpha2_pb_doc)
 
-$(routing_v1alpha1_pb_gos): $(routing_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
-	## Generate routing/v1alpha1/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $^
+$(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
+	## Generate routing/v1alpha1/*.pb.go +
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
 
-$(routing_v1alpha2_pb_gos): $(routing_v1alpha2_protos) | depend $(protoc_gen_go) $(protoc_bin)
+$(routing_v1alpha2_pb_gos) $(routing_v1alpha2_pb_doc): $(routing_v1alpha2_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate routing/v1alpha2/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $^
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha2_path) $^
 
 clean-routing-generated:
 	rm $(routing_v1alpha1_pb_gos) $(routing_v1alpha2_pb_gos)
+	rm $(routing_v1alpha1_pb_doc) $(routing_v1alpha2_pb_doc)
 
 #####################
 # rbac/...
 #####################
 
-rbac_v1alpha1_protos := $(shell find rbac/v1alpha1 -type f -name '*.proto' | sort)
+rbac_v1alpha1_path := rbac/v1alpha1
+rbac_v1alpha1_protos := $(shell find $(rbac_v1alpha1_path) -type f -name '*.proto' | sort)
 rbac_v1alpha1_pb_gos := $(rbac_v1alpha1_protos:.proto=.pb.go)
+rbac_v1alpha1_pb_doc := $(rbac_v1alpha1_path)/istio.rbac.v1alpha1.pb.html
 
-generate-rbac-go: $(protoc_gen_go) $(rbac_v1alpha1_pb_gos)
+generate-rbac-go: $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc)
 
-$(rbac_v1alpha1_pb_gos): $(rbac_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
+$(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc): $(rbac_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate rbac/v1alpha1/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $^
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
 
 clean-rbac-generated:
 	rm $(rbac_v1alpha1_pb_gos)
+	rm $(rbac_v1alpha1_pb_doc)
 
 #####################
 # Cleanup
 #####################
 
 clean:
-	rm -rf bin/protoc-gen-*
-	rm -rf bin/protoc-min-version-*
+	rm -rf genbin
 	rm -rf vendor
 
 clean-generated: clean-broker-generated clean-mesh-generated clean-mixer-generated clean-routing-generated clean-rbac-generated

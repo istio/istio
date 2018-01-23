@@ -14,36 +14,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// ### Glossary & concepts
-//
-// *Service* a unit of application behavior bound to a unique name in a
-// service registry.  Services consist of multiple network *endpoints*
-// implemented by workload instances running on pods, containers, VMs etc.
-//
-// *Service versions (subsets)* - In a continuous deployment scenario, for
-// a given service, there can be distinct subsets of instances running
-// different variants of the application binary. These variants are not
-// necessarily different API versions. They could be iterative changes to
-// the same service, deployed in different environments (prod, staging,
-// dev, etc.). Common scenarios where this occurs include A/B testing,
-// canary rollouts, etc. The choice of a particular version can be decided
-// based on various criterion (headers, url, etc.) and/or by weights
-// assigned to each version.  Each service has a default version consisting
-// of all its instances.
-//
-// *Source* - A downstream client calling a service.
-//
-// *Host* - The address used by a client when attempting to connect to a
-// service.
-//
-// *Access model* - Applications address only the destination service
-// (Host) without knowledge of individual service versions (subsets). The
-// actual choice of the version is determined by the sidecar, enabling the
-// application code to decouple itself from the evolution of dependent
-// services.
-//
-//
-//
 // RouteRule provides a custom routing policy based on the destination
 // service and its subsets/versions, the source of the traffic as well as
 // connection and request metadata.  The rule must provide a set of

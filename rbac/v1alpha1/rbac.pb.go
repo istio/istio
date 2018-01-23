@@ -4,6 +4,87 @@
 /*
 Package v1alpha1 is a generated protocol buffer package.
 
+Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
+objects.
+
+A ServiceRole specification includes a list of rules (permissions). Each rule has
+the following standard fields:
+* services: a list of services.
+* methods: HTTP methods or gRPC methods. Note that gRPC methods should be
+  presented in the form of "packageName.serviceName/methodName".
+* paths: HTTP paths. It is ignored in gRPC case.
+
+In addition to the standard fields, operators can use custom fields in the "constraints"
+section. The name of a custom field must match one of the "properties" in the "action" part
+of the "authorization" template (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
+
+For example, suppose we define an instance of the "authorization" template, named "requestcontext".
+
+    apiVersion: "config.istio.io/v1alpha1"
+    kind: authorization
+    metadata:
+      name: requestcontext
+      namespace: istio-system
+    spec:
+      subject:
+        user: request.auth.principal | ""
+        groups: request.auth.principal | ""
+        properties:
+          service: source.service | ""
+          namespace: source.namespace | ""
+      action:
+        namespace: destination.namespace | ""
+        service: destination.service | ""
+        method: request.method | ""
+        path: request.path | ""
+        properties:
+          version: request.headers["version"] | ""
+
+Below is an example of ServiceRole object "product-viewer", which has "read" ("GET" and "HEAD")
+access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
+so it applies to any path in the service.
+
+    apiVersion: "config.istio.io/v1alpha1"
+    kind: ServiceRole
+    metadata:
+      name: products-viewer
+      namespace: default
+    spec:
+      rules:
+      - services: ["products.svc.cluster.local"]
+        methods: ["GET", "HEAD"]
+        constraints:
+        - key: "version"
+          value: ["v1", "v2"]
+
+A ServiceRoleBinding specification includes two parts:
+* "roleRef" refers to a ServiceRole object in the same namespace.
+* A list of "subjects" that are assigned the roles.
+
+A subject is represented with a set of "properties". The name of a property must match one of
+the fields ("user" or "groups" or one of the "properties") in the "subject" part of the "authorization"
+template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
+
+Below is an example of ServiceRoleBinding object "test-binding-products", which binds two subjects
+to ServiceRole "product-viewer":
+* User "alice@yahoo.com"
+* "reviews" service in "abc" namespace.
+
+    apiVersion: "config.istio.io/v1alpha1"
+    kind: ServiceRoleBinding
+    metadata:
+      name: test-binding-products
+      namespace: default
+    spec:
+      subjects:
+      - user: alice@yahoo.com
+      - properties:
+          service: "reviews"
+          namespace: "abc"
+      roleRef:
+        kind: ServiceRole
+        name: "products-viewer"
+
 It is generated from these files:
 	rbac/v1alpha1/rbac.proto
 

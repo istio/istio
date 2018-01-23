@@ -15,37 +15,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// ### Glossary & concepts
-//
-// *Service* is a unit of an application with a unique name that other services
-// use to refer to the functionality being called. Service instances are
-// pods/VMs/containers that implement the service.
-//
-// *Service versions* - In a continuous deployment scenario, for a given service,
-// there can be multiple sets of instances running potentially different
-// variants of the application binary. These variants are not necessarily
-// different API versions. They could be iterative changes to the same service,
-// deployed in different environments (prod, staging, dev, etc.). Common
-// scenarios where this occurs include A/B testing, canary rollouts, etc. The
-// choice of a particular version can be decided based on various criterion
-// (headers, url, etc.) and/or by weights assigned to each version.  Each
-// service has a default version consisting of all its instances.
-//
-// *Source* - downstream client (browser or another service) calling the
-// Envoy proxy/sidecar (typically to reach another service).
-//
-// *Destination* - The remote upstream service to which the Envoy proxy/sidecar is
-// talking to, on behalf of the source service. There can be one or more
-// service versions for a given service (see the discussion on versions above).
-// Envoy would choose the version based on various routing rules.
-//
-// *Access model* - Applications address only the destination service
-// without knowledge of individual service versions. The actual choice of
-// the version is determined by Envoy, enabling the application code to
-// decouple itself from the evolution of dependent services.
-//
-//
-//
 // Route rule provides a custom routing policy based on the source and
 // destination service versions and connection/request metadata.  The rule
 // must provide a set of conditions for each protocol (TCP, UDP, HTTP) that
