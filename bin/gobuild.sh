@@ -29,19 +29,10 @@ if [[ "${VERBOSE}" == "1" ]];then
     V="-x"
 fi
 
-GOOS=${GOOS:-linux}
-GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 BUILDINFO=${BUILDINFO:-""}
-STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
-
-if [[ "${STATIC}" !=  "1" ]];then
-    LDFLAGS=""
-else
-    export CGO_ENABLED=0
-fi
 
 # gather buildinfo if not already provided
 # For a release build BUILDINFO should be produced
@@ -59,5 +50,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
+time CGO_ENABLED=0 ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"

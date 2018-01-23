@@ -21,36 +21,22 @@ SHELL := /bin/bash
 # Current version, updated after a release.
 VERSION ?= "0.5.0"
 
-# If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ../../..; pwd)
-export GOPATH
-
-# If GOPATH is made up of several paths, use the first one for our targets in this Makefile
-GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
-
-export CGO_ENABLE=0
-
 # OUT is the directory where dist artifacts and temp files will be created.
-OUT=${GO_TOP}/out
+OUT := out
+
+# Environment for tests, the directory containing istio and deps binaries.
+# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+ISTIO_BIN := bin
 
 GO ?= go
 
-# Compile for linux/amd64 by default.
-export GOOS ?= linux
-export GOARCH ?= amd64
-
 # Optional file including user-specific settings (HUB, TAG, etc)
 -include .istiorc.mk
-
 
 # @todo allow user to run for a single $PKG only?
 PACKAGES := $(shell $(GO) list ./...)
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
 GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
-
-# Environment for tests, the directory containing istio and deps binaries.
-# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
-export ISTIO_BIN=${GO_TOP}/bin
 
 hub = ""
 tag = ""
@@ -113,7 +99,7 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	cp Gopkg.lock vendor/Gopkg.lock
 
 ${DEP}:
-	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+	go get -u github.com/golang/dep/cmd/dep
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -555,7 +541,7 @@ include .circleci/Makefile
 # Make the deb image using the CI/CD image and docker.
 docker.sidecar.deb:
 	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
-        -v ${GO_TOP}:${GO_TOP} \
+        -v ${PWD}:${PWD} \
         -w ${PWD} \
         -e USER=${USER} \
 		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
@@ -576,7 +562,7 @@ ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
 ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
 	mkdir -p ${OUT}
-	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
+	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${PWD} -f \
 	   --url http://istio.io  \
 	   --license Apache \
 	   --vendor istio.io \
@@ -585,15 +571,15 @@ ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BI
 	   --config-files /var/lib/istio/envoy/sidecar.env \
 	   --config-files /var/lib/istio/envoy/envoy.json \
 	   --description "Istio" \
-	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
-	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
-	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
+	   tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   tools/deb/istio.service=/lib/systemd/system/istio.service \
+	   security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
 	   bin/envoy=/usr/local/bin/envoy \
 	   bin/pilot-agent=/usr/local/bin/pilot-agent \
 	   bin/node_agent=/usr/local/istio/bin/node_agent \
-	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
-	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+	   tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests

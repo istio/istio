@@ -38,3 +38,12 @@ install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
+/bin/istio_ca
+/bin/istioctl
+/bin/mixc
+/bin/mixs
+/bin/node_agent
+/bin/pilot-agent
+/bin/pilot-discovery
+/bin/sidecar-initializer
+/bin/envoy
