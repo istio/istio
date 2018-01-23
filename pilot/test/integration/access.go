@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

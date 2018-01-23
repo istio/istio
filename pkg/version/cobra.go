@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,32 +15,16 @@
 package version
 
 import (
-	"fmt"
-	"runtime"
-
 	"github.com/spf13/cobra"
 )
 
-var (
-	buildHost        string
-	buildGitRevision string
-	buildUser        string
-	buildAppVersion  string
-
-	// this is used for testing command output
-	printFunc = fmt.Printf
-
-	// Command prints version info to stdout
-	Command = &cobra.Command{
-		Run: func(*cobra.Command, []string) {
-			// nolint: errcheck,gas
-			printFunc(`Version: %v
-GitRevision: %v
-User: %v@%v
-Golang version: %v
-`, buildAppVersion, buildGitRevision, buildUser, buildHost, runtime.Version())
-		},
+// CobraCommand is a command used to print version information.
+func CobraCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
-		Short: "Display version information",
+		Short: "Prints out build version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Printf("%s\n", Info)
+		},
 	}
-)
+}

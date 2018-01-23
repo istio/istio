@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package version provides build time version information.
+// Package version provides build version information.
 package version
 
 import (
@@ -23,11 +23,12 @@ import (
 // The following fields are populated at build time using -ldflags -X.
 // Note that DATE is omitted for reproducible builds
 var (
-	buildAppVersion  string
-	buildGitRevision string
-	buildUser        string
-	buildHost        string
-	buildDockerHub   string
+	buildAppVersion  = "unknown"
+	buildGitRevision = "unknown"
+	buildUser        = "unknown"
+	buildHost        = "unknown"
+	buildDockerHub   = "unknown"
+	buildStatus      = "unknown"
 )
 
 // BuildInfo describes version information about the binary build.
@@ -38,6 +39,7 @@ type BuildInfo struct {
 	Host          string `json:"host"`
 	GolangVersion string `json:"golang_version"`
 	DockerHub     string `json:"hub"`
+	BuildStatus   string `json:"status"`
 }
 
 var (
@@ -45,36 +47,43 @@ var (
 	Info BuildInfo
 )
 
-func init() {
-	Info.Version = buildAppVersion
-	Info.GitRevision = buildGitRevision
-	Info.User = buildUser
-	Info.Host = buildHost
-	Info.GolangVersion = runtime.Version()
-	Info.DockerHub = buildDockerHub
+// String produces a single-line version info
+func (b BuildInfo) String() string {
+	return fmt.Sprintf("%v@%v-%v-%v-%v-%v",
+		b.User,
+		b.Host,
+		b.DockerHub,
+		b.Version,
+		b.GitRevision,
+		b.BuildStatus)
 }
 
-// Line combines version information into a single line
-func Line() string {
-	return fmt.Sprintf("%v@%v-%v-%v-%v",
-		Info.User,
-		Info.Host,
-		Info.DockerHub,
-		Info.Version,
-		Info.GitRevision)
-}
-
-// Version returns a multi-line version information
-func Version() string {
+// LongForm returns a multi-line version information
+func (b BuildInfo) LongForm() string {
 	return fmt.Sprintf(`Version: %v
 GitRevision: %v
 User: %v@%v
 Hub: %v
 GolangVersion: %v
+BuildStatus: %v
 `,
-		Info.Version,
-		Info.GitRevision,
-		Info.User, Info.Host,
-		Info.DockerHub,
-		Info.GolangVersion)
+		b.Version,
+		b.GitRevision,
+		b.User,
+		b.Host,
+		b.DockerHub,
+		b.GolangVersion,
+		b.BuildStatus)
+}
+
+func init() {
+	Info = BuildInfo{
+		Version:       buildAppVersion,
+		GitRevision:   buildGitRevision,
+		User:          buildUser,
+		Host:          buildHost,
+		GolangVersion: runtime.Version(),
+		DockerHub:     buildDockerHub,
+		BuildStatus:   buildStatus,
+	}
 }
