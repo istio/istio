@@ -32,9 +32,6 @@ GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 # to be handled in bin/gobuild.sh
 # export CGO_ENABLED=0
 
-# OUT is the directory where dist artifacts and temp files will be created.
-OUT=${GO_TOP}/out
-
 GO ?= go
 
 export GOARCH ?= amd64
@@ -50,21 +47,19 @@ else
 endif
 
 ifeq ($(GOOS),linux)
-  ifeq ($(LOCAL_OS),Linux)
-    BIN_OS:=.
-  else
-    BIN_OS:=lx
-  endif
+  OS_DIR:=lx
 else ifeq ($(GOOS),darwin)
-  ifeq ($(LOCAL_OS),Darwin)
-    BIN_OS:=.
-  else
-    BIN_OS:=mac
-  endif
+  OS_DIR:=mac
 else ifeq ($(GOOS),windows)
-  BIN_OS:=win
+  OS_DIR:=win
 else
    $(error "$(GOOS) isn't recognized/supported")
+endif
+
+ifeq ($(DEBUG),0)
+BUILDTYPE_DIR:=release
+else
+BUILDTYPE_DIR:=debug
 endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
@@ -78,12 +73,9 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-# XXX There might eventually be subdirs for arch and release vs. debug
-export ISTIO_BIN=$(GO_TOP)/bin/$(BIN_OS)
-export ISTIO_LOCAL_BIN=${GO_TOP}/bin
-
-# scratch location for creating docker images (it's easier but less clean to just use ISTIO_BIN)
-ISTIO_DOCKER:=${ISTIO_BIN}/docker
+export ISTIO_BIN=$(GO_TOP)/bin
+ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
+ISTIO_DOCKER:=${ISTIO_OUT}/docker
 
 hub = ""
 tag = ""
@@ -102,7 +94,7 @@ ifneq ($(strip $(TAG)),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
+DEP    := $(shell which dep    || echo "${ISTIO_BIN}/dep" )
 GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
@@ -135,7 +127,10 @@ setup:
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call dep.update if adding new deps or to pull recent
 # changes.
-depend: init
+depend: init $(ISTIO_OUT)
+
+$(ISTIO_OUT):
+	mkdir -p $(@)
 
 depend.ensure: init
 
@@ -230,27 +225,27 @@ build: setup go-build
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
 
-PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
-               ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-injector
+PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
+               ${ISTIO_OUT}/istioctl ${ISTIO_OUT}/sidecar-injector
 $(PILOT_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
 
 # Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
-${OUT}/istioctl-linux: depend
+${ISTIO_OUT}/istioctl-linux: depend
 	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
-${OUT}/istioctl-osx: depend
+${ISTIO_OUT}/istioctl-osx: depend
 	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
-${OUT}/istioctl-win.exe: depend
+${ISTIO_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
-MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
+MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 $(MIXER_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
-${ISTIO_BIN}/servicegraph: depend
+${ISTIO_OUT}/servicegraph: depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
-SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -263,20 +258,20 @@ go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector
 .PHONY: $(IDENTITY_ALIAS_LIST)
-$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_BIN}/$(ITEM)))
+$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_OUT}/$(ITEM)))
 
 .PHONY: istio-ca
-istio-ca: ${ISTIO_BIN}/istio_ca
+istio-ca: ${ISTIO_OUT}/istio_ca
 
 .PHONY: node-agent
-node-agent: ${ISTIO_BIN}/node_agent
+node-agent: ${ISTIO_OUT}/node_agent
 
 .PHONY: pilot
-pilot: ${ISTIO_BIN}/pilot-discovery
+pilot: ${ISTIO_OUT}/pilot-discovery
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${OUT}/istioctl-linux ${OUT}/istioctl-osx ${OUT}/istioctl-win.exe
+istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
 
 #-----------------------------------------------------------------------------
 # Target: go test
@@ -288,13 +283,13 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
 GOSTATIC = -ldflags '-extldflags "-static"'
 
-PILOT_TEST_BINS:=${ISTIO_BIN}/pilot-test-server ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-eurekamirror
+PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
 
 $(PILOT_TEST_BINS): depend
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/$(@F) istio.io/istio/$(subst -,/,$(@F))
+	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
-	go build -o ${ISTIO_BIN}/pilot-integration-test istio.io/istio/pilot/test/integration
+	go build -o ${ISTIO_OUT}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -420,19 +415,19 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
+	cp ${ISTIO_OUT}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_injector:${TAG} -f Dockerfile.sidecar_injector .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${ISTIO_BIN}/mixs mixer/docker
+	cp ${ISTIO_OUT}/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
-	cp ${ISTIO_BIN}/{istio_ca,node_agent} security/docker
+	cp ${ISTIO_OUT}/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
 	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
 	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
-	cp ${ISTIO_BIN}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
+	cp ${ISTIO_OUT}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
 	# TODO: generate or checkin test CA and keys
@@ -506,7 +501,7 @@ DOCKER_FILES_FROM_ISTIO_BIN:=pilot-test-client pilot-test-server pilot-test-eure
                              pilot-discovery pilot-agent sidecar-initializer servicegraph mixs \
                              istio_ca node_agent
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
+        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
@@ -587,18 +582,18 @@ DOCKER_GENERIC_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
 docker.all: $(DOCKER_TARGETS)
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
-# to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
+# to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
-   time (mkdir -p ${OUT}/docker && \
-         docker save -o ${OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
-         gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
+   time (mkdir -p ${ISTIO_OUT}/docker && \
+         docker save -o ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+         gzip ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
-# this target saves a tar.gz of each docker image to ${OUT}/docker/
+# this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
@@ -672,12 +667,12 @@ show.%: ; $(info $* $(H) $($*))
 #-----------------------------------------------------------------------------
 
 
-${OUT}/dist/Gopkg.lock:
-	mkdir -p ${OUT}/dist
-	cp Gopkg.lock ${OUT}/dist/
+${ISTIO_OUT}/dist/Gopkg.lock:
+	mkdir -p ${ISTIO_OUT}/dist
+	cp Gopkg.lock ${ISTIO_OUT}/dist/
 
 # Binary/built artifacts of the distribution
-dist-bin: ${OUT}/dist/Gopkg.lock
+dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
 
 dist: dist-bin
 
