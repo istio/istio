@@ -20,7 +20,6 @@ import (
 	"errors"
 	"reflect"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"k8s.io/api/extensions/v1beta1"

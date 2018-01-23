@@ -20,7 +20,6 @@ import (
 	"io"
 	"reflect"
 	"strings"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
