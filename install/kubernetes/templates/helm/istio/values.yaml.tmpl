@@ -1,22 +1,22 @@
 global:
   namespace: istio-system
-  initializer:
+  sidecar-injector:
     enabled: true
-# 
+#
 # proxy side car and ingress configuration
-# 
+#
   proxy:
     hub: {PROXY_HUB}
     tag: {PROXY_TAG}
     debug: {PROXY_DEBUG}
-# 
+#
 # pilot configuration
 #
   pilot:
     enabled: true
     hub: {PILOT_HUB}
     tag: {PILOT_TAG}
-# 
+#
 # security configuration
 #
   security:

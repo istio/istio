@@ -91,9 +91,7 @@ func init() {
 	// If specified, only run one test
 	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")
 
-	// Keep disabled until default no-op initializer is distributed
-	// and running in test clusters.
-	flag.BoolVar(&params.UseInitializer, "use-initializer", false, "Use k8s sidecar initializer")
+	flag.BoolVar(&params.UseAutomaticInjection, "use-sidecar-injection", false, "Use automatic sidecar injection")
 	flag.BoolVar(&params.UseAdmissionWebhook, "use-admission-webhook", false,
 		"Use k8s external admission webhook for config validation")
 

@@ -1,15 +1,13 @@
 apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
-  annotations:
-    sidecar.istio.io/status: injected-version-12345678
   creationTimestamp: null
   name: hello
 spec:
   jobTemplate:
     metadata:
       annotations:
-        sidecar.istio.io/status: injected-version-12345678
+        sidecar.istio.io/status: '{"version":"e91a2b4a561b50632e84426377c2673d99b0efc8cad237f20936a61b254f3885","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
     spec:
       template:
