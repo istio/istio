@@ -1,8 +1,6 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    sidecar.istio.io/status: injected-version-12345678
   creationTimestamp: null
   name: hello
 spec:
@@ -11,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: injected-version-12345678
+        sidecar.istio.io/status: '{"version":"dd89414af3fcc20aa327f2a5f33d584b4b2d594b0c86229db2da93dccfdd80d5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: hello
