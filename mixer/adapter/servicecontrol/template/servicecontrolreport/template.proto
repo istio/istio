@@ -18,7 +18,6 @@ package servicecontrolReport;
 
 import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
-import "mixer/v1/config/descriptor/value_type.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 

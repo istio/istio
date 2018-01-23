@@ -44,6 +44,8 @@ message Request {
   bytes node_agent_credential = 2;
   // type of the node_agent_credential (aws/gcp/onprem/custom...)
   string credential_type = 3;
+  // the requested ttl of the certificate in minutes
+  int32 requested_ttl_minutes = 4;
 }
 
 message Response {

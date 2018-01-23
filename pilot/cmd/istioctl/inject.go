@@ -169,7 +169,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", inject.DefaultHub, "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
