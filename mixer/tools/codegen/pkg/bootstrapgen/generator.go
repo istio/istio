@@ -96,7 +96,9 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[strings.Replace(goType.Name, " ", "", -1)]
-
+			},
+			"getUnspecifiedValueType": func() string {
+				return fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED.String()
 			},
 			"isAliasType": func(goType string) bool {
 				_, found := aliasTypes[goType]
