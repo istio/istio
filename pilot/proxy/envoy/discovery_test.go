@@ -620,7 +620,7 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
 
-			url = fmt.Sprintf("/v1/cds/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response = makeDiscoveryRequest(ds, "GET", url, t)
 			compareResponse(response, fmt.Sprintf("testdata/cds-v0-%s.json", testCase.name), t)
 
