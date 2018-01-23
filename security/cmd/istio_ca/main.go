@@ -222,6 +222,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	caOpts := &ca.IstioCAOptions{
 		CertChainBytes:   certChainBytes,
 		CertTTL:          opts.workloadCertTTL,
+		MaxCertTTL:       opts.maxWorkloadCertTTL,
 		SigningCertBytes: readFile(opts.signingCertFile),
 		SigningKeyBytes:  readFile(opts.signingKeyFile),
 		RootCertBytes:    readFile(opts.rootCertFile),

@@ -133,7 +133,10 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
-	ca := &IstioCA{certTTL: opts.CertTTL, maxCertTTL: opts.MaxCertTTL}
+	ca := &IstioCA{
+		certTTL:    opts.CertTTL,
+		maxCertTTL: opts.MaxCertTTL,
+	}
 
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
