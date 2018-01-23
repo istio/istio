@@ -57,7 +57,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // within a list.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
@@ -83,7 +83,7 @@ The name should be written in camelCase such that generated Go artifacts
 are more readable.
 
 - **Variety**. The variety of a template determines at what point in the Mixer's processing pipeline the
-adapters that implement the template will be called. This can be CHECK, REPORT, or QUOTA. 
+adapters that implement the template will be called. This can be CHECK, REPORT, QUOTA, or ATTRIBUTE_GENERATOR.
 
 - **Message Name**. The name of the template message should always be `Template`.
 
@@ -93,6 +93,67 @@ runtime. The operator will need to populate these fields via configuration.
 - **Comments** The comment on the `Template` message is used to generate documentation that is used by both adapter developers
 as well as operators. Therefore, the comment should contain an example for the operator to use when writing configuration as well
 as a good description expressing the intent of the template.
+
+## OutputTemplate format
+Message `OutputTemplate` is only applicable if the variety of the template is `ATTRIBUTE_GENERATOR`.
+While message `Template` defines the type of data that gets passed to the adapter, the `OutputTemplate` defines type of data
+that is returned from an attribute generating adapter. Attribute generating adapters are called with the input 'Template'
+instance before other adapters are invoked and are responsible for instantiating and
+returning an `instance` of `OutputTemplate`. The operator uses these output values to create more attributes which
+can then be used to create instances of other non `ATTRIBUTE_GENERATOR` template variety. `OutputTemplate`s are
+generally fairly simple data structures. An an example, here is the `kubernetes` template that outputs various
+kubernetes environment specific attributes:
+
+```proto
+// OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
+// to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+message OutputTemplate {
+    // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
+    istio.mixer.v1.template.IPAddress source_pod_ip = 1;
+
+    // Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
+    string source_pod_name = 2;
+
+    // Refers to source pod labels. attribute_bindings can refer to this field using $out.source_labels
+    map<string, string> source_labels = 3;
+
+    // Refers to source pod namespace. attribute_bindings can refer to this field using $out.source_namespace
+    string source_namespace = 4;
+
+    // Refers to source service. attribute_bindings can refer to this field using $out.source_service
+    string source_service = 5;
+
+    // Refers to source pod service account name. attribute_bindings can refer to this field using $out.source_service_account_name
+    string source_service_account_name = 6;
+
+    // Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
+    istio.mixer.v1.template.IPAddress source_host_ip = 7;
+
+
+    // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
+    istio.mixer.v1.template.IPAddress destination_pod_ip = 8;
+
+    // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
+    string destination_pod_name = 9;
+
+    // Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
+    map<string, string> destination_labels = 10;
+
+    // Refers to destination pod namespace. attribute_bindings can refer to this field using $out.destination_namespace
+    string destination_namespace = 11;
+
+    // Refers to destination service. attribute_bindings can refer to this field using $out.destination_service
+    string destination_service = 12;
+
+    // Refers to destination pod service account name. attribute_bindings can refer to this field using $out.destination_service_account_name
+    string destination_service_account_name = 13;
+
+    // Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
+    istio.mixer.v1.template.IPAddress destination_host_ip = 14;
+
+    ...
+}
+```
 
 ## Supported field names
 
@@ -114,7 +175,7 @@ Template field type | Golang type
 `istio.mixer.v1.template.Duration` | `time.Duration`
 `istio.mixer.v1.template.IPAddress` | `net.IP`
 `istio.mixer.v1.template.DNSName` | `adapter.DNSName`
-`istio.mixer.v1.config.descriptor.ValueType` | `interface{}`
+`istio.mixer.v1.template.Value` | `interface{}`
 `map<string, string>` | `map[string]string`
 `map<string, int64>` | `map[string]int64`
 `map<string, double>` | `map[string]float64`
@@ -123,11 +184,11 @@ Template field type | Golang type
 `map<string, istio.mixer.v1.template.Duration>` | `map[string]time.Duration`
 `map<string, istio.mixer.v1.template.IPAddress>` | `map[string]net.IP`
 `map<string, istio.mixer.v1.template.DNSName>` | `map[string]adapter.DNSName`
-`map<string, istio.mixer.v1.config.descriptor.ValueType>` | `map[string]interface{}`
+`map<string, istio.mixer.v1.template.Value>` | `map[string]interface{}`
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.config.descriptor.ValueType` has a special meaning. Use of this type
+The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
@@ -136,7 +197,7 @@ themselves accordingly.
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.config.descriptor.ValueType` has a special meaning. Use of this type
+The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.

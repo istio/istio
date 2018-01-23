@@ -23,7 +23,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/mixer/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {

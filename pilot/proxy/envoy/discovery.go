@@ -31,8 +31,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 
 var (
 	// Save the build version information.
-	buildVersion = version.Line()
+	buildVersion = version.Info.String()
 
 	cacheSizeGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{

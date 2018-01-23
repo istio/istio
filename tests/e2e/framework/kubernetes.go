@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
@@ -360,8 +359,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
-		//Need to be updated when the string "proxy_debug" is changed
-		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
+		//Need to be updated when the string "proxy" is changed as the default image name
+		content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
 	}
 	if *caHub != "" && *caTag != "" {
 		//Need to be updated when the string "istio-ca" is changed

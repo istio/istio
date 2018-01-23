@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/google/go-github/github"

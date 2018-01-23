@@ -3,7 +3,7 @@ syntax = "proto3";
 package foo.bar;
 
 import "mixer/v1/template/extensions.proto";
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
@@ -19,10 +19,10 @@ message Template {
     double fieldDouble = 4;
 
     /*single line block comment*/
-    istio.mixer.v1.config.descriptor.ValueType val = 5;
+    istio.mixer.v1.template.Value val = 5;
 
     // single line comment
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 6;
+    map<string, istio.mixer.v1.template.Value> dimensions = 6;
 
     map<string, int64> dimensionsConstInt64Val = 7;
     map<string, string> dimensionsConstStringVal = 8;
@@ -45,10 +45,10 @@ message Resource3 {
     double fieldDouble = 4;
 
     /*single line block comment*/
-    istio.mixer.v1.config.descriptor.ValueType val = 5;
+    istio.mixer.v1.template.Value val = 5;
 
     // single line comment
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 6;
+    map<string, istio.mixer.v1.template.Value> dimensions = 6;
 
     map<string, int64> dimensionsConstInt64Val = 7;
     map<string, string> dimensionsConstStringVal = 8;

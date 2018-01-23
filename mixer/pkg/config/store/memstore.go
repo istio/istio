@@ -17,7 +17,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 const memstoreScheme = "memstore"
@@ -37,10 +40,13 @@ type memstore struct {
 	watchCh    chan BackendEvent
 }
 
-func newMemstore(u fmt.Stringer) Backend {
-	m := &memstore{data: map[Key]*BackEndResource{}}
+func createOrGetMemstore(u string) *memstore {
 	memstoreMapMutex.Lock()
-	memstoreMap[u.String()] = m
+	m, ok := memstoreMap[u]
+	if !ok {
+		m = &memstore{data: map[Key]*BackEndResource{}}
+		memstoreMap[u] = m
+	}
 	memstoreMapMutex.Unlock()
 	return m
 }
@@ -123,14 +129,36 @@ func (m *memstore) Delete(key Key) {
 // MemstoreWriter is the interface to make changes on the memstore backend. This
 // will be used by tests to set up the on-memory data in the store.
 type MemstoreWriter interface {
+	// Put adds a resource into the memstore.
 	Put(key Key, resource *BackEndResource)
+
+	// Delete removes a resource from the memstore.
 	Delete(key Key)
 }
 
-// GetMemstoreWriter returns the MemstoreWriter used for the config store URL, or nil
-// if the URL is not used.
+// GetMemstoreWriter returns the MemstoreWriter used for the config store URL. It creates
+// the memstore if the related store does not exist yet.
 func GetMemstoreWriter(u string) MemstoreWriter {
-	memstoreMapMutex.RLock()
-	defer memstoreMapMutex.RUnlock()
-	return memstoreMap[u]
+	return createOrGetMemstore(u)
+}
+
+// SetupMemstore puts the YAML-formatted config data into the memstore specified by the URL
+// u. If the memstore does not exist yet, it creates a new one.
+func SetupMemstore(u string, data ...string) error {
+	mw := GetMemstoreWriter(u)
+	var errs error
+	for i, d := range data {
+		for j, chunk := range strings.Split(d, "\n---\n") {
+			r, err := parseChunk([]byte(chunk))
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("failed to parse at %d/%d: %v", i, j, err))
+				continue
+			}
+			if r == nil {
+				continue
+			}
+			mw.Put(r.Key(), &BackEndResource{Metadata: r.Metadata, Spec: r.Spec})
+		}
+	}
+	return errs
 }

@@ -182,3 +182,10 @@ func WaitForPort(port uint16) {
 	}
 	log.Println("Give up the wait, continue the test...")
 }
+
+// IsPortUsed checks if a port is used
+func IsPortUsed(port uint16) bool {
+	serverPort := fmt.Sprintf("localhost:%v", port)
+	_, err := net.Dial("tcp", serverPort)
+	return err == nil
+}
