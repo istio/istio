@@ -26,8 +26,8 @@ import (
 
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -129,7 +129,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 			}
 
 			if versionStr == "" {
-				versionStr = version.Line()
+				versionStr = version.Info.String()
 			}
 
 			_, client, err := kube.CreateInterface(kubeconfig)

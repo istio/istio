@@ -22,8 +22,8 @@ import (
 	_ "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 type monitor struct {
@@ -55,7 +55,7 @@ func startMonitor(port int) (*monitor, error) {
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, promhttp.Handler())
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
-		if _, err := out.Write([]byte(version.Line())); err != nil {
+		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})

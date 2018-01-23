@@ -22,8 +22,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"istio.io/istio/mixer/pkg/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 type monitor struct {

@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -52,7 +52,7 @@ var (
 				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
 			}
 
-			log.Infof("version %s", version.Line())
+			log.Infof("version %s", version.Info.String())
 
 			config, err := inject.GetInitializerConfig(client, flags.namespace, flags.injectConfig)
 			if err != nil {
