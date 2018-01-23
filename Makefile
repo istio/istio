@@ -352,7 +352,7 @@ localTestEnv: test-bins
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
-pilot-test: pilot-agent
+pilot-test: proxy
 	go test ${GOTEST_P} ${T} ./pilot/...
 
 .PHONY: mixer-test
@@ -417,7 +417,7 @@ security-coverage:
 racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 .PHONY: pilot-racetest
-pilot-racetest: pilot-agent
+pilot-racetest: proxy
 	go test ${GOTEST_P} ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
