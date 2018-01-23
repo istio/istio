@@ -193,12 +193,12 @@ $(PILOT_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
 
 # Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
-# The if/findstring is used to replace osx with darwin, win with windows and anything else (currently linux) with the suffix after the dash.
-# Cross-compiling for Mac on a Linux system seems to have fewer issues if CGO_ENABLED=0 (this is now handled by gobuild.sh).
-ISTIOCTL_LIST:=istioctl-linux istioctl-osx istioctl-win.exe
-$(foreach TGT,$(ISTIOCTL_LIST),$(eval ${OUT}/$(TGT): depend; \
-        STATIC=0 GOOS=$(if $(findstring osx,$(TGT)),darwin,$(if $(findstring win,$(TGT)),windows,$(subst istioctl-,,$(TGT)))) \
-                bin/gobuild.sh $$@ istio.io/istio/pkg/version ./pilot/cmd/istioctl ))
+${OUT}/istioctl-linux: depend
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-osx: depend
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-win.exe: depend
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
 $(MIXER_GO_BINS): depend
@@ -233,10 +233,7 @@ pilot: ${ISTIO_BIN}/pilot-discovery
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: $(ISTIOCTL_LIST)
-
-# provide an alias for each istioctl-OS that's just the filename
-$(foreach ITEM,$(ISTIOCTL_LIST),$(eval .PHONY: $(ITEM)) $(eval $(ITEM): ${OUT}/$(ITEM)))
+istioctl-all: ${OUT}/istioctl-linux ${OUT}/istioctl-osx ${OUT}/istioctl-win.exe
 
 #-----------------------------------------------------------------------------
 # Target: go test
