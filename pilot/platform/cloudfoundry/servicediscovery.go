@@ -71,15 +71,14 @@ func newService(hostname string) *model.Service {
 		Ports: []*model.Port{
 			{
 				Port:     AppPort,
-				Protocol: model.ProtocolTCP,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	}
 }
 
 // Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
-	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %s", err)
@@ -104,9 +103,31 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	return instances, nil
 }
 
-// HostInstances is not currently implemented for Cloud Foundry
-func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
-	return nil, nil
+// HostInstances implements a service catalog operation
+func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	if err != nil {
+		return nil, fmt.Errorf("getting host instances: %s", err)
+	}
+
+	var instances []*model.ServiceInstance
+
+	for hostname, backendSet := range resp.GetBackends() {
+		service := newService(hostname)
+
+		for _, backend := range backendSet.GetBackends() {
+			instances = append(instances, &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     backend.Address,
+					Port:        int(backend.Port),
+					ServicePort: service.Ports[0],
+				},
+				Service: service,
+			})
+		}
+	}
+
+	return instances, nil
 }
 
 // ManagementPorts is not currently implemented for Cloud Foundry

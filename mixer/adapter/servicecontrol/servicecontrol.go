@@ -13,6 +13,7 @@
 // limitations under the License.
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/servicecontrol/config/config.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/adapter/servicecontrol/template/servicecontrolreport/template.proto
 
 package servicecontrol
 
@@ -102,7 +103,7 @@ func validateRuntimeConfig(config *config.RuntimeConfig) *multierror.Error {
 
 func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror.Error {
 	var result *multierror.Error
-	if settings == nil || len(settings) == 0 {
+	if len(settings) == 0 {
 		result = multierror.Append(result, errors.New("settings is nil or empty"))
 		return result
 	}

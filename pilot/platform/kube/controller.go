@@ -165,10 +165,10 @@ func (c *Controller) createInformer(
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
-		!c.pods.informer.HasSynced() {
+		!c.pods.informer.HasSynced() ||
+		!c.nodes.informer.HasSynced() {
 		return false
 	}
-
 	return true
 }
 
@@ -178,6 +178,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
+	go c.nodes.informer.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
@@ -231,17 +232,19 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
+		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
 		return "", false
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
+		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
+		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		return "", false
 	}
-
 	return fmt.Sprintf("%v/%v", region, zone), true
 }
 
@@ -335,13 +338,20 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // HostInstances implements a service catalog operation
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) HostInstances(svcNodes map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
+	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				if addrs[ea.IP] {
+				if svcNodes[ea.IP] != nil {
+					if kubeNodes[ea.IP] == nil {
+						err := parseKubeServiceNode(ea.IP, svcNodes[ea.IP], kubeNodes)
+						if err != nil {
+							return out, err
+						}
+					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -361,6 +371,13 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
+								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
+									"with the query for pod %v in namespace %v",
+									ea.IP, pod.GetName(), pod.GetNamespace(),
+									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
+								continue
+							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{

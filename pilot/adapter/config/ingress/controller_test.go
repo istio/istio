@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
@@ -136,7 +136,7 @@ var (
 
 func TestConfig(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
@@ -176,7 +176,7 @@ func TestConfig(t *testing.T) {
 
 func TestIngressController(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
@@ -184,8 +184,14 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
+
+	lock := sync.Mutex{}
 	notificationCount := 0
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		notificationCount++
 	})
 	go ctl.Run(stop)
@@ -201,6 +207,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	util.Eventually(func() bool {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		return notificationCount == expectedRuleCount
 	}, t)
 	if notificationCount != expectedRuleCount {

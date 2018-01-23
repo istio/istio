@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/pkg/log"
 )
@@ -394,9 +392,9 @@ func TestCopyBag(t *testing.T) {
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
 
-	copy := CopyBag(refBag)
+	copyBag := CopyBag(refBag)
 
-	if !compareBags(copy, refBag) {
+	if !compareBags(copyBag, refBag) {
 		t.Error("Bags don't match")
 	}
 }
@@ -743,6 +741,6 @@ func TestGlobalWordCount(t *testing.T) {
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.NewOptions()
-	o.SetOutputLevel(zapcore.DebugLevel)
+	_ = o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 }

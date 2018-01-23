@@ -14,7 +14,7 @@ if [ ! -e $ROOT/Gopkg.lock ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(grep -A 4 "gogo/protobuf" $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
 
@@ -122,7 +122,7 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick_out=$MAPPINGS:"
+PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
 PLUGIN+=$outdir
 
 # handle template code generation 
@@ -145,7 +145,7 @@ if [ "$opttemplate" = true ]; then
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--gogoslick_out=$TMPL_PROTOC_MAPPING:"
+  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=$TMPL_PROTOC_MAPPING:"
   TMPL_PLUGIN+=$outdir
 
   descriptor_set="_proto.descriptor_set"

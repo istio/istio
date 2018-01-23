@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log" //nolint:adapterlinter
 	"net/url"
 	"time"
 
@@ -205,7 +205,7 @@ func GetInfo() adapter.Info {
 // logToEnvLogger converts CGM log package writes to env.Logger()
 func (b logToEnvLogger) Write(msg []byte) (int, error) {
 	if bytes.HasPrefix(msg, []byte("[ERROR]")) {
-		b.env.Logger().Errorf(string(msg))
+		_ = b.env.Logger().Errorf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[WARN]")) {
 		b.env.Logger().Warningf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[DEBUG]")) {

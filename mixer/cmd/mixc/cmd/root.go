@@ -55,9 +55,6 @@ type rootArgs struct {
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
-	// enableTracing controls whether client-side traces are generated for calls to Mixer.
-	enableTracing bool
-
 	// # times to repeat the operation
 	repeat int
 

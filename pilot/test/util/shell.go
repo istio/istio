@@ -39,7 +39,11 @@ func Run(command string) error {
 
 // RunInput command and pass input via stdin
 func RunInput(command, input string) error {
-	log.Infof("Run %q on input:\n%s", command, input)
+	clipped := input
+	if len(clipped) > 20 {
+		clipped = fmt.Sprintf("%s <clipped len=%d>", clipped[0:20], len(input))
+	}
+	log.Infof("Run %q on input:\n%s", command, clipped)
 	parts := strings.Split(command, " ")
 	/* #nosec */
 	c := exec.Command(parts[0], parts[1:]...)

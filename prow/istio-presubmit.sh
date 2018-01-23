@@ -35,19 +35,6 @@ die () {
   exit -1
 }
 
-run_or_die_on_change() {
-  local script=$1
-  $script || die "Could not run ${script}"
-  # "generated_files" can be modified by other presubmit runs, since
-  # build caches are shared among them. For now, it should be excluded for
-  # the observed changes.
-  # TODO(https://github.com/istio/istio/issues/1689): fix this.
-  if [[ -n $(git status --porcelain | grep -v generated_files) ]]; then
-    git status
-    die "Repo has unstaged changes. Re-run ${script}"
-  fi
-}
-
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Handle prow environment and checkout
   export USER=Prow
@@ -98,3 +85,6 @@ fi
 
 # upload images - needed by the subsequent tests
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
+
+# run security e2e test
+${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"

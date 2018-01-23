@@ -29,7 +29,6 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
 
@@ -108,7 +107,7 @@ type FilterMixerConfig struct {
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
+func buildMixerCluster(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
@@ -124,7 +123,7 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []
 		// do nothing
 	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
-		mixerCluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, mixerSAN)
+		mixerCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
 	}
 
 	return mixerCluster
@@ -145,7 +144,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -164,14 +163,20 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 			},
 		},
-		ForwardAttributes: &mpb.Attributes{
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+	}
+
+	if role.Type == model.Sidecar && !outboundRoute {
+		// Don't forward mixer attributes to the app from inbound sidecar routes
+	} else {
+		v2.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrSourceIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
 				AttrSourceUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 			},
-		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+		}
 	}
+
 	if len(instances) > 0 {
 		// legacy mixerclient behavior is a comma separated list of
 		// services. When can this be removed?
@@ -201,42 +206,48 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 					},
 				},
 			},
+			DisableCheckCalls:  outboundRoute || mesh.DisablePolicyChecks,
+			DisableReportCalls: outboundRoute,
 		}
 
-		apiSpecs := config.HTTPAPISpecByDestination(instance)
-		model.SortHTTPAPISpec(apiSpecs)
-		for _, config := range apiSpecs {
-			sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-		}
-
-		quotaSpecs := config.QuotaSpecByDestination(instance)
-		model.SortQuotaSpec(quotaSpecs)
-		for _, config := range quotaSpecs {
-			sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
-		}
-
-		authSpecs := config.EndUserAuthenticationPolicySpecByDestination(instance)
-		model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
-		if len(authSpecs) > 0 {
-			spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
-
-			// Update jwks_uri_envoy_cluster This cluster should be
-			// created elsewhere using the same host-to-cluster naming
-			// scheme, i.e. buildJWKSURIClusterNameAndAddress.
-			for _, jwt := range spec.Jwts {
-				if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-					log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
-						jwt.JwksUri, err)
-				} else {
-					jwt.JwksUriEnvoyCluster = name
-				}
+		// omit API, Quota, and Auth portion of service config when
+		// check and report are disabled.
+		if !sc.DisableCheckCalls || !sc.DisableReportCalls {
+			apiSpecs := config.HTTPAPISpecByDestination(instance)
+			model.SortHTTPAPISpec(apiSpecs)
+			for _, config := range apiSpecs {
+				sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
 			}
 
-			sc.EndUserAuthnSpec = spec
-			if len(authSpecs) > 1 {
-				// TODO - validation should catch this problem earlier at config time.
-				log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
-					instance.Service, spec)
+			quotaSpecs := config.QuotaSpecByDestination(instance)
+			model.SortQuotaSpec(quotaSpecs)
+			for _, config := range quotaSpecs {
+				sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+			}
+
+			authSpecs := config.EndUserAuthenticationPolicySpecByDestination(instance)
+			model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
+			if len(authSpecs) > 0 {
+				spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
+
+				// Update jwks_uri_envoy_cluster This cluster should be
+				// created elsewhere using the same host-to-cluster naming
+				// scheme, i.e. buildJWKSURIClusterNameAndAddress.
+				for _, jwt := range spec.Jwts {
+					if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+						log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
+							jwt.JwksUri, err)
+					} else {
+						jwt.JwksUriEnvoyCluster = name
+					}
+				}
+
+				sc.EndUserAuthnSpec = spec
+				if len(authSpecs) > 1 {
+					// TODO - validation should catch this problem earlier at config time.
+					log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
+						instance.Service, spec)
+				}
 			}
 		}
 
@@ -252,7 +263,7 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 }
 
 // Mixer TCP filter config for inbound requests.
-func mixerTCPConfig(role proxy.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
+func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,

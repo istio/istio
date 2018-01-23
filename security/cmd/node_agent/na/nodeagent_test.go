@@ -281,7 +281,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "CSR request failed rpc error: code = Unavailable",
+			expectedErr: "CSR request failed rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
 		},
 		"Without Insecure option": {
 			config: &Config{

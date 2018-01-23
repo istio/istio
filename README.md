@@ -48,7 +48,9 @@ Istio is composed of these components:
 * **Pilot** - A component responsible for configuring the
   proxies at runtime.
 
-* **CA** - A component responsible for cert issuance and rotation.
+* **CA** - A centralized component responsible for cert issuance and rotation.
+
+* **Node Agent** - A per-node component responsible for cert issuance and rotation.
 
 * **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
 
@@ -87,7 +89,7 @@ component-level APIs and common configuration formats for the Istio platform.
 for Mixer's API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
 decisions to Mixer.
 

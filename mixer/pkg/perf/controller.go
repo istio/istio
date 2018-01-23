@@ -58,13 +58,15 @@ func newController() (*Controller, error) {
 	rpcDebugPath := generateDebugPath("controller", c.listener.Addr())
 
 	c.rpcServer = rpc.NewServer()
-	c.rpcServer.Register(c)
+	_ = c.rpcServer.Register(c)
 	c.rpcServer.HandleHTTP(c.rpcPath, rpcDebugPath)
 
-	go http.Serve(c.listener, nil)
+	go func() {
+		_ = http.Serve(c.listener, nil)
+	}()
 
 	log.Infof("controller is accepting connections on: %s%s", c.listener.Addr().String(), c.rpcPath)
-	log.Sync()
+	_ = log.Sync()
 	return c, nil
 }
 
@@ -102,7 +104,7 @@ func (c *Controller) runClients(iterations int) error {
 
 func (c *Controller) close() (err error) {
 	log.Infof("Dispatching close to all clients")
-	log.Sync()
+	_ = log.Sync()
 
 	for _, conn := range c.clients {
 		e := conn.Call("ClientServer.Shutdown", struct{}{}, nil)
@@ -131,7 +133,7 @@ func (c *Controller) close() (err error) {
 
 // waitForClient is a convenience method for blocking until the next available client appears.
 func (c *Controller) waitForClient() {
-	_ = <-c.incoming
+	<-c.incoming
 }
 
 // location returns the location that the controller rpc server is listening on.
@@ -142,7 +144,7 @@ func (c *Controller) location() ServiceLocation {
 // RegisterClient is an RPC method called by the clients to registers with this controller.
 func (c *Controller) RegisterClient(loc ServiceLocation, _ *struct{}) error {
 	log.Infof("Incoming client: %s", loc)
-	log.Sync()
+	_ = log.Sync()
 
 	// Connect back to the client's own service.
 	conn, err := rpc.DialHTTPPath("tcp", loc.Address, loc.Path)
@@ -151,7 +153,7 @@ func (c *Controller) RegisterClient(loc ServiceLocation, _ *struct{}) error {
 	}
 
 	log.Infof("Connected to client: %s", loc)
-	log.Sync()
+	_ = log.Sync()
 
 	c.clients = append(c.clients, conn)
 	c.incoming <- struct{}{}

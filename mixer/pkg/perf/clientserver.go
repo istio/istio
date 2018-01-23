@@ -49,12 +49,12 @@ func NewClientServer(controllerLoc ServiceLocation) (*ClientServer, error) {
 	}
 
 	if err := server.initializeRPCServer(); err != nil {
-		server.close()
+		_ = server.close()
 		return nil, err
 	}
 
 	if err := server.registerWithController(controllerLoc); err != nil {
-		server.close()
+		_ = server.close()
 		return nil, err
 	}
 
@@ -63,7 +63,9 @@ func NewClientServer(controllerLoc ServiceLocation) (*ClientServer, error) {
 
 func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) error {
 	log.Infof("ClientServer dialing to controller at: %s", controllerLoc)
-	defer log.Sync()
+	defer func() {
+		_ = log.Sync()
+	}()
 	controller, err := rpc.DialHTTPPath("tcp", controllerLoc.Address, controllerLoc.Path)
 	if err != nil {
 		return err
@@ -94,13 +96,15 @@ func (s *ClientServer) initializeRPCServer() error {
 	rpcDebugPath := generateDebugPath("client", s.listener.Addr())
 
 	s.rpcServer = rpc.NewServer()
-	s.rpcServer.Register(s)
+	_ = s.rpcServer.Register(s)
 	s.rpcServer.HandleHTTP(s.rpcPath, rpcDebugPath)
 
-	go http.Serve(s.listener, nil)
+	go func() {
+		_ = http.Serve(s.listener, nil)
+	}()
 
 	log.Infof("ClientServer listening on: %s", s.location())
-	log.Sync()
+	_ = log.Sync()
 	return nil
 }
 
@@ -139,7 +143,7 @@ type ClientServerInitParams struct {
 // upcoming run requests.
 func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct{}) error {
 	log.Infof("ClientServer initializing with server address: %s", params.Address)
-	log.Sync()
+	_ = log.Sync()
 
 	var setup Setup
 	if err := unmarshallSetup(params.Setup, &setup); err != nil {
@@ -151,9 +155,9 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 // Shutdown is a remote RPC call that is invoked by the controller after the benchmark execution has completed.
 func (s *ClientServer) Shutdown(struct{}, *struct{}) error {
 	log.Info("ClientServer shutting down")
-	log.Sync()
-	s.client.close()
-	s.close()
+	_ = log.Sync()
+	_ = s.client.close()
+	_ = s.close()
 	return nil
 }
 

@@ -16,182 +16,291 @@ package cloudfoundry_test
 
 import (
 	"errors"
+	"testing"
 
 	"code.cloudfoundry.org/copilot/api"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"
 )
 
-var _ = Describe("ServiceDiscovery", func() {
-	var (
-		client           *mockCopilotClient
-		serviceDiscovery *cloudfoundry.ServiceDiscovery
-		routesResponse   *api.RoutesResponse
-	)
-
-	BeforeEach(func() {
-		client = newMockCopilotClient()
-		routesResponse = &api.RoutesResponse{
-			Backends: map[string]*api.BackendSet{
-				"process-guid-a.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.10.1.5",
-							Port:    61005,
-						},
-						{
-							Address: "10.0.40.2",
-							Port:    61008,
-						},
+func makeSampleClientResponse() *api.RoutesResponse {
+	return &api.RoutesResponse{
+		Backends: map[string]*api.BackendSet{
+			"process-guid-a.cfapps.internal": {
+				Backends: []*api.Backend{
+					{
+						Address: "10.10.1.5",
+						Port:    61005,
 					},
-				},
-				"process-guid-b.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.0.50.4",
-							Port:    61009,
-						},
-						{
-							Address: "10.0.60.2",
-							Port:    61001,
-						},
+					{
+						Address: "10.0.40.2",
+						Port:    61008,
 					},
 				},
 			},
-		}
-		serviceDiscovery = &cloudfoundry.ServiceDiscovery{
-			Client: client,
-		}
-	})
-
-	Describe("Services", func() {
-		It("returns an Istio service for each Diego process", func() {
-			client.RoutesOutput.Ret0 <- routesResponse
-			client.RoutesOutput.Ret1 <- nil
-			serviceModels, err := serviceDiscovery.Services()
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(serviceModels).To(HaveLen(2))
-			Expect(serviceModels).To(ConsistOf([]*model.Service{
-				{
-					Hostname: "process-guid-a.cfapps.internal",
-					Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolTCP}},
-				},
-				{
-					Hostname: "process-guid-b.cfapps.internal",
-					Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolTCP}},
-				},
-			}))
-		})
-
-		Context("when the CloudFoundry client returns an error", func() {
-			BeforeEach(func() {
-				client.RoutesOutput.Ret0 <- nil
-				client.RoutesOutput.Ret1 <- errors.New("banana")
-			})
-			It("wraps and returns the error", func() {
-				_, err := serviceDiscovery.Services()
-				Expect(err).To(MatchError("getting services: banana"))
-			})
-		})
-	})
-
-	Describe("GetService", func() {
-		Context("when the CloudFoundry client returns an error", func() {
-			BeforeEach(func() {
-				client.RoutesOutput.Ret0 <- nil
-				client.RoutesOutput.Ret1 <- errors.New("banana")
-			})
-			It("wraps and returns the error", func() {
-				_, err := serviceDiscovery.GetService("foo")
-				Expect(err).To(MatchError("getting services: banana"))
-			})
-		})
-
-		It("returns an Istio service by a hostname", func() {
-			client.RoutesOutput.Ret0 <- routesResponse
-			client.RoutesOutput.Ret1 <- nil
-			serviceModel, err := serviceDiscovery.GetService("process-guid-b.cfapps.internal")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(serviceModel).To(Equal(
-				&model.Service{
-					Hostname: "process-guid-b.cfapps.internal",
-					Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolTCP}},
-				},
-			))
-		})
-
-		It("returns a nil service when a hostname is not found", func() {
-			client.RoutesOutput.Ret0 <- routesResponse
-			client.RoutesOutput.Ret1 <- nil
-			service, err := serviceDiscovery.GetService("non-existent-service.whatever")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(service).To(BeNil())
-		})
-	})
-
-	Describe("Instances", func() {
-		Context("when the provided hostname does not exist", func() {
-			It("returns nil with no error", func() {
-				client.RoutesOutput.Ret0 <- routesResponse
-				client.RoutesOutput.Ret1 <- nil
-				instances, err := serviceDiscovery.Instances("non-existent-process-guid.whatever", nil, nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(instances).To(BeEmpty())
-			})
-		})
-
-		Context("when the CloudFoundry client return an error", func() {
-			BeforeEach(func() {
-				client.RoutesOutput.Ret0 <- nil
-				client.RoutesOutput.Ret1 <- errors.New("banana")
-			})
-
-			It("wraps and returns the error", func() {
-				_, err := serviceDiscovery.Instances("something", nil, nil)
-				Expect(err).To(MatchError("getting instances: banana"))
-			})
-		})
-
-		Context("when the provided hostname points to a known process guid", func() {
-			It("returns the filtered set of instances for the given hostname", func() {
-				client.RoutesOutput.Ret0 <- routesResponse
-				client.RoutesOutput.Ret1 <- nil
-				instances, err := serviceDiscovery.Instances("process-guid-a.cfapps.internal", nil, nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				servicePort := &model.Port{
-					Port:     8080,
-					Protocol: model.ProtocolTCP,
-				}
-				service := &model.Service{
-					Hostname: "process-guid-a.cfapps.internal",
-					Ports:    []*model.Port{servicePort},
-				}
-
-				Expect(instances).To(ConsistOf([]*model.ServiceInstance{
+			"process-guid-b.cfapps.internal": {
+				Backends: []*api.Backend{
 					{
-						Endpoint: model.NetworkEndpoint{
-							Address:     "10.10.1.5",
-							Port:        61005,
-							ServicePort: servicePort,
-						},
-						Service: service,
+						Address: "10.0.50.4",
+						Port:    61009,
 					},
 					{
-						Endpoint: model.NetworkEndpoint{
-							Address:     "10.0.40.2",
-							Port:        61008,
-							ServicePort: servicePort,
-						},
-						Service: service,
+						Address: "10.0.60.2",
+						Port:    61001,
 					},
-				}))
-			})
-		})
-	})
-})
+				},
+			},
+		},
+	}
+}
+
+type sdTestState struct {
+	mockClient       *mockCopilotClient
+	serviceDiscovery *cloudfoundry.ServiceDiscovery
+}
+
+func newSDTestState() *sdTestState {
+	mockClient := newMockCopilotClient()
+
+	// initialize object under test
+	serviceDiscovery := &cloudfoundry.ServiceDiscovery{
+		Client: mockClient,
+	}
+
+	return &sdTestState{
+		mockClient:       mockClient,
+		serviceDiscovery: serviceDiscovery,
+	}
+}
+
+func TestServiceDiscovery_Services(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	// function under test
+	serviceModels, err := state.serviceDiscovery.Services()
+	g.Expect(err).To(gomega.BeNil())
+
+	// it returns an Istio service for each Diego process
+	g.Expect(serviceModels).To(gomega.HaveLen(2))
+	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
+		{
+			Hostname: "process-guid-a.cfapps.internal",
+			Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolHTTP}},
+		},
+		{
+			Hostname: "process-guid-b.cfapps.internal",
+			Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolHTTP}},
+		},
+	}))
+}
+
+func TestServiceDiscovery_ServicesErrorHandling(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- nil
+	state.mockClient.RoutesOutput.Ret1 <- errors.New("banana")
+
+	_, err := state.serviceDiscovery.Services()
+	g.Expect(err).To(gomega.MatchError("getting services: banana"))
+}
+
+func TestServiceDiscovery_GetService_Success(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	serviceModel, err := state.serviceDiscovery.GetService("process-guid-b.cfapps.internal")
+
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(serviceModel).To(gomega.Equal(&model.Service{
+		Hostname: "process-guid-b.cfapps.internal",
+		Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolHTTP}},
+	}))
+}
+
+func TestServiceDiscovery_GetService_NotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	serviceModel, err := state.serviceDiscovery.GetService("does-not-exist.cfapps.internal")
+
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(serviceModel).To(gomega.BeNil())
+}
+
+func TestServiceDiscovery_GetService_ClientError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- nil
+	state.mockClient.RoutesOutput.Ret1 <- errors.New("potato")
+
+	serviceModel, err := state.serviceDiscovery.GetService("process-guid-b.cfapps.internal")
+
+	g.Expect(err).To(gomega.MatchError("getting services: potato"))
+	g.Expect(serviceModel).To(gomega.BeNil())
+}
+
+func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	instances, err := state.serviceDiscovery.Instances("process-guid-a.cfapps.internal", nil, nil)
+	g.Expect(err).To(gomega.BeNil())
+
+	servicePort := &model.Port{
+		Port:     8080,
+		Protocol: model.ProtocolHTTP,
+	}
+	service := &model.Service{
+		Hostname: "process-guid-a.cfapps.internal",
+		Ports:    []*model.Port{servicePort},
+	}
+
+	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.10.1.5",
+				Port:        61005,
+				ServicePort: servicePort,
+			},
+			Service: service,
+		},
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.0.40.2",
+				Port:        61008,
+				ServicePort: servicePort,
+			},
+			Service: service,
+		},
+	}))
+}
+
+func TestServiceDiscovery_Instances_NotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	instances, err := state.serviceDiscovery.Instances("non-existent.cfapps.internal", nil, nil)
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(instances).To(gomega.BeNil())
+}
+
+func TestServiceDiscovery_Instances_ClientError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- nil
+	state.mockClient.RoutesOutput.Ret1 <- errors.New("potato")
+
+	serviceModel, err := state.serviceDiscovery.Instances("process-guid-b.cfapps.internal", nil, nil)
+
+	g.Expect(err).To(gomega.MatchError("getting instances: potato"))
+	g.Expect(serviceModel).To(gomega.BeNil())
+}
+
+func TestServiceDiscovery_HostInstances(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	instances, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
+	g.Expect(err).To(gomega.BeNil())
+
+	servicePort := &model.Port{
+		Port:     8080,
+		Protocol: model.ProtocolHTTP,
+	}
+
+	serviceA := &model.Service{
+		Hostname: "process-guid-a.cfapps.internal",
+		Ports:    []*model.Port{servicePort},
+	}
+
+	serviceB := &model.Service{
+		Hostname: "process-guid-b.cfapps.internal",
+		Ports:    []*model.Port{servicePort},
+	}
+
+	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.10.1.5",
+				Port:        61005,
+				ServicePort: servicePort,
+			},
+			Service: serviceA,
+		},
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.0.40.2",
+				Port:        61008,
+				ServicePort: servicePort,
+			},
+			Service: serviceA,
+		},
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.0.50.4",
+				Port:        61009,
+				ServicePort: servicePort,
+			},
+			Service: serviceB,
+		},
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.0.60.2",
+				Port:        61001,
+				ServicePort: servicePort,
+			},
+			Service: serviceB,
+		},
+	}))
+}
+
+func TestServiceDiscovery_HostInstances_ClientError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- nil
+	state.mockClient.RoutesOutput.Ret1 <- errors.New("no instances")
+
+	serviceModel, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
+
+	g.Expect(err).To(gomega.MatchError("getting host instances: no instances"))
+	g.Expect(serviceModel).To(gomega.BeNil())
+}
+
+func TestServiceDiscovery_HostInstances_NotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesOutput.Ret0 <- nil
+	state.mockClient.RoutesOutput.Ret1 <- nil
+
+	instances, err := state.serviceDiscovery.HostInstances(map[string]*model.Node{"": nil})
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(instances).To(gomega.BeNil())
+}

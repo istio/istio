@@ -17,10 +17,8 @@ package server
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
-	"path"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -59,10 +57,10 @@ type Server struct {
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newILEvaluator func(cacheSize int) (*evaluator.IL, error)
-	newStore2      func(r2 *store.Registry2, configURL string) (store.Store2, error)
+	newStore2      func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime     func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener,
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16) (*monitor, error)
@@ -77,7 +75,7 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newILEvaluator: evaluator.NewILEvaluator,
-		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
+		newStore2:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
@@ -145,21 +143,13 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStore2URL := a.ConfigStore2URL
-	if configStore2URL == "" {
-		configStore2URL = "k8s://"
+	configStoreURL := a.ConfigStoreURL
+	if configStoreURL == "" {
+		configStoreURL = "k8s://"
 	}
 
-	if a.ServiceConfig != "" || a.GlobalConfig != "" {
-		if s.configDir, err = serializeConfigs(a.GlobalConfig, a.ServiceConfig); err != nil {
-			_ = s.Close()
-			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
-		}
-		configStore2URL = "fs://" + s.configDir
-	}
-
-	reg2 := store.NewRegistry2(config.Store2Inventory()...)
-	store2, err := p.newStore2(reg2, configStore2URL)
+	reg2 := store.NewRegistry(config.StoreInventory()...)
+	store2, err := p.newStore2(reg2, configStoreURL)
 	if err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
@@ -179,24 +169,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
 	return s, nil
-}
-
-// Takes the string-based configs and creates a directory with config files from it.
-func serializeConfigs(globalConfig string, serviceConfig string) (string, error) {
-	configDir, err := ioutil.TempDir("", "mixer")
-	if err == nil {
-		s := path.Join(configDir, "service.yaml")
-		if err = ioutil.WriteFile(s, []byte(serviceConfig), 0666); err == nil {
-			g := path.Join(configDir, "global.yaml")
-			if err = ioutil.WriteFile(g, []byte(globalConfig), 0666); err == nil {
-				return configDir, nil
-			}
-		}
-
-		_ = os.RemoveAll(configDir)
-	}
-
-	return "", err
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
@@ -226,7 +198,7 @@ func (s *Server) Wait() error {
 func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
-		s.Wait()
+		_ = s.Wait()
 	}
 
 	if s.listener != nil {
@@ -254,7 +226,7 @@ func (s *Server) Close() error {
 	}
 
 	// final attempt to purge buffered logs
-	log.Sync()
+	_ = log.Sync()
 
 	return nil
 }

@@ -1,0 +1,25 @@
+global:
+  namespace: istio-system
+  initializer:
+    enabled: false
+  proxy:
+    hub: gcr.io/istio-testing
+    tag: 0.4.0
+    debug: false
+  pilot:
+    enabled: true
+    hub: gcr.io/istio-testing
+    tag: 0.4.0
+  security:  
+    enabled: true
+    hub: gcr.io/istio-testing
+    tag: 0.4.0
+  mixer:
+    enabled: true
+    hub: gcr.io/istio-testing
+    tag: 0.4.0
+  ingress:
+    use_nodeport: false
+    nodeport_port: 0
+  hyperkube_hub: quay.io/coreos/hyperkube
+  hyperkube_tag: v1.7.6_coreos.0

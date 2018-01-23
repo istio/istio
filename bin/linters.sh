@@ -7,24 +7,31 @@ WORKSPACE=$SCRIPTPATH/..
 
 cd ${WORKSPACE}
 
+GOOS=
+GOARCH=
+
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
 
-echo 'Checking licences'
+echo 'Checking licenses'
 bin/check_license.sh
-echo 'licences OK'
+echo 'licenses OK'
 
-echo 'Running linters ....'
+echo 'Installing gometalinter ....'
+go get -u gopkg.in/alecthomas/gometalinter.v2
+gometalinter=gometalinter.v2
+$gometalinter --install
+echo 'Gometalinter installed successfully ....'
 
-#TODO: after the new generation script is in, make sure we generate the exclude
-docker run\
-  -v $(pwd):/go/src/istio.io/istio\
-  -w /go/src/istio.io/istio\
-  gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10\
-  --config=./lintconfig_base.json \
-  -s vendor --fast ./...
+echo 'Running gometalinter ....'
+$gometalinter --config=./lintconfig_base.json ./...
+echo 'gometalinter OK'
 
-echo 'linters OK'
+echo 'Running gometalinter on adapters ....'
+pushd mixer/tools/adapterlinter
+go install .
+popd
 
-
+$gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
+echo 'gometalinter on adapters OK'

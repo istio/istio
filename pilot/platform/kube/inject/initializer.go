@@ -151,7 +151,7 @@ func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Inter
 		_, controller := cache.NewInformer(watchlist, kind.obj, DefaultResyncPeriod,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					if err := i.initialize(obj, patcher); err != nil {
+					if err := i.initialize(obj.(runtime.Object), patcher); err != nil {
 						log.Error(err.Error())
 					}
 				},
@@ -162,16 +162,17 @@ func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Inter
 	return i, nil
 }
 
-func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
+func (i *Initializer) initialize(in runtime.Object, patcher patcherFunc) error {
 	obj, err := meta.Accessor(in)
 	if err != nil {
 		return err
 	}
 
-	gvk, _, err := injectScheme.ObjectKind(in.(runtime.Object))
+	gvks, _, err := injectScheme.ObjectKinds(in)
 	if err != nil {
 		return err
 	}
+	gvk := gvks[0]
 
 	log.Infof("ObjectMeta initializer info %v %v/%v policy:%q status:%q %v",
 		gvk, obj.GetNamespace(), obj.GetName(),
@@ -234,9 +235,10 @@ func (i *Initializer) Run(stopCh <-chan struct{}) {
 
 	log.Infof("Supported kinds:")
 	for _, kind := range kinds {
-		if gvk, _, err := injectScheme.ObjectKind(kind.obj); err != nil {
+		if gvks, _, err := injectScheme.ObjectKinds(kind.obj); err != nil {
 			log.Warnf("Could not determine object kind: ", err)
 		} else {
+			gvk := gvks[0]
 			log.Infof("\t%v/%v %v", gvk.Group, gvk.Version, gvk.Kind)
 		}
 	}

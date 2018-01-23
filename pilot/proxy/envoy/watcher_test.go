@@ -20,15 +20,22 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
 
-	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/model"
 )
 
 type TestAgent struct {
@@ -50,9 +57,9 @@ func TestRunReload(t *testing.T) {
 			called <- true
 		},
 	}
-	config := proxy.DefaultProxyConfig()
-	node := proxy.Node{
-		Type: proxy.Ingress,
+	config := model.DefaultProxyConfig()
+	node := model.Node{
+		Type: model.Ingress,
 		ID:   "random",
 	}
 	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
@@ -71,9 +78,133 @@ func TestRunReload(t *testing.T) {
 	}
 }
 
+type pilotStubHandler struct {
+	sync.Mutex
+	States []pilotStubState
+}
+
+type pilotStubState struct {
+	StatusCode int
+	Response   string
+}
+
+func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.Lock()
+	w.WriteHeader(p.States[0].StatusCode)
+	_, _ = w.Write([]byte(p.States[0].Response))
+	p.States = p.States[1:]
+	p.Unlock()
+}
+
+func Test_watcher_retrieveAZ(t *testing.T) {
+	tests := []struct {
+		name        string
+		az          string
+		retries     int
+		wantReload  bool
+		wantAZ      string
+		pilotStates []pilotStubState
+	}{
+		{
+			name:       "retrieves an AZ and calls for a reload",
+			wantReload: true,
+			wantAZ:     "az1",
+			retries:    5,
+			pilotStates: []pilotStubState{
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "retries if it receives an error",
+			wantReload: true,
+			wantAZ:     "az1",
+			retries:    5,
+			pilotStates: []pilotStubState{
+				{StatusCode: 301, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "retries if it receives non 200 status from pilot",
+			wantReload: true,
+			wantAZ:     "az1",
+			retries:    5,
+			pilotStates: []pilotStubState{
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
+		},
+		{
+			name:       "do nothing if az is set",
+			az:         "az1",
+			wantAZ:     "az1",
+			retries:    5,
+			wantReload: false,
+		},
+		{
+			name:    "give up after retry count is reached",
+			retries: 2,
+			pilotStates: []pilotStubState{
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
+			wantReload: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := make(chan bool)
+			agent := TestAgent{
+				schedule: func(_ interface{}) {
+					called <- true
+				},
+			}
+			node := model.Node{
+				Type:      model.Ingress,
+				ID:        "id",
+				Domain:    "domain",
+				IPAddress: "ip",
+			}
+			config := model.DefaultProxyConfig()
+			config.AvailabilityZone = tt.az
+			pilotStub := httptest.NewServer(
+				&pilotStubHandler{States: tt.pilotStates},
+			)
+			stubURL, _ := url.Parse(pilotStub.URL)
+			config.DiscoveryAddress = stubURL.Host
+			w := NewWatcher(config, agent, node, nil, nil)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			go w.(*watcher).retrieveAZ(ctx, 0, tt.retries)
+
+			select {
+			case <-called:
+				if !tt.wantReload {
+					t.Errorf("Unexpected reload called")
+				}
+				assert.Equal(t, tt.wantAZ, w.(*watcher).config.AvailabilityZone)
+				cancel()
+			case <-time.After(time.Second):
+				if tt.wantReload {
+					t.Errorf("The callback is not called within time limit " + time.Now().String())
+				}
+				cancel()
+			}
+
+		})
+	}
+}
+
 func TestWatchCerts_Multiple(t *testing.T) {
+
+	lock := sync.Mutex{}
 	called := 0
+
 	callback := func() {
+		lock.Lock()
+		defer lock.Unlock()
 		called++
 	}
 
@@ -93,17 +224,22 @@ func TestWatchCerts_Multiple(t *testing.T) {
 	time.Sleep(maxDelay / 2)
 
 	// Expect no events to be delivered within maxDelay.
+	lock.Lock()
 	if called != 0 {
 		t.Fatalf("Called %d times, want 0", called)
 	}
+	lock.Unlock()
 
 	// wait for quiet period
 	time.Sleep(maxDelay)
 
 	// Expect exactly 1 event to be delivered.
+	lock.Lock()
+	defer lock.Unlock()
 	if called != 1 {
 		t.Fatalf("Called %d times, want 1", called)
 	}
+
 	cancel()
 }
 
@@ -160,7 +296,7 @@ func TestGenerateCertHash(t *testing.T) {
 	}()
 
 	h := sha256.New()
-	authFiles := []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename}
+	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
 	for _, file := range authFiles {
 		content := []byte(file)
 		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
@@ -187,7 +323,7 @@ func TestGenerateCertHash(t *testing.T) {
 }
 
 func TestEnvoyArgs(t *testing.T) {
-	config := proxy.DefaultProxyConfig()
+	config := model.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
 
@@ -215,7 +351,7 @@ func TestEnvoyArgs(t *testing.T) {
 }
 
 func TestEnvoyRun(t *testing.T) {
-	config := proxy.DefaultProxyConfig()
+	config := model.DefaultProxyConfig()
 	dir := os.Getenv("ISTIO_BIN")
 	var err error
 	if len(dir) == 0 {

@@ -1,0 +1,45 @@
+global:
+  namespace: istio-system
+  initializer:
+    enabled: true
+# 
+# proxy side car and ingress configuration
+# 
+  proxy:
+    hub: {PROXY_HUB}
+    tag: {PROXY_TAG}
+    debug: {PROXY_DEBUG}
+# 
+# pilot configuration
+#
+  pilot:
+    enabled: true
+    hub: {PILOT_HUB}
+    tag: {PILOT_TAG}
+# 
+# security configuration
+#
+  security:
+    enabled: false
+    hub: {CA_HUB}
+    tag: {CA_TAG}
+#
+# mixer configuration
+#
+  mixer:
+    enabled: true
+    hub: {MIXER_HUB}
+    tag: {MIXER_TAG}
+#
+# ingress specific configuration
+# By default istio ingress uses LoadBalancer type of service
+# to use NodePort, it needs to be enabled and desired port specified
+#
+  ingress:
+    use_nodeport: false
+    nodeport_port: 32000
+#
+# Not recommended for user to configure this. Hyperkube image to use when creating custom objects
+#
+  hyperkube_hub: {HYPERKUBE_HUB}
+  hyperkube_tag: {HYPERKUBE_TAG}

@@ -30,7 +30,7 @@ func TestEnv(t *testing.T) {
 
 		// set up the ambient logger so newEnv picks it up
 		o := log.NewOptions()
-		log.Configure(o)
+		_ = log.Configure(o)
 
 		env := newEnv("Foo", gp)
 		log := env.Logger()
@@ -71,6 +71,6 @@ func TestEnv(t *testing.T) {
 		// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
 		time.Sleep(200 * time.Millisecond)
 
-		gp.Close()
+		_ = gp.Close()
 	}
 }

@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 
+	"google.golang.org/grpc/status"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -42,6 +43,7 @@ const certExpirationBuffer = time.Minute
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
+	serverCertTTL  time.Duration
 	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
 	hostname       string
@@ -56,31 +58,31 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
-		return nil, grpc.Errorf(codes.Unauthenticated, "request authenticate failure")
+		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR parsing error (error %v)", err)
-		return nil, grpc.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
+		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
-		return nil, grpc.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
+		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
 	err = s.authorizer.authorize(caller, requestedIDs)
 	if err != nil {
 		log.Warnf("request is not authorized (%v)", err)
-		return nil, grpc.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
+		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
-	cert, err := s.ca.Sign(request.CsrPem)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
-		return nil, grpc.Errorf(codes.Internal, "CSR signing error (%v)", err)
+		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
 	response := &pb.Response{
@@ -118,7 +120,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -133,6 +135,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
+		serverCertTTL:  ttl,
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
@@ -172,7 +175,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM)
+	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL)
 	if err != nil {
 		return nil, err
 	}

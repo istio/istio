@@ -55,20 +55,19 @@ fi
 
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
-HUB=${HUB:-"gcr.io/istio-testing"}
+export HUB=${HUB:-"gcr.io/istio-testing"}
+export TAG="${GIT_SHA}"
 
 # Download envoy and go deps
 ${ISTIO_GO}/bin/init.sh
 
 # Build istioctl, used by  the test.
-make depend.ensure istioctl
+make depend.ensure istioctl generate_yaml
+
+mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
+
+# It seems logs are generated on tmp ?
+trap "cp -a /tmp/istio* ${GOPATH}/src/istio.io/istio/_artifacts" EXIT
 
 echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
-  --mixer_tag "${GIT_SHA}"\
-  --mixer_hub "${HUB}"\
-  --pilot_tag "${GIT_SHA}"\
-  --pilot_hub "${HUB}"\
-  --ca_tag "${GIT_SHA}"\
-  --ca_hub "${HUB}"\
-  --istioctl ${GOPATH}/bin/istioctl
+time make e2e_all

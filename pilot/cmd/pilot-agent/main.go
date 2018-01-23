@@ -17,8 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -40,7 +38,7 @@ import (
 )
 
 var (
-	role            proxy.Node
+	role            model.Node
 	serviceregistry platform.ServiceRegistry
 
 	// proxy config flags (named identically)
@@ -76,9 +74,9 @@ var (
 				return err
 			}
 			log.Infof("Version %s", version.Line())
-			role.Type = proxy.Sidecar
+			role.Type = model.Sidecar
 			if len(args) > 0 {
-				role.Type = proxy.NodeType(args[0])
+				role.Type = model.NodeType(args[0])
 			}
 
 			// set values from registry platform
@@ -116,29 +114,16 @@ var (
 				}
 			}
 
-			// Get AZ for proxy
-			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
-			if err != nil {
-				log.Infof("Error retrieving availability zone from pilot: %v", err)
-			} else {
-				body, err := ioutil.ReadAll(azResp.Body)
-				if err != nil {
-					log.Infof("Error reading availability zone response from pilot: %v", err)
-				}
-				availabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", availabilityZone)
-			}
-
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
+			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
@@ -194,15 +179,15 @@ var (
 
 			certs := []envoy.CertSource{
 				{
-					Directory: proxy.AuthCertsPath,
-					Files:     []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename},
+					Directory: model.AuthCertsPath,
+					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
 				},
 			}
 
-			if role.Type == proxy.Ingress {
+			if role.Type == model.Ingress {
 				certs = append(certs, envoy.CertSource{
-					Directory: proxy.IngressCertsPath,
-					Files:     []string{proxy.IngressCertFilename, proxy.IngressKeyFilename},
+					Directory: model.IngressCertsPath,
+					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
 				})
 			}
 
@@ -244,7 +229,7 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 
 	// Flags for proxy configuration
-	values := proxy.DefaultProxyConfig()
+	values := model.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,

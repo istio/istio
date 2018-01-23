@@ -95,28 +95,36 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				if in, err = os.Open(inFilename); err != nil {
 					return err
 				}
+				reader = in
 				defer func() {
-					if err = in.Close(); err != nil {
-						log.Errorf("Error: close file from %s, %s", inFilename, err)
+					if errClose := in.Close(); errClose != nil {
+						log.Errorf("Error: close file from %s, %s", inFilename, errClose)
+
+						// don't overwrite the previous error
+						if err == nil {
+							err = errClose
+						}
 					}
 				}()
-				reader = in
 			}
 
 			var writer io.Writer
 			if outFilename == "" {
 				writer = os.Stdout
 			} else {
-				var file *os.File
-				if file, err = os.Create(outFilename); err != nil {
+				var out *os.File
+				if out, err = os.Create(outFilename); err != nil {
 					return err
 				}
-				writer = file
+				writer = out
 				defer func() {
-					// don't overwrite error if preceding injection failed
-					errClose := file.Close()
-					if err == nil {
-						err = errClose
+					if errClose := out.Close(); errClose != nil {
+						log.Errorf("Error: close file from %s, %s", outFilename, errClose)
+
+						// don't overwrite the previous error
+						if err == nil {
+							err = errClose
+						}
 					}
 				}()
 			}
@@ -161,7 +169,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", inject.DefaultHub, "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
@@ -190,5 +198,5 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
-	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", true, "Use debug images and settings for the sidecar")
+	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 }

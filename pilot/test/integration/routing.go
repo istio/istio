@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -237,11 +235,10 @@ func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, he
 	url := fmt.Sprintf("http://%s/%s", dst, src)
 	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
+	failureMsg := "redirect verification failed"
 	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	if len(resp.code) == 0 || resp.code[0] != fmt.Sprint(respCode) {
-		return fmt.Errorf("redirect verification failed: "+
-			"response status code: %v, expected %v",
-			resp.code, respCode)
+		return fmt.Errorf("%s: response status code: %v, expected %v", failureMsg, resp.code, respCode)
 	}
 
 	var host string
@@ -249,9 +246,7 @@ func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, he
 		host = matches[1]
 	}
 	if host != targetHost {
-		return fmt.Errorf("redirect verification failed: "+
-			"response body contains Host=%v, expected Host=%v",
-			host, targetHost)
+		return fmt.Errorf("%s: response body contains Host=%v, expected Host=%v", failureMsg, host, targetHost)
 	}
 
 	exp := regexp.MustCompile("(?i)URL=(.*)")
@@ -261,9 +256,7 @@ func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, he
 		path = paths[1][1]
 	}
 	if path != targetPath {
-		return fmt.Errorf("redirect verification failed: "+
-			"response body contains URL=%v, expected URL=%v",
-			path, targetPath)
+		return fmt.Errorf("%s: response body contains URL=%v, expected URL=%v", failureMsg, path, targetPath)
 	}
 
 	return nil

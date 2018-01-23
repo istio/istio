@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/tests/k8s"
 )
@@ -77,7 +77,7 @@ func TestInitialize(t *testing.T) {
 	}
 	defer util.DeleteNamespace(cl, ns)
 
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 
 	cases := []struct {
 		name                   string
@@ -231,11 +231,11 @@ func TestInitialize(t *testing.T) {
 			gotPatchBytes = patchBytes
 			gotPatched = true
 
-			gvk, _, err := injectScheme.ObjectKind(obj) // nolint: vetshadow
+			gvk, _, err := injectScheme.ObjectKinds(obj) // nolint: vetshadow
 			if err != nil {
 				t.Fatalf("%v: failed to determine GroupVersionKind of obj: %v", c.name, err)
 			}
-			gotGroupVersionKind = gvk
+			gotGroupVersionKind = gvk[0]
 			return nil
 		}
 

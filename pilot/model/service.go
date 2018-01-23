@@ -244,7 +244,7 @@ type ServiceDiscovery interface {
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]bool) ([]*ServiceInstance, error)
+	HostInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -289,8 +289,8 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	if len(labels) == 0 {
 		return true
 	}
-	for _, tag := range labels {
-		if tag.SubsetOf(that) {
+	for _, label := range labels {
+		if label.SubsetOf(that) {
 			return true
 		}
 	}

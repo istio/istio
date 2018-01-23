@@ -18,11 +18,13 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -232,16 +234,20 @@ type IstioConfigStore interface {
 	// destination service.  A rule must match at least one of the input service
 	// instances since the proxy does not distinguish between source instances in
 	// the request.
-	RouteRules(source []*ServiceInstance, destination string) []Config
+	RouteRules(source []*ServiceInstance, destination string, domain string) []Config
 
 	// RouteRulesByDestination selects routing rules associated with destination
 	// service instances.  A rule must match at least one of the input
 	// destination instances.
-	RouteRulesByDestination(destination []*ServiceInstance) []Config
+	RouteRulesByDestination(destination []*ServiceInstance, domain string) []Config
 
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
+
+	// DestinationRule returns a destination rule for a service name in a given domain.
+	// Name can be short name or FQDN.
+	DestinationRule(name, domain string) *Config
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -302,6 +308,14 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
+	// V1alpha2RouteRule describes v1alpha2 route rules
+	V1alpha2RouteRule = ProtoSchema{
+		Type:        "v1alpha2-route-rule",
+		Plural:      "v1alpha2-route-rules",
+		MessageName: "istio.routing.v1alpha2.RouteRule",
+		Validate:    ValidateRouteRuleV2,
+	}
+
 	// Gateway describes a gateway (how a proxy is exposed on the network)
 	Gateway = ProtoSchema{
 		Type:        "gateway",
@@ -332,6 +346,14 @@ var (
 		Plural:      "destination-policies",
 		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
+	}
+
+	// DestinationRule describes destination rules
+	DestinationRule = ProtoSchema{
+		Type:        "destination-rule",
+		Plural:      "destination-rules",
+		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		Validate:    ValidateDestinationRule,
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.
@@ -385,10 +407,12 @@ var (
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
+		V1alpha2RouteRule,
 		IngressRule,
 		Gateway,
 		EgressRule,
 		DestinationPolicy,
+		DestinationRule,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
 		QuotaSpec,
@@ -424,6 +448,18 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	return out
 }
 
+// ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
+// non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
+// FQDN and is returned unchanged.
+func ResolveFQDN(host, domain string) string {
+	if strings.Count(host, ".") == 0 { // host is a shortname
+		if len(domain) > 0 {
+			return fmt.Sprintf("%s.%s", host, domain)
+		}
+	}
+	return host
+}
+
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
@@ -457,7 +493,8 @@ func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*Ser
 	return false
 }
 
-// SortRouteRules sorts a slice of rules by precedence in a stable manner
+// SortRouteRules sorts a slice of v1alpha1 rules by precedence in a stable manner.
+// non-v1alpha1 rules are sorted low without a guaranteed relative ordering.
 func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
@@ -470,7 +507,13 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
-func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
+func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string, domain string) []Config {
+	configs := store.routeRules(instances, destination)
+	configs = append(configs, store.routeRulesV2(domain, destination)...)
+	return configs
+}
+
+func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -497,7 +540,33 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	return out
 }
 
-func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
+func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
+	out := make([]Config, 0)
+	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routingv2.RouteRule)
+		for _, host := range rule.Hosts {
+			if ResolveFQDN(host, domain) == destination {
+				out = append(out, config)
+				break
+			}
+		}
+	}
+
+	return out
+}
+
+func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
+	configs := store.routeRulesByDestination(instances)
+	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
+	return configs
+}
+
+func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -516,6 +585,28 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 	}
 
 	return out
+}
+
+// This logic assumes there is at most one route rule for a given host.
+// If there is more than one the output may be non-deterministic.
+func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
+	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routingv2.RouteRule)
+		for _, host := range rule.Hosts {
+			for _, instance := range instances {
+				if ResolveFQDN(host, domain) == instance.Service.Hostname {
+					return []Config{config}
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
@@ -568,6 +659,22 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	}
 
 	return &out
+}
+
+func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
+	configs, err := store.List(DestinationRule.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routingv2.DestinationRule)
+		if ResolveFQDN(rule.Name, domain) == ResolveFQDN(name, domain) {
+			return &config
+		}
+	}
+
+	return nil
 }
 
 // `istio.mixer.v1.config.client.IstioService` and
