@@ -75,6 +75,46 @@ const reportAttributesFailPost = `
 }
 `
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "tcp_mixer_filter.total_blocking_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_report_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_report_calls",
+			"value": 2
+		}
+	]
+}
+`
+
 func TestTCPMixerFilter(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t, env.BasicConfig)
 	if err := s.SetUp(); err != nil {
@@ -104,6 +144,12 @@ func TestTCPMixerFilter(t *testing.T) {
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesFailPost)
 
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 	//
 	// Use V2 config
 	//
@@ -130,4 +176,9 @@ func TestTCPMixerFilter(t *testing.T) {
 	s.SetMixerCheckStatus(rpc.Status{})
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesFailPost)
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }

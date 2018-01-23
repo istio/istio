@@ -17,14 +17,48 @@ package checkCache
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// Stats in Envoy proxy.
 const expectedStats = `
 {
+	"stats": [
+		{
+			"name": "http_mixer_filter.total_blocking_remote_check_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_check_calls",
+			"value": 10
+		},
+		{
+			"name": "http_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_check_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_report_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_report_calls",
+			"value": 10
+		}
+	]
 }
 `
 
@@ -59,15 +93,10 @@ func TestCheckCache(t *testing.T) {
 		s.VerifyCheckCount(tag, 1)
 	}
 
-	// Wait for Envoy stats to get updated.
-	time.Sleep(10 * time.Second)
-	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", s.Ports().AdminPort)
-	code, respBody, err := env.HTTPGet(statsURL)
-	if err != nil {
-		t.Errorf("Failed in stats request: %v", err)
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-	if code != 200 {
-		t.Errorf("Status code 200 is expected, got %d.", code)
-	}
-	s.VerifyStats(respBody, expectedStats)
 }
