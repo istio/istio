@@ -24,10 +24,10 @@ mixer_client_repositories()
 
 load(
     "@mixerclient_git//:repositories.bzl",
-    "mixerapi_repositories",
+    "mixerapi_dependencies",
 )
 
-mixerapi_repositories()
+mixerapi_dependencies()
 
 bind(
     name = "boringssl_crypto",
@@ -58,9 +58,6 @@ go_rules_dependencies()
 go_register_toolchains()
 load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
 proto_register_toolchains()
-
-load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
-mixer_api_for_proxy_dependencies()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
