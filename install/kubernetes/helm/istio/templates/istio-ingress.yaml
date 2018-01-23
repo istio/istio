@@ -7,8 +7,8 @@
 {{- $istio_namespace := .Values.global.namespace }}
 {{- $proxy_hub := .Values.global.proxy.hub }}
 {{- $proxy_tag := .Values.global.proxy.tag }}
-{{- $use_nodeport := .Values.global.ingress.use_nodeport }}
-{{- $nodeport_port := .Values.global.ingress.nodeport_port | default 32000 }}
+{{- $nodeport_enabled := .Values.global.ingress.nodeport.enabled }}
+{{- $nodeport_port := .Values.global.ingress.nodeport.port | default 32000 }}
 ################################
 # istio ingress
 ################################
@@ -20,14 +20,14 @@ metadata:
   labels:
     istio: ingress
 spec:
-{{- if $use_nodeport }}
+{{- if $nodeport_enabled }}
   type: NodePort
 {{- else }}
   type: LoadBalancer
 {{- end }}
   ports:
   - port: 80
-{{- if $use_nodeport }}
+{{- if $nodeport_enabled }}
     nodePort: {{$nodeport_port}}
 {{- end }}
     name: http
