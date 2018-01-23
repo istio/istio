@@ -38,17 +38,19 @@ function usage() {
   echo "$0
     -b        opts out of building debian artifacts
     -c        opts out of building docker artifacts
+    -h        docker hub to use for testing (optional)
     -o        path to store build artifacts
-    -h        hub to use for testing (optional)
+    -q        path on gcr hub to use for testing (optional, alt to -h)
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts bch:o:t: arg ; do
+while getopts bch:o:q:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
     h) TEST_DOCKER_HUB="${OPTARG}";;
+    q) TEST_DOCKER_HUB="gcr.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
