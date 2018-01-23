@@ -28,8 +28,8 @@ import (
 func buildExternalServicePort(port *routingv2.Port) *model.Port {
 	protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 	return &model.Port{
-		Name: fmt.Sprintf("external-%v-%d", protocol, port.Number),
-		Port: int(port.Number),
+		Name:     fmt.Sprintf("external-%v-%d", protocol, port.Number),
+		Port:     int(port.Number),
 		Protocol: protocol,
 	}
 }
@@ -128,22 +128,28 @@ func buildExternalServiceCluster(address string, port *model.Port, labels model.
 		lbType = LbTypeOriginalDST
 	}
 
+	var features string
+	switch port.Protocol {
+	case model.ProtocolHTTP2, model.ProtocolGRPC:
+		features = ClusterFeatureHTTP2
+	}
+
 	return &Cluster{
-		Name: clusterName,
-		ServiceName: key,
+		Name:             clusterName,
+		ServiceName:      key,
 		ConnectTimeoutMs: 0, // FIXME: use mesh config value
-		Type: clusterType,
-		LbType: lbType,
+		Type:             clusterType,
+		LbType:           lbType,
 		MaxRequestsPerConnection: 0,
-		Hosts: hosts,
-		SSLContext: nil,
-		Features: "",
-		CircuitBreaker: nil,
+		Hosts:            hosts,
+		SSLContext:       nil,
+		Features:         features,
+		CircuitBreaker:   nil,
 		OutlierDetection: nil,
-		outbound: true,
-		hostname: address,
-		port: port,
-		labels: labels,
+		outbound:         true,
+		hostname:         address,
+		port:             port,
+		labels:           labels,
 	}
 }
 
@@ -151,23 +157,13 @@ func buildExternalServiceVirtualHost(destination string,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
-	service := model.Service{Hostname: destination}
-	key := service.Key(port, nil)
-	name := truncateClusterName(key)
-	cluster := buildOriginalDSTCluster(name, mesh.ConnectTimeout)
-	cluster.ServiceName = key
-	cluster.hostname = destination
-	cluster.port = port
+	cluster := buildExternalServiceCluster(destination, port, nil, routingv2.ExternalService_NONE, nil)
 
-	switch port.Protocol {
-	case model.ProtocolHTTP2, model.ProtocolGRPC:
-		cluster.Features = ClusterFeatureHTTP2
-	}
-
+	// TODO: handle conflict between discovery type none + weighted routes?
 	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
 
 	// Set the destination clusters to the cluster we computed above.
-	// Services defined via egress rules do not have labels and hence no weighted clusters
+	// Discovery type none
 	for _, route := range routes {
 		// redirect rules must have empty Cluster name
 		if !route.Redirect() {

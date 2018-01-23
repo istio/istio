@@ -155,7 +155,7 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		outbound:    true,
 		hostname:    hostname,
 		port:        port,
-		labels:        labels,
+		labels:      labels,
 	}
 
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
