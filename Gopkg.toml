@@ -115,6 +115,10 @@ required = [
   name = "istio.io/api"
   revision = "a6c74ca9a8b5bba45bafd6d238a27dde4c406da7"
 
+[[constraint]]
+  name = "github.com/envoyproxy/go-control-plane"
+  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+
 ### Begin Mixer codegen dep pinning
 
 [[override]]
