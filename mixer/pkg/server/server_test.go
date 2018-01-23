@@ -113,6 +113,7 @@ func TestBasic(t *testing.T) {
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.ConfigStoreURL = "memstore://" + t.Name()
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +139,7 @@ func TestClient(t *testing.T) {
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.ConfigStoreURL = "memstore://" + t.Name()
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
 		t.Fatal(err)
 	}
@@ -171,6 +173,7 @@ func TestErrors(t *testing.T) {
 	a := NewArgs()
 	a.APIWorkerPoolSize = -1
 	a.ConfigStoreURL = "memstore://" + t.Name()
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
 		t.Fatal(err)
 	}
@@ -185,6 +188,7 @@ func TestErrors(t *testing.T) {
 	a.MonitoringPort = 0
 	a.ConfigStoreURL = "memstore://" + t.Name()
 	a.TracingOptions.LogTraceSpans = true
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
