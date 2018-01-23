@@ -16,9 +16,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building the code with debugger information](#building-the-code-with-debugger-information)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
-  - [Building containers with debugger information](#building-containers-with-debugger-information)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
@@ -181,7 +179,15 @@ make
 ```
 
 This build command figures out what it needs to do and does not need any
-input from you.
+input from you. By default, the build command will build those components with
+debugger information so that a debugger such as
+[Delve](https://github.com/derekparker/delve) can be used to debug them
+
+To build without debugger information, run
+
+```shell
+make DEBUG=0
+```
 
 *TIP*: To speed up consecutive builds of the project, run the following
 command instead:
@@ -198,18 +204,6 @@ undesirable as Golang may not erase out of date artifacts from the
 cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
 before rebuilding the code.
 
-### Building the code with debugger information
-
-If you'd like to use a debugger such as [Delve](https://github.com/derekparker/delve) to debug Istio components, run
-
-```shell
-make DEBUG=1
-```
-
-This build command will cause Go compiler to disable compiler optimizations
-and inlining when building Istio executables, and build all of them with
-debugger information.
-
 ### Building and pushing the containers
 
 Build the containers in your local docker cache:
@@ -218,19 +212,18 @@ Build the containers in your local docker cache:
 make docker
 ```
 
+The containers will be built with the debugger information so that they can be
+debugged with a debugger such as [Delve](https://github.com/derekparker). To
+build containers without the debugger information, run
+
+```shell
+make DEBUG=0 docker
+```
+
 Push the containers to your registry:
 
 ```shell
 make push
-```
-
-### Building containers with debugger information
-
-To build all the Istio containers with debugger information, issue the following
-command:
-
-```shell
-make docker DEBUG=1
 ```
 
 ### Building the Istio manifests

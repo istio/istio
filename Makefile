@@ -16,10 +16,18 @@
 # Global Variables
 #-----------------------------------------------------------------------------
 
-# Invoke make with DEBUG=<anything> will have the binaries built with debugger information
-ifdef DEBUG
-	export DEBUG_MODULES = ALL
+# By default, Pilot, Mixer and CA will be built with debugger information.
+# Disable debuger information by issuing 'make DEBUG=0'
+DEBUG ?= 1
+ifeq (${DEBUG},1)
+	DEBUG_MODULES = 1
+    $(info Build with debugger information)
+else ifeq ($(DEBUG),0)
+	DEBUG_MODULES = 0
+else
+    $(error DEBUG has a default value of 1 for debugging and 0 otherwise)
 endif
+export DEBUG_MODULES
 
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
