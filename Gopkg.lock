@@ -189,6 +189,15 @@
   version = "v2.5.0"
 
 [[projects]]
+  name = "github.com/envoyproxy/go-control-plane"
+  packages = [
+    "api",
+    "pkg/cache",
+    "pkg/server"
+  ]
+  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+
+[[projects]]
   name = "github.com/fluent/fluent-logger-golang"
   packages = ["fluent"]
   revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
@@ -523,6 +532,12 @@
   name = "github.com/juju/ratelimit"
   packages = ["."]
   revision = "59fac5042749a5afb9af70e813da1dd5474f0167"
+
+[[projects]]
+  name = "github.com/lyft/protoc-gen-validate"
+  packages = ["validate"]
+  revision = "8e6aaf55f4954f1ef9d3ee2e8f5a50e79cc04f8f"
+  version = "v0.0.5"
 
 [[projects]]
   branch = "master"
@@ -1036,7 +1051,10 @@
 [[projects]]
   branch = "master"
   name = "istio.io/gogo-genproto"
-  packages = ["googleapis/google/rpc"]
+  packages = [
+    "googleapis/google/api",
+    "googleapis/google/rpc"
+  ]
   revision = "67f8f8d47316e96703fa2fd09038285aecdb7535"
 
 [[projects]]
@@ -1276,6 +1294,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a29715adf037af9b99c360f7e3a01146a57daba018818b2b11b69ac6c7fa4a47"
+  inputs-digest = "62f4024156388588f12a66ef630893f8471403052434885bba442b881a8df4d1"
   solver-name = "gps-cdcl"
   solver-version = 1

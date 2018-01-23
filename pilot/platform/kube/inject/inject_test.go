@@ -498,8 +498,8 @@ func TestGetInitializerConfig(t *testing.T) {
 				InitializerName:   DefaultInitializerName,
 				IncludeNamespaces: []string{v1.NamespaceAll},
 				Params: Params{
-					InitImage:       InitImageName(DefaultHub, version.Info.Version, false),
-					ProxyImage:      ProxyImageName(DefaultHub, version.Info.Version, false),
+					InitImage:       InitImageName(version.Info.DockerHub, version.Info.Version, false),
+					ProxyImage:      ProxyImageName(version.Info.DockerHub, version.Info.Version, false),
 					SidecarProxyUID: DefaultSidecarProxyUID,
 					ImagePullPolicy: DefaultImagePullPolicy,
 				},

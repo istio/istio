@@ -76,7 +76,7 @@ func readURI(uri string) (string, error) {
 	return string(bodyBytes), nil
 }
 
-func TestNodeAgentTest(t *testing.T) {
+func TestNodeAgent(t *testing.T) {
 	orgRootCert, err := readFile(config.rootCert)
 	if err != nil {
 		t.Error(fmt.Errorf("unable to read original root certificate: %v", config.rootCert))
@@ -155,6 +155,8 @@ func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
 	rootCert := flag.String("root-cert", "", "Path to the original root certificate")
 	certChain := flag.String("cert-chain", "", "Path to the original workload certificate chain")
+	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
+	tag := flag.String("tag", "", "Tag for Istio CA image")
 
 	flag.Parse()
 
@@ -165,7 +167,13 @@ func TestMain(m *testing.M) {
 
 	glog.Errorf("%v", config)
 
-	testEnv = integration.NewNodeAgentTestEnv(testEnvName, *kubeconfig)
+	testEnv = integration.NewNodeAgentTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+
+	if testEnv == nil {
+		glog.Error("test environment creation failure")
+		// There is no cleanup needed at this point.
+		os.Exit(1)
+	}
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
