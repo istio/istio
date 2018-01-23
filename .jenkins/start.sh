@@ -23,6 +23,8 @@ dockerd \
   --host=tcp://0.0.0.0:2375 \
   &> /var/log/docker.log 2>&1 < /dev/null &
 
-/minikube start --vm-driver=none &> /var/log/minikube-start.log 2>&1 < /dev/null
+/minikube start --vm-driver=none \
+ --extra-config=apiserver.Admission.PluginNames=Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota \
+ &> /var/log/minikube-start.log 2>&1 < /dev/null
 
 kubectl config view --merge=true --flatten=true > /kubeconfig
