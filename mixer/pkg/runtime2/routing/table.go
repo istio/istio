@@ -53,9 +53,7 @@ type NamespaceTable struct {
 	entries []*Destination
 }
 
-var emptyDestinations = &NamespaceTable{
-	entries: []*Destination{},
-}
+var emptyDestinations = &NamespaceTable{}
 
 // Destination contains a target handler, and instances to send, grouped by the conditional match that applies to them.
 type Destination struct {
