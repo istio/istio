@@ -26,7 +26,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -228,6 +227,21 @@ const (
 )
 
 var (
+	destinationRuleWorld = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world"},
+		file: "testdata/destination-world-v1alpha2.yaml.golden",
+	}
+
+	destinationRuleWorldCB = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world-cb"},
+		file: "testdata/destination-world-cb-v1alpha2.yaml.golden",
+	}
+
+	destinationRuleHello = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
+		file: "testdata/destination-hello-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
@@ -281,6 +295,11 @@ var (
 	redirectRouteRuleV2 = fileConfig{
 		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
 		file: "testdata/redirect-route-v1alpha2.yaml.golden",
+	}
+
+	redirectRouteToEgressRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect-to-egress"},
+		file: "testdata/redirect-route-to-egress.yaml.golden",
 	}
 
 	rewriteRouteRule = fileConfig{
@@ -429,7 +448,7 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 }
 
 func makeProxyConfig() meshconfig.ProxyConfig {
-	proxyConfig := proxy.DefaultProxyConfig()
+	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
 	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
@@ -448,7 +467,7 @@ func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 }
 
 func makeMeshConfig() meshconfig.MeshConfig {
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh

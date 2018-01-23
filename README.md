@@ -48,7 +48,9 @@ Istio is composed of these components:
 * **Pilot** - A component responsible for configuring the
   proxies at runtime.
 
-* **CA** - A component responsible for cert issuance and rotation.
+* **CA** - A centralized component responsible for cert issuance and rotation.
+
+* **Node Agent** - A per-node component responsible for cert issuance and rotation.
 
 * **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
 

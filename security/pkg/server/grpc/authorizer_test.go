@@ -90,7 +90,7 @@ func TestRegistryAuthorizerWithJWT(t *testing.T) {
 				authz := &registryAuthorizor{&registry.IdentityRegistry{
 					Map: map[string]string{"id": "id"},
 				}}
-				authz.authorize(idRequestor, requestedIDs)
+				_ = authz.authorize(idRequestor, requestedIDs)
 				return authz
 			}(),
 		},

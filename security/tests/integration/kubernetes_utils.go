@@ -73,14 +73,14 @@ func createTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 	// Create Role
 	err = createIstioCARole(clientset, namespace.GetName())
 	if err != nil {
-		deleteTestNamespace(clientset, namespace.GetName())
+		_ = deleteTestNamespace(clientset, namespace.GetName())
 		return "", fmt.Errorf("failed to create a role (error: %v)", err)
 	}
 
 	// Create RoleBinding
 	err = createIstioCARoleBinding(clientset, namespace.GetName())
 	if err != nil {
-		deleteTestNamespace(clientset, namespace.GetName())
+		_ = deleteTestNamespace(clientset, namespace.GetName())
 		return "", fmt.Errorf("failed to create a rolebinding (error: %v)", err)
 	}
 
@@ -233,11 +233,8 @@ func createIstioCARoleBinding(clientset kubernetes.Interface, namespace string) 
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	if _, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding)
+	return err
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,

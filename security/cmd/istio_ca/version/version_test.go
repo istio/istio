@@ -23,14 +23,13 @@ import (
 
 func TestVersionCommand(t *testing.T) {
 	buildHost = "test-host"
-	buildGitBranch = "test-git-branch"
 	buildGitRevision = "test-git-revision"
 	buildUser = "test-user"
 	buildAppVersion = "test-version"
 
 	expectedOutput := fmt.Sprintf(
-		"Version: %v\nGitRevision: %v\nGitBranch: %v\nUser: %v@%v\nGolang version: %v\n",
-		buildAppVersion, buildGitRevision, buildGitBranch, buildUser, buildHost, runtime.Version())
+		"Version: %v\nGitRevision: %v\nUser: %v@%v\nGolang version: %v\n",
+		buildAppVersion, buildGitRevision, buildUser, buildHost, runtime.Version())
 
 	var buffer bytes.Buffer
 	printFunc = func(format string, a ...interface{}) (int, error) {

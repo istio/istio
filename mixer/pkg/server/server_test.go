@@ -112,8 +112,10 @@ func TestBasic(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if err != nil {
@@ -135,8 +137,10 @@ func TestClient(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if err != nil {
@@ -166,8 +170,10 @@ func TestClient(t *testing.T) {
 func TestErrors(t *testing.T) {
 	a := NewArgs()
 	a.APIWorkerPoolSize = -1
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
+	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
+	}
 
 	s, err := New(a)
 	if s != nil || err == nil {
@@ -177,8 +183,7 @@ func TestErrors(t *testing.T) {
 	a = NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.GlobalConfig = globalCfg
-	a.ServiceConfig = serviceCfg
+	a.ConfigStoreURL = "memstore://" + t.Name()
 	a.TracingOptions.LogTraceSpans = true
 
 	for i := 0; i < 20; i++ {
@@ -192,12 +197,12 @@ func TestErrors(t *testing.T) {
 			case 1:
 				pt.newRuntime = func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener, gp *pool.GoroutinePool,
 					handlerPool *pool.GoroutinePool,
-					identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+					identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 					templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error) {
 					return nil, errors.New("BAD")
 				}
 			case 2:
-				pt.newStore2 = func(r2 *store.Registry2, configURL string) (store.Store2, error) {
+				pt.newStore2 = func(r2 *store.Registry, configURL string) (store.Store, error) {
 					return nil, errors.New("BAD")
 				}
 			case 3:

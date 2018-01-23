@@ -38,6 +38,7 @@ spec:
     metadata:
       labels:
         app: httpbin
+        version: v1
     spec:
       containers:
       - image: docker.io/citizenstig/httpbin

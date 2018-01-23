@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017-2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,26 +20,24 @@ import (
 	"runtime"
 )
 
-// The following fields are populated at buildtime with bazel's linkstamp
-// feature. This is equivalent to using golang directly with -ldflags -X.
-// Note that DATE is omitted as bazel aims for reproducible builds and
-// seems to strip date information from the build process.
+// The following fields are populated at build time using -ldflags -X.
+// Note that DATE is omitted for reproducible builds
 var (
 	buildAppVersion  string
 	buildGitRevision string
-	buildGitBranch   string
 	buildUser        string
 	buildHost        string
+	buildDockerHub   string
 )
 
 // BuildInfo describes version information about the binary build.
 type BuildInfo struct {
 	Version       string `json:"version"`
 	GitRevision   string `json:"revision"`
-	GitBranch     string `json:"branch"`
 	User          string `json:"user"`
 	Host          string `json:"host"`
 	GolangVersion string `json:"golang_version"`
+	DockerHub     string `json:"hub"`
 }
 
 var (
@@ -50,17 +48,18 @@ var (
 func init() {
 	Info.Version = buildAppVersion
 	Info.GitRevision = buildGitRevision
-	Info.GitBranch = buildGitBranch
 	Info.User = buildUser
 	Info.Host = buildHost
 	Info.GolangVersion = runtime.Version()
+	Info.DockerHub = buildDockerHub
 }
 
 // Line combines version information into a single line
 func Line() string {
-	return fmt.Sprintf("%v@%v-%v-%v",
+	return fmt.Sprintf("%v@%v-%v-%v-%v",
 		Info.User,
 		Info.Host,
+		Info.DockerHub,
 		Info.Version,
 		Info.GitRevision)
 }
@@ -69,13 +68,13 @@ func Line() string {
 func Version() string {
 	return fmt.Sprintf(`Version: %v
 GitRevision: %v
-GitBranch: %v
 User: %v@%v
+Hub: %v
 GolangVersion: %v
 `,
 		Info.Version,
 		Info.GitRevision,
-		Info.GitBranch,
 		Info.User, Info.Host,
+		Info.DockerHub,
 		Info.GolangVersion)
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/api/mixer/v1/template"
+	istio_mixer_v1_template "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -1356,9 +1356,9 @@ Attributes:
 	},
 }
 
-var noTemplates = make(map[string]*template.Info, 0)
+var noTemplates = make(map[string]*template.Info)
 
-var noAdapters = make(map[string]*adapter.Info, 0)
+var noAdapters = make(map[string]*adapter.Info)
 
 var stdAdapters = map[string]*adapter.Info{
 	"adapter1": {
@@ -1407,8 +1407,8 @@ func TestConfigs(t *testing.T) {
 
 	// enable debug logging and run again to ensure debug logging won't cause a crash.
 	o := log.NewOptions()
-	o.SetOutputLevel(log.DebugLevel)
-	log.Configure(o)
+	_ = o.SetOutputLevel(log.DebugLevel)
+	_ = log.Configure(o)
 	runTests(t)
 }
 

@@ -1,6 +1,12 @@
+{{- $proxy_image := dict "image" "" }}
+{{- if .Values.global.proxy.debug }}
+{{- $_ := set $proxy_image "image" "proxy_debug" }}
+{{- else }}
+{{- $_ := set $proxy_image "image" "proxy" }}
+{{- end }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $pilot_hub := .Values.global.pilot_hub }}
-{{- $pilot_tag := .Values.global.pilot_tag }}
+{{- $pilot_hub := .Values.global.pilot.hub }}
+{{- $pilot_tag := .Values.global.pilot.tag }}
 ################################
 # istio initializer
 ################################
@@ -12,11 +18,11 @@ metadata:
 data:
   config: |-
     policy: "enabled"
-    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    namespaces: [""] # everything, aka v1.NamespaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: {{$pilot_hub}}/proxy_init:{{$pilot_tag}}
-      proxyImage: {{$pilot_hub}}/proxy_debug:{{$pilot_tag}}
+      proxyImage: {{$pilot_hub}}/{{$proxy_image.image}}:{{$pilot_tag}}
       verbosity: 2
       version: {{$pilot_tag}}
       meshConfigMapName: istio

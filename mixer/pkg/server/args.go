@@ -49,17 +49,8 @@ type Args struct {
 	// Maximum number of entries in the expression cache
 	ExpressionEvalCacheSize int
 
-	// Port to use for Mixer's gRPC API
-	APIPort uint16
-
-	// Port to use for exposing mixer self-monitoring information
-	MonitoringPort uint16
-
-	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
-	SingleThreaded bool
-
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
-	ConfigStore2URL string
+	ConfigStoreURL string
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -74,20 +65,23 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Supplies a string to use for service configuration, overrides ConfigStoreURL
-	ServiceConfig string
-
-	// Supplies a string to use for global configuration, overrides ConfigStoreURL
-	GlobalConfig string
-
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// Port to use for Mixer's gRPC API
+	APIPort uint16
+
+	// Port to use for exposing mixer self-monitoring information
+	MonitoringPort uint16
+
+	// Enables gRPC-level tracing
+	EnableGRPCTracing bool
+
+	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
+	SingleThreaded bool
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -136,7 +130,7 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
+	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))

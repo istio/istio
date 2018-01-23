@@ -1,8 +1,7 @@
-{{- if .Values.istio.deploy_base_config }}
-{{- if .Values.global.auth_enabled }}
+{{- if .Values.global.security.enabled }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $ca_hub := .Values.istio.ca_hub }}
-{{- $ca_tag := .Values.istio.ca_tag }}
+{{- $ca_hub := .Values.global.security.hub }}
+{{- $ca_tag := .Values.global.security.tag }}
 ################################
 # istio CA with plug-in key/certs. Run this after istio-auth.yaml
 ################################
@@ -51,5 +50,4 @@ spec:
           secretName: cacerts
           optional: true
 ---
-{{- end }}
 {{- end }}

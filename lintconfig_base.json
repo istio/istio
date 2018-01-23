@@ -1,15 +1,15 @@
 {
     "concurrency": 4,
     "enableGC": true,
+    "vendor": true,
     "vendoredLinters": true,
     "deadline": "600s",
-    "minConfidence": 0,
+    "minConfidence": 0.0,
     "lineLength": 160,
+    "tests": true,
     "enable": [
-        "aligncheck",
         "deadcode",
         "errcheck",
-        "gas",
         "goconst",
         "gofmt",
         "goimports",
@@ -17,6 +17,7 @@
         "ineffassign",
         "interfacer",
         "lll",
+        "maligned",
         "megacheck",
         "misspell",
         "structcheck",
@@ -26,10 +27,8 @@
         "vetshadow"
     ],
     "severity": {
-        "aligncheck": "warn",
         "deadcode": "error",
         "errcheck": "error",
-        "gas": "error",
         "goconst": "error",
         "gofmt": "error",
         "goimports": "error",
@@ -37,6 +36,7 @@
         "ineffassign": "error",
         "interfacer": "error",
         "lll": "error",
+        "maligned": "error",
         "megacheck": "error",
         "misspell": "error",
         "structcheck": "error",
@@ -46,16 +46,16 @@
         "vetshadow": "error"
     },
     "exclude": [
-        "vendor",
-	"../vendor",
         ".pb.go",
-	"mock_*",
+        "mock_*",
         "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
-	"mixer/template/doc.go",
-	"mixer/template/sample/doc.go",
-	"mixer/test/spyAdapter/template/doc.go",
+        "mixer/template/doc.go",
+        "mixer/template/sample/doc.go",
+        "mixer/test/spyAdapter/template/doc.go",
+        "mixer/template/doc.go",
+        "mixer/tools/adapterlinter/testdata/.*",
         "should have a package comment",
         "genfiles"
     ]

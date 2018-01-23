@@ -28,7 +28,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
@@ -137,7 +136,7 @@ var (
 
 func TestConfig(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
@@ -177,7 +176,7 @@ func TestConfig(t *testing.T) {
 
 func TestIngressController(t *testing.T) {
 	cl := fake.NewSimpleClientset()
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
