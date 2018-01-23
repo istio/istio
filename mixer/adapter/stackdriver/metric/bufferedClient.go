@@ -16,11 +16,11 @@ package metric
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"time"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -76,7 +76,7 @@ func (b *buffered) Send() {
 	merged := merge(toSend, b.l)
 	err := b.pushMetrics(context.Background(),
 		&monitoringpb.CreateTimeSeriesRequest{
-			Name:       monitoring.MetricProjectPath(b.project),
+			Name:       fmt.Sprintf("projects/%s", b.project),
 			TimeSeries: merged,
 		})
 

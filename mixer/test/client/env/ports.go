@@ -14,6 +14,10 @@
 
 package env
 
+import (
+	"log"
+)
+
 // Dynamic port allocation scheme
 // In order to run the tests in parallel. Each test should use unique ports
 // Each test has a unique test_name, its ports will be allocated based on that name
@@ -35,11 +39,15 @@ const (
 	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
+
+	// The number of total tests. has to be the last one.
+	maxTestNum
 )
 
 const (
-	portBase uint16 = 29000
-	portStep uint16 = 10
+	portBase uint16 = 20000
+	// Maximum number of ports used in each test.
+	portNum uint16 = 6
 )
 
 // Ports stores all used ports
@@ -52,9 +60,31 @@ type Ports struct {
 	AdminPort       uint16
 }
 
+func allocPortBase(name uint16) uint16 {
+	base := portBase + name*portNum
+	for i := 0; i < 10; i++ {
+		if allPortFree(base) {
+			return base
+		}
+		base += maxTestNum * portNum
+	}
+	log.Println("could not find free ports, continue the test...")
+	return base
+}
+
+func allPortFree(base uint16) bool {
+	for port := base; port < base+portNum; port++ {
+		if IsPortUsed(port) {
+			log.Println("port is used ", port)
+			return false
+		}
+	}
+	return true
+}
+
 // NewPorts allocate all ports based on test id.
 func NewPorts(name uint16) *Ports {
-	base := portBase + name*portStep
+	base := allocPortBase(name)
 	return &Ports{
 		ClientProxyPort: base,
 		ServerProxyPort: base + 1,
