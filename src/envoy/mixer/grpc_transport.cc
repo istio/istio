@@ -51,7 +51,7 @@ inline void CopyHeaderEntry(const HeaderEntry* entry,
 
 template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
-    AsyncClientPtr async_client, const RequestType& request,
+    Grpc::AsyncClientPtr async_client, const RequestType& request,
     const HeaderMap* headers, ResponseType* response,
     istio::mixer_client::DoneFunc on_done)
     : async_client_(std::move(async_client)),
@@ -112,15 +112,14 @@ typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm,
                                                   const HeaderMap* headers) {
   return [&cm, headers](const RequestType& request, ResponseType* response,
-                        istio::mixer_client::DoneFunc
-                            on_done) -> istio::mixer_client::CancelFunc {
-    auto transport = new GrpcTransport<RequestType, ResponseType>(
-        typename GrpcTransport<RequestType, ResponseType>::AsyncClientPtr(
-            new Grpc::AsyncClientImpl<RequestType, ResponseType>(
-                cm, kMixerServerClusterName)),
-        request, headers, response, on_done);
-    return [transport]() { transport->Cancel(); };
-  };
+                        istio::mixer_client::DoneFunc on_done)
+             -> istio::mixer_client::CancelFunc {
+               auto transport = new GrpcTransport<RequestType, ResponseType>(
+                   Grpc::AsyncClientPtr(
+                       new Grpc::AsyncClientImpl(cm, kMixerServerClusterName)),
+                   request, headers, response, on_done);
+               return [transport]() { transport->Cancel(); };
+             };
 }
 
 template <>

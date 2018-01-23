@@ -31,21 +31,17 @@ namespace Mixer {
 
 // An object to use Envoy::Grpc::AsyncClient to make grpc call.
 template <class RequestType, class ResponseType>
-class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
+class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
                       public Logger::Loggable<Logger::Id::http> {
  public:
   using Func = std::function<istio::mixer_client::CancelFunc(
       const RequestType& request, ResponseType* response,
       istio::mixer_client::DoneFunc on_done)>;
 
-  using AsyncClient = Grpc::AsyncClient<RequestType, ResponseType>;
-
-  typedef std::unique_ptr<AsyncClient> AsyncClientPtr;
-
   static Func GetFunc(Upstream::ClusterManager& cm,
                       const HeaderMap* headers = nullptr);
 
-  GrpcTransport(AsyncClientPtr async_client, const RequestType& request,
+  GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
                 const HeaderMap* headers, ResponseType* response,
                 istio::mixer_client::DoneFunc on_done);
 
@@ -63,7 +59,7 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
  private:
   static const google::protobuf::MethodDescriptor& descriptor();
 
-  AsyncClientPtr async_client_;
+  Grpc::AsyncClientPtr async_client_;
   const HeaderMap* headers_;
   ResponseType* response_;
   ::istio::mixer_client::DoneFunc on_done_;

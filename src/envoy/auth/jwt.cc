@@ -210,15 +210,15 @@ Jwt::Jwt(const std::string &jwt) {
     UpdateStatus(Status::JWT_BAD_FORMAT);
     return;
   }
-  jwt_split = StringUtil::split(jwt, '.');
+  auto jwt_split = StringUtil::splitToken(jwt, ".");
   if (jwt_split.size() != 3) {
     UpdateStatus(Status::JWT_BAD_FORMAT);
     return;
   }
 
   // Parse header json
-  header_str_base64url_ = jwt_split[0];
-  header_str_ = Base64UrlDecode(jwt_split[0]);
+  header_str_base64url_ = std::string(jwt_split[0].begin(), jwt_split[0].end());
+  header_str_ = Base64UrlDecode(header_str_base64url_);
   try {
     header_ = Json::Factory::loadFromString(header_str_);
   } catch (...) {
@@ -258,8 +258,9 @@ Jwt::Jwt(const std::string &jwt) {
   }
 
   // Parse payload json
-  payload_str_base64url_ = jwt_split[1];
-  payload_str_ = Base64UrlDecode(jwt_split[1]);
+  payload_str_base64url_ =
+      std::string(jwt_split[1].begin(), jwt_split[1].end());
+  payload_str_ = Base64UrlDecode(payload_str_base64url_);
   try {
     payload_ = Json::Factory::loadFromString(payload_str_);
   } catch (...) {
@@ -272,7 +273,8 @@ Jwt::Jwt(const std::string &jwt) {
   exp_ = payload_->getInteger("exp", 0);
 
   // Set up signature
-  signature_ = Base64UrlDecode(jwt_split[2]);
+  signature_ =
+      Base64UrlDecode(std::string(jwt_split[2].begin(), jwt_split[2].end()));
   if (signature_ == "") {
     // Signature is a bad Base64url input.
     UpdateStatus(Status::JWT_SIGNATURE_PARSE_ERROR);
@@ -311,7 +313,8 @@ bool Verifier::Verify(const Jwt &jwt, const Pubkeys &pubkeys) {
     return false;
   }
 
-  std::string signed_data = jwt.jwt_split[0] + '.' + jwt.jwt_split[1];
+  std::string signed_data =
+      jwt.header_str_base64url_ + '.' + jwt.payload_str_base64url_;
   bool kid_alg_matched = false;
   for (auto &pubkey : pubkeys.keys_) {
     // If kid is specified in JWT, JWK with the same kid is used for

@@ -200,7 +200,6 @@ class Jwt : public WithStatus {
  private:
   const EVP_MD* md_;
 
-  std::vector<std::string> jwt_split;
   Json::ObjectSharedPtr header_;
   std::string header_str_;
   std::string header_str_base64url_;
