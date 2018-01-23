@@ -24,19 +24,19 @@ import (
 
 var yml string = `
 {
-"configs": [
-  "../../testdata/config/listcheck.yaml",
-  "../../testdata/config/attributes.yaml"
-],
-"attributes": {
-  "destination.labels": {
-    "app": "ratings"
+  "configs": [
+    "../../testdata/config/listcheck.yaml",
+    "../../testdata/config/attributes.yaml"
+  ],
+  "attributes": {
+    "destination.labels": {
+      "app": "ratings"
+    },
+    "source.labels": {
+      "version": "v1"
+    }
   },
-  "source.labels": {
-    "version": "v1"
-  }
-},
-"baseline": "baseline.txt"
+  "baseline": "baseline.txt"
 }
 `
 
@@ -45,7 +45,7 @@ func TestReport(t *testing.T) {
 	test.Test2(
 		t,
 		wd,
-		yml,
 		[]adapter2.InfoFn{GetInfo},
-		template.SupportedTmplInfo)
+		template.SupportedTmplInfo,
+		yml,)
 }

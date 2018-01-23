@@ -58,46 +58,8 @@ func GetNewArgs(
 	return args, err
 }
 
-func Test(t *testing.T, wd string, attrs map[string]interface{}, baselineFile string, args *server.Args) {
-	dat, err := ioutil.ReadFile(baselineFile)
-	if err != nil {
-		panic(nil)
-	}
-	fmt.Println("err came back", err)
-	fmt.Print(string(dat))
 
-	env, err := server.New(args)
-	if err != nil {
-		t.Fatalf("fail to create mixer: %v", err)
-	}
-
-	env.Run()
-
-	defer closeHelper(env)
-
-	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Unable to connect to gRPC server: %v", err)
-	}
-
-	client := istio_mixer_v1.NewMixerClient(conn)
-	defer closeHelper(conn)
-
-	{
-
-		req := istio_mixer_v1.CheckRequest{
-			Attributes: getAttrBag(attrs,
-				args.ConfigIdentityAttribute,
-				args.ConfigIdentityAttributeDomain),
-		}
-
-
-		_, err = client.Check(context.Background(), &req)
-	}
-}
-
-
-func Test2(t *testing.T, wd string, yml string, fns []adapter.InfoFn, tmpls map[string]template.Info) {
+func Test2(t *testing.T, wd string, fns []adapter.InfoFn, tmpls map[string]template.Info, yml string) {
 	b := []byte(yml)
 	var m Setup
 	err := json.Unmarshal(b, &m)
