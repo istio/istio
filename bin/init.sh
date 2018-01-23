@@ -18,6 +18,7 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
+set -x
 ROOT=$(cd $(dirname $0)/..; pwd)
 ISTIO_GO=$ROOT
 
