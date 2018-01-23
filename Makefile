@@ -37,13 +37,38 @@ OUT=${GO_TOP}/out
 
 GO ?= go
 
-# Compile for linux/amd64 by default.
-export GOOS ?= linux
 export GOARCH ?= amd64
+
+LOCAL_OS := $(shell uname)
+ifeq ($(LOCAL_OS),Linux)
+   export GOOS ?= linux
+else ifeq ($(LOCAL_OS),Darwin)
+   export GOOS ?= darwin
+else
+   $(error "$(LOCAL_OS) isn't recognized/supported")
+   # export GOOS ?= windows
+endif
+
+ifeq ($(GOOS),linux)
+  ifeq ($(LOCAL_OS),Linux)
+    BIN_OS:=.
+  else
+    BIN_OS:=lx
+  endif
+else ifeq ($(GOOS),darwin)
+  ifeq ($(LOCAL_OS),Darwin)
+    BIN_OS:=.
+  else
+    BIN_OS:=mac
+  endif
+else ifeq ($(GOOS),windows)
+  BIN_OS:=win
+else
+   $(error "$(GOOS) isn't recognized/supported")
+endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
 -include .istiorc.mk
-
 
 # @todo allow user to run for a single $PKG only?
 PACKAGES_CMD := GOPATH=$(GOPATH) $(GO) list ./...
@@ -52,7 +77,10 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
-export ISTIO_BIN:=${GO_TOP}/bin
+
+# XXX There might eventually be subdirs for arch and release vs. debug
+export ISTIO_BIN=$(GO_TOP)/bin/$(BIN_OS)
+export ISTIO_LOCAL_BIN=${GO_TOP}/bin
 
 # scratch location for creating docker images (it's easier but less clean to just use ISTIO_BIN)
 ISTIO_DOCKER:=${ISTIO_BIN}/docker
@@ -415,6 +443,9 @@ docker.prebuilt:
 
 ##################################################################################
 
+# for now docker is limited to Linux compiles
+ifeq ($(GOOS),linux)
+
 $(ISTIO_DOCKER):
 	mkdir -p $(@)
 
@@ -584,6 +615,8 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),
 # but I'm not sure this is worth the added complexity to support.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+endif # end of docker block that's restricted to Linux
 
 push: checkvars installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG) $(GS_BUCKET)
