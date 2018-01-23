@@ -17,7 +17,6 @@ package na
 import (
 	"fmt"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
