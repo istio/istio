@@ -173,5 +173,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),
+		RequestedTtlMinutes: int32(na.config.WorkloadCertTTL.Minutes()),
 	}, nil
 }

@@ -32,12 +32,14 @@ import (
 )
 
 func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
-	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
+	defaultCertTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	requestedCertTTL := 45 * time.Minute
 	org := "test.ca.org"
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
+	ca, err := NewSelfSignedIstioCA(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1())
 	if err != nil {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
@@ -53,7 +55,7 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	cb, err := ca.Sign(csr)
+	cb, err := ca.Sign(csr, requestedCertTTL)
 	if err != nil {
 		t.Error(err)
 	}
@@ -70,8 +72,8 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != certTTL {
-		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", certTTL, ttl)
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedCertTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedCertTTL, ttl)
 	}
 
 	rootCert, err := pki.ParsePemEncodedCertificate(rcb)
@@ -193,12 +195,13 @@ YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
 	org := "test.ca.org"
 	caNamespace := "default"
 
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
 	if ca == nil || err != nil {
 		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
 	}
@@ -334,7 +337,8 @@ func TestSignCSR(t *testing.T) {
 		t.Error(err)
 	}
 
-	certPEM, err := ca.Sign(csrPEM)
+	requestedTTL := 30 * time.Minute
+	certPEM, err := ca.Sign(csrPEM, requestedTTL)
 	if err != nil {
 		t.Error(err)
 	}
@@ -352,6 +356,9 @@ func TestSignCSR(t *testing.T) {
 		t.Error(err)
 	}
 
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+	}
 	san := pki.ExtractSANExtension(cert.Extensions)
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
@@ -359,6 +366,32 @@ func TestSignCSR(t *testing.T) {
 	expected := buildSubjectAltNameExtension(host)
 	if !reflect.DeepEqual(expected, san) {
 		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+	}
+}
+
+func TestSignCSRTTLError(t *testing.T) {
+	host := "spiffe://example.com/ns/foo/sa/bar"
+	opts := CertOptions{
+		Host:       host,
+		Org:        "istio.io",
+		RSAKeySize: 2048,
+	}
+	csrPEM, _, err := GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ca, err := createCA()
+	if err != nil {
+		t.Error(err)
+	}
+
+	ttl := 3 * time.Hour
+
+	_, err = ca.Sign(csrPEM, ttl)
+	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error: %s but got error: %s.", err.Error(), expectedErr)
 	}
 }
 
@@ -402,6 +435,7 @@ func createCA() (CertificateAuthority, error) {
 	caOpts := &IstioCAOptions{
 		CertChainBytes:   intermediateCert,
 		CertTTL:          time.Hour,
+		MaxCertTTL:       2 * time.Hour,
 		SigningCertBytes: intermediateCert,
 		SigningKeyBytes:  intermediateKey,
 		RootCertBytes:    rootCertBytes,
