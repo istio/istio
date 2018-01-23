@@ -1,0 +1,10 @@
+hosts:
+  - "google.com"
+ports:
+  - number: 80
+    name: http-number
+    protocol: http
+discovery: STATIC
+endpoints: # TODO ports and labels
+  - address: 2.2.2.2
+  - address: 3.3.3.3

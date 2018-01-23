@@ -10,3 +10,4 @@ ports:
   - number: 8080
     name: http2-number
     protocol: http2
+discovery: NONE

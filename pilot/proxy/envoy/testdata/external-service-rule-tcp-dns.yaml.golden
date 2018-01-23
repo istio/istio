@@ -1,0 +1,11 @@
+hosts:
+  - "google.com"
+ports:
+- number: 444
+  name: tcp-444
+  protocol: tcp
+discovery: DNS
+endpoints: # TODO enpoints not required
+  - address: lon.google.com
+  - address: in.google.com
+

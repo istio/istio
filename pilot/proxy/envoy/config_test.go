@@ -342,9 +342,29 @@ var (
 		file: "testdata/external-service-rule.yaml.golden",
 	}
 
+	externalServiceRuleDNS = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns.yaml.golden",
+	}
+
+	externalServiceRuleStatic = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-static.yaml.golden",
+	}
+
 	externalServiceRuleTCP = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-tcp.yaml.golden",
+	}
+
+	externalServiceRuleTCPDNS = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-tcp-dns.yaml.golden",
+	}
+
+	externalServiceRuleTCPStatic = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-tcp-static.yaml.golden",
 	}
 
 	destinationRuleGoogleCB = fileConfig{

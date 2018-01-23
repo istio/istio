@@ -1,0 +1,10 @@
+hosts:
+  - "google.com"
+ports:
+  - number: 80
+    name: http-number
+    protocol: http
+discovery: DNS
+endpoints: # TODO endpoints are not required
+  - address: us.google.com
+  - address: uk.google.com
