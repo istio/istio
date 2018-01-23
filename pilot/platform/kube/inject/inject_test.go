@@ -27,7 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/version"
 )
 
 func TestImageName(t *testing.T) {

@@ -28,7 +28,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
 )
 
@@ -39,15 +38,6 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
 	return model.ApplyMeshConfigDefaults(string(yaml))
-}
-
-// VersionCmd is a sub-command to print version information
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Display version information and exit",
-	Run: func(*cobra.Command, []string) {
-		fmt.Print(version.Version())
-	},
 }
 
 // AddFlags adds all command line flags to the given command.

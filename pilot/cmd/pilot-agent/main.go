@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -73,7 +73,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
-			log.Infof("Version %s", version.Line())
+			log.Infof("Version %s", version.Info.String())
 			role.Type = model.Sidecar
 			if len(args) > 0 {
 				role.Type = model.NodeType(args[0])
@@ -273,7 +273,7 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(cmd.VersionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
 }
 
 func main() {
