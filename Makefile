@@ -75,7 +75,8 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
-ISTIO_DOCKER:=${ISTIO_OUT}/docker
+# this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
+ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 
 hub = ""
 tag = ""
