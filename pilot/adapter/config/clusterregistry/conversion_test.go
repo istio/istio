@@ -23,9 +23,34 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"os"
+	"io/ioutil"
 )
 
-var cluster_templ = `
+type createCfgDataFilesFunc func(dir string, cData []clusterData) (err error)
+
+type env struct {
+	fsRoot string
+}
+
+func (e *env) setup() (error) {
+	e.fsRoot = createTempDir()
+	return nil
+}
+
+func (e *env) teardown() {
+	// Remove the temp dir.
+	os.RemoveAll(e.fsRoot)
+}
+
+func createTempDir() string {
+	// Make the temporary directory
+	dir, _ := ioutil.TempDir("/tmp/", "clusterregistry")
+	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
+	return dir
+}
+
+var clusterTempl = `
 ---
 
 apiVersion: clusterregistry.k8s.io/v1alpha1
@@ -52,18 +77,6 @@ type clusterData struct {
 	PilotCfgStore bool
 	ServerEndpointIP string
 	ClientCidr string
-}
-
-func TestReadClusters_file(t *testing.T) {
-	cs, err := ReadClusters("testdata/")
-	if err != nil {
-		t.Error(err)
-	}
-	for _, cluster := range cs.clusters {
-		t.Logf("found cluster: \"%s\", kubeconfig: \"%s\"",
-				GetClusterName(cluster),
-				GetClusterKubeConfig(cluster))
-	}
 }
 
 func compareParsedCluster(inData clusterData, cluster *Cluster) (error) {
@@ -114,10 +127,10 @@ func compareParsedCluster(inData clusterData, cluster *Cluster) (error) {
 	return nil
 }
 
-func checkClusterDataInInput(inDataList *[]clusterData, cluster *Cluster) (error) {
+func checkClusterDataInInput(inDataList []clusterData, cluster *Cluster) (error) {
 	// Check that the cluster is matching with data from the test input data
 	found := false
-	for _, inData := range *inDataList {
+	for _, inData := range inDataList {
 		if inData.Name == GetClusterName(cluster) {
 			found = true
 			return compareParsedCluster(inData, cluster)
@@ -146,7 +159,7 @@ func checkInputInClusterData(inData clusterData, clusters []*Cluster) (error) {
 	return nil
 }
 
-func checkClusterData(t *testing.T, inDataList *[]clusterData, clusters []*Cluster) (err error) {
+func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*Cluster) (err error) {
 	// check each cluster is in the input data
 	for _, cluster := range clusters {
 		t.Logf("Parser built cluster: \"%s\", kubeconfig: \"%s\"",
@@ -157,11 +170,131 @@ func checkClusterData(t *testing.T, inDataList *[]clusterData, clusters []*Clust
 	}
 
 	// check the input data is in each cluster
-	for _, testData := range *inDataList {
+	for _, testData := range inDataList {
 		err = checkInputInClusterData(testData, clusters)
 		if err != nil { return err }
 	}
 	return nil
+}
+
+func checkClusterStore(inDataList []clusterData, cs ClusterStore) (err error) {
+	for _, cData := range inDataList {
+		if cData.PilotCfgStore {
+			pilotKubeConf := cs.GetPilotKubeConfig()
+			if cData.Kubeconfig != pilotKubeConf {
+				return fmt.Errorf("mismatch PilotCfgStore kubeconfig in ClusterStore--" +
+					"in: '%s' ; clusterStore '%s'", cData.PilotCfgStore, pilotKubeConf)
+			}
+			clusters := cs.GetPilotClusters()
+			if len(clusters) > 0 {
+				if clusters[0].Name != cData.Name {
+					return fmt.Errorf("mismatch PilotCfgStore cluster in ClusterStore--" +
+						"in: '%s' ; clusterStore '%s'", cData.Name, clusters[0].Name)
+				}
+			} else {
+				return fmt.Errorf("no pilot cluster found, expected '%s'", cData.Name)
+			}
+			break
+		}
+	}
+	return nil
+}
+
+/* Create several files under a temp directory with clusterData */
+func createFilePerCluster(dir string, cData []clusterData) (err error) {
+	tmpl, err := template.New("test").Parse(clusterTempl)
+	if err != nil { return err }
+	for _, c_d := range cData {
+		f, fileErr := os.Create(fmt.Sprintf("%s/%s.yaml", dir, c_d.Name))
+		if fileErr != nil { return fileErr }
+		err = tmpl.Execute(f, c_d)
+		if err != nil { return err }
+	}
+	return nil
+}
+
+/* Create single files under a temp directory with clusterData */
+func createFileForAllClusters(dir string, cData []clusterData) (err error) {
+	tmpl, err := template.New("test").Parse(clusterTempl)
+	if err != nil { return err }
+	f, fileErr := os.Create(fmt.Sprintf("%s/allClusters.yaml", dir))
+	if fileErr != nil { return fileErr }
+	for _, c_d := range cData {
+		err = tmpl.Execute(f, c_d)
+		if err != nil { return err }
+	}
+	return nil
+}
+
+func testClusterReadDir(t *testing.T, crFunc createCfgDataFilesFunc,
+						dir string, cData []clusterData) (err error) {
+	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
+	defer os.RemoveAll(dir)
+
+	if err = crFunc(dir, cData); err != nil {
+		t.Error(err)
+		return err
+	}
+	cs, err := ReadClusters(dir)
+	if err != nil {
+		t.Error(err)
+		return err
+	}
+	err = checkClusterData(t, cData, cs.clusters)
+	if err != nil { t.Error(err)}
+
+	if err = checkClusterStore(cData, *cs); err != nil {
+		t.Error(err)
+		return err
+	}
+
+	return err
+}
+
+func TestReadClusters(t *testing.T) {
+	e := env{}
+	err := e.setup()
+	if err != nil {
+		t.Error(err)
+	}
+	defer e.teardown()
+
+	cData := []clusterData{
+		clusterData {
+			Name: "clusA",
+			PilotIP: "2.2.2.2",
+			Kubeconfig: "A_kubeconfig",
+			PilotCfgStore: true,
+			ServerEndpointIP: "192.168.4.10",
+			ClientCidr: "0.0.0.1/0",
+		},
+		clusterData {
+			Name: "clusB",
+			PilotIP: "3.3.3.3",
+			Kubeconfig: "B_kubeconfig",
+			PilotCfgStore: false,
+			ServerEndpointIP: "192.168.5.10",
+			ClientCidr: "0.0.0.0/0",
+		},
+		clusterData {
+			Name: "clusC",
+			PilotIP: "4.4.4.4",
+			Kubeconfig: "C_kubeconfig",
+			PilotCfgStore: false,
+			ServerEndpointIP: "192.168.6.10",
+			ClientCidr: "0.0.0.0/0",
+		},
+		clusterData {
+			Name: "clusD",
+			PilotIP: "5.5.5.5",
+			Kubeconfig: "D_kubeconfig",
+			PilotCfgStore: false,
+			ServerEndpointIP: "192.168.7.10",
+			ClientCidr: "0.0.0.0/0",
+		},
+	}
+    _ = testClusterReadDir(t, createFilePerCluster, e.fsRoot + "/multi", cData)
+	_ = testClusterReadDir(t, createFileForAllClusters, e.fsRoot + "/single", cData)
 }
 
 func TestParseClusters_templ(t *testing.T) {
@@ -201,7 +334,7 @@ func TestParseClusters_templ(t *testing.T) {
 		},
 	}
 
-	tmpl, err := template.New("test").Parse(cluster_templ)
+	tmpl, err := template.New("test").Parse(clusterTempl)
 	if err != nil { t.Error(err) }
 	for _, c_d := range clus_data {
 		err = tmpl.Execute(testdata_buf, c_d)
@@ -214,7 +347,7 @@ func TestParseClusters_templ(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = checkClusterData(t, &clus_data, clusters)
+	err = checkClusterData(t, clus_data, clusters)
 	if err != nil { t.Error(err)}
 
 }
@@ -262,7 +395,7 @@ spec:
 		if err == nil {
 			t.Error(fmt.Errorf("Bad input test failed for test type '%s'", testType))
 			if len(clusters) > 0 {
-				t.Logf("Some cluster stuff got filled in for bad input test '%s'", testType)
+				t.Logf("Cluster data was instantiated during bad input test '%s'", testType)
 			}
 		}
 	}
