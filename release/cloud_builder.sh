@@ -71,19 +71,19 @@ export ISTIO_VERSION="${TAG_NAME}"
 apt-get -qqy install ruby ruby-dev rubygems build-essential
 gem install --no-ri --no-rdoc fpm
 
-VERBOSE=1 make setup
+# VERBOSE=1 make setup
 
-VERBOSE=1 make init
+# VERBOSE=1 make init
 
 # pull in outside dependencies
-VERBOSE=1 make depend
+# VERBOSE=1 make depend
 
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
   # and hope that the name of the file doesn't change.
-  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make sidecar.deb
+  VERBOSE=1 DEBUG=0 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make sidecar.deb
   mkdir -p ${OUTPUT_PATH}/deb
-  cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
+  cp ${GOPATH}/out/lx/amd64/release/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
 
 mkdir -p "${OUTPUT_PATH}/istioctl"
@@ -96,8 +96,8 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
 fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
-  cp -r ${GOPATH}/out/docker ${OUTPUT_PATH}
+  VERBOSE=1 DEBUG=0 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
+  cp -r ${GOPATH}/out/lx/amd64/release/docker ${OUTPUT_PATH}
 fi
 
 # log where git thinks the build might be dirty

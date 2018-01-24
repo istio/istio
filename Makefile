@@ -74,7 +74,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
 export ISTIO_BIN=$(GO_TOP)/bin
-ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
+export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
 ISTIO_DOCKER:=${ISTIO_OUT}/docker
 
 hub = ""
@@ -182,7 +182,7 @@ init: ${DEP}
 	@(DEP=${DEP} bin/init.sh)
 
 # init.sh downloads envoy
-${ISTIO_BIN}/envoy: init
+${ISTIO_OUT}/envoy: init
 
 #-----------------------------------------------------------------------------
 # Target: precommit

@@ -3,7 +3,7 @@ ifeq (${TEST_ENV},minikube)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
-export KUBECONFIG=${OUT}/minikube.conf
+export KUBECONFIG=${ISTIO_OUT}/minikube.conf
 export TEST_ENV=minikube
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
@@ -12,7 +12,7 @@ MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 minikube:
 	minikube update-context
 	@echo "Minikube started ${KUBECONFIG}"
-	minikube docker-env > ${OUT}/minikube.dockerenv
+	minikube docker-env > ${ISTIO_OUT}/minikube.dockerenv
 
 e2e_docker: minikube docker
 
@@ -20,7 +20,7 @@ else ifeq (${TEST_ENV},minikube-none)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
-export KUBECONFIG=${OUT}/minikube.conf
+export KUBECONFIG=${ISTIO_OUT}/minikube.conf
 export TEST_ENV=minikube-none
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
@@ -43,7 +43,7 @@ endif
 
 E2E_ARGS ?=
 E2E_ARGS += ${MINIKUBE_FLAGS}
-E2E_ARGS += --istioctl ${GOPATH}/bin/istioctl
+E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
 
 EXTRA_E2E_ARGS = --mixer_tag ${TAG}
 EXTRA_E2E_ARGS += --pilot_tag ${TAG}
