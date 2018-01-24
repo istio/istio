@@ -1,0 +1,24 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: flex-set
+spec:
+  template:
+    metadata:
+      name: flex-deploy
+      labels:
+        app: flex-deploy
+    spec:
+      containers:
+        - image: "gcr.io/kubernetes-1-151323/flex_deploy:latest-dummy"
+          name: flex-deploy
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /flexmnt
+              name: flexvolume-mount
+      volumes:
+        - name: flexvolume-mount
+          hostPath:
+            path: /etc/srv/kubernetes/kubelet-plugins/volume/exec/
