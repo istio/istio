@@ -2005,6 +2005,17 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
+	servicePorts := make(map[string]bool, len(externalService.Ports))
+	for _, port := range externalService.Ports {
+		servicePorts[port.Name] = true
+	}
+
+	if externalService.Discovery == routingv2.ExternalService_NONE {
+		if len(externalService.Endpoints) != 0 {
+			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
+		}
+	}
+
 	// TODO: if static, ensure endpoint addresses are IPs / if dns, ensure endpoints addresses are FQDN
 	if externalService.Discovery == routingv2.ExternalService_STATIC {
 		if len(externalService.Endpoints) == 0 {
@@ -2018,6 +2029,9 @@ func ValidateExternalService(config proto.Message) (errs error) {
 				Labels(endpoint.Labels).Validate())
 
 			for name, port := range endpoint.Ports {
+				if !servicePorts[name] {
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %s is not defined by the external service", port))
+				}
 				errs = appendErrors(errs,
 					validatePortName(name),
 					ValidatePort(int(port)))
@@ -2025,7 +2039,32 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: ensure port names map to endpoint port names?
+	if externalService.Discovery == routingv2.ExternalService_DNS {
+		if len(externalService.Endpoints) == 0 {
+			for _, host := range externalService.Hosts {
+				if err := ValidateFQDN(host); err != nil {
+					errs = appendErrors(errs,
+						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
+				}
+			}
+		}
+
+		for _, endpoint := range externalService.Endpoints {
+			errs = appendErrors(errs,
+				ValidateFQDN(endpoint.Address),
+				Labels(endpoint.Labels).Validate())
+
+			for name, port := range endpoint.Ports {
+				if !servicePorts[name] {
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %s is not defined by the external service", port))
+				}
+				errs = appendErrors(errs,
+					validatePortName(name),
+					ValidatePort(int(port)))
+			}
+		}
+	}
+
 	for _, port := range externalService.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),
