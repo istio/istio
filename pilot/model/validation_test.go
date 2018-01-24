@@ -2772,6 +2772,20 @@ func TestValidateExternalServices(t *testing.T) {
 		},
 			valid: true},
 
+		{name: "valid external rule, discovery type dns, IP in endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 80, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: true},
+
 		{name: "invalid external rule, empty hosts", in: routingv2.ExternalService{
 			Ports: []*routingv2.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -2892,6 +2906,20 @@ func TestValidateExternalServices(t *testing.T) {
 			Discovery: routingv2.ExternalService_STATIC,
 		},
 			valid: true},
+
+		{name: "invalid external rule, discovery type static, FQDN in endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"172.1.2.16/16"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 80, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_STATIC,
+		},
+			valid: false},
 
 		{name: "invalid external rule, discovery type static, missing endpoints", in: routingv2.ExternalService{
 			Hosts: []string{"172.1.2.16/16"},
