@@ -110,6 +110,10 @@ PFsekZAmhgetPqL16MQSEZbXRSnGiklqQtew79S/yQDwZVCer8n1ABp5eZ2wsLgu
 92ik2sTgTEhef6AgLeHcT5ne
 -----END PRIVATE KEY-----`
 
+	keyInvalidPKCS8 = `
+-----BEGIN PRIVATE KEY-----
+-----END PRIVATE KEY-----`
+
 	certRSA = `
 -----BEGIN CERTIFICATE-----
 MIIC+zCCAeOgAwIBAgIQQ0vFSayWg4FQBBr1EpI5rzANBgkqhkiG9w0BAQsFADAT
@@ -214,17 +218,17 @@ func TestParsePemEncodedCSR(t *testing.T) {
 
 func TestParsePemEncodedKey(t *testing.T) {
 	testCases := map[string]struct {
-		errMsg  string
 		pem     string
 		keyType reflect.Type
+		errMsg  string
 	}{
 		"Invalid PEM string": {
-			errMsg: "invalid PEM-encoded key",
 			pem:    "Invalid PEM string",
+			errMsg: "invalid PEM-encoded key",
 		},
 		"Invalid PEM block type": {
-			errMsg: "unsupported PEM block type for a private key: CERTIFICATE",
 			pem:    certRSA,
+			errMsg: "unsupported PEM block type for a private key: CERTIFICATE",
 		},
 		"Parse RSA key": {
 			pem:     keyRSA,
@@ -245,6 +249,10 @@ func TestParsePemEncodedKey(t *testing.T) {
 		"Parse PKCS8 key using RSA algorithm": {
 			pem:     keyPKCS8RSA,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
+		},
+		"Parse invalid PKCS8 key": {
+			pem:     keyInvalidPKCS8,
+			errMsg: "failed to parse the PKCS8 private key",
 		},
 	}
 
