@@ -60,7 +60,7 @@ func (h *logHandler) handleLogEntry(ctx context.Context, values []*logentry.Inst
 		l, _ := h.paperTrailLogger.(*papertrail.Logger)
 		if l != nil {
 			if err := h.paperTrailLogger.Log(inst); err != nil {
-				return h.logger.Errorf("ao - error while recording the log message: %v", err)
+				return h.logger.Errorf("error while recording the log message: %v", err)
 			}
 		}
 	}

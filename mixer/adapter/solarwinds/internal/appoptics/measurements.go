@@ -63,8 +63,7 @@ func (ms *MeasurementsService) Create(mc []*Measurement) (*http.Response, error)
 	req, err := ms.client.NewRequest("POST", "measurements", payload)
 
 	if err != nil {
-		ms.logger.Errorf("error creating request: %v", err)
-		return nil, err
+		return nil, ms.logger.Errorf("error creating request: %v", err)
 	}
 	return ms.client.Do(req, nil)
 }

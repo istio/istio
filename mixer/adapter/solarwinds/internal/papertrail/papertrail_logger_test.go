@@ -34,7 +34,6 @@ func TestNewLogger(t *testing.T) {
 		testData struct {
 			name    string
 			args    args
-			want    *Logger
 			wantErr bool
 		}
 	)

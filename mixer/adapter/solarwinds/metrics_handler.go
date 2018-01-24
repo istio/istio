@@ -36,12 +36,14 @@ type metricsHandlerInterface interface {
 }
 
 type metricsHandler struct {
-	logger     adapter.Logger
-	prepChan   chan []*appoptics.Measurement
-	stopChan   chan struct{}
-	pushChan   chan []*appoptics.Measurement
-	loopFactor *bool
-	lc         *appoptics.Client
+	logger      adapter.Logger
+	prepChan    chan []*appoptics.Measurement
+	stopChan    chan struct{}
+	pushChan    chan []*appoptics.Measurement
+	loopFactor  *bool
+	lc          *appoptics.Client
+	batchWait   chan struct{}
+	persistWait chan struct{}
 }
 
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
@@ -56,7 +58,9 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 	// by AppOptics.MeasurementPostMaxBatchSize
 	pushChan := make(chan []*appoptics.Measurement, buffChanSize)
 
-	var stopChan = make(chan struct{})
+	stopChan := make(chan struct{})
+	persistWait := make(chan struct{})
+	batchWait := make(chan struct{})
 
 	var lc *appoptics.Client
 	if strings.TrimSpace(cfg.AppopticsAccessToken) != "" {
@@ -69,18 +73,22 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 
 		env.ScheduleDaemon(func() {
 			appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, int(batchSize), env.Logger())
+			batchWait <- struct{}{}
 		})
 		env.ScheduleDaemon(func() {
 			appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, env.Logger())
+			persistWait <- struct{}{}
 		})
 	}
 	return &metricsHandler{
-		logger:     env.Logger(),
-		prepChan:   prepChan,
-		stopChan:   stopChan,
-		pushChan:   pushChan,
-		loopFactor: &loopFactor,
-		lc:         lc,
+		logger:      env.Logger(),
+		prepChan:    prepChan,
+		stopChan:    stopChan,
+		pushChan:    pushChan,
+		loopFactor:  &loopFactor,
+		lc:          lc,
+		persistWait: persistWait,
+		batchWait:   batchWait,
 	}, nil
 }
 
@@ -120,8 +128,13 @@ func (h *metricsHandler) close() error {
 	close(h.prepChan)
 	close(h.pushChan)
 	close(h.stopChan)
+	defer close(h.batchWait)
+	defer close(h.persistWait)
 	*h.loopFactor = false
-
+	if h.lc != nil {
+		<-h.batchWait
+		<-h.persistWait
+	}
 	return nil
 }
 
@@ -137,12 +150,12 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 	case string:
 		f, err := strconv.ParseFloat(vv, 64)
 		if err != nil {
-			_ = h.logger.Errorf("ao - Error parsing metric val: %v", i)
+			_ = h.logger.Errorf("error parsing metric val: %v", i)
 			f = 0
 		}
 		return f
 	default:
-		_ = h.logger.Errorf("ao - could not extract numeric value for %v", i)
+		_ = h.logger.Errorf("could not extract numeric value for %v", i)
 		return 0
 	}
 }

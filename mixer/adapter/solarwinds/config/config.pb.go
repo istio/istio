@@ -40,6 +40,68 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Example config usage:
+// ```
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: solarwinds
+// metadata:
+//   name: handler
+//   namespace: istio-system
+// spec:
+//   appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
+//   papertrail_url: <PAPERTRAIL URL>
+//   papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
+//   metrics:
+//     requestcount.metric.istio-system:
+//       name: request_count
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     requestduration.metric.istio-system:
+//       name: request_duration
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     requestsize.metric.istio-system:
+//       name: request_size
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     responsesize.metric.istio-system:
+//       name: response_size
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//       - response_code
+//     tcpbytesent.metric.istio-system:
+//       name: tcp_bytes_sent
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//     tcpbytereceived.metric.istio-system:
+//       name: tcp_bytes_received
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//   logs:
+//     solarwindslogentry.logentry.istio-system:
+//       payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+// ```
 type Params struct {
 	// AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics
 	// will NOT be shipped to AppOptics
@@ -52,7 +114,7 @@ type Params struct {
 	// dropped.
 	PapertrailUrl string `protobuf:"bytes,3,opt,name=papertrail_url,json=papertrailUrl,proto3" json:"papertrail_url,omitempty"`
 	// This is the duration for which logs will be persisted locally until it is shipped to papertrail in the event
-	// of a network failure
+	// of a network failure. Default value is 1 hour.
 	PapertrailLocalRetentionDuration *time.Duration `protobuf:"bytes,4,opt,name=papertrail_local_retention_duration,json=papertrailLocalRetentionDuration,stdduration" json:"papertrail_local_retention_duration,omitempty"`
 	// A map of Istio metric name to solarwinds metric info.
 	Metrics map[string]*Params_MetricInfo `protobuf:"bytes,5,rep,name=metrics" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
@@ -78,9 +140,15 @@ func (m *Params_MetricInfo) Reset()                    { *m = Params_MetricInfo{
 func (*Params_MetricInfo) ProtoMessage()               {}
 func (*Params_MetricInfo) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 0} }
 
-// Describes how to represent an Istio metric in Solarwinds AppOptics
+// Describes how to represent an Istio log entry in Solarwinds AppOptics
 type Params_LogInfo struct {
-	// Optional. A golang text/template template that will be executed to construct the payload for this log entry.
+	// Optional. A golang text/template template (more details about golang text/template's templating can be
+	// found here: https://golang.org/pkg/text/template/) that will be executed to construct the payload for
+	// this log entry.
+	// An example template that could be used:
+	// {{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}
+	// A sample log that will be created after parsing the template with appropriate variables will look like this:
+	// Jan 23 21:53:02 istio-mixer-57d88dc4b4-rbgmc istio: 10.32.0.15 - kubernetes://istio-ingress-78545c5bc9-wbr6g.istio-system [2018-01-24T02:53:02Z] "GET /productpage http" 200 5599
 	// It will be given the full set of variables for the log to use to construct its result.
 	// If it is not provided, a default template in place will be used.
 	PayloadTemplate string `protobuf:"bytes,1,opt,name=payload_template,json=payloadTemplate,proto3" json:"payload_template,omitempty"`

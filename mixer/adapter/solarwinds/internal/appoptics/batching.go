@@ -69,7 +69,7 @@ func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Mea
 		case <-ticker.C:
 			batch := <-pushChan
 			if err := persistBatch(lc, batch, logger); err != nil {
-				logger.Errorf("ao - Persistence Errors: %v", err)
+				_ = logger.Errorf("metric persistence errors: %v", err)
 			}
 		case <-stopChan:
 			dobrk = true
@@ -86,7 +86,7 @@ func persistBatch(lc ServiceAccessor, batch []*Measurement,
 	logger adapter.Logger) error {
 	if len(batch) > 0 {
 		if _, err := lc.MeasurementsService().Create(batch); err != nil {
-			return logger.Errorf("ao - unable to persist log locally due to this error: %v", err)
+			return logger.Errorf("unable to persist log locally due to this error: %v", err)
 		}
 	}
 	return nil

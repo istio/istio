@@ -83,22 +83,19 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Append("appoptics_batch_size", fmt.Errorf("appoptics batch size provided is not in the range from 1 to 1000"))
 	}
 	if b.cfg.PapertrailUrl != "" {
-		re := regexp.MustCompile(paperTrailURLPattern)
-		if !re.MatchString(b.cfg.PapertrailUrl) {
+		if re := regexp.MustCompile(paperTrailURLPattern); !re.MatchString(b.cfg.PapertrailUrl) {
 			ce = ce.Append("paper_trail_url", fmt.Errorf("papertrail url provided is invalid: %v", b.cfg.PapertrailUrl))
 		}
 	}
 
 	for inst := range b.cfg.Metrics {
-		_, ok := b.metricTypes[inst]
-		if !ok {
+		if _, ok := b.metricTypes[inst]; !ok {
 			ce = ce.Append("metrics", fmt.Errorf("%s is an invalid metric instance name", inst))
 		}
 	}
 
 	for inst := range b.cfg.Logs {
-		_, ok := b.logentryTypes[inst]
-		if !ok {
+		if _, ok := b.logentryTypes[inst]; !ok {
 			ce = ce.Append("metrics", fmt.Errorf("%s is an invalid logentry instance name", inst))
 		}
 	}
@@ -114,6 +111,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 	l, err := newLogHandler(ctx, env, b.cfg)
 	if err != nil {
+		_ = m.close()
 		return nil, err
 	}
 	return &handler{

@@ -68,47 +68,45 @@ func TestHandleMetric(t *testing.T) {
 	env := test2.NewEnv(t)
 	logger := env.Logger()
 
-	t.Run("handle metric", func(t *testing.T) {
-		logger.Infof("Starting %s - test run. . .\n", t.Name())
-		defer logger.Infof("Finished %s - test run. . .", t.Name())
+	logger.Infof("Starting %s - test run. . .\n", t.Name())
+	defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-		mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), &config.Params{})
-		if err != nil {
-			t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
-			return
-		}
-		defer mhi.close()
-		err = mhi.handleMetric(ctx, []*metric.Instance{
-			{
-				Name:  "m1",
-				Value: 1, // int
-				Dimensions: map[string]interface{}{
-					"tag1": 1,
-				},
+	mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), &config.Params{})
+	if err != nil {
+		t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
+		return
+	}
+	defer mhi.close()
+	err = mhi.handleMetric(ctx, []*metric.Instance{
+		{
+			Name:  "m1",
+			Value: 1, // int
+			Dimensions: map[string]interface{}{
+				"tag1": 1,
 			},
-			{
-				Name:  "m2",
-				Value: 3.4, // float
-				Dimensions: map[string]interface{}{
-					"tag2": 3.4,
-				},
+		},
+		{
+			Name:  "m2",
+			Value: 3.4, // float
+			Dimensions: map[string]interface{}{
+				"tag2": 3.4,
 			},
-			{
-				Name:  "m3",
-				Value: time.Duration(5 * time.Second), // duration
-				Dimensions: map[string]interface{}{
-					"tag3": "hello",
-				},
+		},
+		{
+			Name:  "m3",
+			Value: time.Duration(5 * time.Second), // duration
+			Dimensions: map[string]interface{}{
+				"tag3": "hello",
 			},
-			{
-				Name:  "m3",
-				Value: "abc", // string
-			},
-		})
-
-		if err != nil {
-			t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
-			return
-		}
+		},
+		{
+			Name:  "m3",
+			Value: "abc", // string
+		},
 	})
+
+	if err != nil {
+		t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
+		return
+	}
 }

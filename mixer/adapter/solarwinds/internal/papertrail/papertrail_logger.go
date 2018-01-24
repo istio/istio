@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	defaultRetention = time.Duration(24 * time.Hour)
+	defaultRetention = time.Hour
 	keyFormat        = "TS:%d-BODY:%s"
 	keyPattern       = "TS:(\\d+)-BODY:(.*)"
 	defaultTemplate  = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
@@ -70,6 +70,8 @@ type Logger struct {
 	maxWorkers int
 
 	loopFactor bool
+
+	loopWait chan struct{}
 }
 
 // NewLogger does some ground work and returns an instance of LoggerInterface
@@ -90,6 +92,7 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
 		loopFactor:      true,
+		loopWait:        make(chan struct{}),
 	}
 
 	p.logInfos = map[string]*logInfo{}
@@ -103,7 +106,7 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 		}
 		tmpl, err := template.New(inst).Parse(templ)
 		if err != nil {
-			logger.Errorf("ao - failed to evaluate template for log instance: %s, skipping: %v", inst, err)
+			_ = logger.Errorf("failed to evaluate template for log instance: %s, skipping: %v", inst, err)
 			continue
 		}
 		p.logInfos[inst] = &logInfo{
@@ -129,7 +132,7 @@ func (p *Logger) Log(msg *logentry.Instance) error {
 	}
 
 	if err := linfo.tmpl.Execute(buf, msg.Variables); err != nil {
-		p.log.Errorf("failed to execute template for log '%s': %v", msg.Name, err)
+		_ = p.log.Errorf("failed to execute template for log '%s': %v", msg.Name, err)
 		// proceeding anyways
 	}
 	payload := buf.String()
@@ -146,9 +149,9 @@ func (p *Logger) sendLogs(data string) error {
 	var err error
 	writer, err := syslog.Dial("udp", p.paperTrailURL, syslog.LOG_EMERG|syslog.LOG_KERN, "istio")
 	if err != nil {
-		return p.log.Errorf("ao - Failed to dial syslog: %v", err)
+		return p.log.Errorf("Failed to dial syslog: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 	if err = writer.Info(data); err != nil {
 		return p.log.Errorf("failed to send log msg to papertrail: %v", err)
 	}
@@ -158,9 +161,10 @@ func (p *Logger) sendLogs(data string) error {
 // This should be run in a routine
 func (p *Logger) flushLogs() {
 	var err error
-
+	defer func() {
+		p.loopWait <- struct{}{}
+	}()
 	re := regexp.MustCompile(keyPattern)
-
 	for p.loopFactor {
 		hose := make(chan interface{}, p.maxWorkers)
 		var wg sync.WaitGroup
@@ -204,5 +208,7 @@ func (p *Logger) flushLogs() {
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
 	p.loopFactor = false
+	defer close(p.loopWait)
+	<-p.loopWait
 	return nil
 }

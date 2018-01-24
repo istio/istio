@@ -134,7 +134,7 @@ func (c *Client) Do(req *http.Request, respData interface{}) (*http.Response, er
 		return resp, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if respData != nil {
 		if writer, ok := respData.(io.Writer); ok {
 			_, err = io.Copy(writer, resp.Body)
