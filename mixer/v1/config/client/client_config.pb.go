@@ -75,8 +75,8 @@ type TransportConfig struct {
 	DisableReportBatch bool `protobuf:"varint,3,opt,name=disable_report_batch,json=disableReportBatch,proto3" json:"disable_report_batch,omitempty"`
 	// Specifies the policy when failed to connect to Mixer server.
 	NetworkFailPolicy TransportConfig_NetworkFailPolicy `protobuf:"varint,4,opt,name=network_fail_policy,json=networkFailPolicy,proto3,enum=istio.mixer.v1.config.client.TransportConfig_NetworkFailPolicy" json:"network_fail_policy,omitempty"`
-	// Specify fresh interval in milliseconds to write mixer client statistics to
-	// Envoy share memory. If not specified, or 0 protobuf default value, the
+	// Specify refresh interval in milliseconds to write mixer client statistics
+	// to Envoy share memory. If not specified, or 0 protobuf default value, the
 	// interval is 10 seconds
 	StatsUpdateIntervalMs int32 `protobuf:"varint,5,opt,name=stats_update_interval_ms,json=statsUpdateIntervalMs,proto3" json:"stats_update_interval_ms,omitempty"`
 }
