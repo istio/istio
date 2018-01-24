@@ -397,6 +397,10 @@ NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/node_agent.crt \
                        security/docker/node_agent.key
 
+GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
+               mixer/deploy/kube/conf/start.sh \
+               mixer/deploy/kube/conf/grafana-dashboard.json
+
 # copied/generated files for docker build
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
@@ -477,7 +481,12 @@ SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.n
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
-DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
+
+# start.sh grafana-dashboard.json import_dashboard.sh
+docker.grafana:	mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+	time (cd mixer/deploy/kube/conf && docker build -t grafana -f Dockerfile .)
+
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 docker.all: $(DOCKER_TARGETS)
 
