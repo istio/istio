@@ -91,7 +91,7 @@ func init() {
 	// If specified, only run one test
 	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")
 
-	flag.BoolVar(&params.UseAutomaticInjection, "use-sidecar-injection", false, "Use automatic sidecar injection")
+	flag.BoolVar(&params.UseAutomaticInjection, "use-sidecar-injector", false, "Use automatic sidecar injector")
 	flag.BoolVar(&params.UseAdmissionWebhook, "use-admission-webhook", false,
 		"Use k8s external admission webhook for config validation")
 
