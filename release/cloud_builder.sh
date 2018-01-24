@@ -65,6 +65,7 @@ cd $ROOT
 
 export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
+set ISTIO_OUT=${GOPATH}/out/lx/amd64/release
 
 export ISTIO_VERSION="${TAG_NAME}"
 
@@ -76,21 +77,21 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   # and hope that the name of the file doesn't change.
   VERBOSE=1 DEBUG=0 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make sidecar.deb
   mkdir -p ${OUTPUT_PATH}/deb
-  cp ${GOPATH}/out/lx/amd64/release/istio-sidecar.deb ${OUTPUT_PATH}/deb
+  cp ${ISTIO_OUT}/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
 
 mkdir -p "${OUTPUT_PATH}/istioctl"
 VERBOSE=1 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
-cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl
+cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   mkdir -p "${OUTPUT_PATH}/istioctl-stage"
   VERBOSE=1 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
-  cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl-stage
+  cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl-stage
 fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
   VERBOSE=1 DEBUG=0 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
-  cp -r ${GOPATH}/out/lx/amd64/release/docker ${OUTPUT_PATH}
+  cp -r ${ISTIO_OUT}/docker ${OUTPUT_PATH}
 fi
 
 # log where git thinks the build might be dirty
