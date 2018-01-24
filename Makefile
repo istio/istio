@@ -90,7 +90,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/platform/kube/config
+setup: pilot/pkg/kube/config
 
 #-----------------------------------------------------------------------------
 # Target: depend
@@ -490,11 +490,11 @@ push: checkvars clean.installgen installgen
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
+pilot/pkg/kube/config:
 	touch $@
 
 kubelink:
-	ln -fs ~/.kube/config pilot/platform/kube/
+	ln -fs ~/.kube/config pilot/pkg/kube/
 
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
