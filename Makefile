@@ -12,6 +12,14 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+## Convention regarding this Makefile
+# NOTE: This makefile has very coarse-grained targets. The same targets get
+# executed by circleci as well. Please do not add any fine-grained targets,
+# as it is hard to ensure that changes to Makefile take into account all
+# relevant targets. While coarse-grained targets may increase build time,
+# the benefit for ensuring a constant set of simple build steps that can be
+# reproduced locally outweights the delays.
+#
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
@@ -84,26 +92,29 @@ Q = $(if $(filter 1,$V),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
 .PHONY: default
-default: depend build
+default: depend build test
 
 checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/platform/kube/config
-
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.update
-.PHONY: depend.status depend.ensure depend.graph
+.PHONY: depend depend.update depend.status depend.graph
+
+# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+# Will also check vendor, based on Gopkg.lock
+init: ${DEP}
+	@(DEP=${DEP} bin/init.sh)
+
+# init.sh downloads envoy
+${ISTIO_BIN}/envoy: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call dep.update if adding new deps or to pull recent
 # changes.
 depend: init
-
-depend.ensure: init
 
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
@@ -127,32 +138,16 @@ depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
 
-lint:
-	SKIP_INIT=1 bin/linters.sh
-
-# Target run by the pre-commit script, to automate formatting and lint
-# If pre-commit script is not used, please run this manually.
-pre-commit: fmt lint
-
-# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-# Will also check vendor, based on Gopkg.lock
-init: ${DEP}
-	@(DEP=${DEP} bin/init.sh)
-
-# init.sh downloads envoy
-${ISTIO_BIN}/envoy: init
-
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit format check
-.PHONY: fmt format.gofmt format.goimports
-.PHONY: check.vet check.lint
+.PHONY: precommit format format.gofmt format.goimports lint
 
-precommit: format check
-format: format.goimports
-fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
-check: check.vet check.lint
+# Target run by the pre-commit script, to automate formatting and lint
+# If pre-commit script is not used, please run this manually.
+precommit: format lint
+
+format: format.gofmt format.goimports
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
 	$(Q) gofmt -s -w $(GO_FILES)
@@ -160,25 +155,17 @@ format.gofmt: ; $(info $(H) formatting files with go fmt...)
 format.goimports: ; $(info $(H) formatting files with goimports...)
 	$(Q) goimports -w -local istio.io $(GO_FILES)
 
-# @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
-check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $(PACKAGES) || true
-
-# @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
-# @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: ; $(info $(H) running golint on packages...)
-	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $(PACKAGES); do \
-		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
-	done || true;
+lint:
+	SKIP_INIT=1 bin/linters.sh
 
 # @todo gometalinter targets?
 
-build: setup go-build
+#-----------------------------------------------------------------------------
+# Target: build
+#-----------------------------------------------------------------------------
+.PHONY: build
 
-#-----------------------------------------------------------------------------
-# Target: go build
-#-----------------------------------------------------------------------------
+build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
@@ -199,9 +186,6 @@ SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
 $(SECURITY_GO_BINS): depend
 	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./security/cmd/$(@F)
 
-.PHONY: go-build
-go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
-
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
@@ -210,6 +194,7 @@ IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-initial
 .PHONY: $(IDENTITY_ALIAS_LIST)
 $(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_BIN}/$(ITEM)))
 
+# SHRIRAM: Do we need these?
 .PHONY: istio-ca
 istio-ca: ${ISTIO_BIN}/istio_ca
 
@@ -220,10 +205,13 @@ node-agent: ${ISTIO_BIN}/node_agent
 pilot: ${ISTIO_BIN}/pilot-discovery
 
 #-----------------------------------------------------------------------------
-# Target: go test
+# Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: go-test localTestEnv test-bins
+.PHONY: test localTestEnv test-bins
+
+# Run coverage tests
+test: pilot-test mixer-test security-test broker-test common-test
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
@@ -263,12 +251,13 @@ security-test:
 common-test:
 	go test ${T} ./pkg/...
 
-# Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test
+#-----------------------------------------------------------------------------
+# Target: coverage
+#-----------------------------------------------------------------------------
+.PHONY: coverage
 
-#-----------------------------------------------------------------------------
-# Target: Code coverage ( go )
-#-----------------------------------------------------------------------------
+# Run coverage tests
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -287,14 +276,14 @@ security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
-# Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
-
 #-----------------------------------------------------------------------------
 # Target: go test -race
 #-----------------------------------------------------------------------------
 
 .PHONY: racetest
+
+# Run race tests
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
@@ -316,14 +305,10 @@ security-racetest:
 common-racetest:
 	go test ${T} -race ./pkg/...
 
-# Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
-
 #-----------------------------------------------------------------------------
-# Target: precommit
+# Target: clean
 #-----------------------------------------------------------------------------
-.PHONY: clean
-.PHONY: clean.go
+.PHONY: clean clean.go clean.installgen
 
 DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
@@ -339,7 +324,27 @@ clean.go: ; $(info $(H) cleaning...)
 	$(MAKE) clean -C pilot
 	$(MAKE) clean -C security
 
-test: setup go-test
+clean.installgen:
+	rm -f install/consul/istio.yaml
+	rm -f install/eureka/istio.yaml
+	rm -f install/kubernetes/helm/istio/values.yaml
+	rm -f install/kubernetes/istio-auth.yaml
+	rm -f install/kubernetes/istio-ca-plugin-certs.yaml
+	rm -f install/kubernetes/istio-initializer.yaml
+	rm -f install/kubernetes/istio-one-namespace-auth.yaml
+	rm -f install/kubernetes/istio-one-namespace.yaml
+	rm -f install/kubernetes/istio.yaml
+	rm -f pilot/docker/pilot-test-client
+	rm -f pilot/docker/pilot-test-eurekamirror
+	rm -f pilot/docker/pilot-test-server
+	rm -f samples/bookinfo/consul/bookinfo.sidecars.yaml
+	rm -f samples/bookinfo/eureka/bookinfo.sidecars.yaml
+	rm -f security/docker/ca-certificates.tgz
+
+#-----------------------------------------------------------------------------
+# Target: docker
+#-----------------------------------------------------------------------------
+.PHONY: docker docker.prebuilt
 
 # Build all prod and debug images
 docker:
@@ -490,33 +495,10 @@ push: checkvars clean.installgen installgen
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
-	touch $@
-
-kubelink:
-	ln -fs ~/.kube/config pilot/platform/kube/
-
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 
-clean.installgen:
-	rm -f install/consul/istio.yaml
-	rm -f install/eureka/istio.yaml
-	rm -f install/kubernetes/helm/istio/values.yaml
-	rm -f install/kubernetes/istio-auth.yaml
-	rm -f install/kubernetes/istio-ca-plugin-certs.yaml
-	rm -f install/kubernetes/istio-initializer.yaml
-	rm -f install/kubernetes/istio-one-namespace-auth.yaml
-	rm -f install/kubernetes/istio-one-namespace.yaml
-	rm -f install/kubernetes/istio.yaml
-	rm -f pilot/docker/pilot-test-client
-	rm -f pilot/docker/pilot-test-eurekamirror
-	rm -f pilot/docker/pilot-test-server
-	rm -f samples/bookinfo/consul/bookinfo.sidecars.yaml
-	rm -f samples/bookinfo/eureka/bookinfo.sidecars.yaml
-	rm -f security/docker/ca-certificates.tgz
-
-.PHONY: artifacts build checkvars clean docker test setup push kubelink installgen clean.installgen
+.PHONY: artifacts build checkvars clean docker test push installgen
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
