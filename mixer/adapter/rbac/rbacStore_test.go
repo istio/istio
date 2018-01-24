@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/mixer/template/authorization"
 )
 
-func setupRbacStore() *configStore {
+func setupRBACStore() *configStore {
 	s := &configStore{}
 	roles := make(rolesMapByNamespace)
 	s.roles = roles
@@ -153,8 +153,8 @@ func setupRbacStore() *configStore {
 	return s
 }
 
-func TestRbacStore_CheckPermission(t *testing.T) {
-	s := setupRbacStore()
+func TestRBACStore_CheckPermission(t *testing.T) {
+	s := setupRBACStore()
 
 	cases := []struct {
 		namespace       string

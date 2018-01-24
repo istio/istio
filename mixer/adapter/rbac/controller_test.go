@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
-func TestController_processRbacRoles(t *testing.T) {
+func TestController_processRBACRoles(t *testing.T) {
 	configState := map[store.Key]*store.Resource{
 		{serviceRoleKind, "ns1", "role1"}: {Spec: &rbacproto.ServiceRole{
 			Rules: []*rbacproto.AccessRule{
@@ -62,7 +62,7 @@ func TestController_processRbacRoles(t *testing.T) {
 		rbacStore:   r,
 	}
 
-	c.processRbacRoles(test.NewEnv(t))
+	c.processRBACRoles(test.NewEnv(t))
 
 	wantRole := &rbacproto.ServiceRole{
 		Rules: []*rbacproto.AccessRule{
@@ -96,7 +96,7 @@ func TestController_processRbacRoles(t *testing.T) {
 	}
 
 	if len(r.roles) != 1 {
-		t.Fatalf("got %d, want 1 instnace", len(r.roles))
+		t.Fatalf("Got %d, want 1 instnace", len(r.roles))
 	}
 
 	roles := r.roles["ns1"]
@@ -111,7 +111,7 @@ func TestController_processRbacRoles(t *testing.T) {
 
 	bindings := roles["role1"].bindings
 	if len(bindings) != 1 {
-		t.Fatalf("got %d, want 1 binding associated with role1", len(bindings))
+		t.Fatalf("Got %d, want 1 binding associated with role1", len(bindings))
 	}
 	binding := bindings["binding1"]
 	if !reflect.DeepEqual(binding, wantRoleBinding) {

@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/mixer/template/authorization"
 )
 
-// Rbac interface
-type Rbac interface {
+// authorizer interface
+type authorizer interface {
 	CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error)
 }
 
@@ -43,7 +43,7 @@ type rolesByName map[string]*roleInfo
 type rolesMapByNamespace map[string]rolesByName
 
 // configStore contains all ServiceRole and ServiceRoleBinding information.
-// configStore implements Rbac interface.
+// configStore implements authorizer interface.
 type configStore struct {
 	// All the roles organized per namespace.
 	roles rolesMapByNamespace
@@ -77,26 +77,22 @@ func (rs *configStore) changeRoles(roles rolesMapByNamespace) {
 func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
 	namespace := inst.Action.Namespace
 	if namespace == "" {
-		env.Logger().Errorf("Missing namespace")
-		return false, nil
+		return false, env.Logger().Errorf("Missing namespace")
 	}
 
 	serviceName := inst.Action.Service
 	if serviceName == "" {
-		env.Logger().Errorf("Missing service")
-		return false, nil
+		return false, env.Logger().Errorf("Missing service")
 	}
 
 	path := inst.Action.Path
 	if path == "" {
-		env.Logger().Errorf("Missing path")
-		return false, nil
+		return false, env.Logger().Errorf("Missing path")
 	}
 
 	method := inst.Action.Method
 	if method == "" {
-		env.Logger().Errorf("Missing method")
-		return false, nil
+		return false, env.Logger().Errorf("Missing method")
 	}
 
 	extraAct := inst.Action.Properties
@@ -116,16 +112,7 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 		env.Logger().Infof("Checking role: %s", rolename)
 		rules := roleInfo.info.GetRules()
 		for _, rule := range rules {
-			services := rule.GetServices()
-			paths := rule.GetPaths()
-			methods := rule.GetMethods()
-			constraints := rule.GetConstraints()
-			env.Logger().Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
-
-			if stringMatch(serviceName, services) &&
-				(paths == nil || stringMatch(path, paths)) &&
-				stringMatch(method, methods) &&
-				checkConstraints(extraAct, constraints) {
+			if matchRule(serviceName, path, method, extraAct, rule, env) {
 				eligibleRole = true
 				break
 			}
@@ -152,6 +139,23 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 		}
 	}
 	return false, nil
+}
+
+// Helper function to check whether or not a request matches a rule in a ServiceRole specification.
+func matchRule(serviceName string, path string, method string, extraAct map[string]interface{}, rule *rbacproto.AccessRule, env adapter.Env) bool {
+	services := rule.GetServices()
+	paths := rule.GetPaths()
+	methods := rule.GetMethods()
+	constraints := rule.GetConstraints()
+	env.Logger().Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
+
+	if stringMatch(serviceName, services) &&
+		(paths == nil || stringMatch(path, paths)) &&
+		stringMatch(method, methods) &&
+		checkConstraints(extraAct, constraints) {
+		return true
+	}
+	return false
 }
 
 // Helper function to check if a string is in a list.
@@ -184,11 +188,8 @@ func suffixMatch(a string, pattern string) bool {
 // Helper function to check if a given string value
 // is in a list of strings.
 func valueInList(value interface{}, list []string) bool {
-	switch value.(type) {
-	case string:
-		return stringMatch(value.(string), list)
-	default:
-		// only string type is supported.
+	if str, ok := value.(string); ok {
+		return stringMatch(str, list)
 	}
 	return false
 }
@@ -213,11 +214,8 @@ func checkConstraints(properties map[string]interface{}, constraints []*rbacprot
 
 // Check if a given value is equal to a string.
 func valueMatch(a interface{}, b string) bool {
-	switch a.(type) {
-	case string:
-		return a.(string) == b
-	default:
-		// only string type is supported.
+	if str, ok := a.(string); ok {
+		return str == b
 	}
 	return false
 }

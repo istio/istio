@@ -17,6 +17,7 @@ package rbac
 import (
 	"context"
 	"testing"
+	"time"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -24,27 +25,28 @@ import (
 	"istio.io/istio/mixer/template/authorization"
 )
 
-type fakedAllowRbacstore struct {
+type fakedAllowRBACStore struct {
 	called int
 }
 
-func (f *fakedAllowRbacstore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (f *fakedAllowRBACStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
 	f.called++
 	return true, nil
 }
 
-type fakedDenyRbacstore struct {
+type fakedDenyRBACStore struct {
 	called int
 }
 
-func (f *fakedDenyRbacstore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (f *fakedDenyRBACStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
 	f.called++
 	return false, nil
 }
 
 func TestHandleAuthorization_Success(t *testing.T) {
-	rbac := &fakedAllowRbacstore{}
-	handler := &handler{rbac, test.NewEnv(t)}
+	rbac := &fakedAllowRBACStore{}
+	var timer *time.Timer
+	handler := &handler{rbac: rbac, env: test.NewEnv(t), timer: timer, closing: make(chan bool)}
 
 	instance := authorization.Instance{}
 	result, _ := handler.HandleAuthorization(context.Background(), &instance)
@@ -59,8 +61,9 @@ func TestHandleAuthorization_Success(t *testing.T) {
 }
 
 func TestHandleAuthorization_Deny(t *testing.T) {
-	rbac := &fakedDenyRbacstore{}
-	handler := &handler{rbac, test.NewEnv(t)}
+	rbac := &fakedDenyRBACStore{}
+	var timer *time.Timer
+	handler := &handler{rbac: rbac, env: test.NewEnv(t), timer: timer, closing: make(chan bool)}
 
 	instance := authorization.Instance{}
 	result, _ := handler.HandleAuthorization(context.Background(), &instance)

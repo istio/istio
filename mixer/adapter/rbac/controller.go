@@ -38,13 +38,12 @@ func (c *controller) applyEvents(events []*store.Event, env adapter.Env) {
 			delete(c.configState, ev.Key)
 		}
 	}
-	c.processRbacRoles(env)
+	c.processRBACRoles(env)
 }
 
-// processRbacRoles processes ServiceRole and ServiceRoleBinding CRDs and save them to
+// processRBACRoles processes ServiceRole and ServiceRoleBinding CRDs and save them to
 // RBAC store data structure.
-func (c *controller) processRbacRoles(env adapter.Env) {
-	env.Logger().Infof("ProcessRbacRoles")
+func (c *controller) processRBACRoles(env adapter.Env) {
 	roles := make(rolesMapByNamespace)
 
 	for k, obj := range c.configState {
@@ -68,7 +67,7 @@ func (c *controller) processRbacRoles(env adapter.Env) {
 			roleKind := bindingSpec.GetRoleRef().GetKind()
 			roleName := bindingSpec.GetRoleRef().GetName()
 
-			if roleKind != "ServiceRole" {
+			if roleKind != serviceRoleKind {
 				env.Logger().Errorf("Error: RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
 			}
 			if roleName == "" {

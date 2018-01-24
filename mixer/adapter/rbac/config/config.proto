@@ -23,6 +23,21 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// The parameter is provided when defining a handler of the adapter.
+//
+// For example, the following configuration defines a RBAC handler with
+// configuration store URL pointing to Kubernetes etcd ("k8s://").
+// If you want to run Mixer locally, you can set the configuration store
+// URL to a local directory (e.g., "fs:///tmp/testdata/configroot").
+//
+//   apiVersion: "config.istio.io/v1alpha2"
+//   kind: rbac
+//   metadata:
+//     name: rbachandler
+//     namespace: istio-system
+//   spec:
+//     config_store_url: "fs:///tmp/testdata/config"
+//
 message Params {
   // URL for the config store. It is used to initiate a new Store instance.
   // Following are some examples of the config store URL:

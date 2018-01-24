@@ -18,6 +18,7 @@ package rbac
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -36,8 +37,10 @@ type (
 		adapterConfig *config.Params
 	}
 	handler struct {
-		rbac Rbac
+		rbac authorizer
 		env  adapter.Env
+		timer *time.Timer
+		closing chan bool
 	}
 )
 
@@ -54,6 +57,11 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig
+
+	if _, err := url.Parse(ac.ConfigStoreUrl); err != nil {
+		ce = ce.Append("configStoreUrl", err)
+	}
 	return
 }
 
@@ -63,17 +71,16 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	reg := store.NewRegistry(mixerconfig.StoreInventory()...)
 	s, err := reg.NewStore(b.adapterConfig.ConfigStoreUrl)
 	if err != nil {
-		env.Logger().Errorf("unable to connect to the configuration server: %v", err)
-		return nil, err
+		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}
 	r := &configStore{}
-	err = startController(s, r, env)
-	if err != nil {
-		env.Logger().Errorf("unable to start controller: %v", err)
-		return nil, err
+	var timer *time.Timer
+	h := &handler{rbac: r, env: env, timer: timer, closing: make(chan bool)}
+	if err = h.startController(s); err != nil {
+		return nil, env.Logger().Errorf("Unable to start controller: %v", err)
 	}
 
-	return &handler{rbac: r, env: env}, nil
+	return h, nil
 }
 
 // maxEvents is the likely maximum number of events
@@ -83,41 +90,41 @@ const maxEvents = 50
 var watchFlushDuration = time.Second
 
 // startController creates a controller from the given params.
-func startController(s store.Store, r *configStore, env adapter.Env) error {
+func (h *handler)startController(s store.Store) error {
 	data, watchChan, err := startWatch(s)
 	if err != nil {
-		env.Logger().Errorf("Error while starting watching CRDs: %v", err)
-		return err
+		return h.env.Logger().Errorf("Error while starting watching CRDs: %v", err)
 	}
 
 	c := &controller{
 		configState: data,
-		rbacStore:   r,
+		rbacStore:   h.rbac.(*configStore),
 	}
 
-	c.processRbacRoles(env)
+	c.processRBACRoles(h.env)
 	// Start a goroutine to watch for changes on a channel and
 	// publishes a batch of changes via applyEvents.
-	env.ScheduleDaemon(func() {
+	h.env.ScheduleDaemon(func() {
 		// consume changes and apply them to data indefinitely
 		var timeChan <-chan time.Time
-		var timer *time.Timer
 		events := make([]*store.Event, 0, maxEvents)
 
 		for {
 			select {
 			case ev := <-watchChan:
 				if len(events) == 0 {
-					timer = time.NewTimer(watchFlushDuration)
-					timeChan = timer.C
+					h.timer = time.NewTimer(watchFlushDuration)
+					timeChan = h.timer.C
 				}
 				events = append(events, &ev)
 			case <-timeChan:
-				timer.Stop()
+				h.timer.Stop()
 				timeChan = nil
-				env.Logger().Infof("Publishing %d events", len(events))
-				c.applyEvents(events, env)
+				h.env.Logger().Infof("Publishing %d events", len(events))
+				c.applyEvents(events, h.env)
 				events = events[:0]
+			case <-h.closing:
+				return
 			}
 		}
 	})
@@ -157,7 +164,15 @@ func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.I
 }
 
 // adapter.Handler#Close
-func (h *handler) Close() error { return nil }
+func (h *handler) Close() error {
+	h.closing <- true
+	close(h.closing)
+
+	if h.timer != nil {
+		h.timer.Stop()
+	}
+	return nil
+}
 
 ////////////////// Bootstrap //////////////////////////
 
@@ -166,7 +181,7 @@ func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "rbac",
 		Impl:        "istio.io/istio/mixer/adapter/rbac",
-		Description: "Istio RBAC adapter",
+		Description: "Role Based Access Control for Istio services",
 		SupportedTemplates: []string{
 			authorization.TemplateName,
 		},
