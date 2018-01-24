@@ -222,7 +222,7 @@ function run() {
         local BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
         local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
 
-        printf "Results:\n"
+        printf "Current benchmark results:\n"
         printf "%s" "${BENCH_RESULT}"
         printf "\n\n"
 
