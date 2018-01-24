@@ -39,6 +39,6 @@ func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	}
 	logOptions.AttachCobraFlags(cmd)
 	cmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "", "Path of the file for checking the availability.")
-	cmd.PersistentFlags().DurationVar(&probeOptions.ProbeInterval, "probe-interval", 0, "Interval for checking the availability.")
+	cmd.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0, "Duration used for checking the target file's last modified time.")
 	return cmd
 }

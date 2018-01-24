@@ -91,10 +91,10 @@ func (d *dummyImpl) wait(t *testing.T, timeout time.Duration) {
 func newDummyController() (Controller, *dummyImpl) {
 	d := &dummyImpl{}
 	c := &controller{
-		statuses:      map[*Probe]error{},
-		name:          "dummy",
-		probeInterval: testDuration,
-		impl:          d,
+		statuses: map[*Probe]error{},
+		name:     "dummy",
+		interval: testDuration,
+		impl:     d,
 	}
 	c.Start()
 	return c, d

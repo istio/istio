@@ -21,11 +21,12 @@ type Options struct {
 	// Path defines the path to the file used for the existence.
 	Path string
 
-	// ProbeInterval defines the interval between probes.
-	ProbeInterval time.Duration
+	// UpdateInterval defines the interval for updating the file's last modified
+	// time.
+	UpdateInterval time.Duration
 }
 
 // IsValid returns true if some values are filled into the options.
 func (o *Options) IsValid() bool {
-	return o != nil && o.Path != "" && o.ProbeInterval > 0
+	return o != nil && o.Path != "" && o.UpdateInterval > 0
 }

@@ -20,13 +20,6 @@ import (
 	"time"
 )
 
-// PathExists checks if the specified path exists or not. This will be used
-// by the k8s probe client commandline tool.
-func PathExists(path string) error {
-	_, err := os.Stat(path)
-	return err
-}
-
 // Client is the interface to check the status of a probe controller.
 type Client interface {
 	GetStatus() error
@@ -51,8 +44,8 @@ func (fc *fileClient) GetStatus() error {
 	// Sometimes filesystem / goroutine scheduling takes time, some buffer should be
 	// allowed for the validity of a file.
 	const jitter = 10 * time.Millisecond
-	if mtime := stat.ModTime(); now.Sub(mtime) > fc.opt.ProbeInterval+jitter {
-		return fmt.Errorf("file %s is too old (last modified time %v, should be within %v)", fc.opt.Path, mtime, fc.opt.ProbeInterval+jitter)
+	if mtime := stat.ModTime(); now.Sub(mtime) > fc.opt.UpdateInterval+jitter {
+		return fmt.Errorf("file %s is too old (last modified time %v, should be within %v)", fc.opt.Path, mtime, fc.opt.UpdateInterval+jitter)
 	}
 	return nil
 }

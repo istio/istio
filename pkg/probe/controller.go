@@ -45,11 +45,11 @@ type controller struct {
 	sync.Mutex
 	statuses map[*Probe]error
 
-	name          string
-	closec        chan struct{}
-	donec         chan struct{}
-	probeInterval time.Duration
-	impl          controllerImpl
+	name     string
+	closec   chan struct{}
+	donec    chan struct{}
+	interval time.Duration
+	impl     controllerImpl
 }
 
 func (cb *controller) Start() {
@@ -63,7 +63,7 @@ func (cb *controller) Start() {
 	go func() {
 		// Considering the consumption of the updating status, invoke
 		// onUpdate every half of the specified interval.
-		t := time.NewTicker(cb.probeInterval / 2)
+		t := time.NewTicker(cb.interval / 2)
 	loop:
 		for {
 			select {
@@ -142,10 +142,10 @@ type fileController struct {
 func NewFileController(opt *Options) Controller {
 	name := filepath.Base(opt.Path)
 	return &controller{
-		statuses:      map[*Probe]error{},
-		name:          name,
-		probeInterval: opt.ProbeInterval,
-		impl:          &fileController{path: opt.Path},
+		statuses: map[*Probe]error{},
+		name:     name,
+		interval: opt.UpdateInterval,
+		impl:     &fileController{path: opt.Path},
 	}
 }
 
@@ -158,6 +158,8 @@ func (fc *fileController) onClose() error {
 
 func (fc *fileController) onUpdate(newStatus error) {
 	if newStatus == nil {
+		// os.Create updates the last modified time even when the path exists, so
+		// simply calling this creates or updates the modified time.
 		f, err := os.Create(fc.path)
 		if err != nil {
 			log.Errorf("Failed to create the path %s: %v", fc.path, err)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package probe provides k8s liveness / readiness probe.
+// Package probe provides liveness / readiness probe.
 package probe
 
 import "errors"
