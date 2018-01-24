@@ -39,7 +39,6 @@ type (
 	handler struct {
 		rbac    authorizer
 		env     adapter.Env
-		timer   *time.Timer
 		closing chan bool
 	}
 )
@@ -74,8 +73,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}
 	r := &configStore{}
-	var timer *time.Timer
-	h := &handler{rbac: r, env: env, timer: timer, closing: make(chan bool)}
+	h := &handler{rbac: r, env: env, closing: make(chan bool)}
 	if err = h.startController(s); err != nil {
 		return nil, env.Logger().Errorf("Unable to start controller: %v", err)
 	}
@@ -107,23 +105,28 @@ func (h *handler) startController(s store.Store) error {
 	h.env.ScheduleDaemon(func() {
 		// consume changes and apply them to data indefinitely
 		var timeChan <-chan time.Time
+		var timer *time.Timer
 		events := make([]*store.Event, 0, maxEvents)
 
 		for {
 			select {
 			case ev := <-watchChan:
 				if len(events) == 0 {
-					h.timer = time.NewTimer(watchFlushDuration)
-					timeChan = h.timer.C
+					timer = time.NewTimer(watchFlushDuration)
+					timeChan = timer.C
 				}
 				events = append(events, &ev)
 			case <-timeChan:
-				h.timer.Stop()
+				timer.Stop()
 				timeChan = nil
 				h.env.Logger().Infof("Publishing %d events", len(events))
 				c.applyEvents(events, h.env)
 				events = events[:0]
 			case <-h.closing:
+				if timer != nil {
+					timer.Stop()
+					timeChan = nil
+				}
 				return
 			}
 		}
@@ -165,12 +168,8 @@ func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.I
 
 // adapter.Handler#Close
 func (h *handler) Close() error {
-	h.closing <- true
 	close(h.closing)
 
-	if h.timer != nil {
-		h.timer.Stop()
-	}
 	return nil
 }
 

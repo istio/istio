@@ -73,6 +73,8 @@ metadata:
   namespace: default
 spec:
   rules:
+  # Exact match, prefix match and suffix match are supported for service name, paths, and constraints values.
+  # e.g. "reviews*" (for service), "*/review" (for path).
   - services: ["reviews*"]
     methods: ["*"]
   - services: ["bookstore.svc.cluster.local"]
