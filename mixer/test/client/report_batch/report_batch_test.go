@@ -57,7 +57,6 @@ const reportAttributesOkGet = `
   "response.code": 200,
   "response.headers": {
      "date": "*",
-     "content-type": "text/plain; charset=utf-8",
      "content-length": "0",
      ":status": "200",
      "server": "envoy"

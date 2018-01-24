@@ -25,3 +25,5 @@ rm *srl
 
 echo 'Generate cert chain file.'
 cp ca-cert.pem cert-chain.pem
+
+mv *.pem ../../../install/kubernetes/
