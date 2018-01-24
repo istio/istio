@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alicebob/miniredis"
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
 )
@@ -171,7 +173,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 
 	for id, c := range cases {
 		// start mock redis server
-		mockRedis, err := NewLocalRedisServer("127.0.0.1:0")
+		mockRedis, err := miniredis.Run()
 		if err != nil {
 			t.Fatalf("Unable to start mock redis server: %v", err)
 		}
@@ -182,14 +184,17 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 
 		args.APIPort = 0
 		args.MonitoringPort = 0
-		args.GlobalConfig = globalConfig
-		adapterConfig := adapterConfig
-		adapterConfig = strings.Replace(adapterConfig, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
-		adapterConfig = strings.Replace(adapterConfig, "__REDIS_SERVER_ADDRESS__", mockRedis.redisServer.Addr().String(), -1)
-		args.ServiceConfig = adapterConfig
+		args.ConfigStoreURL = "memstore://" + t.Name()
 		args.Templates = template.SupportedTmplInfo
 		args.Adapters = []adapter.InfoFn{
 			GetInfo,
+		}
+
+		serviceCfg := adapterConfig
+		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
+		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
+		if err := store.SetupMemstore(args.ConfigStoreURL, globalConfig, serviceCfg); err != nil {
+			t.Fatal(err)
 		}
 
 		mixerServer, err := server.New(args)

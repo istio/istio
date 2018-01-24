@@ -74,7 +74,7 @@
     ".",
     "server"
   ]
-  revision = "70cb3fab2cf658a95f2ccae5bfb2f0ccbba0c548"
+  revision = "da6a59a3d4d597ee57ac3766a641a846a2327104"
   version = "2.2.1"
 
 [[projects]]

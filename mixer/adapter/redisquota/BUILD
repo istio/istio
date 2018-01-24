@@ -5,7 +5,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "fixed_window.go",
         "redisquota.go",
+        "rolling_window.go",
     ],
     deps = [
         "//mixer/adapter/redisquota/config:go_default_library",
