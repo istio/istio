@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "security.fullname" . }}
+  name: {{ template "auth.fullname" . }}
   labels:
-    app: {{ template "security.name" . }}
+    app: {{ template "auth.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

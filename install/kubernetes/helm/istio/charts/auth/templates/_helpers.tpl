@@ -2,7 +2,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "security.name" -}}
+{{- define "auth.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
@@ -10,7 +10,7 @@ Expand the name of the chart.
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
-{{- define "security.fullname" -}}
+{{- define "auth.fullname" -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -18,9 +18,9 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{/*
 Service account name.
 */}}
-{{- define "security.serviceAccountName" -}}
+{{- define "auth.serviceAccountName" -}}
 {{- if .Values.global.rbacEnabled -}}
-{{- template "security.fullname" . -}}
+{{- template "auth.fullname" . -}}
 {{- else }}
 {{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

@@ -11,7 +11,7 @@ global:
   pilot:
     repository: {PILOT_HUB}/pilot
     tag: {PILOT_TAG}
-  security:
+  auth:
     repository: {CA_HUB}/istio-ca
     tag: {CA_TAG}
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
@@ -19,13 +19,13 @@ global:
     repository: {HYPERKUBE_HUB}
     tag: {HYPERKUBE_TAG}
 
-  rbacEnable: false
-  securityEnabled: false
+  rbacEnabled: true
+  authEnabled: false
 
 #
 # proxy side car and ingress configuration
 #
-serviceAccountName: istio-proxy
+serviceAccountName: default
 imagePullPolicy: IfNotPresent
 resources: {}
 nodeSelector: {}
@@ -42,12 +42,9 @@ service:
 #
 initializer:
   enabled: true
-  serviceAccountName: istio-initializer
+  serviceAccountName: default
   replicaCount: 1
-  image:
-    repository: docker.io/istio/sidecar_initializer
-    tag: 0.4.0
-    pullPolicy: IfNotPresent
+  imagePullPolicy: IfNotPresent
   resources: {}
   nodeSelector: {}
 
@@ -60,13 +57,13 @@ initializer:
 #
 mixer:
   enabled: true
-  serviceAccountName: istio-mixer
+  serviceAccountName: default
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
   nodeSelector: {}
 
-  prometheus:
+  prometheusStasdExporter:
     repository: prom/statsd-exporter
     tag: latest
     imagePullPolicy: IfNotPresent
@@ -77,17 +74,17 @@ mixer:
 #
 pilot:
   enabled: true
-  serviceAccountName: istio-pilot
+  serviceAccountName: default
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
   nodeSelector: {}
 
 #
-# security configuration
+# auth configuration
 #
-security:
-  serviceAccountName: istio-security
+auth:
+  serviceAccountName: default
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}

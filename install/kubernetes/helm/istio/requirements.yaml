@@ -11,7 +11,7 @@ dependencies:
     version: 0.3.0
     # repository: file://../pilot
     condition: pilot.enabled
-  - name: security
+  - name: auth
     version: 0.3.0
     # repository: file://../security
-    condition: global.securityEnabled
+    condition: global.authEnabled

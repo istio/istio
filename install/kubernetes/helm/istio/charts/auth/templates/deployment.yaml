@@ -2,9 +2,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "security.fullname" . }}
+  name: {{ template "auth.fullname" . }}
   labels:
-    app: {{ template "security.name" . }}
+    app: {{ template "auth.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -16,13 +16,13 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "security.name" . }}
+        app: {{ template "auth.name" . }}
         heritage: {{ .Release.Service }}
         istio: istio-ca
     spec:
-      serviceAccountName: {{ template "security.serviceAccountName" . }}
+      serviceAccountName: {{ template "auth.serviceAccountName" . }}
       containers:
-        - name: {{ template "security.name" . }}
+        - name: {{ template "auth.name" . }}
           image: "{{ .Values.global.security.repository }}:{{ .Values.global.security.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
