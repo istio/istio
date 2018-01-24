@@ -70,12 +70,11 @@ var (
 	debugMode       bool
 	emitTemplate    bool
 
-	inFilename       string
-	outFilename      string
-	meshConfigFile   string
-	injectConfigFile string
-
+	inFilename        string
+	outFilename       string
+	meshConfigFile    string
 	meshConfigMapName string
+	injectConfigFile  string
 )
 
 var (
