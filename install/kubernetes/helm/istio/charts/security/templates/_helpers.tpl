@@ -19,9 +19,9 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 Service account name.
 */}}
 {{- define "security.serviceAccountName" -}}
-{{- if .Values.global.rbac.create -}}
+{{- if .Values.global.rbacEnabled -}}
 {{- template "security.fullname" . -}}
 {{- else }}
-{{- .Values.rbac.serviceAccountName | trunc 63 | trimSuffix "-" -}}
+{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}

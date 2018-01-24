@@ -21,8 +21,7 @@ spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
         - name: hyperkube
-          image: "{{ .Values.hyperkube.repository }}:{{ .Values.hyperkube.tag }}"
-          imagePullPolicy: {{ .Values.hyperkube.imagePullPolicy }}
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
           command:
             - ./kubectl
             - apply

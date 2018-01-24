@@ -27,7 +27,7 @@ spec:
       serviceAccountName: {{ template "initializer.serviceAccountName" . }}
       containers:
         - name: {{ template "initializer.name" . }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.global.initializer.repository }}:{{ .Values.global.initializer.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - --namespace={{ .Release.Namespace }}

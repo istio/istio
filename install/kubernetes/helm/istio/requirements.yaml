@@ -1,13 +1,13 @@
 dependencies:
-  - name: pilot
-    version: 0.3.0
-    condition: pilot.enabled
-  - name: mixer
-    version: 0.3.0
-    condition: mixer.enabled
   - name: initializer
     version: 0.3.0
-    condition: initializer.enabled
+    # condition: initializer.enabled
+  - name: mixer
+    version: 0.3.0
+    # condition: mixer.enabled
+  - name: pilot
+    version: 0.3.0
+    # condition: pilot.enabled
   - name: security
     version: 0.3.0
-    condition: global.security.enabled
+    # condition: global.securityEnabled

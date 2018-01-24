@@ -37,8 +37,8 @@ spec:
           - name: config-volume
             mountPath: /etc/statsd
         - name: {{ template "mixer.name" . }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.global.mixer.repository }}:{{ .Values.global.mixer.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
           - containerPort: 9091
           - containerPort: 9094
@@ -63,7 +63,7 @@ spec:
           - -v
           - "2"
           - --controlPlaneAuthPolicy
-        {{- if .Values.global.security.enabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLSN
           - --customConfigFile
           - /etc/istio/proxy/envoy_mixer_auth.json

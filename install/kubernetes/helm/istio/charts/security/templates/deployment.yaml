@@ -23,8 +23,8 @@ spec:
       serviceAccountName: {{ template "security.serviceAccountName" . }}
       containers:
         - name: {{ template "security.name" . }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.global.security.repository }}:{{ .Values.global.security.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - --grpc-port=8060
             - --grpc-hostname=istio-ca

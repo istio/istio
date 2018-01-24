@@ -52,7 +52,7 @@ spec:
           - "15000"
           - --controlPlaneAuthPolicy
 
-        {{- if .Values.global.security.enabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
         {{- else }}
           - NONE #--controlPlaneAuthPolicy

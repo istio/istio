@@ -22,8 +22,8 @@ spec:
       serviceAccountName: {{ template "pilot.serviceAccountName" . }}
       containers:
         - name: {{ template "pilot.name" . }}-discovery
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.global.pilot.repository }}:{{ .Values.global.pilot.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           args: ["discovery", "-v", "2", "--admission-service", "{{ template "pilot.fullname" . }}"]
           ports:
           - containerPort: 8080
@@ -63,7 +63,7 @@ spec:
           - --discoveryAddress
           - {{ template "pilot.fullname" . }}:15003
           - --controlPlaneAuthPolicy
-        {{- if .Values.global.security.enabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
           - --customConfigFile
           - /etc//proxy/envoy_pilot_auth.json

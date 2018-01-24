@@ -105,8 +105,8 @@ fi
 # handle PROXY_DEBUG conversion to proxy_debug or proxy image
 PROXY_IMAGE="proxy"
 if [[ "${PROXY_DEBUG}" == "true" ]]; then
-  echo "# Use proxy_debug image"
-  PROXY_IMAGE="proxy_debug"
+    echo "# Use proxy_debug image"
+    PROXY_IMAGE="proxy_debug"
 fi
 
 function error_exit() {
