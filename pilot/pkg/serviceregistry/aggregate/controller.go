@@ -118,6 +118,9 @@ func (c *Controller) Instances(hostname string, ports []string,
 			instances = append(instances, tmpInstances...)
 		}
 	}
+	if len(instances) > 0 {
+		errs = nil
+	}
 	return instances, errs
 }
 
