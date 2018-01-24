@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudfoundry
+package cloudfoundry_test
 
 import (
 	"crypto/tls"
@@ -27,7 +27,7 @@ import (
 	"code.cloudfoundry.org/copilot/testhelpers"
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundryloudfoundry"
+	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 )
 
 type testState struct {

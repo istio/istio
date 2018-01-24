@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudfoundry
+package cloudfoundry_test
 
 import (
 	"errors"
@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundryloudfoundry"
+	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 )
 
 func TestController_Caching(t *testing.T) {
