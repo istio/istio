@@ -61,7 +61,7 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 var (
 	hub             string
 	tag             string
-	sidecarProxyUID uint32
+	sidecarProxyUID uint64
 	verbosity       int
 	versionStr      string // override build version
 	enableCoreDump  bool
@@ -241,7 +241,7 @@ func init() {
 		"", "Modified output Kubernetes resource filename")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")
-	injectCmd.PersistentFlags().Uint32Var(&sidecarProxyUID, "sidecarProxyUID",
+	injectCmd.PersistentFlags().Uint64Var(&sidecarProxyUID, "sidecarProxyUID",
 		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")

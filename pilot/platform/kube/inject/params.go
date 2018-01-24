@@ -24,7 +24,7 @@ import (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID = uint32(1337)
+	DefaultSidecarProxyUID = uint64(1337)
 	DefaultVerbosity       = 2
 	DefaultImagePullPolicy = "IfNotPresent"
 
@@ -38,7 +38,7 @@ type Params struct {
 	InitImage       string                 `json:"initImage"`
 	ProxyImage      string                 `json:"proxyImage"`
 	Verbosity       int                    `json:"verbosity"`
-	SidecarProxyUID uint32                 `json:"sidecarProxyUID"`
+	SidecarProxyUID uint64                 `json:"sidecarProxyUID"`
 	Version         string                 `json:"version"`
 	EnableCoreDump  bool                   `json:"enableCoreDump"`
 	DebugMode       bool                   `json:"debugMode"`
