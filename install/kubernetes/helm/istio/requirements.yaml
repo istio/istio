@@ -1,13 +1,17 @@
 dependencies:
   - name: initializer
     version: 0.3.0
-    # condition: initializer.enabled
+    # repository: file://../initializer
+    condition: initializer.enabled
   - name: mixer
     version: 0.3.0
-    # condition: mixer.enabled
+    # repository: file://../mixer
+    condition: mixer.enabled
   - name: pilot
     version: 0.3.0
-    # condition: pilot.enabled
+    # repository: file://../pilot
+    condition: pilot.enabled
   - name: security
     version: 0.3.0
-    # condition: global.securityEnabled
+    # repository: file://../security
+    condition: global.securityEnabled

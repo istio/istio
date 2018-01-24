@@ -1,3 +1,4 @@
+apiVersion: v1
 name: pilot
 version: 0.3.0
 description: Helm chart for pilot deployment

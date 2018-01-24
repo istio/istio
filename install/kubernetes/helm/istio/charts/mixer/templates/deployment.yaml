@@ -23,8 +23,8 @@ spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
         - name: statsd-to-prometheus
-          image: "{{ .Values.prometheus.repository }}:{{ .Values.prometheus.tag}}"
-          imagePullPolicy: {{ .Values.prometheus.imagePullPolicy }}
+          image: "{{ .Values.prometheusStatsdExporter.repository }}:{{ .Values.prometheusStatsdExporter.tag}}"
+          imagePullPolicy: {{ .Values.prometheusStatsdExporter.imagePullPolicy }}
           ports:
           - containerPort: 9102
           - containerPort: 9125
@@ -32,7 +32,7 @@ spec:
           args:
           - '-statsd.mapping-config=/etc/statsd/mapping.conf'
           resources:
-{{ toYaml .Values.prometheus.resources | indent 12 }}
+{{ toYaml .Values.prometheusStatsdExporter.resources | indent 12 }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/statsd
