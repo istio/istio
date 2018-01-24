@@ -26,15 +26,14 @@ ISTIO_DEB_SRC:=tools/deb/istio-start.sh \
 			  tools/deb/sidecar.env \
 			  tools/deb/envoy.json
 
-ISTIO_DEB_DEPS:=envoy pilot-agent pilot-discovery node_agent istioctl mixs istio_ca
+# Base directory for istio binaries. Likely to change !
+ISTIO_DEB_BIN=/usr/local/bin
 
+ISTIO_DEB_DEPS:=envoy pilot-agent pilot-discovery node_agent istioctl mixs istio_ca
 SIDECAR_FILES:=
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb: $(ISTIO_OUT)/$(DEP)) \
-        $(eval SIDECAR_FILES+="bin/$(DEP)=$(ISTIO_OUT)/$(DEP)") )
-
-# Base directory for istio binaries. Likely to change !
-ISTIO_DEB_BIN=/usr/local/bin
+        $(eval SIDECAR_FILES+="$(ISTIO_OUT)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)") )
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar
