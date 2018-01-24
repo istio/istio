@@ -130,7 +130,7 @@ setup:
 depend: init $(ISTIO_OUT)
 
 $(ISTIO_OUT):
-	mkdir -p $(@)
+	mkdir -p $@
 
 depend.ensure: init
 
@@ -442,7 +442,7 @@ docker.prebuilt:
 ifeq ($(GOOS),linux)
 
 $(ISTIO_DOCKER):
-	mkdir -p $(@)
+	mkdir -p $@
 
 DIRS_TO_CLEAN+=$(ISTIO_DOCKER)
 
