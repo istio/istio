@@ -511,6 +511,3 @@ workflows:
       - e2e-pilot:
           requires:
             - build
-      - benchcheck:
-          requires:
-            - test
