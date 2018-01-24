@@ -148,7 +148,7 @@ ${DEP}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 
 ${GOLINT}:
-	unset GOOS && go get -u github.com/golang/lint/golint
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
