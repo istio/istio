@@ -21,6 +21,12 @@ SHELL := /bin/bash
 # Current version, updated after a release.
 VERSION ?= 0.5.0
 
+# locations where artifacts are stored
+ISTIO_DOCKER_HUB ?= docker.io/istio
+ISTIO_GCS ?= istio-release/releases/$(VERSION)
+ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
+ISTIO_URL_ISTIOCTL ?= istioctl
+
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
@@ -278,46 +284,19 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 
 istio-archive: ${ISTIO_OUT}/archive
 
-ISTIO_DOCKER_HUB ?= docker.io/istio
-ISTIO_GCS ?= istio-release/releases/$(VERSION)
-ISTIO_GCS_ISTIOCTL ?= istioctl
-
-# makes istio-0.5.0-osx.tar.gz istio-0.5.0-linux.tar.gz istio_0.5.0_win.zip
-# sources istio.VERSION from source tree
-# XXX need to capture VERSION, ISTIO_HUB, ISTIO_GCS as dependencies
+# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL, ISTIO_URL_ISTIOCTL as dependencies
 ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
-#ifneq ($(GCRPATH),)
-#ifneq ($(GCSPATH),)
-# These files are only used for testing, so use a name to help make this clear
-#	for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do \
-#	  mv "$TAR_FILE" $(dirname "$TAR_FILE")/TESTONLY-$(basename "$TAR_FILE") \
-#	done
-#	install/updateVersion.sh -c "gcr.io/$(GCRPATH),$(VERSION)" -A "https://$(GCSPATH)/deb" \
-#                                 -x "gcr.io/$(GCRPATH),$(VERSION)" -p "gcr.io/$(GCRPATH),$(VERSION)" \
-#                                 -i "https://storage.googleapis.com/$(GCSPATH)/istioctl-stage" \
-#                                 -P "https://storage.googleapis.com/$(GCSPATH)/deb" \
-#                                 -r "0.5.0" -E "https://storage.googleapis.com/$(GCSPATH)/deb" -d "${ISTIO_OUT}/archive"
-#	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
-# avoid potential issues with re-running updateVersion.sh by clobbering the dirs it creates                                                           
-#	rm -r ${OUTPUT_PATH}/install ${OUTPUT_PATH}/samples
-#endif
-#endif
-	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" -A "https://storage.googleapis.com/$(ISTIO_GCS)/deb" \
+	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" -A "$(ISTIO_URL)/deb" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -i "https://storage.googleapis.com/$(ISTIO_GCS)/$(ISTIO_GCS_ISTIOCTL)" \
-                                 -P "https://storage.googleapis.com/$(ISTIO_GCS)/deb" \
-                                 -r "$(VERSION)" -E "https://storage.googleapis.com/$(ISTIO_GCS)/deb" -d "${ISTIO_OUT}/archive"
+                                 -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
+                                 -P "$(ISTIO_URL)/deb" \
+                                 -r "$(VERSION)" -E "$(ISTIO_URL)/deb" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
-
-# test one:
-# install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
-                                 -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
-                                 -r "0.5.0" -E "${DEBIAN_URL}" -d "${ISTIO_OUT}/archive"
 
 #-----------------------------------------------------------------------------
 # Target: go test
