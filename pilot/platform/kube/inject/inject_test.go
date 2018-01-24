@@ -27,7 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/version"
 )
 
 func TestImageName(t *testing.T) {
@@ -219,7 +219,6 @@ func TestIntoResourceFile(t *testing.T) {
 		if err = IntoResourceFile(config, in, &got); err != nil {
 			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
 		}
-
 		util.CompareContent(got.Bytes(), c.want, t)
 	}
 }
@@ -499,8 +498,8 @@ func TestGetInitializerConfig(t *testing.T) {
 				InitializerName:   DefaultInitializerName,
 				IncludeNamespaces: []string{v1.NamespaceAll},
 				Params: Params{
-					InitImage:       InitImageName(DefaultHub, version.Info.Version, false),
-					ProxyImage:      ProxyImageName(DefaultHub, version.Info.Version, false),
+					InitImage:       InitImageName(version.Info.DockerHub, version.Info.Version, false),
+					ProxyImage:      ProxyImageName(version.Info.DockerHub, version.Info.Version, false),
 					SidecarProxyUID: DefaultSidecarProxyUID,
 					ImagePullPolicy: DefaultImagePullPolicy,
 				},

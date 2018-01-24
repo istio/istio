@@ -40,4 +40,4 @@ mkdir -p /var/log/istio
 touch /var/lib/istio/config/mesh
 
 chown istio-proxy.istio-proxy /var/lib/istio/envoy /var/lib/istio/config /var/log/istio /var/lib/istio/config/mesh /var/lib/istio/proxy
-
+chmod o+rx /usr/local/bin/{envoy,istioctl,pilot-agent,node_agent,mixs,pilot-discovery}

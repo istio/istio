@@ -23,6 +23,7 @@ import (
 	api_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
 )
@@ -184,11 +185,13 @@ func TestServer(t *testing.T) {
 
 	args.APIPort = 0
 	args.MonitoringPort = 0
-	args.GlobalConfig = globalCfg
-	args.ServiceConfig = serviceCfg
+	args.ConfigStoreURL = "memstore://" + t.Name()
 	args.Templates = template.SupportedTmplInfo
 	args.Adapters = []adapter.InfoFn{
 		GetInfo,
+	}
+	if err := store.SetupMemstore(args.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
+		t.Fatal(err)
 	}
 
 	mixerServer, err := server.New(args)

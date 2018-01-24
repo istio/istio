@@ -18,7 +18,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
@@ -61,6 +60,9 @@ const (
 
 	// ClusterTypeOriginalDST name for clusters of type 'original_dst'
 	ClusterTypeOriginalDST = "original_dst"
+
+	// ClusterTypeSDS name for clusters of type 'sds'
+	ClusterTypeSDS = "sds"
 
 	// LbTypeRoundRobin is the name for round-robin LB
 	LbTypeRoundRobin = "round_robin"
@@ -298,6 +300,11 @@ type HTTPRoute struct {
 	// faults contains the set of referenced faults in the route; the field is special
 	// and used only to aggregate fault filter information after composing routes
 	faults []*HTTPFilter
+}
+
+// Redirect returns true if route contains redirect logic
+func (route *HTTPRoute) Redirect() bool {
+	return route.HostRedirect != "" || route.PathRedirect != ""
 }
 
 // CatchAll returns true if the route matches all requests

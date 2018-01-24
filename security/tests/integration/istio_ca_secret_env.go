@@ -18,8 +18,9 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"istio.io/istio/tests/integration/framework"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/tests/integration/framework"
 )
 
 const (
@@ -39,15 +40,16 @@ type (
 )
 
 // NewSecretTestEnv creates the environment instance
-func NewSecretTestEnv(name string, kubeconfig string) *SecretTestEnv {
-	clientset, err := CreateClientset(kubeconfig)
+func NewSecretTestEnv(name, kubeConfig, hub, tag string) *SecretTestEnv {
+	clientset, err := CreateClientset(kubeConfig)
 	if err != nil {
-		glog.Errorf("failed to initialize K8s client: %s\n", err)
+		glog.Errorf("failed to initialize K8s client: %v", err)
 		return nil
 	}
 
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {
+		glog.Errorf("failed to create test namespace: %v", err)
 		return nil
 	}
 
@@ -55,8 +57,8 @@ func NewSecretTestEnv(name string, kubeconfig string) *SecretTestEnv {
 		ClientSet: clientset,
 		name:      name,
 		NameSpace: namespace,
-		Hub:       *hub,
-		Tag:       *tag,
+		Hub:       hub,
+		Tag:       tag,
 	}
 }
 
@@ -97,7 +99,9 @@ func (env *SecretTestEnv) Cleanup() error {
 	glog.Infof("cleaning up environment...")
 	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
 	if err != nil {
-		glog.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		glog.Error(retErr)
+		return retErr
 	}
 	return nil
 }

@@ -18,7 +18,6 @@ package server
 import (
 	"fmt"
 	"net/http"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/gorilla/mux"

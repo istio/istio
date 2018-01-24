@@ -17,7 +17,6 @@ package na
 import (
 	"fmt"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
@@ -173,5 +172,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),
+		RequestedTtlMinutes: int32(na.config.WorkloadCertTTL.Minutes()),
 	}, nil
 }

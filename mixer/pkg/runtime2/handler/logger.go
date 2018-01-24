@@ -81,6 +81,6 @@ func (l logger) Warningf(format string, args ...interface{}) {
 // Errorf from adapter.Logger.
 func (l logger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
-	l.s.Error(format)
+	l.s.Error(s)
 	return errors.New(s)
 }

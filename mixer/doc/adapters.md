@@ -84,17 +84,34 @@ Every template also has two additional properties associated with it:
 wants to consume `Instance` objects associated with a particular template. The template name is also used within
 operator config to provide template-specific fields to attribute mapping, which is used to create `Instance `objects.
 
-* **Template Variety**: Every template has a specific `template_variety` which can be either Check, Report or Quota.
-The template and its variety determine the signatures of the methods that adapters must implement for consuming the
-associated instances. The `template_variety` also determines under which of the core Mixer behaviors, check report or
-quota, the `instances` for the templates should be created and dispatched to adapters.
+* **Template Variety**: Every template has a specific `template_variety` which can be either Check, Report, Quota or
+AttributeGenerator. The template and its variety determine the signatures of the methods that adapters must implement
+for consuming the associated instances. The `template_variety` also determines under which of the core Mixer behaviors,
+the `instances` for the templates should be created and dispatched to adapters.
+For example:
+    * *Check* template variety instances are created and dispatched only during Mixer's Check API call.
+    * *Report* template variety instances are created and dispatched only during Mixer's Report API call.
+    * *Quota* template variety instances are created and dispatched only during Mixer's Check API call when queried for
+       quota allocation.
+    * *AttributeGenerator* template variety instances are created and dispatched to adapters for both Check, Report Mixer
+API calls. The processing of these templates happen during the supplementary attribute generation
+phase which happens before processing any other variety of templates. Adapters that handle `AttributeGenerator`
+templates are called attribute generating adapters. These adapters are responsible
+for generating output data, dictated by the template, which operators can use to create new attributes. These new
+attributes are combined with the attributes from the request to form the total set of attributes for the operation.
+These new attributes can therefore now be used by operators to configure instances of other check, report and quota
+variety templates.
 
 ## Generated Go code
 
-Individual templates are processed in order to produce four Go artifacts:
+Individual templates are processed in order to produce five Go artifacts:
 
 * *Instance* struct: This defines the data that is passed to the adapters at request time. Mixer
 constructs objects of the `Instance` type, based on the request attributes and operator configuration.
+
+* *Output* struct (Only for ATTRIBUTE_GENERATOR templates): This defines the data that is returned by the adapters during
+the attribute generation phase (before other check, report, quota handling adapters are invoked). Based on operator
+configuration, Mixer constructs new attributes using the `Output` object.
 
 * *Handler* interface: This defines methods that Mixer uses to dispatch created `Instance` objects to the adapters at
 request time. Adapters must implement one Handler interface per supported template type.
@@ -123,7 +140,7 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
@@ -131,10 +148,10 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.config.descriptor.ValueType value = 1;
+   istio.mixer.v1.template.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+   map<string, istio.mixer.v1.template.Value> dimensions = 2;
 }
 ```
 
@@ -243,7 +260,7 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
@@ -251,10 +268,10 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.config.descriptor.ValueType value = 1;
+   istio.mixer.v1.template.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+   map<string, istio.mixer.v1.template.Value> dimensions = 2;
 }
 ```
 
@@ -296,6 +313,215 @@ type Handler interface {
 }
 ```
 
+### ATTRIBUTE_GENERATOR variety template
+Template.proto
+
+```proto
+syntax = "proto3";
+
+package adapter.template.kubernetes;
+
+import "mixer/v1/template/extensions.proto";
+import "mixer/v1/template/standard_types.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+
+// kubernetes template represents data used to generate kubernetes attributes.
+//
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
+//
+// Example config:
+//
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: kubernetes
+// metadata:
+//   name: attributes
+//   namespace: istio-system
+// spec:
+//   # Pass the required attribute data to the adapter
+//   source_uid: source.uid | ""
+//   source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
+//   destination_uid: destination.uid | ""
+//   destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
+//   attribute_bindings:
+//     # Fill the new attributes from the adapter produced output.
+//     # $out refers to an instance of OutputTemplate message
+//     source.ip: $out.source_pod_ip
+//     source.labels: $out.source_labels
+//     source.namespace: $out.source_namespace
+//     source.service: $out.source_service
+//     source.serviceAccount: $out.source_service_account_name
+//     destination.ip: $out.destination_pod_ip
+//     destination.labels: $out.destination_labels
+//     destination.namespace: $out.destination_mamespace
+//     destination.service: $out.destination_service
+//     destination.serviceAccount: $out.destination_service_account_name
+//
+message Template {
+    // Source pod's uid. Must be of the form: "kubernetes://pod.namespace"
+    string source_uid = 1;
+
+    // Source pod's ip.
+    istio.mixer.v1.template.IPAddress source_ip = 2;
+
+    // Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
+    string destination_uid = 3;
+
+    // Destination pod's ip.
+    istio.mixer.v1.template.IPAddress destination_ip = 4;
+
+    // Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
+    string origin_uid = 5;
+
+    // Origin pod's ip.
+    istio.mixer.v1.template.IPAddress origin_ip = 6;
+}
+
+// OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
+// to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+message OutputTemplate {
+    // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
+    istio.mixer.v1.template.IPAddress source_pod_ip = 1;
+
+    // Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
+    string source_pod_name = 2;
+
+    // Refers to source pod labels. attribute_bindings can refer to this field using $out.source_labels
+    map<string, string> source_labels = 3;
+
+    // Refers to source pod namespace. attribute_bindings can refer to this field using $out.source_namespace
+    string source_namespace = 4;
+
+    // Refers to source service. attribute_bindings can refer to this field using $out.source_service
+    string source_service = 5;
+
+    // Refers to source pod service account name. attribute_bindings can refer to this field using $out.source_service_account_name
+    string source_service_account_name = 6;
+
+    // Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
+    istio.mixer.v1.template.IPAddress source_host_ip = 7;
+
+
+
+    // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
+    istio.mixer.v1.template.IPAddress destination_pod_ip = 8;
+
+    // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
+    string destination_pod_name = 9;
+
+    // Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
+    map<string, string> destination_labels = 10;
+
+    // Refers to destination pod namespace. attribute_bindings can refer to this field using $out.destination_namespace
+    string destination_namespace = 11;
+
+    // Refers to destination service. attribute_bindings can refer to this field using $out.destination_service
+    string destination_service = 12;
+
+    // Refers to destination pod service account name. attribute_bindings can refer to this field using $out.destination_service_account_name
+    string destination_service_account_name = 13;
+
+    // Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
+    istio.mixer.v1.template.IPAddress destination_host_ip = 14;
+
+
+
+    // Refers to origin pod ip address. attribute_bindings can refer to this field using $out.origin_pod_ip
+    istio.mixer.v1.template.IPAddress origin_pod_ip = 15;
+
+    // Refers to origin pod name. attribute_bindings can refer to this field using $out.origin_pod_name
+    string origin_pod_name = 16;
+
+    // Refers to origin pod labels. attribute_bindings can refer to this field using $out.origin_labels
+    map<string, string> origin_labels = 17;
+
+    // Refers to origin pod namespace. attribute_bindings can refer to this field using $out.origin_namespace
+    string origin_namespace = 18;
+
+    // Refers to origin service. attribute_bindings can refer to this field using $out.origin_service
+    string origin_service = 19;
+
+    // Refers to origin pod service account name. attribute_bindings can refer to this field using $out.origin_service_account_name
+    string origin_service_account_name = 20;
+
+    // Refers to origin pod host ip address. attribute_bindings can refer to this field using $out.origin_host_ip
+    istio.mixer.v1.template.IPAddress origin_host_ip = 21;
+}
+```
+
+Auto-generated Go code used by adapter implementation
+
+
+```golang
+
+// Fully qualified name of the template
+const TemplateName = "kubernetes"
+
+type Instance struct {
+	Name string
+
+	SourceUid string
+	SourceIp net.IP
+
+	DestinationUid string
+	DestinationIp net.IP
+
+	OriginUid string
+	OriginIp net.IP
+}
+
+type Output struct {
+
+	SourcePodIp net.IP
+	SourcePodName string
+	SourceLabels map[string]string
+	SourceNamespace string
+	SourceService string
+	SourceServiceAccountName string
+	SourceHostIp net.IP
+
+	DestinationPodIp net.IP
+	DestinationPodName string
+	DestinationLabels map[string]string
+	DestinationNamespace string
+	DestinationService string
+	DestinationServiceAccountName string
+	DestinationHostIp net.IP
+
+	OriginPodIp net.IP
+	OriginPodName string
+	OriginLabels map[string]string
+	OriginNamespace string
+	OriginService string
+	OriginServiceAccountName string
+	OriginHostIp net.IP
+}
+
+// HandlerBuilder must be implemented by adapters if they want to
+// process data associated with the 'kubernetes' template.
+//
+// Mixer uses this interface to call into the adapter at configuration time to configure
+// it with adapter-specific configuration as well as all template-specific type information.
+type HandlerBuilder interface {
+	adapter.HandlerBuilder
+}
+
+// Handler must be implemented by adapter code if it wants to
+// process data associated with the 'kubernetes' template.
+//
+// Mixer uses this interface to call into the adapter at request time in order to dispatch
+// created instances to the adapter. Adapters take the incoming instances and do what they
+// need to achieve their primary function.
+type Handler interface {
+	adapter.Handler
+
+	// HandleKubernetes is called by Mixer at request time to deliver instances to
+	// to an adapter.
+	GenerateKubernetesAttributes(context.Context, *Instance) (*Output, error)
+}
+
+```
 
 # Adapter lifecycle
 
