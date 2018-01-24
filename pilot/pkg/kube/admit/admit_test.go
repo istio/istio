@@ -35,10 +35,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/tests/k8s"
 )
