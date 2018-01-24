@@ -71,13 +71,6 @@ export ISTIO_VERSION="${TAG_NAME}"
 apt-get -qqy install ruby ruby-dev rubygems build-essential
 gem install --no-ri --no-rdoc fpm
 
-# VERBOSE=1 make setup
-
-# VERBOSE=1 make init
-
-# pull in outside dependencies
-# VERBOSE=1 make depend
-
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
   # and hope that the name of the file doesn't change.

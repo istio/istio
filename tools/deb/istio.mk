@@ -19,13 +19,6 @@ sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
 
 deb: ${ISTIO_OUT}/istio-sidecar.deb
 
-ISTIO_DEB_SRC:=tools/deb/istio-start.sh \
-			  tools/deb/istio-iptables.sh \
-			  tools/deb/istio.service \
-			  tools/deb/istio-auth-node-agent.service \
-			  tools/deb/sidecar.env \
-			  tools/deb/envoy.json
-
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
@@ -36,6 +29,16 @@ $(foreach DEP,$(ISTIO_DEB_DEPS),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb: $(ISTIO_OUT)/$(DEP)) \
         $(eval SIDECAR_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
+ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
+		${ISTIO_DEB_BIN}/istio-iptables.sh \
+		/lib/systemd/system/istio.service \
+		/lib/systemd/system/istio-auth-node-agent.service \
+		/var/lib/istio/envoy/sidecar.env \
+		/var/lib/istio/envoy/envoy.json
+$(foreach DEST,$(ISTIO_DEB_DEST),\
+        $(eval ${ISTIO_OUT}/istio-sidecar.deb:   tools/deb/$(notdir $(DEST))) \
+        $(eval SIDECAR_FILES+=src/istio.io/istio/tools/deb/$(notdir $(DEST))=$(DEST)))
+
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar
 
@@ -45,7 +48,7 @@ ISTIO_DEB_NAME ?= istio-sidecar
 # a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${ISTIO_OUT}/istio-sidecar.deb: ${ISTIO_DEB_SRC} | ${ISTIO_OUT}
+${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
 		--url http://istio.io  \
@@ -56,12 +59,6 @@ ${ISTIO_OUT}/istio-sidecar.deb: ${ISTIO_DEB_SRC} | ${ISTIO_OUT}
 		--config-files /var/lib/istio/envoy/sidecar.env \
 		--config-files /var/lib/istio/envoy/envoy.json \
 		--description "Istio" \
-		src/istio.io/istio/tools/deb/istio-start.sh=${ISTIO_DEB_BIN}/istio-start.sh \
-		src/istio.io/istio/tools/deb/istio-iptables.sh=${ISTIO_DEB_BIN}/istio-iptables.sh \
-		src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-		src/istio.io/istio/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
-		src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
-		src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json \
 		$(SIDECAR_FILES)
 
 .PHONY: deb/docker
