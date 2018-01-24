@@ -16,7 +16,6 @@ package main
 
 import (
 	"os"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"

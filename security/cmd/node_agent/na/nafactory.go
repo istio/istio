@@ -17,7 +17,6 @@ package na
 import (
 	"fmt"
 	"os"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
