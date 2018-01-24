@@ -481,9 +481,9 @@ SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.n
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
+# grafana image
 
-# start.sh grafana-dashboard.json import_dashboard.sh
-docker.grafana:	mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
 	time (cd mixer/deploy/kube/conf && docker build -t grafana -f Dockerfile .)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
