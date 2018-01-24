@@ -193,8 +193,8 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		serviceCfg := adapterConfig
 		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
-		if err := store.SetupMemstore(args.ConfigStoreURL, globalConfig, serviceCfg); err != nil {
-			t.Fatal(err)
+		if storeErr := store.SetupMemstore(args.ConfigStoreURL, globalConfig, serviceCfg); storeErr != nil {
+			t.Fatal(storeErr)
 		}
 
 		mixerServer, err := server.New(args)

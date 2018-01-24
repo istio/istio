@@ -74,8 +74,14 @@
     ".",
     "server"
   ]
-  revision = "da6a59a3d4d597ee57ac3766a641a846a2327104"
-  version = "2.2.1"
+  revision = "aefbaa72e488a5bbca434ab16c56cdffecbdfd47"
+  version = "2.3.0"
+
+[[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = ["."]
+  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/aokoli/goutils"
