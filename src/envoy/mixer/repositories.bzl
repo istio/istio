@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-MIXER_CLIENT = "4e13a6ba46a0c09a741cc072928f58965f1ff8b4"
+MIXER_CLIENT = "47cb2338e6d1e692a0605b73bb4172b1d6dea111"
 
 def mixer_client_repositories(bind=True):
     native.git_repository(
