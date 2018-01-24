@@ -242,6 +242,11 @@ var (
 		file: "testdata/destination-hello-v1alpha2.yaml.golden",
 	}
 
+	destinationRuleExternal = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-google"},
+		file: "testdata/destination-google-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
@@ -365,6 +370,11 @@ var (
 	externalServiceRuleTCPStatic = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-tcp-static.yaml.golden",
+	}
+
+	externalServiceRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "ext-route"},
+		file: "testdata/external-service-route-rule.yaml.golden",
 	}
 
 	destinationRuleGoogleCB = fileConfig{

@@ -161,7 +161,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, sidecar model.Node,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config, buildOutboundCluster)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)

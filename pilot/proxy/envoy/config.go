@@ -531,11 +531,15 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node, ins
 	return listeners, clusters
 }
 
+type buildClusterFunc func(hostname string, port *model.Port, labels model.Labels) *Cluster
+
 // buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
 func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 	servicePort *model.Port,
 	instances []*model.ServiceInstance,
-	config model.IstioConfigStore) []*HTTPRoute {
+	config model.IstioConfigStore,
+	buildCluster buildClusterFunc,
+	) []*HTTPRoute {
 	protocol := servicePort.Protocol
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
@@ -550,7 +554,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := buildHTTPRoutes(config, rule, service, servicePort, instances, sidecar.Domain)
+			httpRoutes := buildHTTPRoutes(config, rule, service, servicePort, instances, sidecar.Domain, buildCluster)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
@@ -574,7 +578,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 
 		if useDefaultRoute {
 			// default route for the destination is always the lowest priority route
-			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			cluster := buildCluster(service.Hostname, servicePort, nil)
 			routes = append(routes, buildDefaultRoute(cluster))
 		}
 
@@ -583,7 +587,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 	case model.ProtocolHTTPS:
 		// as an exception, external name HTTPS port is sent in plain-text HTTP/1.1
 		if service.External() {
-			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			cluster := buildCluster(service.Hostname, servicePort, nil)
 			return []*HTTPRoute{buildDefaultRoute(cluster)}
 		}
 
@@ -608,7 +612,7 @@ func buildOutboundHTTPRoutes(mesh *meshconfig.MeshConfig, sidecar model.Node,
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
+			routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config, buildOutboundCluster)
 
 			if len(routes) > 0 {
 				host := buildVirtualHost(service, servicePort, suffix, routes)
@@ -886,7 +890,7 @@ func buildEgressVirtualHost(destination string,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config, buildOutboundCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 

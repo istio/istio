@@ -630,6 +630,38 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 	}
 }
 
+func TestExternalServicesRoutingRules(t *testing.T) {
+	testCases := []struct{
+		name string
+		files []fileConfig
+	} {
+		{name: "weighted-external-service", files: []fileConfig{externalServiceRuleStatic, destinationRuleExternal, externalServiceRouteRule}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, registry, ds := commonSetup(t)
+
+			for _, file := range testCase.files {
+				addConfig(registry, file, t)
+			}
+
+			url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response := makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
+
+			url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/cds-v0-%s.json", testCase.name), t)
+
+			port := 80
+			url = fmt.Sprintf("/v1/routes/%d/%s/%s", port, "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/rds-v0-%s.json", testCase.name), t)
+		})
+	}
+}
+
 func TestListenerDiscoverySidecar(t *testing.T) {
 	testCases := []struct {
 		name string

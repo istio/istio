@@ -263,8 +263,8 @@ type ServiceAccounts interface {
 }
 
 // SubsetOf is true if the tag has identical values for the keys
-func (t Labels) SubsetOf(that Labels) bool {
-	for k, v := range t {
+func (l Labels) SubsetOf(that Labels) bool {
+	for k, v := range l {
 		if that[k] != v {
 			return false
 		}
@@ -273,14 +273,14 @@ func (t Labels) SubsetOf(that Labels) bool {
 }
 
 // Equals returns true if the labels are identical
-func (t Labels) Equals(that Labels) bool {
-	if t == nil {
+func (l Labels) Equals(that Labels) bool {
+	if l == nil {
 		return that == nil
 	}
 	if that == nil {
-		return t == nil
+		return l == nil
 	}
-	return t.SubsetOf(that) && that.SubsetOf(t)
+	return l.SubsetOf(that) && that.SubsetOf(l)
 }
 
 // HasSubsetOf returns true if the input labels are a super set of one labels in a

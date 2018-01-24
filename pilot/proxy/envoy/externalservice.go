@@ -48,7 +48,8 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				httpConfig := httpConfigs.EnsurePort(modelPort.Port)
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-						buildExternalServiceVirtualHost(externalService, port.Name, host, mesh, node, modelPort, instances, config))
+						buildExternalServiceVirtualHost(externalService, port.Name, host, mesh,
+							node, modelPort, instances, config))
 				}
 			default:
 				// handled elsewhere
@@ -71,25 +72,13 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 			case model.ProtocolTCP, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolHTTPS:
 				routes := make([]*TCPRoute, 0)
 
-				switch externalService.Discovery {
-				case routingv2.ExternalService_NONE:
-					for _, host := range externalService.Hosts {
-						cluster := buildExternalServiceCluster(host, port.Name, modelPort, nil, externalService.Discovery, nil)
-						route := buildTCPRoute(cluster, []string{host})
+				for _, host := range externalService.Hosts {
+					cluster := buildExternalServiceCluster(mesh, host, port.Name, modelPort, nil,
+						externalService.Discovery, externalService.Endpoints)
+					route := buildTCPRoute(cluster, []string{host})
 
-						clusters = append(clusters, cluster)
-						routes = append(routes, route)
-					}
-				case routingv2.ExternalService_STATIC:
-					for _, host := range externalService.Hosts {
-						cluster := buildExternalServiceCluster(host, port.Name, modelPort, nil, externalService.Discovery, externalService.Endpoints)
-						route := buildTCPRoute(cluster, []string{host})
-
-						clusters = append(clusters, cluster)
-						routes = append(routes, route)
-					}
-				case routingv2.ExternalService_DNS:
-					// TODO
+					clusters = append(clusters, cluster)
+					routes = append(routes, route)
 				}
 
 				// TODO: handle port conflicts
@@ -105,18 +94,21 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 	return listeners, clusters
 }
 
-func buildExternalServiceCluster(address, endpointPortName string, port *model.Port, labels model.Labels,
+func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
+	address, endpointPortName string, port *model.Port, labels model.Labels,
 	discovery routingv2.ExternalService_Discovery, endpoints []*routingv2.ExternalService_Endpoint) *Cluster {
 
 	service := model.Service{Hostname: address}
 	key := service.Key(port, labels)
-	clusterName := OutboundClusterPrefix + truncateClusterName(key)
+	clusterName := truncateClusterName(OutboundClusterPrefix + key)
 
 	// will only be populated with discovery type dns or static
-	// TODO: make sure the endpoint types are validated (in validation.go)
-	// TODO: port/labels
-	hosts := make([]Host, 0, len(endpoints))
+	hosts := make([]Host, 0)
 	for _, endpoint := range endpoints {
+		if !labels.SubsetOf(model.Labels(endpoint.Labels)) {
+			continue
+		}
+
 		var found bool
 		for name, portNumber := range endpoint.Ports {
 			if name == endpointPortName {
@@ -129,6 +121,7 @@ func buildExternalServiceCluster(address, endpointPortName string, port *model.P
 		}
 
 		if !found {
+			// default to the external service port
 			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(port.Port))
 			hosts = append(hosts, Host{URL: url})
 		}
@@ -136,15 +129,15 @@ func buildExternalServiceCluster(address, endpointPortName string, port *model.P
 
 	var clusterType, lbType string
 	switch discovery {
+	case routingv2.ExternalService_NONE:
+		clusterType = ClusterTypeOriginalDST
+		lbType = LbTypeOriginalDST
 	case routingv2.ExternalService_DNS:
-		clusterType = ClusterTypeStrictDNS // strict_dns
+		clusterType = ClusterTypeStrictDNS
 		lbType = LbTypeRoundRobin
 	case routingv2.ExternalService_STATIC:
-		clusterType = ClusterTypeStatic // use endpoints
+		clusterType = ClusterTypeStatic
 		lbType = LbTypeRoundRobin
-	default: // None or unsupported discovery type
-		clusterType = ClusterTypeOriginalDST // original dst cluster
-		lbType = LbTypeOriginalDST
 	}
 
 	var features string
@@ -156,15 +149,11 @@ func buildExternalServiceCluster(address, endpointPortName string, port *model.P
 	return &Cluster{
 		Name:             clusterName,
 		ServiceName:      key,
-		ConnectTimeoutMs: 0, // FIXME: use mesh config value
+		ConnectTimeoutMs: protoDurationToMS(mesh.ConnectTimeout),
 		Type:             clusterType,
 		LbType:           lbType,
-		MaxRequestsPerConnection: 0,
 		Hosts:            hosts,
-		SSLContext:       nil,
 		Features:         features,
-		CircuitBreaker:   nil,
-		OutlierDetection: nil,
 		outbound:         true,
 		hostname:         address,
 		port:             port,
@@ -176,21 +165,13 @@ func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
-	cluster := buildExternalServiceCluster(destination, portName, port, nil, externalService.Discovery, externalService.Endpoints)
-
-	// TODO: handle conflict between discovery type none + weighted routes?
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
-
-	// Set the destination clusters to the cluster we computed above.
-	// Discovery type none
-	for _, route := range routes {
-		// redirect rules must have empty Cluster name
-		if !route.Redirect() {
-			route.Cluster = cluster.Name
-		}
-		// cluster for default route must be defined
-		route.clusters = []*Cluster{cluster}
+	service := &model.Service{Hostname: destination}
+	buildClusterFunc := func(hostname string, port *model.Port, labels model.Labels) *Cluster {
+		return buildExternalServiceCluster(mesh, hostname, portName, port, labels,
+			externalService.Discovery, externalService.Endpoints)
 	}
+
+	routes := buildDestinationHTTPRoutes(sidecar, service, port, instances, config, buildClusterFunc)
 
 	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)
 	return &VirtualHost{
