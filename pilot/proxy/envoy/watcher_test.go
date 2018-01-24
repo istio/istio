@@ -30,10 +30,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
+	"github.com/stretchr/testify/assert"
+
 	"istio.io/istio/pilot/model"
 )
 
@@ -99,6 +99,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 	tests := []struct {
 		name        string
 		az          string
+		retries     int
 		wantReload  bool
 		wantAZ      string
 		pilotStates []pilotStubState
@@ -107,6 +108,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retrieves an AZ and calls for a reload",
 			wantReload: true,
 			wantAZ:     "az1",
+			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "az1"},
 			},
@@ -115,6 +117,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives an error",
 			wantReload: true,
 			wantAZ:     "az1",
+			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 301, Response: ""},
 				{StatusCode: 200, Response: "az1"},
@@ -124,6 +127,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives non 200 status from pilot",
 			wantReload: true,
 			wantAZ:     "az1",
+			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 500, Response: ""},
 				{StatusCode: 200, Response: "az1"},
@@ -133,6 +137,18 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "do nothing if az is set",
 			az:         "az1",
 			wantAZ:     "az1",
+			retries:    5,
+			wantReload: false,
+		},
+		{
+			name:    "give up after retry count is reached",
+			retries: 2,
+			pilotStates: []pilotStubState{
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 500, Response: ""},
+				{StatusCode: 200, Response: "az1"},
+			},
 			wantReload: false,
 		},
 	}
@@ -160,7 +176,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			w := NewWatcher(config, agent, node, nil, nil)
 			ctx, cancel := context.WithCancel(context.Background())
 
-			go w.(*watcher).retrieveAZ(ctx, 0)
+			go w.(*watcher).retrieveAZ(ctx, 0, tt.retries)
 
 			select {
 			case <-called:

@@ -166,11 +166,13 @@ func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}
-	buildClusterFunc := func(hostname string, port *model.Port, labels model.Labels) *Cluster {
+	buildClusterFunc := func(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 		return buildExternalServiceCluster(mesh, hostname, portName, port, labels,
 			externalService.Discovery, externalService.Endpoints)
 	}
 
+	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
+	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
 	routes := buildDestinationHTTPRoutes(sidecar, service, port, instances, config, buildClusterFunc)
 
 	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)

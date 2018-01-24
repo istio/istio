@@ -263,9 +263,9 @@ function update_istio_install() {
 
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
-  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" istio-initializer.yaml.tmpl
+  execute_sed "s|proxyImage: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|proxyImage: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   popd
 }
 
@@ -273,20 +273,8 @@ function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
   pushd $TEMP_DIR/templates/addons
-
+  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
-
-  execute_sed 's/^/    /' grafana-config/custom.ini
-  execute_sed 's/^/    /' grafana-config/istio-dashboard.json
-  execute_sed '/{CUSTOM_INI}/ {
-      r grafana-config/custom.ini
-      d
-    }' grafana.yaml.tmpl
-  execute_sed '/{ISTIO_DASHBOARD_JSON}/ {
-      r grafana-config/istio-dashboard.json
-      d
-    }' grafana.yaml.tmpl
-
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml

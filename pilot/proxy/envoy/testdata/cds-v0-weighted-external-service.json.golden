@@ -175,6 +175,42 @@
     "lb_type": "round_robin"
    },
    {
+    "name": "out.hello.default.svc.cluster.local|external-HTTP-80",
+    "service_name": "hello.default.svc.cluster.local|external-HTTP-80",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://2.2.2.2:7080"
+     },
+     {
+      "url": "tcp://3.3.3.3:1080"
+     },
+     {
+      "url": "tcp://4.4.4.4:80"
+     }
+    ]
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|external-HTTP-8080",
+    "service_name": "hello.default.svc.cluster.local|external-HTTP-8080",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://2.2.2.2:18080"
+     },
+     {
+      "url": "tcp://3.3.3.3:8080"
+     },
+     {
+      "url": "tcp://4.4.4.4:8080"
+     }
+    ]
+   },
+   {
     "name": "out.hello.default.svc.cluster.local|http",
     "service_name": "hello.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,

@@ -78,8 +78,8 @@
     ]
    },
    {
-    "name": "out.*.google.com|external-HTTP-80",
-    "service_name": "*.google.com|external-HTTP-80",
+    "name": "out.google.com|external-HTTP-80",
+    "service_name": "google.com|external-HTTP-80",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "round_robin",
@@ -88,13 +88,16 @@
       "url": "tcp://2.2.2.2:7080"
      },
      {
-      "url": "tcp://3.3.3.3:8080"
+      "url": "tcp://3.3.3.3:1080"
+     },
+     {
+      "url": "tcp://4.4.4.4:80"
      }
     ]
    },
    {
-    "name": "out.*.google.com|external-HTTP-8080",
-    "service_name": "*.google.com|external-HTTP-8080",
+    "name": "out.google.com|external-HTTP-8080",
+    "service_name": "google.com|external-HTTP-8080",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "round_robin",
@@ -103,7 +106,10 @@
       "url": "tcp://2.2.2.2:18080"
      },
      {
-      "url": "tcp://3.3.3.3:80"
+      "url": "tcp://3.3.3.3:8080"
+     },
+     {
+      "url": "tcp://4.4.4.4:8080"
      }
     ]
    },

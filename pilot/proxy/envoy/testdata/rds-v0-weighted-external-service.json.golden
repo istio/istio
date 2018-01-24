@@ -13,10 +13,14 @@
        "clusters": [
         {
          "name": "out.google.com|external-HTTP-80",
-         "weight": 75
+         "weight": 50
         },
         {
          "name": "out.google.com|external-HTTP-80|foo=bar",
+         "weight": 25
+        },
+        {
+         "name": "out.hello.default.svc.cluster.local|external-HTTP-80",
          "weight": 25
         }
        ]

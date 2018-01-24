@@ -20,7 +20,6 @@ import (
 	"path"
 	"sort"
 	"strings"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

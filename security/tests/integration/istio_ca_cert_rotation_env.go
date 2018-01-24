@@ -18,8 +18,9 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"istio.io/istio/tests/integration/framework"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/tests/integration/framework"
 )
 
 type (
@@ -39,15 +40,16 @@ const (
 )
 
 // NewCertRotationTestEnv creates the environment instance
-func NewCertRotationTestEnv(name string, kubeconfig string) *CertRotationTestEnv {
-	clientset, err := CreateClientset(kubeconfig)
+func NewCertRotationTestEnv(name, kubeConfig, hub, tag string) *CertRotationTestEnv {
+	clientset, err := CreateClientset(kubeConfig)
 	if err != nil {
-		glog.Errorf("failed to initialize K8s client: %s\n", err)
+		glog.Errorf("failed to initialize K8s client: %v", err)
 		return nil
 	}
 
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {
+		glog.Errorf("failed to create test namespace: %v", err)
 		return nil
 	}
 
@@ -55,8 +57,8 @@ func NewCertRotationTestEnv(name string, kubeconfig string) *CertRotationTestEnv
 		name:      name,
 		ClientSet: clientset,
 		NameSpace: namespace,
-		Hub:       *hub,
-		Tag:       *tag,
+		Hub:       hub,
+		Tag:       tag,
 	}
 }
 
@@ -74,7 +76,7 @@ func (env *CertRotationTestEnv) GetComponents() []framework.Component {
 			env.ClientSet,
 			env.NameSpace,
 			istioCaSelfSignedShortTTL,
-			fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
+			fmt.Sprintf("%s/istio-ca:%s", env.Hub, env.Tag),
 			[]string{
 				"/usr/local/bin/istio_ca",
 			},
@@ -98,7 +100,9 @@ func (env *CertRotationTestEnv) Cleanup() error {
 	glog.Infof("cleaning up environment...")
 	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
 	if err != nil {
-		glog.Errorf("failed to delete the namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete the namespace: %v error: %v", env.NameSpace, err)
+		glog.Error(retErr)
+		return retErr
 	}
 	return nil
 }

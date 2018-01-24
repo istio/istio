@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-discovery/server"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -130,7 +131,7 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(discoveryCmd)
-	rootCmd.AddCommand(cmd.VersionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
 }
 
 func main() {

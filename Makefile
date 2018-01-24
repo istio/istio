@@ -22,7 +22,7 @@ SHELL := /bin/bash
 VERSION ?= "0.5.0"
 
 # If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ../../..; pwd)
+GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
@@ -40,7 +40,7 @@ export GOOS ?= linux
 export GOARCH ?= amd64
 
 # Optional file including user-specific settings (HUB, TAG, etc)
--include .istiorc
+-include .istiorc.mk
 
 
 # @todo allow user to run for a single $PKG only?
@@ -186,18 +186,18 @@ build: setup go-build
 PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
                ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
 $(PILOT_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pilot/tools/version ./pilot/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./pilot/cmd/$(@F)
 
 MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
 $(MIXER_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/mixer/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_BIN}/servicegraph: depend
-	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
+	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/pkg/version ./mixer/example/servicegraph
 
 SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
 $(SECURITY_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/security/cmd/istio_ca/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: go-build
 go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
@@ -255,6 +255,10 @@ mixer-test: mixs
 broker-test: depend
 	go test ${T} ./broker/...
 
+.PHONY: galley-test
+galley-test: depend
+	go test ${T} ./galley/...
+
 .PHONY: security-test
 security-test:
 	go test ${T} ./security/pkg/...
@@ -263,8 +267,8 @@ security-test:
 common-test:
 	go test ${T} ./pkg/...
 
-# Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test
+# Run tests
+go-test: pilot-test mixer-test security-test broker-test galley-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
@@ -282,13 +286,17 @@ mixer-coverage:
 broker-coverage:
 	bin/parallel-codecov.sh broker
 
+.PHONY: galley-coverage
+galley-coverage:
+	bin/parallel-codecov.sh galley
+
 .PHONY: security-coverage
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -309,6 +317,10 @@ mixer-racetest: mixs
 broker-racetest: depend
 	go test ${T} -race ./broker/...
 
+.PHONY: galley-racetest
+galley-racetest: depend
+	go test ${T} -race ./galley/...
+
 .PHONY: security-racetest
 security-racetest:
 	go test ${T} -race ./security/...
@@ -317,7 +329,7 @@ common-racetest:
 	go test ${T} -race ./pkg/...
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -550,50 +562,8 @@ dist: dist-bin
 
 include .circleci/Makefile
 
-.PHONY: docker.sidecar.deb sidecar.deb ${OUT}/istio-sidecar.deb
-
-# Make the deb image using the CI/CD image and docker.
-docker.sidecar.deb:
-	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
-        -v ${GO_TOP}:${GO_TOP} \
-        -w ${PWD} \
-        -e USER=${USER} \
-		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
-		sidecar.deb )
-
-# Create the 'sidecar' deb, including envoy and istio agents and configs.
-# This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
-# the builder image.
-# TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb: ${OUT}/istio-sidecar.deb
-
-ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
-                  tools/deb/istio-iptables.sh \
-                  tools/deb/istio.service \
-                  security/tools/deb/istio-auth-node-agent.service \
-                  tools/deb/sidecar.env tools/deb/envoy.json
-
-# --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
-	mkdir -p ${OUT}
-	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
-	   --url http://istio.io  \
-	   --license Apache \
-	   --vendor istio.io \
-	   --maintainer istio@istio.io \
-	   --after-install tools/deb/postinst.sh \
-	   --config-files /var/lib/istio/envoy/sidecar.env \
-	   --config-files /var/lib/istio/envoy/envoy.json \
-	   --description "Istio" \
-	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
-	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
-	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
-	   bin/envoy=/usr/local/bin/envoy \
-	   bin/pilot-agent=/usr/local/bin/pilot-agent \
-	   bin/node_agent=/usr/local/istio/bin/node_agent \
-	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
-	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+# Building the debian file, docker.istio.deb and istio.deb
+include tools/deb/istio.mk
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests
