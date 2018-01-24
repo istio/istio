@@ -116,6 +116,9 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
+	if w.config.AvailabilityZone == "" {
+		log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
+	}
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
@@ -138,7 +141,6 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 		}
 		attempts++
 	}
-	log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
