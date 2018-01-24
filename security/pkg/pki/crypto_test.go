@@ -251,7 +251,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
 		"Parse invalid PKCS8 key": {
-			pem:     keyInvalidPKCS8,
+			pem:    keyInvalidPKCS8,
 			errMsg: "failed to parse the PKCS8 private key",
 		},
 	}
