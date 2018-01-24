@@ -31,20 +31,26 @@ OUTPUT_PATH=""
 TAG_NAME="0.0.0"
 BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
+REL_DOCKER_HUB=docker.io/istio
+TEST_DOCKER_HUB=""
 
 function usage() {
   echo "$0
     -b        opts out of building debian artifacts
     -c        opts out of building docker artifacts
+    -h        docker hub to use for testing (optional)
     -o        path to store build artifacts
+    -q        path on gcr hub to use for testing (optional, alt to -h)
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts bco:t: arg ; do
+while getopts bch:o:q:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
+    h) TEST_DOCKER_HUB="${OPTARG}";;
+    q) TEST_DOCKER_HUB="gcr.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
@@ -75,7 +81,7 @@ VERBOSE=1 make depend
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
   # and hope that the name of the file doesn't change.
-  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make sidecar.deb
+  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make sidecar.deb
   mkdir -p ${OUTPUT_PATH}/deb
   cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
@@ -83,11 +89,15 @@ fi
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
 # make istioctl just outputs to pilot/cmd/istioctl
-./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
+ISTIO_DOCKER_HUB=${REL_DOCKER_HUB}  ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
+if [[ -n "${TEST_DOCKER_HUB}" ]]; then
+   mkdir -p "${OUTPUT_PATH}/istioctl-stage"
+   ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl-stage"
+fi
 popd
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make docker.save
+  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
   cp -r ${GOPATH}/out/docker ${OUTPUT_PATH}
 fi
 

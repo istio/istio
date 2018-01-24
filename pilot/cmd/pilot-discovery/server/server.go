@@ -22,7 +22,6 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
@@ -46,8 +45,8 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/admit"
 	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
@@ -270,7 +269,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	}
 
 	log.Infof("mesh configuration %s", spew.Sdump(mesh))
-	log.Infof("version %s", version.Line())
+	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh

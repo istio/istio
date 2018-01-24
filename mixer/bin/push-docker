@@ -12,6 +12,12 @@ source ${ROOT}/../bin/docker_lib.sh
 
 IMAGES=()
 
+# Building grafana image
+pushd "${ROOT}/deploy/kube/conf"
+docker build . -t grafana
+IMAGES+=(grafana)
+popd
+
 cd ${ROOT}; make docker
 
 IMAGES+=(mixer mixer_debug servicegraph servicegraph_debug)

@@ -16,8 +16,28 @@ package version
 
 import "testing"
 
-func TestVersion(t *testing.T) {
-	// dumb test that just invokes the two version commands
-	_ = Line()
-	_ = Version()
+func TestBuildInfo_String(t *testing.T) {
+	cases := []struct {
+		name string
+		in   BuildInfo
+		want string
+	}{
+		{"all specified", BuildInfo{
+			Version:       "VER",
+			GitRevision:   "GITREV",
+			Host:          "HOST",
+			GolangVersion: "GOLANGVER",
+			DockerHub:     "DH",
+			User:          "USER",
+			BuildStatus:   "STATUS"}, "USER@HOST-DH-VER-GITREV-STATUS"},
+		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown"},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			if v.in.String() != v.want {
+				t.Errorf("got %s; want %s", v.in.String(), v.want)
+			}
+		})
+	}
 }
