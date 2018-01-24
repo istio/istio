@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -29,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/cmd/istio_ca/version"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
@@ -129,7 +128,7 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
-	rootCmd.AddCommand(version.Command)
+	rootCmd.AddCommand(version.CobraCommand())
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)

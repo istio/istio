@@ -30,10 +30,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
+	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/pilot/model"
 )

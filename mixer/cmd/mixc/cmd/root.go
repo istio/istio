@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/istio/pkg/version"
 )
 
 type rootArgs struct {
@@ -117,7 +118,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 
 	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
-	rootCmd.AddCommand(shared.VersionCmd(printf))
+	rootCmd.AddCommand(version.CobraCommand())
 
 	rootArgs.tracingOptions.AttachCobraFlags(rootCmd)
 

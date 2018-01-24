@@ -21,9 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen"
 )

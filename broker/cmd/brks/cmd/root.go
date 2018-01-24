@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/broker/cmd/shared"
+	"istio.io/istio/pkg/version"
 )
 
 // GetRootCmd generates the root command for broker server.
@@ -46,7 +47,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	flag.CommandLine = fs
 
 	rootCmd.AddCommand(serverCmd(shared.Printf, shared.Fatalf))
-	rootCmd.AddCommand(shared.VersionCmd())
+	rootCmd.AddCommand(version.CobraCommand())
 
 	return rootCmd
 }

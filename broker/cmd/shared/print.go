@@ -19,10 +19,6 @@ package shared
 import (
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
-
-	"istio.io/istio/broker/pkg/version"
 )
 
 // FormatFn formats the supplied arguments according to the format string
@@ -39,15 +35,4 @@ var Fatalf = func(format string, args ...interface{}) {
 // Printf is a FormatFn that prints the formatted string to os.Stdout.
 var Printf = func(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
-}
-
-// VersionCmd is a command used to print version information.
-func VersionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Prints out build version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			Printf("%s", version.Info)
-		},
-	}
 }
