@@ -21,9 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	// TODO(nmittler): Remove this
 	"github.com/ghodss/yaml"
-	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
