@@ -140,7 +140,6 @@ const reportAttributesBackendFail = `
   "response.code": 400,
   "response.headers": {
      "date": "*",
-     "content-type": "text/plain; charset=utf-8",
      "content-length": "25",
      ":status": "400",
      "server": "envoy"
