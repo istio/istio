@@ -113,6 +113,7 @@ func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	var err error
 	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
 		return nil, err
@@ -166,6 +167,7 @@ func TestClient(t *testing.T) {
 func TestErrors(t *testing.T) {
 	a := NewArgs()
 	a.APIWorkerPoolSize = -1
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
 	if cerr != nil {
 		t.Fatal(cerr)
@@ -181,6 +183,7 @@ func TestErrors(t *testing.T) {
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.TracingOptions.LogTraceSpans = true
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

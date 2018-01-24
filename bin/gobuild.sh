@@ -18,7 +18,7 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 OUT=${1:?"output path"}
-VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
+VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version
 BUILDPATH=${3:?"path to build"}
 
 set -e

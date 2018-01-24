@@ -17,7 +17,6 @@ package framework
 import (
 	"flag"
 	"path/filepath"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

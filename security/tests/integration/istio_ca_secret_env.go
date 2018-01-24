@@ -18,8 +18,9 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"istio.io/istio/tests/integration/framework"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/tests/integration/framework"
 )
 
 const (

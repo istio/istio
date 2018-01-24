@@ -43,8 +43,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/tools/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 // per-sidecar policy and status (deployment, job, statefulset, pod, etc)
@@ -81,7 +81,6 @@ const (
 const (
 	DefaultSidecarProxyUID = int64(1337)
 	DefaultVerbosity       = 2
-	DefaultHub             = "docker.io/istio"
 	DefaultImagePullPolicy = "IfNotPresent"
 )
 
@@ -219,10 +218,10 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 		c.Policy = DefaultInjectionPolicy
 	}
 	if c.Params.InitImage == "" {
-		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
+		c.Params.InitImage = InitImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.ProxyImage == "" {
-		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
+		c.Params.ProxyImage = ProxyImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.SidecarProxyUID == 0 {
 		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
