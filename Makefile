@@ -496,11 +496,11 @@ $(foreach TGT,$(GENERATED_CERT_FILES),$(eval $(ISTIO_DOCKER)/$(TGT): security/bi
 
 # directives to copy files to docker scratch directory
 
-# tell make which files are copied form go/bin
-DOCKER_FILES_FROM_ISTIO_BIN:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
+# tell make which files are copied form go/out
+DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-initializer servicegraph mixs \
                              istio_ca node_agent
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
+$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
 # tell make which files are copied from the source tree
