@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-flextest
+  namespace: default
+spec:
+  containers:
+  - name: nginx-flextest
+    image: nginx
+    volumeMounts:
+    - name: flextest
+      mountPath: /data
+    ports:
+    - containerPort: 80
+  volumes:
+  - name: flextest
+    flexVolume:
+      driver: "k8s/dummy"
+      fsType: "ext4"
