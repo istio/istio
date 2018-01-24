@@ -37,9 +37,9 @@ type (
 		adapterConfig *config.Params
 	}
 	handler struct {
-		rbac authorizer
-		env  adapter.Env
-		timer *time.Timer
+		rbac    authorizer
+		env     adapter.Env
+		timer   *time.Timer
 		closing chan bool
 	}
 )
@@ -90,7 +90,7 @@ const maxEvents = 50
 var watchFlushDuration = time.Second
 
 // startController creates a controller from the given params.
-func (h *handler)startController(s store.Store) error {
+func (h *handler) startController(s store.Store) error {
 	data, watchChan, err := startWatch(s)
 	if err != nil {
 		return h.env.Logger().Errorf("Error while starting watching CRDs: %v", err)
