@@ -191,7 +191,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
-	if err := s.readClusters(&args); err != nil {
+	if err := s.initClusters(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initKubeClient(&args); err != nil {
@@ -251,10 +251,12 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) readClusters(args *PilotArgs) (err error) {
-	s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterStoreDir)
-	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-	return
+func (s *Server) initClusters(args *PilotArgs) (err error) {
+	if args.Config.ClusterStoreDir != "" {
+		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterStoreDir)
+		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+	}
+	return err
 }
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
@@ -321,9 +323,12 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var client kubernetes.Interface
 		var kuberr error
 		var kubeCfgFile string
-		if kubeCfgFile = s.clusterStore.GetPilotKubeConfig(); kubeCfgFile != "" {
-			kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
-		} else {
+		if s.clusterStore != nil {
+			if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
+				kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
+			}
+		}
+		if kubeCfgFile == "" {
 			kubeCfgFile = args.Config.KubeConfig
 		}
 		_, client, kuberr = kube.CreateInterface(kubeCfgFile)
@@ -362,9 +367,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		})
 	} else {
 		var kubeCfgFile string
-		if kubeCfgFile = s.clusterStore.GetPilotKubeConfig(); kubeCfgFile != "" {
-			kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
-		} else {
+		if s.clusterStore != nil {
+			if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
+				kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
+			}
+		}
+		if kubeCfgFile == "" {
 			kubeCfgFile = args.Config.KubeConfig
 		}
 		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
@@ -392,14 +400,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 func (s *Server) CreateK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
 	clusters := s.clusterStore.GetPilotClusters()
 	for _, cluster := range clusters {
-		kubeconfig := clusterregistry.GetClusterKubeConfig(cluster)
+		kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
 		kubeCfgFile := strings.Join([]string{args.Config.ClusterStoreDir, kubeconfig}, "/")
 		_, client, kuberr := kube.CreateInterface(kubeCfgFile)
 		if kuberr != nil {
-			return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Kubernetes API with kubeconfig: %s", kubeCfgFile))
+			return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile))
 		}
 
-		log.Infof("Cluster name: %s, KubeConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
+		log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
 		kubectl := kube.NewController(client, args.Config.ControllerOptions)
 		serviceControllers.AddRegistry(
 			aggregate.Registry{

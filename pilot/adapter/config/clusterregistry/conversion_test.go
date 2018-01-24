@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Istio Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ metadata:
   name: {{.Name}}
   annotations:
     config.istio.io/pilotEndpoint: "{{.PilotIP}}:9080"
-    config.istio.io/platform: "k8s"
+    config.istio.io/platform: {{if .Platform}}{{.Platform}}{{else}}"k8s"{{end}}
     {{if .PilotCfgStore}}config.istio.io/pilotCfgStore: {{.PilotCfgStore}}
     {{end -}}
     config.istio.io/accessConfigFile: {{.Kubeconfig}}
@@ -73,6 +73,7 @@ spec:
 type clusterData struct {
 	Name string
 	PilotIP string
+	Platform string
 	Kubeconfig string
 	PilotCfgStore bool
 	ServerEndpointIP string
@@ -80,10 +81,10 @@ type clusterData struct {
 }
 
 func compareParsedCluster(inData clusterData, cluster *Cluster) (error) {
-	if inData.Kubeconfig != GetClusterKubeConfig(cluster) {
+	if inData.Kubeconfig != GetClusterAccessConfig(cluster) {
 		return fmt.Errorf("kubeconfig mismatch for parsed cluster '%s'--" +
 			"in:'%s' v. out:'%s'",
-			GetClusterName(cluster), inData.Kubeconfig, GetClusterKubeConfig(cluster))
+			GetClusterName(cluster), inData.Kubeconfig, GetClusterAccessConfig(cluster))
 	}
 	inPilotEp := fmt.Sprintf("%s:9080", inData.PilotIP)
 	if  inPilotEp != cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] {
@@ -164,7 +165,7 @@ func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*Cluste
 	for _, cluster := range clusters {
 		t.Logf("Parser built cluster: \"%s\", kubeconfig: \"%s\"",
 			GetClusterName(cluster),
-			GetClusterKubeConfig(cluster))
+			GetClusterAccessConfig(cluster))
 		err = checkClusterDataInInput(inDataList, cluster)
 		if err != nil { return err }
 	}
@@ -180,19 +181,22 @@ func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*Cluste
 func checkClusterStore(inDataList []clusterData, cs ClusterStore) (err error) {
 	for _, cData := range inDataList {
 		if cData.PilotCfgStore {
-			pilotKubeConf := cs.GetPilotKubeConfig()
+			pilotKubeConf := cs.GetPilotAccessConfig()
 			if cData.Kubeconfig != pilotKubeConf {
 				return fmt.Errorf("mismatch PilotCfgStore kubeconfig in ClusterStore--" +
 					"in: '%s' ; clusterStore '%s'", cData.PilotCfgStore, pilotKubeConf)
 			}
 			clusters := cs.GetPilotClusters()
-			if len(clusters) > 0 {
-				if clusters[0].Name != cData.Name {
+			if len(clusters) == 0 {
+				return fmt.Errorf("no pilot cluster found, expected '%s'", cData.Name)
+			}
+			for _, cluster := range clusters {
+				if cluster.Name == cData.Name ||
+					cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] !=
+						fmt.Sprintf("%s:9080", cData.PilotIP) {
 					return fmt.Errorf("mismatch PilotCfgStore cluster in ClusterStore--" +
 						"in: '%s' ; clusterStore '%s'", cData.Name, clusters[0].Name)
 				}
-			} else {
-				return fmt.Errorf("no pilot cluster found, expected '%s'", cData.Name)
 			}
 			break
 		}
@@ -227,28 +231,23 @@ func createFileForAllClusters(dir string, cData []clusterData) (err error) {
 }
 
 func testClusterReadDir(t *testing.T, crFunc createCfgDataFilesFunc,
-						dir string, cData []clusterData) (err error) {
+						dir string, cData []clusterData)  {
 	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
 	defer os.RemoveAll(dir)
 
-	if err = crFunc(dir, cData); err != nil {
+	if err := crFunc(dir, cData); err != nil {
 		t.Error(err)
-		return err
 	}
 	cs, err := ReadClusters(dir)
 	if err != nil {
 		t.Error(err)
-		return err
 	}
 	err = checkClusterData(t, cData, cs.clusters)
 	if err != nil { t.Error(err)}
 
 	if err = checkClusterStore(cData, *cs); err != nil {
 		t.Error(err)
-		return err
 	}
-
-	return err
 }
 
 func TestReadClusters(t *testing.T) {
@@ -270,7 +269,7 @@ func TestReadClusters(t *testing.T) {
 		},
 		clusterData {
 			Name: "clusB",
-			PilotIP: "3.3.3.3",
+			PilotIP: "2.2.2.2",
 			Kubeconfig: "B_kubeconfig",
 			PilotCfgStore: false,
 			ServerEndpointIP: "192.168.5.10",
@@ -293,8 +292,17 @@ func TestReadClusters(t *testing.T) {
 			ClientCidr: "0.0.0.0/0",
 		},
 	}
-    _ = testClusterReadDir(t, createFilePerCluster, e.fsRoot + "/multi", cData)
-	_ = testClusterReadDir(t, createFileForAllClusters, e.fsRoot + "/single", cData)
+    testClusterReadDir(t, createFilePerCluster, e.fsRoot + "/multi", cData)
+	testClusterReadDir(t, createFileForAllClusters, e.fsRoot + "/single", cData)
+}
+
+func TestReadClusters_nodir(t *testing.T) {
+	_, err := ReadClusters("/bogusdir")
+	if err == nil {
+		t.Errorf("Returning no error for invalid dir")
+	} else {
+		t.Logf("Error found for invalid dir: %v", err)
+	}
 }
 
 func TestParseClusters_templ(t *testing.T) {
@@ -372,7 +380,7 @@ spec:
       - clientCidr: "0.0.0.0/0"
         serverAddress: "192.168.1.1"
 `,
-		"NoName":
+/*		"NoName":
 		`---
 
 apiVersion: clusterregistry.k8s.io/v1alpha1
@@ -388,7 +396,7 @@ spec:
     serverEndpoints:
       - clientCidr: "0.0.0.0/0"
         serverAddress: "192.168.1.1"
-`,
+`,*/
 	}
 	for testType, testItem := range testData {
 		clusters, err := parseClusters([]byte(testItem))

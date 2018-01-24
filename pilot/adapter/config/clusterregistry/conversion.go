@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Istio Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"fmt"
+	"strconv"
 )
 
 var (
@@ -50,20 +52,22 @@ type ClusterStore struct {
 	cfgStore *Cluster
 }
 
-// GetPilotKubeConfig returns this pilot's kubeconfig file name
-func (cs *ClusterStore) GetPilotKubeConfig() string {
+// GetPilotAccessConfig returns this pilot's access config file name
+func (cs *ClusterStore) GetPilotAccessConfig() string {
 	for _, cluster := range cs.clusters {
 		if cluster.ObjectMeta.Annotations[ClusterPilotCfgStore] != "" {
-			cs.cfgStore = cluster
-			glog.V(2).Infof("ConfigStore: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
-			return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
+			if b, _ := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); b {
+				cs.cfgStore = cluster
+				glog.V(2).Infof("ConfigStore: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
+				return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
+			}
 		}
 	}
 	return ""
 }
 
-// GetClusterKubeConfig returns the kubeconfig file of a cluster
-func GetClusterKubeConfig(cluster *Cluster) string {
+// GetClusterAccessConfig returns the access config file of a cluster
+func GetClusterAccessConfig(cluster *Cluster) string {
 	return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
 }
 
@@ -72,13 +76,17 @@ func GetClusterName(cluster *Cluster) string {
 	return cluster.ObjectMeta.Name
 }
 
-// GetPilotClusters return a list of clusters under this pilot
+// GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
 func (cs *ClusterStore) GetPilotClusters() (clusters []*Cluster) {
 	if cs.cfgStore != nil {
 		pilotEndpoint := cs.cfgStore.ObjectMeta.Annotations[ClusterPilotEndpoint]
 		for _, cluster := range cs.clusters {
-			if cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == pilotEndpoint {
-				glog.V(2).Infof("KubeConfig: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
+			isPilotCfgStore := false
+			if cluster.ObjectMeta.Annotations[ClusterPilotCfgStore] != "" {
+				isPilotCfgStore, _ = strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
+			}
+			if !isPilotCfgStore && cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == pilotEndpoint {
+				glog.V(2).Infof("accessConfig: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
 				clusters = append(clusters, cluster)
 			}
 		}
@@ -137,6 +145,10 @@ func parseClusters(inputs []byte) (clusters []*Cluster, err error) {
 			continue
 		}
 
+		if obj.TypeMeta.Kind != "Cluster" {
+			return clusters, fmt.Errorf("Bad kind in configuration: `%s` != 'Cluster'",
+				obj.TypeMeta.Kind)
+		}
 		clusters = append(clusters, &obj)
 	}
 
