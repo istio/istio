@@ -115,7 +115,7 @@ func TestStore(t *testing.T) {
 		t.Errorf("List is called %d times already", b.listCount)
 	}
 
-	wantList := map[Key]*Resource{k: &Resource{Metadata: ResourceMeta{Name: k.Name, Namespace: k.Namespace}, Spec: want}}
+	wantList := map[Key]*Resource{k: {Metadata: ResourceMeta{Name: k.Name, Namespace: k.Namespace}, Spec: want}}
 	if lst := s.List(); !reflect.DeepEqual(lst, wantList) {
 		t.Errorf("Got %+v, Want %+v", lst, wantList)
 	}
