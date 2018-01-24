@@ -93,7 +93,7 @@ spec:
             - /usr/local/bin/mixs
             - probe
             - --probe-path=/live
-            - --probe-interval=5s
+            - --interval=5s
           initialDelaySeconds: 5
           periodSeconds: 5
         readinessProbe:
@@ -102,7 +102,7 @@ spec:
             - /usr/local/bin/mixs
             - probe
             - --probe-path=/ready
-            - --probe-interval=5s
+            - --interval=5s
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
