@@ -211,7 +211,7 @@ func (vm *GCPRawVM) provision() error {
 			 --can-ip-forward \
 			 --service-account %s \
 			 --scopes "https://www.googleapis.com/auth/cloud-platform" \
-			 --tags "http-server","https-server" \
+			 --tags "http-server","https-bootstrap" \
 			 --image %s \
 			 --image-project %s \
 			 --boot-disk-size "10" \

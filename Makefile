@@ -90,7 +90,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/platform/kube/config
+setup: pilot/pkg/kube/config
 
 #-----------------------------------------------------------------------------
 # Target: depend
@@ -255,6 +255,10 @@ mixer-test: mixs
 broker-test: depend
 	go test ${T} ./broker/...
 
+.PHONY: galley-test
+galley-test: depend
+	go test ${T} ./galley/...
+
 .PHONY: security-test
 security-test:
 	go test ${T} ./security/pkg/...
@@ -263,8 +267,8 @@ security-test:
 common-test:
 	go test ${T} ./pkg/...
 
-# Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test
+# Run tests
+go-test: pilot-test mixer-test security-test broker-test galley-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
@@ -282,13 +286,17 @@ mixer-coverage:
 broker-coverage:
 	bin/parallel-codecov.sh broker
 
+.PHONY: galley-coverage
+galley-coverage:
+	bin/parallel-codecov.sh galley
+
 .PHONY: security-coverage
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -309,6 +317,10 @@ mixer-racetest: mixs
 broker-racetest: depend
 	go test ${T} -race ./broker/...
 
+.PHONY: galley-racetest
+galley-racetest: depend
+	go test ${T} -race ./galley/...
+
 .PHONY: security-racetest
 security-racetest:
 	go test ${T} -race ./security/...
@@ -317,7 +329,7 @@ common-racetest:
 	go test ${T} -race ./pkg/...
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -384,6 +396,10 @@ NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/istio_ca.crt \
                        security/docker/node_agent.crt \
                        security/docker/node_agent.key
+
+GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
+               mixer/deploy/kube/conf/start.sh \
+               mixer/deploy/kube/conf/grafana-dashboard.json
 
 # copied/generated files for docker build
 
@@ -465,7 +481,12 @@ SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.n
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
-DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
+# grafana image
+
+docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+	time (cd mixer/deploy/kube/conf && docker build -t grafana -f Dockerfile .)
+
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 docker.all: $(DOCKER_TARGETS)
 
@@ -490,11 +511,11 @@ push: checkvars clean.installgen installgen
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
+pilot/pkg/kube/config:
 	touch $@
 
 kubelink:
-	ln -fs ~/.kube/config pilot/platform/kube/
+	ln -fs ~/.kube/config pilot/pkg/kube/
 
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
@@ -557,3 +578,11 @@ include tools/deb/istio.mk
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: bench check
+#-----------------------------------------------------------------------------
+
+.PHONY: benchcheck
+benchcheck:
+	bin/perfcheck.sh

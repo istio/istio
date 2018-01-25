@@ -32,6 +32,7 @@ fi
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
+GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
@@ -60,4 +61,4 @@ done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
 time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
-	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+       -pkgdir=${GOPKG} -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"

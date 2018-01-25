@@ -48,8 +48,9 @@
 BASELINE_FILENAME="bench.baseline"
 
 # Percent tolerance for run time per op
-# 20% is a large tolerance, but a good one start with, especially to not cause too many false positives initially.
-TOLERANCE_PERCENT_TIME_PER_OP=20
+# 50% is an unreasonable tolerance, but a good one start with, especially to not cause too many false positives initially.
+# Once we establish a time-dilation calculation model, we can tighten the tolerance.
+TOLERANCE_PERCENT_TIME_PER_OP=50
 
 # Percent tolerance for allocated bytes per op
 # There is generally some variance in this number, presumably because of upfront costs or timings.
@@ -221,7 +222,7 @@ function run() {
         local BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
         local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
 
-        printf "Results:\n"
+        printf "Current benchmark results:\n"
         printf "%s" "${BENCH_RESULT}"
         printf "\n\n"
 
@@ -240,7 +241,6 @@ function run() {
 
 
 run
-
 
 
 # The code below this line is for testing purposes.
@@ -328,6 +328,13 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 "BenchmarkInterpreter/ExprBench/ok_1st-8            10000000           136 ns/op           0 B/op          0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32           10000000           136 ns/op           0 B/op          0 allocs/op
+")`
+
+
+    local SUCCESS_CASES[7]=`(compareBenchResults \
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
+" \
+"BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 ")`
 
 

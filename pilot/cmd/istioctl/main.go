@@ -39,11 +39,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
-	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )

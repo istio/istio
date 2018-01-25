@@ -240,7 +240,7 @@ such as invoking the Envoy proxy with a special configuration, we capture
 the desired output as golden artifacts and save the artifacts in the
 repository. Validation tests compare generated output against the desired
 output. For example,
-[Envoy configuration test data](pilot/proxy/envoy/testdata) contains
+[Envoy configuration test data](pilot/pkg/proxy/envoy/testdata) contains
 auto-generated proxy configuration. If you make changes to the config
 generation, you also need to create or update the golden artifact in the
 same pull request. The test library can automatically refresh all golden

@@ -82,7 +82,7 @@ required = [
 # k8s.io/ingress-nginx pinned to an older version until istio ingress code
 # is refactored.
 #
-# istio.io/istio/pilot/adapter/config/ingress uses the following nginx
+# istio.io/istio/pilot/pkg/config/kube/ingress uses the following nginx
 # controller packages from an older version of k8s.io/ingress which
 # have since been made internal and are no longer available.
 #
