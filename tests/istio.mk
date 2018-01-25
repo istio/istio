@@ -37,7 +37,7 @@ else
 
 # All other test environments require the docker images to be pushed to a repo.
 # The HUB is defined in user-specific .istiorc, TAG can be set or defaults to git version
-e2e_docker: docker push
+e2e_docker: push
 
 endif
 
@@ -52,18 +52,14 @@ EXTRA_E2E_ARGS += --mixer_hub ${HUB}
 EXTRA_E2E_ARGS += --pilot_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh >/dev/null 2>&1
-
 # Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml
+e2e_simple: istioctl installgen
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_mixer: istioctl generate_yaml
+e2e_mixer: istioctl installgen
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_bookinfo: istioctl generate_yaml
+e2e_bookinfo: istioctl installgen
 	go test -v -timeout 20m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_all: e2e_simple e2e_mixer e2e_bookinfo

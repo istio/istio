@@ -529,7 +529,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 
 # This block exists temporarily.  These files need to go in a certs/ subdir, though
 # eventually the dockerfile should be changed to not used the subdir, in which case
-# the files listed in this section can be added to the preceeding section
+# the files listed in this section can be added to the preceeding section.
+# The alternative is to generate new certs (as described by the readme in cert/ )
 $(ISTIO_DOCKER)/certs: ; mkdir -p $(@)
 DOCKER_CERTS_FILES_FROM_SOURCE:=pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_CERTS_FILES_FROM_SOURCE), \
@@ -583,6 +584,7 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 # grafana image
 
 $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
+# Note that Dockerfile is too generic for parallel builds
 docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
 	$(DOCKER_GENERIC_RULE)
 
@@ -647,6 +649,9 @@ push.istioctl.all: istioctl-all
 
 artifacts: docker
 	@echo 'To be added'
+
+pilot/platform/kube/config:		
+	touch $@
 
 kubelink:
 	ln -fs ~/.kube/config pilot/pkg/kube/

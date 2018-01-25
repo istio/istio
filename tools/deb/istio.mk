@@ -70,7 +70,6 @@ deb/docker:
 	cp ${ISTIO_OUT}/istio-sidecar.deb ${ISTIO_OUT}/deb/istio.deb
 	docker build -t istio_deb -f ${ISTIO_OUT}/deb/Dockerfile ${ISTIO_OUT}/deb/
 
-
 deb/test: deb-docker tools/deb/deb_test.sh
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
