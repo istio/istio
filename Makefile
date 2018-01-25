@@ -627,7 +627,7 @@ push.istioctl.all: istioctl-all
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
+pilot/pkg/kube/config:
 	touch $@
 
 kubelink:
