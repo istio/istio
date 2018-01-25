@@ -30,8 +30,11 @@ type CopilotClient interface {
 
 // ServiceDiscovery implements the model.ServiceDiscovery interface for Cloud Foundry
 type ServiceDiscovery struct {
-	Client  CopilotClient
-	AppPort int
+	Client CopilotClient
+
+	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
+	// It is typically 8080
+	ServicePort int
 }
 
 // Services implements a service catalog operation
@@ -41,14 +44,13 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 		return nil, fmt.Errorf("getting services: %s", err)
 	}
 	services := make([]*model.Service, 0, len(resp.GetBackends()))
-	port := &model.Port{Port: sd.AppPort, Protocol: model.ProtocolHTTP}
 
+	port := sd.servicePort()
 	for hostname := range resp.Backends {
 		services = append(services, &model.Service{
 			Hostname: hostname,
 			Ports:    []*model.Port{port},
-		},
-		)
+		})
 	}
 
 	return services, nil
@@ -80,7 +82,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 		return nil, nil
 	}
 	for _, backend := range backendSet.GetBackends() {
-		port := &model.Port{Port: sd.AppPort, Protocol: model.ProtocolHTTP}
+		port := sd.servicePort()
 
 		instances = append(instances, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
@@ -109,7 +111,7 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*mode
 
 	for hostname, backendSet := range resp.GetBackends() {
 		for _, backend := range backendSet.GetBackends() {
-			port := &model.Port{Port: sd.AppPort, Protocol: model.ProtocolHTTP}
+			port := sd.servicePort()
 
 			instances = append(instances, &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
@@ -131,4 +133,9 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*mode
 // ManagementPorts is not currently implemented for Cloud Foundry
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
+}
+
+// all CF apps listen on the same port (for now)
+func (sd *ServiceDiscovery) servicePort() *model.Port {
+	return &model.Port{Port: sd.ServicePort, Protocol: model.ProtocolHTTP}
 }

@@ -472,8 +472,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Client: client,
 				},
 				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					Client:  client,
-					AppPort: cfConfig.Envoy.Port,
+					Client:      client,
+					ServicePort: cfConfig.ServicePort,
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
 			})

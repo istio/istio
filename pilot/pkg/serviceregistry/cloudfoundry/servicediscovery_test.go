@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 )
 
-const ServiceDiscoveryPort = 8080
+const defaultServicePort = 8080
 
 func makeSampleClientResponse() *api.RoutesResponse {
 	return &api.RoutesResponse{
@@ -68,8 +68,8 @@ func newSDTestState() *sdTestState {
 
 	// initialize object under test
 	serviceDiscovery := &cloudfoundry.ServiceDiscovery{
-		Client:  mockClient,
-		AppPort: ServiceDiscoveryPort,
+		Client:      mockClient,
+		ServicePort: defaultServicePort,
 	}
 
 	return &sdTestState{
@@ -95,11 +95,11 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
 		{
 			Hostname: "process-guid-a.cfapps.internal",
-			Ports:    []*model.Port{{Port: ServiceDiscoveryPort, Protocol: model.ProtocolHTTP}},
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
 		},
 		{
 			Hostname: "process-guid-b.cfapps.internal",
-			Ports:    []*model.Port{{Port: ServiceDiscoveryPort, Protocol: model.ProtocolHTTP}},
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
 		},
 	}))
 }
@@ -128,7 +128,7 @@ func TestServiceDiscovery_GetService_Success(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(serviceModel).To(gomega.Equal(&model.Service{
 		Hostname: "process-guid-b.cfapps.internal",
-		Ports:    []*model.Port{{Port: ServiceDiscoveryPort, Protocol: model.ProtocolHTTP}},
+		Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
 	}))
 }
 
@@ -169,7 +169,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 
 	servicePort := &model.Port{
-		Port:     ServiceDiscoveryPort,
+		Port:     defaultServicePort,
 		Protocol: model.ProtocolHTTP,
 	}
 	service := &model.Service{
@@ -233,7 +233,7 @@ func TestServiceDiscovery_HostInstances(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 
 	servicePort := &model.Port{
-		Port:     ServiceDiscoveryPort,
+		Port:     defaultServicePort,
 		Protocol: model.ProtocolHTTP,
 	}
 
