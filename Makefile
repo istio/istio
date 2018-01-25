@@ -22,13 +22,15 @@ SHELL := /bin/bash
 VERSION ?= "0.5.0"
 
 # If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ../../..; pwd)
+GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 
-export CGO_ENABLE=0
+# Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
+# to be handled in bin/gobuild.sh
+# export CGO_ENABLED=0
 
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
@@ -44,9 +46,9 @@ export GOARCH ?= amd64
 
 
 # @todo allow user to run for a single $PKG only?
-PACKAGES := $(shell $(GO) list ./...)
+PACKAGES_CMD := GOPATH=$(GOPATH) $(GO) list ./...
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
-GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
+GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
@@ -70,6 +72,7 @@ endif
 
 # Discover if user has dep installed -- prefer that
 DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
+GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -90,7 +93,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/platform/kube/config
+setup: pilot/pkg/kube/config
 
 #-----------------------------------------------------------------------------
 # Target: depend
@@ -112,8 +115,13 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 ${DEP}:
-	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
+
+${GOLINT}:
+	unset GOOS && go get -u github.com/golang/lint/golint
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -155,21 +163,21 @@ fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $(GO_FILES)
+	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $(GO_FILES)
+	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $(PACKAGES) || true
+	$(Q) $(GO) vet $$($(PACKAGES_CMD)) || true
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: ; $(info $(H) running golint on packages...)
+check.lint: | ${GOLINT} ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $(PACKAGES); do \
-		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
+	$(Q) for p in $$($(PACKAGES_CMD)); do \
+		${GOLINT} $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
 # @todo gometalinter targets?
@@ -186,18 +194,26 @@ build: setup go-build
 PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
                ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
 $(PILOT_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pilot/tools/version ./pilot/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+
+# Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
+${OUT}/istioctl-linux: depend
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-osx: depend
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-win.exe: depend
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
 $(MIXER_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/mixer/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_BIN}/servicegraph: depend
-	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
 SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
 $(SECURITY_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/security/cmd/istio_ca/version ./security/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: go-build
 go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
@@ -218,6 +234,10 @@ node-agent: ${ISTIO_BIN}/node_agent
 
 .PHONY: pilot
 pilot: ${ISTIO_BIN}/pilot-discovery
+
+# istioctl-all makes all of the non-static istioctl executables for each supported OS
+.PHONY: istioctl-all
+istioctl-all: ${OUT}/istioctl-linux ${OUT}/istioctl-osx ${OUT}/istioctl-win.exe
 
 #-----------------------------------------------------------------------------
 # Target: go test
@@ -255,6 +275,10 @@ mixer-test: mixs
 broker-test: depend
 	go test ${T} ./broker/...
 
+.PHONY: galley-test
+galley-test: depend
+	go test ${T} ./galley/...
+
 .PHONY: security-test
 security-test:
 	go test ${T} ./security/pkg/...
@@ -263,8 +287,8 @@ security-test:
 common-test:
 	go test ${T} ./pkg/...
 
-# Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test
+# Run tests
+go-test: pilot-test mixer-test security-test broker-test galley-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
@@ -282,13 +306,17 @@ mixer-coverage:
 broker-coverage:
 	bin/parallel-codecov.sh broker
 
+.PHONY: galley-coverage
+galley-coverage:
+	bin/parallel-codecov.sh galley
+
 .PHONY: security-coverage
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -309,6 +337,10 @@ mixer-racetest: mixs
 broker-racetest: depend
 	go test ${T} -race ./broker/...
 
+.PHONY: galley-racetest
+galley-racetest: depend
+	go test ${T} -race ./galley/...
+
 .PHONY: security-racetest
 security-racetest:
 	go test ${T} -race ./security/...
@@ -317,7 +349,7 @@ common-racetest:
 	go test ${T} -race ./pkg/...
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -384,6 +416,10 @@ NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/istio_ca.crt \
                        security/docker/node_agent.crt \
                        security/docker/node_agent.key
+
+GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
+               mixer/deploy/kube/conf/start.sh \
+               mixer/deploy/kube/conf/grafana-dashboard.json
 
 # copied/generated files for docker build
 
@@ -465,7 +501,12 @@ SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.n
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
-DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
+# grafana image
+
+docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+	time (cd mixer/deploy/kube/conf && docker build -t grafana -f Dockerfile .)
+
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 docker.all: $(DOCKER_TARGETS)
 
@@ -490,11 +531,11 @@ push: checkvars clean.installgen installgen
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
+pilot/pkg/kube/config:
 	touch $@
 
 kubelink:
-	ln -fs ~/.kube/config pilot/platform/kube/
+	ln -fs ~/.kube/config pilot/pkg/kube/
 
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
@@ -550,52 +591,18 @@ dist: dist-bin
 
 include .circleci/Makefile
 
-.PHONY: docker.sidecar.deb sidecar.deb ${OUT}/istio-sidecar.deb
-
-# Make the deb image using the CI/CD image and docker.
-docker.sidecar.deb:
-	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
-        -v ${GO_TOP}:${GO_TOP} \
-        -w ${PWD} \
-        -e USER=${USER} \
-		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
-		sidecar.deb )
-
-# Create the 'sidecar' deb, including envoy and istio agents and configs.
-# This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
-# the builder image.
-# TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb: ${OUT}/istio-sidecar.deb
-
-ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
-                  tools/deb/istio-iptables.sh \
-                  tools/deb/istio.service \
-                  security/tools/deb/istio-auth-node-agent.service \
-                  tools/deb/sidecar.env tools/deb/envoy.json
-
-# --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
-	mkdir -p ${OUT}
-	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
-	   --url http://istio.io  \
-	   --license Apache \
-	   --vendor istio.io \
-	   --maintainer istio@istio.io \
-	   --after-install tools/deb/postinst.sh \
-	   --config-files /var/lib/istio/envoy/sidecar.env \
-	   --config-files /var/lib/istio/envoy/envoy.json \
-	   --description "Istio" \
-	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
-	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
-	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
-	   bin/envoy=/usr/local/bin/envoy \
-	   bin/pilot-agent=/usr/local/bin/pilot-agent \
-	   bin/node_agent=/usr/local/istio/bin/node_agent \
-	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
-	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+# Building the debian file, docker.istio.deb and istio.deb
+include tools/deb/istio.mk
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: bench check
+#-----------------------------------------------------------------------------
+
+.PHONY: benchcheck
+benchcheck:
+	bin/perfcheck.sh

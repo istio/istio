@@ -49,7 +49,7 @@ type mockCA struct {
 	errMsg string
 }
 
-func (ca *mockCA) Sign(csrPEM []byte) ([]byte, error) {
+func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	if ca.errMsg != "" {
 		return nil, fmt.Errorf(ca.errMsg)
 	}
@@ -216,7 +216,7 @@ func TestRun(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		server := New(tc.ca, tc.hostname, tc.port)
+		server := New(tc.ca, time.Hour, tc.hostname, tc.port)
 		err := server.Run()
 		if len(tc.expectedErr) > 0 {
 			if err == nil {

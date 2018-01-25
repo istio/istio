@@ -57,14 +57,12 @@ function istioNetworkInit() {
 function istioInstall() {
   echo "*** Fetching istio packages..."
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
-  curl -f -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
-  curl -f -L ${AUTH_DEBIAN_URL}/istio-auth-node-agent.deb > ${ISTIO_STAGING}/istio-auth-node-agent.deb
-  curl -f -L ${PROXY_DEBIAN_URL}/istio-proxy.deb > ${ISTIO_STAGING}/istio-proxy.deb
+  rm -f istio-sidecar.deb
+  echo curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
+  curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
 
   # Install istio binaries
-  dpkg -i ${ISTIO_STAGING}/istio-proxy.deb
-  dpkg -i ${ISTIO_STAGING}/istio-agent.deb
-  dpkg -i ${ISTIO_STAGING}/istio-auth-node-agent.deb
+  dpkg -i ${ISTIO_STAGING}/istio-sidecar.deb
 
   mkdir -p /etc/certs
 
@@ -101,6 +99,7 @@ function istioRestart() {
 if [[ ${1:-} == "initNetwork" ]] ; then
   istioNetworkInit
 elif [[ ${1:-} == "istioInstall" ]] ; then
+  istioVersionSource
   istioInstall
   istioRestart
 elif [[ ${1:-} == "help" ]] ; then

@@ -22,7 +22,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

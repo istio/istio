@@ -35,8 +35,11 @@ type Config struct {
 	// Istio CA grpc server
 	IstioCAAddress string
 
-	// Organization of service
+	// Organization of service, presented in the certificates
 	ServiceIdentityOrg string
+
+	// Requested TTL of the workload certificates
+	WorkloadCertTTL time.Duration
 
 	RSAKeySize int
 

@@ -102,6 +102,13 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
     HYPERKUBE_TAG="$(echo ${HYPERKUBE_HUB_TAG}|cut -f2 -d,)"
 fi
 
+# handle PROXY_DEBUG conversion to proxy_debug or proxy image
+PROXY_IMAGE="proxy"
+if [[ "${PROXY_DEBUG}" == "true" ]]; then
+    echo "# Use proxy_debug image"
+    PROXY_IMAGE="proxy_debug"
+fi
+
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
@@ -217,7 +224,8 @@ function update_helm_version() {
 
   execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
   execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
-  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" values.yaml.tmpl
   execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" values.yaml.tmpl
   execute_sed "s|{PROXY_DEBUG}|${PROXY_DEBUG}|" values.yaml.tmpl
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
@@ -247,12 +255,6 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
-  # handle PROXY_DEBUG conversion to proxy_debug or proxy image
-  PROXY_IMAGE="proxy"
-  if [[ "${PROXY_DEBUG}" == "true" ]]; then
-    echo "# Use proxy_debug image"
-    PROXY_IMAGE="proxy_debug"
-  fi
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
@@ -273,20 +275,8 @@ function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
   pushd $TEMP_DIR/templates/addons
-
+  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
-
-  execute_sed 's/^/    /' grafana-config/custom.ini
-  execute_sed 's/^/    /' grafana-config/istio-dashboard.json
-  execute_sed '/{CUSTOM_INI}/ {
-      r grafana-config/custom.ini
-      d
-    }' grafana.yaml.tmpl
-  execute_sed '/{ISTIO_DASHBOARD_JSON}/ {
-      r grafana-config/istio-dashboard.json
-      d
-    }' grafana.yaml.tmpl
-
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml

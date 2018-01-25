@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -29,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/cmd/istio_ca/version"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
@@ -42,6 +41,8 @@ const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
 	defaultWorkloadCertTTL = time.Hour
+
+	maxWorkloadCertTTL = 7 * 24 * time.Hour
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -65,8 +66,9 @@ type cliOptions struct {
 	selfSignedCA    bool
 	selfSignedCAOrg string
 
-	caCertTTL       time.Duration
-	workloadCertTTL time.Duration
+	caCertTTL          time.Duration
+	workloadCertTTL    time.Duration
+	maxWorkloadCertTTL time.Duration
 
 	grpcHostname string
 	grpcPort     int
@@ -120,12 +122,13 @@ func init() {
 	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
 		"The TTL of self-signed CA root certificate")
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
-	rootCmd.AddCommand(version.Command)
+	rootCmd.AddCommand(version.CobraCommand())
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
@@ -156,7 +159,8 @@ func runCA() {
 
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
-	sc := controller.NewSecretController(ca, cs.CoreV1(), opts.namespace)
+	// For workloads in K8s, we apply the configured workload cert TTL.
+	sc := controller.NewSecretController(ca, opts.workloadCertTTL, cs.CoreV1(), opts.namespace)
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
@@ -174,7 +178,8 @@ func runCA() {
 		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.namespace, reg)
 		serviceAccountController.Run(ch)
 
-		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
+		// The CA API uses cert with the max workload cert TTL.
+		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
@@ -201,7 +206,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		log.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.workloadCertTTL, opts.selfSignedCAOrg,
+		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.workloadCertTTL, opts.maxWorkloadCertTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
@@ -216,6 +221,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	caOpts := &ca.IstioCAOptions{
 		CertChainBytes:   certChainBytes,
 		CertTTL:          opts.workloadCertTTL,
+		MaxCertTTL:       opts.maxWorkloadCertTTL,
 		SigningCertBytes: readFile(opts.signingCertFile),
 		SigningKeyBytes:  readFile(opts.signingKeyFile),
 		RootCertBytes:    readFile(opts.rootCertFile),
