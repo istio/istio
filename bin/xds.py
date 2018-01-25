@@ -151,8 +151,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("pilot_url",
-                        help="Pilot url, often this will be localhost:15003 if a tunnel is being used")
-    parser.add_argument("podname", help="podname or a label value to search. ingress, mixer, istio-ca all work\nIf podname,podnamespace,podip is provided, kubectl is not used")
+                        help="Often this is localhost:8080 or 15003 through a port-forward."
+                        " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080"
+                        )
+    parser.add_argument("podname", help="podname or a label value to search. ingress, mixer, istio-ca all work."
+                        " If podname,podnamespace,podip is provided, kubectl is not used to search for the pod")
     parser.add_argument(
         "--output", help="where to write output. default is podname.yaml")
     args = parser.parse_args()
