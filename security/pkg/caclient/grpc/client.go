@@ -28,7 +28,7 @@ import (
 // CAGrpcClient is for implementing the GRPC client to talk to CA.
 type CAGrpcClient interface {
 	// Send CSR to the CA and gets the response or error.
-	SendCSR(*pb.Request, platform.Client, string) (*pb.Response, error)
+	SendCSR(*pb.CsrRequest, platform.Client, string) (*pb.CsrResponse, error)
 }
 
 // CAGrpcClientImpl is an implementation of GRPC client to talk to CA.
@@ -36,7 +36,7 @@ type CAGrpcClientImpl struct {
 }
 
 // SendCSR sends CSR to CA through GRPC.
-func (c *CAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, caAddress string) (*pb.Response, error) {
+func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
 	if caAddress == "" {
 		return nil, fmt.Errorf("istio CA address is empty")
 	}

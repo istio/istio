@@ -163,9 +163,9 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 		if err != nil {
 			return clusters, err
 		}
-		services, serr := env.Services()
-		if serr != nil {
-			return clusters, serr
+		services, err := env.Services() // nolint: vetshadow
+		if err != nil {
+			return clusters, err
 		}
 		_, clusters = buildSidecarListenersClusters(env.Mesh, instances,
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
