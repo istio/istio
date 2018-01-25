@@ -40,6 +40,7 @@ type (
 		rbac    authorizer
 		env     adapter.Env
 		closing chan bool
+		cacheDuration time.Duration
 	}
 )
 
@@ -73,7 +74,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}
 	r := &configStore{}
-	h := &handler{rbac: r, env: env, closing: make(chan bool)}
+	h := &handler{rbac: r, env: env, closing: make(chan bool), cacheDuration: b.adapterConfig.CacheDuration,}
 	if err = h.startController(s); err != nil {
 		return nil, env.Logger().Errorf("Unable to start controller: %v", err)
 	}
@@ -163,6 +164,8 @@ func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.I
 	}
 	return adapter.CheckResult{
 		Status: s,
+		ValidDuration: h.cacheDuration,
+		ValidUseCount: 1000000000,
 	}, nil
 }
 
@@ -185,6 +188,9 @@ func GetInfo() adapter.Info {
 			authorization.TemplateName,
 		},
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{},
+		DefaultConfig: &config.Params{
+			ConfigStoreUrl: "k8s://",
+			CacheDuration: 60 * time.Second,
+		},
 	}
 }

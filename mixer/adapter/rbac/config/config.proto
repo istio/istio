@@ -45,4 +45,7 @@ message Params {
   // * "fs:///tmp/testdata/configroot"
   // * "memstore://test"
   string config_store_url = 1;
+
+  // The duration for which the authorization result is cached.
+  google.protobuf.Duration cache_duration = 2;
 }
