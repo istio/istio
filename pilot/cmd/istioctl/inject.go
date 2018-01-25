@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
-	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
