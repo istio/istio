@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pilot/platform/kube/admit/testcerts"
+	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -482,7 +482,7 @@ func TestRegister(t *testing.T) {
 }
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	kubeconfig := k8s.Kubeconfig("/../../../../pilot/platform/kube/config")
+	kubeconfig := k8s.Kubeconfig("/../../../../pilot/pkg/kube/config")
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		t.Fatal(err)
