@@ -203,7 +203,7 @@ pre-commit: fmt lint
 init: $(ISTIO_BIN)/istio_is_init
 
 $(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh Gopkg.lock pilot/docker/Dockerfile.proxy_debug | ${DEP}
-	@(DEP=${DEP} bin/init.sh)
+	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
 	touch $(ISTIO_BIN)/istio_is_init
 
 # init.sh downloads envoy
