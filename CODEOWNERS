@@ -1,0 +1,19 @@
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# the global owners will be requested for
+# review when someone opens a pull request.
+*       @istio/reviewers
+
+# Per component owners. Prefix folders with / so that the owners
+# will be requested for reviews for all subdirectories under that
+# folder in the root
+/.circleci/ @rshriram @costinm # please do not change this
+
+/pilot/ @istio/reviewers-istio-pilot
+/security/ @istio/reviewers-istio-security
+/mixer/ @istio/reviewers-istio-mixer
+/galley/ @istio/reviewers-istio-galley
+/broker/ @istio/reviewers-istio-broker
