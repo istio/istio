@@ -24,7 +24,7 @@ set -u
 set -x
 set -e
 
-source ${ROOT}/prow/istio-presubmit.sh
+source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
 echo 'Build'
