@@ -1,0 +1,19 @@
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence, they will be
+# requested for review when someone opens a pull request.
+
+*       @rshriram @geeknoid @douglas-reid
+
+# Order is important; the last matching pattern takes the most
+# precedence. When someone opens a pull request that only
+# modifies routing/ files, only owners listed here and not the global
+# owner(s) will be requested for a review.
+
+/mesh/ @ZackButcher @rshriram
+/routing/    @rshriram @ZackButcher @kyessenov
+/rbac/ @liminw
+/mixer/ @geeknoid @douglas-reid
+/broker/ @xiaolanz
