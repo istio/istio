@@ -28,7 +28,9 @@ export GOPATH
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 
-export CGO_ENABLE=0
+# Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
+# to be handled in bin/gobuild.sh
+# export CGO_ENABLED=0
 
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
@@ -112,8 +114,10 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 ${DEP}:
-	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -186,18 +190,26 @@ build: setup go-build
 PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
                ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
 $(PILOT_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+
+# Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
+${OUT}/istioctl-linux: depend
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-osx: depend
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-win.exe: depend
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
 $(MIXER_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_BIN}/servicegraph: depend
-	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/pkg/version ./mixer/example/servicegraph
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
 SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
 $(SECURITY_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: go-build
 go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
@@ -218,6 +230,10 @@ node-agent: ${ISTIO_BIN}/node_agent
 
 .PHONY: pilot
 pilot: ${ISTIO_BIN}/pilot-discovery
+
+# istioctl-all makes all of the non-static istioctl executables for each supported OS
+.PHONY: istioctl-all
+istioctl-all: ${OUT}/istioctl-linux ${OUT}/istioctl-osx ${OUT}/istioctl-win.exe
 
 #-----------------------------------------------------------------------------
 # Target: go test
