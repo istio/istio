@@ -14,6 +14,16 @@
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/rbac/config/config.proto
 
+// Package rbac provides Role Based Access Control (RBAC) for services in Istio mesh.
+// Seting up RBAC handler is trivial. The runtime input to RBAC handler should be an instance of
+// "authorization" template.
+//
+// The RBAC policies are specified in ServiceRole and ServiceRoleBinding CRD objects.
+// You can define a ServiceRole that contains a set of permissions for service/method level
+// access. You can then assign a ServiceRole to a set of subjects using ServiceRoleBinding specification.
+// ServiceRole and the corresponding ServiceRoleBindings should be in the same namespace.
+// Please see "istio.io/istio/mixer/testdata/config/rbac.yaml" for an example of RBAC handler, plus ServieRole
+// ServiceRoleBinding specifications.
 package rbac
 
 import (
