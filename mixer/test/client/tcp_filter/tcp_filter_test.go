@@ -144,12 +144,6 @@ func TestTCPMixerFilter(t *testing.T) {
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesFailPost)
 
-	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
 	//
 	// Use V2 config
 	//

@@ -237,12 +237,6 @@ func TestCheckReportAttributes(t *testing.T) {
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesOkPost)
 
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
-
 	s.SetV2Conf()
 	s.ReStartEnvoy()
 
