@@ -11,6 +11,11 @@
 # will be requested for reviews for all subdirectories under that
 # folder in the root
 /.circleci/ @rshriram @costinm # please do not change this
+/release/ @mattdelco
+/prow/ @sebastienvas
+
+## TODO samples, install
+# /pkg/, /tests/, /tools/, /bin/, /docker/ is everyone's responsibility
 
 /pilot/ @istio/reviewers-istio-pilot
 /security/ @istio/reviewers-istio-security
