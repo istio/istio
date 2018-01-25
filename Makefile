@@ -48,7 +48,7 @@ ifeq ($(LOCAL_OS),Linux)
 else ifeq ($(LOCAL_OS),Darwin)
    export GOOS ?= darwin
 else
-   $(error "$(LOCAL_OS) isn't recognized/supported")
+   $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
 endif
 
@@ -59,9 +59,10 @@ else ifeq ($(GOOS),darwin)
 else ifeq ($(GOOS),windows)
   OS_DIR:=win
 else
-   $(error "$(GOOS) isn't recognized/supported")
+   $(error "Building for $(GOOS) isn't recognized/supported")
 endif
 
+# Another person;s PR is adding the debug support, so this is in prep for that
 ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
@@ -84,20 +85,18 @@ export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
 # this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 
-hub = ""
-tag = ""
+#hub = ""
+#tag = ""
 
 HUB?=istio
-ifneq ($(strip $(HUB)),)
-	hub =-hub ${HUB}
+ifeq ($(HUB),)
+  $(error "HUB cannot be empty")
 endif
 
 # If tag not explicitly set in users' .istiorc or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
-export TAG
-export HUB
-ifneq ($(strip $(TAG)),)
-	tag =-tag ${TAG}
+ifeq ($(TAG),)
+  $(error "TAG cannot be empty")
 endif
 
 # Discover if user has dep installed -- prefer that
@@ -106,7 +105,6 @@ GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
-export GS_BUCKET
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -118,10 +116,6 @@ H = $(shell printf "\033[34;1m=>\033[0m")
 
 .PHONY: default
 default: depend build
-
-checkvars:
-	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
-	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
 setup:
 
@@ -419,7 +413,7 @@ racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley
 .PHONY: clean
 .PHONY: clean.go
 
-DIRS_TO_CLEAN:=
+DIRS_TO_CLEAN:=${ISTIO_OUT}
 FILES_TO_CLEAN:=
 
 clean: clean.go
@@ -429,50 +423,21 @@ clean: clean.go
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
 	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
-	$(MAKE) clean -C mixer
-	$(MAKE) clean -C pilot
-	$(MAKE) clean -C security
 
 test: setup go-test
-
-# Build all prod and debug images
-docker:
-	time $(ISTIO_GO)/security/bin/push-docker ${hub} ${tag} -build-only
-	time $(ISTIO_GO)/mixer/bin/push-docker ${hub} ${tag} -build-only
-	time $(ISTIO_GO)/pilot/bin/push-docker ${hub} ${tag} -build-only
-
-# Build docker images for pilot, mixer, ca using prebuilt binaries
-docker.prebuilt:
-	cp ${ISTIO_OUT}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
-	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
-	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
-	time (cd pilot/docker && docker build -t ${HUB}/sidecar_injector:${TAG} -f Dockerfile.sidecar_injector .)
-	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${ISTIO_OUT}/mixs mixer/docker
-	cp docker/ca-certificates.tgz mixer/docker
-	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
-	cp ${ISTIO_OUT}/{istio_ca,node_agent} security/docker
-	cp docker/ca-certificates.tgz security/docker/
-	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
-	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
-	cp ${ISTIO_OUT}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
-	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
-	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
-	# TODO: generate or checkin test CA and keys
-	## These are not used so far
-	security/bin/gen-keys.sh
-	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
-	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
 
 ##################################################################################
 
 # for now docker is limited to Linux compiles
 ifeq ($(GOOS),linux)
 
+docker: docker.all
+
+# Build docker images for pilot, mixer, ca using prebuilt binaries
+docker.prebuilt: docker.save
+
 $(ISTIO_DOCKER):
 	mkdir -p $@
-
-DIRS_TO_CLEAN+=$(ISTIO_DOCKER)
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
@@ -626,7 +591,7 @@ docker.save: $(DOCKER_TAR_TARGETS)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
-$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) checkvars; \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
         time (docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
                     docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
@@ -637,18 +602,22 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # This target pushes each docker image to specified HUB and TAG.
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),
 # but I'm not sure this is worth the added complexity to support.
+
+# XXX consider whether to support:
+# if [[ "${TEST_ENV}" == "minikube" ]]; then
+#    eval $(minikube docker-env)
+# fi
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: push.istioctl-all),)
+
+push: docker.push installgen
 
 endif # end of docker block that's restricted to Linux
 
-push: checkvars installgen
-	$(ISTIO_GO)/bin/push $(HUB) $(TAG) $(GS_BUCKET)
-
-# files generated by the push-docker scripts that are run by bin/push
-FILES_TO_CLEAN+=pilot/docker/pilot-test-client \
-                pilot/docker/pilot-test-eurekamirror \
-                pilot/docker/pilot-test-server \
-                security/docker/ca-certificates.tgz
+push.istioctl.all: istioctl-all
+	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
 
 artifacts: docker
 	@echo 'To be added'
@@ -672,7 +641,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml
 
-.PHONY: artifacts build checkvars clean docker test setup push kubelink installgen
+.PHONY: artifacts build clean docker test setup push kubelink installgen
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
