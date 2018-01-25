@@ -70,7 +70,7 @@ else
    $(error "Building for $(GOOS) isn't recognized/supported")
 endif
 
-# Another person;s PR is adding the debug support, so this is in prep for that
+# Another person's PR is adding the debug support, so this is in prep for that
 ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
@@ -101,12 +101,11 @@ VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1
 
 # using a sentinel file so this check is only performed once per version.  Performance is
 # being favored over the unlikely situation that go gets downgraded to an older version
-check-go-version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
                  $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
-	@mkdir -p ${ISTIO_BIN}
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 HUB?=istio
@@ -151,7 +150,7 @@ setup:
 # changes.
 depend: init $(ISTIO_OUT)
 
-$(ISTIO_OUT):
+$(ISTIO_OUT) $(ISTIO_BIN):
 	mkdir -p $@
 
 depend.ensure: init
@@ -454,6 +453,8 @@ test: setup go-test
 # for now docker is limited to Linux compiles
 ifeq ($(GOOS),linux)
 
+.PHONY: docker docker.prebuilt
+
 docker: docker.all
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
@@ -510,7 +511,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # eventually the dockerfile should be changed to not used the subdir, in which case
 # the files listed in this section can be added to the preceeding section.
 # The alternative is to generate new certs (as described by the readme in cert/ )
-$(ISTIO_DOCKER)/certs: ; mkdir -p $(@)
+$(ISTIO_DOCKER)/certs: ; mkdir -p $@
 DOCKER_CERTS_FILES_FROM_SOURCE:=pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_CERTS_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/certs/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER)/certs; cp $(FILE) $$(@D)))
@@ -584,9 +585,8 @@ docker.all: $(DOCKER_TARGETS)
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
-$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
-   time (mkdir -p ${ISTIO_OUT}/docker && \
-         docker save -o ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER); \
+   time (docker save -o ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
          gzip ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
@@ -600,7 +600,7 @@ docker.save: $(DOCKER_TAR_TARGETS)
 # the local docker image to another hub
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
         time (docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
-                    docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+                    $(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
@@ -618,6 +618,10 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: push.istioctl-all),)
+
+# if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
+        $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
 
 push: docker.push installgen
 
