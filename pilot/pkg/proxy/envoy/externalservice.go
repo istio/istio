@@ -22,7 +22,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
-	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func buildExternalServicePort(port *routingv2.Port) *model.Port {
