@@ -97,7 +97,7 @@ resources:
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
-            kubectl apply -f install/kubernetes/istio-initializer.yaml
+            kubectl apply -f install/kubernetes/istio-sidecar-injector.yaml
           {% endif %}
 
           {% if  properties['enableGrafana'] %}

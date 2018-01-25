@@ -184,7 +184,7 @@ build: setup go-build
 # Params: OUT VERSION_PKG SRC
 
 PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
-               ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
+               ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-injector
 $(PILOT_GO_BINS): depend
 	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./pilot/cmd/$(@F)
 
@@ -206,7 +206,7 @@ go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
 
-IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-initializer
+IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector
 .PHONY: $(IDENTITY_ALIAS_LIST)
 $(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_BIN}/$(ITEM)))
 
@@ -361,10 +361,10 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
-	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
+	time (cd pilot/docker && docker build -t ${HUB}/sidecar_injector:${TAG} -f Dockerfile.sidecar_injector .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
 	cp ${ISTIO_BIN}/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
@@ -410,7 +410,7 @@ GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
 # cases where you might change any of these to be a new or former source code path
 COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
                        pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
-                       pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
+                       pilot/docker/sidecar-injector pilot/docker/pilot-test-eurekamirror \
                        mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
                        security/docker/istio_ca security/docker/node_agent
 
@@ -447,10 +447,10 @@ docker.eurekamirror: pilot/docker/pilot-test-eurekamirror
 docker.pilot: pilot/docker/pilot-discovery
 docker.proxy docker.proxy_debug: pilot/docker/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_init: pilot/docker/prepare_proxy.sh
-docker.sidecar_initializer: pilot/docker/sidecar-initializer
+docker.sidecar_injector: pilot/docker/sidecar-injector
 
 PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
-              docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+              docker.proxy_debug docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
 	time (cd pilot/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
@@ -526,7 +526,7 @@ clean.installgen:
 	rm -f install/kubernetes/helm/istio/values.yaml
 	rm -f install/kubernetes/istio-auth.yaml
 	rm -f install/kubernetes/istio-ca-plugin-certs.yaml
-	rm -f install/kubernetes/istio-initializer.yaml
+	rm -f install/kubernetes/istio-sidecar-injector.yaml
 	rm -f install/kubernetes/istio-one-namespace-auth.yaml
 	rm -f install/kubernetes/istio-one-namespace.yaml
 	rm -f install/kubernetes/istio.yaml
