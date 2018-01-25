@@ -63,7 +63,7 @@ spec:
           - -v
           - "2"
           - --controlPlaneAuthPolicy
-        {{- if .Values.global.authEnabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLSN
           - --customConfigFile
           - /etc/istio/proxy/envoy_mixer_auth.json

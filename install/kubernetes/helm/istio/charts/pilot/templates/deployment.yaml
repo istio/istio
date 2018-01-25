@@ -63,7 +63,7 @@ spec:
           - --discoveryAddress
           - {{ template "pilot.fullname" . }}:15003
           - --controlPlaneAuthPolicy
-        {{- if .Values.global.authEnabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
           - --customConfigFile
           - /etc//proxy/envoy_pilot_auth.json

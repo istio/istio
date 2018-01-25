@@ -33,7 +33,7 @@ spec:
           - -v
           - "2"
           - --discoveryAddress
-          - {{ .Release.Name }}-istio-pilot:15003
+          - {{ .Release.Name }}-pilot:15003
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration
@@ -43,16 +43,16 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - {{ .Release.Name }}-istio-ingress
+          - istio-proxy
           - --zipkinAddress
           - zipkin:9411
           - --statsdUdpAddress
-          - {{ .Release.Name }}-istio-mixer:9125
+          - {{ .Release.Name }}-mixer:9125
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
 
-        {{- if .Values.global.authEnabled }}
+        {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
         {{- else }}
           - NONE #--controlPlaneAuthPolicy

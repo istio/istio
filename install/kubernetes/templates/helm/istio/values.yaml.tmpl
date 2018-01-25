@@ -11,7 +11,7 @@ global:
   pilot:
     repository: {PILOT_HUB}/pilot
     tag: {PILOT_TAG}
-  auth:
+  security:
     repository: {CA_HUB}/istio-ca
     tag: {CA_TAG}
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
@@ -19,8 +19,10 @@ global:
     repository: {HYPERKUBE_HUB}
     tag: {HYPERKUBE_TAG}
 
+  # create RBAC resources
   rbacEnabled: true
-  authEnabled: false
+  # mutual TLS authentication
+  securityEnabled: false
 
 #
 # proxy side car and ingress configuration
@@ -42,7 +44,7 @@ service:
 #
 initializer:
   enabled: true
-  serviceAccountName: default
+  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
@@ -57,7 +59,7 @@ initializer:
 #
 mixer:
   enabled: true
-  serviceAccountName: default
+  serviceAccountName: default # # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
@@ -74,17 +76,17 @@ mixer:
 #
 pilot:
   enabled: true
-  serviceAccountName: default
+  serviceAccountName: default # # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
   nodeSelector: {}
 
 #
-# auth configuration
+# security configuration
 #
-auth:
-  serviceAccountName: default
+security:
+  serviceAccountName: default # # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}

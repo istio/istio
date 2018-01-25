@@ -9,8 +9,8 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.authEnabled }}
-    # Uncomment the following line to enable mutual TLS between proxies
+  {{- if .Values.global.securityEnabled }}
+    # Mutual TLS between proxies
     authPolicy: MUTUAL_TLS
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
   {{- end }}
@@ -28,9 +28,9 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following line
-    mixerAddress: {{ .Release.Name }}-istio-mixer.{{ .Release.Namespace }}:15004
+    mixerAddress: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
     # This is the ingress service name, update if you used a different name
-    ingressService: {{ .Release.Name }}-istio-ingress
+    ingressService: {{ .Release.Name }}-ingress
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
@@ -68,15 +68,15 @@ data:
       proxyAdminPort: 15000
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Release.Name }}-istio-pilot.{{ .Release.Namespace }}:15003
+      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15003
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
-      statsdUdpAddress: {{ .Release.Name }}-istio-mixer.{{ .Release.Namespace }}:9125
-    {{- if .Values.global.authEnabled }}
+      statsdUdpAddress: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:9125
+    {{- if .Values.global.securityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS

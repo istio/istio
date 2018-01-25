@@ -1,10 +1,10 @@
 apiVersion: v1
-name: auth
-version: 0.3.0
+name: security
+version: 0.5.0
 description: Helm chart for istio authentication
 keywords:
   - istio
-  - auth
+  - security
 sources:
   - http://github.com/istio/istio
 engine: gotpl
