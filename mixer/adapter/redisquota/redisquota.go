@@ -122,7 +122,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			}
 
 			if b.adapterConfig.Quotas[idx].ValidDuration > 0 && b.adapterConfig.Quotas[idx].BucketDuration > 0 &&
-					b.adapterConfig.Quotas[idx].ValidDuration <= b.adapterConfig.Quotas[idx].BucketDuration {
+				b.adapterConfig.Quotas[idx].ValidDuration <= b.adapterConfig.Quotas[idx].BucketDuration {
 				ce = ce.Appendf(info.Name, "quotas.valid_duration: %v should be longer than quotas.bucket_duration: %v for ROLLING_WINDOW algorithm",
 					b.adapterConfig.Quotas[idx].ValidDuration, b.adapterConfig.Quotas[idx].BucketDuration)
 				continue
@@ -134,6 +134,12 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 				ce = ce.Appendf(info.Name, "quotas.overrides.max_amount must be > 0")
 				continue
 			}
+
+			if len(b.adapterConfig.Quotas[idx].Overrides[index].Dimensions) == 0 {
+				ce = ce.Appendf(info.Name, "quotas.overrides.dimensions is empty")
+				continue
+			}
+
 			if _, err := getDimensionHash(b.adapterConfig.Quotas[idx].Overrides[index].Dimensions); err != nil {
 				ce = ce.Appendf(info.Name, "unable to initialize quota overrides dimensions",
 					b.adapterConfig.Quotas[idx].Overrides[index].Dimensions)
@@ -163,7 +169,7 @@ func getDimensionHash(dimensions map[string]string) (string, error) {
 	h := fnv.New32a()
 	for _, key := range keys {
 		if _, err := io.WriteString(h, key+"\t"+dimensions[key]+"\n"); err != nil {
-			return "", nil
+			return "", err
 		}
 	}
 	return strconv.Itoa(int(h.Sum32())), nil

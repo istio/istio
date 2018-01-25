@@ -110,7 +110,7 @@ func TestBuilderValidate(t *testing.T) {
 				"redisquota: quotas.valid_duration should be bigger must be > 0",
 			},
 		},
-		"Invalid quota.valid_duration": {
+		"quota.valid_duration is not defined": {
 			quotaTypes: map[string]*quota.Type{
 				"rolling-window": {},
 			},
@@ -118,7 +118,7 @@ func TestBuilderValidate(t *testing.T) {
 				RedisServerUrl: "localhost:6476",
 				Quotas: []config.Params_Quota{
 					{
-						Name: "fixed-window",
+						Name:      "rolling-window",
 						MaxAmount: 10,
 					},
 				},
@@ -127,18 +127,111 @@ func TestBuilderValidate(t *testing.T) {
 				"redisquota: quotas.valid_duration should be bigger must be > 0",
 			},
 		},
-		/*
-		"Negative connection pool size": {
-			config: &config.Params{
-				RedisServerUrl:     "localhost:6476",
-				ConnectionPoolSize: -1,
+		"quota.bucket_duration is not defined": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
 			},
-			errCnt: 1,
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name:               "rolling-window",
+						MaxAmount:          10,
+						ValidDuration:      time.Minute,
+						RateLimitAlgorithm: config.ROLLING_WINDOW,
+					},
+				},
+			},
 			errMsg: []string{
-				"connectionPoolSize: redis connection pool size of -1 is invalid, must be > 0",
+				"redisquota: quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm",
 			},
 		},
-		*/
+		"quota.bucket_duration is longer than quota.valid_duration": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name:               "rolling-window",
+						MaxAmount:          10,
+						ValidDuration:      time.Minute,
+						BucketDuration:     time.Minute * time.Duration(2),
+						RateLimitAlgorithm: config.ROLLING_WINDOW,
+					},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.valid_duration: 1m0s should be longer than quotas.bucket_duration: 2m0s for ROLLING_WINDOW algorithm",
+			},
+		},
+		"Valid rolling window configuration": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name:               "rolling-window",
+						MaxAmount:          10,
+						ValidDuration:      time.Minute,
+						BucketDuration:     time.Second,
+						RateLimitAlgorithm: config.ROLLING_WINDOW,
+					},
+				},
+			},
+			errMsg: []string{},
+		},
+		"Override invalid max_amount": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name:               "rolling-window",
+						MaxAmount:          10,
+						ValidDuration:      time.Minute,
+						BucketDuration:     time.Second,
+						RateLimitAlgorithm: config.ROLLING_WINDOW,
+						Overrides: []config.Params_Override{
+							{},
+						},
+					},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.overrides.max_amount must be > 0",
+			},
+		},
+		"Override empty dimensions": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name:               "rolling-window",
+						MaxAmount:          10,
+						ValidDuration:      time.Minute,
+						BucketDuration:     time.Second,
+						RateLimitAlgorithm: config.ROLLING_WINDOW,
+						Overrides: []config.Params_Override{
+							{
+								MaxAmount: 5,
+							},
+						},
+					},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.overrides.dimensions is empty",
+			},
+		},
 	}
 
 	info := GetInfo()
