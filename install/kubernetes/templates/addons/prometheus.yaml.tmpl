@@ -15,24 +15,42 @@ data:
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
-      static_configs:
-      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:42422']
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {ISTIO_NAMESPACE};istio-mixer;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
-      static_configs:
-      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:9102']
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {ISTIO_NAMESPACE};istio-mixer;statsd-prom
 
     - job_name: 'mixer'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
-      static_configs:
-      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:9093']
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {ISTIO_NAMESPACE};istio-mixer;http-health
 ---
 apiVersion: v1
 kind: Service
