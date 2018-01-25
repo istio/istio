@@ -33,6 +33,9 @@ export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
+# test scripts seem to like to run this script directly rather than use make
+export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
+
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        echo "Istio not found in GOPATH/src/istio.io/"

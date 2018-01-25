@@ -202,7 +202,7 @@ pre-commit: fmt lint
 # Will also check vendor, based on Gopkg.lock
 init: $(ISTIO_BIN)/istio_is_init
 
-$(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh Gopkg.lock pilot/docker/Dockerfile.proxy_debug | ${DEP}
+$(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${DEP}
 	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
 	touch $(ISTIO_BIN)/istio_is_init
 
