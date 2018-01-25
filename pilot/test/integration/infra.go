@@ -36,10 +36,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/adapter/config/crd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )
@@ -212,7 +212,7 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
 		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
@@ -287,7 +287,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 	version string, injectProxy bool, perServiceAuth bool) error {
 	// Eureka does not support management ports
 	healthPort := "true"
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
 		healthPort = "false"
 	}
 

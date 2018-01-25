@@ -101,7 +101,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
 
     ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy
     popd
 fi
 
@@ -112,6 +112,6 @@ if [ ! -f ${ISTIO_BIN}/envoy ] ; then
 fi
 
 # Deprecated, may still be used in some tests
-if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+if [ ! -f ${ROOT}/pilot/pkg/proxy/envoy/envoy ] ; then
+    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/pkg/proxy/envoy
 fi
