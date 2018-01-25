@@ -185,8 +185,11 @@ pre-commit: fmt lint
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: ${DEP}
+init: $(ISTIO_BIN)/istio_is_init
+
+$(ISTIO_BIN)/istio_is_init: bin/init.sh Gopkg.lock pilot/docker/Dockerfile.proxy_debug | ${DEP}
 	@(DEP=${DEP} bin/init.sh)
+	touch $(ISTIO_BIN)/istio_is_init
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
