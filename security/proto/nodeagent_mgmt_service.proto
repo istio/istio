@@ -25,13 +25,13 @@ import "google/rpc/status.proto";
 service NodeAgentMgmt {
         // WorkloadAdded is used to notify Node Agent about a workload getting
         // added on a node.
-        rpc WorkloadAdded(WorkloadInfo) returns (Response);
+        rpc WorkloadAdded(WorkloadInfo) returns (NodeAgentMgmtResponse);
         // WorkloadDeleted is used to notify Node Agent about a workload getting
         // added on a node.
-        rpc WorkloadDeleted(WorkloadInfo) returns (Response);
+        rpc WorkloadDeleted(WorkloadInfo) returns (NodeAgentMgmtResponse);
 }
 
-message Response {
+message NodeAgentMgmtResponse {
         google.rpc.Status status = 1;
 }
 
