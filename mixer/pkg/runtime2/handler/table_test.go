@@ -17,6 +17,12 @@ package handler
 import (
 	"testing"
 
+	"fmt"
+
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
@@ -38,7 +44,7 @@ func TestNew_EmptyConfig(t *testing.T) {
 		t.Fatal("found")
 	}
 
-	if e.Name != "" {
+	if e.name != "" {
 		t.Fatal("non-empty handler")
 	}
 }
@@ -55,7 +61,7 @@ func TestNew_EmptyOldTable(t *testing.T) {
 		t.Fatal("not found")
 	}
 
-	if e.Name == "" {
+	if e.name == "" {
 		t.Fatal("empty handler")
 	}
 }
@@ -106,13 +112,13 @@ func TestNew_NoReuse_DifferentConfig(t *testing.T) {
 }
 
 func TestTable_Get(t *testing.T) {
-	table := &Table{
-		entries: make(map[string]Entry),
+	table := &table{
+		entries: make(map[string]entry),
 	}
 
-	table.entries["h1"] = Entry{
-		Name:    "h1",
-		Handler: &data.FakeHandler{},
+	table.entries["h1"] = entry{
+		name:    "h1",
+		handler: &data.FakeHandler{},
 	}
 
 	e, found := table.Get("h1")
@@ -120,14 +126,14 @@ func TestTable_Get(t *testing.T) {
 		t.Fail()
 	}
 
-	if e.Name == "" {
+	if e.name == "" {
 		t.Fail()
 	}
 }
 
 func TestTable_Get_Empty(t *testing.T) {
-	table := &Table{
-		entries: make(map[string]Entry),
+	table := &table{
+		entries: make(map[string]entry),
 	}
 
 	_, found := table.Get("h1")
@@ -161,6 +167,54 @@ func TestCleanup_Basic(t *testing.T) {
 
 	if !closeCalled {
 		t.Fail()
+	}
+}
+
+func TestCleanup_WorkerNotClosed(t *testing.T) {
+	tests := []struct {
+		SpawnWorker      bool
+		SpawnDaemon      bool
+		CloseGoRoutines  bool
+		wantStrayRoutine float64
+	}{
+
+		{
+			SpawnWorker:      true,
+			SpawnDaemon:      true,
+			CloseGoRoutines:  false,
+			wantStrayRoutine: 1,
+		},
+		{
+			SpawnWorker:      true,
+			SpawnDaemon:      true,
+			CloseGoRoutines:  true,
+			wantStrayRoutine: 0,
+		},
+	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d]", idx), func(t *testing.T) {
+			adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker, SpawnDaemon: tt.SpawnDaemon, CloseGoRoutines: tt.CloseGoRoutines})
+			templates := data.BuildTemplates()
+
+			s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
+			s.ID = int64(idx * 2)
+
+			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+
+			s = config.Empty()
+			s.ID = int64(idx*2 + 1)
+
+			newTable := NewTable(oldTable, s, nil)
+
+			oldTable.Cleanup(newTable)
+
+			var c prometheus.Metric = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.workers
+			m := new(dto.Metric)
+			_ = c.Write(m)
+			if *m.GetGauge().Value != tt.wantStrayRoutine {
+				t.Fatalf("expected %v worked; got %v", tt.wantStrayRoutine, *m.GetGauge().Value)
+			}
+		})
 	}
 }
 

@@ -15,44 +15,49 @@
 package handler
 
 import (
+	"fmt"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/pkg/log"
 )
 
-// Table contains a set of instantiated and configured adapter handlers.
-type Table struct {
-	entries map[string]Entry
+// table contains a set of instantiated and configured adapter handlers.
+type table struct {
+	entries map[string]entry
 
 	counters tableCounters
 }
 
-// Entry in the handler table.
-type Entry struct {
+// entry in the handler table.
+type entry struct {
 	// name of the Handler
-	Name string
+	name string
 
-	// Handler is the initialized Handler object.
-	Handler adapter.Handler
+	// handler is the initialized Handler object.
+	handler adapter.Handler
 
-	// Adapter that was used to create this Entry.
-	Adapter *adapter.Info
+	// adapter that was used to create this Entry.
+	adapter *adapter.Info
 
-	// Signature of the configuration used to create this entry.
-	Signature signature
+	// signature of the configuration used to create this entry.
+	signature signature
+
+	// env refers to the adapter.Env passed to the handler.
+	env env
 }
 
 // NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
-func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Table {
+func NewTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *table {
 	var f *factory
 
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 
-	t := &Table{
-		entries:  make(map[string]Entry, len(instancesByHandler)),
+	t := &table{
+		entries:  make(map[string]entry, len(instancesByHandler)),
 		counters: newTableCounters(snapshot.ID),
 	}
 
@@ -60,7 +65,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 		sig := calculateSignature(handler, instances)
 
 		currentEntry, found := old.entries[handler.Name]
-		if found && currentEntry.Signature.equals(sig) {
+		if found && currentEntry.signature.equals(sig) {
 			// reuse the Handler
 			t.entries[handler.Name] = currentEntry
 			t.counters.reusedHandlers.Inc()
@@ -72,7 +77,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 			f = newFactory(snapshot)
 		}
 
-		e := NewEnv(snapshot.ID, handler.Name, gp)
+		e := newEnv(snapshot.ID, handler.Name, gp)
 		instantiatedHandler, err := f.build(handler, instances, e)
 
 		if err != nil {
@@ -88,11 +93,12 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 
 		t.counters.newHandlers.Inc()
 
-		t.entries[handler.Name] = Entry{
-			Name:      handler.Name,
-			Handler:   instantiatedHandler,
-			Adapter:   handler.Adapter,
-			Signature: sig,
+		t.entries[handler.Name] = entry{
+			name:      handler.Name,
+			handler:   instantiatedHandler,
+			adapter:   handler.Adapter,
+			signature: sig,
+			env:       e,
 		}
 	}
 
@@ -104,11 +110,11 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 // is passed as a parameter. The Cleanup method selectively closes all adapters that are not used by the current
 // table. This method will use perf counters on current will be used, instead of the perf counters on t.
 // This ensures that appropriate config id dimension is used when reporting metrics.
-func (t *Table) Cleanup(current *Table) {
-	var toCleanup []Entry
+func (t *table) Cleanup(current *table) {
+	var toCleanup []entry
 
 	for name, oldEntry := range t.entries {
-		if currentEntry, found := current.entries[name]; found && currentEntry.Signature.equals(oldEntry.Signature) {
+		if currentEntry, found := current.entries[name]; found && currentEntry.signature.equals(oldEntry.signature) {
 			// this entry is still in use. Skip it.
 			continue
 		}
@@ -118,45 +124,45 @@ func (t *Table) Cleanup(current *Table) {
 	}
 
 	for _, entry := range toCleanup {
-		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
-		// Do a nil check for counters here. Since we're using the counters of the new table, they are not
-		// guaranteed to exist (i.e. a default value, or the result of Empty()). This is not a problem
-		// for other counters as the other code-paths doesn't suffer from the same issue.
-		if current.counters.closedHandlers != nil {
-			current.counters.closedHandlers.Inc()
-		}
-
+		log.Debugf("Closing adapter %s/%v", entry.name, entry.handler)
+		t.counters.closedHandlers.Inc()
 		var err error
 		panicErr := safeCall("handler.Close", func() {
-			err = entry.Handler.Close()
+			err = entry.handler.Close()
 		})
 
 		if panicErr != nil {
 			err = panicErr
 		}
 
-		if err != nil {
-			if current.counters.closeFailure != nil {
-				current.counters.closeFailure.Inc()
+		if workerCloseErr := entry.env.ensureWorkerClosed(); workerCloseErr != nil {
+			if err == nil {
+				err = workerCloseErr
+			} else {
+				err = fmt.Errorf("%v, %v", err, workerCloseErr)
 			}
-			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
+		}
+
+		if err != nil {
+			t.counters.closeFailure.Inc()
+			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.name, entry.handler, err)
 		}
 	}
 }
 
 // Get returns the entry for a Handler with the given name, if it exists.
-func (t *Table) Get(handlerName string) (Entry, bool) {
+func (t *table) Get(handlerName string) (entry, bool) {
 	e, found := t.entries[handlerName]
 	if !found {
-		return Entry{}, false
+		return entry{}, false
 	}
 
 	return e, true
 }
 
-var emptyTable = &Table{}
+var emptyTable = &table{}
 
 // Empty returns an empty table instance.
-func Empty() *Table {
+func Empty() *table {
 	return emptyTable
 }
