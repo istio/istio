@@ -478,26 +478,6 @@ GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
                mixer/deploy/kube/conf/mixer-dashboard.json \
                mixer/deploy/kube/conf/pilot-dashboard.json
 
-# copied/generated files for docker build
-
-.SECONDEXPANSION: #allow $@ to be used in dependency list
-
-# each of these files .../XXX is copied from ${ISTIO_BIN}/XXX
-# NOTE: each of these are passed to rm -f during "make clean".  Keep in mind
-# cases where you might change any of these to be a new or former source code path
-COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
-                       pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
-                       pilot/docker/sidecar-injector pilot/docker/pilot-test-eurekamirror \
-                       mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
-                       security/docker/istio_ca security/docker/node_agent
-
-$(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
-	cp $< $(@D)
-
-GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
-               mixer/deploy/kube/conf/start.sh \
-               mixer/deploy/kube/conf/grafana-dashboard.json
-
 # note that "viz" is a directory rather than a file
 $(ISTIO_DOCKER)/viz: mixer/example/servicegraph/js/viz | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
