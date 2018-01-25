@@ -12,6 +12,7 @@ ENV GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
 
 COPY ./start.sh /start.sh
 COPY ./grafana-dashboard.json /grafana-dashboard.json
+COPY ./mixer-dashboard.json /mixer-dashboard.json
 COPY ./import_dashboard.sh ./import_dashboard.sh
 
 ENTRYPOINT ["/start.sh"]

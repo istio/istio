@@ -20,7 +20,7 @@ spec:
     port: 9091
   - name: tcp-mtls
     port: 15004
-  - name: http-health
+  - name: http-monitoring
     port: 9093
   - name: configapi
     port: 9094
@@ -73,6 +73,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
+        - containerPort: 9093
         - containerPort: 9094
         - containerPort: 42422
         args:
