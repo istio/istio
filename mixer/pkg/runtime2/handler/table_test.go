@@ -172,23 +172,40 @@ func TestCleanup_Basic(t *testing.T) {
 
 func TestCleanup_WorkerNotClosed(t *testing.T) {
 	tests := []struct {
-		SpawnWorker      bool
-		SpawnDaemon      bool
-		CloseGoRoutines  bool
-		wantStrayRoutine float64
+		SpawnWorker            bool
+		SpawnDaemon            bool
+		CloseGoRoutines        bool
+		wantWorkerStrayRoutine float64
+		wantDaemonStrayRoutine float64
 	}{
 
 		{
-			SpawnWorker:      true,
-			SpawnDaemon:      true,
-			CloseGoRoutines:  false,
-			wantStrayRoutine: 1,
+			SpawnWorker:            true,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 1,
+			wantDaemonStrayRoutine: 1,
 		},
 		{
-			SpawnWorker:      true,
-			SpawnDaemon:      true,
-			CloseGoRoutines:  true,
-			wantStrayRoutine: 0,
+			SpawnWorker:            true,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        true,
+			wantWorkerStrayRoutine: 0,
+			wantDaemonStrayRoutine: 0,
+		},
+		{
+			SpawnWorker:            true,
+			SpawnDaemon:            false,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 1,
+			wantDaemonStrayRoutine: 0,
+		},
+		{
+			SpawnWorker:            false,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 0,
+			wantDaemonStrayRoutine: 1,
 		},
 	}
 	for idx, tt := range tests {
@@ -211,8 +228,15 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			var c prometheus.Metric = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.workers
 			m := new(dto.Metric)
 			_ = c.Write(m)
-			if *m.GetGauge().Value != tt.wantStrayRoutine {
-				t.Fatalf("expected %v worked; got %v", tt.wantStrayRoutine, *m.GetGauge().Value)
+			if *m.GetGauge().Value != tt.wantWorkerStrayRoutine {
+				t.Fatalf("expected %v worker stray routines; got %v", tt.wantWorkerStrayRoutine, *m.GetGauge().Value)
+			}
+
+			c = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.daemons
+			m = new(dto.Metric)
+			_ = c.Write(m)
+			if *m.GetGauge().Value != tt.wantDaemonStrayRoutine {
+				t.Fatalf("expected %v daemon stray routines; got %v", tt.wantDaemonStrayRoutine, *m.GetGauge().Value)
 			}
 		})
 	}
