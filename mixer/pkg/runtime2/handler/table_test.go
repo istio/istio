@@ -221,6 +221,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
 
 			s = config.Empty()
+			// Every iteration of this test is working with two different config snapshot (old and new). We need to
+			// allocate distinct config ids to each of the config snapshot for all the iterations. Multiplying
+			// by 2 and adding 1, give unique ids per iteration [(0,1), (1,2), ...]
 			s.ID = int64(idx*2 + 1)
 
 			newTable := NewTable(oldTable, s, nil)
@@ -237,7 +240,7 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 				t.Fatalf("expected %v worker stray routines; got %v", tt.wantWorkerStrayRoutine, *m.GetGauge().Value)
 			}
 
-			c = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.daemons
+			c = oldTable.entries[data.FqnACheck1].env.counters.daemons
 			m = new(dto.Metric)
 			_ = c.Write(m)
 			if *m.GetGauge().Value != tt.wantDaemonStrayRoutine {

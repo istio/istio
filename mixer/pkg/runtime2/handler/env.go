@@ -15,9 +15,6 @@
 package handler
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 )
@@ -98,39 +95,26 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 	}()
 }
 
-func (e env) ensureWorkerClosed() error {
-	if e.counters.daemons != nil {
-
-		m := new(dto.Metric)
-
-		var c prometheus.Metric = e.counters.daemons
-		if err := c.Write(m); err != nil {
-			return e.Logger().Errorf("Failed to fetch adapter's scheduled daemon counter: %v", err)
-
-		} else if *m.GetGauge().Value > 0 {
-			_ = e.Logger().Errorf("Adapter did not close all the scheduled daemons")
-			// TODO: ideally we should return error here so that we can increment the counter that keep track of
-			// error on close that a higher level. However, currently we cannot guarantee that SchedularXXXX gauge
-			// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
-			// Basically, even if the adapter would have closed everything before returning from Close function, our
-			// counter might get delayed decremented, causing this false positive error.
-			// Therefore, we need a new retry kind logic on handler Close to give time for counters to get updated
-			// before making this as a red flag error. runtime2 work has plans to implement this stuff, we can revisit
-			// this to-do then. Same for the code below related to workers.
-			return nil
-		}
+func (e env) reportStrayWorkers() error {
+	if dc, err := e.counters.getDaemonCount(); err != nil {
+		return err
+	} else if dc > 0 {
+		// TODO: ideally we should return some sort of error here to bubble up this issue to the top so that
+		// operator can look at it. However, currently we cannot guarantee that SchedularXXXX gauge
+		// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
+		// Basically, even if the adapter would have closed everything before returning from Close function, our
+		// counter might get delayed decremented, causing this false positive error.
+		// Therefore, we need a new retry kind logic on handler Close to give time for counters to get updated
+		// before making this as a red flag error. runtime2 work has plans to implement this stuff, we can revisit
+		// this to-do then. Same for the code below related to workers.
+		_ = e.Logger().Errorf("adapter did not close all the scheduled daemons")
 	}
 
-	if e.counters.workers != nil {
-		m := new(dto.Metric)
-		var c prometheus.Metric = e.counters.workers
-		if err := c.Write(m); err != nil {
-			return e.Logger().Errorf("Failed to fetch adapter's scheduled worker counter: %v", err)
-
-		} else if *m.GetGauge().Value > 0 {
-			_ = e.Logger().Errorf("Adapter did not close all the scheduled workers")
-			return nil
-		}
+	if wc, err := e.counters.getWorkerCount(); err != nil {
+		return err
+	} else if wc > 0 {
+		_ = e.Logger().Errorf("adapter did not close all the scheduled workers")
 	}
+
 	return nil
 }

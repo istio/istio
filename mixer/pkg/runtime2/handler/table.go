@@ -133,7 +133,10 @@ func (t *Table) Cleanup(current *Table) {
 			err = panicErr
 		}
 
-		_ = entry.env.ensureWorkerClosed()
+		if reportErr := entry.env.reportStrayWorkers(); reportErr != nil {
+			log.Warnf("unable to report if there are any stray go routines scheduled by the adapter '%s': %v",
+				entry.Name, reportErr)
+		}
 
 		if err != nil {
 			t.counters.closeFailure.Inc()
