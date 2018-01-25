@@ -55,7 +55,7 @@ $(foreach TGT,$(GENERATED_CERT_FILES),$(eval $(ISTIO_DOCKER)/$(TGT): security/bi
 
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
-                             pilot-discovery pilot-agent sidecar-initializer servicegraph mixs \
+                             pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
                              istio_ca node_agent
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
@@ -84,10 +84,10 @@ docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
 $(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
-docker.sidecar_initializer: $(ISTIO_DOCKER)/sidecar-initializer
+docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
 PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
-              docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+              docker.proxy_debug docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_SPECIFIC_RULE)
 
