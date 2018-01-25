@@ -497,6 +497,10 @@ COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
 $(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
 	cp $< $(@D)
 
+GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
+               mixer/deploy/kube/conf/start.sh \
+               mixer/deploy/kube/conf/grafana-dashboard.json
+
 # note that "viz" is a directory rather than a file
 $(ISTIO_DOCKER)/viz: mixer/example/servicegraph/js/viz | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
@@ -519,7 +523,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES)
+                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
@@ -578,8 +582,9 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 
 # grafana image
 
+$(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
-	time (cd mixer/deploy/kube/conf && docker build -t grafana -f Dockerfile .)
+	$(DOCKER_GENERIC_RULE)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
