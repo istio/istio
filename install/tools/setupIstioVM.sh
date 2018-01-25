@@ -57,6 +57,8 @@ function istioNetworkInit() {
 function istioInstall() {
   echo "*** Fetching istio packages..."
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
+  rm -f istio-sidecar.deb
+  echo curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
   curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
 
   # Install istio binaries
@@ -97,6 +99,7 @@ function istioRestart() {
 if [[ ${1:-} == "initNetwork" ]] ; then
   istioNetworkInit
 elif [[ ${1:-} == "istioInstall" ]] ; then
+  istioVersionSource
   istioInstall
   istioRestart
 elif [[ ${1:-} == "help" ]] ; then
