@@ -75,7 +75,7 @@ cd $ROOT
 
 export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
-ISTIO_OUT=${GOPATH}/out/lx/amd64/release
+ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 

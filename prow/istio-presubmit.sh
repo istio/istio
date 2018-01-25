@@ -87,4 +87,4 @@ fi
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
 # run security e2e test
-${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"
+CERT_DIR=$(make where-is-docker-temp) ${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"

@@ -143,6 +143,14 @@ default: depend build
 
 setup:
 
+.PHONY: where-is-out where-is-docker-temp where-is-docker-tar
+where-is-out:
+	@echo ${ISTIO_OUT}
+where-is-docker-temp:
+	@echo ${ISTIO_DOCKER}
+where-is-docker-tar:
+	@echo ${ISTIO_DOCKER_TAR}
+
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
