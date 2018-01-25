@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	blockTypeECParameters  = "EC PARAMETERS"
-	blockTypeRSAPrivateKey = "RSA PRIVATE KEY"
+	blockTypeECParameters    = "EC PARAMETERS"
+	blockTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#5 private key
+	blockTypePKCS8PrivateKey = "PRIVATE KEY"     // PKCS#8 plain private key
 )
 
 // ParsePemEncodedCertificate constructs a `x509.Certificate` object using the
@@ -74,6 +75,12 @@ func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse the RSA private key")
+		}
+		return key, nil
+	case blockTypePKCS8PrivateKey:
+		key, err := x509.ParsePKCS8PrivateKey(kb.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse the PKCS8 private key")
 		}
 		return key, nil
 	default:

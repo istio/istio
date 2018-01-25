@@ -74,11 +74,15 @@ required = [
   name = "k8s.io/apiserver"
   branch = "release-1.9"
 
+[[override]]
+  name = "k8s.io/kubernetes"
+  branch = "release-1.9"
+
 # TODO(https://github.com/istio/istio/issues/2413). Keep
 # k8s.io/ingress-nginx pinned to an older version until istio ingress code
 # is refactored.
 #
-# istio.io/istio/pilot/adapter/config/ingress uses the following nginx
+# istio.io/istio/pilot/pkg/config/kube/ingress uses the following nginx
 # controller packages from an older version of k8s.io/ingress which
 # have since been made internal and are no longer available.
 #
@@ -134,3 +138,9 @@ required = [
 [[constraint]]
   name = "github.com/onsi/gomega"
   revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
+
+# To use reference package:
+#   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
+[[override]]
+  name = "github.com/docker/distribution"
+  branch = "master"

@@ -44,9 +44,11 @@ fi
 DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
 # Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 if [ ! -f ${DEP} ]; then
     DEP=${ISTIO_BIN}/dep
-    unset GOOS && go get -u github.com/golang/dep/cmd/dep
+    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 fi
 
 # Download dependencies if needed
@@ -101,7 +103,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
 
     ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
+    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy
     popd
 fi
 
@@ -112,6 +114,6 @@ if [ ! -f ${ISTIO_BIN}/envoy ] ; then
 fi
 
 # Deprecated, may still be used in some tests
-if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+if [ ! -f ${ROOT}/pilot/pkg/proxy/envoy/envoy ] ; then
+    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/pkg/proxy/envoy
 fi
