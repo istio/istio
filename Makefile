@@ -35,7 +35,15 @@ GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
 
-GO ?= go
+# It's more concise to use GO?=$(shell which go)
+# but the following approach uses a more efficient "simply expanded" :=
+# variable instead of a "recursively expanded" =
+ifeq ($(origin GO), undefined)
+  GO:=$(shell which go)
+endif
+ifeq ($(GO),)
+  $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
+endif
 
 # Compile for linux/amd64 by default.
 export GOOS ?= linux
@@ -46,13 +54,29 @@ export GOARCH ?= amd64
 
 
 # @todo allow user to run for a single $PKG only?
-PACKAGES := $(shell $(GO) list ./...)
+PACKAGES_CMD := $(GO) list ./...
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
-GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
+GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
+
+GO_VERSION_REQUIRED:=1.9
+
+# Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
+# that allows the three components to be checked in a single comparison.
+VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1]*10000+a[2]*100+a[3]}'
+
+# using a sentinel file so this check is only performed once per version.  Performance is
+# being favored over the unlikely situation that go gets downgraded to an older version
+check-go-version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
+                 $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
+                 then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
+	@mkdir -p ${ISTIO_BIN}
+	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 hub = ""
 tag = ""
@@ -140,7 +164,7 @@ pre-commit: fmt lint
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: ${DEP}
+init: check-go-version ${DEP}
 	@(DEP=${DEP} bin/init.sh)
 
 # init.sh downloads envoy
@@ -159,20 +183,20 @@ fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $(GO_FILES)
+	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $(GO_FILES)
+	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $(PACKAGES) || true
+	$(Q) $(GO) vet $$($(PACKAGES_CMD)) || true
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
 check.lint: ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $(PACKAGES); do \
+	$(Q) for p in $$($(PACKAGES_CMD)); do \
 		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
