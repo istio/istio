@@ -1,10 +1,10 @@
 apiVersion: v1
-name: pilot
+name: security
 version: 0.5.0
-description: Helm chart for pilot deployment
+description: Helm chart for istio authentication
 keywords:
   - istio
-  - pilot
+  - security
 sources:
   - http://github.com/istio/istio
 engine: gotpl
