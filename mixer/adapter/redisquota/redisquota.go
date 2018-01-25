@@ -33,12 +33,18 @@ import (
 	"istio.io/istio/mixer/template/quota"
 )
 
-// LUA rate-limiting algorithm scripts
 var (
-	rateLimitingLUAScripts = map[string]string{
-		"fixed-window":   luaFixedWindow,
-		"rolling-window": luaRollingWindow,
+	// LUA rate-limiting algorithm scripts
+	rateLimitingLUAScripts = map[config.Params_QuotaAlgorithm]string{
+		config.FIXED_WINDOW:   luaFixedWindow,
+		config.ROLLING_WINDOW: luaRollingWindow,
 	}
+
+	// the default window duration is 60 seconds
+	defaultWindowDuration = time.Minute
+
+	// the default bucket size is 100ms
+	defaultBucketDuration = time.Millisecond * time.Duration(100)
 )
 
 type (
@@ -59,7 +65,7 @@ type (
 		dimensionHash map[*map[string]string]string
 
 		// list of algorithm LUA scripts
-		scripts map[string]*redis.Script
+		scripts map[config.Params_QuotaAlgorithm]*redis.Script
 
 		// indirection to support fast deterministic tests
 		getTime func() time.Time
@@ -80,23 +86,56 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	info := GetInfo()
+
 	if len(b.adapterConfig.RedisServerUrl) == 0 {
-		ce = ce.Appendf("redisServerUrl", "redis server url should not be empty")
+		ce = ce.Appendf(info.Name, "redis_server_url should not be empty")
 	}
 
 	if b.adapterConfig.ConnectionPoolSize < 0 {
-		ce = ce.Appendf("connectionPoolSize",
-			"redis connection pool size of %v is invalid, must be > 0",
+		ce = ce.Appendf(info.Name, "connection_pool_size of %v is invalid, must be > 0",
 			b.adapterConfig.ConnectionPoolSize)
+	}
+
+	if len(b.adapterConfig.Quotas) == 0 {
+		ce = ce.Appendf(info.Name, "quota should not be empty")
 	}
 
 	limits := make(map[string]*config.Params_Quota, len(b.adapterConfig.Quotas))
 	for idx := range b.adapterConfig.Quotas {
+		if len(b.adapterConfig.Quotas[idx].Name) == 0 {
+			ce = ce.Appendf(info.Name, "quotas.name should not be empty")
+			continue
+		}
+
 		limits[b.adapterConfig.Quotas[idx].Name] = &b.adapterConfig.Quotas[idx]
 
+		if b.adapterConfig.Quotas[idx].ValidDuration == 0 {
+			ce = ce.Appendf(info.Name, "quotas.valid_duration should be bigger must be > 0")
+			continue
+		}
+
+		if b.adapterConfig.Quotas[idx].RateLimitAlgorithm == config.ROLLING_WINDOW {
+			if b.adapterConfig.Quotas[idx].BucketDuration == 0 {
+				ce = ce.Appendf(info.Name, "quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm")
+				continue
+			}
+
+			if b.adapterConfig.Quotas[idx].ValidDuration > 0 && b.adapterConfig.Quotas[idx].BucketDuration > 0 &&
+					b.adapterConfig.Quotas[idx].ValidDuration <= b.adapterConfig.Quotas[idx].BucketDuration {
+				ce = ce.Appendf(info.Name, "quotas.valid_duration: %v should be longer than quotas.bucket_duration: %v for ROLLING_WINDOW algorithm",
+					b.adapterConfig.Quotas[idx].ValidDuration, b.adapterConfig.Quotas[idx].BucketDuration)
+				continue
+			}
+		}
+
 		for index := range b.adapterConfig.Quotas[idx].Overrides {
+			if b.adapterConfig.Quotas[idx].Overrides[index].MaxAmount <= 0 {
+				ce = ce.Appendf(info.Name, "quotas.overrides.max_amount must be > 0")
+				continue
+			}
 			if _, err := getDimensionHash(b.adapterConfig.Quotas[idx].Overrides[index].Dimensions); err != nil {
-				ce = ce.Appendf("overrides", "unable to initialize quota overrides",
+				ce = ce.Appendf(info.Name, "unable to initialize quota overrides dimensions",
 					b.adapterConfig.Quotas[idx].Overrides[index].Dimensions)
 			}
 		}
@@ -104,9 +143,11 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 	for k := range b.quotaTypes {
 		if _, ok := limits[k]; !ok {
-			ce = ce.Appendf("quotaTypes", "did not find limit defined for quota %v", k)
+			ce = ce.Appendf(info.Name, "did not find limit defined for quota %v", k)
 		}
 	}
+
+	//if b.adapterConfig.Quotas
 
 	return
 }
@@ -161,7 +202,7 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	}
 
 	// load scripts into redis
-	scripts := make(map[string]*redis.Script, 2)
+	scripts := make(map[config.Params_QuotaAlgorithm]*redis.Script, 2)
 	for algorithm, script := range rateLimitingLUAScripts {
 		scripts[algorithm] = redis.NewScript(script)
 		if _, err := scripts[algorithm].Load(client).Result(); err != nil {
@@ -208,7 +249,7 @@ func matchDimensions(cfg *map[string]string, inst *map[string]interface{}) bool 
 func getAllocatedTokenFromResult(result *interface{}) (int64, time.Duration, error) {
 	if res, ok := (*result).([]interface{}); ok {
 		if len(res) != 2 {
-			return 0, 0, fmt.Errorf("invalid response from the redis server: %v", result)
+			return 0, 0, fmt.Errorf("invalid response from the redis server: %v", *result)
 		}
 
 		// read token

@@ -250,6 +250,6 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 }
 
 func TestFixedWindowAlgorithm(t *testing.T) {
-	runServerWithSelectedAlgorithm(t, "rolling-window")
-	runServerWithSelectedAlgorithm(t, "fixed-window")
+	runServerWithSelectedAlgorithm(t, "ROLLING_WINDOW")
+	runServerWithSelectedAlgorithm(t, "FIXED_WINDOW")
 }

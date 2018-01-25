@@ -36,6 +36,14 @@ message Params {
     int64 max_amount = 2;
   }
 
+  // Algorithm for rate-limiting:
+  // FIXED_WINDOW - The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+  // ROLLING_WINDOW - The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
+  enum QuotaAlgorithm {
+    FIXED_WINDOW = 0;
+    ROLLING_WINDOW = 1;
+  }
+
   message Quota {
     option (gogoproto.goproto_getters) = true;
 
@@ -51,12 +59,11 @@ message Params {
     google.protobuf.Duration valid_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
     // size of bucket slice
+    // this value should be shorter then valid_duration.
     google.protobuf.Duration bucket_duration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
-    // Algorithm for rate-limiting:
-    // The fixed-window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
-    // The rolling-window algorithm's additional precision comes at the cost of increased redis resource usage.
-    string rate_limit_algorithm = 5;
+    // If rate_limit_algorithm is not specified, it will be set to the default value, FIXED_WINDOW
+    QuotaAlgorithm rate_limit_algorithm = 5 [(gogoproto.nullable) = false];
 
     // Overrides associated with this quota.
     // The first matching override is applied.
@@ -66,9 +73,11 @@ message Params {
   // The set of known quotas.
   repeated Quota quotas = 1 [(gogoproto.nullable) = false];
 
-  // Redis network address
-  string redis_server_url = 2;
+  // Redis network address including port number
+  // ex) localhost:6379
+  string redis_server_url = 2 [(gogoproto.nullable) = false];
 
   // Maximum number of idle connections to redis
+  // Default is 10 connections per every CPU as reported by runtime.NumCPU.
   int64 connection_pool_size = 3;
 }

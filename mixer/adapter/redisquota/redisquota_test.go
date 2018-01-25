@@ -47,40 +47,87 @@ func TestBuilderValidate(t *testing.T) {
 	cases := map[string]struct {
 		quotaTypes map[string]*quota.Type
 		config     *config.Params
-		errCnt     int
 		errMsg     []string
 	}{
-		"Good configuration": {
-			config: &config.Params{
-				RedisServerUrl:     "localhost:6476",
-				ConnectionPoolSize: 10,
-			},
-			errCnt: 0,
-			errMsg: []string{},
-		},
 		"Empty redis server url": {
 			config: &config.Params{
 				RedisServerUrl:     "",
 				ConnectionPoolSize: 10,
 			},
-			errCnt: 1,
 			errMsg: []string{
-				"redisServerUrl: redis server url should not be empty",
+				"redisquota: redis_server_url should not be empty",
+				"redisquota: quota should not be empty",
 			},
 		},
-		"Missing quota config": {
-			quotaTypes: map[string]*quota.Type{
-				"rolling-window": {},
+		"Invalid connection pool size": {
+			config: &config.Params{
+				RedisServerUrl:     "",
+				ConnectionPoolSize: -10,
 			},
+			errMsg: []string{
+				"redisquota: redis_server_url should not be empty",
+				"redisquota: connection_pool_size of -10 is invalid, must be > 0",
+				"redisquota: quota should not be empty",
+			},
+		},
+		"Empty quota config": {
 			config: &config.Params{
 				RedisServerUrl:     "localhost:6476",
 				ConnectionPoolSize: 10,
 			},
-			errCnt: 1,
 			errMsg: []string{
-				"quotaTypes: did not find limit defined for quota rolling-window",
+				"redisquota: quota should not be empty",
 			},
 		},
+		"Empty quota name": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.name should not be empty",
+				"redisquota: did not find limit defined for quota rolling-window",
+			},
+		},
+		"Invalid quota.max_amount": {
+			quotaTypes: map[string]*quota.Type{
+				"fixed-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name: "fixed-window",
+					},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.valid_duration should be bigger must be > 0",
+			},
+		},
+		"Invalid quota.valid_duration": {
+			quotaTypes: map[string]*quota.Type{
+				"rolling-window": {},
+			},
+			config: &config.Params{
+				RedisServerUrl: "localhost:6476",
+				Quotas: []config.Params_Quota{
+					{
+						Name: "fixed-window",
+						MaxAmount: 10,
+					},
+				},
+			},
+			errMsg: []string{
+				"redisquota: quotas.valid_duration should be bigger must be > 0",
+			},
+		},
+		/*
 		"Negative connection pool size": {
 			config: &config.Params{
 				RedisServerUrl:     "localhost:6476",
@@ -91,6 +138,7 @@ func TestBuilderValidate(t *testing.T) {
 				"connectionPoolSize: redis connection pool size of -1 is invalid, must be > 0",
 			},
 		},
+		*/
 	}
 
 	info := GetInfo()
@@ -102,8 +150,8 @@ func TestBuilderValidate(t *testing.T) {
 
 		ce := b.Validate()
 		if ce != nil {
-			if len(ce.Multi.Errors) != c.errCnt {
-				t.Errorf("%v: Invalid number of errors. Expected %v got %v", id, c.errCnt, len(ce.Multi.Errors))
+			if len(ce.Multi.Errors) != len(c.errMsg) {
+				t.Errorf("%v: Invalid number of errors. Expected %v got %v", id, len(c.errMsg), len(ce.Multi.Errors))
 			} else {
 				for idx, err := range ce.Multi.Errors {
 					if c.errMsg[idx] != err.Error() {
@@ -111,7 +159,7 @@ func TestBuilderValidate(t *testing.T) {
 					}
 				}
 			}
-		} else if c.errCnt > 0 {
+		} else if len(c.errMsg) > 0 {
 			t.Errorf("%v: Succeeded. Error expected", id)
 		}
 	}
@@ -141,7 +189,7 @@ func TestBuilderBuildErrorMsg(t *testing.T) {
 					Name:               "fixed-window",
 					MaxAmount:          10,
 					ValidDuration:      time.Second * 10,
-					RateLimitAlgorithm: "fixed-window",
+					RateLimitAlgorithm: config.FIXED_WINDOW,
 				},
 			},
 			errMsg: "",
@@ -247,7 +295,7 @@ func TestHandleQuota(t *testing.T) {
 					MaxAmount:          10,
 					ValidDuration:      time.Second * time.Duration(10),
 					BucketDuration:     time.Second * time.Duration(0),
-					RateLimitAlgorithm: "fixed-window",
+					RateLimitAlgorithm: config.FIXED_WINDOW,
 				},
 			},
 			instance: quota.Instance{
@@ -280,7 +328,7 @@ func TestHandleQuota(t *testing.T) {
 					MaxAmount:          10,
 					ValidDuration:      time.Second * time.Duration(10),
 					BucketDuration:     time.Second * time.Duration(0),
-					RateLimitAlgorithm: "fixed-window",
+					RateLimitAlgorithm: config.FIXED_WINDOW,
 				},
 			},
 			instance: quota.Instance{
@@ -313,7 +361,7 @@ func TestHandleQuota(t *testing.T) {
 					MaxAmount:          10,
 					ValidDuration:      time.Second * time.Duration(100),
 					BucketDuration:     time.Second * time.Duration(10),
-					RateLimitAlgorithm: "rolling-window",
+					RateLimitAlgorithm: config.ROLLING_WINDOW,
 				},
 			},
 			instance: quota.Instance{
@@ -351,7 +399,7 @@ func TestHandleQuota(t *testing.T) {
 					MaxAmount:          10,
 					ValidDuration:      time.Second * time.Duration(100),
 					BucketDuration:     time.Second * time.Duration(10),
-					RateLimitAlgorithm: "rolling-window",
+					RateLimitAlgorithm: config.ROLLING_WINDOW,
 				},
 			},
 			instance: quota.Instance{
@@ -387,7 +435,7 @@ func TestHandleQuota(t *testing.T) {
 					MaxAmount:          10,
 					ValidDuration:      time.Second * time.Duration(100),
 					BucketDuration:     time.Second * time.Duration(10),
-					RateLimitAlgorithm: "rolling-window",
+					RateLimitAlgorithm: config.ROLLING_WINDOW,
 					Overrides: []config.Params_Override{
 						{
 							MaxAmount: 50,
@@ -464,7 +512,6 @@ func TestHandleQuota(t *testing.T) {
 	//t.Errorf("")
 }
 
-/*
 func TestHandleQuotaErrorMsg(t *testing.T) {
 	cases := map[string]struct {
 		quotaType   map[string]*quota.Type
@@ -494,7 +541,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 					Name:               "fixed-window",
 					MaxAmount:          10,
 					ValidDuration:      time.Second * 10,
-					RateLimitAlgorithm: "fixed-window",
+					RateLimitAlgorithm: config.FIXED_WINDOW,
 				},
 			},
 			req: RequestInfo{
@@ -508,6 +555,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
+				"key: fixed-window maxAmount: 10",
 				"failed to run quota script: Error",
 			},
 		},
@@ -532,7 +580,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 					Name:               "fixed-window",
 					MaxAmount:          10,
 					ValidDuration:      time.Second * 10,
-					RateLimitAlgorithm: "fixed-window",
+					RateLimitAlgorithm: config.FIXED_WINDOW,
 				},
 			},
 			req: RequestInfo{
@@ -546,6 +594,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
+				"key: fixed-window maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
 		},
@@ -584,6 +633,11 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 			BestEffort:  c.req.bestEffort,
 		})
 
+		if err != nil {
+			glog.Errorf("%v: unexpected error: %v", id, err.Error())
+			continue
+		}
+
 		glog.Errorf("%v", env.GetLogs())
 		glog.Errorf("%v", c.errMsg)
 
@@ -602,7 +656,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		s.Close()
 	}
 }
-*/
+
 func contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
