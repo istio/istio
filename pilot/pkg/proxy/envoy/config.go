@@ -163,7 +163,7 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 		if err != nil {
 			return clusters, err
 		}
-		services, err := env.Services()
+		services, err := env.Services() // nolint: vetshadow
 		if err != nil {
 			return clusters, err
 		}
