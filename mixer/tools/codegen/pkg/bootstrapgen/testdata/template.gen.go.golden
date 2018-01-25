@@ -187,10 +187,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -344,10 +344,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1228,7 +1228,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -1277,10 +1277,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1327,7 +1327,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -1370,10 +1370,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1408,7 +1408,7 @@ var (
 
 						if infrdType.Res2Map[k], err = BuildRes2(v, path+"Res2Map["+k+"]."); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Res2Map", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Res2Map", k, err)
 						}
 					}
 
@@ -1439,7 +1439,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2134,7 +2134,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2183,10 +2183,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -2466,7 +2466,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2515,10 +2515,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -2574,7 +2574,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2617,10 +2617,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -2655,7 +2655,7 @@ var (
 
 						if infrdType.Res2Map[k], err = BuildRes2(v, path+"Res2Map["+k+"]."); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Res2Map", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Res2Map", k, err)
 						}
 					}
 
@@ -2686,7 +2686,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -3256,7 +3256,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -3305,10 +3305,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 

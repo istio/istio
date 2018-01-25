@@ -177,7 +177,7 @@ var (
                             {{else}}
                                 if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
                             {{end}}
-                                    return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + fmt.Sprintf("%s[%s]","{{.GoName}}", k), err)
+                                    return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path,"{{.GoName}}", k, err)
                                 }
                             }
                         {{else}}
@@ -202,10 +202,10 @@ var (
                             for k, v := range param.{{.GoName}} {
                                 if t, e := tEvalFn(v); e != nil || t != {{getValueType .GoType.MapValue}} {
                                     if e != nil {
-                                        return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + fmt.Sprintf("%s[%s]","{{.GoName}}", k), e)
+                                        return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "{{.GoName}}", k, e)
                                     }
                                     return nil, fmt.Errorf(
-                                        "error type checking for field '%s': Evaluated expression type %v want %v", path + fmt.Sprintf("%s[%s]","{{.GoName}}", k), t, {{getValueType .GoType.MapValue}})
+                                        "error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "{{.GoName}}", k, t, {{getValueType .GoType.MapValue}})
                                 }
                             }
                         {{else}}
