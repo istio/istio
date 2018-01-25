@@ -68,7 +68,7 @@ func TestStartWithArgs(t *testing.T) {
 		"Success": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.Response{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
+			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
 			certUtil:    FakeCertUtil{time.Duration(0), nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   12,
@@ -131,14 +131,14 @@ func TestStartWithArgs(t *testing.T) {
 		"SendCSR not approved": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.Response{IsApproved: false}, nil},
+			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR parsing error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.Response{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
+			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
 			certUtil:    FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
