@@ -255,6 +255,10 @@ mixer-test: mixs
 broker-test: depend
 	go test ${T} ./broker/...
 
+.PHONY: galley-test
+galley-test: depend
+	go test ${T} ./galley/...
+
 .PHONY: security-test
 security-test:
 	go test ${T} ./security/pkg/...
@@ -263,8 +267,8 @@ security-test:
 common-test:
 	go test ${T} ./pkg/...
 
-# Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test common-test
+# Run tests
+go-test: pilot-test mixer-test security-test broker-test galley-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
@@ -282,13 +286,17 @@ mixer-coverage:
 broker-coverage:
 	bin/parallel-codecov.sh broker
 
+.PHONY: galley-coverage
+galley-coverage:
+	bin/parallel-codecov.sh galley
+
 .PHONY: security-coverage
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -309,6 +317,10 @@ mixer-racetest: mixs
 broker-racetest: depend
 	go test ${T} -race ./broker/...
 
+.PHONY: galley-racetest
+galley-racetest: depend
+	go test ${T} -race ./galley/...
+
 .PHONY: security-racetest
 security-racetest:
 	go test ${T} -race ./security/...
@@ -317,7 +329,7 @@ common-racetest:
 	go test ${T} -race ./pkg/...
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -557,3 +569,11 @@ include tools/deb/istio.mk
 # Target: e2e tests
 #-----------------------------------------------------------------------------
 include tests/istio.mk
+
+#-----------------------------------------------------------------------------
+# Target: bench check
+#-----------------------------------------------------------------------------
+
+.PHONY: benchcheck
+benchcheck:
+	bin/perfcheck.sh

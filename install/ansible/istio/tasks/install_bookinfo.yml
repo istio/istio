@@ -1,0 +1,23 @@
+# We can't simply execute the standard bookinfo installation script using shell
+# because Ansible doesn't play nicely with bash's process substitution
+
+- name: Create temp directory that will contain the installation script
+  command: mktemp -d -t ansible.XXXXXXXXXX
+  register: temp_output
+
+- name: Set command full path
+  set_fact:
+    bookinfo_cmd_full_path: "{{ temp_output.stdout }}/bookinfo_cmd"
+
+- name: Copy command into temp directory
+  template: src=bookinfo_cmd.j2 dest={{ bookinfo_cmd_full_path }}
+
+- name: Make command executable
+  file: dest={{ bookinfo_cmd_full_path }} mode=a+x
+
+- name: Install Book info example
+  command : "bash -c {{ bookinfo_cmd_full_path }}"
+
+- name: Show helpful bookinfo message
+  debug:
+    msg: "Bookinfo is being deployed in namespace {{ istio.bookinfo_namespace }}"

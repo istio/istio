@@ -62,7 +62,12 @@ func newController() (*Controller, error) {
 	c.rpcServer.HandleHTTP(c.rpcPath, rpcDebugPath)
 
 	go func() {
-		_ = http.Serve(c.listener, nil)
+		// Make a local copy of the listener before using. Since this function closes over c, it is possible
+		// that somebody might have called c.close() before this goroutine starts running.
+		l := c.listener
+		if l != nil {
+			_ = http.Serve(l, nil)
+		}
 	}()
 
 	log.Infof("controller is accepting connections on: %s%s", c.listener.Addr().String(), c.rpcPath)
