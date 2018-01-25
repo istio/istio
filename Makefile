@@ -481,6 +481,7 @@ pilot/pkg/kube/config:
 kubelink:
 	ln -fs ~/.kube/config pilot/pkg/kube/
 
+# generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 
