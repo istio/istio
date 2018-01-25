@@ -72,6 +72,10 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	if _, err := url.Parse(ac.ConfigStoreUrl); err != nil {
 		ce = ce.Append("configStoreUrl", err)
 	}
+
+	if ac.CacheDuration < 0 {
+		ce = ce.Appendf("cachingDuration", "caching interval must be >= 0, it is %v", ac.CacheDuration)
+	}
 	return
 }
 

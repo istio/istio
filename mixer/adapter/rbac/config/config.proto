@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package adapter.rbac.config;
 
+import "google/protobuf/duration.proto";
 import "gogoproto/gogo.proto";
 
 option go_package="config";
@@ -47,5 +48,5 @@ message Params {
   string config_store_url = 1;
 
   // The duration for which the authorization result is cached.
-  google.protobuf.Duration cache_duration = 2;
+  google.protobuf.Duration cache_duration = 2 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }
