@@ -470,10 +470,7 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
                   pilot/docker/envoy_mixer_auth.json
 
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
-                       security/docker/app.js \
-                       security/docker/istio_ca.crt \
-                       security/docker/node_agent.crt \
-                       security/docker/node_agent.key
+                       security/docker/app.js
 
 GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
                mixer/deploy/kube/conf/start.sh \
