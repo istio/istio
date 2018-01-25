@@ -37,7 +37,6 @@ option (gogoproto.gostring_all) = false;
 //   papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
 //   metrics:
 //     requestcount.metric.istio-system:
-//       name: request_count
 //       label_names:
 //       - source_service
 //       - source_version
@@ -45,7 +44,6 @@ option (gogoproto.gostring_all) = false;
 //       - destination_version
 //       - response_code
 //     requestduration.metric.istio-system:
-//       name: request_duration
 //       label_names:
 //       - source_service
 //       - source_version
@@ -53,7 +51,6 @@ option (gogoproto.gostring_all) = false;
 //       - destination_version
 //       - response_code
 //     requestsize.metric.istio-system:
-//       name: request_size
 //       label_names:
 //       - source_service
 //       - source_version
@@ -61,7 +58,6 @@ option (gogoproto.gostring_all) = false;
 //       - destination_version
 //       - response_code
 //     responsesize.metric.istio-system:
-//       name: response_size
 //       label_names:
 //       - source_service
 //       - source_version
@@ -69,14 +65,12 @@ option (gogoproto.gostring_all) = false;
 //       - destination_version
 //       - response_code
 //     tcpbytesent.metric.istio-system:
-//       name: tcp_bytes_sent
 //       label_names:
 //       - source_service
 //       - source_version
 //       - destination_service
 //       - destination_version
 //     tcpbytereceived.metric.istio-system:
-//       name: tcp_bytes_received
 //       label_names:
 //       - source_service
 //       - source_version
@@ -106,14 +100,11 @@ message Params {
 
     // Describes how to represent an Istio metric in Solarwinds AppOptics
     message MetricInfo {
-        // The name is used to register the metric.
-        string name = 1;
-
         // Optional. A human readable description of this metric.
-        string description = 2;
+        string description = 1;
 
         // The names of labels to use: these need to match the dimensions of the Istio metric.
-        repeated string label_names = 3;
+        repeated string label_names = 2;
     }
 
     // A map of Istio metric name to solarwinds metric info.

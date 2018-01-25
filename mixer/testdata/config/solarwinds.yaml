@@ -9,7 +9,6 @@ spec:
   papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
   metrics:
     requestcount.metric.istio-system:
-      name: request_count
       label_names:
       - source_service
       - source_version
@@ -17,7 +16,6 @@ spec:
       - destination_version
       - response_code
     requestduration.metric.istio-system:
-      name: request_duration
       label_names:
       - source_service
       - source_version
@@ -25,7 +23,6 @@ spec:
       - destination_version
       - response_code
     requestsize.metric.istio-system:
-      name: request_size
       label_names:
       - source_service
       - source_version
@@ -33,7 +30,6 @@ spec:
       - destination_version
       - response_code
     responsesize.metric.istio-system:
-      name: response_size
       label_names:
       - source_service
       - source_version
@@ -41,14 +37,12 @@ spec:
       - destination_version
       - response_code
     tcpbytesent.metric.istio-system:
-      name: tcp_bytes_sent
       label_names:
       - source_service
       - source_version
       - destination_service
       - destination_version
     tcpbytereceived.metric.istio-system:
-      name: tcp_bytes_received
       label_names:
       - source_service
       - source_version
