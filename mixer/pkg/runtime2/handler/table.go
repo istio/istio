@@ -21,41 +21,41 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// table contains a set of instantiated and configured adapter handlers.
-type table struct {
-	entries map[string]entry
+// Table contains a set of instantiated and configured adapter handlers.
+type Table struct {
+	entries map[string]Entry
 
 	counters tableCounters
 }
 
 // entry in the handler table.
-type entry struct {
-	// name of the Handler
-	name string
+type Entry struct {
+	// Name of the Handler
+	Name string
 
-	// handler is the initialized Handler object.
-	handler adapter.Handler
+	// Handler is the initialized Handler object.
+	Handler adapter.Handler
 
-	// adapter that was used to create this Entry.
-	adapter *adapter.Info
+	// Adapter that was used to create this Entry.
+	Adapter *adapter.Info
 
-	// signature of the configuration used to create this entry.
-	signature signature
+	// Signature of the configuration used to create this entry.
+	Signature signature
 
 	// env refers to the adapter.Env passed to the handler.
 	env env
 }
 
-// newTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
+// NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
-func newTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *table {
+func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Table {
 	var f *factory
 
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 
-	t := &table{
-		entries:  make(map[string]entry, len(instancesByHandler)),
+	t := &Table{
+		entries:  make(map[string]Entry, len(instancesByHandler)),
 		counters: newTableCounters(snapshot.ID),
 	}
 
@@ -63,7 +63,7 @@ func newTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *ta
 		sig := calculateSignature(handler, instances)
 
 		currentEntry, found := old.entries[handler.Name]
-		if found && currentEntry.signature.equals(sig) {
+		if found && currentEntry.Signature.equals(sig) {
 			// reuse the Handler
 			t.entries[handler.Name] = currentEntry
 			t.counters.reusedHandlers.Inc()
@@ -91,11 +91,11 @@ func newTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *ta
 
 		t.counters.newHandlers.Inc()
 
-		t.entries[handler.Name] = entry{
-			name:      handler.Name,
-			handler:   instantiatedHandler,
-			adapter:   handler.Adapter,
-			signature: sig,
+		t.entries[handler.Name] = Entry{
+			Name:      handler.Name,
+			Handler:   instantiatedHandler,
+			Adapter:   handler.Adapter,
+			Signature: sig,
 			env:       e,
 		}
 	}
@@ -108,11 +108,11 @@ func newTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *ta
 // is passed as a parameter. The Cleanup method selectively closes all adapters that are not used by the current
 // table. This method will use perf counters on current will be used, instead of the perf counters on t.
 // This ensures that appropriate config id dimension is used when reporting metrics.
-func (t *table) Cleanup(current *table) {
-	var toCleanup []entry
+func (t *Table) Cleanup(current *Table) {
+	var toCleanup []Entry
 
 	for name, oldEntry := range t.entries {
-		if currentEntry, found := current.entries[name]; found && currentEntry.signature.equals(oldEntry.signature) {
+		if currentEntry, found := current.entries[name]; found && currentEntry.Signature.equals(oldEntry.Signature) {
 			// this entry is still in use. Skip it.
 			continue
 		}
@@ -122,11 +122,11 @@ func (t *table) Cleanup(current *table) {
 	}
 
 	for _, entry := range toCleanup {
-		log.Debugf("Closing adapter %s/%v", entry.name, entry.handler)
+		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
 		t.counters.closedHandlers.Inc()
 		var err error
 		panicErr := safeCall("handler.Close", func() {
-			err = entry.handler.Close()
+			err = entry.Handler.Close()
 		})
 
 		if panicErr != nil {
@@ -137,24 +137,24 @@ func (t *table) Cleanup(current *table) {
 
 		if err != nil {
 			t.counters.closeFailure.Inc()
-			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.name, entry.handler, err)
+			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
 		}
 	}
 }
 
 // Get returns the entry for a Handler with the given name, if it exists.
-func (t *table) Get(handlerName string) (entry, bool) {
+func (t *Table) Get(handlerName string) (Entry, bool) {
 	e, found := t.entries[handlerName]
 	if !found {
-		return entry{}, false
+		return Entry{}, false
 	}
 
 	return e, true
 }
 
-var emptyTable = &table{}
+var emptyTable = &Table{}
 
-// empty returns an empty table instance.
-func empty() *table {
+// Empty returns an empty table instance.
+func Empty() *Table {
 	return emptyTable
 }
