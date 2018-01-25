@@ -225,6 +225,7 @@ function update_helm_version() {
   execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
   execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
   execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" values.yaml.tmpl
   execute_sed "s|{PROXY_TAG}|${PILOT_TAG}|" values.yaml.tmpl
   execute_sed "s|{PROXY_DEBUG}|${PROXY_DEBUG}|" values.yaml.tmpl
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
