@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,40 +14,36 @@
 
 package inject
 
-// NOTE: This tool only exists because kubernetes does not support
-// dynamic/out-of-tree admission controller for transparent proxy
-// injection. This file should be removed as soon as a proper kubernetes
-// admission controller is written for istio.
-
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/ghodss/yaml"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
+
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 )
 
-// per-sidecar policy and status (deployment, job, statefulset, pod, etc)
+// per-sidecar policy and status
 const (
 	istioSidecarAnnotationPolicyKey = "sidecar.istio.io/inject"
 	istioSidecarAnnotationStatusKey = "sidecar.istio.io/status"
@@ -58,68 +54,49 @@ const (
 type InjectionPolicy string
 
 const (
-	// InjectionPolicyDisabled specifies that the initializer will not
-	// inject the sidecar into resources by default for the
+	// InjectionPolicyDisabled specifies that the sidecar injector
+	// will not inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can enable injection
 	// using the "sidecar.istio.io/inject" annotation with value of
 	// true.
 	InjectionPolicyDisabled InjectionPolicy = "disabled"
 
-	// InjectionPolicyEnabled specifies that the initializer will
+	// InjectionPolicyEnabled specifies that the sidecar injector will
 	// inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can disable injection
 	// using the "sidecar.istio.io/inject" annotation with value of
 	// false.
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
-
-	// DefaultInjectionPolicy is the default injection policy.
-	DefaultInjectionPolicy = InjectionPolicyEnabled
 )
 
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID = int64(1337)
+	DefaultSidecarProxyUID = uint64(1337)
 	DefaultVerbosity       = 2
 	DefaultImagePullPolicy = "IfNotPresent"
 )
 
 const (
-	// InitContainerName is the name for init container
-	InitContainerName = "istio-init"
-
-	// ProxyContainerName is the name for sidecar proxy container
+	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
-
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-
-	// InitializerConfigMapKey is the key into the initailizer ConfigMap data.
-	InitializerConfigMapKey = "config"
-
-	// DefaultResyncPeriod specifies how frequently to retrieve the
-	// full list of watched resources for initialization.
-	DefaultResyncPeriod = 30 * time.Second
-
-	// DefaultInitializerName specifies the name of the initializer.
-	DefaultInitializerName = "sidecar.initializer.istio.io"
 )
 
-// SidecarConfig collects all container types and volumes for
+// SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
-type SidecarConfig struct {
+type SidecarInjectionSpec struct {
 	InitContainers []v1.Container `yaml:"initContainers"`
 	Containers     []v1.Container `yaml:"containers"`
 	Volumes        []v1.Volume    `yaml:"volumes"`
 }
 
-// SidecarTemplate contains configurable settings for the sidecar mesh
-// in a format necessary for proper template interpolation
-type SidecarTemplate struct {
-	Spec           *v1.PodSpec
-	ServiceCluster string
-	MConfig        *Params
-	AuthPolicy     string
+// SidecarTemplateData is the data object to which the templated
+// version of `SidecarInjectionSpec` is applied.
+type SidecarTemplateData struct {
+	ObjectMeta  *metav1.ObjectMeta
+	Spec        *v1.PodSpec
+	ProxyConfig *meshconfig.ProxyConfig
+	MeshConfig  *meshconfig.MeshConfig
 }
 
 // InitImageName returns the fully qualified image name for the istio
@@ -138,12 +115,12 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 }
 
 // Params describes configurable parameters for injecting istio proxy
-// into kubernetes resource.
+// into a kubernetes resource.
 type Params struct {
 	InitImage       string                 `json:"initImage"`
 	ProxyImage      string                 `json:"proxyImage"`
 	Verbosity       int                    `json:"verbosity"`
-	SidecarProxyUID int64                  `json:"sidecarProxyUID"`
+	SidecarProxyUID uint64                 `json:"sidecarProxyUID"`
 	Version         string                 `json:"version"`
 	EnableCoreDump  bool                   `json:"enableCoreDump"`
 	DebugMode       bool                   `json:"debugMode"`
@@ -155,140 +132,51 @@ type Params struct {
 	IncludeIPRanges string `json:"includeIPRanges"`
 }
 
-// Config specifies the initializer configuration for sidecar
-// injection. This includes the sidear template and cluster-side
-// injection policy. It is used by kube-inject, initializer, and http
-// endpoint.
+// Config specifies the sidecar injection configuration This includes
+// the sidear template and cluster-side injection policy. It is used
+// by kube-inject, sidecar injector, and http endpoint.
 type Config struct {
 	Policy InjectionPolicy `json:"policy"`
 
-	// deprecate if InitializerConfiguration becomes namespace aware
-	IncludeNamespaces []string `json:"namespaces"`
-
-	// deprecate if InitializerConfiguration becomes namespace aware
-	ExcludeNamespaces []string `json:"excludeNamespaces"`
-
-	// Params specifies the parameters of the injected sidcar template
-	Params Params `json:"params"`
-
-	// InitializerName specifies the name of the initializer.
-	InitializerName string `json:"initializerName"`
+	// Template is the templated version of `SidecarInjectionSpec` prior to
+	// expansion over the `SidecarTemplateData`.
+	Template string `json:"template"`
 }
 
-// GetInitializerConfig fetches the initializer configuration from a Kubernetes ConfigMap.
-func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName string) (*Config, error) {
-	var configMap *v1.ConfigMap
-	var err error
-	if errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if configMap, err = kube.CoreV1().ConfigMaps(namespace).Get(injectConfigName, metav1.GetOptions{}); err != nil {
-			return false, err
-		}
-		return true, nil
-	}); errPoll != nil {
-		return nil, errPoll
-	}
-	data, exists := configMap.Data[InitializerConfigMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q", InitializerConfigMapKey)
+func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
+	// Skip injection when host networking is enabled. The problem is
+	// that the iptable changes are assumed to be within the pod when,
+	// in fact, they are changing the routing at the host level. This
+	// often results in routing failures within a node which can
+	// affect the network provider within the cluster causing
+	// additional pod failures.
+	if podSpec.HostNetwork {
+		return false
 	}
 
-	var c Config
-	if err := yaml.Unmarshal([]byte(data), &c); err != nil {
-		return nil, err
-	}
-
-	if c.IncludeNamespaces != nil && c.ExcludeNamespaces != nil {
-		return nil, fmt.Errorf("cannot configure both namespaces and excludeNamespaces")
-	}
-
-	if c.IncludeNamespaces == nil {
-		c.IncludeNamespaces = []string{v1.NamespaceAll}
-	}
-
-	for _, excludeNamespace := range c.ExcludeNamespaces {
-		if excludeNamespace == v1.NamespaceAll {
-			return nil, fmt.Errorf("cannot configure ExcludeNamespaces as NamespaceAll")
-		}
-	}
-
-	// apply safe defaults if not specified
-	switch c.Policy {
-	case InjectionPolicyDisabled, InjectionPolicyEnabled:
-	default:
-		c.Policy = DefaultInjectionPolicy
-	}
-	if c.Params.InitImage == "" {
-		c.Params.InitImage = InitImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
-	}
-	if c.Params.ProxyImage == "" {
-		c.Params.ProxyImage = ProxyImageName(version.Info.DockerHub, version.Info.Version, c.Params.DebugMode)
-	}
-	if c.Params.SidecarProxyUID == 0 {
-		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
-	}
-	if c.Params.ImagePullPolicy == "" {
-		c.Params.ImagePullPolicy = DefaultImagePullPolicy
-	}
-	if c.InitializerName == "" {
-		c.InitializerName = DefaultInitializerName
-	}
-
-	return &c, nil
-}
-
-func injectRequired(include, ignored, excluded []string, namespacePolicy InjectionPolicy, obj metav1.Object) bool {
 	// skip special kubernetes system namespaces
 	for _, namespace := range ignored {
-		if obj.GetNamespace() == namespace {
+		if metadata.Namespace == namespace {
 			return false
 		}
 	}
 
-	// skip customized exclude namespaces
-	for _, excludeNamespace := range excluded {
-		if obj.GetNamespace() == excludeNamespace {
-			return false
-		}
-	}
-
-	var included bool
-IncludeNamespaceSearch:
-	for _, namespace := range include {
-		if namespace == v1.NamespaceAll {
-			included = true
-			break IncludeNamespaceSearch
-		} else if obj.GetNamespace() == namespace {
-			// Don't skip. The initializer should initialize this
-			// resource.
-			included = true
-			break IncludeNamespaceSearch
-		}
-		// else, keep searching
-	}
-	if !included {
-		return false
+	annotations := metadata.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
 	}
 
 	var useDefault bool
 	var inject bool
-
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
+	switch strings.ToLower(annotations[istioSidecarAnnotationPolicyKey]) {
+	// http://yaml.org/type/bool.html
+	case "y", "yes", "true", "on":
+		inject = true
+	case "":
 		useDefault = true
-	} else {
-		if value, ok := annotations[istioSidecarAnnotationPolicyKey]; !ok {
-			useDefault = true
-		} else {
-			// http://yaml.org/type/bool.html
-			switch strings.ToLower(value) {
-			case "y", "yes", "true", "on":
-				inject = true
-			}
-		}
 	}
 
 	var required bool
-
 	switch namespacePolicy {
 	default: // InjectionPolicyOff
 		required = false
@@ -306,108 +194,53 @@ IncludeNamespaceSearch:
 		}
 	}
 
-	status, ok := annotations[istioSidecarAnnotationStatusKey]
+	status := annotations[istioSidecarAnnotationStatusKey]
 
 	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
-		obj.GetNamespace(), obj.GetName(), namespacePolicy, useDefault, inject, status, required)
+		metadata.Namespace, metadata.Name, namespacePolicy, useDefault, inject, status, required)
 
-	if !required {
-		return false
-	}
-
-	// TODO - add version check for sidecar upgrade
-
-	return !ok
+	return required
 }
 
-func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
-
-	st := SidecarTemplate{spec, p.Mesh.DefaultConfig.ServiceCluster, p, p.Mesh.DefaultConfig.ControlPlaneAuthPolicy.String()}
-
-	// If 'app' label is available, use it as the default service cluster
-	if val, ok := metadata.GetLabels()["app"]; ok {
-		st.ServiceCluster = val
+func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+	data := SidecarTemplateData{
+		ObjectMeta:  metadata,
+		Spec:        spec,
+		ProxyConfig: proxyConfig,
+		MeshConfig:  meshConfig,
 	}
 
 	var tmpl bytes.Buffer
-
-	t := template.Must(template.New("inject").Parse(productionTemplate))
-	if err := t.Execute(&tmpl, &st); err != nil {
-		log.Errora(err)
+	t := template.Must(template.New("inject").Parse(sidecarTemplate))
+	if err := t.Execute(&tmpl, &data); err != nil {
+		return nil, "", err
 	}
 
-	sc := SidecarConfig{}
-	if err := yaml.Unmarshal(tmpl.Bytes(), &sc); err != nil {
-		log.Warnf(err.Error())
+	var sic SidecarInjectionSpec
+	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
+		return nil, "", err
 	}
 
-	spec.InitContainers = append(spec.InitContainers, sc.InitContainers...)
-	spec.Containers = append(spec.Containers, sc.Containers...)
-	spec.Volumes = append(spec.Volumes, sc.Volumes...)
-}
-
-func intoObject(c *Config, in runtime.Object) (interface{}, error) {
-	obj, err := meta.Accessor(in)
+	status := &SidecarInjectionStatus{Version: version}
+	for _, c := range sic.InitContainers {
+		status.InitContainers = append(status.InitContainers, c.Name)
+	}
+	for _, c := range sic.Containers {
+		status.Containers = append(status.Containers, c.Name)
+	}
+	for _, c := range sic.Volumes {
+		status.Volumes = append(status.Volumes, c.Name)
+	}
+	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
-
-	out := in.DeepCopyObject()
-
-	if !injectRequired(c.IncludeNamespaces, ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
-		log.Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
-		return out, nil
-	}
-
-	// `in` is a pointer to an Object. Dereference it.
-	outValue := reflect.ValueOf(out).Elem()
-
-	var objectMeta *metav1.ObjectMeta
-	var templateObjectMeta *metav1.ObjectMeta
-	var templatePodSpec *v1.PodSpec
-	// CronJobs have JobTemplates in them, instead of Templates, so we
-	// special case them.
-	if job, ok := out.(*v2alpha1.CronJob); ok {
-		objectMeta = &job.ObjectMeta
-		templateObjectMeta = &job.Spec.JobTemplate.ObjectMeta
-		templatePodSpec = &job.Spec.JobTemplate.Spec.Template.Spec
-	} else {
-		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
-		// `Template` is defined as a pointer in some older API
-		// definitions, e.g. ReplicationController
-		if templateValue.Kind() == reflect.Ptr {
-			templateValue = templateValue.Elem()
-		}
-		objectMeta = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-		templateObjectMeta = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-		templatePodSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
-	}
-
-	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
-	// in fact, they are changing the routing at the host level. This
-	// often results in routing failures within a node which can
-	// affect the network provider within the cluster causing
-	// additional pod failures.
-	if templatePodSpec.HostNetwork {
-		return out, nil
-	}
-
-	for _, m := range []*metav1.ObjectMeta{objectMeta, templateObjectMeta} {
-		if m.Annotations == nil {
-			m.Annotations = make(map[string]string)
-		}
-		m.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-" + c.Params.Version
-	}
-
-	injectIntoSpec(&c.Params, templatePodSpec, templateObjectMeta)
-
-	return out, nil
+	return &sic, string(statusAnnotationValue), nil
 }
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(c *Config, in io.Reader, out io.Writer) error {
+func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -430,7 +263,7 @@ func IntoResourceFile(c *Config, in io.Reader, out io.Writer) error {
 			if err = yaml.Unmarshal(raw, obj); err != nil {
 				return err
 			}
-			out, err := intoObject(c, obj) // nolint: vetshadow
+			out, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -448,4 +281,88 @@ func IntoResourceFile(c *Config, in io.Reader, out io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+	out := in.DeepCopyObject()
+
+	var metadata *metav1.ObjectMeta
+	var podSpec *v1.PodSpec
+
+	// CronJobs have JobTemplates in them, instead of Templates, so we
+	// special case them.
+	if job, ok := out.(*v2alpha1.CronJob); ok {
+		metadata = &job.Spec.JobTemplate.ObjectMeta
+		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
+	} else {
+		// `in` is a pointer to an Object. Dereference it.
+		outValue := reflect.ValueOf(out).Elem()
+
+		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
+		// `Template` is defined as a pointer in some older API
+		// definitions, e.g. ReplicationController
+		if templateValue.Kind() == reflect.Ptr {
+			templateValue = templateValue.Elem()
+		}
+		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
+	}
+
+	// Skip injection when host networking is enabled. The problem is
+	// that the iptable changes are assumed to be within the pod when,
+	// in fact, they are changing the routing at the host level. This
+	// often results in routing failures within a node which can
+	// affect the network provider within the cluster causing
+	// additional pod failures.
+	if podSpec.HostNetwork {
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled", metadata.Name)
+		return out, nil
+	}
+
+	spec, status, err := injectionData(
+		sidecarTemplate,
+		sidecarTemplateVersionHash(sidecarTemplate),
+		podSpec,
+		metadata,
+		meshconfig.DefaultConfig,
+		meshconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
+	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
+	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
+
+	if metadata.Annotations == nil {
+		metadata.Annotations = make(map[string]string)
+	}
+	metadata.Annotations[istioSidecarAnnotationStatusKey] = status
+
+	return out, nil
+}
+
+// GenerateTemplateFromParams generates a sidecar template from the legacy injection parameters
+func GenerateTemplateFromParams(params *Params) (string, error) {
+	t := template.New("inject").Delims(parameterizedTemplateDelimBegin, parameterizedTemplateDelimEnd)
+	var tmp bytes.Buffer
+	err := template.Must(t.Parse(parameterizedTemplate)).Execute(&tmp, params)
+	return tmp.String(), err
+}
+
+// SidecarInjectionStatus contains basic information about the
+// injected sidecar. This includes the names of added containers and
+// volumes.
+type SidecarInjectionStatus struct {
+	Version        string   `json:"version"`
+	InitContainers []string `json:"initContainers"`
+	Containers     []string `json:"containers"`
+	Volumes        []string `json:"volumes"`
+}
+
+// helper function to generate a template version identifier from a
+// hash of the un-executed template contents.
+func sidecarTemplateVersionHash(in string) string {
+	hash := sha256.Sum256([]byte(in))
+	return hex.EncodeToString(hash[:])
 }

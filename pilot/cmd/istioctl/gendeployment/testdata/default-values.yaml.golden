@@ -1,6 +1,6 @@
 global:
   namespace: istio-system
-  initializer:
+  sidecar-injector:
     enabled: false
   proxy:
     hub: gcr.io/istio-testing
@@ -10,7 +10,7 @@ global:
     enabled: true
     hub: gcr.io/istio-testing
     tag: 0.4.0
-  security:  
+  security:
     enabled: true
     hub: gcr.io/istio-testing
     tag: 0.4.0

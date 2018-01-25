@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,32 +14,34 @@
 
 package inject
 
-var (
-	productionTemplate = `
+const (
+	parameterizedTemplateDelimBegin = "[["
+	parameterizedTemplateDelimEnd   = "]]"
+	parameterizedTemplate           = `
 initContainers:
 - name: istio-init
-  image: {{ printf "%s" .MConfig.InitImage }}
+  image: [[ .InitImage ]]
   args:
   - "-p"
-  - {{ printf "%d" .MConfig.Mesh.ProxyListenPort }}
+  - {{ .MeshConfig.ProxyListenPort }}
   - "-u"
-  - {{ printf "%d" .MConfig.SidecarProxyUID }}
-  {{ if ne .MConfig.IncludeIPRanges "" -}}
+  - [[ .SidecarProxyUID ]]
+  [[ if ne .IncludeIPRanges "" -]]
   - "-i"
-  - {{ printf "%v" .MConfig.IncludeIPRanges }}
-  {{ end -}}
-  {{ if eq .MConfig.ImagePullPolicy "" -}}
-  imagePullPolicy: {{ "IfNotPresent" }}
-  {{ else -}}
-  imagePullPolicy: {{ printf "%s" .MConfig.ImagePullPolicy }}
-  {{ end -}}
+  - [[ .IncludeIPRanges ]]
+  [[ end -]]
+  [[ if eq .ImagePullPolicy "" -]]
+  imagePullPolicy: IfNotPresent
+  [[ else -]]
+  imagePullPolicy: [[ .ImagePullPolicy ]]
+  [[ end -]]
   securityContext:
     capabilities:
       add:
       - NET_ADMIN
     privileged: true
   restartPolicy: Always
-{{ if eq .MConfig.EnableCoreDump true -}}
+[[ if eq .EnableCoreDump true -]]
 - args:
   - -c
   - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
@@ -52,47 +54,41 @@ initContainers:
   resources: {}
   securityContext:
     privileged: true
-{{ end -}}
+[[ end -]]
 containers:
 - name: istio-proxy
-  image: {{ printf "%s" .MConfig.ProxyImage }}
+  image: [[ .ProxyImage ]]
   args:
   - proxy
   - sidecar
-  - -v
-  {{ if gt .MConfig.Verbosity 0 -}}
-  - {{ printf "%v" .MConfig.Verbosity }}
-  {{ else -}}
-  - "2"
-  {{ end -}}
   - --configPath
-  - {{ printf "%s" .MConfig.Mesh.DefaultConfig.ConfigPath }}
+  - {{ .ProxyConfig.ConfigPath }}
   - --binaryPath
-  - {{ printf "%s" .MConfig.Mesh.DefaultConfig.BinaryPath }}
+  - {{ .ProxyConfig.BinaryPath }}
   - --serviceCluster
-  {{ if eq .ServiceCluster "" -}}
-  - {{ printf "%s" .ServiceCluster }}
+  {{ if ne "" (index .ObjectMeta.Labels "app") -}}
+  - {{ index .ObjectMeta.Labels "app" }}
   {{ else -}}
-  - {{ printf "%s" .ServiceCluster }}
+  - "istio-proxy"
   {{ end -}}
   - --drainDuration
   - 2s
   - --parentShutdownDuration
   - 3s
   - --discoveryAddress
-  - {{ printf "%s" .MConfig.Mesh.DefaultConfig.DiscoveryAddress }}
+  - {{ .ProxyConfig.DiscoveryAddress }}
   - --discoveryRefreshDelay
   - 1s
   - --zipkinAddress
-  - {{ printf "%s" .MConfig.Mesh.DefaultConfig.ZipkinAddress }}
+  - {{ .ProxyConfig.ZipkinAddress }}
   - --connectTimeout
   - 1s
   - --statsdUdpAddress
-  - {{ printf "%s" .MConfig.Mesh.DefaultConfig.StatsdUdpAddress }}
+  - {{ .ProxyConfig.StatsdUdpAddress }}
   - --proxyAdminPort
-  - {{ printf "%v" .MConfig.Mesh.DefaultConfig.ProxyAdminPort }}
+  - {{ .ProxyConfig.ProxyAdminPort }}
   - --controlPlaneAuthPolicy
-  - {{ printf "%s"  .AuthPolicy }}
+  - {{ .ProxyConfig.ControlPlaneAuthPolicy }}
   env:
   - name: POD_NAME
     valueFrom:
@@ -106,19 +102,19 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
-  {{ if eq .MConfig.ImagePullPolicy "" -}}
-  imagePullPolicy: {{ "IfNotPresent" }}
-  {{ else -}}
-  imagePullPolicy: {{ printf "%s" .MConfig.ImagePullPolicy }}
-  {{ end -}}
+  [[ if eq .ImagePullPolicy "" -]]
+  imagePullPolicy: IfNotPresent
+  [[ else -]]
+  imagePullPolicy: [[ .ImagePullPolicy ]]
+  [[ end -]]
   securityContext:
-      {{ if eq .MConfig.DebugMode true -}}
+      [[ if eq .DebugMode true -]]
       privileged: true
       readOnlyRootFilesystem: false
-      {{ else -}}
+      [[ else -]]
       privileged: false
-      readOnlyRootFilesystem: true 
-      {{ end -}}
+      readOnlyRootFilesystem: true
+      [[ end -]]
       runAsUser: 1337
   restartPolicy: Always
   volumeMounts:
@@ -135,8 +131,9 @@ volumes:
   secret:
     optional: true
     {{ if eq .Spec.ServiceAccountName "" -}}
-    secretName: {{ "istio.default" }}
+    secretName: istio.default
     {{ else -}}
     secretName: {{ printf "istio.%s" .Spec.ServiceAccountName }}
-    {{ end -}}`
+    {{ end -}}
+`
 )
