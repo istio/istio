@@ -44,6 +44,13 @@ type (
 )
 
 func TestBuilderValidate(t *testing.T) {
+	mockRedis, err := miniredis.Run()
+	if err != nil {
+		glog.Fatalf("Unable to start mock redis server: %v", err)
+		return
+	}
+	defer mockRedis.Close()
+
 	cases := map[string]struct {
 		quotaTypes map[string]*quota.Type
 		config     *config.Params
@@ -55,8 +62,9 @@ func TestBuilderValidate(t *testing.T) {
 				ConnectionPoolSize: 10,
 			},
 			errMsg: []string{
-				"redisquota: redis_server_url should not be empty",
 				"redisquota: quota should not be empty",
+				"redisquota: redis_server_url should not be empty",
+				"redisquota: could not create a connection to redis server: dial tcp: missing address",
 			},
 		},
 		"Invalid connection pool size": {
@@ -65,14 +73,15 @@ func TestBuilderValidate(t *testing.T) {
 				ConnectionPoolSize: -10,
 			},
 			errMsg: []string{
-				"redisquota: redis_server_url should not be empty",
-				"redisquota: connection_pool_size of -10 is invalid, must be > 0",
 				"redisquota: quota should not be empty",
+				"redisquota: connection_pool_size of -10 is invalid, must be > 0",
+				"redisquota: redis_server_url should not be empty",
+				"redisquota: could not create a connection to redis server: dial tcp: missing address",
 			},
 		},
 		"Empty quota config": {
 			config: &config.Params{
-				RedisServerUrl:     "localhost:6476",
+				RedisServerUrl:     mockRedis.Addr(),
 				ConnectionPoolSize: 10,
 			},
 			errMsg: []string{
@@ -84,7 +93,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{},
 				},
@@ -99,7 +108,7 @@ func TestBuilderValidate(t *testing.T) {
 				"fixed-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name: "fixed-window",
@@ -115,7 +124,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:      "rolling-window",
@@ -132,7 +141,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:               "rolling-window",
@@ -151,7 +160,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:               "rolling-window",
@@ -171,7 +180,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:               "rolling-window",
@@ -189,7 +198,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:               "rolling-window",
@@ -197,7 +206,7 @@ func TestBuilderValidate(t *testing.T) {
 						ValidDuration:      time.Minute,
 						BucketDuration:     time.Second,
 						RateLimitAlgorithm: config.ROLLING_WINDOW,
-						Overrides: []config.Params_Override{
+						Overrides: []*config.Params_Override{
 							{},
 						},
 					},
@@ -212,7 +221,7 @@ func TestBuilderValidate(t *testing.T) {
 				"rolling-window": {},
 			},
 			config: &config.Params{
-				RedisServerUrl: "localhost:6476",
+				RedisServerUrl: mockRedis.Addr(),
 				Quotas: []config.Params_Quota{
 					{
 						Name:               "rolling-window",
@@ -220,7 +229,7 @@ func TestBuilderValidate(t *testing.T) {
 						ValidDuration:      time.Minute,
 						BucketDuration:     time.Second,
 						RateLimitAlgorithm: config.ROLLING_WINDOW,
-						Overrides: []config.Params_Override{
+						Overrides: []*config.Params_Override{
 							{
 								MaxAmount: 5,
 							},
@@ -255,106 +264,6 @@ func TestBuilderValidate(t *testing.T) {
 		} else if len(c.errMsg) > 0 {
 			t.Errorf("%v: Succeeded. Error expected", id)
 		}
-	}
-}
-
-func TestBuilderBuildErrorMsg(t *testing.T) {
-	cases := map[string]struct {
-		quotaType   map[string]*quota.Type
-		errMsg      string
-		mockRedis   map[string]interface{}
-		quotaConfig []config.Params_Quota
-	}{
-		"Good configuration": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
-					c.WriteInline("PONG")
-				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
-					c.WriteInline("SUCCESS")
-				},
-			},
-			quotaType: map[string]*quota.Type{
-				"fixed-window": {},
-			},
-			quotaConfig: []config.Params_Quota{
-				{
-					Name:               "fixed-window",
-					MaxAmount:          10,
-					ValidDuration:      time.Second * 10,
-					RateLimitAlgorithm: config.FIXED_WINDOW,
-				},
-			},
-			errMsg: "",
-		},
-		"Redis server initial check": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
-					c.WriteError("Error")
-				},
-			},
-			quotaType: map[string]*quota.Type{
-				"fixed-window": {},
-			},
-			quotaConfig: []config.Params_Quota{
-				{
-					Name: "fixed-window",
-				},
-			},
-			errMsg: "could not create a connection pool with redis: Error",
-		},
-		"LUA script loading error": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
-					c.WriteInline("PONG")
-				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
-					c.WriteError("Error")
-				},
-			},
-			quotaType: map[string]*quota.Type{
-				"fixed-window": {},
-			},
-			quotaConfig: []config.Params_Quota{
-				{
-					Name: "fixed-window",
-				},
-			},
-			errMsg: "unable to load the LUA script: Error",
-		},
-	}
-
-	info := GetInfo()
-	env := test.NewEnv(t)
-
-	for id, c := range cases {
-		s, err := server.NewServer(":0")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for funcTime, funcHandler := range c.mockRedis {
-			s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string)))
-		}
-
-		b := info.NewBuilder().(*builder)
-		b.SetAdapterConfig(&config.Params{
-			Quotas:             c.quotaConfig,
-			RedisServerUrl:     s.Addr().String(),
-			ConnectionPoolSize: 1,
-		})
-		b.SetQuotaTypes(c.quotaType)
-
-		_, err = b.Build(context.Background(), env)
-		if err != nil {
-			if c.errMsg != err.Error() {
-				t.Errorf("%v: Expected error: %v, Got: %v", id, c.errMsg, err.Error())
-			}
-		} else if len(c.errMsg) > 0 {
-			t.Errorf("%v: Succeeded. Expected error: %v", id, c.errMsg)
-		}
-
-		s.Close()
 	}
 }
 
@@ -529,7 +438,7 @@ func TestHandleQuota(t *testing.T) {
 					ValidDuration:      time.Second * time.Duration(100),
 					BucketDuration:     time.Second * time.Duration(10),
 					RateLimitAlgorithm: config.ROLLING_WINDOW,
-					Overrides: []config.Params_Override{
+					Overrides: []*config.Params_Override{
 						{
 							MaxAmount: 50,
 							Dimensions: map[string]string{

@@ -14,7 +14,9 @@
 
 // Package redisquota provides a quota implementation with redis as backend.
 // The prerequisite is to have a redis server running.
-package redisquota
+//
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/redisquota/config/config.proto
+package redisquota // import "istio.io/istio/mixer/adapter/redisquota"
 
 import (
 	"context"
@@ -39,12 +41,6 @@ var (
 		config.FIXED_WINDOW:   luaFixedWindow,
 		config.ROLLING_WINDOW: luaRollingWindow,
 	}
-
-	// the default window duration is 60 seconds
-	defaultWindowDuration = time.Minute
-
-	// the default bucket size is 100ms
-	defaultBucketDuration = time.Millisecond * time.Duration(100)
 )
 
 type (
@@ -87,15 +83,6 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	info := GetInfo()
-
-	if len(b.adapterConfig.RedisServerUrl) == 0 {
-		ce = ce.Appendf(info.Name, "redis_server_url should not be empty")
-	}
-
-	if b.adapterConfig.ConnectionPoolSize < 0 {
-		ce = ce.Appendf(info.Name, "connection_pool_size of %v is invalid, must be > 0",
-			b.adapterConfig.ConnectionPoolSize)
-	}
 
 	if len(b.adapterConfig.Quotas) == 0 {
 		ce = ce.Appendf(info.Name, "quota should not be empty")
@@ -153,8 +140,42 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		}
 	}
 
-	//if b.adapterConfig.Quotas
+	// check redis related configuration
+	if b.adapterConfig.ConnectionPoolSize < 0 {
+		ce = ce.Appendf(info.Name, "connection_pool_size of %v is invalid, must be > 0",
+			b.adapterConfig.ConnectionPoolSize)
+	}
 
+	if len(b.adapterConfig.RedisServerUrl) == 0 {
+		ce = ce.Appendf(info.Name, "redis_server_url should not be empty")
+	}
+
+	// test redis connection
+	option := redis.Options{
+		Addr: b.adapterConfig.RedisServerUrl,
+	}
+
+	if b.adapterConfig.ConnectionPoolSize > 0 {
+		option.PoolSize = int(b.adapterConfig.ConnectionPoolSize)
+	}
+
+	client := redis.NewClient(&option)
+	if _, err := client.Ping().Result(); err != nil {
+		ce = ce.Appendf(info.Name, "could not create a connection to redis server: %v", err)
+		return
+	}
+
+	// check scripts loading to redis
+	scripts := make(map[config.Params_QuotaAlgorithm]*redis.Script, 2)
+	for algorithm, script := range rateLimitingLUAScripts {
+		scripts[algorithm] = redis.NewScript(script)
+		if _, err := scripts[algorithm].Load(client).Result(); err != nil {
+			ce = ce.Appendf(info.Name, "unable to initialized redis service: %v", err)
+			return
+		}
+	}
+
+	_ = client.Close()
 	return
 }
 
@@ -178,8 +199,7 @@ func getDimensionHash(dimensions map[string]string) (string, error) {
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	limits := make(map[string]*config.Params_Quota, len(b.adapterConfig.Quotas))
 	for idx := range b.adapterConfig.Quotas {
-		l := b.adapterConfig.Quotas[idx]
-		limits[l.Name] = &l
+		limits[b.adapterConfig.Quotas[idx].Name] = &b.adapterConfig.Quotas[idx]
 	}
 
 	// Build memory address of dimensions to hash map
@@ -203,17 +223,10 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 
 	client := redis.NewClient(&option)
 
-	if _, err := client.Ping().Result(); err != nil {
-		return nil, env.Logger().Errorf("could not create a connection pool with redis: %v", err)
-	}
-
 	// load scripts into redis
 	scripts := make(map[config.Params_QuotaAlgorithm]*redis.Script, 2)
 	for algorithm, script := range rateLimitingLUAScripts {
 		scripts[algorithm] = redis.NewScript(script)
-		if _, err := scripts[algorithm].Load(client).Result(); err != nil {
-			return nil, env.Logger().Errorf("unable to load the LUA script: %v", err)
-		}
 	}
 
 	h := &handler{

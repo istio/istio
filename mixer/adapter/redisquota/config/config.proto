@@ -33,11 +33,12 @@ message Params {
     // dimensions should not be empty
     map <string, string> dimensions = 1 [(gogoproto.nullable) = false];
 
-    // The upper limit for this quota override. This value should be bigger than 0
+    // The upper limit for this quota override.
+    // This value should be bigger than 0
     int64 max_amount = 2;
   }
 
-  // Algorithm for rate-limiting:
+  // Algorithms for rate-limiting:
   // FIXED_WINDOW - The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
   // ROLLING_WINDOW - The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
   enum QuotaAlgorithm {
@@ -49,35 +50,34 @@ message Params {
     option (gogoproto.goproto_getters) = true;
 
     // The name of the quota
-    string name = 1 [(gogoproto.nullable) = false];
+    string name = 1;
 
     // The upper limit for this quota. max_amount should be bigger than 0
-    int64 max_amount = 2 [(gogoproto.nullable) = false];
+    int64 max_amount = 2;
 
     // The amount of time allocated quota remains valid before it is
-    // automatically released. This is only meaningful for rate limit
-    // quotas, otherwise the value must be zero.
+    // automatically released. This is only meaningful for rate limit quotas.
+    // value should be 0 < valid_duration
     google.protobuf.Duration valid_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
-    // bucket_duration should be bigger than 0 and shorter then valid_duration.
-    // bucket_duration is for the memory optimization for ROLLING_WINDOW algorithm
-    // storage will be splitted to bucket_duration size and tokens will be aggregated to buckets
+    // bucket_duration will be ignored if rate_limit_algorithm is FIXED_WINDOW
+    // value should be 0 < bucket_duration < valid_duration
     google.protobuf.Duration bucket_duration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
     // Quota management algorithm. The default value is FIXED_WINDOW
-    QuotaAlgorithm rate_limit_algorithm = 5 [(gogoproto.nullable) = false];
+    QuotaAlgorithm rate_limit_algorithm = 5;
 
     // Overrides associated with this quota.
     // The first matching override is applied.
-    repeated Override overrides = 6 [(gogoproto.nullable) = false];
+    repeated Override overrides = 6;
   }
 
   // The set of known quotas. At least one quota configuration is required
   repeated Quota quotas = 1 [(gogoproto.nullable) = false];
 
-  // Redis network address including port number
+  // Redis connection string <hostname>:<port number>
   // ex) localhost:6379
-  string redis_server_url = 2 [(gogoproto.nullable) = false];
+  string redis_server_url = 2;
 
   // Maximum number of idle connections to redis
   // Default is 10 connections per every CPU as reported by runtime.NumCPU.
