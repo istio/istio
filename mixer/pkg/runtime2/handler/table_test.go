@@ -212,7 +212,8 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d]", idx), func(t *testing.T) {
-			adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker, SpawnDaemon: tt.SpawnDaemon, CloseGoRoutines: tt.CloseGoRoutines})
+			adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker,
+			SpawnDaemon: tt.SpawnDaemon, CloseGoRoutines: tt.CloseGoRoutines})
 			templates := data.BuildTemplates()
 
 			s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
