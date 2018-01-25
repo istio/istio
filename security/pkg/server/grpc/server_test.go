@@ -139,7 +139,7 @@ func TestSign(t *testing.T) {
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
 		}
-		request := &pb.Request{CsrPem: []byte(c.csr)}
+		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(context.Background(), request)
 		s, _ := status.FromError(err)

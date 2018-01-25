@@ -27,11 +27,11 @@ const (
 
 type FakeCAClient struct {
 	Counter  int
-	Response *pb.Response
+	Response *pb.CsrResponse
 	Err      error
 }
 
-func (f *FakeCAClient) SendCSR(req *pb.Request, pc platform.Client, addr string) (*pb.Response, error) {
+func (f *FakeCAClient) SendCSR(req *pb.CsrRequest, pc platform.Client, addr string) (*pb.CsrResponse, error) {
 	f.Counter++
 	if f.Counter > maxCAClientSuccessReturns {
 		return nil, fmt.Errorf("terminating the test with errors")
