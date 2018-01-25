@@ -38,7 +38,15 @@ GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 # to be handled in bin/gobuild.sh
 # export CGO_ENABLED=0
 
-GO ?= go
+# It's more concise to use GO?=$(shell which go)
+# but the following approach uses a more efficient "simply expanded" :=
+# variable instead of a "recursively expanded" =
+ifeq ($(origin GO), undefined)
+  GO:=$(shell which go)
+endif
+ifeq ($(GO),)
+  $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
+endif
 
 export GOARCH ?= amd64
 
@@ -85,8 +93,21 @@ export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
 # this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 
-#hub = ""
-#tag = ""
+GO_VERSION_REQUIRED:=1.9
+
+# Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
+# that allows the three components to be checked in a single comparison.
+VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1]*10000+a[2]*100+a[3]}'
+
+# using a sentinel file so this check is only performed once per version.  Performance is
+# being favored over the unlikely situation that go gets downgraded to an older version
+check-go-version: | ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
+                 $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
+                 then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
+	@mkdir -p ${ISTIO_BIN}
+	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 HUB?=istio
 ifeq ($(HUB),)
@@ -181,7 +202,7 @@ pre-commit: fmt lint
 # Will also check vendor, based on Gopkg.lock
 init: $(ISTIO_BIN)/istio_is_init
 
-$(ISTIO_BIN)/istio_is_init: bin/init.sh Gopkg.lock pilot/docker/Dockerfile.proxy_debug | ${DEP}
+$(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh Gopkg.lock pilot/docker/Dockerfile.proxy_debug | ${DEP}
 	@(DEP=${DEP} bin/init.sh)
 	touch $(ISTIO_BIN)/istio_is_init
 
