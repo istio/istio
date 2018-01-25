@@ -149,9 +149,7 @@ func newTestState(mockServerAddress string) *testState {
 				Address:          mockServerAddress,
 				PollInterval:     10 * time.Second,
 			},
-			Envoy: cloudfoundry.EnvoyConfig{
-				Port: 6666,
-			},
+			ServicePort: 6666,
 		},
 	}
 }
