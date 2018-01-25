@@ -48,9 +48,9 @@ type entry struct {
 	env env
 }
 
-// NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
+// newTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
-func NewTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *table {
+func newTable(old *table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *table {
 	var f *factory
 
 	// Find all handlers, as referenced by instances, and associate to handlers.
@@ -162,7 +162,7 @@ func (t *table) Get(handlerName string) (entry, bool) {
 
 var emptyTable = &table{}
 
-// Empty returns an empty table instance.
-func Empty() *table {
+// empty returns an empty table instance.
+func empty() *table {
 	return emptyTable
 }
