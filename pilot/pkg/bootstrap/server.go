@@ -16,7 +16,6 @@ package bootstrap
 
 import (
 	"fmt"
-	"gnirodi-pilot/platform"
 	"net"
 	"os"
 	"strings"
@@ -305,6 +304,19 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	return nil
 }
 
+func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
+	// If the cluster store is configured, get pilot's kubeconfig from there
+	if s.clusterStore != nil {
+		if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
+			kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
+		}
+	}
+	if kubeCfgFile == "" {
+		kubeCfgFile = args.Config.KubeConfig
+	}
+	return
+}
+
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	needToCreateClient := false
@@ -322,15 +334,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if needToCreateClient {
 		var client kubernetes.Interface
 		var kuberr error
-		var kubeCfgFile string
-		if s.clusterStore != nil {
-			if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
-				kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
-			}
-		}
-		if kubeCfgFile == "" {
-			kubeCfgFile = args.Config.KubeConfig
-		}
+
+		kubeCfgFile := s.getKubeCfgFile(args)
 		_, client, kuberr = kube.CreateInterface(kubeCfgFile)
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -366,15 +371,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return nil
 		})
 	} else {
-		var kubeCfgFile string
-		if s.clusterStore != nil {
-			if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
-				kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
-			}
-		}
-		if kubeCfgFile == "" {
-			kubeCfgFile = args.Config.KubeConfig
-		}
+		kubeCfgFile := s.getKubeCfgFile(args)
 		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
 			args.Config.ControllerOptions.DomainSuffix)
 		if err != nil {
@@ -397,26 +394,39 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) CreateK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	clusters := s.clusterStore.GetPilotClusters()
-	for _, cluster := range clusters {
-		kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-		kubeCfgFile := strings.Join([]string{args.Config.ClusterStoreDir, kubeconfig}, "/")
-		_, client, kuberr := kube.CreateInterface(kubeCfgFile)
-		if kuberr != nil {
-			return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile))
-		}
+// createK8sServiceControllers creates all the k8s service controllers under this pilot
+func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+			ServiceDiscovery: kubectl,
+			ServiceAccounts:  kubectl,
+			Controller:       kubectl,
+		})
 
-		log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
-		kubectl := kube.NewController(client, args.Config.ControllerOptions)
-		serviceControllers.AddRegistry(
-			aggregate.Registry{
-				Name:             platform.ServiceRegistry(KubernetesRegistry),
-				ClusterName:      clusterregistry.GetClusterName(cluster),
-				ServiceDiscovery: kubectl,
-				ServiceAccounts:  kubectl,
-				Controller:       kubectl,
-			})
+	// Add clusters under the same pilot
+	if s.clusterStore != nil {
+		clusters := s.clusterStore.GetPilotClusters()
+		for _, cluster := range clusters {
+			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
+			kubeCfgFile := strings.Join([]string{args.Config.ClusterStoreDir, kubeconfig}, "/")
+			_, client, kuberr := kube.CreateInterface(kubeCfgFile)
+			if kuberr != nil {
+				return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile))
+			}
+
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
+			kubectl := kube.NewController(client, args.Config.ControllerOptions)
+			serviceControllers.AddRegistry(
+				aggregate.Registry{
+					Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+					ClusterName:      clusterregistry.GetClusterName(cluster),
+					ServiceDiscovery: kubectl,
+					ServiceAccounts:  kubectl,
+					Controller:       kubectl,
+				})
+		}
 	}
 	return nil
 }
@@ -460,7 +470,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			serviceControllers.AddRegistry(registry1)
 			serviceControllers.AddRegistry(registry2)
 		case KubernetesRegistry:
-			s.CreateK8sServiceControllers(serviceControllers, args)
+			s.createK8sServiceControllers(serviceControllers, args)
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
 				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
