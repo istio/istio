@@ -69,15 +69,6 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
-  name = "github.com/alicebob/miniredis"
-  packages = [
-    ".",
-    "server"
-  ]
-  revision = "70cb3fab2cf658a95f2ccae5bfb2f0ccbba0c548"
-  version = "2.2.1"
-
-[[projects]]
   name = "github.com/aokoli/goutils"
   packages = ["."]
   revision = "3391d3790d23d03408670993e957e8f408993c34"
@@ -253,19 +244,6 @@
   name = "github.com/go-openapi/swag"
   packages = ["."]
   revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
-
-[[projects]]
-  name = "github.com/go-redis/redis"
-  packages = [
-    ".",
-    "internal",
-    "internal/consistenthash",
-    "internal/hashtag",
-    "internal/pool",
-    "internal/proto"
-  ]
-  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
-  version = "v6.8.0"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -794,17 +772,6 @@
   packages = ["metrics"]
   revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
   version = "v1.3.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/yuin/gopher-lua"
-  packages = [
-    ".",
-    "ast",
-    "parse",
-    "pm"
-  ]
-  revision = "478861c8ce6e8c2f16d5984d5ed30c4327c70437"
 
 [[projects]]
   name = "go.uber.org/atomic"
