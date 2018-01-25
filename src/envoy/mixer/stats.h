@@ -53,7 +53,8 @@ typedef std::function<bool(::istio::mixer_client::Statistics* s)> GetStatsFunc;
 class MixerStatsObject {
  public:
   MixerStatsObject(Event::Dispatcher& dispatcher, const std::string& name,
-                   Stats::Scope& scope, GetStatsFunc func);
+                   Stats::Scope& scope, int update_interval_ms,
+                   GetStatsFunc func);
 
  private:
   // This function is invoked when timer event fires.
