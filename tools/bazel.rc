@@ -46,3 +46,11 @@ build:clang-msan --copt -fsanitize-memory-track-origins=2
 
 # Test options
 test --test_env=HEAPCHECK=normal --test_env=PPROF_PATH
+
+# Release builds
+build:release -c opt
+
+# Add compile option for all C++ files
+build --cxxopt -Wnon-virtual-dtor
+build --cxxopt -Wformat
+build --cxxopt -Wformat-security
