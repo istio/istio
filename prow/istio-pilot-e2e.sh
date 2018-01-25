@@ -51,7 +51,7 @@ source "${ROOT}/prow/cluster_lib.sh"
 trap delete_cluster EXIT
 create_cluster 'e2e-pilot'
 
-ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
+ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/pkg/kube/config
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio

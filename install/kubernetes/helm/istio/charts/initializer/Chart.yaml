@@ -1,6 +1,6 @@
-name: initializer 
-version: 0.3.0
-description: Helm chart for initializer deployment
+name: initializer
+version: 0.5.0
+description: Helm chart for istio initializer
 keywords:
   - istio
   - initializer
