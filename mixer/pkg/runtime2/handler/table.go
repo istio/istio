@@ -28,7 +28,7 @@ type Table struct {
 	counters tableCounters
 }
 
-// entry in the handler table.
+// Entry in the handler table.
 type Entry struct {
 	// Name of the Handler
 	Name string
