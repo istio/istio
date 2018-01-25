@@ -17,9 +17,9 @@
 docker: docker.all
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
-docker.prebuilt: docker.save
+docker.prebuilt: docker.all
 
-$(ISTIO_DOCKER):
+$(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
@@ -144,9 +144,9 @@ docker.all: $(DOCKER_TARGETS)
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
-$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER); \
-   time (docker save -o ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
-         gzip ${ISTIO_OUT}/docker/$(subst docker.,,$(TGT)).tar)))
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
+   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+         gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
