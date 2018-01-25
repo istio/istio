@@ -61,12 +61,6 @@ containers:
   args:
   - proxy
   - sidecar
-  - -v
-  [[ if gt .Verbosity 0 -]]
-  - [[ .Verbosity ]]
-  [[ else -]]
-  - "2"
-  [[ end -]]
   - --configPath
   - {{ .ProxyConfig.ConfigPath }}
   - --binaryPath

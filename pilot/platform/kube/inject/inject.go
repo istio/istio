@@ -78,7 +78,7 @@ const (
 )
 
 const (
-	// e2e integration tests use container name for fetching logs
+	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
 )
 

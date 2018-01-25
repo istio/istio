@@ -55,9 +55,12 @@ func init() {
 	corev1.AddToScheme(runtimeScheme)
 	admissionregistrationv1beta1.AddToScheme(runtimeScheme)
 
-	// TODO(https://github.com/kubernetes/kubernetes/issues/57982) The
-	// `k8s.io/kubernetes/pkg/apis/core/v1` variant of `v1` types has
-	// the default functions. Temporarily add it for workaround.
+	// The `v1` package from k8s.io/kubernetes/pkgp/apis/core/v1 has
+	// the object defaulting functions which are not included in
+	// k8s.io/api/corev1. The default functions are required by
+	// runtime.ObjectDefaulter to workaround lack of server-side
+	// defaulting with webhooks (see
+	// https://github.com/kubernetes/kubernetes/issues/57982).
 	v1.AddToScheme(runtimeScheme)
 }
 
