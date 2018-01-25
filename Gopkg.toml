@@ -97,10 +97,6 @@ required = [
   name = "github.com/russross/blackfriday"
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
 
-[[constraint]]
-  name = "code.cloudfoundry.org/copilot"
-  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
-
 [[override]]
   name = "github.com/ugorji/go"
   revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
@@ -144,3 +140,7 @@ required = [
 [[override]]
   name = "github.com/docker/distribution"
   branch = "master"
+
+[[constraint]]
+  name = "code.cloudfoundry.org/copilot"
+  revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
