@@ -114,6 +114,12 @@ if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
 fi
 
+# circleCI expects this in the bin directory
+if [ ! -f ${ISTIO_BIN}/envoy ] ; then
+    mkdir -p ${ISTIO_BIN}
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+fi
+
 # Deprecated, may still be used in some tests
 if [ ! -f ${ROOT}/pilot/pkg/proxy/envoy/envoy ] ; then
     ln -sf ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy
