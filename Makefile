@@ -531,9 +531,6 @@ push: checkvars clean.installgen installgen
 artifacts: docker
 	@echo 'To be added'
 
-pilot/pkg/kube/config:
-	@echo 'nothing needs to be done for' $@
-
 kubelink:
 	ln -fs ~/.kube/config pilot/pkg/kube/
 
