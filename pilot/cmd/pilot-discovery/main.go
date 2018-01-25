@@ -103,6 +103,8 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
+		"Webhook API endpoint (supports DNS, IP, and unix domain socket.")
 
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.Config, "consulconfig", "",
 		"Consul Config file for discovery")

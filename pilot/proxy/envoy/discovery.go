@@ -15,6 +15,8 @@
 package envoy
 
 import (
+	"crypto/tls"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -33,6 +35,10 @@ import (
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"strings"
+	"io"
+	"bytes"
+	"io/ioutil"
 )
 
 const (
@@ -107,7 +113,8 @@ func init() {
 type DiscoveryService struct {
 	model.Environment
 	server *http.Server
-
+	webhookClient *http.Client
+	webhookEndpoint string
 	// TODO Profile and optimize cache eviction policy to avoid
 	// flushing the entire cache when any route, service, or endpoint
 	// changes. An explicit cache expiration policy should be
@@ -279,6 +286,7 @@ type DiscoveryServiceOptions struct {
 	MonitoringPort  int
 	EnableProfiling bool
 	EnableCaching   bool
+	WebhookEndpoint string
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
@@ -291,6 +299,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
+
 	container := restful.NewContainer()
 	if o.EnableProfiling {
 		container.ServeMux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -300,6 +309,32 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 	out.Register(container)
+
+	if len(o.WebhookEndpoint) > 0 {
+		out.webhookEndpoint = o.WebhookEndpoint
+		transport := &http.Transport{}
+
+		if strings.Index(o.WebhookEndpoint, "https") == 0 {
+			transport.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+
+		if strings.Contains(o.WebhookEndpoint, "unix://") {
+			transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
+				return net.Dial("unix", addr)
+			}
+
+			// strip the +unix and convert to plain http(s)://
+			if strings.Index(o.WebhookEndpoint, "unix://") == 0 {
+				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "unix", "", 1)
+			} else {
+				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "+unix", "", 1)
+			}
+		}
+		out.webhookClient = &http.Client{Transport:transport}
+	}
+
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
 
 	// Flush cached discovery responses whenever services, service
@@ -606,6 +641,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -624,13 +660,23 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			errorResponse(methodName, response, http.StatusInternalServerError, "CDS "+err.Error())
 			return
 		}
+
+		// TODO: this is wrong as it doesn't take into account clusters added by webhook
 		resourceCount = uint32(len(clusters))
-		if resourceCount > 0 {
-			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/clusters/unused/%s", svcNode), out)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		if resourceCount > 0 { // TODO: BUG. if resourceCount is 0, but transformedOutput has added resources, the cache wont update
+			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
+
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
 }
 
 // ListListeners responds to LDS requests
@@ -640,6 +686,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.ldsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -659,13 +706,22 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			errorResponse(methodName, response, http.StatusInternalServerError, "LDS "+err.Error())
 			return
 		}
+
+		// TODO: This does not take into account listeners added by webhook
 		resourceCount = uint32(len(listeners))
-		if resourceCount > 0 {
-			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+
+		transformedOutput, err := ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		if resourceCount > 0 { // TODO: Bug. If resourceCount is 0 but transformedOutput adds listeners, cache wont update
+			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
 }
 
 // ListRoutes responds to RDS requests, used by HTTP routes
@@ -677,6 +733,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.rdsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -697,15 +754,36 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
-		if routeConfig != nil && routeConfig.VirtualHosts != nil {
+
+		transformedOutput, err := ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		if routeConfig != nil && routeConfig.VirtualHosts != nil { //TODO: fix same bug as above.
 			resourceCount = uint32(len(routeConfig.VirtualHosts))
 			if resourceCount > 0 {
-				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 			}
 		}
 	}
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
+}
+
+func (ds *DiscoveryService) invokeWebhook(path string, payload []byte) ([]byte, error) {
+	if ds.webhookClient == nil {
+		return payload, nil
+	}
+
+	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }
 
 func incCalls(methodName string) {
