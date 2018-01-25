@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"

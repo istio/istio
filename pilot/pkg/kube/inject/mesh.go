@@ -88,7 +88,7 @@ containers:
   - --proxyAdminPort
   - {{ .ProxyConfig.ProxyAdminPort }}
   - --controlPlaneAuthPolicy
-  - {{ .MeshConfig.AuthPolicy }}
+  - {{ .ProxyConfig.ControlPlaneAuthPolicy }}
   env:
   - name: POD_NAME
     valueFrom:
