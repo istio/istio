@@ -60,6 +60,9 @@ func newTestState() *testState {
 				Address:          "https://copilot.dns.address:port",
 				PollInterval:     90 * time.Second,
 			},
+			Envoy: cloudfoundry.EnvoyConfig{
+				Port: 8080,
+			},
 		},
 	}
 }

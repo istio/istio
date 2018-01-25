@@ -101,7 +101,7 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	config := buildConfig(w.config, w.pilotSAN)
+	config := BuildConfig(w.config, w.pilotSAN)
 
 	// compute hash of dependent certificates
 	h := sha256.New()

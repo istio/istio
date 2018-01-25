@@ -35,9 +35,15 @@ type CopilotConfig struct {
 	PollInterval     time.Duration `yaml:"poll_interval" validate:"nonzero"`
 }
 
+// EnvoyConfig describes how the Cloud Foundry platform adapter communicates with Envoy
+type EnvoyConfig struct {
+	Port int `yaml:"port" validate:"nonzero"`
+}
+
 // Config for the Cloud Foundry platform adapter
 type Config struct {
 	Copilot CopilotConfig `yaml:"copilot"`
+	Envoy   EnvoyConfig   `yaml:"envoy"`
 }
 
 // LoadConfig reads configuration data from a YAML file
