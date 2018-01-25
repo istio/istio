@@ -57,7 +57,7 @@ type Server struct {
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newILEvaluator func(cacheSize int) (*evaluator.IL, error)
-	newStore2      func(r2 *store.Registry, configURL string) (store.Store, error)
+	newStore       func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime     func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener,
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
@@ -75,7 +75,7 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newILEvaluator: evaluator.NewILEvaluator,
-		newStore2:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
+		newStore:       func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
@@ -143,18 +143,18 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	store2 := a.ConfigStore
-	if store2 != nil && a.ConfigStoreURL != "" {
+	st := a.ConfigStore
+	if st != nil && a.ConfigStoreURL != "" {
 		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
-	if store2 == nil {
+	if st == nil {
 		configStoreURL := a.ConfigStoreURL
 		if configStoreURL == "" {
 			configStoreURL = "k8s://"
 		}
 
-		reg2 := store.NewRegistry(config.StoreInventory()...)
-		if store2, err = p.newStore2(reg2, configStoreURL); err != nil {
+		reg := store.NewRegistry(config.StoreInventory()...)
+		if st, err = p.newStore(reg, configStoreURL); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -162,7 +162,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	var dispatcher mixerRuntime.Dispatcher
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
+		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}

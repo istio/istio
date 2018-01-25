@@ -26,17 +26,17 @@ import (
 
 // GetSnapshot creates a config.Snapshot for testing purposes, based on the supplied configuration.
 func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapter.Info, serviceConfig string, globalConfig string) *config.Snapshot {
-	store2, err := storetest.SetupStoreForTest(serviceConfig, globalConfig)
+	store, err := storetest.SetupStoreForTest(serviceConfig, globalConfig)
 	if err != nil {
-		panic(fmt.Sprintf("unable to crete store2: %v", err))
+		panic(fmt.Sprintf("unable to crete store: %v", err))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := store2.Init(ctx, config.KindMap(adapters, templates)); err != nil {
-		panic(fmt.Sprintf("unable to initialize store2: %v", err))
+	if err := store.Init(ctx, config.KindMap(adapters, templates)); err != nil {
+		panic(fmt.Sprintf("unable to initialize store: %v", err))
 	}
 
-	data := store2.List()
+	data := store.List()
 	e := config.NewEphemeral(templates, adapters)
 	e.SetState(data)
 

@@ -203,7 +203,7 @@ func TestErrors(t *testing.T) {
 				}
 			case 2:
 				a.ConfigStore = nil
-				pt.newStore2 = func(r2 *store.Registry, configURL string) (store.Store, error) {
+				pt.newStore = func(reg *store.Registry, configURL string) (store.Store, error) {
 					return nil, errors.New("BAD")
 				}
 			case 3:
