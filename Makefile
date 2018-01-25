@@ -28,7 +28,9 @@ export GOPATH
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 
-export CGO_ENABLE=0
+# Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
+# to be handled in bin/gobuild.sh
+# export CGO_ENABLED=0
 
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GO_TOP}/out
@@ -44,9 +46,9 @@ export GOARCH ?= amd64
 
 
 # @todo allow user to run for a single $PKG only?
-PACKAGES := $(shell $(GO) list ./...)
+PACKAGES_CMD := GOPATH=$(GOPATH) $(GO) list ./...
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
-GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
+GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
@@ -70,6 +72,7 @@ endif
 
 # Discover if user has dep installed -- prefer that
 DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
+GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -112,8 +115,13 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 ${DEP}:
-	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
+
+${GOLINT}:
+	unset GOOS && go get -u github.com/golang/lint/golint
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -155,21 +163,21 @@ fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $(GO_FILES)
+	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $(GO_FILES)
+	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $(PACKAGES) || true
+	$(Q) $(GO) vet $$($(PACKAGES_CMD)) || true
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: ; $(info $(H) running golint on packages...)
+check.lint: | ${GOLINT} ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $(PACKAGES); do \
-		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
+	$(Q) for p in $$($(PACKAGES_CMD)); do \
+		${GOLINT} $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
 # @todo gometalinter targets?
@@ -186,18 +194,26 @@ build: setup go-build
 PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
                ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-injector
 $(PILOT_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+
+# Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
+${OUT}/istioctl-linux: depend
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-osx: depend
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+${OUT}/istioctl-win.exe: depend
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
 $(MIXER_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_BIN}/servicegraph: depend
-	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/pkg/version ./mixer/example/servicegraph
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
 SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
 $(SECURITY_GO_BINS): depend
-	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: go-build
 go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
@@ -218,6 +234,10 @@ node-agent: ${ISTIO_BIN}/node_agent
 
 .PHONY: pilot
 pilot: ${ISTIO_BIN}/pilot-discovery
+
+# istioctl-all makes all of the non-static istioctl executables for each supported OS
+.PHONY: istioctl-all
+istioctl-all: ${OUT}/istioctl-linux ${OUT}/istioctl-osx ${OUT}/istioctl-win.exe
 
 #-----------------------------------------------------------------------------
 # Target: go test

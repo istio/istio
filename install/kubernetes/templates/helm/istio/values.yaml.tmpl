@@ -1,45 +1,93 @@
 global:
-  namespace: istio-system
+  proxy:
+    repository: {PROXY_HUB}/{PROXY_IMAGE}
+    tag: {PROXY_TAG}
   sidecar-injector:
-    enabled: true
+    repository: {PILOT_HUB}/sidecar_injector
+    tag: {PILOT_TAG}
+  mixer:
+    repository: {MIXER_HUB}/mixer
+    tag: {MIXER_TAG}
+  pilot:
+    repository: {PILOT_HUB}/pilot
+    tag: {PILOT_TAG}
+  security:
+    repository: {CA_HUB}/istio-ca
+    tag: {CA_TAG}
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: {HYPERKUBE_HUB}
+    tag: {HYPERKUBE_TAG}
+
+  # create RBAC resources
+  rbacEnabled: true
+  # mutual TLS authentication
+  securityEnabled: false
+
 #
 # proxy side car and ingress configuration
 #
-  proxy:
-    hub: {PROXY_HUB}
-    tag: {PROXY_TAG}
-    debug: {PROXY_DEBUG}
-#
-# pilot configuration
-#
-  pilot:
-    enabled: true
-    hub: {PILOT_HUB}
-    tag: {PILOT_TAG}
-#
-# security configuration
-#
-  security:
+serviceAccountName: default
+imagePullPolicy: IfNotPresent
+resources: {}
+nodeSelector: {}
+# istio ingress configuration
+service:
+  # By default istio ingress uses LoadBalancer type of service
+  # to use NodePort, it needs to be enabled and desired port specified
+  nodePort:
     enabled: false
-    hub: {CA_HUB}
-    tag: {CA_TAG}
+    port: 32000
+
+#
+# initializer configuration
+#
+initializer:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  initImage:
+    repository: docker.io/istio/proxy_init
+    tag: 0.4.0
+
 #
 # mixer configuration
 #
-  mixer:
-    enabled: true
-    hub: {MIXER_HUB}
-    tag: {MIXER_TAG}
+mixer:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  prometheusStatsdExporter:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+    resources: {}
+
 #
-# ingress specific configuration
-# By default istio ingress uses LoadBalancer type of service
-# to use NodePort, it needs to be enabled and desired port specified
+# pilot configuration
 #
-  ingress:
-    use_nodeport: false
-    nodeport_port: 32000
+pilot:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
 #
-# Not recommended for user to configure this. Hyperkube image to use when creating custom objects
+# security configuration
 #
-  hyperkube_hub: {HYPERKUBE_HUB}
-  hyperkube_tag: {HYPERKUBE_TAG}
+security:
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
