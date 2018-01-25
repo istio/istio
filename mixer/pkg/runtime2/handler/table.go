@@ -15,8 +15,6 @@
 package handler
 
 import (
-	"fmt"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
@@ -135,13 +133,7 @@ func (t *table) Cleanup(current *table) {
 			err = panicErr
 		}
 
-		if workerCloseErr := entry.env.ensureWorkerClosed(); workerCloseErr != nil {
-			if err == nil {
-				err = workerCloseErr
-			} else {
-				err = fmt.Errorf("%v, %v", err, workerCloseErr)
-			}
-		}
+		_ = entry.env.ensureWorkerClosed()
 
 		if err != nil {
 			t.counters.closeFailure.Inc()
