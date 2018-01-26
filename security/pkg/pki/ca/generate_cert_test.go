@@ -129,7 +129,7 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 }
 
 func TestGenCert(t *testing.T) {
-	// set "notBefore" to be an hour ago, this ensures the issued certifiate to
+	// set "notBefore" to be one hour ago, this ensures the issued certifiate to
 	// be valid as of now.
 	caCertNotBefore := now.Add(-time.Hour)
 	caCertTTL := 24 * time.Hour
