@@ -51,6 +51,7 @@ type (
 		env           adapter.Env
 		closing       chan bool
 		cacheDuration time.Duration
+		timer         *time.Timer
 	}
 )
 
@@ -88,7 +89,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, env.Logger().Errorf("Unable to connect to the configuration server: %v", err)
 	}
 	r := &configStore{}
-	h := &handler{rbac: r, env: env, closing: make(chan bool), cacheDuration: b.adapterConfig.CacheDuration}
+	h := &handler{
+		rbac:          r,
+		env:           env,
+		closing:       make(chan bool),
+		cacheDuration: b.adapterConfig.CacheDuration,
+		timer:         nil,
+	}
 	if err = h.startController(s); err != nil {
 		return nil, env.Logger().Errorf("Unable to start controller: %v", err)
 	}
@@ -118,30 +125,25 @@ func (h *handler) startController(s store.Store) error {
 	// Start a goroutine to watch for changes on a channel and
 	// publishes a batch of changes via applyEvents.
 	h.env.ScheduleDaemon(func() {
-		// consume changes and apply them to data indefinitely
+		// consume changes and apply them to data.
 		var timeChan <-chan time.Time
-		var timer *time.Timer
 		events := make([]*store.Event, 0, maxEvents)
 
 		for {
 			select {
 			case ev := <-watchChan:
 				if len(events) == 0 {
-					timer = time.NewTimer(watchFlushDuration)
-					timeChan = timer.C
+					h.timer = time.NewTimer(watchFlushDuration)
+					timeChan = h.timer.C
 				}
 				events = append(events, &ev)
 			case <-timeChan:
-				timer.Stop()
+				h.timer.Stop()
 				timeChan = nil
 				h.env.Logger().Infof("Publishing %d events", len(events))
 				c.applyEvents(events, h.env)
 				events = events[:0]
 			case <-h.closing:
-				if timer != nil {
-					timer.Stop()
-					timeChan = nil
-				}
 				return
 			}
 		}
@@ -186,6 +188,11 @@ func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.I
 // adapter.Handler#Close
 func (h *handler) Close() error {
 	close(h.closing)
+
+	if h.timer != nil {
+		h.timer.Stop()
+
+	}
 
 	return nil
 }

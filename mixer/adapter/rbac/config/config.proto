@@ -44,9 +44,8 @@ message Params {
   // Following are some examples of the config store URL:
   // * "k8s://"
   // * "fs:///tmp/testdata/configroot"
-  // * "memstore://test"
   string config_store_url = 1;
 
-  // The duration for which the authorization result is cached.
+  // The duration for which authorization results may be cached.
   google.protobuf.Duration cache_duration = 2 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }
