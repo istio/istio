@@ -5,20 +5,38 @@
 # the repo. Unless a later match takes precedence,
 # the global owners will be requested for
 # review when someone opens a pull request.
-*       @istio/reviewers
+# /tools/, /bin/, /docker/
+*       @istio/reviewers-global
 
 # Per component owners. Prefix folders with / so that the owners
 # will be requested for reviews for all subdirectories under that
 # folder in the root
-/.circleci/ @rshriram @costinm # please do not change this
-/release/ @mattdelco
-/prow/ @sebastienvas
 
-## TODO samples, install
-# /pkg/, /tests/, /tools/, /bin/, /docker/ is everyone's responsibility
+/.circleci/ @rshriram @costinm # please do not change this
+/release/ @istio/reviewers-release
+/prow/ @istio/reviewers-prow
 
 /pilot/ @istio/reviewers-istio-pilot
 /security/ @istio/reviewers-istio-security
 /mixer/ @istio/reviewers-istio-mixer
 /galley/ @istio/reviewers-istio-galley
 /broker/ @istio/reviewers-istio-broker
+
+/pkg/ @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
+/tests/ @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
+
+## All makefile stuff
+#includes tests/istio.mk . This has to be below /tests/ so that istio.mk becomes the latest match
+Makefile @mattdelco @costinm
+*.mk @mattdelco @costinm 
+
+## Istio Bookinfo samples - people who authored the demo
+/samples/ @vadimeisenbergibm @rshriram @frankbu
+
+/install/tools/ @costinm
+/install/kubernetes/ @andraxylia @linsun
+/install/gcp/ @andraxylia
+/install/consul/ @GregHanson
+/install/eureka/ @ijsnellf
+/install/ansible/ @geoand
+/install/kubernetes/helm/ @linsun @sbezverk @sdake
