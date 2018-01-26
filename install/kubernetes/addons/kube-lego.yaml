@@ -26,7 +26,7 @@ kind: ConfigMap
 metadata:
   name: kube-lego
   namespace: istio-system
-data: |
+data:
   # modify this to specify your address
   lego.email: "costin@google.com"
   # use letsencrypt's production api (real certs)

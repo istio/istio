@@ -381,12 +381,12 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
+	cp -f ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_injector:${TAG} -f Dockerfile.sidecar_injector .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${ISTIO_BIN}/mixs mixer/docker
+	cp -f ${ISTIO_BIN}/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
 	cp ${ISTIO_BIN}/{istio_ca,node_agent} security/docker

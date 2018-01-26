@@ -55,6 +55,8 @@ metadata:
 spec:
   ports:
   - port: 15003
+    name: https-discovery
+  - port: 8080
     name: http-discovery
   - port: 8080
     name: http-legacy-discovery
@@ -92,6 +94,12 @@ spec:
         ports:
         - containerPort: 8080
         - containerPort: 443
+        readinessProbe:
+          httpGet:
+            path: /v1/registration
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
         env:
         - name: POD_NAME
           valueFrom:
