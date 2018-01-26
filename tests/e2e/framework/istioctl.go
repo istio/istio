@@ -148,7 +148,7 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 func (i *Istioctl) KubeInject(src, dest string) error {
 	if *defaultProxy {
 		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
-			src, dest, i.namespace, i.namespace, i.namespace)
+			src, dest, i.namespace, i.namespace)
 	}
 	return i.run(`kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s --meshConfigMapName=istio`,
 		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
