@@ -323,6 +323,7 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL, ISTIO_URL_ISTIOCTL as dependencies
+# consider using -a with updateVersion.sh to simplify the input parameters
 ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
@@ -483,9 +484,6 @@ push.istioctl-all: istioctl-all
 
 artifacts: docker
 	@echo 'To be added'
-
-pilot/pkg/kube/config:
-	touch $@
 
 kubelink:
 	ln -fs ~/.kube/config pilot/pkg/kube/
