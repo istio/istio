@@ -19,4 +19,4 @@
 /pkg/       @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 /tests/     @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 
-/\.circleci/ @istio/reviewers-istio-circleci
+#/.circleci/ @istio/reviewers-istio-circleci
