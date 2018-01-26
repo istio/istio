@@ -163,7 +163,13 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		Do().Raw()
 	if err != nil {
 		log.Infof("Request error %v", err)
-		return ""
+
+		raw, err = cl.CoreV1().Pods(namespace).
+			GetLogs(name, &v1.PodLogOptions{Container: container, Previous: true}).
+			Do().Raw()
+		if err != nil {
+			return ""
+		}
 	}
 	return string(raw)
 }
