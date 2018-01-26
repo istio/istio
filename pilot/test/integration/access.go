@@ -87,11 +87,11 @@ func (a *accessLogs) check(infra *infra) error {
 				logs := util.FetchLogs(client, pod, ns, container)
 
 				if strings.Contains(logs, "segmentation fault") {
-					return fmt.Errorf("segmentation fault %s", pod)
+					return fmt.Errorf("segmentation fault %s log:%s", pod, logs)
 				}
 
 				if strings.Contains(logs, "assert failure") {
-					return fmt.Errorf("assert failure in %s", pod)
+					return fmt.Errorf("assert failure in %s log:", pod, logs)
 				}
 
 				// find all ids and counts
