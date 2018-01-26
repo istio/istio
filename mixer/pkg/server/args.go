@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
@@ -50,7 +51,11 @@ type Args struct {
 	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
+	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
