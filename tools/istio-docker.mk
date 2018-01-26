@@ -17,7 +17,7 @@
 docker: docker.all
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
-docker.prebuilt: docker.push
+docker.prebuilt: docker.tag
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -155,6 +155,15 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
+# for each docker.XXX target create a tag.docker.XXX target that
+# places another tag on the local docker image
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tag.$(TGT): | $(TGT) ; \
+        docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
+
+# create a DOCKER_TAG_TARGETS that's each of DOCKER_TARGETS with a tag. prefix
+DOCKER_TAG_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAG_TARGETS+=tag.$(TGT)))
+
 # if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
         $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
@@ -169,6 +178,7 @@ $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
+# a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
         time (docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
                     $(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
@@ -191,6 +201,7 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 #	eval $(minikube docker-env)
 #docker.push: docker.minikube $(DOCKER_PUSH_TARGETS)
 #else
+docker.tag: $(DOCKER_TAG_TARGETS)
 docker.push: $(DOCKER_PUSH_TARGETS)
 #endif
 
