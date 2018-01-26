@@ -16,12 +16,12 @@ AddDataSource() {
 # that was created by AddDataSource().
 ImportDashboard() {
   if [[ ! -z ${DASHBOARD_URL} ]];then
-    curl ${DASHBOARD_URL} -o  /grafana-dashboard.json
+    curl ${DASHBOARD_URL} -o  $1
   fi
   export FL="/tmp/dash"
 
   echo "{ \"overwrite\": true, \"dashboard\": " > $FL
-  sed 's/${DS_PROMETHEUS}/Prometheus/g' /grafana-dashboard.json >> $FL
+  sed 's/${DS_PROMETHEUS}/Prometheus/g' $1 >> $FL
   echo "}" >> $FL
 
   curl -d @$FL -X POST http://localhost:3000/api/dashboards/db   -H 'Content-Type: application/json;charset=UTF-8' -uadmin:admin
@@ -36,4 +36,5 @@ until AddDataSource; do
   sleep 2
 done
 
-ImportDashboard
+ImportDashboard "/grafana-dashboard.json"
+ImportDashboard "/mixer-dashboard.json"
