@@ -44,7 +44,9 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	}
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not find %q ConfigMap in %q namespace", meshConfigMapName, istioNamespace)
+		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
+			"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+			meshConfigMapName, istioNamespace, err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
