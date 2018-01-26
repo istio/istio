@@ -25,7 +25,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	_ "github.com/golang/glog"
 )
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
