@@ -52,8 +52,8 @@ var (
 )
 
 func init() {
-	corev1.AddToScheme(runtimeScheme)
-	admissionregistrationv1beta1.AddToScheme(runtimeScheme)
+	_ = corev1.AddToScheme(runtimeScheme)
+	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
 
 	// The `v1` package from k8s.io/kubernetes/pkgp/apis/core/v1 has
 	// the object defaulting functions which are not included in
@@ -61,7 +61,7 @@ func init() {
 	// runtime.ObjectDefaulter to workaround lack of server-side
 	// defaulting with webhooks (see
 	// https://github.com/kubernetes/kubernetes/issues/57982).
-	v1.AddToScheme(runtimeScheme)
+	_ = v1.AddToScheme(runtimeScheme)
 }
 
 // Webhook implements a mutating webhook for automatic proxy injection.
@@ -83,7 +83,7 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 		return nil, nil, err
 	}
 	var c Config
-	if err := yaml.Unmarshal([]byte(data), &c); err != nil { // nolint: vetshadow
+	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
 		return nil, nil, err
 	}
 	log.Info(string(data))
