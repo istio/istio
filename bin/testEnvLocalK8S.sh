@@ -63,7 +63,7 @@ function getDeps() {
      curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
    fi
    if [ ! -f $TOP/bin/etcd ] ; then
-     go get github.com/coreos/etcd/cmd/etcd
+     go get github.com/coreos/etcd
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
      # Init should be run after cloning the workspace
