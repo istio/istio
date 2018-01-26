@@ -36,6 +36,8 @@ Others docs you should look at:
 
       - Must use lowerCamel case for Go package names.
 
+      - Must not use camel case for file names, e.g. type `DeviceAllocator` should reside in `device_allocator.go` or in `deviceallocator.go`.
+
       - Please consider parent directory name when choosing a package name:
 
           - `adapters/factMapper/tracker.go` should say `package factMapper` not `package factmapperadapter`.
