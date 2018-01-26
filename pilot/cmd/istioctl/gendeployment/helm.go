@@ -22,8 +22,8 @@ import (
 var valuesTemplate = template.Must(template.New("helm").Parse(
 	`global:
   namespace: {{ .Namespace }}
-  initializer:
-    enabled: {{ .Initializer }}
+  sidecar-injector:
+    enabled: {{ .SidecarInjector }}
   proxy:
     hub: {{ .Hub }}
     tag: {{ .ProxyTag }}
@@ -32,7 +32,7 @@ var valuesTemplate = template.Must(template.New("helm").Parse(
     enabled: {{ .Pilot }}
     hub: {{ .Hub }}
     tag: {{ .PilotTag }}
-  security:  
+  security:
     enabled: {{ .CA }}
     hub: {{ .Hub }}
     tag: {{ .CaTag }}

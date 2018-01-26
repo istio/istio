@@ -15,9 +15,11 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 const (
@@ -114,6 +116,34 @@ func newTableCounters(cfgID int64) tableCounters {
 type envCounters struct {
 	workers prometheus.Gauge
 	daemons prometheus.Gauge
+}
+
+func (c envCounters) getDaemonCount() (float64, error) {
+	if c.daemons != nil {
+		m := dto.Metric{}
+
+		var c prometheus.Metric = c.daemons
+		if err := c.Write(&m); err != nil {
+			return 0, fmt.Errorf("failed to fetch adapter's scheduled daemon counter: %v", err)
+
+		}
+		return *m.GetGauge().Value, nil
+	}
+	return 0, nil
+}
+
+func (c envCounters) getWorkerCount() (float64, error) {
+	if c.workers != nil {
+		m := dto.Metric{}
+
+		var c prometheus.Metric = c.workers
+		if err := c.Write(&m); err != nil {
+			return 0, fmt.Errorf("failed to fetch adapter's scheduled workers counter: %v", err)
+
+		}
+		return *m.GetGauge().Value, nil
+	}
+	return 0, nil
 }
 
 func newEnvCounters(cfgID int64, handler string) envCounters {
