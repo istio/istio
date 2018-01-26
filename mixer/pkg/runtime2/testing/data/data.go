@@ -42,68 +42,331 @@ spec:
 ---
 `
 
-// HandlerH1 is a basic testing handler named H1.
-var HandlerH1 = `
+// InstanceCheck1 is a standard testing instance for template tcheck.
+var InstanceCheck1 = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: a1
+kind: tcheck
 metadata:
-  name: h1
-  namespace: istio-system
-`
-
-// FqnH1 is the fully qualified name of HandlerH1.
-var FqnH1 = "h1.a1.istio-system"
-
-// InstanceI1 is a standard testing instance config with name I1.
-var InstanceI1 = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: t1
-metadata:
-  name: i1
+  name: icheck1
   namespace: istio-system
 spec:
 `
 
 // FqnI1 is the fully qualified name for I1.
-var FqnI1 = "i1.t1.istio-system"
+var FqnI1 = "icheck1.tcheck.istio-system"
 
-// InstanceI2 is a standard testing instance config with name I2.
-var InstanceI2 = `
+// InstanceCheck2 is another instance.
+var InstanceCheck2 = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: t1
+kind: tcheck
 metadata:
-  name: i2
+  name: icheck2
   namespace: istio-system
 spec:
 `
 
-// RuleR1I1H1 references I1 and H1 in a single action.
-var RuleR1I1H1 = `
+// InstanceCheck3 is another instance.
+var InstanceCheck3 = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: rule
+kind: tcheck
 metadata:
-  name: r1
+  name: icheck3
   namespace: istio-system
 spec:
-  actions:
-  - handler: h1.a1
-    instances:
-    - i1.t1.istio-system
 `
 
-// RuleR2I1I2 is a standard testing rule config with name R2 which references I1 and I2.
-var RuleR2I1I2 = `
+// InstanceCheck4NS2 is in the ns2 namespace
+var InstanceCheck4NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tcheck
+metadata:
+  name: icheck4
+  namespace: ns2
+spec:
+`
+
+// InstanceHalt1 is a standard testing instance.
+var InstanceHalt1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: thalt
+metadata:
+  name: ihalt1
+  namespace: istio-system
+spec:
+`
+
+// InstanceAPA1 is an APA instance
+var InstanceAPA1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tapa
+metadata:
+  name: iapa1
+  namespace: istio-system
+spec:
+`
+
+// HandlerACheck1 is a handler of type acheck with name hcheck1.
+var HandlerACheck1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: acheck
+metadata:
+  name: hcheck1
+  namespace: istio-system
+spec:
+`
+
+// FqnACheck1 is the fully qualified name of HandlerH1.
+var FqnACheck1 = "hcheck1.acheck.istio-system"
+
+// HandlerACheck2 is a handler of type acheck with name hcheck2.
+var HandlerACheck2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: acheck
+metadata:
+  name: hcheck2
+  namespace: istio-system
+spec:
+`
+
+// HandlerACheck3NS2 is a handler in namespace NS2.
+var HandlerACheck3NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: acheck
+metadata:
+  name: hcheck3
+  namespace: ns2
+spec:
+`
+
+// HandlerAPA1 is an APA handler.
+var HandlerAPA1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: apa
+metadata:
+  name: hapa1
+  namespace: istio-system
+spec:
+`
+
+// RuleCheck1 is a standard testing instance config with name R1. It references I1 and H1.
+var RuleCheck1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: r2
+  name: rcheck1
   namespace: istio-system
 spec:
   actions:
-  - handler: h1.a1
+  - handler: hcheck1.acheck
     instances:
-    - i1.t1.istio-system
-    - i2.t1.istio-system
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck1TrueCondition is a standard testing instance config with name R1. It references I1 and H1.
+var RuleCheck1TrueCondition = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  selector: 'true'
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck1WithBadCondition has a parseable but not compilable condition
+var RuleCheck1WithBadCondition = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  selector: needmorecheese
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck1WithInstance1And2 has instances icheck1 & icheck2.
+var RuleCheck1WithInstance1And2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - icheck2.tcheck.istio-system
+`
+
+// RuleCheck1WithMatchClause is Rule Check1 with a conditional.
+var RuleCheck1WithMatchClause = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  match: match(target.name, "foo*")
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck1WithInstance1And2WithMatchClause is Rule Check1 with a conditional.
+var RuleCheck1WithInstance1And2WithMatchClause = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  match: match(target.name, "foo*")
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - icheck2.tcheck.istio-system
+`
+
+// RuleCheck1WithBadHandler is a standard testing rule config with a bad handler name.
+var RuleCheck1WithBadHandler = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.inspector-gadget
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck1WithNonBooleanCondition has a non-boolean condition.
+var RuleCheck1WithNonBooleanCondition = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  selector: target.name
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck2WithInstance1AndHandler is Rule Check1 with a different name.
+var RuleCheck2WithInstance1AndHandler = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+`
+
+// RuleCheck2WithInstance2And3 references instances icheck2 and icheck2.
+var RuleCheck2WithInstance2And3 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck2.tcheck.istio-system
+    - icheck3.tcheck.istio-system
+`
+
+// RuleCheck2WithInstance2And3WithMatchClause is RuleCheck2WithInstance2And3 with a conditional.
+var RuleCheck2WithInstance2And3WithMatchClause = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck2
+  namespace: istio-system
+spec:
+  match: target.name.startsWith("foo")
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck2.tcheck.istio-system
+    - icheck3.tcheck.istio-system
+`
+
+// RuleCheck2WithHandler2AndInstance2 references hcheck2 and icheck2.
+var RuleCheck2WithHandler2AndInstance2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck2.acheck
+    instances:
+    - icheck2.tcheck.istio-system
+`
+
+// RuleCheck3NS2 is check rule in namespace NS2
+var RuleCheck3NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: ns2
+spec:
+  actions:
+  - handler: hcheck3.acheck
+    instances:
+    - icheck4.tcheck.ns2
+`
+
+// Rule4CheckAndHalt has two instances that goes to the same adapter, but have different templates.
+var Rule4CheckAndHalt = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheckandhalt4
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - ihalt1.thalt.istio-system
+`
+
+// RuleApa1 is a rule that target APA.
+var RuleApa1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rapa1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hapa1.apa
+    instances:
+    - iapa1.tapa.istio-system
 `
 
 // JoinConfigs is a utility for joining various pieces of config for consumption by store code.

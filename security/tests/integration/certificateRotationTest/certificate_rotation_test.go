@@ -17,12 +17,12 @@ package integration
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/golang/glog"
+
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration/framework"
@@ -75,7 +75,7 @@ func TestCertificateRotation(t *testing.T) {
 		}
 
 		if !bytes.Equal(initialSecret.Data[controller.RootCertID], secret.Data[controller.RootCertID]) {
-			t.Error(fmt.Errorf("root certificates should be match"))
+			t.Errorf("root certificates should be match")
 		}
 
 		if !bytes.Equal(initialSecret.Data[controller.PrivateKeyID], secret.Data[controller.PrivateKeyID]) &&
@@ -85,15 +85,23 @@ func TestCertificateRotation(t *testing.T) {
 			return
 		}
 	}
-	t.Error(fmt.Errorf("failed to validate certificate rotation"))
+	t.Errorf("failed to validate certificate rotation")
 }
 
 func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
+	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
+	tag := flag.String("tag", "", "Tag for Istio CA image")
 
 	flag.Parse()
 
-	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig)
+	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+
+	if testEnv == nil {
+		glog.Error("test environment creation failure")
+		// There is no cleanup needed at this point.
+		os.Exit(1)
+	}
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 

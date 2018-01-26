@@ -1,0 +1,55 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.v1.auth;
+
+
+service NodeAgent {
+	rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest {
+        string name = 1;
+}
+
+message CheckResponse {
+	message Status {
+		enum Code {
+			// https://cloud.google.com/appengine/docs/admin-api/reference/rpc/google.rpc#google.rpc.Code
+			OK = 0;
+			CANCELLED = 1;
+			UNKNOWN = 2;
+			INVALID_ARGUMENT = 3;
+			DEADLINE_EXCEEDED = 4;
+			NOT_FOUND = 5;
+			ALREADY_EXISTS = 6;
+			PERMISSION_DENIED = 7;
+			UNAUTHENTICATED = 8;
+			RESOURCE_EXHAUSTED = 9;
+			FAILED_PRECONDITION = 10;
+			ABORTED = 11;
+			OUT_OF_RANGE = 12;
+			UNIMPLEMENTED = 13;
+			INTERNAL = 14;
+			UNAVAILABLE = 15;
+			DATA_LOSS = 16;
+		}
+		Code code = 1;
+		string message = 2;
+	}
+
+	Status status = 1;
+}
