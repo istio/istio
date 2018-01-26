@@ -46,8 +46,11 @@ type CertOptions struct {
 	// like kubernetes service account.
 	Host string
 
-	// The validity bounds of the issued certificate.
-	NotBefore, NotAfter time.Time
+	// The NotBefore field of the issued certificate.
+	NotBefore time.Time
+
+	// TTL of the certificate. NotAfter - NotBefore
+	TTL time.Duration
 
 	// Signer certificate (PEM encoded).
 	SignerCert *x509.Certificate
@@ -205,13 +208,19 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageClientAuth)
 	}
 
+	notBefore := options.NotBefore
+	// If NotBefore is unset, use current time.
+	if notBefore.IsZero() {
+		notBefore = time.Now()
+	}
+
 	template := x509.Certificate{
 		SerialNumber: genSerialNum(),
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
-		NotBefore:             options.NotBefore,
-		NotAfter:              options.NotAfter,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsages,
 		BasicConstraintsValid: true,
