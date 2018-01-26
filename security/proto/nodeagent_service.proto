@@ -24,7 +24,7 @@ service NodeAgentService {
 }
 
 message CheckRequest {
-  string name = 1;
+	string name = 1;
 }
 
 message CheckResponse {
