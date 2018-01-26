@@ -14,6 +14,10 @@
 
 syntax = "proto3";
 
+// $title: Value Type
+// $overview: Value types used with templates
+// $location: https://istio.io/docs/reference/config/mixer/istio.mixer.v1.config.descriptor.html
+
 package istio.mixer.v1.config.descriptor;
 
 option go_package="istio.io/api/mixer/v1/config/descriptor";

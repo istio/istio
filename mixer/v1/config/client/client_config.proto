@@ -21,6 +21,10 @@ import "mixer/v1/config/client/api_spec.proto";
 import "mixer/v1/config/client/quota.proto";
 import "mixer/v1/config/client/auth.proto";
 
+// $title: Mixer Client
+// $overview: Configuration state for the Mixer client library
+// $location: https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
+
 package istio.mixer.v1.config.client;
 
 option go_package="istio.io/api/mixer/v1/config/client";

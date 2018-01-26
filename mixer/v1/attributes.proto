@@ -84,7 +84,7 @@ message Attributes {
     }
   }
 
-  // Defines a strig map.
+  // Defines a string map.
   message StringMap {
     map<string, string> entries = 1;
   }

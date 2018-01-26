@@ -390,7 +390,7 @@ func _Attributes_AttributeValue_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// Defines a strig map.
+// Defines a string map.
 type Attributes_StringMap struct {
 	Entries map[string]string `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
