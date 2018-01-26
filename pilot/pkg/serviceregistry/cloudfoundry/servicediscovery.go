@@ -28,12 +28,13 @@ type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
-// AppPort is the container-side port on which Cloud Foundry Diego applications listen
-const AppPort = 8080
-
 // ServiceDiscovery implements the model.ServiceDiscovery interface for Cloud Foundry
 type ServiceDiscovery struct {
 	Client CopilotClient
+
+	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
+	// It is typically 8080
+	ServicePort int
 }
 
 // Services implements a service catalog operation
@@ -44,8 +45,12 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 	services := make([]*model.Service, 0, len(resp.GetBackends()))
 
+	port := sd.servicePort()
 	for hostname := range resp.Backends {
-		services = append(services, newService(hostname))
+		services = append(services, &model.Service{
+			Hostname: hostname,
+			Ports:    []*model.Port{port},
+		})
 	}
 
 	return services, nil
@@ -65,38 +70,30 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 	return nil, nil
 }
 
-func newService(hostname string) *model.Service {
-	return &model.Service{
-		Hostname: hostname,
-		Ports: []*model.Port{
-			{
-				Port:     AppPort,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-	}
-}
-
 // Instances implements a service catalog operation
 func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %s", err)
 	}
-	service := newService(hostname)
 	instances := make([]*model.ServiceInstance, 0, len(resp.GetBackends()))
 	backendSet, ok := resp.Backends[hostname]
 	if !ok {
 		return nil, nil
 	}
 	for _, backend := range backendSet.GetBackends() {
+		port := sd.servicePort()
+
 		instances = append(instances, &model.ServiceInstance{
 			Endpoint: model.NetworkEndpoint{
 				Address:     backend.Address,
 				Port:        int(backend.Port),
-				ServicePort: service.Ports[0],
+				ServicePort: port,
 			},
-			Service: service,
+			Service: &model.Service{
+				Hostname: hostname,
+				Ports:    []*model.Port{port},
+			},
 		})
 	}
 
@@ -113,16 +110,19 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*mode
 	var instances []*model.ServiceInstance
 
 	for hostname, backendSet := range resp.GetBackends() {
-		service := newService(hostname)
-
 		for _, backend := range backendSet.GetBackends() {
+			port := sd.servicePort()
+
 			instances = append(instances, &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
 					Address:     backend.Address,
 					Port:        int(backend.Port),
-					ServicePort: service.Ports[0],
+					ServicePort: port,
 				},
-				Service: service,
+				Service: &model.Service{
+					Hostname: hostname,
+					Ports:    []*model.Port{port},
+				},
 			})
 		}
 	}
@@ -133,4 +133,9 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*mode
 // ManagementPorts is not currently implemented for Cloud Foundry
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
+}
+
+// all CF apps listen on the same port (for now)
+func (sd *ServiceDiscovery) servicePort() *model.Port {
+	return &model.Port{Port: sd.ServicePort, Protocol: model.ProtocolHTTP}
 }
