@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
@@ -202,7 +202,7 @@ func TestApa(t *testing.T) {
 			},
 		},
 	}
-	for i, tt := range tests {
+	for _, tt := range tests {
 		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 
 		args := testEnv.NewArgs()
@@ -210,9 +210,9 @@ func TestApa(t *testing.T) {
 		args.MonitoringPort = 0
 		args.Templates = e2eTmpl.SupportedTmplInfo
 		args.Adapters = adapterInfos
-		args.ConfigStoreURL = fmt.Sprintf("memstore://%s/%d", t.Name(), i)
-		if err := store.SetupMemstore(args.ConfigStoreURL, apaGlobalCfg, tt.cfg); err != nil {
-			t.Fatalf("fail to setup memstore: %v", err)
+		var cerr error
+		if args.ConfigStore, cerr = storetest.SetupStoreForTest(apaGlobalCfg, tt.cfg); cerr != nil {
+			t.Fatal(cerr)
 		}
 
 		env, err := testEnv.New(args)

@@ -21,7 +21,7 @@ import (
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
-	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )

@@ -36,14 +36,21 @@ const (
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
-	return CreateNamespaceWithPrefix(cl, "istio-test-")
+	return CreateNamespaceWithPrefix(cl, "istio-test-", false)
 }
 
 // CreateNamespaceWithPrefix creates a fresh namespace with the given prefix
-func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string) (string, error) {
+func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bool) (string, error) {
+	injectionValue := "disabled"
+	if inject {
+		injectionValue = "enabled"
+	}
 	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: prefix,
+			Labels: map[string]string{
+				"istio-injection": injectionValue,
+			},
 		},
 	})
 	if err != nil {
