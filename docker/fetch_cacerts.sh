@@ -1,4 +1,3 @@
-DUMMY COMMIT
 #!/bin/bash
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
