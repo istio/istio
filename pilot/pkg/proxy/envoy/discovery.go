@@ -703,7 +703,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 		// TODO: This does not take into account listeners added by webhook
 		resourceCount = uint32(len(listeners))
 
-		transformedOutput, err := ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out)
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -748,7 +748,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 
-		transformedOutput, err := ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out)
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
