@@ -115,8 +115,6 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return errors.New("filename not specified (see --filename or -f)")
 			case meshConfigFile == "" && meshConfigMapName == "":
 				return errors.New("--meshConfigFile or --meshConfigMapName must be set")
-			case meshConfigFile != "" && meshConfigMapName != "":
-				return errors.New("--meshConfigFile and --meshConfigMapName are mutually exclusive")
 			}
 
 			var reader io.Reader
@@ -228,7 +226,8 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
 
-	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "", "mesh configuration filename")
+	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
+		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "", "injection configuration filename")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
@@ -258,6 +257,6 @@ func init() {
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
-	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "",
+	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 }
