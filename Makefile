@@ -27,6 +27,10 @@ ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_URL_ISTIOCTL ?= istioctl
 
+# cumulatively track the directories/files to delete after a clean
+DIRS_TO_CLEAN:=
+FILES_TO_CLEAN:=
+
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
@@ -99,19 +103,6 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 GO_VERSION_REQUIRED:=1.9
 
-# Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
-# that allows the three components to be checked in a single comparison.
-VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1]*10000+a[2]*100+a[3]}'
-
-# using a sentinel file so this check is only performed once per version.  Performance is
-# being favored over the unlikely situation that go gets downgraded to an older version
-check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
-	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
-                 $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
-                 then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
-	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-
 HUB?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
@@ -139,9 +130,7 @@ Q = $(if $(filter 1,$V),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
 .PHONY: default
-default: depend build
-
-setup:
+default: depend build test
 
 # The point of these is to allow scripts to query where artifacts
 # are stored so that tests and other consumers of the build don't
@@ -160,13 +149,42 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.update
-.PHONY: depend.status depend.ensure depend.graph
+.PHONY: depend depend.ensure depend.status depend.update depend.view init
+
+# Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
+# that allows the three components to be checked in a single comparison.
+VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1]*10000+a[2]*100+a[3]}'
+
+# using a sentinel file so this check is only performed once per version.  Performance is
+# being favored over the unlikely situation that go gets downgraded to an older version
+check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
+                 $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
+                 then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
+	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+
+# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+# Will also check vendor, based on Gopkg.lock
+init: check-go-version $(ISTIO_BIN)/istio_is_init
+
+# I tried to make this dependent on what I thought was the appropriate
+# lock file, but it caused the rule for that file to get run (which
+# seems to be about obtaining a new version of the 3rd party libraries).
+$(ISTIO_BIN)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${DEP}
+	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
+	@touch $(ISTIO_BIN)/istio_is_init
+
+# possibly cleanup more files in bin/ or vendor/
+FILES_TO_CLEAN+=$(ISTIO_BIN)/istio_is_init
+
+# init.sh downloads envoy
+${ISTIO_OUT}/envoy: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call dep.update if adding new deps or to pull recent
 # changes.
-depend: init $(ISTIO_OUT)
+depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	mkdir -p $@
@@ -200,46 +218,16 @@ depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
 
-# Existence of build cache .a files actually affects the results of
-# some linters; they need to exist.
-lint: buildcache
-	SKIP_INIT=1 bin/linters.sh
-
-# Build with -i to store the build caches into $GOPATH/pkg
-buildcache:
-	GOBUILDFLAGS=-i $(MAKE) build
-
-.PHONY: buildcache
-
-# Target run by the pre-commit script, to automate formatting and lint
-# If pre-commit script is not used, please run this manually.
-pre-commit: fmt lint
-
-# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-# Will also check vendor, based on Gopkg.lock
-init: $(ISTIO_BIN)/istio_is_init
-
-# I tried to make this dependent on what I thought was the appropriate
-# lock file, but it caused the rule for that file to get run (which
-# seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${DEP}
-	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-	touch $(ISTIO_BIN)/istio_is_init
-
-# init.sh downloads envoy
-${ISTIO_OUT}/envoy: init
-
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit format check
-.PHONY: fmt format.gofmt format.goimports
-.PHONY: check.vet check.lint
+.PHONY: precommit format format.gofmt format.goimports lint buildcache
 
-precommit: format check
-format: format.goimports
-fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
-check: check.vet check.lint
+# Target run by the pre-commit script, to automate formatting and lint
+# If pre-commit script is not used, please run this manually.
+precommit: format lint
+
+format: format.gofmt format.goimports
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
 	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
@@ -247,21 +235,16 @@ format.gofmt: ; $(info $(H) formatting files with go fmt...)
 format.goimports: ; $(info $(H) formatting files with goimports...)
 	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
 
-# @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
-check.vet: ; $(info $(H) running go vet on packages...)
-	$(Q) $(GO) vet $$($(PACKAGES_CMD)) || true
+# Build with -i to store the build caches into $GOPATH/pkg
+buildcache:
+	GOBUILDFLAGS=-i $(MAKE) build
 
-# @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
-# @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: | ${GOLINT} ; $(info $(H) running golint on packages...)
-	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	$(Q) for p in $$($(PACKAGES_CMD)); do \
-		${GOLINT} $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
-	done || true;
+# Existence of build cache .a files actually affects the results of
+# some linters; they need to exist.
+lint: buildcache
+	SKIP_INIT=1 bin/linters.sh
 
 # @todo gometalinter targets?
-
-build: setup go-build
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -275,7 +258,7 @@ PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
 $(PILOT_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
 
-# Non-static istioctls. These are typically a build artifact so placed in out/ rather than bin/ .
+# Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
 	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
@@ -294,8 +277,8 @@ SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
-.PHONY: go-build
-go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+.PHONY: build
+build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -338,10 +321,13 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 #-----------------------------------------------------------------------------
-# Target: go test
+# Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: go-test localTestEnv test-bins
+.PHONY: test localTestEnv test-bins
+
+# Run coverage tests
+test: pilot-test mixer-test security-test broker-test galley-test common-test
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
@@ -384,15 +370,18 @@ security-test:
 	go test ${T} ./security/pkg/...
 	go test ${T} ./security/cmd/...
 
+.PHONY: common-test
 common-test:
 	go test ${T} ./pkg/...
 
-# Run tests
-go-test: pilot-test mixer-test security-test broker-test galley-test common-test
+#-----------------------------------------------------------------------------
+# Target: coverage
+#-----------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------
-# Target: Code coverage ( go )
-#-----------------------------------------------------------------------------
+.PHONY: coverage
+
+# Run coverage tests
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -415,14 +404,14 @@ security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
 
-# Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
-
 #-----------------------------------------------------------------------------
 # Target: go test -race
 #-----------------------------------------------------------------------------
 
 .PHONY: racetest
+
+# Run race tests
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
@@ -445,20 +434,16 @@ galley-racetest: depend
 security-racetest:
 	go test ${T} -race ./security/...
 
+.PHONY: common-racetest
 common-racetest:
 	go test ${T} -race ./pkg/...
 
-# Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
-
 #-----------------------------------------------------------------------------
-# Target: precommit
+# Target: clean
 #-----------------------------------------------------------------------------
-.PHONY: clean
-.PHONY: clean.go
+.PHONY: clean clean.go
 
-DIRS_TO_CLEAN:=${ISTIO_OUT}
-FILES_TO_CLEAN:=
+DIRS_TO_CLEAN+=${ISTIO_OUT}
 
 clean: clean.go
 	rm -rf $(DIRS_TO_CLEAN)
@@ -468,9 +453,10 @@ clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
 	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
 
-test: setup go-test
-
-##################################################################################
+#-----------------------------------------------------------------------------
+# Target: docker
+#-----------------------------------------------------------------------------
+.PHONY: artifacts push.istioctl-all artifacts installgen
 
 # for now docker is limited to Linux compiles
 ifeq ($(GOOS),linux)
@@ -484,9 +470,6 @@ push.istioctl-all: istioctl-all
 
 artifacts: docker
 	@echo 'To be added'
-
-kubelink:
-	ln -fs ~/.kube/config pilot/pkg/kube/
 
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
@@ -504,8 +487,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml
-
-.PHONY: artifacts build clean docker test setup push kubelink installgen
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
@@ -526,7 +507,7 @@ show.%: ; $(info $* $(H) $($*))
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution
 #-----------------------------------------------------------------------------
-
+.PHONY: dist dist-bin
 
 ${ISTIO_OUT}/dist/Gopkg.lock:
 	mkdir -p ${ISTIO_OUT}/dist
