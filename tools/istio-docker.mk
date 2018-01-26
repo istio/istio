@@ -17,7 +17,7 @@
 docker: docker.all
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
-docker.prebuilt: docker.all
+docker.prebuilt: docker.push
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -159,6 +159,14 @@ docker.save: $(DOCKER_TAR_TARGETS)
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
         $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
 
+# potentailly insert this before docker tag: $(DOCKER_SETUP) &&
+#ifeq (${TEST_ENV},minikube)
+#DOCKER_SETUP:=eval $$(minikube docker-env)
+#else
+## find a better way to insert a dummy command
+#DOCKER_SETUP:=echo
+#endif
+
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
@@ -177,7 +185,14 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # if [[ "${TEST_ENV}" == "minikube" ]]; then
 #    eval $(minikube docker-env)
 # fi
+
+#ifeq (${TEST_ENV},minikube)
+#docker.minikube:
+#	eval $(minikube docker-env)
+#docker.push: docker.minikube $(DOCKER_PUSH_TARGETS)
+#else
 docker.push: $(DOCKER_PUSH_TARGETS)
+#endif
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: push.istioctl-all),)
