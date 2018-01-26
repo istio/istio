@@ -97,11 +97,10 @@ func main() {
 		}
 	}
 
-	nb := getNotBefore()
 	certPem, privPem := ca.GenCert(ca.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
-		NotAfter:     nb.Add(*validFor),
+		TTL:          *validFor,
 		SignerCert:   signerCert,
 		SignerPriv:   signerPriv,
 		Org:          *org,

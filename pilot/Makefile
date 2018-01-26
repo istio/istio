@@ -41,7 +41,7 @@ build:
 	go install istio.io/istio/pilot/cmd/pilot-discovery
 	go install istio.io/istio/pilot/cmd/pilot-agent
 	go install istio.io/istio/pilot/cmd/istioctl
-	go install istio.io/istio/pilot/cmd/sidecar-initializer
+	go install istio.io/istio/pilot/cmd/sidecar-injector
 
 .PHONY: docker
 docker:
@@ -53,7 +53,7 @@ docker-push:
 
 .PHONY: clean
 clean:
-	rm -f docker/pilot-discovery docker/pilot-agent docker/sidecar-initializer docker/client docker/server docker/eurekamirror
+	rm -f docker/pilot-discovery docker/pilot-agent docker/sidecar-injector docker/client docker/server docker/eurekamirror
 
 .PHONY: test
 test:
@@ -83,4 +83,3 @@ racetest:
 
 platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
-

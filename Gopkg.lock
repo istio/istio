@@ -25,7 +25,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
+  revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -178,6 +178,15 @@
   packages = ["."]
   revision = "dbeaa9332f19a944acb5736b4456cfcc02140e29"
   version = "v3.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/docker/distribution"
+  packages = [
+    "digestset",
+    "reference"
+  ]
+  revision = "277ed486c948042cab91ad367c379524f3b25e18"
 
 [[projects]]
   name = "github.com/emicklei/go-restful"
@@ -608,6 +617,12 @@
   version = "v0.5.13"
 
 [[projects]]
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+  version = "v1.0.0-rc1"
+
+[[projects]]
   name = "github.com/opentracing/opentracing-go"
   packages = [
     ".",
@@ -1035,7 +1050,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "a6c74ca9a8b5bba45bafd6d238a27dde4c406da7"
+  revision = "58de5731b5401268263924fae9df7d091813c19e"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1101,7 +1116,8 @@
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
-    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+    "pkg/features"
   ]
   revision = "6f29dd12234812844d29f52bd520bb01374619ce"
 
@@ -1153,6 +1169,15 @@
     "third_party/forked/golang/reflect"
   ]
   revision = "68f9c3a1feb3140df59c67ced62d3a5df8e6c9c2"
+
+[[projects]]
+  branch = "master"
+  name = "k8s.io/apiserver"
+  packages = [
+    "pkg/features",
+    "pkg/util/feature"
+  ]
+  revision = "3de2cd9dc7a4ce08dd991553f8a99af6b1b2119f"
 
 [[projects]]
   branch = "release-6.0"
@@ -1291,9 +1316,24 @@
   ]
   revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
+[[projects]]
+  branch = "release-1.9"
+  name = "k8s.io/kubernetes"
+  packages = [
+    "pkg/apis/autoscaling",
+    "pkg/apis/core",
+    "pkg/apis/core/v1",
+    "pkg/apis/extensions",
+    "pkg/apis/networking",
+    "pkg/features",
+    "pkg/util/parsers",
+    "pkg/util/pointer"
+  ]
+  revision = "5fa2db2bd46ac79e5e00a4e6ed24191080aa463b"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "62f4024156388588f12a66ef630893f8471403052434885bba442b881a8df4d1"
+  inputs-digest = "8c51d6886d3cf9d4b1db40fd7eac8290f867bd4273ef4e483c7353655f9a238e"
   solver-name = "gps-cdcl"
   solver-version = 1

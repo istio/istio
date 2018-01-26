@@ -1,0 +1,47 @@
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# the global owners will be requested for
+# review when someone opens a pull request.
+* @istio/reviewers-global
+
+# Per component owners. Prefix folders with / so that the owners
+# will be requested for reviews for all subdirectories under that
+# folder in the root
+
+/release/ @istio/reviewers-istio-release
+/prow/ @istio/reviewers-istio-prow
+/bin/ @istio/reviewers-istio-bin
+/pilot/ @istio/reviewers-istio-pilot
+/security/ @istio/reviewers-istio-security
+/mixer/ @istio/reviewers-istio-mixer
+/galley/ @istio/reviewers-istio-galley
+/broker/ @istio/reviewers-istio-broker
+/samples/ @istio/reviewers-istio-samples
+/install/ @istio/reviewers-istio-install
+/docker/ @mandarjog ## Need to move this dir to something else.
+/tools/ @costinm ldemailly
+
+# This is intentional. These folders are collective responsibility of all
+# devs in istio team whose components (pilot/mixer/security/broker) share
+# code from pkg or use tests from tests/ including e2e tests.
+/pkg/ @istio/reviewers-istio-pilot \
+      @istio/reviewers-istio-security \
+      @istio/reviewers-istio-mixer \
+      @istio/reviewers-istio-galley \
+      @istio/reviewers-istio-broker
+
+/tests/ @istio/reviewers-istio-pilot \
+        @istio/reviewers-istio-security \
+        @istio/reviewers-istio-mixer \
+        @istio/reviewers-istio-galley \
+        @istio/reviewers-istio-broker
+
+
+# All makefile and build stuff including tests/istio.mk . This has to be
+# below /tests/ so that istio.mk becomes the latest match
+/Makefile @mattdelco @costinm
+*.mk @mattdelco @costinm 
+/.circleci/ @istio/reviewers-istio-circleci

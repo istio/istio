@@ -11,7 +11,7 @@ FROM    circleci/golang:1.9
 
 # Also installed docker, docker-compose, dockerize, jq
 
-RUN     go get github.com/coreos/etcd/cmd/etcd
+RUN     go get github.com/coreos/etcd
 
 ARG     K8S_VER=v1.7.4
 ARG     MASTER_IP=127.0.0.1

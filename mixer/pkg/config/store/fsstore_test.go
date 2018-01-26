@@ -56,7 +56,7 @@ func waitFor(wch <-chan BackendEvent, ct ChangeType, key Key) {
 
 func write(fsroot string, k Key, data map[string]interface{}) error {
 	path := filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")
-	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: ResourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
+	bytes, err := yaml.Marshal(&BackEndResource{Kind: k.Kind, Metadata: ResourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func TestFsStore2_ParseChunk(t *testing.T) {
 		},
 	} {
 		t.Run(c.title, func(t *testing.T) {
-			r, err := parseChunk([]byte(c.data))
+			r, err := ParseChunk([]byte(c.data))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
