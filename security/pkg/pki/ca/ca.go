@@ -88,10 +88,8 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 	if err != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", err)
 
-		now := time.Now()
 		options := CertOptions{
-			NotBefore:    now,
-			NotAfter:     now.Add(caCertTTL),
+			TTL:          caCertTTL,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,

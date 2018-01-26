@@ -30,6 +30,8 @@
 /pkg/          @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 /tests/        @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 
+/docker/ @mandarjog ## Need to move this dir to something else.
+
 # All makefile and build stuff including tests/istio.mk . This has to be
 # below /tests/ so that istio.mk becomes the latest match
 Makefile @mattdelco @costinm
