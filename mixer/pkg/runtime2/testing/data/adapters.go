@@ -20,6 +20,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"time"
+
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -103,7 +105,7 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 }
 
 // Build is an implementation of HandlerBuilder.Build.
-func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+func (f *FakeHandlerBuilder) Build(_ context.Context, env adapter.Env) (adapter.Handler, error) {
 	if f.settings.PanicAtBuild {
 		panic(f.settings.PanicData)
 	}
@@ -115,9 +117,37 @@ func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handle
 	if f.settings.NilHandlerAtBuild {
 		return nil, nil
 	}
-
 	handler := &FakeHandler{
-		settings: f.settings,
+		settings:      f.settings,
+		closingDaemon: make(chan bool),
+		closingWorker: make(chan bool),
+		done:          make(chan bool),
+	}
+	handler.refreshTicker = time.NewTicker(1 * time.Millisecond)
+	if f.settings.SpawnDaemon {
+		env.ScheduleDaemon(func() {
+			for {
+				select {
+				case <-handler.refreshTicker.C:
+					// do nothing
+				case <-handler.closingDaemon:
+					return
+				}
+			}
+		})
+	}
+
+	if f.settings.SpawnWorker {
+		env.ScheduleWork(func() {
+			for {
+				select {
+				case <-handler.refreshTicker.C:
+					// do nothing..
+				case <-handler.closingWorker:
+					return
+				}
+			}
+		})
 	}
 
 	return handler, nil
@@ -127,7 +157,11 @@ var _ adapter.HandlerBuilder = &FakeHandlerBuilder{}
 
 // FakeHandler is a fake implementation of adapter.Handler.
 type FakeHandler struct {
-	settings FakeAdapterSettings
+	settings      FakeAdapterSettings
+	refreshTicker *time.Ticker
+	closingDaemon chan bool
+	closingWorker chan bool
+	done          chan bool
 }
 
 // Close is an implementation of adapter.Handler.Close.
@@ -142,6 +176,14 @@ func (f *FakeHandler) Close() error {
 
 	if f.settings.ErrorAtHandlerClose {
 		return fmt.Errorf("error on close")
+	}
+
+	if f.settings.CloseGoRoutines == true {
+		f.closingDaemon <- true
+		f.closingWorker <- true
+		close(f.closingDaemon)
+		close(f.closingWorker)
+		f.refreshTicker.Stop()
 	}
 
 	return nil
@@ -162,6 +204,9 @@ type FakeAdapterSettings struct {
 	NilHandlerAtBuild       bool
 	ErrorAtHandlerClose     bool
 	PanicAtHandlerClose     bool
+	SpawnDaemon             bool
+	SpawnWorker             bool
+	CloseGoRoutines         bool
 
 	SupportedTemplates []string
 

@@ -141,7 +141,6 @@ const reportAttributes = `
   "response.code": 200,
   "response.headers": {
      "date": "*",
-     "content-type": "text/plain; charset=utf-8",
      "content-length": "0",
      ":status": "200",
      "server": "envoy"
@@ -193,7 +192,7 @@ const FailedReportAttributes = `
 
 func TestJWTAuth(t *testing.T) {
 	s := env.NewTestSetupV2(env.JWTAuthTest, t)
-	// pubkey server is the same as backend server.
+	// pubkey server is the same as backend bootstrap.
 	// Empty audiences.
 	env.AddJwtAuth(s.V2().HTTPServerConf, &mccpb.JWT{
 		Issuer:              JwtIssuer,

@@ -1,10 +1,9 @@
 {{ define "config.yaml.tpl" }}
-{{- $istio_namespace := .Values.global.namespace }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: istioproxy
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   attributes:
     origin.ip:
@@ -91,7 +90,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: kubernetes
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   attributes:
     source.ip:
@@ -123,7 +122,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
 metadata:
   name: handler
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   outputAsJson: true
 ---
@@ -131,7 +130,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: accesslog
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   severity: '"Default"'
   timestamp: request.time
@@ -152,7 +151,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: stdio
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   match: "true" # If omitted match is true.
   actions:
@@ -164,7 +163,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestcount
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   value: "1"
   dimensions:
@@ -179,7 +178,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestduration
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -194,7 +193,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestsize
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   value: request.size | 0
   dimensions:
@@ -209,7 +208,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: responsesize
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   value: response.size | 0
   dimensions:
@@ -224,7 +223,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytesent
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
@@ -240,7 +239,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytereceived
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
@@ -256,11 +255,11 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: prometheus
 metadata:
   name: handler
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   metrics:
   - name: request_count
-    instance_name: requestcount.metric.{{$istio_namespace}}
+    instance_name: requestcount.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
     - source_service
@@ -269,7 +268,7 @@ spec:
     - destination_version
     - response_code
   - name: request_duration
-    instance_name: requestduration.metric.{{$istio_namespace}}
+    instance_name: requestduration.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -281,7 +280,7 @@ spec:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
   - name: request_size
-    instance_name: requestsize.metric.{{$istio_namespace}}
+    instance_name: requestsize.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -295,7 +294,7 @@ spec:
         scale: 1
         growthFactor: 10
   - name: response_size
-    instance_name: responsesize.metric.{{$istio_namespace}}
+    instance_name: responsesize.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -309,7 +308,7 @@ spec:
         scale: 1
         growthFactor: 10
   - name: tcp_bytes_sent
-    instance_name: tcpbytesent.metric.{{$istio_namespace}}
+    instance_name: tcpbytesent.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
     - source_service
@@ -317,7 +316,7 @@ spec:
     - destination_service
     - destination_version
   - name: tcp_bytes_received
-    instance_name: tcpbytereceived.metric.{{$istio_namespace}}
+    instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
     - source_service
@@ -329,7 +328,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: http
 spec:
@@ -345,7 +344,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promtcp
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
 spec:
@@ -359,7 +358,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetesenv
 metadata:
   name: handler
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
 
 ---
@@ -367,7 +366,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: kubeattrgenrule
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   actions:
   - handler: handler.kubernetesenv
@@ -378,7 +377,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: attributes
-  namespace: {{$istio_namespace}}
+  namespace: {{ .Release.Namespace }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""

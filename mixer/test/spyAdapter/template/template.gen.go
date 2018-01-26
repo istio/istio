@@ -125,44 +125,40 @@ var (
 
 					var err error = nil
 
-					if param.Int64Primitive == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
-					}
-					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Int64Primitive", e)
+					if param.Int64Primitive != "" {
+						if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Int64Primitive", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
-					}
-					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"BoolPrimitive", e)
+					if param.BoolPrimitive != "" {
+						if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"BoolPrimitive", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
-					}
-					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DoublePrimitive", e)
+					if param.DoublePrimitive != "" {
+						if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DoublePrimitive", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
-					}
-					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"StringPrimitive", e)
+					if param.StringPrimitive != "" {
+						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"StringPrimitive", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_mixer_v1_config_descriptor.STRING)
 						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
 					return nil, err
@@ -236,7 +232,13 @@ var (
 					var err error
 					_ = err
 
-					Int64Primitive, err := mapper.Eval(param.Int64Primitive, attrs)
+					var Int64PrimitiveInterface interface{}
+					var Int64Primitive int64
+					if param.Int64Primitive != "" {
+						if Int64PrimitiveInterface, err = mapper.Eval(param.Int64Primitive, attrs); err == nil {
+							Int64Primitive = Int64PrimitiveInterface.(int64)
+						}
+					}
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
@@ -244,7 +246,13 @@ var (
 						return nil, errors.New(msg)
 					}
 
-					BoolPrimitive, err := mapper.Eval(param.BoolPrimitive, attrs)
+					var BoolPrimitiveInterface interface{}
+					var BoolPrimitive bool
+					if param.BoolPrimitive != "" {
+						if BoolPrimitiveInterface, err = mapper.Eval(param.BoolPrimitive, attrs); err == nil {
+							BoolPrimitive = BoolPrimitiveInterface.(bool)
+						}
+					}
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
@@ -252,7 +260,13 @@ var (
 						return nil, errors.New(msg)
 					}
 
-					DoublePrimitive, err := mapper.Eval(param.DoublePrimitive, attrs)
+					var DoublePrimitiveInterface interface{}
+					var DoublePrimitive float64
+					if param.DoublePrimitive != "" {
+						if DoublePrimitiveInterface, err = mapper.Eval(param.DoublePrimitive, attrs); err == nil {
+							DoublePrimitive = DoublePrimitiveInterface.(float64)
+						}
+					}
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
@@ -260,7 +274,13 @@ var (
 						return nil, errors.New(msg)
 					}
 
-					StringPrimitive, err := mapper.Eval(param.StringPrimitive, attrs)
+					var StringPrimitiveInterface interface{}
+					var StringPrimitive string
+					if param.StringPrimitive != "" {
+						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
+							StringPrimitive = StringPrimitiveInterface.(string)
+						}
+					}
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
@@ -273,13 +293,13 @@ var (
 
 						Name: instName,
 
-						Int64Primitive: Int64Primitive.(int64),
+						Int64Primitive: Int64Primitive,
 
-						BoolPrimitive: BoolPrimitive.(bool),
+						BoolPrimitive: BoolPrimitive,
 
-						DoublePrimitive: DoublePrimitive.(float64),
+						DoublePrimitive: DoublePrimitive,
 
-						StringPrimitive: StringPrimitive.(string),
+						StringPrimitive: StringPrimitive,
 					}, nil
 				}
 
@@ -530,9 +550,8 @@ var (
 					var err error = nil
 
 					if param.Value == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
-					}
-					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
+						infrdType.Value = istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED
+					} else if infrdType.Value, err = tEvalFn(param.Value); err != nil {
 						return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Value", err)
 					}
 
@@ -542,7 +561,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Dimensions", err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
 						}
 					}
 
@@ -583,7 +602,10 @@ var (
 					var err error
 					_ = err
 
-					Value, err := mapper.Eval(param.Value, attrs)
+					var Value interface{}
+					if param.Value != "" {
+						Value, err = mapper.Eval(param.Value, attrs)
+					}
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
@@ -724,44 +746,64 @@ func newBuilder_sampleapa_Template(
 	var expType istio_mixer_v1_config_descriptor.ValueType
 	_ = expType
 
-	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
-	if err != nil {
-		return nil, template.NewErrorPath("Int64Primitive", err)
+	if param.Int64Primitive == "" {
+		b.bldInt64Primitive = nil
+	} else {
+		b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Primitive", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+			return nil, template.NewErrorPath("Int64Primitive", err)
+		}
+
 	}
 
-	if expType != istio_mixer_v1_config_descriptor.INT64 {
-		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
-		return nil, template.NewErrorPath("Int64Primitive", err)
+	if param.BoolPrimitive == "" {
+		b.bldBoolPrimitive = nil
+	} else {
+		b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+		if err != nil {
+			return nil, template.NewErrorPath("BoolPrimitive", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+			return nil, template.NewErrorPath("BoolPrimitive", err)
+		}
+
 	}
 
-	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
-	if err != nil {
-		return nil, template.NewErrorPath("BoolPrimitive", err)
+	if param.DoublePrimitive == "" {
+		b.bldDoublePrimitive = nil
+	} else {
+		b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+		if err != nil {
+			return nil, template.NewErrorPath("DoublePrimitive", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+			return nil, template.NewErrorPath("DoublePrimitive", err)
+		}
+
 	}
 
-	if expType != istio_mixer_v1_config_descriptor.BOOL {
-		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
-		return nil, template.NewErrorPath("BoolPrimitive", err)
-	}
+	if param.StringPrimitive == "" {
+		b.bldStringPrimitive = nil
+	} else {
+		b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+		if err != nil {
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
 
-	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
-	if err != nil {
-		return nil, template.NewErrorPath("DoublePrimitive", err)
-	}
+		if expType != istio_mixer_v1_config_descriptor.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
 
-	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
-		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
-		return nil, template.NewErrorPath("DoublePrimitive", err)
-	}
-
-	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
-	if err != nil {
-		return nil, template.NewErrorPath("StringPrimitive", err)
-	}
-
-	if expType != istio_mixer_v1_config_descriptor.STRING {
-		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
-		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
 
 	return b, template.ErrorPath{}
@@ -792,29 +834,45 @@ func (b *builder_sampleapa_Template) build(
 
 	r := &sampleapa.Instance{}
 
-	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
-	if err != nil {
-		return nil, template.NewErrorPath("Int64Primitive", err)
-	}
-	r.Int64Primitive = vInt
+	if b.bldInt64Primitive != nil {
 
-	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
-	if err != nil {
-		return nil, template.NewErrorPath("BoolPrimitive", err)
-	}
-	r.BoolPrimitive = vBool
+		vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Primitive", err)
+		}
+		r.Int64Primitive = vInt
 
-	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
-	if err != nil {
-		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
-	r.DoublePrimitive = vDouble
 
-	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
-	if err != nil {
-		return nil, template.NewErrorPath("StringPrimitive", err)
+	if b.bldBoolPrimitive != nil {
+
+		vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("BoolPrimitive", err)
+		}
+		r.BoolPrimitive = vBool
+
 	}
-	r.StringPrimitive = vString
+
+	if b.bldDoublePrimitive != nil {
+
+		vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DoublePrimitive", err)
+		}
+		r.DoublePrimitive = vDouble
+
+	}
+
+	if b.bldStringPrimitive != nil {
+
+		vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
+		r.StringPrimitive = vString
+
+	}
 
 	return r, template.ErrorPath{}
 }
@@ -852,9 +910,14 @@ func newBuilder_samplereport_Template(
 	var expType istio_mixer_v1_config_descriptor.ValueType
 	_ = expType
 
-	b.bldValue, expType, err = expb.Compile(param.Value)
-	if err != nil {
-		return nil, template.NewErrorPath("Value", err)
+	if param.Value == "" {
+		b.bldValue = nil
+	} else {
+		b.bldValue, expType, err = expb.Compile(param.Value)
+		if err != nil {
+			return nil, template.NewErrorPath("Value", err)
+		}
+
 	}
 
 	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
@@ -895,11 +958,15 @@ func (b *builder_samplereport_Template) build(
 
 	r := &samplereport.Instance{}
 
-	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
-		return nil, template.NewErrorPath("Value", err)
-	}
+	if b.bldValue != nil {
 
-	r.Value = vIface
+		if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Value", err)
+		}
+
+		r.Value = vIface
+
+	}
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 

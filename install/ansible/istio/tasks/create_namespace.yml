@@ -1,0 +1,9 @@
+- name: Check if namespace exists
+  shell: "{{ cmd_path }} get namespace/{{ istio.namespace }} --ignore-not-found=true"
+  register: r
+
+- name: Create namespace (if it doesn't exist)
+  shell: "{{ cmd_path }} create namespace istio-system"
+  when:
+    - r.stderr != ""
+    - r.stderr.find("NotFound") != -1

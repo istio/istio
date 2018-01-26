@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package server provides HTTP open service broker API server bindings.
+// Package server provides HTTP open service broker API bootstrap bindings.
 package server
 
 import (
 	"fmt"
 	"net/http"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/gorilla/mux"
