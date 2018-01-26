@@ -45,7 +45,7 @@ func (t *kubernetesExternalNameServices) run() error {
 				funcs[name] = (func(src, dst, domain string) func() status {
 					url := fmt.Sprintf("http://%s%s/status/200", dst, domain)
 					return func() status {
-						resp := t.clientRequest(src, url, 1, "-key httpbin.org")
+						resp := t.clientRequest(src, url, 1, "-key Host -val httpbin.org")
 						if len(resp.code) > 0 && resp.code[0] == httpOk {
 							return nil
 						}
