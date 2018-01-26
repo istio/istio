@@ -262,7 +262,9 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-
+	if err := deploy("external-httpbin.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 	return nil
 }
 
