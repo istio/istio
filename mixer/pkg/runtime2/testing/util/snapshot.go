@@ -17,63 +17,30 @@ package util
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	cfg "istio.io/istio/mixer/pkg/config"
-	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 // GetSnapshot creates a config.Snapshot for testing purposes, based on the supplied configuration.
 func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapter.Info, serviceConfig string, globalConfig string) *config.Snapshot {
-	// TODO: This is a horrible hack, but it is the easiest way to get this up and running. We should avoid writing
-	// files to the file-system and simply have an in-memory store for this.
-
-	path, err := createConfigFiles(serviceConfig, globalConfig)
+	store, err := storetest.SetupStoreForTest(serviceConfig, globalConfig)
 	if err != nil {
-		panic(fmt.Sprintf("Unable to create config files: %s", err.Error()))
-	}
-
-	url := "fs://" + path
-
-	reg2 := store.NewRegistry(cfg.StoreInventory()...)
-	store2, err := reg2.NewStore(url)
-	if err != nil {
-		panic(fmt.Sprintf("unable to crete store2: %s", err.Error()))
+		panic(fmt.Sprintf("unable to crete store: %v", err))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	if err = store2.Init(ctx, config.KindMap(adapters, templates)); err != nil {
-		panic(fmt.Sprintf("unable to initialize store2: %s", err.Error()))
+	if err := store.Init(ctx, config.KindMap(adapters, templates)); err != nil {
+		panic(fmt.Sprintf("unable to initialize store: %v", err))
 	}
 
-	data := store2.List()
+	data := store.List()
 	e := config.NewEphemeral(templates, adapters)
 	e.SetState(data)
 
 	cancel()
 
 	return e.BuildSnapshot()
-}
-
-func createConfigFiles(serviceConfig string, globalConfig string) (string, error) {
-	dir, err := ioutil.TempDir("", "runtime2-testing")
-	if err != nil {
-		return "", err
-	}
-	s := path.Join(dir, "service.yaml")
-	if err = ioutil.WriteFile(s, []byte(serviceConfig), 0666); err == nil {
-		g := path.Join(dir, "global.yaml")
-		if err = ioutil.WriteFile(g, []byte(globalConfig), 0666); err == nil {
-			return dir, nil
-		}
-
-		_ = os.RemoveAll(dir)
-	}
-
-	return "", err
 }
