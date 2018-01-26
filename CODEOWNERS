@@ -19,4 +19,5 @@
 /pkg/       @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 /tests/     @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
 
+# Do not enable this. Seems to cause the parsers to fail and not trigger auto review requests
 #/.circleci/ @istio/reviewers-istio-circleci
