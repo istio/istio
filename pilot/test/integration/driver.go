@@ -218,6 +218,7 @@ func runTests(envs ...infra) {
 			&routingToEgress{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
+			&kubernetesExternalNameServices{infra: &istio},
 		}
 
 		for _, test := range tests {
