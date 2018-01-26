@@ -471,8 +471,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
 				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
-				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
+				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
+					Client:      client,
+					ServicePort: cfConfig.ServicePort,
+				},
+				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
 			})
 
 		default:

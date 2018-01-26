@@ -11,6 +11,12 @@ import sys
 POD = collections.namedtuple('Pod', ['name', 'namespace', 'ip', 'labels'])
 
 
+"""
+    XDS fetches routing information from pilot.
+    The information is in XDS V1 format.
+"""
+
+
 class XDS(object):
 
     def __init__(self, url, ns="istio-system", cluster="istio-proxy", headers=None):
@@ -61,7 +67,7 @@ class XDS(object):
 
                 # found a route fetch it
                 f['config']['route_config'] = self.rds(pod, rn, hydrate)
-                f['config']['route_config']['route_config_name'] = rn
+                f['config']['route_config']['name'] = rn
 
         return data
 
@@ -101,6 +107,49 @@ class XDS(object):
                 "/registration/{service_key}".format(service_key=service_key))
         return self.sds_info[service_key]
 
+# Class XDS end
+
+# Proxy class
+"""
+    Proxy uses envoy admin port to fetch routing information.
+    Proxy provides data in XDS V2 format.
+"""
+
+
+class Proxy(object):
+
+    def __init__(self, pod):
+        self.pod = pod
+
+    def query(self, path):
+        if not path.startswith("/"):
+            path = "/" + path
+
+        cname = "istio-proxy"
+        if "ingress" in self.pod.name:
+            cname = "istio-ingress"
+
+        cmd = "kubectl -n {pod.namespace} exec -i -t {pod.name} -c {cname} -- curl http://localhost:15000{path}".format(
+            pod=self.pod,
+            path=path,
+            cname=cname
+        )
+        print cmd
+        # The result is returned as a list of json objects.
+        # { "a": "b"
+        # }
+        # { "c": "d"
+        # }
+        # Note the lack of "," between objects
+        # Convert it into an array of objects
+        s = subprocess.check_output(cmd.split())
+        s = s.replace('}\r\n{', '},\r\n{')
+        s = s.replace('}\n{', '},\n{')
+        return json.loads("[" + s + "]")
+
+    def routes(self):
+        return self.query("/routes")
+
 
 def pod_info():
     op = subprocess.check_output(
@@ -137,20 +186,32 @@ def main(args):
         print "Cound not find pod ", args.podname
         return -1
 
-    xds = XDS(url=args.pilot_url)
-    data = xds.lds(pod, True)
+    if args.pilot_url:
+        print "Fetching from Pilot"
+        src = "pilot"
+        xds = XDS(url=args.pilot_url)
+        data = xds.lds(pod, True)
+    else:
+        print "Fetching from Envoy admin port via kubectl"
+        src = "proxy"
+        pr = Proxy(pod)
+        data = pr.routes()
+
     if args.output is None:
-        args.output = pod.name + "_xds.yaml"
+        args.output = pod.name + "_" + src + "_xds.yaml"
 
     op = open(args.output, "wt")
-    yaml.safe_dump(data, op, default_flow_style=False, allow_unicode=False)
+    yaml.safe_dump(data, op, default_flow_style=False,
+                   allow_unicode=False, indent=2)
     print "Wrote ", args.output
+
     return 0
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Fetch routes from Envoy or Pilot for a given pod")
 
-    parser.add_argument("pilot_url",
+    parser.add_argument("--pilot_url",
                         help="Often this is localhost:8080 or 15003 through a port-forward."
                         " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080"
                         )
