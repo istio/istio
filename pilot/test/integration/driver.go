@@ -14,7 +14,7 @@
 
 package main
 
-import # DO NOT COMPILE
+import (
 	"bufio"
 	"bytes"
 	"context"
