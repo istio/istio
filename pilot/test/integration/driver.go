@@ -13,7 +13,7 @@
 // limitations under the License.
 
 package main
-abced.e
+
 import (
 	"bufio"
 	"bytes"
