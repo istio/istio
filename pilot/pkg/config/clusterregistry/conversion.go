@@ -59,16 +59,25 @@ type ClusterStore struct {
 
 // GetPilotAccessConfig returns this pilot's access config file name
 func (cs *ClusterStore) GetPilotAccessConfig() string {
+	if cs.cfgStore == nil {
+		return ""
+	}
 	return cs.cfgStore.ObjectMeta.Annotations[ClusterAccessConfigFile]
 }
 
 // GetClusterAccessConfig returns the access config file of a cluster
 func GetClusterAccessConfig(cluster *Cluster) string {
+	if cluster == nil {
+		return ""
+	}
 	return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
 }
 
 // GetClusterName returns a cluster's name
 func GetClusterName(cluster *Cluster) string {
+	if cluster == nil {
+		return ""
+	}
 	return cluster.ObjectMeta.Name
 }
 
@@ -121,7 +130,7 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 			glog.Infof("ClusterPilotCfgStore: %s", cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
 			if isCfgStore, _ := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); isCfgStore {
 				if cs.cfgStore != nil {
-					err = fmt.Errorf("Multiple cluster config stores are defined")
+					err = fmt.Errorf("multiple cluster config stores are defined")
 					glog.Warningf("%v", err)
 					return nil, err
 				}
@@ -131,7 +140,7 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 			}
 		}
 		if cs.cfgStore == nil {
-			err = fmt.Errorf("No config store for this pilot is defined")
+			err = fmt.Errorf("no config store for this pilot is defined")
 			glog.Warningf("%v", err)
 			return nil, err
 		}
@@ -143,11 +152,11 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 // validateCluster validate a cluster
 func validateCluster(crPath string, cluster *Cluster) (err error) {
 	if cluster.TypeMeta.Kind != "Cluster" {
-		err = multierr.Append(err, fmt.Errorf("Bad kind in configuration: `%s` != 'Cluster'", cluster.TypeMeta.Kind))
+		err = multierr.Append(err, fmt.Errorf("bad kind in configuration: `%s` != 'Cluster'", cluster.TypeMeta.Kind))
 	}
 
 	if cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == "" {
-		err = multierror.Append(err, fmt.Errorf("Cluster %s doesn't have a valid pilot endpoint", cluster.ObjectMeta.Name))
+		err = multierror.Append(err, fmt.Errorf("cluster %s doesn't have a valid pilot endpoint", cluster.ObjectMeta.Name))
 	}
 
 	switch serviceregistry.ServiceRegistry(cluster.ObjectMeta.Annotations[ClusterPlatform]) {
@@ -156,7 +165,7 @@ func validateCluster(crPath string, cluster *Cluster) (err error) {
 	case serviceregistry.EurekaRegistry:
 	case serviceregistry.CloudFoundryRegistry:
 	default:
-		err = multierror.Append(err, fmt.Errorf("Cluster %s has unsupported platform %s",
+		err = multierror.Append(err, fmt.Errorf("cluster %s has unsupported platform %s",
 			cluster.ObjectMeta.Name, cluster.ObjectMeta.Annotations[ClusterPlatform]))
 	}
 
@@ -167,7 +176,7 @@ func validateCluster(crPath string, cluster *Cluster) (err error) {
 	}
 
 	if cluster.ObjectMeta.Annotations[ClusterAccessConfigFile] == "" {
-		err = multierror.Append(err, fmt.Errorf("Cluster %s doesn't have a valid config file", cluster.ObjectMeta.Name))
+		err = multierror.Append(err, fmt.Errorf("cluster %s doesn't have a valid config file", cluster.ObjectMeta.Name))
 	} else {
 		cfgFile := strings.Join([]string{crPath, cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]}, "/")
 		if _, err1 := os.Stat(cfgFile); err1 != nil {
