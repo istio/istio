@@ -87,7 +87,7 @@ message Params {
 
     // Optional. Max batch size of metrics to be sent to AppOptics.
     // AppOptics does not allow batch size greater than 1000.
-    // If this is not specified a default batch size of 1000 will be used.
+    // If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.
     int32 appoptics_batch_size = 2;
 
     // Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
@@ -100,11 +100,8 @@ message Params {
 
     // Describes how to represent an Istio metric in Solarwinds AppOptics
     message MetricInfo {
-        // Optional. A human readable description of this metric.
-        string description = 1;
-
         // The names of labels to use: these need to match the dimensions of the Istio metric.
-        repeated string label_names = 2;
+        repeated string label_names = 1;
     }
 
     // A map of Istio metric name to solarwinds metric info.

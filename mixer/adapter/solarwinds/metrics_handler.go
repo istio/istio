@@ -37,6 +37,7 @@ type metricsHandlerInterface interface {
 
 type metricsHandler struct {
 	logger      adapter.Logger
+	metricInfo  map[string]*config.Params_MetricInfo
 	prepChan    chan []*appoptics.Measurement
 	stopChan    chan struct{}
 	pushChan    chan []*appoptics.Measurement
@@ -89,34 +90,32 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		lc:          lc,
 		persistWait: persistWait,
 		batchWait:   batchWait,
+		metricInfo:  cfg.Metrics,
 	}, nil
 }
 
 func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {
 	measurements := []*appoptics.Measurement{}
 	for _, val := range vals {
-		merticVal := h.aoVal(val.Value)
+		if mInfo, ok := h.metricInfo[val.Name]; ok {
+			merticVal := h.aoVal(val.Value)
 
-		m := &appoptics.Measurement{
-			Name:  val.Name,
-			Value: merticVal,
-			Time:  time.Now().Unix(),
-			Tags:  appoptics.MeasurementTags{},
-		}
-
-		for k, v := range val.Dimensions {
-			switch vv := v.(type) {
-			case int:
-			case int32:
-			case int64:
-				m.Tags[k] = strconv.FormatInt(vv, 10)
-			case float64:
-				m.Tags[k] = strconv.FormatFloat(vv, 'f', -1, 64)
-			default:
-				m.Tags[k], _ = v.(string)
+			m := &appoptics.Measurement{
+				Name:  val.Name,
+				Value: merticVal,
+				Time:  time.Now().Unix(),
+				Tags:  appoptics.MeasurementTags{},
 			}
+
+			for k, v := range val.Dimensions {
+				for _, label := range mInfo.LabelNames {
+					if k == label {
+						m.Tags[k] = h.processLabels(v)
+					}
+				}
+			}
+			measurements = append(measurements, m)
 		}
-		measurements = append(measurements, m)
 	}
 	if h.lc != nil {
 		h.prepChan <- measurements
@@ -158,4 +157,19 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 		_ = h.logger.Errorf("could not extract numeric value for %v", i)
 		return 0
 	}
+}
+
+func (h *metricsHandler) processLabels(v interface{}) string {
+	switch vv := v.(type) {
+	case int:
+	case int32:
+	case int64:
+		return strconv.FormatInt(vv, 10)
+	case float64:
+		return strconv.FormatFloat(vv, 'f', -1, 64)
+	default:
+		str, _ := v.(string)
+		return str
+	}
+	return ""
 }
