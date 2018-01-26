@@ -29,16 +29,16 @@ VERSION_MODULE=istio.io/istio/pilot/tools/version
 
 ${GOBUILD} docker/pilot-discovery ${VERSION_MODULE} ./cmd/pilot-discovery
 ${GOBUILD} docker/pilot-agent ${VERSION_MODULE} ./cmd/pilot-agent
-${GOBUILD} docker/sidecar-initializer ${VERSION_MODULE} ./cmd/sidecar-initializer
+${GOBUILD} docker/sidecar-injector ${VERSION_MODULE} ./cmd/sidecar-injector
 
-${GOBUILD} docker/client ${VERSION_MODULE} ./test/client
-${GOBUILD} docker/server ${VERSION_MODULE} ./test/server
-${GOBUILD} docker/eurekamirror ${VERSION_MODULE} ./test/eurekamirror
+${GOBUILD} docker/pilot-test-client ${VERSION_MODULE} ./test/client
+${GOBUILD} docker/pilot-test-server ${VERSION_MODULE} ./test/server
+${GOBUILD} docker/pilot-test-eurekamirror ${VERSION_MODULE} ./test/eurekamirror
 
 IMAGES=()
 
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
+  for image in app proxy proxy_init proxy_debug pilot sidecar_injector eurekamirror; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")

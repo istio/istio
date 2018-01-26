@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
@@ -37,9 +36,21 @@ const (
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
+	return CreateNamespaceWithPrefix(cl, "istio-test-", false)
+}
+
+// CreateNamespaceWithPrefix creates a fresh namespace with the given prefix
+func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bool) (string, error) {
+	injectionValue := "disabled"
+	if inject {
+		injectionValue = "enabled"
+	}
 	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
-			GenerateName: "istio-test-",
+			GenerateName: prefix,
+			Labels: map[string]string{
+				"istio-injection": injectionValue,
+			},
 		},
 	})
 	if err != nil {
@@ -164,7 +175,7 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 	return string(raw)
 }
 
-// Eventually does retrees to check a predicate
+// Eventually retries until f() returns true, or it times out in error
 func Eventually(f func() bool, t *testing.T) {
 	interval := 64 * time.Millisecond
 	for i := 0; i < 10; i++ {

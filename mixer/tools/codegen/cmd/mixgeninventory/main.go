@@ -78,7 +78,8 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "packages", "p", []string{},
 		"colon-separated mapping of Go packages to their full import paths. Example: -p prometheus:istio.io/istio/mixer/adapter/prometheus")
 
-	rootCmd.PersistentFlags().StringVarP(&mappingFile, "file", "f", "", "TODO")
+	rootCmd.PersistentFlags().StringVarP(&mappingFile, "file", "f", "",
+		"Path to a YAML file that maps Go package names to their full import paths.")
 
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "name of file to generate")
 

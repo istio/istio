@@ -78,7 +78,6 @@ type fakeMyApaHandler struct {
 	adapter.Handler
 	retOutput     *istio_mixer_adapter_sample_myapa.Output
 	retError      error
-	cnfgCallInput interface{}
 	procCallInput interface{}
 }
 
@@ -304,6 +303,9 @@ type inferTypeTest struct {
 
 func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 	return func(expr string) (pb.ValueType, error) {
+		if err != nil {
+			return pb.VALUE_TYPE_UNSPECIFIED, err
+		}
 		expr = strings.ToLower(expr)
 		retType := pb.VALUE_TYPE_UNSPECIFIED
 		if strings.HasSuffix(expr, "string") {
@@ -327,7 +329,7 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 
 		if retType == pb.VALUE_TYPE_UNSPECIFIED {
 			tc := evaluator.NewTypeChecker()
-			retType, _ = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
+			retType, err = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
 		}
 		return retType, err
 	}
@@ -341,7 +343,6 @@ func TestInferTypeForSampleReport(t *testing.T) {
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
-doublePrimitive: source.double
 stringPrimitive: source.string
 timeStamp: source.timestamp
 duration: source.duration
@@ -411,49 +412,59 @@ res1:
 			},
 		},
 		{
-			name: "MissingAField",
+			name: "MissingAFieldValid",
 			instYamlCfg: `
-value: source.int64
+# value: source.int64 # missing ValueType field
 # int64Primitive: source.int64 # missing int64Primitive
-boolPrimitive: source.bool
+# boolPrimitive: source.bool # missing int64Primitive
 doublePrimitive: source.double
 stringPrimitive: source.string
 timeStamp: source.timestamp
 duration: source.duration
-dimensions:
-  source: source.string
-  target: source.string
-`,
-			cstrParam:     &sample_report.InstanceParam{},
-			typeEvalError: nil,
-			wantErr:       "expression for field 'Int64Primitive' cannot be empty",
-			willPanic:     false,
-		},
-		{
-			name: "MissingAFieldSubMsg",
-			instYamlCfg: `
-value: source.int64
-int64Primitive: source.int64
-boolPrimitive: source.bool
-doublePrimitive: source.double
-stringPrimitive: source.string
-timeStamp: source.timestamp
-duration: source.duration
-dimensions:
-  source: source.string
-  target: source.string
+#dimensions: # missing int64Primitive
+#  source: source.string
+#  target: source.string
 res1:
-  value: source.int64
+  # value: source.int64 # missing ValueType field
   # int64Primitive: source.int64 # missing int64Primitive
   boolPrimitive: source.bool
-  doublePrimitive: source.double
-  stringPrimitive: source.string
-  timeStamp: source.timestamp
-  duration: source.duration
+  # doublePrimitive: source.double
+  # stringPrimitive: source.string
+  # timeStamp: source.timestamp
+  # duration: source.duration
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field 'Res1.Int64Primitive' cannot be empty",
+			wantErr:       "",
+			willPanic:     false,
+			wantType: &sample_report.Type{
+				Value:      pb.VALUE_TYPE_UNSPECIFIED,
+				Dimensions: map[string]pb.ValueType{},
+				Res1: &sample_report.Res1Type{
+					Value:      pb.VALUE_TYPE_UNSPECIFIED,
+					Dimensions: map[string]pb.ValueType{},
+					Res2:       nil,
+					Res2Map:    map[string]*sample_report.Res2Type{},
+				},
+			},
+		},
+		{
+			name: "NotValidMissingExpressionInMap",
+			instYamlCfg: `
+# value: source.int64 # missing ValueType field
+# int64Primitive: source.int64 # missing int64Primitive
+# boolPrimitive: source.bool # missing boolPrimitive
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+# bad expression below.
+  source:
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "failed to evaluate expression for field 'Dimensions[source]'",
 			willPanic:     false,
 		},
 		{
@@ -838,55 +849,53 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	return ev.Eval(expr2, attrs)
 }
 
-var baseConfig = istio_mixer_v1_config.GlobalConfig{
-	Manifests: []*istio_mixer_v1_config.AttributeManifest{
-		{
-			Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
-				"str.absent": {
-					ValueType: pb.STRING,
-				},
-				"bool.absent": {
-					ValueType: pb.BOOL,
-				},
-				"double.absent": {
-					ValueType: pb.DOUBLE,
-				},
-				"int64.absent": {
-					ValueType: pb.INT64,
-				},
-				"source.int64": {
-					ValueType: pb.INT64,
-				},
-				"source.bool": {
-					ValueType: pb.BOOL,
-				},
-				"source.double": {
-					ValueType: pb.DOUBLE,
-				},
-				"source.string": {
-					ValueType: pb.STRING,
-				},
-				"source.timestamp": {
-					ValueType: pb.TIMESTAMP,
-				},
-				"source.duration": {
-					ValueType: pb.DURATION,
-				},
-				"source.ip": {
-					ValueType: pb.IP_ADDRESS,
-				},
-				"source.email": {
-					ValueType: pb.EMAIL_ADDRESS,
-				},
-				"source.uri": {
-					ValueType: pb.URI,
-				},
-				"source.labels": {
-					ValueType: pb.STRING_MAP,
-				},
-				"source.dns": {
-					ValueType: pb.DNS_NAME,
-				},
+var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
+	{
+		Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+			"str.absent": {
+				ValueType: pb.STRING,
+			},
+			"bool.absent": {
+				ValueType: pb.BOOL,
+			},
+			"double.absent": {
+				ValueType: pb.DOUBLE,
+			},
+			"int64.absent": {
+				ValueType: pb.INT64,
+			},
+			"source.int64": {
+				ValueType: pb.INT64,
+			},
+			"source.bool": {
+				ValueType: pb.BOOL,
+			},
+			"source.double": {
+				ValueType: pb.DOUBLE,
+			},
+			"source.string": {
+				ValueType: pb.STRING,
+			},
+			"source.timestamp": {
+				ValueType: pb.TIMESTAMP,
+			},
+			"source.duration": {
+				ValueType: pb.DURATION,
+			},
+			"source.ip": {
+				ValueType: pb.IP_ADDRESS,
+			},
+			"source.email": {
+				ValueType: pb.EMAIL_ADDRESS,
+			},
+			"source.uri": {
+				ValueType: pb.URI,
+			},
+			"source.labels": {
+				ValueType: pb.STRING_MAP,
+			},
+			"source.dns": {
+				ValueType: pb.DNS_NAME,
 			},
 		},
 	},
@@ -905,7 +914,7 @@ func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.Attrib
 
 func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) expr.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
-	for _, m := range baseConfig.Manifests {
+	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
 			attrs[an] = at
 		}
@@ -1052,6 +1061,68 @@ func TestProcessReport(t *testing.T) {
 								Uri:            adapter.URI("myURI"),
 							},
 						},
+					},
+				},
+				{
+					Name:            "bar",
+					Value:           int64(2),
+					Dimensions:      map[string]interface{}{"k": int64(3)},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "mystring",
+					Int64Map:        map[string]int64{"b": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+				},
+			},
+		},
+		{
+			name: " ValidMissingFieldsInConfig",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					// missing all fields
+					Res1: &sample_report.Res1InstanceParam{
+					// missing all fields
+					},
+				},
+				"bar": &sample_report.InstanceParam{
+					Value:           "2",
+					Dimensions:      map[string]string{"k": "3"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"b": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
+			},
+			hdlr: &fakeReportHandler{},
+			wantInstance: []*sample_report.Instance{
+				{
+					Name:            "foo",
+					Value:           nil,
+					Dimensions:      map[string]interface{}{},
+					BoolPrimitive:   false,
+					DoublePrimitive: 0.0,
+					Int64Primitive:  0,
+					StringPrimitive: "",
+					Int64Map:        map[string]int64{},
+					TimeStamp:       time.Time{},
+					Duration:        time.Duration(0),
+					Res1: &sample_report.Res1{
+						Value:           nil,
+						Dimensions:      map[string]interface{}{},
+						BoolPrimitive:   false,
+						DoublePrimitive: 0.0,
+						Int64Primitive:  0,
+						StringPrimitive: "",
+						Int64Map:        map[string]int64{},
+						TimeStamp:       time.Time{},
+						Duration:        time.Duration(0),
+						Res2:            nil,
+						Res2Map:         map[string]*sample_report.Res2{},
 					},
 				},
 				{

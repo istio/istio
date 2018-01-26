@@ -30,8 +30,8 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/model/test"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )
@@ -372,8 +372,14 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 
+	lock := sync.Mutex{}
+
 	added, deleted := 0, 0
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -394,7 +400,12 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	util.Eventually(func() bool { return added == n && deleted == n }, t)
+	util.Eventually(func() bool {
+		lock.Lock()
+		defer lock.Unlock()
+		return added == n && deleted == n
+
+	}, t)
 }
 
 // CheckCacheFreshness validates operational invariants of a cache

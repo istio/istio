@@ -20,7 +20,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	mixer "istio.io/istio/mixer/pkg/server"
 )
@@ -90,7 +90,9 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 		b.fatalf("controller initialization failed: '%v'", err)
 		return
 	}
-	defer controller.close()
+	defer func() {
+		_ = controller.close()
+	}()
 
 	if coprocess {
 		var exeName string
@@ -139,7 +141,7 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 
 	// Even though we have a deferred close for controller, do it explicitly before leaving control to perform
 	// graceful close of clients during teardown.
-	controller.close()
+	_ = controller.close()
 }
 
 func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
@@ -154,7 +156,9 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 		b.fatalf("error creating Mixer server: '%s'", err.Error())
 		return
 	}
-	defer s.Close()
+	defer func() {
+		_ = s.Close()
+	}()
 
 	dispatcher := s.Dispatcher()
 

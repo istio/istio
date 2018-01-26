@@ -1,0 +1,93 @@
+global:
+  proxy:
+    repository: {PROXY_HUB}/{PROXY_IMAGE}
+    tag: {PROXY_TAG}
+  sidecar-injector:
+    repository: {PILOT_HUB}/sidecar_injector
+    tag: {PILOT_TAG}
+  mixer:
+    repository: {MIXER_HUB}/mixer
+    tag: {MIXER_TAG}
+  pilot:
+    repository: {PILOT_HUB}/pilot
+    tag: {PILOT_TAG}
+  security:
+    repository: {CA_HUB}/istio-ca
+    tag: {CA_TAG}
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: {HYPERKUBE_HUB}
+    tag: {HYPERKUBE_TAG}
+
+  # create RBAC resources
+  rbacEnabled: true
+  # mutual TLS authentication
+  securityEnabled: false
+
+#
+# proxy side car and ingress configuration
+#
+serviceAccountName: default
+imagePullPolicy: IfNotPresent
+resources: {}
+nodeSelector: {}
+# istio ingress configuration
+service:
+  # By default istio ingress uses LoadBalancer type of service
+  # to use NodePort, it needs to be enabled and desired port specified
+  nodePort:
+    enabled: false
+    port: 32000
+
+#
+# initializer configuration
+#
+initializer:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  initImage:
+    repository: docker.io/istio/proxy_init
+    tag: 0.4.0
+
+#
+# mixer configuration
+#
+mixer:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  prometheusStatsdExporter:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+    resources: {}
+
+#
+# pilot configuration
+#
+pilot:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+#
+# security configuration
+#
+security:
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/version"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -53,7 +54,7 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(validatorCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(shared.VersionCmd(printf))
+	rootCmd.AddCommand(version.CobraCommand())
 
 	return rootCmd
 }

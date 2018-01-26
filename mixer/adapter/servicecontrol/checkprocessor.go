@@ -27,9 +27,9 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/servicecontrol/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
+	"istio.io/istio/pkg/cache"
 )
 
 // checkImpl implements checkProcessor interface, handles doCheck call to Google ServiceControl backend.
@@ -107,7 +107,7 @@ func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Tim
 
 	if c.env.Logger().VerbosityLevel(logDebug) {
 		if requestDetail, err := toFormattedJSON(request); err == nil {
-			c.env.Logger().Infof("request: %v", string(requestDetail))
+			c.env.Logger().Infof("request: %v", requestDetail)
 		}
 	}
 
@@ -118,7 +118,7 @@ func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Tim
 
 	if c.env.Logger().VerbosityLevel(logDebug) {
 		if responseDetail, err := toFormattedJSON(response); err == nil {
-			c.env.Logger().Infof("response: %v", string(responseDetail))
+			c.env.Logger().Infof("response: %v", responseDetail)
 		}
 	}
 

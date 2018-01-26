@@ -26,10 +26,10 @@ import (
 	"istio.io/istio/mixer/adapter/servicecontrol/config"
 	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/pkg/cache"
 )
 
 type (
@@ -143,7 +143,8 @@ func (h *handler) Close() error {
 	h.lock.Lock()
 	defer h.lock.Lock()
 	for _, svcProc := range h.svcProcMap {
-		svcProc.Close()
+		// TODO: handle Close errors
+		_ = svcProc.Close()
 	}
 	return nil
 }

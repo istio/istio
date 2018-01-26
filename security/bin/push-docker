@@ -25,33 +25,10 @@ source ${ROOT}/../bin/docker_lib.sh
 
 cd ${ROOT}; make docker.artifacts
 
-echo "Generate certificate and private key for Istio CA"
-unset GOOS && \
-unset GOARCH && \
-go run ./cmd/generate_cert/main.go \
---key-size=2048 \
---out-cert=${ROOT}/docker/istio_ca.crt \
---out-priv=${ROOT}/docker/istio_ca.key \
---organization="k8s.cluster.local" \
---self-signed=true \
---ca=true
-
-echo "Generate certificate and private key for node agent"
-unset GOOS && \
-unset GOARCH && \
-go run ./cmd/generate_cert/main.go \
---key-size=2048 \
---out-cert=${ROOT}/docker/node_agent.crt \
---out-priv=${ROOT}/docker/node_agent.key \
---organization="NodeAgent" \
---host="nodeagent.google.com" \
---signer-cert=${ROOT}/docker/istio_ca.crt \
---signer-priv=${ROOT}/docker/istio_ca.key
-
 IMAGES=()
 
 pushd docker
-  for image in istio-ca istio-ca-test node-agent-test; do
+  for image in istio-ca istio-ca-test node-agent node-agent-test; do
     local_image="${image}:${local_tag}"
     docker build -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")

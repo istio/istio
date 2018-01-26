@@ -22,6 +22,7 @@ import (
 	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 )
@@ -48,7 +49,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		return nil, err
 	}
 
-	cAClient := &cAGrpcClientImpl{}
+	cAClient := &grpc.CAGrpcClientImpl{}
 	na.cAClient = cAClient
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.

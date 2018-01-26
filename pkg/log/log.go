@@ -22,8 +22,8 @@ import (
 )
 
 // Global variables against which all our logging occurs.
-var logger *zap.Logger = zap.NewNop()
-var sugar *zap.SugaredLogger = logger.Sugar()
+var logger = zap.NewNop()
+var sugar = logger.Sugar()
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
@@ -190,6 +190,6 @@ func With(fields ...zapcore.Field) *zap.Logger {
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 // This call is a wrapper around [logger.Sync](https://godoc.org/go.uber.org/zap#logger.Sync)
-func Sync() {
-	logger.Sync()
+func Sync() error {
+	return logger.Sync()
 }

@@ -58,23 +58,17 @@ done
 [[ -z "${OUTPUT_PATH}"  ]] && usage
 [[ -z "${VER_STRING}"   ]] && usage
 
-function copy_and_archive() {
-  # can't seem to set/override PROXY_TAG (sha), FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
+function run_update() {
+  # can't seem to set/override PROXY_HUB, FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
   ${ROOT}/install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
                                    -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
-                                   -r "${VER_STRING}" -E "${DEBIAN_URL}"
-  # save -d "${OUTPUT_PATH}" for later
-  
-  pushd ${ROOT}
-  cp istio.VERSION LICENSE README.md "${OUTPUT_PATH}/"
-  find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
-    -exec cp --parents {} "${OUTPUT_PATH}" \;
-  find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
-  popd
-
-  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
+                                   -r "${VER_STRING}" -E "${DEBIAN_URL}" -d "${OUTPUT_PATH}"
   return 0
 }
+
+pushd ${ROOT}
+cp LICENSE README.md "${OUTPUT_PATH}/"
+popd
 
 # generate a test set of tars for images on GCR
 if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
@@ -87,14 +81,18 @@ if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
 
   DOCKER_HUB_TAG="gcr.io/${GCR_TEST_PATH},${VER_STRING}"
   COMMON_URL="https://storage.googleapis.com/${GCS_TEST_PATH}"
-  ISTIOCTL_URL="${COMMON_URL}/istioctl"
+  ISTIOCTL_URL="${COMMON_URL}/istioctl-stage"
   DEBIAN_URL="${COMMON_URL}/deb"
-  copy_and_archive
+  run_update
+  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}" -i "istioctl-stage"
 
   # These files are only used for testing, so use a name to help make this clear
   for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do
     mv "$TAR_FILE" $(dirname "$TAR_FILE")/TESTONLY-$(basename "$TAR_FILE")
   done
+
+  # avoid potential issues with re-running updateVersion.sh by clobbering the dirs it creates
+  rm -r ${OUTPUT_PATH}/install ${OUTPUT_PATH}/samples
 fi
 
 # generate the release set of tars
@@ -102,4 +100,5 @@ DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
 COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
 ISTIOCTL_URL="${COMMON_URL}/istioctl"
 DEBIAN_URL="${COMMON_URL}/deb"
-copy_and_archive
+run_update
+${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"

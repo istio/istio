@@ -1,0 +1,48 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "initializer.fullname" . }}
+  labels:
+    app: {{ template "initializer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: istio-initializer
+  annotations:
+    sidecar.istio.io/inject: "false"
+  initializers:
+    pending: []
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "initializer.name" . }}
+        release: {{ .Release.Name }}
+        istio: istio-initializer
+      annotations:
+        sidecar.istio.io/inject: "false"
+        checksum/config-volume: {{ template "istio.configmap.checksum" . }}
+    spec:
+      serviceAccountName: {{ template "initializer.serviceAccountName" . }}
+      containers:
+        - name: {{ template "initializer.name" . }}
+          image: "{{ .Values.global.initializer.repository }}:{{ .Values.global.initializer.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --namespace={{ .Release.Namespace }}
+            - -v=2
+            - --injectConfig={{ template "initializer.fullname" . }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ template "istio.configmap.fullname" . }}

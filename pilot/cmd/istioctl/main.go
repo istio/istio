@@ -39,12 +39,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
-	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -482,15 +483,6 @@ and destination policies.
 			return nil
 		},
 	}
-
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Display version information",
-		RunE: func(c *cobra.Command, args []string) error {
-			fmt.Println(version.Version())
-			return nil
-		},
-	}
 )
 
 func init() {
@@ -533,7 +525,8 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 }
 
 func main() {
@@ -635,6 +628,7 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 func newClient() (*crd.Client, error) {
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
+		model.V1alpha2RouteRule,
 		model.Gateway,
 		model.EgressRule,
 		model.DestinationPolicy,
@@ -734,7 +728,7 @@ func getDefaultNamespace(kubeconfig string) string {
 	if context.Namespace == "" {
 		return v1.NamespaceDefault
 	}
-	return namespace
+	return context.Namespace
 }
 
 func handleNamespaces(objectNamespace string) (string, error) {

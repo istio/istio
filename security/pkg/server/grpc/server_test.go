@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
+	"google.golang.org/grpc/status"
 	"istio.io/istio/security/pkg/pki/ca"
 	pb "istio.io/istio/security/proto"
 )
@@ -49,7 +49,7 @@ type mockCA struct {
 	errMsg string
 }
 
-func (ca *mockCA) Sign(csrPEM []byte) ([]byte, error) {
+func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	if ca.errMsg != "" {
 		return nil, fmt.Errorf(ca.errMsg)
 	}
@@ -61,10 +61,9 @@ func (ca *mockCA) GetRootCertificate() []byte {
 }
 
 type mockAuthenticator struct {
-	authenticated bool
-	authSource    authSource
-	identities    []string
-	errMsg        string
+	authSource authSource
+	identities []string
+	errMsg     string
 }
 
 func (authn *mockAuthenticator) authenticate(ctx context.Context) (*caller, error) {
@@ -140,11 +139,13 @@ func TestSign(t *testing.T) {
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
 		}
-		request := &pb.Request{CsrPem: []byte(c.csr)}
+		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 
-		response, err := server.HandleCSR(nil, request)
-		if c.code != grpc.Code(err) {
-			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, grpc.Code(err))
+		response, err := server.HandleCSR(context.Background(), request)
+		s, _ := status.FromError(err)
+		code := s.Code()
+		if c.code != code {
+			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, code)
 		} else if c.code == codes.OK && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
 			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
 		}
@@ -215,7 +216,7 @@ func TestRun(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		server := New(tc.ca, tc.hostname, tc.port)
+		server := New(tc.ca, time.Hour, tc.hostname, tc.port)
 		err := server.Run()
 		if len(tc.expectedErr) > 0 {
 			if err == nil {

@@ -14,6 +14,15 @@
 
 // NOTE: TODO : Auto-generate this file for given templates
 
+// Codegen blocks
+
+// apa template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/apa/tmpl.proto
+
+// report template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/report/reporttmpl.proto
+
+// Package spyAdapter is intended for Mixer testing *ONLY*.
 package spyAdapter
 
 import (
@@ -37,7 +46,7 @@ type (
 	}
 
 	// AdapterBehavior defines the behavior of the Adapter
-	// nolint: aligncheck
+	// nolint: maligned
 	AdapterBehavior struct {
 		Name    string
 		Builder BuilderBehavior
@@ -45,7 +54,7 @@ type (
 	}
 
 	// HandlerBehavior defines the behavior of the Handler
-	// nolint: aligncheck
+	// nolint: maligned
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
@@ -59,7 +68,7 @@ type (
 	}
 
 	// BuilderBehavior defines the behavior of the Builder
-	// nolint: aligncheck
+	// nolint: maligned
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
 
@@ -72,7 +81,7 @@ type (
 		BuildPanic bool
 	}
 
-	// nolint: aligncheck
+	// nolint: maligned
 	builder struct {
 		behavior        BuilderBehavior
 		handlerBehavior HandlerBehavior

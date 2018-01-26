@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+die () {
+  echo "ERROR: $*. Aborting." >&2
+  exit 1
+}
+
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
@@ -9,7 +14,7 @@ if [ ! -e $ROOT/Gopkg.lock ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(grep -A 4 "gogo/protobuf" $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
 
@@ -17,14 +22,25 @@ outdir=$ROOT
 file=$ROOT
 protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
 optimport=$ROOT
+template=$ROOT
 
-while getopts 'f:o:p:i:' flag; do
+optproto=false
+opttemplate=false
+
+while getopts ':f:o:p:i:t:' flag; do
   case "${flag}" in
-    f) file+="/${OPTARG}" ;;
+    f) $opttemplate && die "Cannot use proto file option (-f) with template file option (-t)"
+       optproto=true
+       file+="/${OPTARG}" 
+       ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
     i) optimport+=/"${OPTARG}" ;;
-    *) error "Unexpected option ${flag}" ;;
+    t) $optproto && die "Cannot use template file option (-t) with proto file option (-f)"
+       opttemplate=true
+       template+="/${OPTARG}"
+       ;;
+    *) die "Unexpected option ${flag}" ;;
   esac
 done
 
@@ -32,8 +48,7 @@ done
 
 # Ensure expected GOPATH setup
 if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
-       echo "Istio not found in GOPATH/src/istio.io/"
-       exit 1
+  die "Istio not found in GOPATH/src/istio.io/"
 fi
 
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
@@ -59,8 +74,8 @@ popd
 echo "Done."
 fi
 
-SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
-GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${SHA}
+GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
+GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
 
 if [ ! -e ${ROOT}/vendor/github.com/googleapis/googleapis ]; then
 echo "Pull down source protos from googleapis..."
@@ -107,9 +122,65 @@ do
   MAPPINGS+="M$i,"
 done
 
-
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick_out=$MAPPINGS:"
+PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
 PLUGIN+=$outdir
 
-# echo $protoc $IMPORTS $PLUGIN $file
-$protoc $IMPORTS $PLUGIN $file
+# handle template code generation 
+if [ "$opttemplate" = true ]; then
+
+  template_mappings=(
+    "mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor"
+    "mixer/v1/template/extensions.proto:istio.io/api/mixer/v1/template"
+    "mixer/v1/template/standard_types.proto:istio.io/api/mixer/v1/template"
+    "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
+    "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
+  )
+
+  TMPL_GEN_MAP=""
+  TMPL_PROTOC_MAPPING=""
+
+  for i in "${template_mappings[@]}"
+  do
+    TMPL_GEN_MAP+="-m $i "
+    TMPL_PROTOC_MAPPING+="M${i/:/=},"
+  done
+
+  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=$TMPL_PROTOC_MAPPING:"
+  TMPL_PLUGIN+=$outdir
+
+  descriptor_set="_proto.descriptor_set"
+  handler_gen_go="_handler.gen.go"
+  instance_proto="_instance.proto"
+  pb_go=".pb.go"
+
+  templateDS=${template/.proto/$descriptor_set}
+  templateHG=${template/.proto/$handler_gen_go}
+  templateIP=${template/.proto/$instance_proto}
+  templatePG=${template/.proto/$pb_go}
+
+  # generate the descriptor set for the intermediate artifacts
+  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+  if [ ! -z "$err" ]; then
+    die "template generation failure: $err"; 
+  fi
+  
+  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateIP $TMPL_GEN_MAP  
+
+  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateIP`
+  if [ ! -z "$err" ]; then 
+    die "template generation failure: $err"; 
+  fi
+
+  #rm $templateDS
+  rm $templateIP
+  rm $templatePG
+
+  exit 0
+fi
+
+# handle simple protoc-based generation
+err=`$protoc $IMPORTS $PLUGIN $file`
+if [ ! -z "$err" ]; then 
+  die "generation failure: $err"; 
+fi

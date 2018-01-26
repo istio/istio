@@ -43,7 +43,7 @@ Istio Security uses [Kubernetes service accounts](https://kubernetes.io/docs/tas
 
 ### Communication security
 
-Service-to-service communication is tunneled through the client side [Envoy](https://envoyproxy.github.io/envoy/) and the server side Envoy. End-to-end communication is secured by:
+Service-to-service communication is tunneled through the client side [Envoy](http://envoyproxy.io/envoy/) and the server side Envoy. End-to-end communication is secured by:
 
 *   Local TCP connections between the service and Envoy
 
@@ -57,7 +57,7 @@ Istio v0.2 supports services running on both Kubernetes pods and VM/bare-metal m
 
 For services running on Kubernetes pods, the per-cluster Istio CA (Certificate Authority) automates the key & certificate management process. It mainly performs four critical operations :
 
-*   Generate a [SPIFFE](https://spiffe.github.io/docs/svid) key and certificate pair for each service account
+*   Generate a [SPIFFE](http://spiffe.io/docs/svid) key and certificate pair for each service account
 
 *   Distribute a key and certificate pair to each pod according to the service account
 

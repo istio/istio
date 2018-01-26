@@ -17,12 +17,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
@@ -31,17 +28,17 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
-	role            proxy.Node
-	serviceregistry platform.ServiceRegistry
+	role     model.Node
+	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
 	configPath             string
@@ -75,15 +72,15 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
-			log.Infof("Version %s", version.Line())
-			role.Type = proxy.Sidecar
+			log.Infof("Version %s", version.Info.String())
+			role.Type = model.Sidecar
 			if len(args) > 0 {
-				role.Type = proxy.NodeType(args[0])
+				role.Type = model.NodeType(args[0])
 			}
 
 			// set values from registry platform
 			if role.IPAddress == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
 					ipAddr := "127.0.0.1"
@@ -96,9 +93,9 @@ var (
 				}
 			}
 			if role.ID == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
-				} else if serviceregistry == platform.ConsulRegistry {
+				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddress + ".service.consul"
 				} else {
 					role.ID = role.IPAddress
@@ -106,27 +103,14 @@ var (
 			}
 			pilotDomain := role.Domain
 			if role.Domain == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
-				} else if serviceregistry == platform.ConsulRegistry {
+				} else if registry == serviceregistry.ConsulRegistry {
 					role.Domain = "service.consul"
 				} else {
 					role.Domain = ""
 				}
-			}
-
-			// Get AZ for proxy
-			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
-			if err != nil {
-				log.Infof("Error retrieving availability zone from pilot: %v", err)
-			} else {
-				body, err := ioutil.ReadAll(azResp.Body)
-				if err != nil {
-					log.Infof("Error reading availability zone response from pilot: %v", err)
-				}
-				availabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", availabilityZone)
 			}
 
 			log.Infof("Proxy role: %#v", role)
@@ -134,11 +118,11 @@ var (
 			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
+			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
-			proxyConfig.AvailabilityZone = availabilityZone
 			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
 			proxyConfig.DiscoveryAddress = discoveryAddress
@@ -155,7 +139,7 @@ var (
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]
 					parts := strings.Split(discoveryHostname, ".")
@@ -192,17 +176,19 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := []envoy.CertSource{
-				{
-					Directory: proxy.AuthCertsPath,
-					Files:     []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename},
-				},
+			certs := make([]envoy.CertSource, 0, 3)
+			// Only when auth is enabled, watch the internal certificate path.
+			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+				certs = append(certs, envoy.CertSource{
+					Directory: model.AuthCertsPath,
+					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
+				})
 			}
 
-			if role.Type == proxy.Ingress {
+			if role.Type == model.Ingress {
 				certs = append(certs, envoy.CertSource{
-					Directory: proxy.IngressCertsPath,
-					Files:     []string{proxy.IngressCertFilename, proxy.IngressKeyFilename},
+					Directory: model.IngressCertsPath,
+					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
 				})
 			}
 
@@ -232,10 +218,10 @@ func timeDuration(dur *duration.Duration) time.Duration {
 }
 
 func init() {
-	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
-		string(platform.KubernetesRegistry),
+	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
+		string(serviceregistry.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -244,7 +230,7 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 
 	// Flags for proxy configuration
-	values := proxy.DefaultProxyConfig()
+	values := model.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,
@@ -288,7 +274,7 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(cmd.VersionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
 }
 
 func main() {

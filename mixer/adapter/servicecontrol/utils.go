@@ -151,5 +151,5 @@ func toFormattedJSON(marshaller json.Marshaler) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(out.Bytes()), err
+	return out.String(), err
 }

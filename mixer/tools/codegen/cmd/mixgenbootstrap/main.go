@@ -16,11 +16,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen"
 )
@@ -29,6 +31,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 
 	var outFilePath string
 	var mappings []string
+	var mappingFile string
 
 	// TODO add support for passing import mapping for individual template. For now, this tool just takes
 	// single import mapping which applies to all the passed in templates.
@@ -47,7 +50,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			"-o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			if len(args) <= 0 {
+			if len(args) <= 0 && len(mappingFile) == 0 {
 				errorf("Must specify at least one file descriptor set protobuf file.")
 			}
 
@@ -61,14 +64,27 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 			fdsFiles := make(map[string]string) // FDS and their package import path
-			for _, arg := range args {
-				m := strings.Split(arg, ":")
-				if len(m) != 2 {
-					errorf("Invalid argument '%s'. Argument should contain one colon and be of the form <Path To File DescriptorSet "+
-						"that defines the template>:<Package import path for the template>. "+
-						"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/metric", arg)
+			if mappingFile != "" {
+				yamlFile, err := ioutil.ReadFile(mappingFile)
+				if err != nil {
+					errorf("could not read mapping file: %v", err)
+					return
 				}
-				fdsFiles[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+				err = yaml.Unmarshal(yamlFile, &fdsFiles)
+				if err != nil {
+					errorf("could not unmarshal mapping file: %v", err)
+					return
+				}
+			} else {
+				for _, arg := range args {
+					m := strings.Split(arg, ":")
+					if len(m) != 2 {
+						errorf("Invalid argument '%s'. Argument should contain one colon and be of the form <Path To File DescriptorSet "+
+							"that defines the template>:<Package import path for the template>. "+
+							"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/metric", arg)
+					}
+					fdsFiles[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+				}
 			}
 
 			generator := bootstrapgen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
@@ -88,6 +104,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 		"m", []string{},
 		"colon separated mapping of proto import to Go package names."+
 			" -m google/protobuf/descriptor.proto:github.com/golang/protobuf/protoc-gen-go/descriptor")
+
+	rootCmd.PersistentFlags().StringVarP(&mappingFile, "file", "f", "",
+		"Path to a YAML file that maps proto file descriptor set files to golang package names.")
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf("%v", err)

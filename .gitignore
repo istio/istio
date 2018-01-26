@@ -17,12 +17,24 @@ vendor
 cluster.env
 kubedns
 # pilot
-pilot/platform/kube/config
-pilot/proxy/envoy/envoy
+pilot/pkg/kube/config
+pilot/pkg/proxy/envoy/envoy
 # lint
 lintconfig.gen.json
-# dep
 .istiorc
+.istiorc.mk
 # codegen stuff
 bin/protoc-gen-gogoslick*
 bin/protoc-min-version*
+# Install generated files
+install/consul/istio.yaml
+install/eureka/istio.yaml
+install/kubernetes/helm/istio/values.yaml
+install/kubernetes/istio-auth.yaml
+install/kubernetes/istio-ca-plugin-certs.yaml
+install/kubernetes/istio-sidecar-injector.yaml
+install/kubernetes/istio-one-namespace-auth.yaml
+install/kubernetes/istio-one-namespace.yaml
+install/kubernetes/istio.yaml
+samples/bookinfo/consul/bookinfo.sidecars.yaml
+samples/bookinfo/eureka/bookinfo.sidecars.yaml

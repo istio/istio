@@ -32,30 +32,30 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+	"github.com/ghodss/yaml"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/adapter/config/crd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	ingressSecretName = "istio-ingress-certs"
+	ingressSecretName      = "istio-ingress-certs"
+	sidecarInjectorService = "istio-sidecar-injector"
 )
 
-type infra struct { // nolint: aligncheck
+type infra struct { // nolint: maligned
 	Name string
 
 	// docker tags
 	Hub, Tag string
-	CaImage  string
 
 	Namespace      string
 	IstioNamespace string
@@ -76,6 +76,9 @@ type infra struct { // nolint: aligncheck
 	Zipkin    bool
 	DebugPort int
 
+	SkipCleanup          bool
+	SkipCleanupOnFailure bool
+
 	// check proxy logs
 	checkLogs bool
 
@@ -86,15 +89,43 @@ type infra struct { // nolint: aligncheck
 	istioNamespaceCreated bool
 	debugImagesAndMode    bool
 
-	// sidecar initializer
-	UseInitializer bool
-	InjectConfig   *inject.Config
+	// automatic sidecar injection
+	UseAutomaticInjection bool
+	SidecarTemplate       string
+	meshConfig            *meshconfig.MeshConfig
+	CABundle              string
 
 	// External Admission Webhook for validation
 	UseAdmissionWebhook  bool
 	AdmissionServiceName string
 
 	config model.IstioConfigStore
+}
+
+const (
+	// ConfigMapKey should match the expected MeshConfig file name
+	ConfigMapKey = "mesh"
+)
+
+// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
+func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) { // nolint: lll
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// values in the data are strings, while proto might use a different data type.
+	// therefore, we have to get a value by a key
+	yaml, exists := config.Data[ConfigMapKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
+	}
+
+	mesh, err := model.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
+		return nil, nil, err
+	}
+	return config, mesh, nil
 }
 
 func (infra *infra) setup() error {
@@ -110,24 +141,24 @@ func (infra *infra) setup() error {
 
 	if infra.Namespace == "" {
 		var err error
-		if infra.Namespace, err = util.CreateNamespace(client); err != nil {
+		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-app-", infra.UseAutomaticInjection); err != nil { // nolint: lll
 			return err
 		}
 		infra.namespaceCreated = true
 	} else {
-		if _, err := client.Core().Namespaces().Get(infra.Namespace, meta_v1.GetOptions{}); err != nil {
+		if _, err := client.CoreV1().Namespaces().Get(infra.Namespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
 
 	if infra.IstioNamespace == "" {
 		var err error
-		if infra.IstioNamespace, err = util.CreateNamespace(client); err != nil {
+		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-", false); err != nil {
 			return err
 		}
 		infra.istioNamespaceCreated = true
 	} else {
-		if _, err := client.Core().Namespaces().Get(infra.IstioNamespace, meta_v1.GetOptions{}); err != nil {
+		if _, err := client.CoreV1().Namespaces().Get(infra.IstioNamespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
@@ -148,53 +179,31 @@ func (infra *infra) setup() error {
 		return err
 	}
 
-	_, mesh, err := inject.GetMeshConfig(client, infra.IstioNamespace, "istio")
+	var err error
+	_, infra.meshConfig, err = getMeshConfig(client, infra.IstioNamespace, "istio")
 	if err != nil {
 		return err
 	}
 	debugMode := infra.debugImagesAndMode
-	log.Infof("mesh %s", spew.Sdump(mesh))
+	log.Infof("mesh %s", spew.Sdump(infra.meshConfig))
 
-	// Default to NamespaceAll to mirror kube-inject behavior. Only
-	// use a specific include namespace for the automatic injection.
-	includeNamespaces := []string{v1.NamespaceAll}
-	if infra.UseInitializer {
-		includeNamespaces = []string{infra.Namespace}
+	infra.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+		InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
+		ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
+		Verbosity:       infra.Verbosity,
+		SidecarProxyUID: inject.DefaultSidecarProxyUID,
+		EnableCoreDump:  true,
+		Version:         "integration-test",
+		Mesh:            infra.meshConfig,
+		DebugMode:       debugMode,
+	})
+	if err != nil {
+		return err
 	}
 
-	infra.InjectConfig = &inject.Config{
-		Policy:            inject.InjectionPolicyEnabled,
-		IncludeNamespaces: includeNamespaces,
-		Params: inject.Params{
-			InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
-			ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
-			Verbosity:       infra.Verbosity,
-			SidecarProxyUID: inject.DefaultSidecarProxyUID,
-			EnableCoreDump:  true,
-			Version:         "integration-test",
-			Mesh:            mesh,
-			DebugMode:       debugMode,
-		},
-	}
-
-	if infra.UseInitializer {
-		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if infra.UseAutomaticInjection {
+		if err := infra.createSidecarInjector(); err != nil {
 			return err
-		}
-		if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
-			return err
-		} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
-			return err
-		}
-		if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-		// InitializerConfiguration will block *all* deployments and
-		// could possibly lead to timeouts when trying to create other
-		// Istio runtime components. Wait until it's pod is ready
-		// before proceeding with the test setup.
-		if _, err = util.GetAppPods(client, kubeconfig, []string{infra.IstioNamespace}); err != nil {
-			return fmt.Errorf("initialized failed to start: %v", err)
 		}
 	}
 
@@ -212,7 +221,7 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
 		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
@@ -287,7 +296,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 	version string, injectProxy bool, perServiceAuth bool) error {
 	// Eureka does not support management ports
 	healthPort := "true"
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
 		healthPort = "false"
 	}
 
@@ -314,8 +323,8 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 
 	writer := new(bytes.Buffer)
 
-	if injectProxy && !infra.UseInitializer {
-		if err := inject.IntoResourceFile(infra.InjectConfig, strings.NewReader(w), writer); err != nil {
+	if injectProxy && !infra.UseAutomaticInjection {
+		if err := inject.IntoResourceFile(infra.SidecarTemplate, infra.meshConfig, strings.NewReader(w), writer); err != nil {
 			return err
 		}
 	} else {
@@ -350,14 +359,9 @@ func (infra *infra) teardown() {
 		infra.IstioNamespace = ""
 	}
 
-	// InitializerConfiguration is not namespaced.
-	if infra.UseInitializer {
-		if yaml, err := fill("initializer-config.yaml.tmpl", infra); err != nil {
-			log.Infof("Sidecar initializer configuration could not be processed, "+
-				"please delete stale InitializerConfiguration : %v", err)
-		} else if err := infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
-			log.Infof("Sidecar initializer configuration could not be deleted: %v", err)
-		}
+	// automatic injection webhook is not namespaced.
+	if infra.UseAutomaticInjection {
+		infra.deleteSidecarInjector()
 	}
 }
 
@@ -453,6 +457,33 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 			_, err = infra.config.Create(v)
 		}
 		if err != nil {
+			return err
+		}
+	}
+
+	sleepTime := time.Second * 3
+	log.Infof("Sleeping %v for the config to propagate", sleepTime)
+	time.Sleep(sleepTime)
+	return nil
+}
+
+func (infra *infra) deleteConfig(inFile string, data map[string]string) error {
+	config, err := fill(inFile, data)
+	if err != nil {
+		return err
+	}
+
+	vs, _, err := crd.ParseInputs(config)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range vs {
+		// fill up namespace for the config
+		v.Namespace = infra.Namespace
+
+		log.Infof("Delete config %s", v.Key())
+		if err = infra.config.Delete(v.Type, v.Name, v.Namespace); err != nil {
 			return err
 		}
 	}
@@ -563,4 +594,66 @@ func (infra *infra) createAdmissionWebhookSecret() error {
 func (infra *infra) deleteAdmissionWebhookSecret() error {
 	return util.Run(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s secret pilot-webhook",
 		kubeconfig, infra.IstioNamespace))
+}
+
+func (infra *infra) createSidecarInjector() error {
+	configData, err := yaml.Marshal(&inject.Config{
+		Policy:   inject.InjectionPolicyEnabled,
+		Template: infra.SidecarTemplate,
+	})
+	if err != nil {
+		return err
+	}
+
+	// sidecar configuration template
+	if _, err = client.CoreV1().ConfigMaps(infra.IstioNamespace).Create(&v1.ConfigMap{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "istio-inject",
+		},
+		Data: map[string]string{
+			"config": string(configData),
+		},
+	}); err != nil {
+		return err
+	}
+
+	// webhook certificates
+	ca, cert, key, err := createWebhookCerts(sidecarInjectorService, infra.IstioNamespace) // nolint: vetshadow
+	if err != nil {
+		return err
+	}
+	if _, err := client.CoreV1().Secrets(infra.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
+		ObjectMeta: meta_v1.ObjectMeta{Name: "sidecar-injector-certs"},
+		Data: map[string][]byte{
+			"cert.pem": cert,
+			"key.pem":  key,
+		},
+		Type: v1.SecretTypeOpaque,
+	}); err != nil {
+		return err
+	}
+
+	// webhook deployment
+	infra.CABundle = base64.StdEncoding.EncodeToString(ca)
+	if yaml, err := fill("sidecar-injector.yaml.tmpl", infra); err != nil { // nolint: vetshadow
+		return err
+	} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
+		return err
+	}
+
+	// wait until injection webhook service is running before
+	// proceeding with deploying test applications
+	if _, err = util.GetAppPods(client, kubeconfig, []string{infra.IstioNamespace}); err != nil {
+		return fmt.Errorf("sidecar injector failed to start: %v", err)
+	}
+	return nil
+}
+
+func (infra *infra) deleteSidecarInjector() {
+	if yaml, err := fill("sidecar-injector.yaml.tmpl", infra); err != nil {
+		log.Infof("Sidecar injector template could not be processed, please delete stale injector webhook: %v",
+			err)
+	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
+		log.Infof("Sidecar injector could not be deleted: %v", err)
+	}
 }
