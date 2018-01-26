@@ -15,7 +15,6 @@
 package envoy
 
 import (
-	"crypto/tls"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,13 +31,13 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"bytes"
+	"io/ioutil"
+	"strings"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"strings"
-	"io"
-	"bytes"
-	"io/ioutil"
 )
 
 const (
@@ -112,8 +111,8 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
-	server *http.Server
-	webhookClient *http.Client
+	server          *http.Server
+	webhookClient   *http.Client
 	webhookEndpoint string
 	// TODO Profile and optimize cache eviction policy to avoid
 	// flushing the entire cache when any route, service, or endpoint
@@ -314,25 +313,19 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		out.webhookEndpoint = o.WebhookEndpoint
 		transport := &http.Transport{}
 
-		if strings.Index(o.WebhookEndpoint, "https") == 0 {
-			transport.TLSClientConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
-		}
-
 		if strings.Contains(o.WebhookEndpoint, "unix://") {
 			transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
 				return net.Dial("unix", addr)
 			}
 
-			// strip the +unix and convert to plain http(s)://
+			// strip the +unix and convert to plain http://
 			if strings.Index(o.WebhookEndpoint, "unix://") == 0 {
 				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "unix", "", 1)
 			} else {
 				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "+unix", "", 1)
 			}
 		}
-		out.webhookClient = &http.Client{Transport:transport}
+		out.webhookClient = &http.Client{Transport: transport}
 	}
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
