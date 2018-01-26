@@ -747,7 +747,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Non-Success Rate (5xx responses)",
+          "title": "Server Error Rate (5xx responses)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -829,7 +829,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Server Errors (4xxs)",
+          "title": "Non-successes (4xxs)",
           "tooltip": {
             "shared": true,
             "sort": 0,
