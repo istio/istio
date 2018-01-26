@@ -107,12 +107,9 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 				Tags:  appoptics.MeasurementTags{},
 			}
 
-			for k, v := range val.Dimensions {
-				for _, label := range mInfo.LabelNames {
-					if k == label {
-						m.Tags[k] = h.processLabels(v)
-					}
-				}
+			for _, label := range mInfo.LabelNames {
+				// val.Dimensions[label] should exists because we have validated this before during config time.
+				m.Tags[label] = h.processLabels(val.Dimensions[label])
 			}
 			measurements = append(measurements, m)
 		}
