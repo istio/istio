@@ -1,5 +1,5 @@
 # Global fallback
-* @istio/reviewers-global
+*           @istio/reviewers-global
 
 /release/   @istio/reviewers-istio-release
 /prow/      @istio/reviewers-istio-prow
