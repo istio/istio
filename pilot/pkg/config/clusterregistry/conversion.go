@@ -188,7 +188,7 @@ func validateCluster(crPath string, cluster *Cluster) (err error) {
 
 // parseClusters reads multiple clusters from a single file
 func parseClusters(crPath string, clusterData []byte) (clusters []*Cluster, err error) {
-	reader := bytes.NewReader([]byte(clusterData))
+	reader := bytes.NewReader(clusterData)
 	var empty = Cluster{}
 
 	// We store configs as a YaML stream; there may be more than one decoder.

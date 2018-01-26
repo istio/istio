@@ -396,7 +396,7 @@ func TestParseClusters_templ(t *testing.T) {
 
 	t.Logf("YAML to convert:\n%s\n", testDataBuf.String())
 
-	clusters, err := parseClusters(e.fsRoot, []byte(testDataBuf.String()))
+	clusters, err := parseClusters(e.fsRoot, testDataBuf.Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -474,7 +474,7 @@ spec:
 		if err != nil {
 			t.Error(err)
 		}
-		clusters, err := parseClusters(e.fsRoot, []byte(testDataBuf.String()))
+		clusters, err := parseClusters(e.fsRoot, testDataBuf.Bytes())
 		if err == nil {
 			t.Error(fmt.Errorf("bad input test '%s' not getting error code", testType))
 			if len(clusters) > 0 {

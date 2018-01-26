@@ -470,7 +470,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			serviceControllers.AddRegistry(registry1)
 			serviceControllers.AddRegistry(registry2)
 		case KubernetesRegistry:
-			s.createK8sServiceControllers(serviceControllers, args)
+			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
 				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
