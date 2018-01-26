@@ -1,3 +1,4 @@
+#foo bar
 version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
