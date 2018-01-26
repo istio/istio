@@ -17,9 +17,10 @@
 
 # Script entry into Istio smoketest run with a k8s cluster with Istio installed.
 # This is intended as a smoketest for external callers that require a simple
-# script entry point.
+# script entry point. $WORKSPACE is the root dir into which the Istio repo is
+# expected to be cloned.
 #
-# Usage: e2e_istio_preinstalled.sh bookinfo|simple
+# Usage: e2e_istio_preinstalled.sh all|bookinfo|mixer|simple
 
 set -o errexit
 set -o nounset
@@ -31,7 +32,9 @@ declare -a tests
 [[  $1 == "all" ]] && tests=("bookinfo" "mixer" "simple") || tests=($1)
 
 HUB=gcr.io/istio-testing
-TAG=`git rev-parse HEAD`
+
+cd ${WORKSPACE}/istio
+git reset --hard ${TAG}
 
 for t in ${tests[@]}; do
   go test -v -timeout 20m ./tests/e2e/tests/${t} -args \
