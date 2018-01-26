@@ -44,7 +44,7 @@ func (f *fakedDenyRBACStore) CheckPermission(inst *authorization.Instance, env a
 
 func TestHandleAuthorization_Success(t *testing.T) {
 	rbac := &fakedAllowRBACStore{}
-	handler := &handler{rbac: rbac, env: test.NewEnv(t), closing: make(chan bool), timer: nil}
+	handler := &handler{rbac: rbac, env: test.NewEnv(t), cacheDuration: 1000, closing: make(chan bool), done: make(chan bool)}
 
 	instance := authorization.Instance{}
 	result, _ := handler.HandleAuthorization(context.Background(), &instance)
@@ -60,7 +60,7 @@ func TestHandleAuthorization_Success(t *testing.T) {
 
 func TestHandleAuthorization_Deny(t *testing.T) {
 	rbac := &fakedDenyRBACStore{}
-	handler := &handler{rbac: rbac, env: test.NewEnv(t), closing: make(chan bool), timer: nil}
+	handler := &handler{rbac: rbac, env: test.NewEnv(t), cacheDuration: 1000, closing: make(chan bool), done: make(chan bool)}
 
 	instance := authorization.Instance{}
 	result, _ := handler.HandleAuthorization(context.Background(), &instance)
