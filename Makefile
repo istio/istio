@@ -143,6 +143,12 @@ default: depend build
 
 setup:
 
+# The point of these is to allow scripts to query where artifacts
+# are stored so that tests and other consumers of the build don't
+# need to be updated to follow the changes in the Makefiles.
+# Note that the query needs to pass the same types of parameters
+# (e.g., DEBUG=0, GOOS=linux) as the actual build for the query
+# to provide an accurate result.
 .PHONY: where-is-out where-is-docker-temp where-is-docker-tar
 where-is-out:
 	@echo ${ISTIO_OUT}
@@ -213,6 +219,9 @@ pre-commit: fmt lint
 # Will also check vendor, based on Gopkg.lock
 init: $(ISTIO_BIN)/istio_is_init
 
+# I tried to make this dependent on what I thought was the appropriate
+# lock file, but it caused the rule for that file to get run (which
+# seems to be about obtaining a new version of the 3rd party libraries).
 $(ISTIO_BIN)/istio_is_init: check-go-version bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${DEP}
 	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
 	touch $(ISTIO_BIN)/istio_is_init
