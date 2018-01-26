@@ -1,0 +1,22 @@
+# Global fallback
+*           @istio/reviewers-global
+
+/release/   @istio/reviewers-istio-release
+/prow/      @istio/reviewers-istio-prow
+/bin/       @istio/reviewers-istio-bin
+/pilot/     @istio/reviewers-istio-pilot
+/security/  @istio/reviewers-istio-security
+/mixer/     @istio/reviewers-istio-mixer
+/galley/    @istio/reviewers-istio-galley
+/broker/    @istio/reviewers-istio-broker
+/samples/   @istio/reviewers-istio-samples
+/install/   @istio/reviewers-istio-install
+/tools/     @costinm @ldemailly
+
+# This is intentional. These folders are collective responsibility of all
+# devs in istio team whose components (pilot/mixer/security/broker) share
+# code from pkg or use tests from tests/ including e2e tests.
+/pkg/       @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
+/tests/     @istio/reviewers-istio-pilot @istio/reviewers-istio-security @istio/reviewers-istio-mixer @istio/reviewers-istio-galley @istio/reviewers-istio-broker
+
+#/.circleci/ @istio/reviewers-istio-circleci
