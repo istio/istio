@@ -429,7 +429,7 @@ istioctl delete routerule productpage-default
 		},
 	}
 
-	configCmd = &cobra.Command{
+	contextCmd = &cobra.Command{
 		Use:   "context-create --api-server http://<ip>:<port>",
 		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
 		Example: `# Create a config file for the api server.
@@ -516,9 +516,9 @@ func init() {
 		"Config namespace")
 
 	defaultContext := "istio"
-	configCmd.PersistentFlags().StringVar(&istioContext, "context", defaultContext,
+	contextCmd.PersistentFlags().StringVar(&istioContext, "context", defaultContext,
 		"Kubernetes configuration file context name")
-	configCmd.PersistentFlags().StringVar(&istioAPIServer, "api-server", "",
+	contextCmd.PersistentFlags().StringVar(&istioAPIServer, "api-server", "",
 		"URL for Istio api server")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
@@ -538,7 +538,7 @@ func init() {
 	rootCmd.AddCommand(putCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
