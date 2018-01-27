@@ -24,7 +24,7 @@ data:
         restartPolicy: Always
       containers:
       - name: istio-proxy
-        image: {PILOT_HUB}/{PROXY_IMAGE}:{PILOT_TAG}
+        image: {PILOT_HUB}/proxy:{PILOT_TAG}
         args:
         - proxy
         - sidecar
