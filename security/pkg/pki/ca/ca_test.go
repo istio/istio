@@ -396,15 +396,12 @@ func TestSignCSRTTLError(t *testing.T) {
 }
 
 func createCA() (CertificateAuthority, error) {
-	start := time.Now().Add(-5 * time.Minute)
-	end := start.Add(24 * time.Hour)
-
+	ttl := 24 * time.Hour
 	// Generate root CA key and cert.
 	rootCAOpts := CertOptions{
 		IsCA:         true,
 		IsSelfSigned: true,
-		NotAfter:     end,
-		NotBefore:    start,
+		TTL:          ttl,
 		Org:          "Root CA",
 		RSAKeySize:   2048,
 	}
@@ -423,8 +420,7 @@ func createCA() (CertificateAuthority, error) {
 	intermediateCAOpts := CertOptions{
 		IsCA:         true,
 		IsSelfSigned: false,
-		NotAfter:     end,
-		NotBefore:    start,
+		TTL:          ttl,
 		Org:          "Intermediate CA",
 		RSAKeySize:   2048,
 		SignerCert:   rootCert,

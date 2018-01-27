@@ -16,8 +16,6 @@ package ca
 
 import (
 	"crypto/x509"
-	"encoding/pem"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,54 +24,6 @@ import (
 )
 
 var now = time.Now().Round(time.Second).UTC()
-
-func TestGenCSR(t *testing.T) {
-	// Options to generate a CSR.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
-	}
-
-	csrPem, _, err := GenCSR(csrOptions)
-
-	if err != nil {
-		t.Errorf("failed to gen CSR")
-	}
-
-	pemBlock, _ := pem.Decode(csrPem)
-	if pemBlock == nil {
-		t.Errorf("failed to decode csr")
-	}
-	csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-	if err != nil {
-		t.Errorf("failed to parse csr")
-	}
-	if err = csr.CheckSignature(); err != nil {
-		t.Errorf("csr signature is invalid")
-	}
-	if csr.Subject.Organization[0] != "MyOrg" {
-		t.Errorf("csr subject does not match")
-	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value[:]), "test_ca.com") {
-		t.Errorf("csr host does not match")
-	}
-}
-
-func TestGenCSRWithInvalidOption(t *testing.T) {
-	// Options with invalid Key size.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: -1,
-	}
-
-	csr, priv, err := GenCSR(csrOptions)
-
-	if err == nil || csr != nil || priv != nil {
-		t.Errorf("Should have failed")
-	}
-}
 
 func TestLoadSignerCredsFromFiles(t *testing.T) {
 	testCases := map[string]struct {
@@ -129,18 +79,16 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 }
 
 func TestGenCert(t *testing.T) {
-	// set "notBefore" to be 5 minutes ago, this ensures the issued certifiate to
+	// set "notBefore" to be one hour ago, this ensures the issued certifiate to
 	// be valid as of now.
-	caCertNotBefore := now.Add(-5 * time.Minute)
-	caCertNotAfter := now.Add(24 * time.Hour)
-
-	t.Logf("now: %+v\n", now)
+	caCertNotBefore := now.Add(-time.Hour)
+	caCertTTL := 24 * time.Hour
 
 	// Options to generate a CA cert.
 	caCertOptions := CertOptions{
 		Host:         "test_ca.com",
 		NotBefore:    caCertNotBefore,
-		NotAfter:     caCertNotAfter,
+		TTL:          caCertTTL,
 		SignerCert:   nil,
 		SignerPriv:   nil,
 		Org:          "MyOrg",
@@ -154,7 +102,7 @@ func TestGenCert(t *testing.T) {
 	caCertPem, caPrivPem := GenCert(caCertOptions)
 	fields := &tu.VerifyFields{
 		NotBefore:   caCertNotBefore,
-		NotAfter:    caCertNotAfter,
+		TTL:         caCertTTL,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageCertSign,
 		IsCA:        true,
@@ -174,8 +122,8 @@ func TestGenCert(t *testing.T) {
 		t.Error(err)
 	}
 
-	notAfter := now.Add(time.Hour)
 	notBefore := now.Add(-5 * time.Minute)
+	ttl := time.Hour
 	cases := []struct {
 		certOptions  CertOptions
 		verifyFields *tu.VerifyFields
@@ -186,7 +134,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "test_server.com",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -200,8 +148,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
@@ -210,7 +158,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "test_client.com",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -224,8 +172,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
@@ -234,7 +182,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "1.2.3.4",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -248,8 +196,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
@@ -258,7 +206,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -272,8 +220,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
@@ -282,7 +230,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -296,8 +244,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
@@ -306,7 +254,7 @@ func TestGenCert(t *testing.T) {
 			certOptions: CertOptions{
 				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    notBefore,
-				NotAfter:     notAfter,
+				TTL:          ttl,
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -320,8 +268,8 @@ func TestGenCert(t *testing.T) {
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				NotAfter:    notAfter,
 				NotBefore:   notBefore,
+				TTL:         ttl,
 				Org:         "MyOrg",
 			},
 		},
