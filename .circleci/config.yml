@@ -102,6 +102,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -137,6 +138,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -166,6 +168,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
