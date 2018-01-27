@@ -43,7 +43,7 @@ func (t *kubernetesExternalNameServices) run() error {
 			for _, domain := range []string{"", "." + t.Namespace} {
 				name := fmt.Sprintf("HTTP connection from %s to %s%s", src, dst, domain)
 				funcs[name] = (func(src, dst, domain string) func() status {
-					url := fmt.Sprintf("http://%s%s/status/200", dst, domain)
+					url := fmt.Sprintf("http://%s%s", dst, domain)
 					return func() status {
 						resp := t.clientRequest(src, url, 1, "")
 						if len(resp.code) > 0 && resp.code[0] == httpOk {
