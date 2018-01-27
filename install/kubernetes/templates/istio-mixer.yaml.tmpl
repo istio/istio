@@ -77,7 +77,6 @@ spec:
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
