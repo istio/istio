@@ -12,14 +12,19 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import logging
+import re
 
 from airflow import DAG
+from airflow.models import Variable
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import PythonOperator
 
+import environment_config
 import istio_common_dag
 
 dag, copy_files = istio_common_dag.MakeCommonDag(
-    'istio_monthly_release', schedule_interval='15 4 20 * *', monthly=True)
+    'istio_monthly_release', schedule_interval=environment_config.MONTHLY_RELEASE_TRIGGER, monthly=True)
 
 monthly_release_template = """
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
@@ -63,3 +68,28 @@ github_tag_repos = BashOperator(
     dag=dag)
 
 copy_files >> push_release_to_github >> github_tag_repos
+
+
+def ReportMonthlySuccessful(task_instance, **kwargs):
+  del kwargs
+  version = istio_common_dag.GetSettingPython(task_instance, 'VERSION')
+  try:
+    match = re.match(r'([0-9])\.([0-9])\.([0-9]).*', version)
+    major, minor, patch = match.group(1), match.group(2), match.group(3)
+    Variable.set('major_version', major)
+    Variable.set('released_version_minor', minor)
+    Variable.set('released_version_patch', patch)
+  except (IndexError, AttributeError):
+    logging.error('Could not extract released version infomation. \n'
+                  'Please manual set airflow version Variables manualy.'
+                  'After you are done hit Mark Success.')
+
+
+make_compleate = PythonOperator(
+    task_id='mark_monthly_complete',
+    python_callable=ReportMonthlySuccessful,
+    provide_context=True,
+    dag=dag,
+)
+
+github_tag_repos >> make_compleate
