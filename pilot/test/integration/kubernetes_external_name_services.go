@@ -35,7 +35,7 @@ func (t *kubernetesExternalNameServices) teardown() {
 
 func (t *kubernetesExternalNameServices) run() error {
 	srcPods := []string{"a", "b", "t"}
-	dstServices := []string{"externalbin"}
+	dstServices := []string{"externalwikipedia"}
 
 	funcs := make(map[string]func() status)
 	for _, src := range srcPods {
@@ -45,7 +45,7 @@ func (t *kubernetesExternalNameServices) run() error {
 				funcs[name] = (func(src, dst, domain string) func() status {
 					url := fmt.Sprintf("http://%s%s/status/200", dst, domain)
 					return func() status {
-						resp := t.clientRequest(src, url, 1, "-key Host -val httpbin.org")
+						resp := t.clientRequest(src, url, 1, "")
 						if len(resp.code) > 0 && resp.code[0] == httpOk {
 							return nil
 						}
