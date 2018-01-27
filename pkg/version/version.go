@@ -48,6 +48,12 @@ var (
 )
 
 // String produces a single-line version info
+//
+// This looks like:
+//
+// ```
+// user@host-<docker hub>-<version>-<git revision>-<build status>
+// ```
 func (b BuildInfo) String() string {
 	return fmt.Sprintf("%v@%v-%v-%v-%v-%v",
 		b.User,
@@ -59,6 +65,17 @@ func (b BuildInfo) String() string {
 }
 
 // LongForm returns a multi-line version information
+//
+// This looks like:
+//
+// ```
+// Version: <version>
+// GitRevision: <git revision>
+// User: user@host
+// Hub: <docker hub>
+// GolangVersion: go1.9.2
+// BuildStatus: <build status>
+// ```
 func (b BuildInfo) LongForm() string {
 	return fmt.Sprintf(`Version: %v
 GitRevision: %v

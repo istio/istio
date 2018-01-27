@@ -33,7 +33,7 @@ import (
 // ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
 func ConstructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
-	var adapterInfos []adapter.InfoFn = make([]adapter.InfoFn, 0)
+	adapterInfos := make([]adapter.InfoFn, 0)
 	spyAdapters := make([]*spyAdapter.Adapter, 0)
 	for _, b := range adptBehaviors {
 		sa := spyAdapter.NewSpyAdapter(b)

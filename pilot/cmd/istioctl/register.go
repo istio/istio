@@ -20,7 +20,7 @@ import (
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 

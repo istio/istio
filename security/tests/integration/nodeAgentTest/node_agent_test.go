@@ -112,6 +112,8 @@ func TestNodeAgent(t *testing.T) {
 			continue
 		}
 
+		t.Logf("Local root certificate\n%v\nRemote root certificate\n%v\nTimestamp: %v", orgRootCert, rootPEM, time.Now().String())
+
 		if orgRootCert != rootPEM {
 			t.Errorf("invalid root certificate was downloaded")
 		}

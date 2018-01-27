@@ -28,7 +28,7 @@ import (
 // VerifyFields contains the certficate fields to verify in the test.
 type VerifyFields struct {
 	NotBefore   time.Time
-	NotAfter    time.Time
+	TTL         time.Duration // NotAfter - NotBefore
 	ExtKeyUsage []x509.ExtKeyUsage
 	KeyUsage    x509.KeyUsage
 	IsCA        bool
@@ -97,12 +97,12 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		}
 	}
 
-	if na := expectedFields.NotAfter; !na.IsZero() && !na.Equal(cert.NotAfter) {
-		return fmt.Errorf("unexpected value for 'NotAfter' field: want %v but got %v", na, cert.NotAfter)
-	}
-
 	if nb := expectedFields.NotBefore; !nb.IsZero() && !nb.Equal(cert.NotBefore) {
 		return fmt.Errorf("unexpected value for 'NotBefore' field: want %v but got %v", nb, cert.NotBefore)
+	}
+
+	if ttl := expectedFields.TTL; ttl != 0 && ttl != (cert.NotAfter.Sub(cert.NotBefore)) {
+		return fmt.Errorf("unexpected value for 'NotAfter' - 'NotBefore': want %v but got %v", ttl, cert.NotAfter.Sub(cert.NotBefore))
 	}
 
 	if eku := expectedFields.ExtKeyUsage; !reflect.DeepEqual(eku, cert.ExtKeyUsage) {

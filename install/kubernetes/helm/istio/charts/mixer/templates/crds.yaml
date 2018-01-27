@@ -4,6 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rules.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: core
 spec:
@@ -21,6 +22,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: attributemanifests.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: core
 spec:
@@ -38,6 +40,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: deniers.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: denier
     istio: mixer-adapter
 spec:
@@ -55,6 +58,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listcheckers.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: listchecker
     istio: mixer-adapter
 spec:
@@ -73,6 +77,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kuberneteses.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: adapter.template.kubernetes
     istio: mixer-instance
 spec:
@@ -90,6 +95,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kubernetesenvs.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: kubernetesenv
     istio: mixer-adapter
 spec:
@@ -107,6 +113,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: memquotas.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: memquota
     istio: mixer-adapter
 spec:
@@ -124,6 +131,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: noops.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: noop
     istio: mixer-adapter
 spec:
@@ -141,6 +149,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: prometheuses.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: prometheus
     istio: mixer-adapter
 spec:
@@ -158,6 +167,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stackdrivers.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: stackdriver
     istio: mixer-adapter
 spec:
@@ -175,6 +185,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: statsds.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: statsd
     istio: mixer-adapter
 spec:
@@ -192,6 +203,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stdios.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: stdio
     istio: mixer-adapter
 spec:
@@ -209,6 +221,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: svcctrls.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: svcctrl
     istio: mixer-adapter
 spec:
@@ -226,6 +239,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: checknothings.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: checknothing
     istio: mixer-instance
 spec:
@@ -243,6 +257,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listentries.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: listentry
     istio: mixer-instance
 spec:
@@ -260,6 +275,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: logentries.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: logentry
     istio: mixer-instance
 spec:
@@ -277,6 +293,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: metrics.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: metric
     istio: mixer-instance
 spec:
@@ -294,6 +311,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotas.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: quota
     istio: mixer-instance
 spec:
@@ -311,6 +329,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: reportnothings.config.istio.io
   labels:
+    app: {{ template "mixer.name" . }}
     package: reportnothing
     istio: mixer-instance
 spec:

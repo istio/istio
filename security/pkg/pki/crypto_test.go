@@ -35,12 +35,6 @@ AAOBgQCw9dL6xRQSjdYKt7exqlTJliuNEhw/xDVGlNUbDZnT0uL3zXI//Z8tsejn
 8IFzrDtm0Z2j4BmBzNMvYBKL/4JPZ8DFywOyQqTYnGtHIkt41CNjGfqJRk8pIqVC
 hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
 -----END CERTIFICATE REQUEST-----`
-	keyECDSA = `
------BEGIN EC PARAMETERS-----
-MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
-AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
-TmngRSxv/dSvGA==
------END EC PARAMETERS-----`
 
 	keyRSA = `
 -----BEGIN RSA PRIVATE KEY-----
@@ -70,6 +64,55 @@ as/RmwKBgGPB8PHYHyz0km8LxM/GPstcoO4Ls5coS3MX2EBDKGqWOIOtLKz0azc7
 R4beF5BJE6ulhLig4fkOWH4CIvw2Y1/22GJE/fYjUTRMD57ZdYuKqSyMNxwqiolw
 xGSDfnFvR13RCqeUdlQofVYpolqrSobOyOVfQv2ksnPPsC87NISM
 -----END RSA PRIVATE KEY-----`
+
+	keyInvalidRSA = `
+-----BEGIN RSA PRIVATE KEY-----
+-----END RSA PRIVATE KEY-----`
+
+	keyECDSA = `
+-----BEGIN EC PARAMETERS-----
+MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
+AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
+TmngRSxv/dSvGA==
+-----END EC PARAMETERS-----`
+
+	keyInvalidECDSA = `
+-----BEGIN EC PARAMETERS-----
+-----END EC PARAMETERS-----`
+
+	keyPKCS8RSA = `
+-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC5iMw+Cvt0ZAnj
+l5piKgyoFIlCAD2FeKd0CQaUA9sHk7XuWAXUAHWQrNXRIG/d9uZBedOwFQ/D8GCR
+m5uQTTZC/4cww6pXvrVvX3DYe7H3hF8g3cDsHoYuR51LHzFR1lAe/y0XFaRw18Vm
+WNFLnUozEeq1nT0CAyw0iXGa22ptZA3M1G9JJjDrENT6adI/N/19XH9fMiQOOOrT
+zerC9DRVouXgxDsXUz2H25XT3YWu7nVs/ic57BRc3JU4JfYbVR8Br2+lAgPFvLFs
+/HfX2BuvHC64sseIOVfXL7a/EaOVQhD9NKL7K+5faX21JAfN40f+qwfNLJrrUjHu
+7UMpZbJVAgMBAAECggEBAJQ6RarfzUuMzRXGvjHlFF2IoqxXUs96uJYMy/OfLPNd
+wIEeU/GvOD4Qx3afqqA0LHttIIHSIdlSB2TtZBiih1J5ogGEoWge1geXwalDEckF
+OZchc4txS5RX5MPqtNWEGljZV6XUxZ7d1DjThssZa/lnPBRC/kXIUR3cHSYyXFHt
+vA4vY4tVmH1TDUY51A64qKO5dg/Jupn1AHVnoU8eGGD31pISmlZdy64rBMdx9Ac5
+u30rGP4RWR9YCSZRFtoxL2d0VoEdKAx1qN0/rPYPNUK1EIFO8kW4voNlUfyGDTLX
+TdYBX5Stmm3ws6MAoJJKdpBLWmiJgqOjaiYlf/7y+zUCgYEA5mogVNiba2KRP85O
+QOH2ugY1dPiiJLm6QTub7Aygy8lc6WQGa2TXBUpqGYp4rs0wjBnkhtIoErZM8cxu
+ENj8dGBikfEJq95NcOMx6wsQYKRWX9JwDzNrLyUCtKK+B3kO8daHzHWTPB7mNkHF
+Y91PZLmzSCdAsqxI5VHo0mzStMsCgYEAziLizDE4Q+IpNvzpGo+TxOJILTYdf1HC
+OdoaWMKU1Hl6TyWGXon0/ZfAI+jxjT9sI4/Slr5ED86FT0iaIOcSgvl8PmbcvMrM
+m3Nj/ZVM3EPzo8EW/LNFlZreheIuvuSwUvnzlWaWZdWJ5/z0M7Is05NsF2v5QlON
+OVd/b3pVcV8CgYEAhIDTRvepqP9t9/t0FOvdLu0TIMk6tVP5QDo/WGeKsKaDv9O9
+vVSoMmqwyS9QZ3WoTWk2ejGwydH8PbEKOrYNt/8VsEelACk+74Q32KrsKCdZZJFn
+z9YJ9XqbK7XLAhEj/v8X6QRUP2aljN4V3XAPkCUabIvmMNnSsc2AzkG2ijECgYB6
+BtTTo9928A8N6jHj81K6nmmzufFESZX8wUwPd0C7dx4cdE5S8MACzy6DE4bK4tyV
+QLKdYgzQfqUUBhqXl7KxrhcKqcHKURNGgsySdSuGyQMV0VxWQ5nRslhAUWDyyFZJ
+CIZVzuEBb6OvnWLCp5s5tG+sfdKUnPlhFJbv2y9xaQKBgCp1g3NtljkH1Olk+kFF
+LwxpTxIxS/8jZIM6MpfcmLPyZVRrpUORgkphXvLVXub+anNqGbK0Cbc30KQGnFKD
+PFsekZAmhgetPqL16MQSEZbXRSnGiklqQtew79S/yQDwZVCer8n1ABp5eZ2wsLgu
+92ik2sTgTEhef6AgLeHcT5ne
+-----END PRIVATE KEY-----`
+
+	keyInvalidPKCS8 = `
+-----BEGIN PRIVATE KEY-----
+-----END PRIVATE KEY-----`
 
 	certRSA = `
 -----BEGIN CERTIFICATE-----
@@ -121,9 +164,9 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			publicKeyAlgo: x509.RSA,
 			pem:           certRSA,
 		},
-		"Parse ECDSA cert": {
-			pem:           certECDSA,
+		"Parse ECDSA certificate": {
 			publicKeyAlgo: x509.ECDSA,
+			pem:           certECDSA,
 		},
 	}
 
@@ -175,26 +218,24 @@ func TestParsePemEncodedCSR(t *testing.T) {
 
 func TestParsePemEncodedKey(t *testing.T) {
 	testCases := map[string]struct {
-		errMsg  string
 		pem     string
 		keyType reflect.Type
+		errMsg  string
 	}{
 		"Invalid PEM string": {
-			errMsg: "invalid PEM-encoded key",
 			pem:    "Invalid PEM string",
+			errMsg: "invalid PEM-encoded key",
 		},
 		"Invalid PEM block type": {
-			errMsg: "unsupported PEM block type for a private key: CERTIFICATE",
 			pem:    certRSA,
+			errMsg: "unsupported PEM block type for a private key: CERTIFICATE",
 		},
 		"Parse RSA key": {
 			pem:     keyRSA,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
 		"Parse invalid RSA key": {
-			pem: `
------BEGIN RSA PRIVATE KEY-----
------END RSA PRIVATE KEY-----`,
+			pem:    keyInvalidRSA,
 			errMsg: "failed to parse the RSA private key",
 		},
 		"Parse ECDSA key": {
@@ -202,10 +243,16 @@ func TestParsePemEncodedKey(t *testing.T) {
 			keyType: reflect.TypeOf(&ecdsa.PrivateKey{}),
 		},
 		"Parse invalid ECDSA key": {
-			pem: `
------BEGIN EC PARAMETERS-----
------END EC PARAMETERS-----`,
+			pem:    keyInvalidECDSA,
 			errMsg: "failed to parse the ECDSA private key",
+		},
+		"Parse PKCS8 key using RSA algorithm": {
+			pem:     keyPKCS8RSA,
+			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
+		},
+		"Parse invalid PKCS8 key": {
+			pem:    keyInvalidPKCS8,
+			errMsg: "failed to parse the PKCS8 private key",
 		},
 	}
 
