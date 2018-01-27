@@ -24,7 +24,9 @@ import environment_config
 import istio_common_dag
 
 dag, copy_files = istio_common_dag.MakeCommonDag(
-    'istio_monthly_release', schedule_interval=environment_config.MONTHLY_RELEASE_TRIGGER, monthly=True)
+    'istio_monthly_release',
+    schedule_interval=environment_config.MONTHLY_RELEASE_TRIGGER,
+    monthly=True)
 
 monthly_release_template = """
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}

@@ -178,6 +178,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     git config --global user.email "testrunner@istio.io"
     git clone {{ settings.MFEST_URL }} green-builds || exit 2
     pushd green-builds
+    git checkout {{ settings.MFEST_COMMIT }} || exit 5
     SHA=`grep {{ settings.GITHUB_ORG }}/{{ settings.GITHUB_REPO }} {{ settings.MFEST_FILE }} | cut -f 6 -d \\"` || exit 3
     if [ -z ${SHA} ]; then
       echo "SHA not found"
@@ -191,7 +192,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
     gsutil cp *.json gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/
     popd
     pushd green-builds
-    git checkout {{ settings.MFEST_COMMIT }} || exit 5
     git rev-parse HEAD
     """
 
@@ -234,7 +234,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
   run_release_quilification_tests = BashOperator(
       task_id='run_release_quilification_tests',
       bash_command=test_command,
-      retries=2,
+      retries=0,
       dag=common_dag)
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
