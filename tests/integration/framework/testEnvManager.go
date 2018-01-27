@@ -21,6 +21,7 @@ import (
 	"time"
 
 	u "istio.io/istio/tests/util"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 var (
@@ -34,29 +35,39 @@ type runnable interface {
 
 // TestEnvManager is core test framework struct
 type TestEnvManager struct {
-	TestEnv     TestEnv
-	TestID      string
-	Components  []Component
+	testEnv     TestEnv
+	testID      string
 	skipCleanup bool
 }
 
 // NewTestEnvManager creates a TestEnvManager with a given environment and ID
 func NewTestEnvManager(env TestEnv, id string) *TestEnvManager {
 	return &TestEnvManager{
-		TestEnv:     env,
-		Components:  env.GetComponents(),
-		TestID:      id,
+		testEnv:     env,
+		testID:      id,
 		skipCleanup: *skipCleanup,
 	}
 }
 
+func (envManager *TestEnvManager) GetEnv() TestEnv {
+	return envManager.testEnv
+}
+
+func (envManager *TestEnvManager) GetID() string {
+	return envManager.testID
+}
+
+func (envManager *TestEnvManager) GetComponents() []Component {
+	return envManager.testEnv.GetComponents()
+}
+
 // StartUp sets up the whole environment as well brings up components
 func (envManager *TestEnvManager) StartUp() (err error) {
-	if err = envManager.TestEnv.Bringup(); err != nil {
+	if err = envManager.testEnv.Bringup(); err != nil {
 		log.Printf("Failed to bring up environment")
 		return
 	}
-	for _, comp := range envManager.Components {
+	for _, comp := range envManager.components {
 		if err := comp.Start(); err != nil {
 			log.Printf("Failed to setup component: %s", comp.GetName())
 			return err
@@ -68,7 +79,7 @@ func (envManager *TestEnvManager) StartUp() (err error) {
 		return err
 	}
 
-	log.Printf("Successfully started environment %s", envManager.TestEnv.GetName())
+	log.Printf("Successfully started environment %s", envManager.testEnv.GetName())
 	return
 }
 
@@ -79,7 +90,7 @@ func (envManager *TestEnvManager) TearDown() {
 		return
 	}
 
-	for _, comp := range envManager.Components {
+	for _, comp := range envManager.components {
 		if alive, err := comp.IsAlive(); err != nil {
 			log.Printf("Failed to check if componment %s is alive: %s", comp.GetName(), err)
 		} else if alive {
@@ -91,7 +102,7 @@ func (envManager *TestEnvManager) TearDown() {
 			log.Printf("Failed to cleanup %s: %s", comp.GetName(), err)
 		}
 	}
-	_ = envManager.TestEnv.Cleanup()
+	_ = envManager.testEnv.Cleanup()
 }
 
 // WaitUntilReady checks and waits until the whole environment is ready
@@ -105,7 +116,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 
 	ready := false
 	retryFn := func(i int) error {
-		for _, comp := range envManager.Components {
+		for _, comp := range envManager.components {
 			if alive, err := comp.IsAlive(); err != nil {
 				return fmt.Errorf("unable to comfirm compoment %s is alive %v", comp.GetName(), err)
 			} else if !alive {
