@@ -381,7 +381,7 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp -f ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	cp -f ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-injector} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_injector:${TAG} -f Dockerfile.sidecar_injector .)
