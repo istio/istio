@@ -98,6 +98,7 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 	}
 }
 
+// CopyCoreFiles copies files from a pod to the machine
 func CopyCoreFiles(pod, ns, source, dest string) {
 	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar
 	cmd := fmt.Sprintf("kubectl cp %s/%s:%s %s",
