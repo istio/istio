@@ -36,7 +36,7 @@ data:
           privileged: true
       containers:
       - name: istio-proxy
-        image: {PILOT_HUB}/{PROXY_IMAGE}:{PILOT_TAG}
+        image: {PILOT_HUB}/proxy_debug:{PILOT_TAG}
         args:
         - proxy
         - sidecar

@@ -68,6 +68,7 @@ function run_update() {
 
 pushd ${ROOT}
 cp LICENSE README.md "${OUTPUT_PATH}/"
+cp -r tools "${OUTPUT_PATH}/"
 popd
 
 # generate a test set of tars for images on GCR

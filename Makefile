@@ -135,8 +135,16 @@ depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
 
-lint:
+# Existence of build cache .a files actually affects the results of
+# some linters; they need to exist.
+lint: buildcache
 	SKIP_INIT=1 bin/linters.sh
+
+# Build with -i to store the build caches into $GOPATH/pkg
+buildcache:
+	GOBUILDFLAGS=-i $(MAKE) build
+
+.PHONY: buildcache
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
