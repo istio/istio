@@ -338,10 +338,8 @@ PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client $
 $(PILOT_TEST_BINS): depend
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
-# circleci expects this to end up in the bin directory
 test-bins: $(PILOT_TEST_BINS)
 	go build -o ${ISTIO_OUT}/pilot-integration-test istio.io/istio/pilot/test/integration
-	cp ${ISTIO_OUT}/pilot-integration-test ${ISTIO_BIN}/
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -456,7 +454,7 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: artifacts push.istioctl-all artifacts installgen
+.PHONY: artifacts gcs.push.istioctl-all artifacts installgen
 
 # for now docker is limited to Linux compiles
 ifeq ($(GOOS),linux)
@@ -465,7 +463,7 @@ include tools/istio-docker.mk
 
 endif # end of docker block that's restricted to Linux
 
-push.istioctl-all: istioctl-all
+gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
 
 artifacts: docker
