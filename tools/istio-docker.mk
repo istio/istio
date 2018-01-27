@@ -31,11 +31,11 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
-               mixer/deploy/kube/conf/start.sh \
+GRAFANA_FILES:=mixer/deploy/kube/conf/start.sh \
                mixer/deploy/kube/conf/grafana-dashboard.json \
                mixer/deploy/kube/conf/mixer-dashboard.json \
-               mixer/deploy/kube/conf/pilot-dashboard.json
+               mixer/deploy/kube/conf/pilot-dashboard.json \
+               mixer/deploy/kube/conf/import_dashboard.sh
 
 # note that "viz" is a directory rather than a file
 $(ISTIO_DOCKER)/viz: mixer/example/servicegraph/js/viz | $(ISTIO_DOCKER)
