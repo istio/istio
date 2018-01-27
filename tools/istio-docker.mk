@@ -12,12 +12,9 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
-.PHONY: docker docker.prebuilt
+.PHONY: docker
 
 docker: docker.all
-
-# Build docker images for pilot, mixer, ca using prebuilt binaries
-docker.prebuilt: docker.tag
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@

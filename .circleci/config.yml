@@ -44,7 +44,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init go-build test-bins docker.prebuilt
+      - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
@@ -75,7 +75,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init go-build test-bins docker.prebuilt
+      - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -110,7 +110,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init go-build test-bins docker.prebuilt
+      - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -146,10 +146,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init go-build test-bins docker.prebuilt
+      - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPS="-mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -176,10 +176,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init go-build test-bins docker.prebuilt
+      - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPS="-mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -327,7 +327,7 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            make init go-build test-bins
+            make build test-bins
       - persist_to_workspace:
           root: /go
           paths:
@@ -401,8 +401,8 @@ jobs:
             export PATH=/go/go/bin:$PATH
             export GOROOT=/go/go
             cd /go/src/istio.io/istio
-            make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-            make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
       - store_artifacts:
           path: /go/bin
 
