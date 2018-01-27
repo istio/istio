@@ -192,7 +192,7 @@ const FailedReportAttributes = `
 
 func TestJWTAuth(t *testing.T) {
 	s := env.NewTestSetupV2(env.JWTAuthTest, t)
-	// pubkey server is the same as backend bootstrap.
+	// pubkey server is the same as backend server.
 	// Empty audiences.
 	env.AddJwtAuth(s.V2().HTTPServerConf, &mccpb.JWT{
 		Issuer:              JwtIssuer,
