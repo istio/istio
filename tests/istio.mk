@@ -3,7 +3,8 @@ ifeq (${TEST_ENV},minikube)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
-export KUBECONFIG=${ISTIO_OUT}/minikube.conf
+# Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
+export KUBECONFIG=${ISTIO_OUT}/../../../minikube.conf
 export TEST_ENV=minikube
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
@@ -20,7 +21,8 @@ else ifeq (${TEST_ENV},minikube-none)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
-export KUBECONFIG=${ISTIO_OUT}/minikube.conf
+# Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
+export KUBECONFIG=${ISTIO_OUT}/../../../minikube.conf
 export TEST_ENV=minikube-none
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
