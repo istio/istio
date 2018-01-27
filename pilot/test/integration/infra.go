@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017,2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -262,7 +262,9 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-
+	if err := deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 	return nil
 }
 
