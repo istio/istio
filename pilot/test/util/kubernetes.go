@@ -98,6 +98,14 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 	}
 }
 
+func CopyCoreFiles(pod, ns, source, dest string) {
+	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar
+	cmd := fmt.Sprintf("kubectl cp %s/%s:%s %s",
+		ns, pod, source, dest)
+	output, _ := Shell(cmd)
+	log.Errorf("%s\n%s", cmd, output)
+}
+
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
 // from "app" label value to the pod names.
 func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (map[string][]string, error) {

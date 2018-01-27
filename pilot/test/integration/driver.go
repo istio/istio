@@ -87,6 +87,7 @@ func init() {
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
 	flag.BoolVar(&params.Mixer, "mixer", true, "Enable / disable mixer.")
 	flag.StringVar(&params.errorLogsDir, "errorlogsdir", "", "Store per pod logs as individual files in specific directory instead of writing to stderr.")
+	flag.StringVar(&params.coreFilesDir, "core-files-dir", "", "Copy core files to this directory on the Kubernetes node machine.")
 
 	// If specified, only run one test
 	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")

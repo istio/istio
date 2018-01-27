@@ -87,6 +87,7 @@ func (a *accessLogs) check(infra *infra) error {
 				logs := util.FetchLogs(client, pod, ns, container)
 
 				if strings.Contains(logs, "segmentation fault") {
+					util.CopyCoreFiles(pod, ns, "/etc/istio/proxy/core*", infra.coreFilesDir)
 					return fmt.Errorf("segmentation fault %s log: %s", pod, logs)
 				}
 

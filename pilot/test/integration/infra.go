@@ -82,6 +82,9 @@ type infra struct { // nolint: maligned
 	// store error logs in specific directory
 	errorLogsDir string
 
+	// copy core files in this directory on the Kubernetes node machine
+	coreFilesDir string
+
 	namespaceCreated      bool
 	istioNamespaceCreated bool
 	debugImagesAndMode    bool
