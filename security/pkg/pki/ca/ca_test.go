@@ -363,7 +363,10 @@ func TestSignCSR(t *testing.T) {
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected := buildSubjectAltNameExtension(host)
+	expected, err := buildSubjectAltNameExtension(host)
+	if err != nil {
+		t.Error(err)
+	}
 	if !reflect.DeepEqual(expected, san) {
 		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
 	}
@@ -405,7 +408,10 @@ func createCA() (CertificateAuthority, error) {
 		Org:          "Root CA",
 		RSAKeySize:   2048,
 	}
-	rootCertBytes, rootKeyBytes := GenCert(rootCAOpts)
+	rootCertBytes, rootKeyBytes, err := GenCert(rootCAOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	rootCert, err := pki.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
@@ -426,7 +432,10 @@ func createCA() (CertificateAuthority, error) {
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
 	}
-	intermediateCert, intermediateKey := GenCert(intermediateCAOpts)
+	intermediateCert, intermediateKey, err := GenCert(intermediateCAOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	caOpts := &IstioCAOptions{
 		CertChainBytes:   intermediateCert,

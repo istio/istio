@@ -29,13 +29,9 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
-	"os"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 )
 
@@ -80,13 +76,8 @@ type CertOptions struct {
 // URIScheme is the URI scheme for Istio identities.
 const URIScheme = "spiffe"
 
-func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
-	os.Exit(-1)
-}
-
 // GenCert generates a X.509 certificate and a private key with the given options.
-func GenCert(options CertOptions) ([]byte, []byte) {
+func GenCert(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
 	// Generates a RSA private&public key pair.
 	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed
@@ -94,19 +85,24 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// as specified in the CertOptions.
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		fatalf("Cert generation fails at RSA key generation (%v)", err)
+		return nil, nil, fmt.Errorf("cert generation fails at RSA key generation (%v)", err)
 	}
-	template := genCertTemplate(options)
-	signerCert, signerKey := &template, crypto.PrivateKey(priv)
+	template, err := genCertTemplate(options)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
+	}
+	signerCert, signerKey := template, crypto.PrivateKey(priv)
 	if !options.IsSelfSigned {
 		signerCert, signerKey = options.SignerCert, options.SignerPriv
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
-		fatalf("Cert generation fails at X509 cert creation (%v)", err)
+		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	return encodePem(false, certBytes, priv)
+	pemCert, pemKey = encodePem(false, certBytes, priv)
+	err = nil
+	return
 }
 
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
@@ -147,17 +143,17 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []by
 	return csrOrCertPem, privPem
 }
 
-func genSerialNum() *big.Int {
+func genSerialNum() (*big.Int, error) {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
 	if err != nil {
-		fatalf("Serial number generation failure (%v)", err)
+		return nil, fmt.Errorf("serial number generation failure (%v)", err)
 	}
-	return serialNum
+	return serialNum, nil
 }
 
 // genCertTemplate generates a certificate template with the given options.
-func genCertTemplate(options CertOptions) x509.Certificate {
+func genCertTemplate(options CertOptions) (*x509.Certificate, error) {
 	var keyUsage x509.KeyUsage
 	if options.IsCA {
 		// If the cert is a CA cert, the private key is allowed to sign other certificate.
@@ -181,8 +177,13 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		notBefore = time.Now()
 	}
 
-	template := x509.Certificate{
-		SerialNumber: genSerialNum(),
+	serialNum, err := genSerialNum()
+	if err != nil {
+		return nil, err
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: serialNum,
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
@@ -194,7 +195,10 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 	}
 
 	if h := options.Host; len(h) > 0 {
-		s := buildSubjectAltNameExtension(h)
+		s, err := buildSubjectAltNameExtension(h)
+		if err != nil {
+			return nil, err
+		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
@@ -202,10 +206,10 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 	}
-	return template
+	return template, nil
 }
 
-func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
+func buildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 	ids := []pki.Identity{}
 	for _, host := range strings.Split(hosts, ",") {
 		if ip := net.ParseIP(host); ip != nil {
@@ -223,8 +227,8 @@ func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
 
 	san, err := pki.BuildSANExtension(ids)
 	if err != nil {
-		fatalf("SAN extension building failure (%v)", err)
+		return nil, fmt.Errorf("SAN extension building failure (%v)", err)
 	}
 
-	return san
+	return san, nil
 }
