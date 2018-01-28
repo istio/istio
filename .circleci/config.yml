@@ -149,7 +149,7 @@ jobs:
       - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs
       - store_artifacts:
           path: /home/circleci/logs
 
