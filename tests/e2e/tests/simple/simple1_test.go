@@ -32,8 +32,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
@@ -160,13 +158,13 @@ func Test404sDuringChanges(t *testing.T) {
 	rulePath2 := util.GetResourcePath(routingR2Yaml)
 	go func() {
 		time.Sleep(9 * time.Second)
-		glog.Infof("Changing rules mid run to v1/v2")
+		log.Infof("Changing rules mid run to v1/v2")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
 			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
 			return
 		}
 		time.Sleep(4 * time.Second)
-		glog.Infof("Changing rules mid run to a/b")
+		log.Infof("Changing rules mid run to a/b")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
 			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
 			return
@@ -183,8 +181,8 @@ func Test404sDuringChanges(t *testing.T) {
 			Duration:   20 * time.Second,
 			NumThreads: 8,
 		},
-		URL: url,
 	}
+	opts.URL = url
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
@@ -201,7 +199,7 @@ func Test503sWithPartialRules(t *testing.T) {
 	rulePath := util.GetResourcePath(routingRNPYaml)
 	go func() {
 		time.Sleep(9 * time.Second)
-		glog.Infof("Changing rules with some non existent destination, mid run")
+		log.Infof("Changing rules with some non existent destination, mid run")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
 			t.Errorf("istiocrl create rule %s failed", routingRNPYaml)
 			return
@@ -216,8 +214,8 @@ func Test503sWithPartialRules(t *testing.T) {
 			Duration:   20 * time.Second,
 			NumThreads: 8,
 		},
-		URL: url,
 	}
+	opts.URL = url
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
