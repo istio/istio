@@ -34,7 +34,7 @@ Others docs you should look at:
       - Please consider package name when selecting an interface name, and avoid
       redundancy. For example, use `adapter.AspectConfig` instead of `adapter.AdapterConfig`.
 
-      - Must use lowerCamel case for Go package names.
+      - Must use lowercase for Go package names.
 
       - Must use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
 
