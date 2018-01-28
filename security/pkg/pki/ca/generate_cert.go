@@ -46,8 +46,11 @@ type CertOptions struct {
 	// like kubernetes service account.
 	Host string
 
-	// The validity bounds of the issued certificate.
-	NotBefore, NotAfter time.Time
+	// The NotBefore field of the issued certificate.
+	NotBefore time.Time
+
+	// TTL of the certificate. NotAfter - NotBefore
+	TTL time.Duration
 
 	// Signer certificate (PEM encoded).
 	SignerCert *x509.Certificate
@@ -76,23 +79,6 @@ type CertOptions struct {
 
 // URIScheme is the URI scheme for Istio identities.
 const URIScheme = "spiffe"
-
-// GenCSR generates a X.509 certificate sign request and private key with the given options.
-func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	// Generates a CSR
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
-	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at RSA key generation (%v)", err)
-	}
-	template := GenCSRTemplate(options)
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, crypto.PrivateKey(priv))
-	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at X509 cert request generation (%v)", err)
-	}
-
-	csr, privKey := encodePem(true, csrBytes, priv)
-	return csr, privKey, nil
-}
 
 func fatalf(template string, args ...interface{}) {
 	log.Errorf(template, args)
@@ -123,18 +109,6 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	return encodePem(false, certBytes, priv)
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
-	encodeMsg := "CERTIFICATE"
-	if isCSR {
-		encodeMsg = "CERTIFICATE REQUEST"
-	}
-	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
-
-	privDer := x509.MarshalPKCS1PrivateKey(priv)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return csrOrCertPem, privPem
-}
-
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
 //   signerCertFile: cert file name
 //   signerPrivFile: private key file name
@@ -161,6 +135,18 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	return cert, key, nil
 }
 
+func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+	encodeMsg := "CERTIFICATE"
+	if isCSR {
+		encodeMsg = "CERTIFICATE REQUEST"
+	}
+	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
+
+	privDer := x509.MarshalPKCS1PrivateKey(priv)
+	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
+	return csrOrCertPem, privPem
+}
+
 func genSerialNum() *big.Int {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
@@ -168,22 +154,6 @@ func genSerialNum() *big.Int {
 		fatalf("Serial number generation failure (%v)", err)
 	}
 	return serialNum
-}
-
-// GenCSRTemplate generates a certificateRequest template with the given options.
-func GenCSRTemplate(options CertOptions) x509.CertificateRequest {
-	template := x509.CertificateRequest{
-		Subject: pkix.Name{
-			Organization: []string{options.Org},
-		},
-	}
-
-	if h := options.Host; len(h) > 0 {
-		s := buildSubjectAltNameExtension(h)
-		template.ExtraExtensions = []pkix.Extension{*s}
-	}
-
-	return template
 }
 
 // genCertTemplate generates a certificate template with the given options.
@@ -205,13 +175,19 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageClientAuth)
 	}
 
+	notBefore := options.NotBefore
+	// If NotBefore is unset, use current time.
+	if notBefore.IsZero() {
+		notBefore = time.Now()
+	}
+
 	template := x509.Certificate{
 		SerialNumber: genSerialNum(),
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
-		NotBefore:             options.NotBefore,
-		NotAfter:              options.NotAfter,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsages,
 		BasicConstraintsValid: true,

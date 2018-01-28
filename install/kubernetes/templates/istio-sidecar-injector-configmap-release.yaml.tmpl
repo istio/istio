@@ -22,21 +22,9 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      - args:
-        - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-          unlimited
-        command:
-        - /bin/sh
-        image: alpine
-        imagePullPolicy: IfNotPresent
-        name: enable-core-dump
-        resources: {}
-        securityContext:
-          privileged: true
       containers:
       - name: istio-proxy
-        image: {PILOT_HUB}/{PROXY_IMAGE}:{PILOT_TAG}
+        image: {PILOT_HUB}/proxy:{PILOT_TAG}
         args:
         - proxy
         - sidecar

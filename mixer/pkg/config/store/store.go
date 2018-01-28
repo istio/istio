@@ -67,8 +67,14 @@ type ResourceMeta struct {
 
 // BackEndResource represents a resources with a raw spec
 type BackEndResource struct {
+	Kind     string
 	Metadata ResourceMeta
 	Spec     map[string]interface{}
+}
+
+// Key returns the key of the resource in the store.
+func (ber *BackEndResource) Key() Key {
+	return Key{Kind: ber.Kind, Name: ber.Metadata.Name, Namespace: ber.Metadata.Namespace}
 }
 
 // Resource represents a resources with converted spec.
@@ -211,6 +217,12 @@ func (s *store) List() map[Key]*Resource {
 	return result
 }
 
+// WithBackend creates a new Store with a certain backend. This should be used
+// only by tests.
+func WithBackend(b Backend) Store {
+	return &store{backend: b}
+}
+
 // Builder is the type of function to build a Backend.
 type Builder func(u *url.URL) (Backend, error)
 
@@ -250,8 +262,6 @@ func (r *Registry) NewStore(configURL string) (Store, error) {
 	switch u.Scheme {
 	case FSUrl:
 		b = newFsStore(u.Path)
-	case memstoreScheme:
-		b = createOrGetMemstore(u.String())
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
 			b, err = builder(u)

@@ -363,7 +363,7 @@ func TestEnvoyRun(t *testing.T) {
 
 	config.ConfigPath = "tmp"
 
-	envoyConfig := buildConfig(config, nil)
+	envoyConfig := BuildConfig(config, nil)
 	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
 	abortCh := make(chan error, 1)
 

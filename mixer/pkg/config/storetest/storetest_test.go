@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package store
+package storetest
 
 import (
 	"context"
@@ -21,18 +21,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
-
-func TestGetMemstoreWriter(t *testing.T) {
-	u := "memstore://" + t.Name()
-	mw := GetMemstoreWriter(u)
-	if mw == nil {
-		t.Fatal("Failed to get memstore writer")
-	}
-
-	if mw2 := GetMemstoreWriter(u); mw != mw2 {
-		t.Errorf("Two invocation of GetMemstoreWriter needs to return the same object: %s", u)
-	}
-}
 
 const cfg1 = `
 kind: rule
@@ -65,7 +53,7 @@ const errCfg = `
 kind: 1
 `
 
-func TestSetupMemstore(t *testing.T) {
+func TestSetupStore(t *testing.T) {
 	for _, c := range []struct {
 		title   string
 		configs []string
@@ -98,15 +86,13 @@ func TestSetupMemstore(t *testing.T) {
 		},
 	} {
 		t.Run(c.title, func(t *testing.T) {
-			u := "memstore://" + t.Name()
-			err := SetupMemstore(u, c.configs...)
+			s, err := SetupStoreForTest(c.configs...)
 			gotOK := err == nil
 			if c.ok != gotOK {
 				t.Fatalf("Failed the setup: got %v(error %v), want %v", gotOK, err, c.ok)
 			}
-			s, err := NewRegistry().NewStore(u)
 			if err != nil {
-				t.Fatal(err)
+				return
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
