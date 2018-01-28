@@ -59,10 +59,10 @@ func (t *kubernetesExternalNameServices) run() error {
 				name := fmt.Sprintf("HTTP connection from %s to %s%s", src, dst, domain)
 				funcs[name] = (func(src, dst, domain string) func() status {
 					url := fmt.Sprintf("http://%s%s", dst, domain)
-                                        extra := ""
-                                        if !withIstioProxy {
-                                            extra = "-key Host -val " + externalHost
-                                        }
+					extra := ""
+					if !withIstioProxy {
+						extra = "-key Host -val " + externalHost
+					}
 					return func() status {
 						resp := t.clientRequest(src, url, 1, extra)
 						if len(resp.code) > 0 && resp.code[0] == httpOk {
