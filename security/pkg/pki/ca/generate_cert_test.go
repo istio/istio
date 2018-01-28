@@ -99,7 +99,11 @@ func TestGenCert(t *testing.T) {
 		RSAKeySize:   512,
 	}
 
-	caCertPem, caPrivPem := GenCert(caCertOptions)
+	caCertPem, caPrivPem, err := GenCert(caCertOptions)
+	if err != nil {
+		t.Error(err)
+	}
+
 	fields := &tu.VerifyFields{
 		NotBefore:   caCertNotBefore,
 		TTL:         caCertTTL,
@@ -108,7 +112,7 @@ func TestGenCert(t *testing.T) {
 		IsCA:        true,
 		Org:         "MyOrg",
 	}
-	if err := tu.VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields); err != nil {
+	if tu.VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
 		t.Error(err)
 	}
 
@@ -277,7 +281,10 @@ func TestGenCert(t *testing.T) {
 
 	for _, c := range cases {
 		certOptions := c.certOptions
-		certPem, privPem := GenCert(certOptions)
+		certPem, privPem, err := GenCert(certOptions)
+		if err != nil {
+			t.Error(err)
+		}
 		if e := tu.VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); e != nil {
 			t.Error(e)
 		}

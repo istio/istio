@@ -202,7 +202,10 @@ func TestUpdateSecret(t *testing.T) {
 			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _ := ca.GenCert(opts)
+		bs, _, err := ca.GenCert(opts)
+		if err != nil {
+			t.Error(err)
+		}
 		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)
