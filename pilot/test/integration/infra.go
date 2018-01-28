@@ -268,6 +268,9 @@ func (infra *infra) setup() error {
 	if err := deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
 		return err
 	}
+	if err := deploy("externalbin.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 	return nil
 }
 

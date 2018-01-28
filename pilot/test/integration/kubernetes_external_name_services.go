@@ -27,15 +27,23 @@ func (t *kubernetesExternalNameServices) String() string {
 }
 
 func (t *kubernetesExternalNameServices) setup() error {
+	if err := t.applyConfig("rule-rewrite-authority-externalbin.yaml.tmpl", nil); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (t *kubernetesExternalNameServices) teardown() {
+	log.Info("Cleaning up route rules...")
+	if err := t.deleteAllConfigs(); err != nil {
+		log.Warna(err)
+	}
 }
 
 func (t *kubernetesExternalNameServices) run() error {
+
 	srcPods := []string{"a", "b", "t"}
-	dstServices := []string{"externalwikipedia"}
+	dstServices := []string{"externalwikipedia", "externalbin"}
 
 	funcs := make(map[string]func() status)
 	for _, src := range srcPods {
