@@ -427,7 +427,9 @@ NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
 
 GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
                mixer/deploy/kube/conf/start.sh \
-               mixer/deploy/kube/conf/grafana-dashboard.json
+               mixer/deploy/kube/conf/grafana-dashboard.json \
+               mixer/deploy/kube/conf/mixer-dashboard.json \
+               mixer/deploy/kube/conf/pilot-dashboard.json
 
 # copied/generated files for docker build
 
