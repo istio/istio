@@ -11,11 +11,17 @@ FROM    circleci/golang:1.9
 
 # Also installed docker, docker-compose, dockerize, jq
 
-RUN     go get github.com/coreos/etcd/cmd/etcd
-
 ARG     K8S_VER=v1.7.4
 ARG     MASTER_IP=127.0.0.1
 ARG     MASTER_CLUSTER_IP=10.99.0.1
+
+ARG     ETCD_VER=v3.2.15
+RUN     cd /tmp && \
+        curl -L -o etcd.tgz https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz && \
+        tar xzf etcd.tgz && \
+        sudo mv etcd-${ETCD_VER}-linux-amd64/etcd /usr/local/bin/etcd && \
+        rm -rf etcd*
+
 RUN     mkdir -p /tmp/apiserver && \
         cd /tmp/apiserver && \
         wget https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kube-apiserver && \

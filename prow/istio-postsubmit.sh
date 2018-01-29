@@ -43,7 +43,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
   # Use volume mount from pilot-presubmit job's pod spec.
   # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
+  ln -sf "${HOME}/.kube/config" pilot/pkg/kube/config
 else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"

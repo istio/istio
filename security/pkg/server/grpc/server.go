@@ -53,7 +53,7 @@ type Server struct {
 // proper validation (e.g. authentication) and upon validated, signs the CSR
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
-func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
+func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
@@ -84,7 +84,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
-	response := &pb.Response{
+	response := &pb.CsrResponse{
 		IsApproved:      true,
 		SignedCertChain: cert,
 	}

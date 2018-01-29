@@ -88,16 +88,17 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 	if err != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", err)
 
-		now := time.Now()
 		options := CertOptions{
-			NotBefore:    now,
-			NotAfter:     now.Add(caCertTTL),
+			TTL:          caCertTTL,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
 		}
-		pemCert, pemKey := GenCert(options)
+		pemCert, pemKey, err := GenCert(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate cert and key for Istio CA: %v", err)
+		}
 
 		opts.SigningCertBytes = pemCert
 		opts.SigningKeyBytes = pemKey
@@ -115,7 +116,7 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 			},
 			Type: istioCASecretType,
 		}
-		_, err := core.Secrets(namespace).Create(secret)
+		_, err = core.Secrets(namespace).Create(secret)
 		if err != nil {
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
@@ -177,11 +178,14 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
 	}
 
-	tmpl := ca.generateCertificateTemplate(csr, ttl)
+	tmpl, err := ca.generateCertificateTemplate(csr, ttl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate cert template (%v)", err)
+	}
 
 	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate cert (%v)", err)
 	}
 
 	block := &pem.Block{
@@ -196,13 +200,18 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return chain, nil
 }
 
-func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest, ttl time.Duration) *x509.Certificate {
+func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest, ttl time.Duration) (*x509.Certificate, error) {
 	exts := append(request.Extensions, request.ExtraExtensions...)
+
+	serialNumber, err := genSerialNum()
+	if err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 
 	return &x509.Certificate{
-		SerialNumber: genSerialNum(),
+		SerialNumber: serialNumber,
 		Subject:      request.Subject,
 		NotAfter:     now.Add(ttl),
 		NotBefore:    now,
@@ -215,7 +224,7 @@ func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest,
 		EmailAddresses:        request.EmailAddresses,
 		IPAddresses:           request.IPAddresses,
 		SignatureAlgorithm:    request.SignatureAlgorithm,
-	}
+	}, nil
 }
 
 // verify that the cert chain, root cert and signing key/cert match.
