@@ -64,6 +64,7 @@ func newController() (*Controller, error) {
 	c.rpcServer.HandleHTTP(c.rpcPath, rpcDebugPath)
 
 	go func() {
+		// Use locally captured listener, as the listener field on s can change underneath us.
 		_ = http.Serve(l, nil)
 	}()
 
