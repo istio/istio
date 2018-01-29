@@ -83,7 +83,7 @@ def ReportMonthlySuccessful(task_instance, **kwargs):
     Variable.set('released_version_patch', patch)
   except (IndexError, AttributeError):
     logging.error('Could not extract released version infomation. \n'
-                  'Please manual set airflow version Variables manualy.'
+                  'Please set airflow version Variables manually.'
                   'After you are done hit Mark Success.')
 
 
