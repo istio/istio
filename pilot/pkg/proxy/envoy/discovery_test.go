@@ -218,20 +218,29 @@ func TestClusterDiscoveryError2(t *testing.T) {
 }
 
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
-	tests := [][]fileConfig{
-		{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
-		{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
+	tests := []struct {
+		configs []fileConfig
+		response string
+	}{
+		{
+			configs: []fileConfig{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
+			response: "testdata/cds-circuit-breaker.json",
+		},
+		{
+			configs: []fileConfig{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
+			response: "testdata/cds-circuit-breaker-v1alpha2.json",
+		},
 	}
 
-	for _, configs := range tests {
+	for _, tc := range tests {
 		_, registry, ds := commonSetup(t)
-		for _, config := range configs {
+		for _, config := range tc.configs {
 			addConfig(registry, config, t)
 		}
 
 		url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
-		compareResponse(response, "testdata/cds-circuit-breaker.json", t)
+		compareResponse(response, tc.response, t)
 	}
 }
 
