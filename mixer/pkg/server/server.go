@@ -37,6 +37,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -52,6 +53,11 @@ type Server struct {
 	configDir string
 
 	dispatcher mixerRuntime.Dispatcher
+
+	// probes
+	livenessProbe  probe.Controller
+	readinessProbe probe.Controller
+	*probe.Probe
 }
 
 // replaceable set of functions for fault injection
@@ -109,6 +115,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
+
+	s.Probe = probe.NewProbe()
 
 	// construct the gRPC options
 
@@ -173,12 +181,27 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
+	if a.ReadinessProbeOptions.IsValid() {
+		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
+		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
+			e.RegisterProbe(s.readinessProbe, "dispatcher")
+		}
+		st.RegisterProbe(s.readinessProbe, "store")
+		s.readinessProbe.Start()
+	}
+
 	return s, nil
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
 	s.shutdown = make(chan error, 1)
+	s.SetAvailable(nil)
 	go func() {
 		// go to work...
 		err := s.server.Serve(s.listener)
@@ -228,6 +251,14 @@ func (s *Server) Close() error {
 
 	if s.configDir != "" {
 		_ = os.RemoveAll(s.configDir)
+	}
+
+	if s.livenessProbe != nil {
+		_ = s.livenessProbe.Close()
+	}
+
+	if s.readinessProbe != nil {
+		_ = s.readinessProbe.Close()
 	}
 
 	// final attempt to purge buffered logs
