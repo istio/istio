@@ -2030,7 +2030,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %s is not defined by the external service", port))
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the external service", port))
 				}
 				errs = appendErrors(errs,
 					validatePortName(name),
@@ -2056,7 +2056,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %s is not defined by the external service", port))
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the external service", port))
 				}
 				errs = appendErrors(errs,
 					validatePortName(name),
