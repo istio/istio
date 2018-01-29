@@ -460,7 +460,9 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	}
 }
 
-func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port, mirror *routingv2.Destination, buildCluster buildClusterFunc) *ShadowCluster {
+func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port,
+	mirror *routingv2.Destination, buildCluster buildClusterFunc) *ShadowCluster {
+
 	if mirror != nil {
 		fqdn := model.ResolveFQDN(mirror.Name, domain)
 		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)

@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	restful "github.com/emicklei/go-restful"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
 	"istio.io/istio/pilot/test/util"
-	"strings"
 )
 
 // Implement minimal methods to satisfy model.Controller interface for
@@ -219,17 +219,13 @@ func TestClusterDiscoveryError2(t *testing.T) {
 
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := []struct {
-		configs []fileConfig
+		configs  []fileConfig
 		response string
 	}{
-		{
-			configs: []fileConfig{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
-			response: "testdata/cds-circuit-breaker.json",
-		},
-		{
-			configs: []fileConfig{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
-			response: "testdata/cds-circuit-breaker-v1alpha2.json",
-		},
+		{configs: []fileConfig{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
+			response: "testdata/cds-circuit-breaker.json"},
+		{configs: []fileConfig{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
+			response: "testdata/cds-circuit-breaker-v1alpha2.json"},
 	}
 
 	for _, tc := range tests {
@@ -640,10 +636,10 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 }
 
 func TestExternalServicesRoutingRules(t *testing.T) {
-	testCases := []struct{
-		name string
+	testCases := []struct {
+		name  string
 		files []fileConfig
-	} {
+	}{
 		{name: "weighted-external-service", files: []fileConfig{externalServiceRuleStatic, destinationRuleExternal, externalServiceRouteRule}},
 	}
 

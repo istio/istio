@@ -538,7 +538,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	buildCluster buildClusterFunc,
-	) []*HTTPRoute {
+) []*HTTPRoute {
 	protocol := servicePort.Protocol
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:

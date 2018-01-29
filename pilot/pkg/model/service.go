@@ -414,9 +414,9 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 	return
 }
 
-func (t Labels) String() string {
-	labels := make([]string, 0, len(t))
-	for k, v := range t {
+func (l Labels) String() string {
+	labels := make([]string, 0, len(l))
+	for k, v := range l {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {

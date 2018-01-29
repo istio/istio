@@ -699,17 +699,17 @@ type Cluster struct {
 	Type                     string            `json:"type"`
 	LbType                   string            `json:"lb_type"`
 	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
-	Hosts            []Host            `json:"hosts,omitempty"`
-	SSLContext       interface{}       `json:"ssl_context,omitempty"`
-	Features         string            `json:"features,omitempty"`
-	CircuitBreaker   *CircuitBreaker   `json:"circuit_breakers,omitempty"`
-	OutlierDetection *OutlierDetection `json:"outlier_detection,omitempty"`
+	Hosts                    []Host            `json:"hosts,omitempty"`
+	SSLContext               interface{}       `json:"ssl_context,omitempty"`
+	Features                 string            `json:"features,omitempty"`
+	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
+	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
 
 	// special values used by the post-processing passes for outbound mesh-local clusters
-	outbound         bool
-	hostname         string
-	port             *model.Port
-	labels           model.Labels
+	outbound bool
+	hostname string
+	port     *model.Port
+	labels   model.Labels
 }
 
 // CircuitBreaker definition
