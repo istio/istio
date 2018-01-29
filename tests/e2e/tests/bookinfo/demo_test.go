@@ -487,7 +487,7 @@ func TestExternalDetailsService(t *testing.T) {
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(u1, tc.gateway, isbnFetchedFromExternalService, 10)
+	_, err = checkHTTPResponse(u1, tc.gateway, isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
