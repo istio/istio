@@ -78,8 +78,8 @@
     ]
    },
    {
-    "name": "out.google.com|external-HTTP-80",
-    "service_name": "google.com|external-HTTP-80",
+    "name": "out.*.google.com|external-HTTP-80",
+    "service_name": "*.google.com|external-HTTP-80",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "round_robin",
@@ -96,8 +96,8 @@
     ]
    },
    {
-    "name": "out.google.com|external-HTTP-8080",
-    "service_name": "google.com|external-HTTP-8080",
+    "name": "out.*.google.com|external-HTTP-8080",
+    "service_name": "*.google.com|external-HTTP-8080",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "round_robin",
@@ -114,8 +114,8 @@
     ]
    },
    {
-    "name": "out.google.com|external-HTTP-8080|foo=bar",
-    "service_name": "google.com|external-HTTP-8080|foo=bar",
+    "name": "out.*.google.com|external-HTTP-8080|foo=bar",
+    "service_name": "*.google.com|external-HTTP-8080|foo=bar",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "random",
@@ -141,8 +141,8 @@
     }
    },
    {
-    "name": "out.google.com|external-HTTP-80|foo=bar",
-    "service_name": "google.com|external-HTTP-80|foo=bar",
+    "name": "out.*.google.com|external-HTTP-80|foo=bar",
+    "service_name": "*.google.com|external-HTTP-80|foo=bar",
     "connect_timeout_ms": 1000,
     "type": "static",
     "lb_type": "random",
@@ -237,6 +237,30 @@
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
+   },
+   {
+    "name": "out.httpbin.default.svc.cluster.local|http",
+    "service_name": "httpbin.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://httpbin.default.svc.cluster.local:80"
+     }
+    ]
+   },
+   {
+    "name": "out.httpsbin.default.svc.cluster.local|https",
+    "service_name": "httpsbin.default.svc.cluster.local|https",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://httpsbin.default.svc.cluster.local:443"
+     }
+    ]
    },
    {
     "name": "out.world.default.svc.cluster.local|custom",

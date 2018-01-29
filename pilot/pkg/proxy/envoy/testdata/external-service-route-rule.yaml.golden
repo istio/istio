@@ -1,12 +1,12 @@
 hosts:
-  - "google.com"
+  - "*.google.com"
 http:
   - route:
     - destination:
-        name: "google.com"
+        name: "*.google.com"
       weight: 50
     - destination:
-        name: "google.com"
+        name: "*.google.com"
         subset: foobar
       weight: 25
     - destination:

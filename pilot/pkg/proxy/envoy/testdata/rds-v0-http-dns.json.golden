@@ -1,15 +1,15 @@
 {
   "virtual_hosts": [
    {
-    "name": "google.com:80",
+    "name": "*.google.com:80",
     "domains": [
-     "google.com",
-     "google.com:80"
+     "*.google.com",
+     "*.google.com:80"
     ],
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.google.com|external-HTTP-80",
+      "cluster": "out.*.google.com|external-HTTP-80",
       "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
@@ -37,6 +37,31 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "httpbin.default.svc.cluster.local|http",
+    "domains": [
+     "httpbin:80",
+     "httpbin",
+     "httpbin.default:80",
+     "httpbin.default",
+     "httpbin.default.svc:80",
+     "httpbin.default.svc",
+     "httpbin.default.svc.cluster:80",
+     "httpbin.default.svc.cluster",
+     "httpbin.default.svc.cluster.local:80",
+     "httpbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.httpbin.default.svc.cluster.local|http",
       "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"

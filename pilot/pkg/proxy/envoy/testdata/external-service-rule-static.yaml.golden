@@ -1,5 +1,5 @@
 hosts:
-  - "google.com"
+  - "*.google.com"
 ports:
   - number: 80
     name: http-port

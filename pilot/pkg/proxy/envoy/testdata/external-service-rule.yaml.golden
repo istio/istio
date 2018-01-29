@@ -4,9 +4,6 @@ ports:
   - number: 80
     name: http-number
     protocol: http
-  - number: 443
-    name: https-number
-    protocol: http # TODO: TLS origination
   - number: 8080
     name: http2-number
     protocol: http2
