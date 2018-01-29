@@ -19,7 +19,7 @@ from airflow import DAG
 import istio_common_dag
 
 dag, copy_files = istio_common_dag.MakeCommonDag(
-    name='istio_daily_release', schedule_interval='15 3 * * *')
+    name='istio_daily_release', schedule_interval='15 9 * * *')
 
 mark_complete = istio_common_dag.MakeMarkComplete(dag)
 
