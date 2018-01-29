@@ -179,14 +179,14 @@ make
 ```
 
 This build command figures out what it needs to do and does not need any
-input from you. By default, the build command will build those components with
-debugger information so that a debugger such as
-[Delve](https://github.com/derekparker/delve) can be used to debug them
+input from you.
 
-To build without debugger information, run
+To build those components with debugger information so that a debugger such as
+[Delve](https://github.com/derekparker/delve) can be used to debug them, run
+
 
 ```shell
-make DEBUG=0
+make DEBUG=1
 ```
 
 *TIP*: To speed up consecutive builds of the project, run the following
@@ -212,12 +212,11 @@ Build the containers in your local docker cache:
 make docker
 ```
 
-The containers will be built with the debugger information so that they can be
-debugged with a debugger such as [Delve](https://github.com/derekparker). To
-build containers without the debugger information, run
+To build the containers with the debugger information so that they can be
+debugged with a debugger such as [Delve](https://github.com/derekparker), run
 
 ```shell
-make DEBUG=0 docker
+make DEBUG=1 docker
 ```
 
 Push the containers to your registry:

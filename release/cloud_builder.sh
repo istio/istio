@@ -78,7 +78,6 @@ echo gopath is $GOPATH
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
-export DEBUG=0
 
 apt-get -qqy install ruby ruby-dev rubygems build-essential
 gem install --no-ri --no-rdoc fpm

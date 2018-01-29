@@ -16,19 +16,6 @@
 # Global Variables
 #-----------------------------------------------------------------------------
 
-# By default, Pilot, Mixer and CA will be built with debugger information.
-# Disable debuger information by issuing 'make DEBUG=0'
-DEBUG ?= 1
-ifeq (${DEBUG},1)
-	DEBUG_MODULES = 1
-    $(info Build with debugger information)
-else ifeq ($(DEBUG),0)
-	DEBUG_MODULES = 0
-else
-    $(error DEBUG has a default value of 1 for debugging and 0 otherwise)
-endif
-export DEBUG_MODULES
-
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
@@ -135,6 +122,18 @@ VERBOSE ?= 0
 V ?= $(or $(VERBOSE),0)
 Q = $(if $(filter 1,$V),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
+
+# To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
+DEBUG ?= 0
+ifeq (${DEBUG},1)
+	DEBUG_MODULES = 1
+    $(info $(H) Build with debugger information)
+else ifeq ($(DEBUG),0)
+	DEBUG_MODULES = 0
+else
+    $(error DEBUG has a default value of 0 for regular build and 1 for debugging)
+endif
+export DEBUG_MODULES
 
 .PHONY: default
 default: depend build test
