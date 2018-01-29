@@ -24,7 +24,8 @@ import "routing/v1alpha1/l4_fault.proto";
 // $overview: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 
-// ### Glossary & concepts
+// Configuration affecting traffic routing. Here are a few terms useful to define
+// in the context of routing rules.
 //
 // *Service* is a unit of an application with a unique name that other services
 // use to refer to the functionality being called. Service instances are
