@@ -38,3 +38,4 @@ done
 
 ImportDashboard "/grafana-dashboard.json"
 ImportDashboard "/mixer-dashboard.json"
+ImportDashboard "/pilot-dashboard.json"
