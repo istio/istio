@@ -587,8 +587,6 @@
   packages = [
     ".",
     "format",
-    "gbytes",
-    "gexec",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -1337,6 +1335,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "07711730b4bf5a62f2d504836c4f782f69bba488c410237527d7ddf961a2ec9e"
+  inputs-digest = "8c51d6886d3cf9d4b1db40fd7eac8290f867bd4273ef4e483c7353655f9a238e"
   solver-name = "gps-cdcl"
   solver-version = 1
