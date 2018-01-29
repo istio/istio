@@ -97,11 +97,10 @@ func main() {
 		}
 	}
 
-	nb := getNotBefore()
-	certPem, privPem := ca.GenCert(ca.CertOptions{
+	certPem, privPem, err := ca.GenCertKeyFromOptions(ca.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
-		NotAfter:     nb.Add(*validFor),
+		TTL:          *validFor,
 		SignerCert:   signerCert,
 		SignerPriv:   signerPriv,
 		Org:          *org,
@@ -110,6 +109,11 @@ func main() {
 		IsClient:     *isClient,
 		RSAKeySize:   *keySize,
 	})
+
+	if err != nil {
+		log.Errora(err)
+		os.Exit(-1)
+	}
 
 	saveCreds(certPem, privPem)
 	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)

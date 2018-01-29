@@ -1,6 +1,8 @@
 # Eclipse artifacts
 .project
 .pydevproject
+#Vagrant
+tools/vagrant/.vagrant/
 # Intellij
 *.iml
 .idea/

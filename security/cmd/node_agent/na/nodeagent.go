@@ -123,7 +123,7 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
+		return nil, nil, err
 	}
 
 	cred, err := na.pc.GetAgentCredential()

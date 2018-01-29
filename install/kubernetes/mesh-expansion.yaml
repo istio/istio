@@ -14,6 +14,8 @@ spec:
   ports:
   - port: 15003
     protocol: TCP
+  - port: 8080
+    protocol: TCP
   selector:
     istio: pilot
 ---
