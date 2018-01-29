@@ -75,7 +75,9 @@ else
 endif
 
 # Another person's PR is adding the debug support, so this is in prep for that
-ifeq ($(DEBUG),0)
+ifeq ($(origin DEBUG), undefined)
+BUILDTYPE_DIR:=release
+else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
@@ -166,17 +168,14 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_BIN)/istio_is_init
+init: check-go-version $(ISTIO_OUT)/istio_is_init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_BIN)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${DEP}
+$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT} ${DEP}
 	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-	@touch $(ISTIO_BIN)/istio_is_init
-
-# possibly cleanup more files in bin/ or vendor/
-FILES_TO_CLEAN+=$(ISTIO_BIN)/istio_is_init
+	@touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
@@ -187,7 +186,7 @@ ${ISTIO_OUT}/envoy: init
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
-	mkdir -p $@
+	@mkdir -p $@
 
 depend.ensure: init
 
