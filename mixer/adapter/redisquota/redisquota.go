@@ -85,69 +85,66 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	info := GetInfo()
 
 	if len(b.adapterConfig.Quotas) == 0 {
-		ce = ce.Appendf(info.Name, "quota should not be empty")
+		ce = ce.Appendf("quotas", "quota should not be empty")
 	}
 
 	limits := make(map[string]*config.Params_Quota, len(b.adapterConfig.Quotas))
 	for idx := range b.adapterConfig.Quotas {
-		if len(b.adapterConfig.Quotas[idx].Name) == 0 {
-			ce = ce.Appendf(info.Name, "quotas.name should not be empty")
+		quotas := &b.adapterConfig.Quotas[idx]
+
+		if len(quotas.Name) == 0 {
+			ce = ce.Appendf("name", "quotas.name should not be empty")
 			continue
 		}
 
-		limits[b.adapterConfig.Quotas[idx].Name] = &b.adapterConfig.Quotas[idx]
+		limits[quotas.Name] = quotas
 
-		if b.adapterConfig.Quotas[idx].ValidDuration == 0 {
-			ce = ce.Appendf(info.Name, "quotas.valid_duration should be bigger must be > 0")
+		if quotas.ValidDuration == 0 {
+			ce = ce.Appendf("valid_duration", "quotas.valid_duration should be bigger must be > 0")
 			continue
 		}
 
-		if b.adapterConfig.Quotas[idx].RateLimitAlgorithm == config.ROLLING_WINDOW {
-			if b.adapterConfig.Quotas[idx].BucketDuration == 0 {
-				ce = ce.Appendf(info.Name, "quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm")
+		if quotas.RateLimitAlgorithm == config.ROLLING_WINDOW {
+			if quotas.BucketDuration == 0 {
+				ce = ce.Appendf("bucket_duration", "quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm")
 				continue
 			}
 
-			if b.adapterConfig.Quotas[idx].ValidDuration > 0 && b.adapterConfig.Quotas[idx].BucketDuration > 0 &&
-				b.adapterConfig.Quotas[idx].ValidDuration <= b.adapterConfig.Quotas[idx].BucketDuration {
-				ce = ce.Appendf(info.Name, "quotas.valid_duration: %v should be longer than quotas.bucket_duration: %v for ROLLING_WINDOW algorithm",
-					b.adapterConfig.Quotas[idx].ValidDuration, b.adapterConfig.Quotas[idx].BucketDuration)
+			if quotas.ValidDuration > 0 && quotas.BucketDuration > 0 &&
+				quotas.ValidDuration <= quotas.BucketDuration {
+				ce = ce.Appendf("valid_duration", "quotas.valid_duration: %v should be longer than quotas.bucket_duration: %v for ROLLING_WINDOW algorithm",
+					quotas.ValidDuration, quotas.BucketDuration)
 				continue
 			}
 		}
 
-		for index := range b.adapterConfig.Quotas[idx].Overrides {
-			if b.adapterConfig.Quotas[idx].Overrides[index].MaxAmount <= 0 {
-				ce = ce.Appendf(info.Name, "quotas.overrides.max_amount must be > 0")
+		for index := range quotas.Overrides {
+			if quotas.Overrides[index].MaxAmount <= 0 {
+				ce = ce.Appendf("max_amount", "quotas.overrides.max_amount must be > 0")
 				continue
 			}
 
-			if len(b.adapterConfig.Quotas[idx].Overrides[index].Dimensions) == 0 {
-				ce = ce.Appendf(info.Name, "quotas.overrides.dimensions is empty")
+			if len(quotas.Overrides[index].Dimensions) == 0 {
+				ce = ce.Appendf("dimensions", "quotas.overrides.dimensions is empty")
 				continue
-			}
-
-			if _, err := getDimensionHash(b.adapterConfig.Quotas[idx].Overrides[index].Dimensions); err != nil {
-				ce = ce.Appendf(info.Name, "unable to initialize quota overrides dimensions",
-					b.adapterConfig.Quotas[idx].Overrides[index].Dimensions)
 			}
 		}
 	}
 
 	for k := range b.quotaTypes {
 		if _, ok := limits[k]; !ok {
-			ce = ce.Appendf(info.Name, "did not find limit defined for quota %v", k)
+			ce = ce.Appendf("quotas", "did not find limit defined for quota %v", k)
 		}
 	}
 
 	// check redis related configuration
 	if b.adapterConfig.ConnectionPoolSize < 0 {
-		ce = ce.Appendf(info.Name, "connection_pool_size of %v is invalid, must be > 0",
+		ce = ce.Appendf("connection_pool_size", "connection_pool_size of %v is invalid, must be > 0",
 			b.adapterConfig.ConnectionPoolSize)
 	}
 
 	if len(b.adapterConfig.RedisServerUrl) == 0 {
-		ce = ce.Appendf(info.Name, "redis_server_url should not be empty")
+		ce = ce.Appendf("redis_server_url", "redis_server_url should not be empty")
 	}
 
 	// test redis connection
@@ -180,7 +177,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 // getOverrideHash returns hash key of the given dimension in sorted by key
-func getDimensionHash(dimensions map[string]string) (string, error) {
+func getDimensionHash(dimensions map[string]string) string {
 	var keys []string
 	for k := range dimensions {
 		keys = append(keys, k)
@@ -189,11 +186,9 @@ func getDimensionHash(dimensions map[string]string) (string, error) {
 
 	h := fnv.New32a()
 	for _, key := range keys {
-		if _, err := io.WriteString(h, key+"\t"+dimensions[key]+"\n"); err != nil {
-			return "", err
-		}
+		_, _ = io.WriteString(h, key+"\t"+dimensions[key]+"\n")
 	}
-	return strconv.Itoa(int(h.Sum32())), nil
+	return strconv.Itoa(int(h.Sum32()))
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
@@ -206,9 +201,8 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	dimensionHash := make(map[*map[string]string]string)
 	for key := range limits {
 		for index := range limits[key].Overrides {
-			if hash, err := getDimensionHash(limits[key].Overrides[index].Dimensions); err == nil {
-				dimensionHash[&(limits[key].Overrides[index].Dimensions)] = hash
-			}
+			dimensionHash[&(limits[key].Overrides[index].Dimensions)] =
+				getDimensionHash(limits[key].Overrides[index].Dimensions)
 		}
 	}
 
@@ -222,6 +216,9 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	}
 
 	client := redis.NewClient(&option)
+	if _, err := client.Ping().Result(); err != nil {
+		return nil, fmt.Errorf("could not create a connection to redis server: %v", err)
+	}
 
 	// load scripts into redis
 	scripts := make(map[config.Params_QuotaAlgorithm]*redis.Script, 2)
@@ -246,19 +243,21 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 // matchDimensions matches configured dimensions with dimensions of the instance.
 func matchDimensions(cfg *map[string]string, inst *map[string]interface{}) bool {
 	for k, val := range *cfg {
-		rval := (*inst)[k]
-		if rval == val { // this dimension matches, on to next comparison.
-			continue
-		}
-
-		// if rval has a string representation then compare it with val
-		// For example net.ip has a useful string representation.
-		switch v := rval.(type) {
-		case fmt.Stringer:
-			if v.String() == val {
+		if rval, ok := (*inst)[k]; ok {
+			if rval == val { // this dimension matches, on to next comparison.
 				continue
 			}
+
+			// if rval has a string representation then compare it with val
+			// For example net.ip has a useful string representation.
+			switch v := rval.(type) {
+			case fmt.Stringer:
+				if v.String() == val {
+					continue
+				}
+			}
 		}
+
 		// rval does not match val.
 		return false
 	}

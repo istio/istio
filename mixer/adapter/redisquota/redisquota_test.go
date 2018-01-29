@@ -62,8 +62,8 @@ func TestBuilderValidate(t *testing.T) {
 				ConnectionPoolSize: 10,
 			},
 			errMsg: []string{
-				"redisquota: quota should not be empty",
-				"redisquota: redis_server_url should not be empty",
+				"quotas: quota should not be empty",
+				"redis_server_url: redis_server_url should not be empty",
 				"redisquota: could not create a connection to redis server: dial tcp: missing address",
 			},
 		},
@@ -73,9 +73,9 @@ func TestBuilderValidate(t *testing.T) {
 				ConnectionPoolSize: -10,
 			},
 			errMsg: []string{
-				"redisquota: quota should not be empty",
-				"redisquota: connection_pool_size of -10 is invalid, must be > 0",
-				"redisquota: redis_server_url should not be empty",
+				"quotas: quota should not be empty",
+				"connection_pool_size: connection_pool_size of -10 is invalid, must be > 0",
+				"redis_server_url: redis_server_url should not be empty",
 				"redisquota: could not create a connection to redis server: dial tcp: missing address",
 			},
 		},
@@ -85,7 +85,7 @@ func TestBuilderValidate(t *testing.T) {
 				ConnectionPoolSize: 10,
 			},
 			errMsg: []string{
-				"redisquota: quota should not be empty",
+				"quotas: quota should not be empty",
 			},
 		},
 		"Empty quota name": {
@@ -99,8 +99,8 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.name should not be empty",
-				"redisquota: did not find limit defined for quota rolling-window",
+				"name: quotas.name should not be empty",
+				"quotas: did not find limit defined for quota rolling-window",
 			},
 		},
 		"Invalid quota.max_amount": {
@@ -116,7 +116,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.valid_duration should be bigger must be > 0",
+				"valid_duration: quotas.valid_duration should be bigger must be > 0",
 			},
 		},
 		"quota.valid_duration is not defined": {
@@ -133,7 +133,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.valid_duration should be bigger must be > 0",
+				"valid_duration: quotas.valid_duration should be bigger must be > 0",
 			},
 		},
 		"quota.bucket_duration is not defined": {
@@ -152,7 +152,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm",
+				"bucket_duration: quotas.bucket_duration should be > 0 for ROLLING_WINDOW algorithm",
 			},
 		},
 		"quota.bucket_duration is longer than quota.valid_duration": {
@@ -172,7 +172,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.valid_duration: 1m0s should be longer than quotas.bucket_duration: 2m0s for ROLLING_WINDOW algorithm",
+				"valid_duration: quotas.valid_duration: 1m0s should be longer than quotas.bucket_duration: 2m0s for ROLLING_WINDOW algorithm",
 			},
 		},
 		"Valid rolling window configuration": {
@@ -213,7 +213,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.overrides.max_amount must be > 0",
+				"max_amount: quotas.overrides.max_amount must be > 0",
 			},
 		},
 		"Override empty dimensions": {
@@ -238,7 +238,7 @@ func TestBuilderValidate(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"redisquota: quotas.overrides.dimensions is empty",
+				"dimensions: quotas.overrides.dimensions is empty",
 			},
 		},
 	}
@@ -442,7 +442,7 @@ func TestHandleQuota(t *testing.T) {
 						{
 							MaxAmount: 50,
 							Dimensions: map[string]string{
-								"source": "test",
+								"destination": "test",
 							},
 						},
 						{
@@ -510,8 +510,6 @@ func TestHandleQuota(t *testing.T) {
 			}
 		}
 	}
-
-	//t.Errorf("")
 }
 
 func TestHandleQuotaErrorMsg(t *testing.T) {
@@ -639,9 +637,6 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 			glog.Errorf("%v: unexpected error: %v", id, err.Error())
 			continue
 		}
-
-		glog.Errorf("%v", env.GetLogs())
-		glog.Errorf("%v", c.errMsg)
 
 		if len(env.GetLogs()) != len(c.errMsg) {
 			t.Errorf("%v: Invalid number of error messages. Exptected: %v Got %v",
