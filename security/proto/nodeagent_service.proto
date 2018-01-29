@@ -23,10 +23,10 @@ service NodeAgentService {
 	rpc Check(CheckRequest) returns (CheckResponse);
         // WorkloadAdded is used to notify Node Agent about a workload getting
         // added on a node.
-       // rpc WorkloadAdded(WorkloadInfo) returns (NodeAgentMgmtResponse);
+        rpc WorkloadAdded(WorkloadInfo) returns (NodeAgentMgmtResponse);
         // WorkloadDeleted is used to notify Node Agent about a workload getting
         // added on a node.
-        //rpc WorkloadDeleted(WorkloadInfo) returns (NodeAgentMgmtResponse);
+        rpc WorkloadDeleted(WorkloadInfo) returns (NodeAgentMgmtResponse);
 }
 
 message CheckRequest {
@@ -59,8 +59,7 @@ message WorkloadInfo {
         // Node agent can use them to verify the credentials of the workload.
         WorkloadAttributes attrs = 1;
         // workloadpath is where the caller has hosted a volume specific for
-        // the workload. The node agent will use this directory to communicate w
-ith the
+        // the workload. The node agent will use this directory to communicate with the 
         // specific workload.
         string workloadpath = 2;
 }

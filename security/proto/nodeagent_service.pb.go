@@ -10,6 +10,8 @@
 	It has these top-level messages:
 		CheckRequest
 		CheckResponse
+		NodeAgentMgmtResponse
+		WorkloadInfo
 */
 package istio_v1_auth
 
@@ -69,9 +71,104 @@ func (m *CheckResponse) GetStatus() *google_rpc.Status {
 	return nil
 }
 
+type NodeAgentMgmtResponse struct {
+	Status *google_rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+}
+
+func (m *NodeAgentMgmtResponse) Reset()      { *m = NodeAgentMgmtResponse{} }
+func (*NodeAgentMgmtResponse) ProtoMessage() {}
+func (*NodeAgentMgmtResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptorNodeagentService, []int{2}
+}
+
+func (m *NodeAgentMgmtResponse) GetStatus() *google_rpc.Status {
+	if m != nil {
+		return m.Status
+	}
+	return nil
+}
+
+type WorkloadInfo struct {
+	// WorkloadAttributes are the properties of the workload that a caller,
+	// Flexvolume driver knows off.
+	// Node agent can use them to verify the credentials of the workload.
+	Attrs *WorkloadInfo_WorkloadAttributes `protobuf:"bytes,1,opt,name=attrs" json:"attrs,omitempty"`
+	// workloadpath is where the caller has hosted a volume specific for
+	// the workload. The node agent will use this directory to communicate with the
+	// specific workload.
+	Workloadpath string `protobuf:"bytes,2,opt,name=workloadpath,proto3" json:"workloadpath,omitempty"`
+}
+
+func (m *WorkloadInfo) Reset()                    { *m = WorkloadInfo{} }
+func (*WorkloadInfo) ProtoMessage()               {}
+func (*WorkloadInfo) Descriptor() ([]byte, []int) { return fileDescriptorNodeagentService, []int{3} }
+
+func (m *WorkloadInfo) GetAttrs() *WorkloadInfo_WorkloadAttributes {
+	if m != nil {
+		return m.Attrs
+	}
+	return nil
+}
+
+func (m *WorkloadInfo) GetWorkloadpath() string {
+	if m != nil {
+		return m.Workloadpath
+	}
+	return ""
+}
+
+type WorkloadInfo_WorkloadAttributes struct {
+	// uid: Unique Id of the Workload.
+	// During delete the uid is mandatory.
+	Uid string `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	// workload identifier aka name.
+	Workload string `protobuf:"bytes,2,opt,name=workload,proto3" json:"workload,omitempty"`
+	// namespace of the workload.
+	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// service account of the workload.
+	Serviceaccount string `protobuf:"bytes,4,opt,name=serviceaccount,proto3" json:"serviceaccount,omitempty"`
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) Reset()      { *m = WorkloadInfo_WorkloadAttributes{} }
+func (*WorkloadInfo_WorkloadAttributes) ProtoMessage() {}
+func (*WorkloadInfo_WorkloadAttributes) Descriptor() ([]byte, []int) {
+	return fileDescriptorNodeagentService, []int{3, 0}
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) GetUid() string {
+	if m != nil {
+		return m.Uid
+	}
+	return ""
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) GetWorkload() string {
+	if m != nil {
+		return m.Workload
+	}
+	return ""
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) GetNamespace() string {
+	if m != nil {
+		return m.Namespace
+	}
+	return ""
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) GetServiceaccount() string {
+	if m != nil {
+		return m.Serviceaccount
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*CheckRequest)(nil), "istio.v1.auth.CheckRequest")
 	proto.RegisterType((*CheckResponse)(nil), "istio.v1.auth.CheckResponse")
+	proto.RegisterType((*NodeAgentMgmtResponse)(nil), "istio.v1.auth.NodeAgentMgmtResponse")
+	proto.RegisterType((*WorkloadInfo)(nil), "istio.v1.auth.WorkloadInfo")
+	proto.RegisterType((*WorkloadInfo_WorkloadAttributes)(nil), "istio.v1.auth.WorkloadInfo.WorkloadAttributes")
 }
 func (this *CheckRequest) Equal(that interface{}) bool {
 	if that == nil {
@@ -133,6 +230,108 @@ func (this *CheckResponse) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *NodeAgentMgmtResponse) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*NodeAgentMgmtResponse)
+	if !ok {
+		that2, ok := that.(NodeAgentMgmtResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.Status.Equal(that1.Status) {
+		return false
+	}
+	return true
+}
+func (this *WorkloadInfo) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*WorkloadInfo)
+	if !ok {
+		that2, ok := that.(WorkloadInfo)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.Attrs.Equal(that1.Attrs) {
+		return false
+	}
+	if this.Workloadpath != that1.Workloadpath {
+		return false
+	}
+	return true
+}
+func (this *WorkloadInfo_WorkloadAttributes) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*WorkloadInfo_WorkloadAttributes)
+	if !ok {
+		that2, ok := that.(WorkloadInfo_WorkloadAttributes)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Uid != that1.Uid {
+		return false
+	}
+	if this.Workload != that1.Workload {
+		return false
+	}
+	if this.Namespace != that1.Namespace {
+		return false
+	}
+	if this.Serviceaccount != that1.Serviceaccount {
+		return false
+	}
+	return true
+}
 func (this *CheckRequest) GoString() string {
 	if this == nil {
 		return "nil"
@@ -152,6 +351,44 @@ func (this *CheckResponse) GoString() string {
 	if this.Status != nil {
 		s = append(s, "Status: "+fmt.Sprintf("%#v", this.Status)+",\n")
 	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *NodeAgentMgmtResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&istio_v1_auth.NodeAgentMgmtResponse{")
+	if this.Status != nil {
+		s = append(s, "Status: "+fmt.Sprintf("%#v", this.Status)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *WorkloadInfo) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&istio_v1_auth.WorkloadInfo{")
+	if this.Attrs != nil {
+		s = append(s, "Attrs: "+fmt.Sprintf("%#v", this.Attrs)+",\n")
+	}
+	s = append(s, "Workloadpath: "+fmt.Sprintf("%#v", this.Workloadpath)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *WorkloadInfo_WorkloadAttributes) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 8)
+	s = append(s, "&istio_v1_auth.WorkloadInfo_WorkloadAttributes{")
+	s = append(s, "Uid: "+fmt.Sprintf("%#v", this.Uid)+",\n")
+	s = append(s, "Workload: "+fmt.Sprintf("%#v", this.Workload)+",\n")
+	s = append(s, "Namespace: "+fmt.Sprintf("%#v", this.Namespace)+",\n")
+	s = append(s, "Serviceaccount: "+fmt.Sprintf("%#v", this.Serviceaccount)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -176,6 +413,12 @@ const _ = grpc.SupportPackageIsVersion4
 
 type NodeAgentServiceClient interface {
 	Check(ctx context.Context, in *CheckRequest, opts ...grpc.CallOption) (*CheckResponse, error)
+	// WorkloadAdded is used to notify Node Agent about a workload getting
+	// added on a node.
+	WorkloadAdded(ctx context.Context, in *WorkloadInfo, opts ...grpc.CallOption) (*NodeAgentMgmtResponse, error)
+	// WorkloadDeleted is used to notify Node Agent about a workload getting
+	// added on a node.
+	WorkloadDeleted(ctx context.Context, in *WorkloadInfo, opts ...grpc.CallOption) (*NodeAgentMgmtResponse, error)
 }
 
 type nodeAgentServiceClient struct {
@@ -195,10 +438,34 @@ func (c *nodeAgentServiceClient) Check(ctx context.Context, in *CheckRequest, op
 	return out, nil
 }
 
+func (c *nodeAgentServiceClient) WorkloadAdded(ctx context.Context, in *WorkloadInfo, opts ...grpc.CallOption) (*NodeAgentMgmtResponse, error) {
+	out := new(NodeAgentMgmtResponse)
+	err := grpc.Invoke(ctx, "/istio.v1.auth.NodeAgentService/WorkloadAdded", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeAgentServiceClient) WorkloadDeleted(ctx context.Context, in *WorkloadInfo, opts ...grpc.CallOption) (*NodeAgentMgmtResponse, error) {
+	out := new(NodeAgentMgmtResponse)
+	err := grpc.Invoke(ctx, "/istio.v1.auth.NodeAgentService/WorkloadDeleted", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for NodeAgentService service
 
 type NodeAgentServiceServer interface {
 	Check(context.Context, *CheckRequest) (*CheckResponse, error)
+	// WorkloadAdded is used to notify Node Agent about a workload getting
+	// added on a node.
+	WorkloadAdded(context.Context, *WorkloadInfo) (*NodeAgentMgmtResponse, error)
+	// WorkloadDeleted is used to notify Node Agent about a workload getting
+	// added on a node.
+	WorkloadDeleted(context.Context, *WorkloadInfo) (*NodeAgentMgmtResponse, error)
 }
 
 func RegisterNodeAgentServiceServer(s *grpc.Server, srv NodeAgentServiceServer) {
@@ -223,6 +490,42 @@ func _NodeAgentService_Check_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeAgentService_WorkloadAdded_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkloadInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeAgentServiceServer).WorkloadAdded(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/istio.v1.auth.NodeAgentService/WorkloadAdded",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeAgentServiceServer).WorkloadAdded(ctx, req.(*WorkloadInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeAgentService_WorkloadDeleted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkloadInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeAgentServiceServer).WorkloadDeleted(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/istio.v1.auth.NodeAgentService/WorkloadDeleted",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeAgentServiceServer).WorkloadDeleted(ctx, req.(*WorkloadInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _NodeAgentService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "istio.v1.auth.NodeAgentService",
 	HandlerType: (*NodeAgentServiceServer)(nil),
@@ -230,6 +533,14 @@ var _NodeAgentService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Check",
 			Handler:    _NodeAgentService_Check_Handler,
+		},
+		{
+			MethodName: "WorkloadAdded",
+			Handler:    _NodeAgentService_WorkloadAdded_Handler,
+		},
+		{
+			MethodName: "WorkloadDeleted",
+			Handler:    _NodeAgentService_WorkloadDeleted_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -288,6 +599,110 @@ func (m *CheckResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *NodeAgentMgmtResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NodeAgentMgmtResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Status != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(m.Status.Size()))
+		n2, err := m.Status.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+
+func (m *WorkloadInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WorkloadInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Attrs != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(m.Attrs.Size()))
+		n3, err := m.Attrs.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.Workloadpath) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(len(m.Workloadpath)))
+		i += copy(dAtA[i:], m.Workloadpath)
+	}
+	return i, nil
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Uid) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(len(m.Uid)))
+		i += copy(dAtA[i:], m.Uid)
+	}
+	if len(m.Workload) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(len(m.Workload)))
+		i += copy(dAtA[i:], m.Workload)
+	}
+	if len(m.Namespace) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(len(m.Namespace)))
+		i += copy(dAtA[i:], m.Namespace)
+	}
+	if len(m.Serviceaccount) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintNodeagentService(dAtA, i, uint64(len(m.Serviceaccount)))
+		i += copy(dAtA[i:], m.Serviceaccount)
+	}
+	return i, nil
+}
+
 func encodeVarintNodeagentService(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -312,6 +727,52 @@ func (m *CheckResponse) Size() (n int) {
 	_ = l
 	if m.Status != nil {
 		l = m.Status.Size()
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	return n
+}
+
+func (m *NodeAgentMgmtResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Status != nil {
+		l = m.Status.Size()
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	return n
+}
+
+func (m *WorkloadInfo) Size() (n int) {
+	var l int
+	_ = l
+	if m.Attrs != nil {
+		l = m.Attrs.Size()
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	l = len(m.Workloadpath)
+	if l > 0 {
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	return n
+}
+
+func (m *WorkloadInfo_WorkloadAttributes) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Uid)
+	if l > 0 {
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	l = len(m.Workload)
+	if l > 0 {
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	l = len(m.Namespace)
+	if l > 0 {
+		n += 1 + l + sovNodeagentService(uint64(l))
+	}
+	l = len(m.Serviceaccount)
+	if l > 0 {
 		n += 1 + l + sovNodeagentService(uint64(l))
 	}
 	return n
@@ -346,6 +807,40 @@ func (this *CheckResponse) String() string {
 	}
 	s := strings.Join([]string{`&CheckResponse{`,
 		`Status:` + strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "google_rpc.Status", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *NodeAgentMgmtResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&NodeAgentMgmtResponse{`,
+		`Status:` + strings.Replace(fmt.Sprintf("%v", this.Status), "Status", "google_rpc.Status", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *WorkloadInfo) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&WorkloadInfo{`,
+		`Attrs:` + strings.Replace(fmt.Sprintf("%v", this.Attrs), "WorkloadInfo_WorkloadAttributes", "WorkloadInfo_WorkloadAttributes", 1) + `,`,
+		`Workloadpath:` + fmt.Sprintf("%v", this.Workloadpath) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *WorkloadInfo_WorkloadAttributes) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&WorkloadInfo_WorkloadAttributes{`,
+		`Uid:` + fmt.Sprintf("%v", this.Uid) + `,`,
+		`Workload:` + fmt.Sprintf("%v", this.Workload) + `,`,
+		`Namespace:` + fmt.Sprintf("%v", this.Namespace) + `,`,
+		`Serviceaccount:` + fmt.Sprintf("%v", this.Serviceaccount) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -520,6 +1015,367 @@ func (m *CheckResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *NodeAgentMgmtResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNodeagentService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NodeAgentMgmtResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NodeAgentMgmtResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Status == nil {
+				m.Status = &google_rpc.Status{}
+			}
+			if err := m.Status.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNodeagentService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WorkloadInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNodeagentService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WorkloadInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WorkloadInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attrs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Attrs == nil {
+				m.Attrs = &WorkloadInfo_WorkloadAttributes{}
+			}
+			if err := m.Attrs.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Workloadpath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Workloadpath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNodeagentService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WorkloadInfo_WorkloadAttributes) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNodeagentService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WorkloadAttributes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WorkloadAttributes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Uid", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Uid = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Workload", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Workload = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Namespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Serviceaccount", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNodeagentService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Serviceaccount = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNodeagentService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNodeagentService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipNodeagentService(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -630,22 +1486,32 @@ func init() {
 }
 
 var fileDescriptorNodeagentService = []byte{
-	// 266 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x2b, 0x4e, 0x4d, 0x2e,
-	0x2d, 0xca, 0x2c, 0xa9, 0xd4, 0x2f, 0x28, 0xca, 0x2f, 0xc9, 0xd7, 0xcf, 0xcb, 0x4f, 0x49, 0x4d,
-	0x4c, 0x4f, 0xcd, 0x2b, 0x89, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0xd5, 0x03, 0x8b, 0x0b,
-	0xf1, 0x66, 0x16, 0x97, 0x64, 0xe6, 0xeb, 0x95, 0x19, 0xea, 0x25, 0x96, 0x96, 0x64, 0x48, 0x89,
-	0xa7, 0xe7, 0xe7, 0xa7, 0xe7, 0xa4, 0xea, 0x17, 0x15, 0x24, 0xeb, 0x17, 0x97, 0x24, 0x96, 0x94,
-	0x16, 0x43, 0xd4, 0x29, 0x29, 0x71, 0xf1, 0x38, 0x67, 0xa4, 0x26, 0x67, 0x07, 0xa5, 0x16, 0x96,
-	0xa6, 0x16, 0x97, 0x08, 0x09, 0x71, 0xb1, 0xe4, 0x25, 0xe6, 0xa6, 0x4a, 0x30, 0x2a, 0x30, 0x6a,
-	0x70, 0x06, 0x81, 0xd9, 0x4a, 0xd6, 0x5c, 0xbc, 0x50, 0x35, 0xc5, 0x05, 0xf9, 0x79, 0xc5, 0xa9,
-	0x42, 0x5a, 0x5c, 0x6c, 0x10, 0x43, 0xc0, 0xca, 0xb8, 0x8d, 0x84, 0xf4, 0x20, 0xc6, 0xeb, 0x15,
-	0x15, 0x24, 0xeb, 0x05, 0x83, 0x65, 0x82, 0xa0, 0x2a, 0x8c, 0xc2, 0xb8, 0x04, 0xfc, 0xf2, 0x53,
-	0x52, 0x1d, 0x41, 0x6e, 0x0c, 0x86, 0x38, 0x51, 0xc8, 0x89, 0x8b, 0x15, 0x6c, 0xa0, 0x90, 0xb4,
-	0x1e, 0x8a, 0x33, 0xf5, 0x90, 0x9d, 0x22, 0x25, 0x83, 0x5d, 0x12, 0xe2, 0x06, 0x27, 0xeb, 0x0b,
-	0x0f, 0xe5, 0x18, 0x6e, 0x3c, 0x94, 0x63, 0xf8, 0xf0, 0x50, 0x8e, 0xb1, 0xe1, 0x91, 0x1c, 0xe3,
-	0x8a, 0x47, 0x72, 0x8c, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c,
-	0xe3, 0x8b, 0x47, 0x72, 0x0c, 0x1f, 0x1e, 0xc9, 0x31, 0x4e, 0x78, 0x2c, 0xc7, 0x10, 0x05, 0x09,
-	0x8e, 0xf8, 0x32, 0xc3, 0x78, 0x90, 0x51, 0x49, 0x6c, 0x60, 0xcf, 0x1b, 0x03, 0x02, 0x00, 0x00,
-	0xff, 0xff, 0x15, 0x97, 0x87, 0xa7, 0x4e, 0x01, 0x00, 0x00,
+	// 428 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x3d, 0x6f, 0xd3, 0x40,
+	0x18, 0xce, 0xa5, 0x1f, 0xa2, 0x2f, 0x09, 0x54, 0x27, 0x21, 0x22, 0x53, 0x9d, 0x90, 0x85, 0x2a,
+	0xc4, 0x70, 0x51, 0xcb, 0xd8, 0xa9, 0x1f, 0x0b, 0x03, 0x0c, 0x2e, 0x12, 0x12, 0x4b, 0x74, 0x3d,
+	0xbf, 0x38, 0x56, 0x53, 0x9f, 0xb9, 0x7b, 0x1d, 0xc4, 0x56, 0x89, 0x85, 0x91, 0x9f, 0xc1, 0x4f,
+	0x61, 0xec, 0xc8, 0x48, 0xcc, 0xc2, 0xd8, 0x9f, 0x80, 0x7c, 0x76, 0x4c, 0x9a, 0x66, 0x42, 0xdd,
+	0xee, 0xde, 0xe7, 0x43, 0x7e, 0x9f, 0xc7, 0x07, 0xbb, 0x0e, 0x75, 0x61, 0x53, 0xfa, 0x3c, 0xcc,
+	0xad, 0x21, 0x33, 0xcc, 0x4c, 0x8c, 0x2a, 0xc1, 0x8c, 0x46, 0x0e, 0xed, 0x34, 0xd5, 0x28, 0xfd,
+	0x9c, 0xf7, 0x53, 0x47, 0xa9, 0x91, 0xd3, 0x3d, 0xa9, 0x0a, 0x1a, 0x07, 0x8f, 0x13, 0x63, 0x92,
+	0x09, 0x0e, 0x6d, 0xae, 0x87, 0x8e, 0x14, 0x15, 0xae, 0xe6, 0x85, 0x21, 0xf4, 0x8e, 0xc7, 0xa8,
+	0xcf, 0x23, 0xfc, 0x58, 0xa0, 0x23, 0xce, 0x61, 0x3d, 0x53, 0x17, 0x38, 0x60, 0x4f, 0xd9, 0xf3,
+	0xad, 0xc8, 0x9f, 0xc3, 0x03, 0xe8, 0x37, 0x1c, 0x97, 0x9b, 0xcc, 0x21, 0x7f, 0x01, 0x9b, 0xb5,
+	0x89, 0xa7, 0xdd, 0xdf, 0xe7, 0xb2, 0xb6, 0x97, 0x36, 0xd7, 0xf2, 0xd4, 0x23, 0x51, 0xc3, 0x08,
+	0x8f, 0xe1, 0xd1, 0x1b, 0x13, 0xe3, 0x61, 0xf5, 0x8d, 0xaf, 0x93, 0x0b, 0xfa, 0x2f, 0x93, 0x2f,
+	0x5d, 0xe8, 0xbd, 0x33, 0xf6, 0x7c, 0x62, 0x54, 0xfc, 0x2a, 0xfb, 0x60, 0xf8, 0x09, 0x6c, 0x28,
+	0x22, 0x3b, 0xd7, 0x4a, 0x79, 0x63, 0x5d, 0xb9, 0xc8, 0x6d, 0x2f, 0x87, 0x44, 0x36, 0x3d, 0x2b,
+	0x08, 0x5d, 0x54, 0x8b, 0x79, 0x08, 0xbd, 0x4f, 0x0d, 0x98, 0x2b, 0x1a, 0x0f, 0xba, 0x7e, 0xe9,
+	0x1b, 0xb3, 0xe0, 0x2b, 0x03, 0x7e, 0xdb, 0x81, 0x6f, 0xc3, 0x5a, 0x91, 0xc6, 0x4d, 0x4c, 0xd5,
+	0x91, 0x07, 0x70, 0x6f, 0x2e, 0x6c, 0x8c, 0xda, 0x3b, 0xdf, 0x81, 0xad, 0x2a, 0x49, 0x97, 0x2b,
+	0x8d, 0x83, 0x35, 0x0f, 0xfe, 0x1b, 0xf0, 0x5d, 0x78, 0xd0, 0x94, 0xa7, 0xb4, 0x36, 0x45, 0x46,
+	0x83, 0x75, 0x4f, 0x59, 0x9a, 0xee, 0x5f, 0x76, 0x61, 0xbb, 0xcd, 0xf2, 0xb4, 0xc6, 0xf8, 0x11,
+	0x6c, 0xf8, 0x72, 0xf8, 0x93, 0xa5, 0x0c, 0x16, 0x6b, 0x0d, 0x76, 0x56, 0x83, 0x4d, 0x15, 0x11,
+	0xf4, 0xdb, 0x15, 0xe3, 0x18, 0xe3, 0x5b, 0x5e, 0x8b, 0x79, 0x06, 0xcf, 0x96, 0xc0, 0xd5, 0xf5,
+	0xbe, 0x85, 0x87, 0x73, 0xd5, 0x09, 0x4e, 0x90, 0xee, 0xc4, 0xf5, 0xe8, 0xe0, 0x6a, 0x26, 0x3a,
+	0x3f, 0x67, 0xa2, 0x73, 0x3d, 0x13, 0xec, 0xb2, 0x14, 0xec, 0x7b, 0x29, 0xd8, 0x8f, 0x52, 0xb0,
+	0xab, 0x52, 0xb0, 0x5f, 0xa5, 0x60, 0x7f, 0x4a, 0xd1, 0xb9, 0x2e, 0x05, 0xfb, 0xf6, 0x5b, 0x74,
+	0xde, 0xd7, 0x8f, 0x60, 0x34, 0xdd, 0x1b, 0x55, 0x96, 0x67, 0x9b, 0xfe, 0x97, 0x7f, 0xf9, 0x37,
+	0x00, 0x00, 0xff, 0xff, 0x17, 0x38, 0x63, 0x57, 0x44, 0x03, 0x00, 0x00,
 }
