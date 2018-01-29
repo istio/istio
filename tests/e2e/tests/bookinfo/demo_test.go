@@ -93,7 +93,8 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
+		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
