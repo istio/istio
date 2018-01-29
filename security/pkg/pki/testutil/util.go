@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -105,7 +106,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		return fmt.Errorf("unexpected value for 'NotAfter' - 'NotBefore': want %v but got %v", ttl, cert.NotAfter.Sub(cert.NotBefore))
 	}
 
-	if eku := expectedFields.ExtKeyUsage; !reflect.DeepEqual(eku, cert.ExtKeyUsage) {
+	if eku := sortExtKeyUsage(expectedFields.ExtKeyUsage); !reflect.DeepEqual(eku, sortExtKeyUsage(cert.ExtKeyUsage)) {
 		return fmt.Errorf("unexpected value for 'ExtKeyUsage' field: want %v but got %v", eku, cert.ExtKeyUsage)
 	}
 
@@ -123,4 +124,13 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 	}
 
 	return nil
+}
+
+func sortExtKeyUsage(extKeyUsage []x509.ExtKeyUsage) []int {
+	data := make([]int, len(extKeyUsage))
+	for i := range extKeyUsage {
+		data[i] = int(extKeyUsage[i])
+	}
+	sort.Ints(data)
+	return data
 }
