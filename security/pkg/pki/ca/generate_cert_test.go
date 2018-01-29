@@ -183,10 +183,10 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		certOptions := c.certOptions
 		certPem, privPem, err := GenCertKeyFromOptions(certOptions)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("[%s] cert/key generation error: %v", c.name, err)
 		}
-		if e := tu.VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); e != nil {
-			t.Error(e)
+		if err := tu.VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
+			t.Errorf("[%s] cert verification error: %v", c.name, err)
 		}
 	}
 }
@@ -217,12 +217,12 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		"Bad cert files": {
 			certFile:    "testdata/cert-bad.pem",
 			keyFile:     "testdata/key.pem",
-			expectedErr: "invalid PEM encoded certificate",
+			expectedErr: "pem encoded cert parsing failure (invalid PEM encoded certificate)",
 		},
 		"Bad key files": {
 			certFile:    "testdata/cert.pem",
 			keyFile:     "testdata/key-bad.pem",
-			expectedErr: "invalid PEM-encoded key",
+			expectedErr: "pem encoded key parsing failure (invalid PEM-encoded key)",
 		},
 	}
 
@@ -230,18 +230,18 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		cert, key, err := LoadSignerCredsFromFiles(tc.certFile, tc.keyFile)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
-				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+				t.Errorf("[%s] Succeeded. Error expected: %v", id, err)
 			} else if err.Error() != tc.expectedErr {
-				t.Errorf("%s: incorrect error message: %s VS %s",
+				t.Errorf("[%s] incorrect error message: %s VS (expected) %s",
 					id, err.Error(), tc.expectedErr)
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Fatalf("[%s] Unexpected Error: %v", id, err)
 		}
 
 		if cert == nil || key == nil {
-			t.Errorf("%v: Faild to load signer credeitials from files: %v, %v", id, tc.certFile, tc.keyFile)
+			t.Errorf("[%s] Faild to load signer credeitials from files: %v, %v", id, tc.certFile, tc.keyFile)
 		}
 	}
 }

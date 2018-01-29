@@ -143,6 +143,7 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 }
 
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
+// The NotBefore value of the cert is set to current time.
 func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isCA bool) (*x509.Certificate, error) {
 	var keyUsage x509.KeyUsage
 	extKeyUsages := []x509.ExtKeyUsage{}
@@ -200,7 +201,10 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageClientAuth)
 	}
 
-	now := time.Now()
+	notBefore := time.Now()
+	if !options.NotBefore.IsZero() {
+		notBefore = options.NotBefore
+	}
 
 	serialNum, err := genSerialNum()
 	if err != nil {
@@ -221,8 +225,8 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
-		NotBefore:   now,
-		NotAfter:    now.Add(options.TTL),
+		NotBefore:   notBefore,
+		NotAfter:    notBefore.Add(options.TTL),
 		KeyUsage:    keyUsage,
 		ExtKeyUsage: extKeyUsages,
 		IsCA:        options.IsCA,
