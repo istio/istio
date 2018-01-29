@@ -25,7 +25,7 @@ import (
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
 )
@@ -184,7 +184,6 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 
 		args.APIPort = 0
 		args.MonitoringPort = 0
-		args.ConfigStoreURL = "memstore://" + t.Name()
 		args.Templates = template.SupportedTmplInfo
 		args.Adapters = []adapter.InfoFn{
 			GetInfo,
@@ -193,8 +192,9 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		serviceCfg := adapterConfig
 		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
-		if storeErr := store.SetupMemstore(args.ConfigStoreURL, globalConfig, serviceCfg); storeErr != nil {
-			t.Fatal(storeErr)
+		var cerr error
+		if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalConfig, serviceCfg); cerr != nil {
+			t.Fatal(cerr)
 		}
 
 		mixerServer, err := server.New(args)
