@@ -163,7 +163,7 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		Type:        clusterType,
 		LbType:      DefaultLbType,
 		Hosts:       hosts,
-		outbound:    true,
+		outbound:    !isExternal, // outbound means outbound-in-mesh. The name to be refactored later.
 		hostname:    hostname,
 		port:        port,
 		labels:      labels,

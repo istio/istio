@@ -534,7 +534,7 @@ func TestProxyConfig(t *testing.T) {
 
 	proxyConfig := makeProxyConfig()
 	for _, c := range cases {
-		config := buildConfig(proxyConfig, nil)
+		config := BuildConfig(proxyConfig, nil)
 		if config == nil {
 			t.Fatal("Failed to generate config")
 		}
@@ -559,7 +559,7 @@ func TestProxyConfigControlPlaneAuth(t *testing.T) {
 
 	proxyConfig := makeProxyConfigControlPlaneAuth()
 	for _, c := range cases {
-		config := buildConfig(proxyConfig, pilotSAN)
+		config := BuildConfig(proxyConfig, pilotSAN)
 		if config == nil {
 			t.Fatal("Failed to generate config")
 		}

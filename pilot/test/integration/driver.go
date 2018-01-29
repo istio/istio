@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017,2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -87,13 +87,12 @@ func init() {
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
 	flag.BoolVar(&params.Mixer, "mixer", true, "Enable / disable mixer.")
 	flag.StringVar(&params.errorLogsDir, "errorlogsdir", "", "Store per pod logs as individual files in specific directory instead of writing to stderr.")
+	flag.StringVar(&params.coreFilesDir, "core-files-dir", "", "Copy core files to this directory on the Kubernetes node machine.")
 
 	// If specified, only run one test
 	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")
 
-	// Keep disabled until default no-op initializer is distributed
-	// and running in test clusters.
-	flag.BoolVar(&params.UseInitializer, "use-initializer", false, "Use k8s sidecar initializer")
+	flag.BoolVar(&params.UseAutomaticInjection, "use-sidecar-injector", false, "Use automatic sidecar injector")
 	flag.BoolVar(&params.UseAdmissionWebhook, "use-admission-webhook", false,
 		"Use k8s external admission webhook for config validation")
 
@@ -220,6 +219,7 @@ func runTests(envs ...infra) {
 			&routingToEgress{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
+			&kubernetesExternalNameServices{infra: &istio},
 		}
 
 		for _, test := range tests {

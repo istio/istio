@@ -116,14 +116,14 @@ func (na *nodeAgentInternal) Start() error {
 	}
 }
 
-func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
+func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := ca.GenCSR(ca.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
+		return nil, nil, err
 	}
 
 	cred, err := na.pc.GetAgentCredential()
@@ -131,7 +131,7 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
 	}
 
-	return privKey, &pb.Request{
+	return privKey, &pb.CsrRequest{
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),

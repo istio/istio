@@ -38,6 +38,10 @@ type CopilotConfig struct {
 // Config for the Cloud Foundry platform adapter
 type Config struct {
 	Copilot CopilotConfig `yaml:"copilot"`
+
+	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
+	// It is typically set to 8080.
+	ServicePort int `yaml:"service_port" validate:"nonzero"`
 }
 
 // LoadConfig reads configuration data from a YAML file

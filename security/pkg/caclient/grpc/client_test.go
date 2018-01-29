@@ -37,16 +37,16 @@ type FakeIstioCAGrpcServer struct {
 	Status          *rpc.Status
 	SignedCertChain []byte
 
-	response *pb.Response
+	response *pb.CsrResponse
 	errorMsg string
 }
 
-func (s *FakeIstioCAGrpcServer) SetResponseAndError(response *pb.Response, errorMsg string) {
+func (s *FakeIstioCAGrpcServer) SetResponseAndError(response *pb.CsrResponse, errorMsg string) {
 	s.response = response
 	s.errorMsg = errorMsg
 }
 
-func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.Request) (*pb.Response, error) {
+func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	if len(s.errorMsg) > 0 {
 		return nil, fmt.Errorf(s.errorMsg)
 	}
@@ -77,7 +77,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
 
-	defaultServerResponse := pb.Response{
+	defaultServerResponse := pb.CsrResponse{
 		IsApproved:      true,
 		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
 		SignedCertChain: nil,
@@ -86,7 +86,6 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	testCases := map[string]struct {
 		caAddress   string
 		pc          platform.Client
-		respErr     string
 		expectedErr string
 	}{
 		"IstioCAAddress is empty": {
@@ -140,7 +139,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			t.Errorf("Error getting credential (%v)", err)
 		}
 
-		req := &pb.Request{
+		req := &pb.CsrRequest{
 			CsrPem:              csr,
 			NodeAgentCredential: cred,
 			CredentialType:      c.pc.GetCredentialType(),
