@@ -7,10 +7,9 @@ If you prefer to install Istio from checking out the [istio/istio](https://githu
 
 * istio.yaml - use this generated file for installation without authentication enabled
 * istio-auth.yaml - use this generated file for installation with authentication enabled
-* istio-initializer.yaml - use this generated file for installation of istio initializer for transparent injection.
+* istio-sidecar-injector.yaml - use this generated file for installation of istio sidecar injector for transparent injection.
 * istio-one-namespace.yaml - use this generated file for installation without authentication enabled. Istio control plane and applications will be in one single namespace, mainly used for testing.
 * istio-one-namespace-auth.yaml - use this generated file for installation with authentication enabled. Istio control plane and applications will be in one single namespace, mainly used for testing.
 * templates - directory contains the templates used to generate istio.yaml and istio-auth.yaml
 * addons - directory contains optional components (Prometheus, Grafana, Service Graph, Zipkin, Zipkin to Stackdriver)
 * helm - directory contains the Istio helm release configuration files.  This directory also requires running `updateVersion.sh` to generate some of the configuration files.
-

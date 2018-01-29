@@ -263,7 +263,7 @@ func TestCheckQuota(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
 	} else if !status.IsOK(response.Precondition.Status) {
-		t.Errorf("Got unexpected failure %s", response.Precondition.Status)
+		t.Errorf("Got unexpected failure %+v", response.Precondition.Status)
 	} else if response.Quotas["RequestCount"].GrantedAmount != 42 {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}

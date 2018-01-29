@@ -28,7 +28,7 @@ import (
 )
 
 func kubeconfig(t *testing.T) string {
-	return k8s.Kubeconfig("/../../../../../pilot/platform/kube/config")
+	return k8s.Kubeconfig("/../../../../../pilot/pkg/kube/config")
 }
 
 func makeClient(t *testing.T) *Client {

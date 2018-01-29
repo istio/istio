@@ -1,1 +1,1 @@
-This directory generates key and cert that is used in https://istio.io/docs/tasks/security/plugin-ca-cert.html. You only need to rerun gen_certs.sh when the cert expires, which will be on Oct 31. 2019.
+This directory generates key and cert that is used in https://istio.io/docs/tasks/security/plugin-ca-cert.html. Currently the lifetime of cert is set to 100 years, which means you won't need to rerun this script in the near future.

@@ -1,0 +1,32 @@
+---
+
+- include_tasks: set_implicitly_disabled_addons.yml
+
+- name: Is istio.addon be iterable
+  set_fact:
+    is_istioaddon_iterable: "{{ istio.addon is defined and istio.addon is iterable }}"
+
+- name: Determine addons that need ServiceAccounts
+  set_fact:
+    selected_addons_needing_sa: "{{ istio.addon | intersect(addons_needing_sa) | difference(disabled_addons) }}"
+  when: is_istioaddon_iterable == true
+
+- name: Set selected_addons_needing_sa to empty array
+  set_fact:
+    selected_addons_needing_sa: "[]"
+  when: is_istioaddon_iterable == false
+
+- include_tasks: set_appropriate_cmd_path.yml
+  when: cmd_path is not defined
+
+- include_tasks: install_distro.yml
+- include_tasks: delete_resources.yml
+  when: istio.delete_resources == true
+- include_tasks: create_namespace.yml
+- include_tasks: change_scc.yml
+  when: cluster_flavour == 'ocp'
+- include_tasks: install_on_cluster.yml
+
+- name: Install bookinfo showcase
+  include_tasks: install_bookinfo.yml
+  when: istio.bookinfo

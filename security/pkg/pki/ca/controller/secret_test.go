@@ -166,24 +166,24 @@ func TestUpdateSecret(t *testing.T) {
 	}
 	testCases := map[string]struct {
 		expectedActions []ktesting.Action
-		notAfter        time.Time
+		ttl             time.Duration
 		rootCert        []byte
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions: []ktesting.Action{},
-			notAfter:        time.Now().Add(time.Hour),
+			ttl:             time.Hour,
 		},
 		"Update expiring secret": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			notAfter: time.Now().Add(-time.Second),
+			ttl: -time.Second,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			notAfter: time.Now().Add(time.Hour),
+			ttl:      time.Hour,
 			rootCert: []byte("Outdated root cert"),
 		},
 	}
@@ -199,10 +199,13 @@ func TestUpdateSecret(t *testing.T) {
 
 		opts := ca.CertOptions{
 			IsSelfSigned: true,
-			NotAfter:     tc.notAfter,
+			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _ := ca.GenCert(opts)
+		bs, _, err := ca.GenCert(opts)
+		if err != nil {
+			t.Error(err)
+		}
 		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)

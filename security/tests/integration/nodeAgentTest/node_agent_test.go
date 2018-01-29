@@ -79,17 +79,17 @@ func readURI(uri string) (string, error) {
 func TestNodeAgent(t *testing.T) {
 	orgRootCert, err := readFile(config.rootCert)
 	if err != nil {
-		t.Error(fmt.Errorf("unable to read original root certificate: %v", config.rootCert))
+		t.Errorf("unable to read original root certificate: %v", config.rootCert)
 	}
 
 	orgCertChain, err := readFile(config.certChain)
 	if err != nil {
-		t.Error(fmt.Errorf("unable to read original certificate chain: %v", config.certChain))
+		t.Errorf("unable to read original certificate chain: %v", config.certChain)
 	}
 
 	nodeAgentIPAddress, err := testEnv.GetNodeAgentIPAddress()
 	if err != nil {
-		t.Error(fmt.Errorf("external IP address of NodeAgent is not ready"))
+		t.Errorf("external IP address of NodeAgent is not ready")
 	}
 
 	term := certValidationInterval
@@ -112,8 +112,10 @@ func TestNodeAgent(t *testing.T) {
 			continue
 		}
 
+		t.Logf("Local root certificate\n%v\nRemote root certificate\n%v\nTimestamp: %v", orgRootCert, rootPEM, time.Now().String())
+
 		if orgRootCert != rootPEM {
-			t.Error(fmt.Errorf("invalid root certificate was downloaded"))
+			t.Errorf("invalid root certificate was downloaded")
 		}
 
 		if orgCertChain == certPEM {
@@ -124,17 +126,17 @@ func TestNodeAgent(t *testing.T) {
 		roots := x509.NewCertPool()
 		ok := roots.AppendCertsFromPEM([]byte(orgRootCert))
 		if !ok {
-			t.Error(fmt.Errorf("failed to parse root certificate"))
+			t.Errorf("failed to parse root certificate")
 		}
 
 		block, _ := pem.Decode([]byte(certPEM))
 		if block == nil {
-			t.Error(fmt.Errorf("failed to parse certificate PEM"))
+			t.Errorf("failed to parse certificate PEM")
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			t.Error(fmt.Errorf("failed to parse certificate: %v", err))
+			t.Errorf("failed to parse certificate: %v", err)
 		}
 
 		opts := x509.VerifyOptions{
@@ -142,13 +144,13 @@ func TestNodeAgent(t *testing.T) {
 		}
 
 		if _, err := cert.Verify(opts); err != nil {
-			t.Error(fmt.Errorf("failed to verify certificate: %v", err))
+			t.Errorf("failed to verify certificate: %v", err)
 		}
 
 		return
 	}
 
-	t.Error(fmt.Errorf("failed to check certificate update and validate after %v retry", certValidateRetry))
+	t.Errorf("failed to check certificate update and validate after %v retry", certValidateRetry)
 }
 
 func TestMain(m *testing.M) {

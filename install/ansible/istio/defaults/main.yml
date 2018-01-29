@@ -1,0 +1,35 @@
+---
+
+# Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
+cluster_flavour: ocp
+
+istio:
+
+  # Could be a tag "0.2.12, 0.3.0, 0.4.0" version or be empty "", then in this case, the latest release will be downloaded
+  release_tag_name: "0.4.0"
+
+  # Folder where you want to install the distro on your machine. By default, we will install it here ~/.istio
+  dest: "~/.istio"
+
+  # Install istio with or without istio-auth module
+  auth: false
+
+  # OpenShift project / Kubernetes namespace to be created
+  namespace: istio-system
+
+  addon: "{{ istio_all_addons }}"
+
+  # Whether or not Jaeger should be installed as well
+  jaeger: false
+
+  # Whether or not the Bookinfo showcase should be installed as well
+  bookinfo: false
+
+  # Namespace where bookinfo sample will be deployed (if so configured)
+  bookinfo_namespace: bookinfo
+
+  # Whether or not to open apps in the browser
+  open_apps: false
+
+  # Whether to delete resources that might exist from previous Istio installations
+  delete_resources: false
