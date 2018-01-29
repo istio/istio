@@ -73,13 +73,13 @@ flexibility. In any high performance paths, prefer to use the
 [Warn](https://godoc.org/istio.io/istio/pkg/log#Warn),
 [Info](https://godoc.org/istio.io/istio/pkg/log#Info), and
 [Debug](https://godoc.org/istio.io/istio/pkg/log#Debug) methods,
-as these are the most efficient. All other varietions of these four calls end up triggering some memory allocations and have a 
+as these are the most efficient. All other variations of these four calls end up triggering some memory allocations and have a
 considerably higher execution time.
 
 If you need to do a fair bit of computation in order to produce data for logging, you should protect that code
 using the
 [ErrorEnabled](https://godoc.org/istio.io/istio/pkg/log#ErrorEnabled),
-[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled), 
+[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled),
 [InfoEnabled](https://godoc.org/istio.io/istio/pkg/log#InfoEnabled), and
 [DebugEnabled](https://godoc.org/istio.io/istio/pkg/log#DebugEnabled) methods.
 
