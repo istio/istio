@@ -53,7 +53,7 @@ const (
 	testDbRule                         = "route-rule-ratings-db.yaml"
 	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
 	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "egress-rule-google-books-apis.yaml"
+	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
 )
 
 var (
