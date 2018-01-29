@@ -77,4 +77,4 @@ Human beings have proven incapable of predicting the real-world performance of c
 
 - *Measure* before doing an optimization
 - *Measure* after doing an optimization
-- *Measure* continuously as part of every checkin
+- *Measure* continuously as part of every check-in
