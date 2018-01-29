@@ -16,6 +16,7 @@ export OUT=${TOP}/out
 export K8S_VER=v1.7.4
 export MASTER_IP=127.0.0.1
 export MASTER_CLUSTER_IP=10.99.0.1
+export ETCD_VER=v3.2.15
 
 # TODO: customize the ports and generate a local config
 export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
@@ -63,7 +64,7 @@ function getDeps() {
      curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
    fi
    if [ ! -f $TOP/bin/etcd ] ; then
-     go get github.com/coreos/etcd/cmd/etcd
+     curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
      # Init should be run after cloning the workspace

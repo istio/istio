@@ -88,19 +88,22 @@ func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) err
 func (s *ClientServer) initializeRPCServer() error {
 	// Setup ClientServer's rpc rpcServer first. We will publish this to the controller next.
 	var err error
-	if s.listener, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
+	var l net.Listener
+	if l, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
 		return err
 	}
+	s.listener = l
 
-	s.rpcPath = generatePath("client", s.listener.Addr())
-	rpcDebugPath := generateDebugPath("client", s.listener.Addr())
+	s.rpcPath = generatePath("client")
+	rpcDebugPath := generateDebugPath("client")
 
 	s.rpcServer = rpc.NewServer()
 	_ = s.rpcServer.Register(s)
 	s.rpcServer.HandleHTTP(s.rpcPath, rpcDebugPath)
 
 	go func() {
-		_ = http.Serve(s.listener, nil)
+		// Use locally captured listener, as the listener field on s can change underneath us.
+		_ = http.Serve(l, nil)
 	}()
 
 	log.Infof("ClientServer listening on: %s", s.location())

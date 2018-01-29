@@ -20,11 +20,21 @@ import (
 
 // CobraCommand is a command used to print version information.
 func CobraCommand() *cobra.Command {
-	return &cobra.Command{
+	var short bool
+
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Prints out build version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf("%s\n", Info)
+			if short {
+				cmd.Printf("%s\n", Info)
+			} else {
+				cmd.Printf("%s", Info.LongForm())
+			}
 		},
 	}
+
+	cmd.PersistentFlags().BoolVarP(&short, "short", "s", short, "Displays a short form of the version information")
+
+	return cmd
 }
