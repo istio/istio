@@ -97,7 +97,7 @@ func main() {
 		}
 	}
 
-	certPem, privPem, err := ca.GenCert(ca.CertOptions{
+	certPem, privPem, err := ca.GenCertKeyFromOptions(ca.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
 		TTL:          *validFor,

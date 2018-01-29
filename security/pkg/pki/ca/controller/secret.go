@@ -238,7 +238,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, false)
 	if err != nil {
 		return nil, nil, err
 	}
