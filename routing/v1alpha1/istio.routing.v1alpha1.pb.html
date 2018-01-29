@@ -1,9 +1,38 @@
 ---
-title: Route Rules
+title: Route Rules Alpha 1
 overview: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 layout: protoc-gen-docs
 ---
+<h4>Glossary &amp; concepts</h4>
+
+<p><em>Service</em> is a unit of an application with a unique name that other services
+use to refer to the functionality being called. Service instances are
+pods/VMs/containers that implement the service.</p>
+
+<p><em>Service versions</em> - In a continuous deployment scenario, for a given service,
+there can be multiple sets of instances running potentially different
+variants of the application binary. These variants are not necessarily
+different API versions. They could be iterative changes to the same service,
+deployed in different environments (prod, staging, dev, etc.). Common
+scenarios where this occurs include A/B testing, canary rollouts, etc. The
+choice of a particular version can be decided based on various criterion
+(headers, url, etc.) and/or by weights assigned to each version.  Each
+service has a default version consisting of all its instances.</p>
+
+<p><em>Source</em> - downstream client (browser or another service) calling the
+Envoy proxy/sidecar (typically to reach another service).</p>
+
+<p><em>Destination</em> - The remote upstream service to which the Envoy proxy/sidecar is
+talking to, on behalf of the source service. There can be one or more
+service versions for a given service (see the discussion on versions above).
+Envoy would choose the version based on various routing rules.</p>
+
+<p><em>Access model</em> - Applications address only the destination service
+without knowledge of individual service versions. The actual choice of
+the version is determined by Envoy, enabling the application code to
+decouple itself from the evolution of dependent services.</p>
+
 <h2 id="Enumerations">Enumerations</h2>
 <h3 id="LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy</h3>
 <section>

@@ -17,9 +17,9 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Route Rules
+// $title: Route Rules Alpha 2
 // $overview: Configuration affecting traffic routing
-// $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
+// $location: https://istio.io/docs/reference/config/istio.routing.v1alpha2.html
 
 // ### Glossary & concepts
 //
