@@ -278,6 +278,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
 func (s *Server) initMixerSan(args *PilotArgs) error {
+	if s.mesh == nil {
+		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
+	}
 	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
 	}
