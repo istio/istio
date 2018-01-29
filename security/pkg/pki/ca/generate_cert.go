@@ -29,13 +29,9 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
-	"os"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 )
 
@@ -46,8 +42,11 @@ type CertOptions struct {
 	// like kubernetes service account.
 	Host string
 
-	// The validity bounds of the issued certificate.
-	NotBefore, NotAfter time.Time
+	// The NotBefore field of the issued certificate.
+	NotBefore time.Time
+
+	// TTL of the certificate. NotAfter - NotBefore
+	TTL time.Duration
 
 	// Signer certificate (PEM encoded).
 	SignerCert *x509.Certificate
@@ -77,30 +76,8 @@ type CertOptions struct {
 // URIScheme is the URI scheme for Istio identities.
 const URIScheme = "spiffe"
 
-// GenCSR generates a X.509 certificate sign request and private key with the given options.
-func GenCSR(options CertOptions) ([]byte, []byte, error) {
-	// Generates a CSR
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
-	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at RSA key generation (%v)", err)
-	}
-	template := GenCSRTemplate(options)
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, crypto.PrivateKey(priv))
-	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at X509 cert request generation (%v)", err)
-	}
-
-	csr, privKey := encodePem(true, csrBytes, priv)
-	return csr, privKey, nil
-}
-
-func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
-	os.Exit(-1)
-}
-
 // GenCert generates a X.509 certificate and a private key with the given options.
-func GenCert(options CertOptions) ([]byte, []byte) {
+func GenCert(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
 	// Generates a RSA private&public key pair.
 	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed
@@ -108,31 +85,24 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// as specified in the CertOptions.
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		fatalf("Cert generation fails at RSA key generation (%v)", err)
+		return nil, nil, fmt.Errorf("cert generation fails at RSA key generation (%v)", err)
 	}
-	template := genCertTemplate(options)
-	signerCert, signerKey := &template, crypto.PrivateKey(priv)
+	template, err := genCertTemplate(options)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
+	}
+	signerCert, signerKey := template, crypto.PrivateKey(priv)
 	if !options.IsSelfSigned {
 		signerCert, signerKey = options.SignerCert, options.SignerPriv
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
-		fatalf("Cert generation fails at X509 cert creation (%v)", err)
+		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	return encodePem(false, certBytes, priv)
-}
-
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
-	encodeMsg := "CERTIFICATE"
-	if isCSR {
-		encodeMsg = "CERTIFICATE REQUEST"
-	}
-	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
-
-	privDer := x509.MarshalPKCS1PrivateKey(priv)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return csrOrCertPem, privPem
+	pemCert, pemKey = encodePem(false, certBytes, priv)
+	err = nil
+	return
 }
 
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
@@ -161,33 +131,29 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	return cert, key, nil
 }
 
-func genSerialNum() *big.Int {
+func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+	encodeMsg := "CERTIFICATE"
+	if isCSR {
+		encodeMsg = "CERTIFICATE REQUEST"
+	}
+	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
+
+	privDer := x509.MarshalPKCS1PrivateKey(priv)
+	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
+	return csrOrCertPem, privPem
+}
+
+func genSerialNum() (*big.Int, error) {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
 	if err != nil {
-		fatalf("Serial number generation failure (%v)", err)
+		return nil, fmt.Errorf("serial number generation failure (%v)", err)
 	}
-	return serialNum
-}
-
-// GenCSRTemplate generates a certificateRequest template with the given options.
-func GenCSRTemplate(options CertOptions) x509.CertificateRequest {
-	template := x509.CertificateRequest{
-		Subject: pkix.Name{
-			Organization: []string{options.Org},
-		},
-	}
-
-	if h := options.Host; len(h) > 0 {
-		s := buildSubjectAltNameExtension(h)
-		template.ExtraExtensions = []pkix.Extension{*s}
-	}
-
-	return template
+	return serialNum, nil
 }
 
 // genCertTemplate generates a certificate template with the given options.
-func genCertTemplate(options CertOptions) x509.Certificate {
+func genCertTemplate(options CertOptions) (*x509.Certificate, error) {
 	var keyUsage x509.KeyUsage
 	if options.IsCA {
 		// If the cert is a CA cert, the private key is allowed to sign other certificate.
@@ -205,20 +171,34 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageClientAuth)
 	}
 
-	template := x509.Certificate{
-		SerialNumber: genSerialNum(),
+	notBefore := options.NotBefore
+	// If NotBefore is unset, use current time.
+	if notBefore.IsZero() {
+		notBefore = time.Now()
+	}
+
+	serialNum, err := genSerialNum()
+	if err != nil {
+		return nil, err
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: serialNum,
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
-		NotBefore:             options.NotBefore,
-		NotAfter:              options.NotAfter,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsages,
 		BasicConstraintsValid: true,
 	}
 
 	if h := options.Host; len(h) > 0 {
-		s := buildSubjectAltNameExtension(h)
+		s, err := buildSubjectAltNameExtension(h)
+		if err != nil {
+			return nil, err
+		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
@@ -226,10 +206,10 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
 	}
-	return template
+	return template, nil
 }
 
-func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
+func buildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 	ids := []pki.Identity{}
 	for _, host := range strings.Split(hosts, ",") {
 		if ip := net.ParseIP(host); ip != nil {
@@ -247,8 +227,8 @@ func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
 
 	san, err := pki.BuildSANExtension(ids)
 	if err != nil {
-		fatalf("SAN extension building failure (%v)", err)
+		return nil, fmt.Errorf("SAN extension building failure (%v)", err)
 	}
 
-	return san
+	return san, nil
 }

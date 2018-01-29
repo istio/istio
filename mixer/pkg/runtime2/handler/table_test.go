@@ -17,6 +17,14 @@ package handler
 import (
 	"testing"
 
+	"fmt"
+
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+
+	"time"
+
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
@@ -161,6 +169,85 @@ func TestCleanup_Basic(t *testing.T) {
 
 	if !closeCalled {
 		t.Fail()
+	}
+}
+
+func TestCleanup_WorkerNotClosed(t *testing.T) {
+	tests := []struct {
+		SpawnWorker            bool
+		SpawnDaemon            bool
+		CloseGoRoutines        bool
+		wantWorkerStrayRoutine float64
+		wantDaemonStrayRoutine float64
+	}{
+
+		{
+			SpawnWorker:            true,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 1,
+			wantDaemonStrayRoutine: 1,
+		},
+		{
+			SpawnWorker:            true,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        true,
+			wantWorkerStrayRoutine: 0,
+			wantDaemonStrayRoutine: 0,
+		},
+		{
+			SpawnWorker:            true,
+			SpawnDaemon:            false,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 1,
+			wantDaemonStrayRoutine: 0,
+		},
+		{
+			SpawnWorker:            false,
+			SpawnDaemon:            true,
+			CloseGoRoutines:        false,
+			wantWorkerStrayRoutine: 0,
+			wantDaemonStrayRoutine: 1,
+		},
+	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d]", idx), func(t *testing.T) {
+			adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker,
+				SpawnDaemon: tt.SpawnDaemon, CloseGoRoutines: tt.CloseGoRoutines})
+			templates := data.BuildTemplates()
+
+			s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
+			s.ID = int64(idx * 2)
+
+			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+
+			s = config.Empty()
+			// Every iteration of this test is working with two different config snapshot (old and new). We need to
+			// allocate distinct config ids to each of the config snapshot for all the iterations. Multiplying
+			// by 2 and adding 1, give unique ids per iteration [(0,1), (1,2), ...]
+			s.ID = int64(idx*2 + 1)
+
+			newTable := NewTable(oldTable, s, nil)
+
+			oldTable.Cleanup(newTable)
+
+			// give time for counters to get updated before validating them.
+			time.Sleep(500 * time.Millisecond)
+
+			var c prometheus.Metric = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.workers
+			m := new(dto.Metric)
+			_ = c.Write(m)
+			if *m.GetGauge().Value != tt.wantWorkerStrayRoutine {
+				t.Fatalf("expected %v worker stray routines; got %v", tt.wantWorkerStrayRoutine, *m.GetGauge().Value)
+			}
+
+			c = oldTable.entries[data.FqnACheck1].env.counters.daemons
+			m = new(dto.Metric)
+			_ = c.Write(m)
+			if *m.GetGauge().Value != tt.wantDaemonStrayRoutine {
+				t.Fatalf("expected %v daemon stray routines; got %v", tt.wantDaemonStrayRoutine, *m.GetGauge().Value)
+			}
+		})
 	}
 }
 

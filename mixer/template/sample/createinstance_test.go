@@ -201,7 +201,7 @@ func TestCreateInstanceBuilder(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(actual, tst.expect) {
-				tt.Fatalf("Instance mismatch, got='%+v', want:'%+v'", actual, tst.expect)
+				tt.Fatalf("Instance mismatch,\ngot =%+v\nwant=%+v", actual, tst.expect)
 			}
 		})
 	}
@@ -676,6 +676,45 @@ func generateReportTests() []createInstanceTest {
 		attrs:    defaultReportAttributes,
 		param:    nil,
 		expect:   nil,
+	}
+	tests = append(tests, t)
+
+	emptyFieldsParam := sample_report.InstanceParam{
+		// missing all fields
+		Res1: &sample_report.Res1InstanceParam{
+		// missing all fields
+		},
+	}
+	t = createInstanceTest{
+		name:     "unspecified fields in param - valid",
+		template: sample_report.TemplateName,
+		attrs:    defaultReportAttributes,
+		param:    &emptyFieldsParam,
+		expect: &sample_report.Instance{
+			Name:            "instance1",
+			Value:           nil,
+			Dimensions:      map[string]interface{}{},
+			BoolPrimitive:   false,
+			DoublePrimitive: 0.0,
+			Int64Primitive:  0,
+			StringPrimitive: "",
+			Int64Map:        map[string]int64{},
+			TimeStamp:       time.Time{},
+			Duration:        time.Duration(0),
+			Res1: &sample_report.Res1{
+				Value:           nil,
+				Dimensions:      map[string]interface{}{},
+				BoolPrimitive:   false,
+				DoublePrimitive: 0.0,
+				Int64Primitive:  0,
+				StringPrimitive: "",
+				Int64Map:        map[string]int64{},
+				TimeStamp:       time.Time{},
+				Duration:        time.Duration(0),
+				Res2:            nil,
+				Res2Map:         map[string]*sample_report.Res2{},
+			},
+		},
 	}
 	tests = append(tests, t)
 

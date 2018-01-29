@@ -44,10 +44,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -75,7 +75,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -83,7 +83,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -102,6 +102,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -109,14 +110,14 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -137,6 +138,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -144,10 +146,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -166,6 +168,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -173,10 +176,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false
       - store_artifacts:
           path: /home/circleci/logs
 
