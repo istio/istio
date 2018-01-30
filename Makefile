@@ -126,14 +126,11 @@ H = $(shell printf "\033[34;1m=>\033[0m")
 # To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
 DEBUG ?= 0
 ifeq (${DEBUG},1)
-	DEBUG_MODULES = 1
+	export GCFLAGS = -N -l
     $(info $(H) Build with debugger information)
-else ifeq ($(DEBUG),0)
-	DEBUG_MODULES = 0
-else
+else ifneq ($(DEBUG),0)
     $(error DEBUG has a default value of 0 for regular build and 1 for debugging)
 endif
-export DEBUG_MODULES
 
 .PHONY: default
 default: depend build test

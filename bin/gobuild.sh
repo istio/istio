@@ -37,12 +37,8 @@ BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+GCFLAGS=${GCFLAGS:-}
 export CGO_ENABLED=0
-DEBUG_MODULES=${DEBUG_MODULES:-0}
-
-if [[ $DEBUG_MODULES == 1 ]]; then
-    GCFLAGS="-N -l"
-fi
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
