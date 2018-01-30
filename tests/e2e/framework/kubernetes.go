@@ -47,8 +47,10 @@ var (
 	namespace           = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
 	mixerHub            = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub, if different from istio.Version")
 	mixerTag            = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag, if different from istio.Version")
-	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "pilot hub, if different from istio.Version")
-	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "pilot tag, if different from istio.Version")
+	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub, if different from istio.Version")
+	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag, if different from istio.Version")
+	proxyHub            = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub, if different from istio.Version")
+	proxyTag            = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag, if different from istio.Version")
 	caHub               = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag               = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
 	authEnable          = flag.Bool("auth_enable", false, "Enable auth")
@@ -98,7 +100,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *pilotHub, *pilotTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag)
 	if err != nil {
 		return nil, err
 	}
