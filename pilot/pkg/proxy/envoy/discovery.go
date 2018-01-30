@@ -322,8 +322,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 	out.Register(container)
 
-	out.webhookEndpoint = o.WebhookEndpoint
-	out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
+	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
 

@@ -22,28 +22,32 @@ import (
 	"time"
 )
 
-func NewWebHookClient(url string) *http.Client {
-	if len(url) == 0 {
+// This function takes URLs of the form http://foo.com,
+// unix+http://foo.com, and returns a base URL and http client that can be
+// used to communicate with the endpoint over IP or unix domain socket.
+func NewWebHookClient(apiEndpoint string) (string, *http.Client) {
+	if len(apiEndpoint) == 0 {
 		return nil
 	}
 
 	transport := &http.Transport{}
+	strippedEndpoint = apiEndpoint
 
-	if strings.Contains(url, "unix://") {
+	if strings.Contains(apiEndpoint, "unix://") {
 		transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
 			return net.Dial("unix", addr)
 		}
 
 		// strip the +unix and convert to plain http://
-		if strings.Index(o.WebhookEndpoint, "unix://") == 0 {
-			out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "unix", "", 1)
+		if strings.Index(apiEndpoint, "unix://") == 0 {
+			strippedEndpoint = strings.Replace(apiEndpoint, "unix", "", 1)
 		} else {
-			out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "+unix", "", 1)
+			strippedEndpoint = strings.Replace(apiEndpoint, "+unix", "", 1)
 		}
 	}
 
-	return &http.Client{
+	return strippedEndpoint, &http.Client{
 		Transport: transport,
-		Timeout:   15 * time.Second, // TODO: use fine-grained timeouts
+		Timeout:   15 * time.Second,
 	}
 }
