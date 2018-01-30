@@ -59,4 +59,4 @@ export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
 echo 'Running Integration Tests'
-time ISTIO_DOCKER_HUB=$HUB make TESTOPTS="$@" e2e_all
+time ISTIO_DOCKER_HUB=$HUB TESTOPTS="$@" make e2e_all
