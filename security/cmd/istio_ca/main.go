@@ -75,10 +75,6 @@ type cliOptions struct {
 
 	loggingOptions *log.Options
 
-	// The path to the file which indicates the liveness of the server by its existence.
-	// This will be used for k8s liveness probe. If empty, it does nothing.
-	LivenessProbeOptions *probe.Options
-
 	// The path to the file for readiness probe, similar to LivenessProbePath.
 	ReadinessProbeOptions *probe.Options
 }
@@ -86,7 +82,6 @@ type cliOptions struct {
 var (
 	opts = cliOptions{
 		loggingOptions:        log.NewOptions(),
-		LivenessProbeOptions:  &probe.Options{},
 		ReadinessProbeOptions: &probe.Options{},
 	}
 
@@ -141,10 +136,6 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
-	flags.StringVar(&opts.LivenessProbeOptions.Path, "livenessProbePath", "",
-		"Path to the file for the liveness probe.")
-	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
-		"Interval of updating file for the liveness probe.")
 	flags.StringVar(&opts.ReadinessProbeOptions.Path, "readinessProbePath", "",
 		"Path to the file for the readiness probe.")
 	flags.DurationVar(&opts.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", 0,
@@ -251,7 +242,6 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		}
 	}
 
-	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
 	caOpts.ReadinessProbeOptions = opts.ReadinessProbeOptions
 
 	istioCA, err := ca.NewIstioCA(caOpts)

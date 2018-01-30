@@ -63,7 +63,6 @@ type IstioCAOptions struct {
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
 
-	LivenessProbeOptions  *probe.Options
 	ReadinessProbeOptions *probe.Options
 }
 
@@ -76,7 +75,6 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
-	livenessProbe  *probe.Probe
 	readinessProbe *probe.Probe
 }
 
@@ -143,7 +141,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
 
-		livenessProbe:  probe.NewProbe(),
 		readinessProbe: probe.NewProbe(),
 	}
 
@@ -163,13 +160,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 	if err := ca.verify(); err != nil {
 		return nil, err
-	}
-
-	if opts.LivenessProbeOptions.IsValid() {
-		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
-		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-		livenessProbeController.Start()
-		ca.livenessProbe.SetAvailable(nil)
 	}
 
 	if opts.ReadinessProbeOptions.IsValid() {
