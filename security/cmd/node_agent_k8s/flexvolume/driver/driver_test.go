@@ -74,6 +74,7 @@ func TestUnmountDev(t *testing.T) {
   }
 }
 
+// TODO(wattli): improve the testing cases for Mount().
 func TestMount(t *testing.T) {
 	err := Mount("device", "opts")
   if err == nil {
