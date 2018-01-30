@@ -56,4 +56,4 @@ HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio
 ./bin/init.sh
-make e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false -use-sidecar-injector=true -use-admission-webhook=false"
+make e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false"
