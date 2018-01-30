@@ -30,7 +30,7 @@ import (
 type Resp struct {
 	// Status of the response
 	Status string `json:"status"`
-	// Error message of the response
+	// Response message of the response
 	Message string `json:"message"`
 	// Capability resp.
 	Attach bool `json:"attach,omitempty"`
@@ -51,14 +51,13 @@ type NodeAgentInputs struct {
 }
 
 const (
-	ver              string = "1.8"
 	volumeName       string = "tmpfs"
 	nodeAgentUdsHome string = "/tmp/nodeagent"
 )
 
 // Init initialize the driver
-func Init(ver string) error {
-	if ver == "1.8" {
+func Init(version string) error {
+	if version == "1.8" {
 		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Attach: false})
 		if err != nil {
 			return err
@@ -73,7 +72,7 @@ func Init(ver string) error {
 func Attach(opts, nodeName string) error {
 	_, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
 	if err != nil {
-		log.Errorf("Failed to attach with error: %s", err.Error())
+		log.Errorf("Failed to attach with error: %v", err)
 		return err
 	}
 	inp := opts + "|" + nodeName
@@ -85,7 +84,7 @@ func Attach(opts, nodeName string) error {
 func Detach(devID string) error {
 	_, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
 	if err != nil {
-		log.Errorf("Failed to detach with error: %s", err.Error())
+		log.Errorf("Failed to detach with error: %v", err)
 		return err
 	}
 	log.Infof("Detach to %s successfully", devID)
@@ -207,7 +206,7 @@ func Mount(dir, opts string) error {
 	}
 
 	if err := doMount(dir, ninputs.Attrs); err != nil {
-		sErr := fmt.Sprintf("Mount failed with dir %s with error: %s", inp, err.Error())
+		sErr := fmt.Sprintf("Mount failed with dir %s with error: %v", inp, err)
 		return errors.New(sErr)
 	}
 
@@ -233,7 +232,7 @@ func Unmount(dir string) error {
 	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
 	if err != nil {
-		sErr := fmt.Sprintf("Unmount failed when delete dir %s with error: %s", delDir, err.Error())
+		sErr := fmt.Sprintf("Unmount failed when delete dir %s with error: %v", delDir, err)
 		return errors.New(sErr)
 	}
 
