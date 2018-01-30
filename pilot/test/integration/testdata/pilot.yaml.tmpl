@@ -91,7 +91,7 @@ spec:
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
         ports:
-        - containerPort: 8080
+        - containerPort: 15003
 {{if .DebugPort}}
         - containerPort: {{.DebugPort}}
         volumeMounts:
