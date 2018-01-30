@@ -18,7 +18,7 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 OUT=${1:?"output path"}
-VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
+VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version
 BUILDPATH=${3:?"path to build"}
 
 set -e
@@ -32,15 +32,15 @@ fi
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
+GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+export CGO_ENABLED=0
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
-else
-    export CGO_ENABLED=0
 fi
 
 # gather buildinfo if not already provided
@@ -60,4 +60,4 @@ done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
 time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
-	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"

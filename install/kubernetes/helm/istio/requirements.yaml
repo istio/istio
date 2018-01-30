@@ -1,11 +1,17 @@
 dependencies:
-  - name: pilot
-    version: 0.3.0
-    condition: global.pilot.enabled
+  - name: sidecar-injector
+    version: 0.5.0
+    # repository: file://../sidecar-injector
+    condition: sidecar-injector.enabled
   - name: mixer
-    version: 0.3.0
-    condition: global.mixer.enabled
-  - name: initializer
-    version: 0.3.0
-    condition: global.initializer.enabled
-  
+    version: 0.5.0
+    # repository: file://../mixer
+    condition: mixer.enabled
+  - name: pilot
+    version: 0.5.0
+    # repository: file://../pilot
+    condition: pilot.enabled
+  - name: security
+    version: 0.5.0
+    # repository: file://../security
+    condition: global.securityEnabled

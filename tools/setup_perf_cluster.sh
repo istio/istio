@@ -1,14 +1,13 @@
 #! /bin/bash
 #
 # Sets up a cluster for perf testing - GCP/GKE
-#   PROJECT=istio-perf tools/setup_perf_cluster.sh
+#   tools/setup_perf_cluster.sh
 # Notes:
 # * Make sure istioctl in your path is the one matching your release/crd/...
-# * You need update istio-auth.yaml or run from a release directory:
+# * You need to update istio-auth.yaml or run from a release directory:
 # For instance in ~/tmp/istio-0.3.0/ run
 #   ln -s ~/go/src/istio.io/istio/tools .
 # then
-#   PROJECT=istio-perf
 #   source tools/setup_perf_cluster.sh
 #   setup_all
 # (inside google you may need to rerun setup_vm_firewall multiple times)
@@ -16,6 +15,7 @@
 # This can be used as a script or sourced and functions called interactively
 #
 
+PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
 MACHINE_TYPE=${MACHINE_TYPE:-n1-highcpu-2}
@@ -40,7 +40,6 @@ function List_functions() {
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
-  echo "You must set PROJECT before using one of the function interactively:"
   List_functions
   SOURCED=1
 else
@@ -108,6 +107,8 @@ function get_vm_ip() {
 
 # assumes run from istio/ (or release) directory
 function install_istio() {
+  # You need these permissions to create the necessary RBAC rules for Istio
+  Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
 }

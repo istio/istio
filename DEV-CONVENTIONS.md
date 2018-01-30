@@ -36,6 +36,10 @@ Others docs you should look at:
 
       - Must use lowerCamel case for Go package names.
 
+      - Must use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
+
+      - Use singular nouns for types unless they represent a collection. Use plural nouns for collections.
+
       - Please consider parent directory name when choosing a package name:
 
           - `adapters/factMapper/tracker.go` should say `package factMapper` not `package factmapperadapter`.
@@ -69,13 +73,13 @@ flexibility. In any high performance paths, prefer to use the
 [Warn](https://godoc.org/istio.io/istio/pkg/log#Warn),
 [Info](https://godoc.org/istio.io/istio/pkg/log#Info), and
 [Debug](https://godoc.org/istio.io/istio/pkg/log#Debug) methods,
-as these are the most efficient. All other varietions of these four calls end up triggering some memory allocations and have a 
+as these are the most efficient. All other variations of these four calls end up triggering some memory allocations and have a
 considerably higher execution time.
 
 If you need to do a fair bit of computation in order to produce data for logging, you should protect that code
 using the
 [ErrorEnabled](https://godoc.org/istio.io/istio/pkg/log#ErrorEnabled),
-[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled), 
+[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled),
 [InfoEnabled](https://godoc.org/istio.io/istio/pkg/log#InfoEnabled), and
 [DebugEnabled](https://godoc.org/istio.io/istio/pkg/log#DebugEnabled) methods.
 

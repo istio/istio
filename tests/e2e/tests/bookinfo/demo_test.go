@@ -26,7 +26,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -37,21 +36,24 @@ import (
 )
 
 const (
-	u1                       = "normal-user"
-	u2                       = "test-user"
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml        = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	modelDir                 = "tests/apps/bookinfo/output"
-	rulesDir                 = "samples/bookinfo/kube"
-	allRule                  = "route-rule-all-v1.yaml"
-	delayRule                = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                = "route-rule-reviews-50-v3.yaml"
-	testRule                 = "route-rule-reviews-test-v2.yaml"
-	testDbRule               = "route-rule-ratings-db.yaml"
-	testMysqlRule            = "route-rule-ratings-mysql.yaml"
+	u1                                 = "normal-user"
+	u2                                 = "test-user"
+	bookinfoYaml                       = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml              = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml           = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml                     = "samples/bookinfo/kube/bookinfo-db.yaml"
+	bookinfoMysqlYaml                  = "samples/bookinfo/kube/bookinfo-mysql.yaml"
+	bookinfoDetailsExternalServiceYaml = "samples/bookinfo/kube/bookinfo-details-v2.yaml"
+	modelDir                           = "tests/apps/bookinfo/output"
+	rulesDir                           = "samples/bookinfo/kube"
+	allRule                            = "route-rule-all-v1.yaml"
+	delayRule                          = "route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
+	testRule                           = "route-rule-reviews-test-v2.yaml"
+	testDbRule                         = "route-rule-ratings-db.yaml"
+	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
 )
 
 var (
@@ -91,7 +93,8 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
+		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -410,6 +413,9 @@ func setTestConfig() error {
 		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
+		{AppYaml: util.GetResourcePath(bookinfoDetailsExternalServiceYaml),
+			KubeInject: true,
+		},
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
@@ -469,6 +475,22 @@ func TestVMExtendsIstio(t *testing.T) {
 		err = vm.Teardown()
 		inspect(err, "VM teardown failed", "VM teardown succeeded", t)
 	}
+}
+
+func TestExternalDetailsService(t *testing.T) {
+	var err error
+	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
+	inspect(applyRules(rules), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(rules), "failed to delete rules", "", t)
+	}()
+
+	isbnFetchedFromExternalService := "0486424618"
+
+	_, err = checkHTTPResponse(u1, tc.gateway, isbnFetchedFromExternalService, 1)
+	inspect(
+		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
+		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
 }
 
 func TestMain(m *testing.M) {

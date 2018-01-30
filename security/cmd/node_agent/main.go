@@ -16,9 +16,8 @@ package main
 
 import (
 	"os"
+	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/log"
@@ -45,6 +44,8 @@ func init() {
 	flags := rootCmd.Flags()
 
 	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
+	flags.DurationVar(&naConfig.WorkloadCertTTL, "workload-cert-ttl", time.Hour,
+		"The requested TTL for the workload")
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")

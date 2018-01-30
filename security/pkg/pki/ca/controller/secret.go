@@ -20,8 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,8 +57,9 @@ const (
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca   ca.CertificateAuthority
-	core corev1.CoreV1Interface
+	ca      ca.CertificateAuthority
+	certTTL time.Duration
+	core    corev1.CoreV1Interface
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -72,12 +71,13 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, core corev1.CoreV1Interface,
 	namespace string) *SecretController {
 
 	c := &SecretController{
-		ca:   ca,
-		core: core,
+		ca:      ca,
+		certTTL: certTTL,
+		core:    core,
 	}
 
 	saLW := &cache.ListWatch{
@@ -237,7 +237,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	certPEM, err := sc.ca.Sign(csrPEM)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, false)
 	if err != nil {
 		return nil, nil, err
 	}

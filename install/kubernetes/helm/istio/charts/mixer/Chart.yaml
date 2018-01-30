@@ -1,5 +1,6 @@
-name: mixer 
-version: 0.3.0
+apiVersion: v1
+name: mixer
+version: 0.5.0
 description: Helm chart for mixer deployment
 keywords:
   - istio

@@ -17,6 +17,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -102,6 +104,7 @@ func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool, i
 		mapper:            mapper,
 		gp:                gp,
 		identityAttribute: identityAttribute,
+		Probe:             probe.NewProbe(),
 	}
 	m.ChangeResolver(rt)
 	return m
@@ -121,6 +124,8 @@ type dispatcher struct {
 	resolver     Resolver
 
 	identityAttribute string
+
+	*probe.Probe
 }
 
 // ChangeResolver installs a new resolver.
@@ -129,6 +134,11 @@ type dispatcher struct {
 func (m *dispatcher) ChangeResolver(rt Resolver) {
 	m.resolverLock.Lock()
 	m.resolver = rt
+	var err error
+	if rt == nil {
+		err = errors.New("resolver is unavailable")
+	}
+	m.Probe.SetAvailable(err)
 	m.resolverLock.Unlock()
 }
 
@@ -406,12 +416,12 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 	m.gp.ScheduleWork(func(_ interface{}) {
 		// tracing
 		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
-		span, ctx := opentracing.StartSpanFromContext(ctx, op)
+		span, ctx2 := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 
 		log.Debugf("runAsync %s -> %v", op, *callinfo)
 
-		out := safeDispatch(ctx, do, op)
+		out := safeDispatch(ctx2, do, op)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)

@@ -49,20 +49,23 @@ func newController() (*Controller, error) {
 
 	// Setup a TCP listener at a random port.
 	var err error
-	if c.listener, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
+	var l net.Listener
+	if l, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
 		return nil, err
 	}
+	c.listener = l
 
 	// Generate HTTP paths to listen on
-	c.rpcPath = generatePath("controller", c.listener.Addr())
-	rpcDebugPath := generateDebugPath("controller", c.listener.Addr())
+	c.rpcPath = generatePath("controller")
+	rpcDebugPath := generateDebugPath("controller")
 
 	c.rpcServer = rpc.NewServer()
 	_ = c.rpcServer.Register(c)
 	c.rpcServer.HandleHTTP(c.rpcPath, rpcDebugPath)
 
 	go func() {
-		_ = http.Serve(c.listener, nil)
+		// Use locally captured listener, as the listener field on s can change underneath us.
+		_ = http.Serve(l, nil)
 	}()
 
 	log.Infof("controller is accepting connections on: %s%s", c.listener.Addr().String(), c.rpcPath)

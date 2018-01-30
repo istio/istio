@@ -1,0 +1,12 @@
+- name: Use specified version
+  set_fact:
+    istio_version_to_use: "{{ istio.release_tag_name }}"
+  when: istio.release_tag_name != ''
+
+
+- include_tasks: determine_latest_version.yml
+  when: istio.release_tag_name == ''
+
+- name: Show Istio version to be used
+  debug:
+    msg: "Will use Istio version {{ istio_version_to_use }}"

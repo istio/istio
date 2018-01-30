@@ -20,8 +20,6 @@ metadata:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    sidecar.istio.io/inject: "false"
   name: istio-mixer
 spec:
   replicas: 1
@@ -29,6 +27,8 @@ spec:
     metadata:
       labels:
         app: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-mixer-service-account
       containers:

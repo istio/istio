@@ -22,9 +22,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
 )

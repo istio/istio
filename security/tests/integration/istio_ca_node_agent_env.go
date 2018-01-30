@@ -21,7 +21,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/tests/integration/framework"
 )
 
@@ -45,15 +45,16 @@ const (
 )
 
 // NewNodeAgentTestEnv creates the environment instance
-func NewNodeAgentTestEnv(name string, kubeconfig string) *NodeAgentTestEnv {
-	clientset, err := CreateClientset(kubeconfig)
+func NewNodeAgentTestEnv(name, kubeConfig, hub, tag string) *NodeAgentTestEnv {
+	clientset, err := CreateClientset(kubeConfig)
 	if err != nil {
-		glog.Errorf("failed to initialize K8s client: %s\n", err)
+		glog.Errorf("failed to initialize K8s client: %v", err)
 		return nil
 	}
 
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {
+		glog.Errorf("failed to create test namespace: %v", err)
 		return nil
 	}
 
@@ -61,8 +62,8 @@ func NewNodeAgentTestEnv(name string, kubeconfig string) *NodeAgentTestEnv {
 		ClientSet: clientset,
 		name:      name,
 		NameSpace: namespace,
-		Hub:       *hub,
-		Tag:       *tag,
+		Hub:       hub,
+		Tag:       tag,
 	}
 }
 
@@ -131,7 +132,9 @@ func (env *NodeAgentTestEnv) Cleanup() error {
 	glog.Infof("cleaning up environment...")
 	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
 	if err != nil {
-		glog.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		glog.Error(retErr)
+		return retErr
 	}
 	return nil
 }

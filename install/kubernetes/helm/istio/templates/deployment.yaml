@@ -1,0 +1,65 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "istio.fullname" . }}
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: ingress
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "istio.name" . }}
+        release: {{ .Release.Name }}
+        istio: ingress
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ template "istio.serviceAccountName" . }}
+      containers:
+        - name: {{ template "istio.name" . }}
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 80
+              containerPort: 443
+          args:
+          - proxy
+          - ingress
+          - -v
+          - "2"
+          - --discoveryAddress
+          - {{ .Release.Name }}-pilot:15003
+          - --discoveryRefreshDelay
+          - '1s' #discoveryRefreshDelay
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - istio-proxy
+          - --zipkinAddress
+          - zipkin:9411
+          - --statsdUdpAddress
+          - {{ .Release.Name }}-mixer:9125
+          - --proxyAdminPort
+          - "15000"
+          - --controlPlaneAuthPolicy
+
+        {{- if .Values.global.securityEnabled }}
+          - MUTUAL_TLS
+        {{- else }}
+          - NONE #--controlPlaneAuthPolicy
+        {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

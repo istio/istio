@@ -56,6 +56,10 @@ spec:
   ports:
   - port: 15003
     name: http-discovery
+  - port: 8080
+    name: http-legacy-discovery
+  - port: 9093
+    name: http-monitoring
   - port: 443
     name: admission-webhook
   selector:
@@ -72,14 +76,14 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         istio: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:

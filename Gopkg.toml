@@ -35,10 +35,6 @@ required = [
 ### END Mixer codegen deps
 
 [[constraint]]
-  name = "github.com/googleapis/googleapis"
-  source = "https://github.com/costinm/googleapis.git"
-
-[[constraint]]
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
@@ -70,32 +66,24 @@ required = [
   name = "k8s.io/apiextensions-apiserver"
   branch = "release-1.9"
 
-[[constraint]]
-  name = "k8s.io/apiserver"
+[[override]]
+  name = "k8s.io/kubernetes"
   branch = "release-1.9"
 
 # TODO(https://github.com/istio/istio/issues/2413). Keep
 # k8s.io/ingress-nginx pinned to an older version until istio ingress code
 # is refactored.
 #
-# istio.io/istio/pilot/adapter/config/ingress uses the following nginx
+# istio.io/istio/pilot/pkg/config/kube/ingress uses the following nginx
 # controller packages from an older version of k8s.io/ingress which
 # have since been made internal and are no longer available.
 #
 #     "k8s.io/ingress-nginx/core/pkg/ingress/status"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/store"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
-[[constraint]]
-  name = "k8s.io/ingress-nginx"
-  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
-
-[[constraint]]
-  name = "github.com/russross/blackfriday"
-  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
-
-[[constraint]]
-  name = "code.cloudfoundry.org/copilot"
-  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
+#[[constraint]]
+#  name = "k8s.io/ingress-nginx"
+#  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -107,19 +95,29 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.6.2"
+  version = ">= v0.6.4"
 
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "2ca562b951de4f8381e2c67ce607a9b85a0c3351"
+  revision = "58de5731b5401268263924fae9df7d091813c19e"
+
+[[constraint]]
+  name = "github.com/envoyproxy/go-control-plane"
+  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
 
 ### Begin Mixer codegen dep pinning
 
 [[override]]
   name = "github.com/gogo/protobuf"
   version = "=0.5"
+
+# Api is pinning this to a version, needs to be fixed. Protobuf is supposed to have stable master.
+# The api constraint prevents dep update
+[[override]]
+  name = "github.com/golang/protobuf"
+  branch = "master"
 
 ### End Mixer codegen dep pinning
 
@@ -130,3 +128,13 @@ required = [
 [[constraint]]
   name = "github.com/onsi/gomega"
   revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
+
+# To use reference package:
+#   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
+[[override]]
+  name = "github.com/docker/distribution"
+  branch = "master"
+
+[[constraint]]
+  name = "code.cloudfoundry.org/copilot"
+  revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"

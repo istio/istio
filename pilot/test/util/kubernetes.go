@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
@@ -37,14 +36,21 @@ const (
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
-	return CreateNamespaceWithPrefix(cl, "istio-test-")
+	return CreateNamespaceWithPrefix(cl, "istio-test-", false)
 }
 
 // CreateNamespaceWithPrefix creates a fresh namespace with the given prefix
-func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string) (string, error) {
+func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bool) (string, error) {
+	injectionValue := "disabled"
+	if inject {
+		injectionValue = "enabled"
+	}
 	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: prefix,
+			Labels: map[string]string{
+				"istio-injection": injectionValue,
+			},
 		},
 	})
 	if err != nil {
@@ -97,6 +103,15 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 			log.Errorf("%s\n%s", cmd, output)
 		}
 	}
+}
+
+// CopyCoreFiles copies files from a pod to the machine
+func CopyCoreFiles(pod, ns, source, dest string) {
+	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar
+	cmd := fmt.Sprintf("kubectl cp %s/%s:%s %s",
+		ns, pod, source, dest)
+	output, _ := Shell(cmd)
+	log.Errorf("%s\n%s", cmd, output)
 }
 
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
@@ -164,7 +179,13 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		Do().Raw()
 	if err != nil {
 		log.Infof("Request error %v", err)
-		return ""
+
+		raw, err = cl.CoreV1().Pods(namespace).
+			GetLogs(name, &v1.PodLogOptions{Container: container, Previous: true}).
+			Do().Raw()
+		if err != nil {
+			return ""
+		}
 	}
 	return string(raw)
 }
