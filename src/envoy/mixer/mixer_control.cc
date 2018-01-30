@@ -16,15 +16,10 @@
 #include "src/envoy/mixer/mixer_control.h"
 #include "src/envoy/mixer/grpc_transport.h"
 
-using ::istio::mixer_client::Statistics;
-
 namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
-
-const std::string kHttpStatsPrefix("http_mixer_filter.");
-const std::string kTcpStatsPrefix("tcp_mixer_filter.");
 
 // A class to wrap envoy timer for mixer client timer.
 class EnvoyTimer : public ::istio::mixer_client::Timer {
@@ -64,19 +59,8 @@ void CreateEnvironment(Upstream::ClusterManager& cm,
 HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                                    Upstream::ClusterManager& cm,
                                    Event::Dispatcher& dispatcher,
-                                   Runtime::RandomGenerator& random,
-                                   Stats::Scope& scope)
-    : cm_(cm),
-      stats_obj_(
-          dispatcher, kHttpStatsPrefix, scope,
-          mixer_config.http_config.transport().stats_update_interval_ms(),
-          [this](Statistics* stat) -> bool {
-            if (!controller_) {
-              return false;
-            }
-            controller_->GetStatistics(stat);
-            return true;
-          }) {
+                                   Runtime::RandomGenerator& random)
+    : cm_(cm) {
   ::istio::mixer_control::http::Controller::Options options(
       mixer_config.http_config, mixer_config.legacy_quotas);
 
@@ -90,17 +74,7 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
 TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
-                                 Runtime::RandomGenerator& random,
-                                 Stats::Scope& scope)
-    : stats_obj_(dispatcher, kTcpStatsPrefix, scope,
-                 mixer_config.tcp_config.transport().stats_update_interval_ms(),
-                 [this](Statistics* stat) -> bool {
-                   if (!controller_) {
-                     return false;
-                   }
-                   controller_->GetStatistics(stat);
-                   return true;
-                 }) {
+                                 Runtime::RandomGenerator& random) {
   ::istio::mixer_control::tcp::Controller::Options options(
       mixer_config.tcp_config);
 

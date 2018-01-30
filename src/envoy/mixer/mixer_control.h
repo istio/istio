@@ -22,7 +22,6 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "src/envoy/mixer/config.h"
-#include "src/envoy/mixer/stats.h"
 
 namespace Envoy {
 namespace Http {
@@ -33,7 +32,7 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   HttpMixerControl(const HttpMixerConfig& mixer_config,
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                   Runtime::RandomGenerator& random, Stats::Scope& scope);
+                   Runtime::RandomGenerator& random);
 
   Upstream::ClusterManager& cm() { return cm_; }
 
@@ -50,8 +49,6 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
   // has v2 config;
   bool has_v2_config_;
-
-  MixerStatsObject stats_obj_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
@@ -59,7 +56,7 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   TcpMixerControl(const TcpMixerConfig& mixer_config,
                   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                  Runtime::RandomGenerator& random, Stats::Scope& scope);
+                  Runtime::RandomGenerator& random);
 
   ::istio::mixer_control::tcp::Controller* controller() {
     return controller_.get();
@@ -68,8 +65,6 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
  private:
   // The mixer control
   std::unique_ptr<::istio::mixer_control::tcp::Controller> controller_;
-
-  MixerStatsObject stats_obj_;
 };
 
 }  // namespace Mixer
