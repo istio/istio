@@ -1,0 +1,36 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: servicegraph
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: servicegraph
+    spec:
+      containers:
+      - name: servicegraph
+        image: gcr.io/istio-testing/servicegraph:5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8088
+        args:
+        - --prometheusAddr=http://prometheus:9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicegraph
+  namespace: istio-system
+spec:
+  ports:
+  - name: http
+    port: 8088
+  selector:
+    app: servicegraph
+---
