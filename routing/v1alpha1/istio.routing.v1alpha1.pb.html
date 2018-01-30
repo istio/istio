@@ -3,6 +3,7 @@ title: Route Rules Alpha 1
 overview: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of routing rules.</p>
@@ -98,7 +99,7 @@ for more details.</p>
 </tr>
 <tr id="CircuitBreaker.custom" class="oneof">
 <td><code>custom</code></td>
-<td><code><a href="#Any">google.protobuf.Any (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
 <p>(&ndash; For proxies that support custom circuit breaker policies. &ndash;)</p>
 
@@ -182,7 +183,7 @@ spec:
 </tr>
 <tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.sleep_window">
 <td><code>sleepWindow</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Minimum time the circuit will be open. format: 1h/1m/1s/1ms. MUST
 BE &gt;=1ms. Default is 30s.</p>
@@ -199,7 +200,7 @@ BE &gt;=1ms. Default is 30s.</p>
 </tr>
 <tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_detection_interval">
 <td><code>httpDetectionInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Time interval between ejection sweep analysis. format:
 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 10s.</p>
@@ -240,7 +241,7 @@ cluster at a given time. Defaults to 3.</p>
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
-<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
 for further details about cross origin resource sharing. For example,
 the following rule restricts cross origin requests to those originating
 from example.com domain using HTTP POST/GET, and sets the
@@ -313,7 +314,7 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 </tr>
 <tr id="CorsPolicy.max_age">
 <td><code>maxAge</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Specifies how long the the results of a preflight request can be
 cached. Translates to the Access-Control-Max-Age header.</p>
@@ -322,7 +323,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 </tr>
 <tr id="CorsPolicy.allow_credentials">
 <td><code>allowCredentials</code></td>
-<td><code><a href="#BoolValue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 <p>Indicates whether the caller is allowed to send the actual request
 (not the preflight) using credentials. Translates to
@@ -424,7 +425,7 @@ with this policy.</p>
 </tr>
 <tr id="DestinationPolicy.custom">
 <td><code>custom</code></td>
-<td><code><a href="#Any">google.protobuf.Any</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
 <p>(&ndash; Other custom policy implementations &ndash;)</p>
 
@@ -477,7 +478,7 @@ specified, the value is inherited from the parent route rule.</p>
 <td>
 <p>Sometimes required. Service version identifier for the destination service.
 (&ndash; N.B. The map is used instead of pstruct due to lack of serialization support
-in golang protobuf library (see <a href="https://github.com/golang/protobuf/pull/208">https://github.com/golang/protobuf/pull/208</a>) &ndash;)</p>
+in golang protobuf library (see https://github.com/golang/protobuf/pull/208) &ndash;)</p>
 
 </td>
 </tr>
@@ -504,7 +505,7 @@ on the service targeted by an egress rule. The destination of an egress rule is 
 contain wildcards (e.g., *.foo.com). Currently, only HTTP-based services can be expressed
 through the egress rule. If TLS origination from the sidecar is desired, the protocol
 associated with the service port must be marked as HTTPS, and the service is expected to
-be accessed over HTTP (e.g., <a href="http://gmail.com:443">http://gmail.com:443</a>). The sidecar will automatically upgrade
+be accessed over HTTP (e.g., http://gmail.com:443). The sidecar will automatically upgrade
 the connection to TLS when initiating a connection with the external service.</p>
 
 <p>For example, the following egress rule describes the set of services hosted under the *.foo.com domain</p>
@@ -743,7 +744,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 <tr id="HTTPFaultInjection.Delay.fixed_delay" class="oneof oneof-start">
 <td><code>fixedDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format: 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
 
@@ -751,7 +752,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 <tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
 <td><code>exponentialDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>(&ndash; Add a delay (based on an exponential function) before forwarding
 the request. mean delay needed to derive the exponential delay
@@ -855,7 +856,7 @@ spec:
 </tr>
 <tr id="HTTPRetry.custom" class="oneof">
 <td><code>custom</code></td>
-<td><code><a href="#Any">google.protobuf.Any (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
 <p>(&ndash; For proxies that support custom retry policies &ndash;)</p>
 
@@ -883,7 +884,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 </tr>
 <tr id="HTTPRetry.SimpleRetryPolicy.per_try_timeout">
 <td><code>perTryTimeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
 
@@ -985,7 +986,7 @@ spec:
 </tr>
 <tr id="HTTPTimeout.custom" class="oneof">
 <td><code>custom</code></td>
-<td><code><a href="#Any">google.protobuf.Any (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
 <p>(&ndash; For proxies that support custom timeout policies &ndash;)</p>
 
@@ -1003,7 +1004,7 @@ spec:
 </tr>
 <tr id="HTTPTimeout.SimpleTimeoutPolicy.timeout">
 <td><code>timeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>REQUIRED. Timeout for a HTTP request. Includes retries as well.  Default
 15s. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. It is possible to control
@@ -1224,7 +1225,7 @@ established, emulating remote server crash or link failure.</p>
 </tr>
 <tr id="L4FaultInjection.Terminate.terminate_after_period">
 <td><code>terminateAfterPeriod</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>TODO: see if it makes sense to create a generic Duration type to
 express time interval related configs.</p>
@@ -1269,7 +1270,7 @@ express time interval related configs.</p>
 </tr>
 <tr id="L4FaultInjection.Throttle.throttle_after_period" class="oneof oneof-start">
 <td><code>throttleAfterPeriod</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>Wait a while after the connection is established, before
 starting bandwidth throttling. This would allow us to inject fault
@@ -1289,7 +1290,7 @@ transferred to upstream before throttling the bandwidth.</p>
 </tr>
 <tr id="L4FaultInjection.Throttle.throttle_for_period">
 <td><code>throttleForPeriod</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Stop throttling after the given duration. If not set, the connection
 will be throttled for its lifetime.</p>
@@ -1363,7 +1364,7 @@ spec:
 </tr>
 <tr id="LoadBalancing.custom" class="oneof">
 <td><code>custom</code></td>
-<td><code><a href="#Any">google.protobuf.Any (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
 <p>(&ndash; Custom LB policy implementations &ndash;)</p>
 
@@ -1644,7 +1645,7 @@ Statistics will be generated for the mirrored destination.</p>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
 <p>Cross-Origin Resource Sharing policy (CORS). Refer to
-<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a> for
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS for
 further details about cross origin resource sharing.</p>
 
 </td>

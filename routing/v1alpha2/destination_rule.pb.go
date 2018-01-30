@@ -496,7 +496,7 @@ func _LoadBalancerSettings_OneofSizer(msg proto.Message) (n int) {
 // distribution/redistribution when the connection pool changes. This
 // load balancing policy is applicable only for HTTP-based
 // connections. A user specified HTTP header is used as the key with
-// [xxHash](www.xxhash.com) hashing.
+// [xxHash](http://cyan4973.github.io/xxHash) hashing.
 type LoadBalancerSettings_ConsistentHashLB struct {
 	// REQUIRED. The name of the HTTP request header that will be used to
 	// obtain the hash key. If the request header is not present, the load

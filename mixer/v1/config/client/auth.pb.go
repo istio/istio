@@ -60,8 +60,7 @@ type JWT struct {
 	// JWT. See [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
 	//
 	// Optional if the key set document can either (a) be retrieved from
-	// [OpenID
-	// Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html
+	// [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)
 	// of the issuer or (b) inferred from the email domain of the issuer
 	// (e.g. a Google service account).
 	//

@@ -16,7 +16,7 @@ the following standard fields:
 
 In addition to the standard fields, operators can use custom fields in the "constraints"
 section. The name of a custom field must match one of the "properties" in the "action" part
-of the "authorization" template (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
+of the "authorization" template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 
 For example, suppose we define an instance of the "authorization" template, named "requestcontext".
 
@@ -193,7 +193,7 @@ func (m *AccessRule) GetConstraints() []*AccessRule_Constraint {
 
 // Definition of a custom constraint. The key of a custom constraint must match
 // one of the "properties" in the "action" part of the "authorization" template
-// (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
+// (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 type AccessRule_Constraint struct {
 	// Key of the constraint.
 	Key string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`

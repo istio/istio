@@ -3,6 +3,7 @@ title: Service Mesh
 overview: Configuration affecting the service mesh as a whole
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/service-mesh.html
 ---
 <h2 id="Enumerations">Enumerations</h2>
 <h3 id="AuthenticationPolicy">AuthenticationPolicy</h3>
@@ -162,7 +163,7 @@ other services.</p>
 </tr>
 <tr id="MeshConfig.connect_timeout">
 <td><code>connectTimeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Connection timeout used by Envoy. (MUST BE &gt;=1ms)</p>
 
@@ -206,7 +207,7 @@ Use authentication_policy instead.</p>
 </tr>
 <tr id="MeshConfig.rds_refresh_delay">
 <td><code>rdsRefreshDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Polling interval for RDS (MUST BE &gt;=1ms)</p>
 
@@ -306,7 +307,7 @@ located at that IP address.</p>
 </tr>
 <tr id="ProxyConfig.drain_duration">
 <td><code>drainDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>The time in seconds that Envoy will drain connections during a hot
 restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>)</p>
@@ -315,11 +316,11 @@ restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>)</p>
 </tr>
 <tr id="ProxyConfig.parent_shutdown_duration">
 <td><code>parentShutdownDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>The time in seconds that Envoy will wait before shutting down the
 parent process during a hot restart. MUST be &gt;=1s (e.g., <em>1s/1m/1h</em>).
-MUST BE greater than _drain<em>duration</em> parameter.</p>
+MUST BE greater than <em>drain</em>duration_ parameter.</p>
 
 </td>
 </tr>
@@ -333,7 +334,7 @@ MUST BE greater than _drain<em>duration</em> parameter.</p>
 </tr>
 <tr id="ProxyConfig.discovery_refresh_delay">
 <td><code>discoveryRefreshDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS). (MUST BE &gt;=1ms)</p>
 
@@ -349,7 +350,7 @@ MUST BE greater than _drain<em>duration</em> parameter.</p>
 </tr>
 <tr id="ProxyConfig.connect_timeout">
 <td><code>connectTimeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Connection timeout used by Envoy for supporting services. (MUST BE &gt;=1ms)</p>
 

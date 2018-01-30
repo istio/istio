@@ -23,6 +23,7 @@ import "routing/v1alpha1/l4_fault.proto";
 // $title: Route Rules Alpha 1
 // $overview: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
+// $front_matter: redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of routing rules.

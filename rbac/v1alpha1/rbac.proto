@@ -30,7 +30,7 @@ syntax = "proto3";
 //
 // In addition to the standard fields, operators can use custom fields in the "constraints"
 // section. The name of a custom field must match one of the "properties" in the "action" part
-// of the "authorization" template (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
+// of the "authorization" template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 //
 // For example, suppose we define an instance of the "authorization" template, named "requestcontext".
 //
@@ -136,7 +136,7 @@ message AccessRule {
 
   // Definition of a custom constraint. The key of a custom constraint must match
   // one of the "properties" in the "action" part of the "authorization" template
-  // (https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto).
+  // (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
   message Constraint {
     // Key of the constraint.
     string key = 1;

@@ -16,7 +16,7 @@ the following standard fields:
 
 <p>In addition to the standard fields, operators can use custom fields in the &ldquo;constraints&rdquo;
 section. The name of a custom field must match one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part
-of the &ldquo;authorization&rdquo; template (<a href="https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto">https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto</a>).</p>
+of the &ldquo;authorization&rdquo; template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <p>For example, suppose we define an instance of the &ldquo;authorization&rdquo; template, named &ldquo;requestcontext&rdquo;.</p>
 
@@ -65,7 +65,7 @@ spec:
 
 <p>A subject is represented with a set of &ldquo;properties&rdquo;. The name of a property must match one of
 the fields (&ldquo;user&rdquo; or &ldquo;groups&rdquo; or one of the &ldquo;properties&rdquo;) in the &ldquo;subject&rdquo; part of the &ldquo;authorization&rdquo;
-template (<a href="https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto">https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto</a>).</p>
+template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <p>Below is an example of ServiceRoleBinding object &ldquo;test-binding-products&rdquo;, which binds two subjects
 to ServiceRole &ldquo;product-viewer&rdquo;:
@@ -150,7 +150,7 @@ The above ServiceRole examples shows an example of constraint &ldquo;version&rdq
 <section>
 <p>Definition of a custom constraint. The key of a custom constraint must match
 one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldquo;authorization&rdquo; template
-(<a href="https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto">https://github.com/istio/istio/bl-ob/master/mixer/template/authorization/template.proto</a>).</p>
+(https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <table>
 <tr>
@@ -173,8 +173,8 @@ one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldq
 <p>List of valid values for the constraint.
 Exact match, prefix match, and suffix match are supported for constraint values.
 For example, the value &ldquo;v1alpha2&rdquo; matches
-&ldquo;v1alpha2&rdquo; (exact match), or &ldquo;v1*&rdquo; (prefix match),
-or &ldquo;*alpha2&rdquo; (suffix match).</p>
+&ldquo;v1alpha2&rdquo; (exact match), or &ldquo;v1<em>&rdquo; (prefix match),
+or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
 
 </td>
 </tr>
@@ -269,7 +269,7 @@ object.</p>
 <p>Subject defines an identity or a group of identities. The identity is either a user or
 a group or identified by a set of &ldquo;properties&rdquo;. The name of the &ldquo;properties&rdquo; must match
 the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;authorization&rdquo; template
-(<a href="https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto">https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto</a>).</p>
+(https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <table>
 <tr>

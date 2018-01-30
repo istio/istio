@@ -20,6 +20,7 @@ import "mixer/v1/config/descriptor/value_type.proto";
 // $title: Policy and Telemetry Rules
 // $overview: Describes the rules used to configure Mixer's policy and telemetry features.
 // $location: https://istio.io/docs/reference/config/istio.mixer.v1.config.html
+// $front_matter: redirect_from: /docs/reference/config/mixer/policy-and-telemetry-rules.html
 
 package istio.mixer.v1.config;
 

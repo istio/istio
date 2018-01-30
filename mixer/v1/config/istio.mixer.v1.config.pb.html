@@ -3,41 +3,20 @@ title: Policy and Telemetry Rules
 overview: Describes the rules used to configure Mixer's policy and telemetry features.
 location: https://istio.io/docs/reference/config/istio.mixer.v1.config.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/mixer/policy-and-telemetry-rules.html
 ---
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="NullValue">NullValue</h3>
-<section>
-<p><code>NullValue</code> is a singleton enumeration to represent the null value for the
-<code>Value</code> type union.</p>
-
-<p>The JSON representation for <code>NullValue</code> is JSON <code>null</code>.</p>
-
-<table>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="NullValue.NULL_VALUE">
-<td><code>NULL_VALUE</code></td>
-<td>
-<p>Null value.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h2 id="Messages">Messages</h2>
-<h3 id="Action">Action</h3>
+<h2 id="Action">Action</h2>
 <section>
 <p>Action describes which <a href="#Handler">Handler</a> to invoke and what data to pass to it for processing.</p>
 
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler and pass it the object
 constructed using the instance &lsquo;RequestCountByService&rsquo;</p>
 
-<pre><code class="language-yaml">  handler: prometheus-handler
+<p><code>yaml
+  handler: prometheus-handler
   instances:
   - RequestCountByService
-</code></pre>
+</code></p>
 
 <table>
 <tr>
@@ -67,7 +46,7 @@ The constructed objects are then passed to the <code>handler</code> referenced w
 </tr>
 </table>
 </section>
-<h3 id="AttributeManifest">AttributeManifest</h3>
+<h2 id="AttributeManifest">AttributeManifest</h2>
 <section>
 <p>AttributeManifest describes a set of Attributes produced by some component
 of an Istio deployment.</p>
@@ -111,7 +90,7 @@ which is how attributes are referred to in aspect configuration, must conform to
 match the regular expression <code>[\.-]</code>.</p>
 
 <p>Attribute names must be unique within a single Istio deployment. The set of canonical
-attributes are described at <a href="https://istio.io/docs/reference/attribute-vocabulary.html">https://istio.io/docs/reference/attribute-vocabulary.html</a>.
+attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
 Attributes not in that list should be named with a component-specific suffix such as
 request.count-my.component</p>
 
@@ -119,11 +98,11 @@ request.count-my.component</p>
 </tr>
 </table>
 </section>
-<h3 id="AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</h3>
+<h2 id="AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</h2>
 <section>
 <p>AttributeInfo describes the schema of an Istio <code>Attribute</code>.</p>
 
-<h4>Istio Attributes</h4>
+<h4 id="istio-attributes">Istio Attributes</h4>
 
 <p>Istio uses <code>attributes</code> to describe runtime activities of Istio services.
 An Istio attribute carries a specific piece of information about an activity,
@@ -141,7 +120,7 @@ functionality by collecting, generating, and operating on attributes.
 For example, the proxy collects the error code attribute, and the logging
 stores it into a log.</p>
 
-<h4>Design</h4>
+<h4 id="design">Design</h4>
 
 <p>Each Istio attribute must conform to an <code>AttributeInfo</code> in an
 <code>AttributeManifest</code> in the current Istio deployment at runtime. An
@@ -155,7 +134,7 @@ specification, because passing attribute using JSON, XML, or Protocol Buffers
 does not change the semantics of the attribute. Different implementations
 can choose different representations based on their needs.</p>
 
-<h4>HTTP Mapping</h4>
+<h4 id="http-mapping">HTTP Mapping</h4>
 
 <p>Because many systems already have REST APIs, it makes sense to define a
 standard HTTP mapping for Istio attributes that are compatible with typical
@@ -187,7 +166,7 @@ encoding scheme will be decided later.</p>
 </tr>
 </table>
 </section>
-<h3 id="Handler">Handler</h3>
+<h2 id="Handler">Handler</h2>
 <section>
 <p>Handler allows the operator to configure a specific adapter implementation.
 Each adapter implementation defines its own <code>params</code> proto.</p>
@@ -195,10 +174,11 @@ Each adapter implementation defines its own <code>params</code> proto.</p>
 <p>In the following example we define a <code>metrics</code> handler using the Mixer&rsquo;s prepackaged
 prometheus adapter. This handler doesn&rsquo;t require any parameters.</p>
 
-<pre><code class="language-yaml">name: prometheus-handler
+<p><code>yaml
+name: prometheus-handler
 adapter: prometheus
 params:
-</code></pre>
+</code></p>
 
 <table>
 <tr>
@@ -226,7 +206,7 @@ implementation name is typically a constant in its code.</p>
 </tr>
 <tr id="Handler.params">
 <td><code>params</code></td>
-<td><code><a href="#Struct">google.protobuf.Struct</a></code></td>
+<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
 <td>
 <p>Optional. Depends on adapter implementation. Struct representation of a
 proto defined by the adapter implementation; this varies depending on the value of field <code>adapter</code>.</p>
@@ -235,7 +215,7 @@ proto defined by the adapter implementation; this varies depending on the value 
 </tr>
 </table>
 </section>
-<h3 id="Instance">Instance</h3>
+<h2 id="Instance">Instance</h2>
 <section>
 <p>An Instance tells Mixer how to create instances for particular template.</p>
 
@@ -248,14 +228,15 @@ instances of the specified template at runtime.</p>
 Instances produced with this instance can be referenced by <a href="#Action">Actions</a> using name
 &lsquo;RequestCountByService&rsquo;.</p>
 
-<pre><code class="language-yaml">- name: RequestCountByService
+<p><code>yaml
+- name: RequestCountByService
   template: istio.mixer.adapter.metric.Metric
   params:
     value: 1
     dimensions:
       source: source.service
       destination_ip: destination.ip
-</code></pre>
+</code></p>
 
 <table>
 <tr>
@@ -285,7 +266,7 @@ The value must match the name of the available template in scope.</p>
 </tr>
 <tr id="Instance.params">
 <td><code>params</code></td>
-<td><code><a href="#Struct">google.protobuf.Struct</a></code></td>
+<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
 <td>
 <p>Required. Depends on referenced template. Struct representation of a
 proto defined by the template; this varies depending on the value of field <code>template</code>.</p>
@@ -294,29 +275,7 @@ proto defined by the template; this varies depending on the value of field <code
 </tr>
 </table>
 </section>
-<h3 id="ListValue">ListValue</h3>
-<section>
-<p><code>ListValue</code> is a wrapper around a repeated field of values.</p>
-
-<p>The JSON representation for <code>ListValue</code> is JSON array.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="ListValue.values">
-<td><code>values</code></td>
-<td><code><a href="#Value">Value[]</a></code></td>
-<td>
-<p>Repeated field of dynamically typed values.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="Rule">Rule</h3>
+<h2 id="Rule">Rule</h2>
 <section>
 <p>A Rule is a selector and a set of intentions to be executed when the
 selector is <code>true</code></p>
@@ -324,12 +283,13 @@ selector is <code>true</code></p>
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
 instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 
-<pre><code class="language-yaml">- match: destination.service == &quot;*&quot;
+<p><code>yaml
+- match: destination.service == &quot;*&quot;
   actions:
   - handler: prometheus-handler
     instances:
     - RequestCountByService
-</code></pre>
+</code></p>
 
 <table>
 <tr>
@@ -367,7 +327,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 </tr>
 </table>
 </section>
-<h3 id="Struct">Struct</h3>
+<h2 id="google.protobuf.Struct">google.protobuf.Struct</h2>
 <section>
 <p><code>Struct</code> represents a structured data value, consisting of fields
 which map to dynamically typed values. In some languages, <code>Struct</code>
@@ -384,76 +344,11 @@ with the proto support for the language.</p>
 <th>Type</th>
 <th>Description</th>
 </tr>
-<tr id="Struct.fields">
+<tr id="google.protobuf.Struct.fields">
 <td><code>fields</code></td>
-<td><code>map&lt;string, <a href="#Value">Value</a>&gt;</code></td>
+<td><code>map&lt;string, <a href="#google.protobuf.Value">google.protobuf.Value</a>&gt;</code></td>
 <td>
 <p>Unordered map of dynamically typed values.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="Value">Value</h3>
-<section>
-<p><code>Value</code> represents a dynamically typed value which can be either
-null, a number, a string, a boolean, a recursive struct value, or a
-list of values. A producer of value is expected to set one of that
-variants, absence of any variant indicates an error.</p>
-
-<p>The JSON representation for <code>Value</code> is JSON value.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="Value.null_value" class="oneof oneof-start">
-<td><code>nullValue</code></td>
-<td><code><a href="#NullValue">NullValue (oneof)</a></code></td>
-<td>
-<p>Represents a null value.</p>
-
-</td>
-</tr>
-<tr id="Value.number_value" class="oneof">
-<td><code>numberValue</code></td>
-<td><code>double (oneof)</code></td>
-<td>
-<p>Represents a double value.</p>
-
-</td>
-</tr>
-<tr id="Value.string_value" class="oneof">
-<td><code>stringValue</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Represents a string value.</p>
-
-</td>
-</tr>
-<tr id="Value.bool_value" class="oneof">
-<td><code>boolValue</code></td>
-<td><code>bool (oneof)</code></td>
-<td>
-<p>Represents a boolean value.</p>
-
-</td>
-</tr>
-<tr id="Value.struct_value" class="oneof">
-<td><code>structValue</code></td>
-<td><code><a href="#Struct">Struct (oneof)</a></code></td>
-<td>
-<p>Represents a structured value.</p>
-
-</td>
-</tr>
-<tr id="Value.list_value" class="oneof">
-<td><code>listValue</code></td>
-<td><code><a href="#ListValue">ListValue (oneof)</a></code></td>
-<td>
-<p>Represents a repeated <code>Value</code>.</p>
 
 </td>
 </tr>

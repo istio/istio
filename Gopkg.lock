@@ -60,7 +60,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "74eb63369b40c6023d0b6488773f5057a808deb4"
+  revision = "1f16f219da2bef71df7a0a53b69714cbc6409217"
 
 [[projects]]
   branch = "master"

@@ -135,7 +135,7 @@ Envoy for further details.</p>
 <th>Name</th>
 <th>Description</th>
 </tr>
-<tr id="Server.TLSOptions.TLSmode.MUTUAL">
+<tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
 <p>If set to &ldquo;passthrough&rdquo;, the proxy will forward the connection
@@ -144,7 +144,7 @@ by the client.</p>
 
 </td>
 </tr>
-<tr id="Server.TLSOptions.TLSmode.MUTUAL">
+<tr id="Server.TLSOptions.TLSmode.SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
 <p>If set to &ldquo;simple&rdquo;, the proxy will secure connections with
@@ -200,50 +200,6 @@ authentication.</p>
 </table>
 </section>
 <h2 id="Messages">Messages</h2>
-<h3 id="BoolValue">BoolValue</h3>
-<section>
-<p>Wrapper message for <code>bool</code>.</p>
-
-<p>The JSON representation for <code>BoolValue</code> is JSON <code>true</code> and <code>false</code>.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="BoolValue.value">
-<td><code>value</code></td>
-<td><code>bool</code></td>
-<td>
-<p>The bool value.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="BytesValue">BytesValue</h3>
-<section>
-<p>Wrapper message for <code>bytes</code>.</p>
-
-<p>The JSON representation for <code>BytesValue</code> is JSON string.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="BytesValue.value">
-<td><code>value</code></td>
-<td><code>bytes</code></td>
-<td>
-<p>The bytes value.</p>
-
-</td>
-</tr>
-</table>
-</section>
 <h3 id="ConnectionPoolSettings">ConnectionPoolSettings</h3>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
@@ -359,7 +315,7 @@ cluster at a given time. Defaults to 3.</p>
 </tr>
 <tr id="ConnectionPoolSettings.TCPSettings.connect_timeout">
 <td><code>connectTimeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>TCP connection timeout.</p>
 
@@ -371,7 +327,7 @@ cluster at a given time. Defaults to 3.</p>
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
-<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
 for further details about cross origin resource sharing. For example,
 the following rule restricts cross origin requests to those originating
 from example.com domain using HTTP POST/GET, and sets the
@@ -447,7 +403,7 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 </tr>
 <tr id="CorsPolicy.max_age">
 <td><code>maxAge</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Specifies how long the the results of a preflight request can be
 cached. Translates to the Access-Control-Max-Age header.</p>
@@ -456,7 +412,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 </tr>
 <tr id="CorsPolicy.allow_credentials">
 <td><code>allowCredentials</code></td>
-<td><code><a href="#BoolValue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 <p>Indicates whether the caller is allowed to send the actual request
 (not the preflight) using credentials. Translates to
@@ -808,28 +764,6 @@ be 100.</p>
 </tr>
 </table>
 </section>
-<h3 id="DoubleValue">DoubleValue</h3>
-<section>
-<p>Wrapper message for <code>double</code>.</p>
-
-<p>The JSON representation for <code>DoubleValue</code> is JSON number.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="DoubleValue.value">
-<td><code>value</code></td>
-<td><code>double</code></td>
-<td>
-<p>The double value.</p>
-
-</td>
-</tr>
-</table>
-</section>
 <h3 id="ExternalService">ExternalService</h3>
 <section>
 <p>External service describes the endpoints, ports and protocols of a
@@ -837,8 +771,8 @@ white-listed set of mesh-external domains and IP blocks that services in
 the mesh are allowed to access.</p>
 
 <p>For example, the following external service configuration describes the
-set of services at <a href="https://example.com">https://example.com</a> to be accessed internally over
-plaintext http (i.e. <a href="http://example.com:443">http://example.com:443</a>), with the sidecar originating
+set of services at https://example.com to be accessed internally over
+plaintext http (i.e. http://example.com:443), with the sidecar originating
 TLS.</p>
 
 <pre><code>apiVersion: config.istio.io/v1alpha2
@@ -969,16 +903,16 @@ spec:
     mode: simple # initiates HTTPS
 </code></pre>
 
-<p>With HTTP_PROXY=<a href="http://localhost:443">http://localhost:443</a>, calls from the application to
-<a href="http://foo.bar.com">http://foo.bar.com</a> will be upgraded to HTTPS and load balanced across
+<p>With HTTP_PROXY=http://localhost:443, calls from the application to
+http://foo.bar.com will be upgraded to HTTPS and load balanced across
 the three domains specified above. In other words, a call to
-<a href="http://foo.bar.com/baz">http://foo.bar.com/baz</a> would be translated to
-<a href="https://uk.foo.bar.com/baz">https://uk.foo.bar.com/baz</a>.</p>
+http://foo.bar.com/baz would be translated to
+https://uk.foo.bar.com/baz.</p>
 
 <p>NOTE: In the scenario above, the value of the HTTP Authority/host header
 associated with the outbound HTTP requests will be based on the
 endpoint&rsquo;s DNS name, i.e. &ldquo;:authority: uk.foo.bar.com&rdquo;. Refer to Envoy&rsquo;s
-auto_host_rewrite for further details. The automatic rewrite can be
+auto<em>host</em>rewrite for further details. The automatic rewrite can be
 overridden using a host rewrite route rule.</p>
 
 <table>
@@ -1071,28 +1005,6 @@ service.</p>
 </tr>
 </table>
 </section>
-<h3 id="FloatValue">FloatValue</h3>
-<section>
-<p>Wrapper message for <code>float</code>.</p>
-
-<p>The JSON representation for <code>FloatValue</code> is JSON number.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="FloatValue.value">
-<td><code>value</code></td>
-<td><code>float</code></td>
-<td>
-<p>The float value.</p>
-
-</td>
-</tr>
-</table>
-</section>
 <h3 id="Gateway">Gateway</h3>
 <section>
 <p>Gateway describes a load balancer operating at the edge of the mesh
@@ -1148,14 +1060,14 @@ balancer. Routing rules can then be bound to a gateway to control
 the forwarding of traffic arriving at a particular host or gateway port.</p>
 
 <p>The following sample route rule splits traffic for
-<a href="https://uk.bookinfo.com/reviews">https://uk.bookinfo.com/reviews</a>, <a href="https://eu.bookinfo.com/reviews">https://eu.bookinfo.com/reviews</a>,
-<a href="http://uk.bookinfo.com:9080/reviews">http://uk.bookinfo.com:9080/reviews</a>, <a href="http://eu.bookinfo.com:9080/reviews">http://eu.bookinfo.com:9080/reviews</a>
+https://uk.bookinfo.com/reviews, https://eu.bookinfo.com/reviews,
+http://uk.bookinfo.com:9080/reviews, http://eu.bookinfo.com:9080/reviews
 into two versions (prod and qa) of an internal reviews service on port
 9080. In addition, requests containing the cookie user: dev-123 will be
 sent to special port 7777 in the qa version. The same rule is also
 applicable inside the mesh for requests to the reviews.prod
 service. This rule is applicable across ports 443, 9080. Note that
-<a href="http://uk.bookinfo.com">http://uk.bookinfo.com</a> gets redirected to <a href="https://uk.bookinfo.com">https://uk.bookinfo.com</a>
+http://uk.bookinfo.com gets redirected to https://uk.bookinfo.com
 (i.e. 80 redirects to 443).</p>
 
 <pre><code>apiVersion: config.istio.io/v1alpha2
@@ -1398,7 +1310,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 <tr id="HTTPFaultInjection.Delay.fixed_delay" class="oneof oneof-start">
 <td><code>fixedDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format:
 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
@@ -1407,7 +1319,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 <tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
 <td><code>exponentialDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration (oneof)</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
 <p>(&ndash; Add a delay (based on an exponential function) before forwarding
 the request. mean delay needed to derive the exponential delay
@@ -1662,7 +1574,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 </tr>
 <tr id="HTTPRetry.per_try_timeout">
 <td><code>perTryTimeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
 
@@ -1792,7 +1704,7 @@ subject to further routing rules based on the protocol selected.</p>
 </tr>
 <tr id="HTTPRoute.timeout">
 <td><code>timeout</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout for HTTP requests.</p>
 
@@ -1832,7 +1744,7 @@ destination.</p>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
 <p>Cross-Origin Resource Sharing policy (CORS). Refer to
-<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
 for further details about cross origin resource sharing.</p>
 
 </td>
@@ -1843,50 +1755,6 @@ for further details about cross origin resource sharing.</p>
 <td>
 <p>Additional HTTP headers to add before forwarding a request to the
 destination service.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="Int32Value">Int32Value</h3>
-<section>
-<p>Wrapper message for <code>int32</code>.</p>
-
-<p>The JSON representation for <code>Int32Value</code> is JSON number.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="Int32Value.value">
-<td><code>value</code></td>
-<td><code>int32</code></td>
-<td>
-<p>The int32 value.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="Int64Value">Int64Value</h3>
-<section>
-<p>Wrapper message for <code>int64</code>.</p>
-
-<p>The JSON representation for <code>Int64Value</code> is JSON string.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="Int64Value.value">
-<td><code>value</code></td>
-<td><code>int64</code></td>
-<td>
-<p>The int64 value.</p>
 
 </td>
 </tr>
@@ -2023,7 +1891,7 @@ spec:
 distribution/redistribution when the connection pool changes. This
 load balancing policy is applicable only for HTTP-based
 connections. A user specified HTTP header is used as the key with
-<a href="www.xxhash.com">xxHash</a> hashing.</p>
+<a href="http://cyan4973.github.io/xxHash">xxHash</a> hashing.</p>
 
 <table>
 <tr>
@@ -2131,7 +1999,7 @@ pool. Defaults to 5.</p>
 </tr>
 <tr id="OutlierDetection.HTTPSettings.interval">
 <td><code>interval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Time interval between ejection sweep analysis. format:
 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 10s.</p>
@@ -2140,7 +2008,7 @@ pool. Defaults to 5.</p>
 </tr>
 <tr id="OutlierDetection.HTTPSettings.base_ejection_time">
 <td><code>baseEjectionTime</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Minimum ejection duration. A host will remain ejected for a period
 equal to the product of minimum ejection duration and the number of
@@ -2563,28 +2431,6 @@ case-sensitive.</p>
 </tr>
 </table>
 </section>
-<h3 id="StringValue">StringValue</h3>
-<section>
-<p>Wrapper message for <code>string</code>.</p>
-
-<p>The JSON representation for <code>StringValue</code> is JSON string.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="StringValue.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>The string value.</p>
-
-</td>
-</tr>
-</table>
-</section>
 <h3 id="Subset">Subset</h3>
 <section>
 <p>A subset of endpoints of a service. Subsets can be used for scenarios
@@ -2846,50 +2692,6 @@ DestinationRule for examples.</p>
 <td><code><a href="#TLSSettings">TLSSettings</a></code></td>
 <td>
 <p>TLS related settings for connections to the upstream service.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="UInt32Value">UInt32Value</h3>
-<section>
-<p>Wrapper message for <code>uint32</code>.</p>
-
-<p>The JSON representation for <code>UInt32Value</code> is JSON number.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="UInt32Value.value">
-<td><code>value</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>The uint32 value.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="UInt64Value">UInt64Value</h3>
-<section>
-<p>Wrapper message for <code>uint64</code>.</p>
-
-<p>The JSON representation for <code>UInt64Value</code> is JSON string.</p>
-
-<table>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-<tr id="UInt64Value.value">
-<td><code>value</code></td>
-<td><code>uint64</code></td>
-<td>
-<p>The uint64 value.</p>
 
 </td>
 </tr>
