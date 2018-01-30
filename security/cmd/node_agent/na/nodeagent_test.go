@@ -22,7 +22,6 @@ import (
 
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/platform"
