@@ -86,7 +86,6 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	testCases := map[string]struct {
 		caAddress   string
 		pc          platform.Client
-		respErr     string
 		expectedErr string
 	}{
 		"IstioCAAddress is empty": {

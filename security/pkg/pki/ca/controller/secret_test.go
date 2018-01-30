@@ -30,7 +30,7 @@ import (
 
 type fakeCa struct{}
 
-func (ca *fakeCa) Sign([]byte, time.Duration) ([]byte, error) {
+func (ca *fakeCa) Sign([]byte, time.Duration, bool) ([]byte, error) {
 	return []byte("fake cert chain"), nil
 }
 
@@ -202,7 +202,10 @@ func TestUpdateSecret(t *testing.T) {
 			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _ := ca.GenCert(opts)
+		bs, _, err := ca.GenCertKeyFromOptions(opts)
+		if err != nil {
+			t.Error(err)
+		}
 		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)

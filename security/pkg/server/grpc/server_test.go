@@ -49,7 +49,7 @@ type mockCA struct {
 	errMsg string
 }
 
-func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
+func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	if ca.errMsg != "" {
 		return nil, fmt.Errorf(ca.errMsg)
 	}

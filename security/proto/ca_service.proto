@@ -46,6 +46,8 @@ message CsrRequest {
   string credential_type = 3;
   // the requested ttl of the certificate in minutes
   int32 requested_ttl_minutes = 4;
+  // whether the certificate is for a CA
+  bool forCA = 5;
 }
 
 message CsrResponse {
