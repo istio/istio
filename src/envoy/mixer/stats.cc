@@ -31,15 +31,15 @@ MixerStatsObject::MixerStatsObject(Event::Dispatcher& dispatcher,
                                    const std::string& name, Stats::Scope& scope,
                                    int update_interval_ms, GetStatsFunc func)
     : stats_{ALL_MIXER_FILTER_STATS(POOL_COUNTER_PREFIX(scope, name))},
-      get_stats_func_(func) {
+      get_stats_func_(func),
+      stats_update_interval_(update_interval_ms > 0
+                                 ? update_interval_ms
+                                 : kStatsUpdateIntervalInMs) {
   memset(&old_stats_, 0, sizeof(old_stats_));
 
-  // If stats update interval from config is 0, then set interval to 10 seconds.
-  int stats_update_interval =
-      update_interval_ms > 0 ? update_interval_ms : kStatsUpdateIntervalInMs;
   if (get_stats_func_) {
     timer_ = dispatcher.createTimer([this]() { OnTimer(); });
-    timer_->enableTimer(std::chrono::milliseconds(stats_update_interval));
+    timer_->enableTimer(std::chrono::milliseconds(stats_update_interval_));
   }
 }
 
@@ -49,7 +49,7 @@ void MixerStatsObject::OnTimer() {
   if (get_stats) {
     CheckAndUpdateStats(new_stats);
   }
-  timer_->enableTimer(std::chrono::milliseconds(kStatsUpdateIntervalInMs));
+  timer_->enableTimer(std::chrono::milliseconds(stats_update_interval_));
 }
 
 void MixerStatsObject::CheckAndUpdateStats(

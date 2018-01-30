@@ -75,6 +75,11 @@ class MixerStatsObject {
   // These members are used for creating a timer which update Envoy stats
   // periodically.
   ::Envoy::Event::TimerPtr timer_;
+
+  // Time interval at which Envoy stats get updated. If stats update interval
+  // from config is larger than 0, then store configured interval here.
+  // Otherwise, set interval to 10 seconds.
+  const int stats_update_interval_;
 };
 
 }  // namespace Mixer
