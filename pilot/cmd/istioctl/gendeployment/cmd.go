@@ -165,6 +165,8 @@ func defaultInstall() *installation {
 func (i *installation) setFeatures(features []string) error {
 	if len(features) == 0 {
 		return nil
+	} else if len(features) == 1 {
+		features = strings.Split(features[0], ",")
 	}
 
 	i.Mixer = false

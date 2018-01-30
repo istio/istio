@@ -1,0 +1,11 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: details-v2
+spec:
+  destination:
+    name: details
+  precedence: 2
+  route:
+  - labels:
+      version: v2
