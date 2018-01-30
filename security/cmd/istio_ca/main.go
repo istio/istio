@@ -75,14 +75,15 @@ type cliOptions struct {
 
 	loggingOptions *log.Options
 
-	// The path to the file for readiness probe, similar to LivenessProbePath.
-	ReadinessProbeOptions *probe.Options
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
 }
 
 var (
 	opts = cliOptions{
-		loggingOptions:        log.NewOptions(),
-		ReadinessProbeOptions: &probe.Options{},
+		loggingOptions:       log.NewOptions(),
+		LivenessProbeOptions: &probe.Options{},
 	}
 
 	rootCmd = &cobra.Command{
@@ -135,11 +136,6 @@ func init() {
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
-
-	flags.StringVar(&opts.ReadinessProbeOptions.Path, "readinessProbePath", "",
-		"Path to the file for the readiness probe.")
-	flags.DurationVar(&opts.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", 0,
-		"Interval of updating file for the readiness probe.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -242,7 +238,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		}
 	}
 
-	caOpts.ReadinessProbeOptions = opts.ReadinessProbeOptions
+	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {

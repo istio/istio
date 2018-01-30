@@ -63,7 +63,7 @@ type IstioCAOptions struct {
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
 
-	ReadinessProbeOptions *probe.Options
+	LivenessProbeOptions *probe.Options
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -75,7 +75,7 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
-	readinessProbe *probe.Probe
+	livenessProbe  *probe.Probe
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -141,7 +141,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
 
-		readinessProbe: probe.NewProbe(),
+		livenessProbe: probe.NewProbe(),
 	}
 
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
@@ -162,11 +162,11 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		return nil, err
 	}
 
-	if opts.ReadinessProbeOptions.IsValid() {
-		readinessProbe := probe.NewFileController(opts.ReadinessProbeOptions)
-		ca.readinessProbe.RegisterProbe(readinessProbe, "readiness")
-		readinessProbe.Start()
-		ca.readinessProbe.SetAvailable(nil)
+	if opts.LivenessProbeOptions.IsValid() {
+		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
+		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
+		livenessProbeController.Start()
+		ca.livenessProbe.SetAvailable(nil)
 	}
 
 	return ca, nil
