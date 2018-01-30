@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: zipkin-to-stackdriver
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   selector:
@@ -15,6 +13,8 @@ spec:
       name: zipkin-to-stackdriver
       labels:
         app: zipkin-to-stackdriver
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: zipkin-to-stackdriver

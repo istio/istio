@@ -21,8 +21,6 @@ metadata:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    sidecar.istio.io/inject: "false"
   name: istio-ingress
 spec:
   replicas: 1
@@ -30,6 +28,8 @@ spec:
     metadata:
       labels:
         app: ingress
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
