@@ -206,8 +206,6 @@ kind: Deployment
 metadata:
   name: prometheus
   namespace: istio-system
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   selector:
@@ -218,6 +216,8 @@ spec:
       name: prometheus
       labels:
         app: prometheus
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: prometheus
