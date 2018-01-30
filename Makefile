@@ -460,13 +460,11 @@ mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-
 
 FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
 
-# NOTE: this list is passed to rm -f during "make clean"
-GENERATED_CERT_FILES:=
+GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key \
+                      security/docker/node_agent.crt security/docker/node_agent.key
 
 $(GENERATED_CERT_FILES): security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
-
-FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
 
 # pilot docker images
 
