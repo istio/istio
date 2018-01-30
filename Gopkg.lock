@@ -397,7 +397,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "4a3f5ae58624b68283375060dad06a214b05a32b"
+  revision = "a924af7658c466bf641b255397766fd4f4889189"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -942,7 +942,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "1a260eb4fee522e1504ed84285a054de9b65e458"
+  revision = "7d0e2d350555821bef5a5b8aecf0d12cc1def633"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1055,7 +1055,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "58de5731b5401268263924fae9df7d091813c19e"
+  revision = "8f242a813e0eef7efed1590a59e533fc2d72b823"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1182,7 +1182,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "1bf7de8f04f0b4d4274581e73a27bf850617b49a"
+  revision = "446183392e7f3c605c8eb2ab695e78e27dd3b289"
 
 [[projects]]
   branch = "release-6.0"
@@ -1340,6 +1340,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "03d5d5d44656f6beb6ef793749262b8d33430acaee90bcaacde1d06fbb425958"
+  inputs-digest = "c9882b3989c94d943a1dc39720e80230916f8fc2c3238e748f85b5b08b097888"
   solver-name = "gps-cdcl"
   solver-version = 1
