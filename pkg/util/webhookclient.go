@@ -27,7 +27,7 @@ import (
 // used to communicate with the endpoint over IP or unix domain socket.
 func NewWebHookClient(apiEndpoint string) (string, *http.Client) {
 	if len(apiEndpoint) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	transport := &http.Transport{}
