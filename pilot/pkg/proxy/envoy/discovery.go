@@ -15,8 +15,10 @@
 package envoy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -29,9 +31,6 @@ import (
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"bytes"
-	"io/ioutil"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
