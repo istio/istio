@@ -2005,9 +2005,17 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
+	servicePortNumbers := make(map[uint32]bool)
 	servicePorts := make(map[string]bool, len(externalService.Ports))
 	for _, port := range externalService.Ports {
+		if servicePorts[port.Name] {
+			errs = appendErrors(errs, fmt.Errorf("external service port name %q already defined", port.Name))
+		}
 		servicePorts[port.Name] = true
+		if servicePortNumbers[port.Number] {
+			errs = appendErrors(errs, fmt.Errorf("external service port %d already defined", port.Number))
+		}
+		servicePortNumbers[port.Number] = true
 	}
 
 	if externalService.Discovery == routingv2.ExternalService_NONE {
@@ -2016,7 +2024,6 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: if static, ensure endpoint addresses are IPs / if dns, ensure endpoints addresses are FQDN
 	if externalService.Discovery == routingv2.ExternalService_STATIC {
 		if len(externalService.Endpoints) == 0 {
 			errs = appendErrors(errs,
