@@ -29,8 +29,7 @@ function setup_and_export_git_sha() {
     export GIT_SHA="${PULL_PULL_SHA}"
 
     # Use volume mount from pilot-presubmit job's pod spec.
-    # FIXME pilot should not need this
-    ln -sf "${HOME}/.kube/config" pilot/pkg/kube/config
+    export KUBECONFIG="${HOME}/.kube/config"
   else
     # Use the current commit.
     export GIT_SHA="$(git rev-parse --verify HEAD)"
