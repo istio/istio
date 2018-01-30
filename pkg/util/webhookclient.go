@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func NewWebHookClient(url string) *http.Client {
@@ -41,5 +42,8 @@ func NewWebHookClient(url string) *http.Client {
 		}
 	}
 
-	return &http.Client{Transport: transport}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   15 * time.Second, // TODO: use fine-grained timeouts
+	}
 }

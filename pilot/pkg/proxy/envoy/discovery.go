@@ -86,6 +86,20 @@ var (
 			Name:      "errors",
 			Help:      "Counter of errors encountered during a given method call within Pilot",
 		}, []string{metricLabelMethod, metricBuildVersion})
+	webhookCallCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
+			Name:      "webhook_calls",
+			Help:      "Counter of individual webhook calls made in Pilot",
+		}, []string{metricLabelMethod, metricBuildVersion})
+	webhookErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
+			Name:      "webhook_errors",
+			Help:      "Counter of errors encountered when invoking the webhook endpoint within Pilot",
+		}, []string{metricLabelMethod, metricBuildVersion})
 
 	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
 	resourceCounter = prometheus.NewHistogramVec(
@@ -636,7 +650,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/clusters/unused/%s", svcNode), out)
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/clusters/unused/%s", svcNode), out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -682,7 +696,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out)
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -730,7 +744,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out)
+		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -747,18 +761,26 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 	writeResponse(response, transformedOutput)
 }
 
-func (ds *DiscoveryService) invokeWebhook(path string, payload []byte) ([]byte, error) {
+func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {
 	if ds.webhookClient == nil {
 		return payload, nil
 	}
 
-	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
+	incWebhookCalls(methodName)
+	resp, err := ds.webhookClient.Post(ds.webhook.Endpoint+path, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
+		incWebhookErrors(methodName)
 		return nil, err
 	}
 
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		incWebhookErrors(methodName)
+	}
+
+	return out, err
 }
 
 func incCalls(methodName string) {
@@ -770,6 +792,20 @@ func incCalls(methodName string) {
 
 func incErrors(methodName string) {
 	errorCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
+}
+
+func incWebhookCalls(methodName string) {
+	webhookCallCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
+}
+
+func incWebhookErrors(methodName string) {
+	webhookErrorCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
 		metricBuildVersion: buildVersion,
 	}).Inc()
