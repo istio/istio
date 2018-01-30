@@ -16,18 +16,18 @@ dependencies:
     # repository: file://../security
     condition: global.securityEnabled
   - name: grafana
-    version: 0.5.0
-    repository: file://../addons/grafana
+    version: 0.1.0
+    # repository: file://../addons/grafana
     condition: addons.grafanaEnabled
   - name: prometheus
-    version: 0.5.0
-    repository: file://../addons/prometheus
+    version: 0.1.0
+    # repository: file://../addons/prometheus
     condition: addons.prometheusEnabled
   - name: servicegraph
-    version: 0.5.0
-    repository: file://../addons/servicegraph
+    version: 0.1.0
+    # repository: file://../addons/servicegraph
     condition: addons.servicegraphEnabled
   - name: zipkin
-    version: 0.5.0
-    repository: file://../addons/zipkin
+    version: 0.1.0
+    # repository: file://../addons/zipkin
     condition: addons.zipkinEnabled

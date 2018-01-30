@@ -24,11 +24,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-      {{- if .Values.sdConfigs.mesh -}}
-        regex: {{ .Values.sdConfigs.mesh.namespace }};{{ .Values.sdConfigs.mesh.serviceName }};{{ .Values.sdConfigs.mesh.endpointPortName }}
-      {{- else -}}
         regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;prometheus
-      {{- end -}}
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -42,11 +38,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-      {{- if .Values.sdConfigs.envoy -}}
-        regex: {{ .Values.sdConfigs.envoy.namespace }};{{ .Values.sdConfigs.envoy.serviceName }};{{ .Values.sdConfigs.envoy.endpointPortName }}
-      {{- else -}}
         regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;statsd-prom
-      {{- end -}}
 
     - job_name: 'mixer'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -60,11 +52,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-      {{- if .Values.sdConfigs.mixer -}}
-        regex: {{ .Values.sdConfigs.mixer.namespace }};{{ .Values.sdConfigs.mixer.serviceName }};{{ .Values.sdConfigs.mixer.endpointPortName }}
-      {{- else -}}
         regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;http-monitoring
-      {{- end -}}
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -78,11 +66,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-      {{- if .Values.sdConfigs.pilot -}}
-        regex: {{ .Values.sdConfigs.pilot.namespace }};{{ .Values.sdConfigs.pilot.serviceName }};{{ .Values.sdConfigs.pilot.endpointPortName }}
-      {{- else -}}
         regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-pilot;http-monitoring
-      {{- end -}}
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
