@@ -244,7 +244,7 @@ var (
 
 	destinationRuleExternal = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-google"},
-		file: "testdata/destination-google-v1alpha2.yaml.golden",
+		file: "testdata/subset-google-v1alpha2.yaml.golden",
 	}
 
 	cbPolicy = fileConfig{
@@ -379,7 +379,7 @@ var (
 
 	destinationRuleGoogleCB = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "google"},
-		file: "testdata/destination-google-cb-v1alpha2.yaml.golden",
+		file: "testdata/subset-google-cb-v1alpha2.yaml.golden",
 	}
 
 	egressRuleCBPolicy = fileConfig{

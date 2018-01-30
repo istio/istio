@@ -8,7 +8,7 @@ ports:
     name: http-alt-port
     protocol: http
 discovery: DNS
-endpoints: # TODO endpoints are not required
+endpoints:
   - address: us.google.com
     ports:
       http-port: 7080

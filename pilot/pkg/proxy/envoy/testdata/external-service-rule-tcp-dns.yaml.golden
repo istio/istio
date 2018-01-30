@@ -5,7 +5,6 @@ ports:
   name: tcp-444
   protocol: tcp
 discovery: DNS
-endpoints: # TODO endpoints not required according to spec, but they would be here because the host field is not a DNS resolvable address
+endpoints:
   - address: lon.google.com
   - address: in.google.com
-

@@ -139,6 +139,11 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 		lbType = LbTypeRoundRobin
 	}
 
+	var sslContext interface{}
+	if port.Protocol == model.ProtocolHTTPS {
+		sslContext = &SSLContextExternal{}
+	}
+
 	var features string
 	switch port.Protocol {
 	case model.ProtocolHTTP2, model.ProtocolGRPC:
@@ -152,6 +157,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 		Type:             clusterType,
 		LbType:           lbType,
 		Hosts:            hosts,
+		SSLContext:       sslContext,
 		Features:         features,
 		outbound:         true,
 		hostname:         address,
