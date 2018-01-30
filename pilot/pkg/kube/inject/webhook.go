@@ -15,7 +15,6 @@
 package inject
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
@@ -25,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
@@ -49,6 +49,10 @@ var (
 
 	// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
 	defaulter = runtime.ObjectDefaulter(runtimeScheme)
+)
+
+const (
+	watchDebounceDelay = 100 * time.Millisecond
 )
 
 func init() {
@@ -86,19 +90,14 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	if err := yaml.Unmarshal(data, &c); err != nil { // nolint: vetshadow
 		return nil, nil, err
 	}
-	log.Info(string(data))
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, data, "", "\t"); err == nil {
-		log.Info(pretty.String())
-	} else {
-		log.Infof("%v", c)
-	}
+	log.Infof("Policy: %v", c.Policy)
+	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
 	return &c, meshConfig, nil
 }
@@ -154,25 +153,27 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	defer wh.watcher.Close() // nolint: errcheck
 	defer wh.server.Close()  // nolint: errcheck
 
+	var timerC <-chan time.Time
 	for {
 		select {
+		case <-timerC:
+			sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
+			if err != nil {
+				log.Errorf("update error: %v", err)
+				break
+			}
+
+			version := sidecarTemplateVersionHash(sidecarConfig.Template)
+
+			wh.mu.Lock()
+			wh.sidecarConfig = sidecarConfig
+			wh.sidecarTemplateVersion = version
+			wh.meshConfig = meshConfig
+			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
+			// use a timer to debounce configuration updates
 			if event.IsModify() || event.IsCreate() {
-				if event.Name == wh.configFile || event.Name == wh.meshFile {
-					sidecarConfig, meshConfig, err := loadConfig(wh.configFile, wh.meshFile)
-					if err != nil {
-						log.Errorf("update error: %v", err)
-						break
-					}
-
-					version := sidecarTemplateVersionHash(sidecarConfig.Template)
-
-					wh.mu.Lock()
-					wh.sidecarConfig = sidecarConfig
-					wh.sidecarTemplateVersion = version
-					wh.meshConfig = meshConfig
-					wh.mu.Unlock()
-				}
+				timerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.watcher.Error:
 			log.Errorf("Watcher error: %v", err)

@@ -18,6 +18,7 @@ package crd
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const (
@@ -97,9 +99,12 @@ type Store struct {
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
+
+	*probe.Probe
 }
 
 var _ store.Backend = &Store{}
+var _ probe.SupportsProbe = &Store{}
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
@@ -110,12 +115,12 @@ func (s *Store) checkAndCreateCaches(
 	timeout time.Duration,
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) (informers map[string]cache.SharedInformer, remaining []string) {
+	kinds []string) []string {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers = map[string]cache.SharedInformer{}
+	informers := map[string]cache.SharedInformer{}
 	retry := false
 	retryCtx := ctx
 	if timeout > 0 {
@@ -155,11 +160,17 @@ func (s *Store) checkAndCreateCaches(
 		s.cacheMutex.Unlock()
 		retry = true
 	}
-	remaining = make([]string, 0, len(kindsSet))
+	<-waitForSynced(ctx, informers)
+	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	return informers, remaining
+	var err error
+	if len(remaining) > 0 {
+		err = fmt.Errorf("not yet ready: %+v", remaining)
+	}
+	s.SetAvailable(err)
+	return remaining
 }
 
 // Init implements store.StoreBackend interface.
@@ -173,12 +184,11 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
+	remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
 		go s.checkAndCreateCaches(ctx, 0, d, lwBuilder, remainingKinds)
 	}
-	<-waitForSynced(ctx, informers)
 	return nil
 }
 

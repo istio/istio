@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // ChangeType denotes the type of a change
@@ -137,6 +138,8 @@ type Store interface {
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]*Resource
+
+	probe.SupportsProbe
 }
 
 // store is the implementation of Store interface.
@@ -146,6 +149,12 @@ type store struct {
 
 	mu    sync.Mutex
 	queue *eventQueue
+}
+
+func (s *store) RegisterProbe(c probe.Controller, name string) {
+	if e, ok := s.backend.(probe.SupportsProbe); ok {
+		e.RegisterProbe(c, name)
+	}
 }
 
 // Init initializes the connection with the storage backend. This uses "kinds"

@@ -17,8 +17,6 @@ package na
 import (
 	"fmt"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
@@ -136,5 +134,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),
 		RequestedTtlMinutes: int32(na.config.WorkloadCertTTL.Minutes()),
+		ForCA:               false,
 	}, nil
 }
