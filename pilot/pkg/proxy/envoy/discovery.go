@@ -765,7 +765,7 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 	}
 
 	incWebhookCalls(methodName)
-	resp, err := ds.webhookClient.Post(ds.webhook.Endpoint+path, "application/json", bytes.NewBuffer(payload))
+	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		incWebhookErrors(methodName)
 		return nil, err
