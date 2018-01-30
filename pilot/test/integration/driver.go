@@ -141,7 +141,7 @@ func main() {
 		return
 	}
 
-	if len(kubeconfig) == 0 {
+	if kubeconfig == "" {
 		kubeconfig = "pilot/pkg/kube/config"
 		glog.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
 	}
