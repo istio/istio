@@ -20,10 +20,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"time"
+
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"

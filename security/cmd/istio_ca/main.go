@@ -16,14 +16,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"io/ioutil"
+	"os"
+	"time"
+
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"

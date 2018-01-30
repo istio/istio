@@ -17,6 +17,9 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"time"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,8 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"reflect"
-	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"

@@ -18,12 +18,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
+	"time"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"net"
-	"time"
 
 	"google.golang.org/grpc/status"
 	"istio.io/istio/pkg/log"
