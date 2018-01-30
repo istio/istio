@@ -8,8 +8,6 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: mixer
-  annotations:
-    sidecar.istio.io/inject: "false"
     checksum/config-volume: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -19,6 +17,8 @@ spec:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
         istio: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:

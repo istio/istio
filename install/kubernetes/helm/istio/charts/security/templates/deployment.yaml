@@ -9,8 +9,6 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: istio-ca
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -19,6 +17,8 @@ spec:
         app: {{ template "security.name" . }}
         heritage: {{ .Release.Service }}
         istio: istio-ca
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: {{ template "security.serviceAccountName" . }}
       containers:
