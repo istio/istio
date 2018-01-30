@@ -53,3 +53,4 @@ make build
 
 echo 'Bazel Tests'
 make test
+make clang-test

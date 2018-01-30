@@ -5,6 +5,8 @@ jobs:
     environment:
     docker:
       - image: istio/ci:go1.9-bazel0.7
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only"
     resource_class: xlarge
     steps:
       - checkout
