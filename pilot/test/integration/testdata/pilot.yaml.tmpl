@@ -87,11 +87,12 @@ spec:
         - {{.Registry}}
         - --eurekaserverURL
         - http://eureka:8080
+        - --port=8080
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
         ports:
-        - containerPort: 15003
+        - containerPort: 8080
 {{if .DebugPort}}
         - containerPort: {{.DebugPort}}
         volumeMounts:
