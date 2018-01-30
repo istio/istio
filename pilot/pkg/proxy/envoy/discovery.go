@@ -407,8 +407,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 // connections. Content serving is started by this method, but is executed asynchronously. Serving can be cancelled
 // at any time by closing the provided stop channel.
 func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
-	log.Infof("Starting discovery service at %v", ds.server.Addr)
-
 	addr := ds.server.Addr
 	if addr == "" {
 		addr = ":http"
@@ -433,6 +431,7 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 		}
 	}()
 
+	log.Infof("Discovery service started at %s", listener.Addr().String())
 	return listener.Addr(), nil
 }
 
