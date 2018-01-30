@@ -23,6 +23,8 @@ global:
   rbacEnabled: true
   # mutual TLS authentication
   securityEnabled: false
+  # mutating webhooks avail with automatic sidecar injection
+  sidecarInjectEnabled: false
 
 #
 # proxy side car and ingress configuration
@@ -40,9 +42,9 @@ service:
     port: 32000
 
 #
-# initializer configuration
+# sidecar-injector configuration
 #
-initializer:
+sidecar-injector:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
