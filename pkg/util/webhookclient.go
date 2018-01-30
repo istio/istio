@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-// This function takes URLs of the form http://foo.com,
+// NewWebHookClient takes URLs of the form http://foo.com,
 // unix+http://foo.com, and returns a base URL and http client that can be
 // used to communicate with the endpoint over IP or unix domain socket.
 func NewWebHookClient(apiEndpoint string) (string, *http.Client) {
