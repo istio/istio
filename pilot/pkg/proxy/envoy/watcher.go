@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/bootstrap"
 )
 
 // Watcher triggers reloads on changes to the proxy config
@@ -238,6 +239,7 @@ type envoy struct {
 	config    meshconfig.ProxyConfig
 	node      string
 	extraArgs []string
+	v2 		  bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -253,6 +255,13 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 		node:      node,
 		extraArgs: args,
 	}
+}
+
+// NewV2Proxy creates an instance of the proxy using v2 bootstrap
+func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy.Proxy {
+	envoy := NewProxy(config, node, logLevel)
+	envoy.(envoy).v2 = true
+	return envoy
 }
 
 func (proxy envoy) args(fname string, epoch int) []string {
@@ -284,10 +293,16 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if len(proxy.config.CustomConfigFile) > 0 {
+	if proxy.v2 {
+		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch)
+		if err != nil {
+			return err
+		}
+		fname = out
+	} else if len(proxy.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
-	} else {
+	} else  {
 		// create parent directories if necessary
 		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
 			return multierror.Prefix(err, "failed to create directory for proxy configuration")
