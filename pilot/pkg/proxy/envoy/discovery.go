@@ -15,7 +15,6 @@
 package envoy
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -33,10 +32,10 @@ import (
 
 	"bytes"
 	"io/ioutil"
-	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
@@ -309,24 +308,8 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 	out.Register(container)
 
-	if len(o.WebhookEndpoint) > 0 {
-		out.webhookEndpoint = o.WebhookEndpoint
-		transport := &http.Transport{}
-
-		if strings.Contains(o.WebhookEndpoint, "unix://") {
-			transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
-				return net.Dial("unix", addr)
-			}
-
-			// strip the +unix and convert to plain http://
-			if strings.Index(o.WebhookEndpoint, "unix://") == 0 {
-				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "unix", "", 1)
-			} else {
-				out.webhookEndpoint = strings.Replace(o.WebhookEndpoint, "+unix", "", 1)
-			}
-		}
-		out.webhookClient = &http.Client{Transport: transport}
-	}
+	out.webhookEndpoint = o.WebhookEndpoint
+	out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
 
@@ -654,16 +637,16 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			return
 		}
 
-		// TODO: this is wrong as it doesn't take into account clusters added by webhook
-		resourceCount = uint32(len(clusters))
-
 		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/clusters/unused/%s", svcNode), out)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
 		}
 
-		if resourceCount > 0 { // TODO: BUG. if resourceCount is 0, but transformedOutput has added resources, the cache wont update
+		// TODO: this is wrong as it doesn't take into account clusters added by webhook
+		resourceCount = uint32(len(clusters))
+		// TODO: BUG. if resourceCount is 0, but transformedOutput has added resources, the cache wont update
+		if resourceCount > 0 {
 			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
@@ -700,16 +683,16 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			return
 		}
 
-		// TODO: This does not take into account listeners added by webhook
-		resourceCount = uint32(len(listeners))
-
 		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
 		}
 
-		if resourceCount > 0 { // TODO: Bug. If resourceCount is 0 but transformedOutput adds listeners, cache wont update
+		// TODO: This does not take into account listeners added by webhook
+		resourceCount = uint32(len(listeners))
+		// TODO: Bug. If resourceCount is 0 but transformedOutput adds listeners, cache wont update
+		if resourceCount > 0 {
 			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
