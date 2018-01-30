@@ -2,7 +2,7 @@ global:
   proxy:
     repository: {PROXY_HUB}/{PROXY_IMAGE}
     tag: {PROXY_TAG}
-  sidecar-injector:
+  sidecarInjector:
     repository: {PILOT_HUB}/sidecar_injector
     tag: {PILOT_TAG}
   mixer:
@@ -44,17 +44,13 @@ service:
 #
 # sidecar-injector configuration
 #
-sidecar-injector:
+sidecarInjector:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
   nodeSelector: {}
-
-  initImage:
-    repository: docker.io/istio/proxy_init
-    tag: 0.4.0
 
 #
 # mixer configuration

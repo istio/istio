@@ -1,18 +1,24 @@
----
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: istio-sidecar-injector
+  name: {{ template "sidecar-injector.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
     istio: {{ template "sidecar-injector.name" . }}
+  annotations:
+    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       name: istio-sidecar-injector
       labels:
         istio: {{ template "sidecar-injector.name" . }}
+        release: {{ .Release.Name }}
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
       containers:
@@ -47,4 +53,3 @@ spec:
           items:
           - key: config
             path: config
----
