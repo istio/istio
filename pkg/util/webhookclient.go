@@ -31,7 +31,7 @@ func NewWebHookClient(apiEndpoint string) (string, *http.Client) {
 	}
 
 	transport := &http.Transport{}
-	strippedEndpoint = apiEndpoint
+	strippedEndpoint := apiEndpoint
 
 	if strings.Contains(apiEndpoint, "unix://") {
 		transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
