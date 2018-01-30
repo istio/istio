@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"os"
 	"os/exec"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 	pb "istio.io/istio/security/proto"
@@ -61,7 +61,7 @@ func Init(ver string) error {
 		}
 		return nil
 	}
-  log.Info("Init finishes successfully")
+	log.Info("Init finishes successfully")
 	return nil
 }
 
@@ -126,8 +126,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-  attrs := pb.WorkloadInfo_WorkloadAttributes{
-		Uid: ninputs.Uid,
+	attrs := pb.WorkloadInfo_WorkloadAttributes{
+		Uid:            ninputs.Uid,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -224,5 +224,5 @@ func Unmount(dir string) error {
 	}
 
 	log.Infof("Unmount successfully with dir %s", dir)
-  return nil
+	return nil
 }
