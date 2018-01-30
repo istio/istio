@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/pki"
 )
 
@@ -61,6 +62,8 @@ type IstioCAOptions struct {
 	SigningCertBytes []byte
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
+
+	LivenessProbeOptions *probe.Options
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -72,11 +75,12 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
+	livenessProbe  *probe.Probe
 }
 
-// NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
-	core corev1.SecretsGetter) (*IstioCA, error) {
+// NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
+	core corev1.SecretsGetter) (*IstioCAOptions, error) {
 
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
@@ -128,7 +132,7 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 		opts.RootCertBytes = caSecret.Data[cACertID]
 	}
 
-	return NewIstioCA(opts)
+	return opts, nil
 }
 
 // NewIstioCA returns a new IstioCA instance.
@@ -136,6 +140,8 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
+
+		livenessProbe: probe.NewProbe(),
 	}
 
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
@@ -154,6 +160,13 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 	if err := ca.verify(); err != nil {
 		return nil, err
+	}
+
+	if opts.LivenessProbeOptions.IsValid() {
+		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
+		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
+		livenessProbeController.Start()
+		ca.livenessProbe.SetAvailable(nil)
 	}
 
 	return ca, nil
