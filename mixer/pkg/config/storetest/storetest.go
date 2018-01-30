@@ -20,31 +20,48 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
-type memstore struct {
+// Memstore is an on-memory store backend. Used only for testing.
+type Memstore struct {
+	mu   sync.Mutex
 	data map[store.Key]*store.BackEndResource
+	wch  chan store.BackendEvent
 }
 
-func (m *memstore) Init(ctx context.Context, kinds []string) error {
+// NewMemstore creates a new Memstore instance.
+func NewMemstore() *Memstore {
+	return &Memstore{data: map[store.Key]*store.BackEndResource{}}
+}
+
+// Init implements store.Backend interface.
+func (m *Memstore) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-func (m *memstore) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
-	// Watch is not supported in the memstore, but sometimes it needs to be invoked.
+// Watch implements store.Backend interface.
+func (m *Memstore) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
+	// Watch is not supported in the Memstore, but sometimes it needs to be invoked.
 	c := make(chan store.BackendEvent)
 	go func() {
 		<-ctx.Done()
 		close(c)
 	}()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.wch = c
 	return c, nil
 }
 
-func (m *memstore) Get(key store.Key) (*store.BackEndResource, error) {
+// Get implements store.Backend interface.
+func (m *Memstore) Get(key store.Key) (*store.BackEndResource, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	r, ok := m.data[key]
 	if !ok {
 		return nil, store.ErrNotFound
@@ -52,15 +69,36 @@ func (m *memstore) Get(key store.Key) (*store.BackEndResource, error) {
 	return r, nil
 }
 
-func (m *memstore) List() map[store.Key]*store.BackEndResource {
+// List implements store.Backend interface.
+func (m *Memstore) List() map[store.Key]*store.BackEndResource {
 	return m.data
+}
+
+// Put adds a new resource to the memstore.
+func (m *Memstore) Put(r *store.BackEndResource) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data[r.Key()] = r
+	if m.wch != nil {
+		m.wch <- store.BackendEvent{Type: store.Update, Key: r.Key(), Value: r}
+	}
+}
+
+// Delete removes a resource for the specified key from the memstore.
+func (m *Memstore) Delete(k store.Key) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, k)
+	if m.wch != nil {
+		m.wch <- store.BackendEvent{Type: store.Delete, Key: k}
+	}
 }
 
 // SetupStoreForTest creates an on-memory store backend, initializes its
 // data with the specified specs, and returns a new store with the backend.
 // Note that this store can't change, Watch does not emit any events.
 func SetupStoreForTest(data ...string) (store.Store, error) {
-	m := &memstore{data: map[store.Key]*store.BackEndResource{}}
+	m := &Memstore{data: map[store.Key]*store.BackEndResource{}}
 	var errs error
 	for i, d := range data {
 		for j, chunk := range strings.Split(d, "\n---\n") {

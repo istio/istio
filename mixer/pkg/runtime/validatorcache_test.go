@@ -23,22 +23,19 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/config"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/pkg/cache"
 )
 
 const expirationForTest = 10 * time.Millisecond
 const watchFlushDurationForTest = time.Millisecond
 
-func newValidatorCacheForTest(ctx context.Context, name string) (*validatorCache, store.MemstoreWriter, error) {
-	u := "memstore://" + name
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(u)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = s.Init(ctx, map[string]proto.Message{RulesKind: &cpb.Rule{}, AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
+func newValidatorCacheForTest(ctx context.Context, name string) (*validatorCache, *storetest.Memstore, error) {
+	m := storetest.NewMemstore()
+	s := store.WithBackend(m)
+	if err := s.Init(ctx, map[string]proto.Message{RulesKind: &cpb.Rule{}, AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
 		return nil, nil, err
 	}
 	c := &validatorCache{
@@ -50,11 +47,11 @@ func newValidatorCacheForTest(ctx context.Context, name string) (*validatorCache
 		return nil, nil, err
 	}
 	go watchChanges(wch, watchFlushDurationForTest, c.applyChanges)
-	return c, store.GetMemstoreWriter(u), nil
+	return c, m, nil
 }
 
 func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
-	// t.Helper()
+	t.Helper()
 	if want == nil {
 		want = []store.Key{}
 	}
@@ -74,7 +71,7 @@ func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
 }
 
 func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want proto.Message) {
-	// t.Helper()
+	t.Helper()
 	got, ok := c.get(key)
 	if ok {
 		if !reflect.DeepEqual(got, want) {
@@ -88,14 +85,14 @@ func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want pro
 func TestValidatorCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	c, w, err := newValidatorCacheForTest(ctx, t.Name())
+	c, m, err := newValidatorCacheForTest(ctx, t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertListKeys(t, c)
 	k1 := store.Key{Kind: RulesKind, Name: "foo", Namespace: "ns"}
-	r1 := &store.BackEndResource{Metadata: store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}, Spec: map[string]interface{}{"match": "foo"}}
-	w.Put(k1, r1)
+	r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}, Spec: map[string]interface{}{"match": "foo"}}
+	m.Put(r1)
 	time.Sleep(watchFlushDurationForTest * 2)
 	assertListKeys(t, c, k1)
 	assertExpectedData(t, c, k1, &cpb.Rule{Match: "foo"})
@@ -110,7 +107,7 @@ func TestValidatorCache(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
 	r1.Spec = map[string]interface{}{"match": "bar"}
-	w.Put(k1, r1)
+	m.Put(r1)
 	time.Sleep(expirationForTest * 2)
 	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
 
@@ -123,7 +120,7 @@ func TestValidatorCache(t *testing.T) {
 	c.putCache(&store.Event{Key: k1, Type: store.Delete})
 	time.Sleep(2 * time.Millisecond)
 	assertExpectedData(t, c, k1, nil)
-	w.Delete(k1)
+	m.Delete(k1)
 	time.Sleep(expirationForTest * 2)
 	assertExpectedData(t, c, k1, nil)
 }
@@ -150,7 +147,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 	for _, cc := range []struct {
 		title   string
 		prepare func(tt *testing.T, c *validatorCache)
-		op      func(tt *testing.T, w store.MemstoreWriter)
+		op      func(tt *testing.T, m *storetest.Memstore)
 		want    proto.Message
 	}{
 		{
@@ -168,8 +165,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				setWait(tt, c, spec1)
 				setWait(tt, c, spec2)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Put(k1, &store.BackEndResource{Metadata: meta1, Spec: map[string]interface{}{
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Put(&store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{
 					"match": "spec2",
 				}})
 			},
@@ -181,8 +178,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				setWait(tt, c, spec1)
 				setWait(tt, c, spec2)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Put(k1, &store.BackEndResource{Metadata: meta1, Spec: map[string]interface{}{
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Put(&store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{
 					"match": "spec1",
 				}})
 			},
@@ -203,8 +200,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				setWait(tt, c, spec1)
 				delWait(tt, c)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Delete(k1)
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Delete(k1)
 			},
 			nil,
 		},
@@ -214,8 +211,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				setWait(tt, c, spec1)
 				delWait(tt, c)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Put(k1, &store.BackEndResource{Metadata: meta1, Spec: map[string]interface{}{
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Put(&store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{
 					"match": "spec1",
 				}})
 			},
@@ -236,8 +233,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				delWait(tt, c)
 				setWait(tt, c, spec1)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Delete(k1)
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Delete(k1)
 			},
 			nil,
 		},
@@ -247,8 +244,8 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 				delWait(tt, c)
 				setWait(tt, c, spec1)
 			},
-			func(tt *testing.T, w store.MemstoreWriter) {
-				w.Put(k1, &store.BackEndResource{Metadata: meta1, Spec: map[string]interface{}{
+			func(tt *testing.T, m *storetest.Memstore) {
+				m.Put(&store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{
 					"match": "spec1",
 				}})
 			},
@@ -258,19 +255,19 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		t.Run(cc.title, func(tt *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			c, w, err := newValidatorCacheForTest(ctx, t.Name())
+			c, m, err := newValidatorCacheForTest(ctx, t.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			r1 := &store.BackEndResource{Metadata: meta1, Spec: map[string]interface{}{"match": "base"}}
-			w.Put(k1, r1)
+			r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{"match": "base"}}
+			m.Put(r1)
 			time.Sleep(watchFlushDurationForTest * 2)
 			assertExpectedData(tt, c, k1, base)
 
 			cc.prepare(tt, c)
 			if cc.op != nil {
-				cc.op(tt, w)
+				cc.op(tt, m)
 			}
 			time.Sleep(expirationForTest * 2)
 			assertExpectedData(tt, c, k1, cc.want)

@@ -105,8 +105,8 @@ func getValidatorForTest() (*Validator, error) {
 				if value == "" {
 					return nil, errors.New("not string value")
 				}
-				_, err := fn(value)
-				return nil, err
+				_, ierr := fn(value)
+				return nil, ierr
 			},
 		},
 	}
