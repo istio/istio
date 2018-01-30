@@ -18,16 +18,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"os"
 	"os/exec"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 	pb "istio.io/istio/security/proto"
 )
 
+// Resp is the driver response
 type Resp struct {
-	Status  string `json:"status"`
+	// Status of the response
+	Status string `json:"status"`
+	// Error message of the response
 	Message string `json:"message"`
 	// Capability resp.
 	Attach bool `json:"attach,omitempty"`
@@ -39,6 +42,7 @@ type Resp struct {
 	VolumeName string `json:"volumename,omitempty"`
 }
 
+// NodeAgentInputs defines the input from FlexVolume driver.
 type NodeAgentInputs struct {
 	UID            string `json:"kubernetes.io/pod.uid"`
 	Name           string `json:"kubernetes.io/pod.name"`
@@ -49,7 +53,6 @@ type NodeAgentInputs struct {
 const (
 	ver              string = "1.8"
 	volumeName       string = "tmpfs"
-	NodeAgentMgmtAPI string = "/tmp/udsuspver/mgmt.sock"
 	NodeAgentUdsHome string = "/tmp/nodeagent"
 )
 
@@ -62,7 +65,7 @@ func Init(ver string) error {
 		}
 		return nil
 	}
-  log.Info("Init finishes successfully")
+	log.Info("Init finishes successfully")
 	return nil
 }
 
@@ -111,12 +114,14 @@ func IsAttached(opts, node string) error {
 	return nil
 }
 
+// MountDev mounts the device
 func MountDev(dir, dev, opts string) error {
 	inp := dir + "|" + dev + "|" + opts
 	log.Infof("Mountdev to %s successfully", inp)
 	return nil
 }
 
+// UnmountDev unmounts the device
 func UnmountDev(dev string) error {
 	log.Infof("Unmountdev to %s successfully", dev)
 	return nil
@@ -131,8 +136,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-  attrs := pb.WorkloadInfo_WorkloadAttributes{
-		UID: ninputs.UID,
+	attrs := pb.WorkloadInfo_WorkloadAttributes{
+		Uid:            ninputs.UID,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -233,5 +238,5 @@ func Unmount(dir string) error {
 	}
 
 	log.Infof("Unmount successfully with dir %s", dir)
-  return nil
+	return nil
 }

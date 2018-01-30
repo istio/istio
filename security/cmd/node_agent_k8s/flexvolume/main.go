@@ -16,7 +16,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -30,13 +29,14 @@ const (
 )
 
 var (
-	// This is the root command for the driver.
+	// RootCmd defines the root command for the driver.
 	RootCmd = &cobra.Command{
 		Use:   "flexvoldrv",
 		Short: "Flex volume driver interface for Node Agent.",
 		Long:  "Flex volume driver interface for Node Agent.",
 	}
 
+	// InitCmd defines the init command for the driver.
 	InitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Flex volume init command.",
@@ -50,6 +50,7 @@ var (
 		},
 	}
 
+	// AttachCmd defines the attach command for the driver.
 	AttachCmd = &cobra.Command{
 		Use:   "attach",
 		Short: "Flex volumen attach command.",
@@ -63,6 +64,7 @@ var (
 		},
 	}
 
+	// DetachCmd defines the detach command for the driver.
 	DetachCmd = &cobra.Command{
 		Use:   "detach",
 		Short: "Flex volume detach command.",
@@ -76,6 +78,7 @@ var (
 		},
 	}
 
+	// WaitAttachCmd defines the waitattach command for the driver.
 	WaitAttachCmd = &cobra.Command{
 		Use:   "waitforattach",
 		Short: "Flex volume waitforattach command.",
@@ -89,6 +92,7 @@ var (
 		},
 	}
 
+	// IsAttachedCmd defines the isattached command
 	IsAttachedCmd = &cobra.Command{
 		Use:   "isattached",
 		Short: "Flex volume isattached command.",
@@ -102,6 +106,7 @@ var (
 		},
 	}
 
+	// MountdevCmd defines the Mountdev command
 	MountDevCmd = &cobra.Command{
 		Use:   "mountdevice",
 		Short: "Flex volume unmount command.",
@@ -115,6 +120,7 @@ var (
 		},
 	}
 
+	// UnmountdevCmd defines the unmountdev command
 	UnmountDevCmd = &cobra.Command{
 		Use:   "unmountdevice",
 		Short: "Flex volume unmount command.",
@@ -128,6 +134,7 @@ var (
 		},
 	}
 
+	// MountCmd defines the mount command
 	MountCmd = &cobra.Command{
 		Use:   "mount",
 		Short: "Flex volume unmount command.",
@@ -141,6 +148,7 @@ var (
 		},
 	}
 
+	// UnmountCmd defines the unmount command
 	UnmountCmd = &cobra.Command{
 		Use:   "unmount",
 		Short: "Flex volume unmount command.",
