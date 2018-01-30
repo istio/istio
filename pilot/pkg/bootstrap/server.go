@@ -22,10 +22,10 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
+	multierror "github.com/hashicorp/go-multierror"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
