@@ -22,7 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/log"
 )
 
