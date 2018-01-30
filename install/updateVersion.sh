@@ -158,11 +158,10 @@ function merge_files() {
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
   echo "# Mixer CRD definitions are generated using" >> $ISTIO
   echo "# mixs crd all" >> $ISTIO
   ${GOPATH}/bin/mixs crd all >> $ISTIO
-  cat $SRC/istio-mixer-configs.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
   cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
@@ -264,7 +263,6 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-configs.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
