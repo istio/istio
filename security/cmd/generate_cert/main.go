@@ -24,8 +24,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -97,7 +95,7 @@ func main() {
 		}
 	}
 
-	certPem, privPem, err := ca.GenCert(ca.CertOptions{
+	certPem, privPem, err := ca.GenCertKeyFromOptions(ca.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
 		TTL:          *validFor,

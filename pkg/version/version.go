@@ -23,7 +23,7 @@ import (
 // The following fields are populated at build time using -ldflags -X.
 // Note that DATE is omitted for reproducible builds
 var (
-	buildAppVersion  = "unknown"
+	buildVersion     = "unknown"
 	buildGitRevision = "unknown"
 	buildUser        = "unknown"
 	buildHost        = "unknown"
@@ -95,7 +95,7 @@ BuildStatus: %v
 
 func init() {
 	Info = BuildInfo{
-		Version:       buildAppVersion,
+		Version:       buildVersion,
 		GitRevision:   buildGitRevision,
 		User:          buildUser,
 		Host:          buildHost,

@@ -13,6 +13,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+EMAIL_LIST = ['laane@google.com', 'istio-engprod@google.com']
+
+#Make the release on the 3ed Thursday of the mounth.
+#It will run on at 17:15 GST
+MONTHLY_RELEASE_TRIGGER = '15 17 * * 4#3'
+
 AIRFLOW_CONFIG = dict(
     PROJECT_ID='istio-release',
     RELEASE_PROJECT_ID='istio-io',
@@ -28,6 +34,7 @@ AIRFLOW_CONFIG = dict(
     SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
     TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile',
     GITHUB_ORG='istio',
+    PROD_GITHUB_ORG='istio',
     GITHUB_REPO='istio',
     GCR_STAGING_DEST='istio-release',
     GCR_RELEASE_DEST='istio-io',
