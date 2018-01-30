@@ -7,8 +7,6 @@ metadata:
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
-  annotations:
-    sidecar.istio.io/inject: "false"
   name: istio-ca
 spec:
   replicas: 1
@@ -16,6 +14,8 @@ spec:
     metadata:
       labels:
         app: istio-ca-app
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-ca-service-account
       containers:
