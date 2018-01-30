@@ -648,7 +648,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/clusters/unused/%s", svcNode), out, "webhook"+methodName)
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -694,7 +694,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/listeners/unused/%s", svcNode), out, "webhook"+methodName)
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
@@ -742,7 +742,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 
-		transformedOutput, err = ds.invokeWebhook(fmt.Sprintf("/v1/routes/%s/unused/%s", routeConfigName, svcNode), out, "webhook"+methodName)
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
 			transformedOutput = out
