@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
