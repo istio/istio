@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -24,10 +25,12 @@ import (
 )
 
 const (
+	// TODO(wattli): make it configurable.
 	ver string = "1.8"
 )
 
 var (
+	// This is the root command for the driver.
 	RootCmd = &cobra.Command{
 		Use:   "flexvoldrv",
 		Short: "Flex volume driver interface for Node Agent.",
@@ -40,7 +43,8 @@ var (
 		Long:  "Flex volume init command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("init takes no arguments.")
+				log.Error("mount takes 0 args")
+				return errors.New("mount takes 0 args")
 			}
 			return driver.Init(ver)
 		},
@@ -52,7 +56,8 @@ var (
 		Long:  "Flex volumen attach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 || len(args) > 2 {
-				return fmt.Errorf("attach takes at most 2 args.")
+				log.Error("mount takes 2 args")
+				return errors.New("mount takes 2 args")
 			}
 			return driver.Attach(args[0], args[1])
 		},
@@ -64,7 +69,8 @@ var (
 		Long:  "Flex volume detach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return fmt.Errorf("detach takes at least 1 arg.")
+				log.Error("mount takes 1 args")
+				return errors.New("mount takes 1 args")
 			}
 			return driver.Detach(args[0])
 		},
@@ -76,7 +82,8 @@ var (
 		Long:  "Flex volume waitforattach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("waitforattach takes at least 2 arg.")
+				log.Error("mount takes 2 args")
+				return errors.New("mount takes 2 args")
 			}
 			return driver.WaitAttach(args[0], args[1])
 		},
@@ -88,7 +95,8 @@ var (
 		Long:  "Flex volume isattached command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("isattached takes at least 2 arg.")
+				log.Error("mount takes 2 args")
+				return errors.New("mount takes 2 args")
 			}
 			return driver.IsAttached(args[0], args[1])
 		},
@@ -100,7 +108,8 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 3 {
-				return fmt.Errorf("mountdevice takes 3 args.")
+				log.Error("mount takes 3 args")
+				return errors.New("mount takes 3 args")
 			}
 			return driver.MountDev(args[0], args[1], args[2])
 		},
@@ -112,7 +121,8 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return fmt.Errorf("unmountdevice takes 1 arg.")
+				log.Error("mount takes 1 args")
+				return errors.New("mount takes 1 args")
 			}
 			return driver.UnmountDev(args[0])
 		},
@@ -124,7 +134,8 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("mount takes 2 args.")
+				log.Error("mount takes 2 args")
+				return errors.New("mount takes 2 args")
 			}
 			return driver.Mount(args[0], args[1])
 		},
@@ -136,7 +147,8 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return fmt.Errorf("mount takes 1 args.")
+				log.Error("mount takes 1 args")
+				return errors.New("mount takes 1 args")
 			}
 			return driver.Unmount(args[0])
 		},

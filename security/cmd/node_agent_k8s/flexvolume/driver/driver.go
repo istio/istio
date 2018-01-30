@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"os"
 	"os/exec"
-	"strings"
 
 	"istio.io/istio/pkg/log"
 	pb "istio.io/istio/security/proto"
@@ -40,7 +40,7 @@ type Resp struct {
 }
 
 type NodeAgentInputs struct {
-	Uid            string `json:"kubernetes.io/pod.uid"`
+	UID            string `json:"kubernetes.io/pod.uid"`
 	Name           string `json:"kubernetes.io/pod.name"`
 	Namespace      string `json:"kubernetes.io/pod.namespace"`
 	ServiceAccount string `json:"kubernetes.io/serviceAccount.name"`
@@ -53,6 +53,7 @@ const (
 	NodeAgentUdsHome string = "/tmp/nodeagent"
 )
 
+// Init initialize the driver
 func Init(ver string) error {
 	if ver == "1.8" {
 		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Attach: false})
@@ -61,10 +62,11 @@ func Init(ver string) error {
 		}
 		return nil
 	}
-	log.Info("Init finishes successfully")
+  log.Info("Init finishes successfully")
 	return nil
 }
 
+// Attach attach the driver
 func Attach(opts, nodeName string) error {
 	_, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
 	if err != nil {
@@ -76,16 +78,18 @@ func Attach(opts, nodeName string) error {
 	return nil
 }
 
-func Detach(devId string) error {
-	_, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devId})
+// Detach detach the driver
+func Detach(devID string) error {
+	_, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
 	if err != nil {
 		log.Errorf("Failed to detach with error: %s", err.Error())
 		return err
 	}
-	log.Infof("Detach to %s successfully", devId)
+	log.Infof("Detach to %s successfully", devID)
 	return nil
 }
 
+// WaitAttach wait the driver to be attached.
 func WaitAttach(dev, opts string) error {
 	_, err := json.Marshal(&Resp{Device: dev, Status: "Success", Message: "Wait ok"})
 	if err != nil {
@@ -96,6 +100,7 @@ func WaitAttach(dev, opts string) error {
 	return nil
 }
 
+// IsAttached checks whether the driver is attached.
 func IsAttached(opts, node string) error {
 	_, err := json.Marshal(&Resp{Attached: true, Status: "Success", Message: "Is attached"})
 	if err != nil {
@@ -126,8 +131,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-	attrs := pb.WorkloadInfo_WorkloadAttributes{
-		Uid:            ninputs.Uid,
+  attrs := pb.WorkloadInfo_WorkloadAttributes{
+		UID: ninputs.UID,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -136,8 +141,9 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 	return &wlInfo, true
 }
 
+// doMount perform the actual mount work
 func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
-	newDir := NodeAgentUdsHome + "/" + ninputs.Uid
+	newDir := NodeAgentUdsHome + "/" + ninputs.UID
 	err := os.MkdirAll(newDir, 0777)
 	if err != nil {
 		return err
@@ -174,6 +180,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	return nil
 }
 
+// doUnmount perform the actual unmount work
 func doUnmount(dir string) error {
 	cmd := exec.Command("/bin/umount", dir)
 	err := cmd.Run()
@@ -184,6 +191,7 @@ func doUnmount(dir string) error {
 	return nil
 }
 
+// Mount mount the file path.
 func Mount(dir, opts string) error {
 	inp := dir + "|" + opts
 
@@ -202,6 +210,7 @@ func Mount(dir, opts string) error {
 	return nil
 }
 
+// Unmount unmount the file path.
 func Unmount(dir string) error {
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
@@ -224,5 +233,5 @@ func Unmount(dir string) error {
 	}
 
 	log.Infof("Unmount successfully with dir %s", dir)
-	return nil
+  return nil
 }
