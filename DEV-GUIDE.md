@@ -152,9 +152,8 @@ Execute once, to create a directory for the Istio source trees.
 mkdir -p $ISTIO
 ```
 
-As the steps recommended in this section change both the user's groups
-information as well as the $PATH and environment, please log out of the
-development machine and log in to reload the environment.
+As the steps recommended in this section change the $PATH and environment,
+you will need to reload the environment.
 
 ### Setting up a personal access token
 
