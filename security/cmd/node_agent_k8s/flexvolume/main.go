@@ -106,7 +106,7 @@ var (
 		},
 	}
 
-	// MountdevCmd defines the Mountdev command
+	// MountDevCmd defines the Mountdev command
 	MountDevCmd = &cobra.Command{
 		Use:   "mountdevice",
 		Short: "Flex volume unmount command.",
@@ -120,7 +120,7 @@ var (
 		},
 	}
 
-	// UnmountdevCmd defines the unmountdev command
+	// UnmountDevCmd defines the unmountdev command
 	UnmountDevCmd = &cobra.Command{
 		Use:   "unmountdevice",
 		Short: "Flex volume unmount command.",

@@ -53,7 +53,7 @@ type NodeAgentInputs struct {
 const (
 	ver              string = "1.8"
 	volumeName       string = "tmpfs"
-	NodeAgentUdsHome string = "/tmp/nodeagent"
+	nodeAgentUdsHome string = "/tmp/nodeagent"
 )
 
 // Init initialize the driver
@@ -148,7 +148,7 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 
 // doMount perform the actual mount work
 func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
-	newDir := NodeAgentUdsHome + "/" + ninputs.UID
+	newDir := nodeAgentUdsHome + "/" + ninputs.Uid
 	err := os.MkdirAll(newDir, 0777)
 	if err != nil {
 		return err
@@ -230,7 +230,7 @@ func Unmount(dir string) error {
 	// unmount the tmpfs
 	doUnmount(dir)
 	// delete the directory that was created.
-	delDir := NodeAgentUdsHome + "/" + uid
+	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
 	if err != nil {
 		sErr := fmt.Sprintf("Unmount failed when delete dir %s with error: %s", delDir, err.Error())
