@@ -27,9 +27,9 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
@@ -38,9 +38,7 @@ type preprocCallback func(ctx context.Context, requestBag attribute.Bag, respons
 type checkCallback func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
 type reportCallback func(ctx context.Context, requestBag attribute.Bag) error
 type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
-
-type preprocCallbackLegacy func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
+	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error)
 
 type testState struct {
 	client     mixerpb.MixerClient
@@ -85,7 +83,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 
 func (ts *testState) deleteGRPCServer() {
 	ts.gs.GracefulStop()
-	ts.gp.Close()
+	_ = ts.gp.Close()
 }
 
 func (ts *testState) createAPIClient(dial string) error {
@@ -140,7 +138,7 @@ func (ts *testState) Report(ctx context.Context, bag attribute.Bag) error {
 }
 
 func (ts *testState) Quota(ctx context.Context, bag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	return ts.quota(ctx, bag, qma)
 }
@@ -162,7 +160,7 @@ func TestCheck(t *testing.T) {
 		}, nil
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 		return &adapter.QuotaResult{
 			Amount: 42,
 		}, nil
@@ -194,7 +192,7 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 		return &adapter.QuotaResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
@@ -241,7 +239,7 @@ func TestCheckQuota(t *testing.T) {
 		}, nil
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 		return &adapter.QuotaResult{
 			Amount: 42,
 		}, nil
@@ -265,12 +263,12 @@ func TestCheckQuota(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
 	} else if !status.IsOK(response.Precondition.Status) {
-		t.Errorf("Got unexpected failure %s", response.Precondition.Status)
+		t.Errorf("Got unexpected failure %+v", response.Precondition.Status)
 	} else if response.Quotas["RequestCount"].GrantedAmount != 42 {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 		return &adapter.QuotaResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
@@ -445,6 +443,6 @@ func TestFailingPreproc(t *testing.T) {
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.NewOptions()
-	o.SetOutputLevel(log.DebugLevel)
+	_ = o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 }

@@ -18,10 +18,11 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"istio.io/istio/tests/integration/framework"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/tests/integration/framework"
 )
 
 type (
@@ -89,10 +90,10 @@ func (c *KubernetesService) Stop() (err error) {
 	return deleteService(c.clientset, c.namespace, c.name)
 }
 
-// IsAlive check if component is alive/running
+// IsAlive checks if the component is alive/running
 func (c *KubernetesService) IsAlive() (bool, error) {
 	if c.serviceType == v1.ServiceTypeLoadBalancer {
-		glog.Infof("waiting for the load balancer is ready...")
+		glog.Infof("waiting for the load balancer to be ready...")
 		if err := waitForServiceExternalIPAddress(c.clientset, c.namespace, c.uuid, kubernetesWaitTimeout); err != nil {
 			return false, fmt.Errorf("failed to get the external IP adddress of %v service: %v", c.name, err)
 		}

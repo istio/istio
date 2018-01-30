@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/pki/testutil"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +27,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/pki/testutil"
 )
 
 var (
@@ -73,14 +74,14 @@ func createTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 	// Create Role
 	err = createIstioCARole(clientset, namespace.GetName())
 	if err != nil {
-		deleteTestNamespace(clientset, namespace.GetName())
+		_ = deleteTestNamespace(clientset, namespace.GetName())
 		return "", fmt.Errorf("failed to create a role (error: %v)", err)
 	}
 
 	// Create RoleBinding
 	err = createIstioCARoleBinding(clientset, namespace.GetName())
 	if err != nil {
-		deleteTestNamespace(clientset, namespace.GetName())
+		_ = deleteTestNamespace(clientset, namespace.GetName())
 		return "", fmt.Errorf("failed to create a rolebinding (error: %v)", err)
 	}
 
@@ -233,11 +234,8 @@ func createIstioCARoleBinding(clientset kubernetes.Interface, namespace string) 
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	if _, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := clientset.RbacV1beta1().RoleBindings(namespace).Create(&rolebinding)
+	return err
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,

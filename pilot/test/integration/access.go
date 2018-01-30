@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
-	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )
@@ -88,11 +87,12 @@ func (a *accessLogs) check(infra *infra) error {
 				logs := util.FetchLogs(client, pod, ns, container)
 
 				if strings.Contains(logs, "segmentation fault") {
-					return fmt.Errorf("segmentation fault %s", pod)
+					util.CopyCoreFiles(pod, ns, "/etc/istio/proxy/core*", infra.coreFilesDir)
+					return fmt.Errorf("segmentation fault %s log: %s", pod, logs)
 				}
 
 				if strings.Contains(logs, "assert failure") {
-					return fmt.Errorf("assert failure in %s", pod)
+					return fmt.Errorf("assert failure in %s log: %s", pod, logs)
 				}
 
 				// find all ids and counts

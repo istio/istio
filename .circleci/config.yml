@@ -44,10 +44,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -75,7 +75,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -83,7 +83,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -102,6 +102,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -109,14 +110,14 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -137,6 +138,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -144,10 +146,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -166,6 +168,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -173,10 +176,10 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.prebuilt
+      - run: make init go-build test-bins docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -291,11 +294,27 @@ jobs:
             mkdir -p /go/out/racetests
             go get github.com/jstemmer/go-junit-report
             free
-            trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
             make localTestEnv
-            make pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
+            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
       - store_test_results:
           path: /go/out/racetests
+
+  benchcheck:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir -p /go/out/benchcheck
+            make benchcheck | tee -a /go/out/benchcheck/go-benchcheck-report.out
+      - store_test_results:
+          path: /go/out/benchcheck
 
   build:
     <<: *defaults
@@ -319,45 +338,36 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
-  ## CONTAINER BASED LINT. mukai's linter container does not have all
-  # tools. Install linters in istio's ci container.
-  # lint:
-  #   working_directory: /go/src/istio.io/istio
-  #   docker:
-  #     - image: gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10
-  #   environment:
-  #     GOPATH: /go
-  #   resource_class: xlarge
-  #   steps:
-  #     - checkout
-  #     - restore_cache:
-  #         keys:
-  #           - dep-cache-{{ checksum "Gopkg.lock" }}
-  #     - run: /go/src/istio.io/istio/bin/check_license.sh
-  #     - run:
-  #         no_output_timeout: 15m
-  #         command: |
-  #           cd /go/src/istio.io/istio
-  #           CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
-
-  ## TODO DISBALE ME and use the container based lint
   lint:
-    <<: *integrationDefaults
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    resource_class: xlarge
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
       - checkout
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          no_output_timeout: 15m
-          command: |
-            make lint
+      - run: make lint
+
+  ## TODO DISBALE ME and use the container based lint
+  # lint:
+  #   <<: *integrationDefaults
+  #   steps:
+  #     - type: shell
+  #       name: Initialize Working Directory
+  #       pwd: /
+  #       command: |
+  #         sudo mkdir -p /go/src/istio.io/istio
+  #         sudo chown -R circleci /go
+  #     - checkout
+  #     - restore_cache:
+  #         keys:
+  #           - dep-cache-{{ checksum "Gopkg.lock" }}
+  #     - run:
+  #         no_output_timeout: 15m
+  #         command: |
+  #           make lint
 
   docker-push:
     <<: *defaults
@@ -416,10 +426,6 @@ workflows:
           requires:
             - dependencies
             - build
-      - racetest:
-          requires:
-            - dependencies
-            - build
       - e2e-simple:
           requires:
             - test
@@ -433,6 +439,9 @@ workflows:
           requires:
             - test
       - e2e-pilot-noauth:
+          requires:
+            - test
+      - benchcheck:
           requires:
             - test
       # Compile for mac and arm
@@ -486,6 +495,9 @@ workflows:
       - e2e-pilot-noauth:
           requires:
             - build
+      - benchcheck:
+          requires:
+            - test
 
   all:
     jobs:
@@ -497,9 +509,6 @@ workflows:
           requires:
             - dependencies
       - test:
-          requires:
-            - dependencies
-      - racetest:
           requires:
             - dependencies
       - e2e-pilot:

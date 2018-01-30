@@ -36,6 +36,10 @@ Others docs you should look at:
 
       - Must use lowerCamel case for Go package names.
 
+      - Must use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
+
+      - Use singular nouns for types unless they represent a collection. Use plural nouns for collections.
+
       - Please consider parent directory name when choosing a package name:
 
           - `adapters/factMapper/tracker.go` should say `package factMapper` not `package factmapperadapter`.

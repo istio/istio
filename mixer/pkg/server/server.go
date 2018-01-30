@@ -17,10 +17,8 @@ package server
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
-	"path"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -39,6 +37,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -54,15 +53,20 @@ type Server struct {
 	configDir string
 
 	dispatcher mixerRuntime.Dispatcher
+
+	// probes
+	livenessProbe  probe.Controller
+	readinessProbe probe.Controller
+	*probe.Probe
 }
 
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newILEvaluator func(cacheSize int) (*evaluator.IL, error)
-	newStore2      func(r2 *store.Registry2, configURL string) (store.Store2, error)
+	newStore       func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime     func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener,
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16) (*monitor, error)
@@ -77,7 +81,7 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newILEvaluator: evaluator.NewILEvaluator,
-		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
+		newStore:       func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
@@ -112,6 +116,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
+	s.Probe = probe.NewProbe()
+
 	// construct the gRPC options
 
 	var grpcOptions []grpc.ServerOption
@@ -145,29 +151,26 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStore2URL := a.ConfigStore2URL
-	if configStore2URL == "" {
-		configStore2URL = "k8s://"
+	st := a.ConfigStore
+	if st != nil && a.ConfigStoreURL != "" {
+		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
-
-	if a.ServiceConfig != "" || a.GlobalConfig != "" {
-		if s.configDir, err = serializeConfigs(a.GlobalConfig, a.ServiceConfig); err != nil {
-			_ = s.Close()
-			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
+	if st == nil {
+		configStoreURL := a.ConfigStoreURL
+		if configStoreURL == "" {
+			configStoreURL = "k8s://"
 		}
-		configStore2URL = "fs://" + s.configDir
-	}
 
-	reg2 := store.NewRegistry2(config.Store2Inventory()...)
-	store2, err := p.newStore2(reg2, configStore2URL)
-	if err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		reg := store.NewRegistry(config.StoreInventory()...)
+		if st, err = p.newStore(reg, configStoreURL); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		}
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
+		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
@@ -178,30 +181,27 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
-	return s, nil
-}
-
-// Takes the string-based configs and creates a directory with config files from it.
-func serializeConfigs(globalConfig string, serviceConfig string) (string, error) {
-	configDir, err := ioutil.TempDir("", "mixer")
-	if err == nil {
-		s := path.Join(configDir, "service.yaml")
-		if err = ioutil.WriteFile(s, []byte(serviceConfig), 0666); err == nil {
-			g := path.Join(configDir, "global.yaml")
-			if err = ioutil.WriteFile(g, []byte(globalConfig), 0666); err == nil {
-				return configDir, nil
-			}
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
+	if a.ReadinessProbeOptions.IsValid() {
+		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
+		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
+			e.RegisterProbe(s.readinessProbe, "dispatcher")
 		}
-
-		_ = os.RemoveAll(configDir)
+		st.RegisterProbe(s.readinessProbe, "store")
+		s.readinessProbe.Start()
 	}
 
-	return "", err
+	return s, nil
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
 	s.shutdown = make(chan error, 1)
+	s.SetAvailable(nil)
 	go func() {
 		// go to work...
 		err := s.server.Serve(s.listener)
@@ -226,7 +226,7 @@ func (s *Server) Wait() error {
 func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
-		s.Wait()
+		_ = s.Wait()
 	}
 
 	if s.listener != nil {
@@ -253,8 +253,16 @@ func (s *Server) Close() error {
 		_ = os.RemoveAll(s.configDir)
 	}
 
+	if s.livenessProbe != nil {
+		_ = s.livenessProbe.Close()
+	}
+
+	if s.readinessProbe != nil {
+		_ = s.readinessProbe.Close()
+	}
+
 	// final attempt to purge buffered logs
-	log.Sync()
+	_ = log.Sync()
 
 	return nil
 }

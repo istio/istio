@@ -53,7 +53,7 @@ done
 [[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
 
 GOBUILD="${ROOT}/../bin/gobuild.sh"
-VERSION_PACKAGE=istio.io/istio/pilot/tools/version
+VERSION_PACKAGE=istio.io/istio/pkg/version
 
 STATIC=0 GOOS=linux ${GOBUILD} "${BIN_DIR}/istioctl-linux" ${VERSION_PACKAGE} istio.io/istio/pilot/cmd/istioctl
 

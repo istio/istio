@@ -1,8 +1,9 @@
 # Developing for Istio
 
 This document helps you get started to develop code for Istio.
-If you're following this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new).
+If you follow this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new),
 so we can improve the doc.
+Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
@@ -239,7 +240,7 @@ such as invoking the Envoy proxy with a special configuration, we capture
 the desired output as golden artifacts and save the artifacts in the
 repository. Validation tests compare generated output against the desired
 output. For example,
-[Envoy configuration test data](pilot/proxy/envoy/testdata) contains
+[Envoy configuration test data](pilot/pkg/proxy/envoy/testdata) contains
 auto-generated proxy configuration. If you make changes to the config
 generation, you also need to create or update the golden artifact in the
 same pull request. The test library can automatically refresh all golden
@@ -325,7 +326,7 @@ signed up for CircleCI, you can test your code changes in your fork against
 the full suite of tests that we run for every PR.
 
 Please refer to the
-[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a 
+[wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a
 detailed guide on using CircleCI with Istio.
 
 ## Git workflow

@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/istio/pkg/version"
 )
 
 type rootArgs struct {
@@ -54,9 +55,6 @@ type rootArgs struct {
 
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
-
-	// enableTracing controls whether client-side traces are generated for calls to Mixer.
-	enableTracing bool
 
 	// # times to repeat the operation
 	repeat int
@@ -120,7 +118,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 
 	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
-	rootCmd.AddCommand(shared.VersionCmd(printf))
+	rootCmd.AddCommand(version.CobraCommand())
 
 	rootArgs.tracingOptions.AttachCobraFlags(rootCmd)
 

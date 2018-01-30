@@ -19,10 +19,12 @@ import (
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -49,17 +51,12 @@ type Args struct {
 	// Maximum number of entries in the expression cache
 	ExpressionEvalCacheSize int
 
-	// Port to use for Mixer's gRPC API
-	APIPort uint16
-
-	// Port to use for exposing mixer self-monitoring information
-	MonitoringPort uint16
-
-	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
-	SingleThreaded bool
-
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
-	ConfigStore2URL string
+	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
+	ConfigStoreURL string
+
+	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
+	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -74,20 +71,30 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Supplies a string to use for service configuration, overrides ConfigStoreURL
-	ServiceConfig string
-
-	// Supplies a string to use for global configuration, overrides ConfigStoreURL
-	GlobalConfig string
-
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbeOptions *probe.Options
+
+	// Port to use for Mixer's gRPC API
+	APIPort uint16
+
+	// Port to use for exposing mixer self-monitoring information
+	MonitoringPort uint16
+
+	// Enables gRPC-level tracing
+	EnableGRPCTracing bool
+
+	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
+	SingleThreaded bool
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -105,6 +112,8 @@ func NewArgs() *Args {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
 	}
 }
 
@@ -136,7 +145,7 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
+	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))

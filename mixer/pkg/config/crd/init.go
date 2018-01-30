@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.
@@ -60,7 +61,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL) (store.Store2Backend, error) {
+func NewStore(u *url.URL) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
@@ -83,6 +84,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 		retryTimeout:         retryTimeout,
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
+		Probe:                probe.NewProbe(),
 	}
 	if len(namespaces) > 0 {
 		s.ns = map[string]bool{}
@@ -93,10 +95,10 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 	return s, nil
 }
 
-// Register registers this module as a Store2Backend.
+// Register registers this module as a StoreBackend.
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
-func Register(builders map[string]store.Store2Builder) {
+func Register(builders map[string]store.Builder) {
 	builders["k8s"] = NewStore
 	builders["kube"] = NewStore
 	builders["kubernetes"] = NewStore

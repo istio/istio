@@ -24,7 +24,6 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/opa/config"
-	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/authorization"
 )
@@ -95,14 +94,15 @@ func TestConvertSubjectObjectToMap(t *testing.T) {
 
 	for id, c := range cases {
 		actual := convertSubjectObjectToMap(&c.subject)
-		if reflect.DeepEqual(c.expected, actual) == false {
+		if !reflect.DeepEqual(c.expected, actual) {
 			t.Errorf("%v: expected: %v, received: %v", id, c.expected, actual)
 		}
 	}
 }
 
+/*
 //https://github.com/istio/istio/issues/2300
-func xTestValidateError(t *testing.T) {
+func TestValidateError(t *testing.T) {
 	cases := map[string]struct {
 		cfg      adapter.Config
 		expected []string
@@ -165,6 +165,7 @@ func xTestValidateError(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestSinglePolicy(t *testing.T) {
 	info := GetInfo()
@@ -242,8 +243,9 @@ func TestSinglePolicy(t *testing.T) {
 	}
 }
 
+/*
 //https://github.com/istio/istio/issues/2300
-func xTestMultiplePolicy(t *testing.T) {
+func TestMultiplePolicy(t *testing.T) {
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authorization.TemplateName) {
@@ -397,6 +399,7 @@ func xTestMultiplePolicy(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestFailOpenClose(t *testing.T) {
 	cases := []struct {

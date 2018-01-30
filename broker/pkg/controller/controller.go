@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

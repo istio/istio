@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
@@ -209,8 +210,10 @@ func TestApa(t *testing.T) {
 		args.MonitoringPort = 0
 		args.Templates = e2eTmpl.SupportedTmplInfo
 		args.Adapters = adapterInfos
-		args.GlobalConfig = apaGlobalCfg
-		args.ServiceConfig = tt.cfg
+		var cerr error
+		if args.ConfigStore, cerr = storetest.SetupStoreForTest(apaGlobalCfg, tt.cfg); cerr != nil {
+			t.Fatal(cerr)
+		}
 
 		env, err := testEnv.New(args)
 		if err != nil {

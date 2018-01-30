@@ -12,7 +12,11 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 15003
+  - name: https-pilot
+    port: 15003
+    protocol: TCP
+  - port: 8080
+    name: http-pilot
     protocol: TCP
   selector:
     istio: pilot

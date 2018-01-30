@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 type tcp struct {
@@ -38,7 +38,7 @@ func (t *tcp) teardown() {
 
 func (t *tcp) run() error {
 	// TCP in Eureka is tested by the headless service test.
-	if platform.ServiceRegistry(t.Registry) == platform.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(t.Registry) == serviceregistry.EurekaRegistry {
 		return nil
 	}
 	// Auth is enabled for d:9090 using per-service policy. We expect request

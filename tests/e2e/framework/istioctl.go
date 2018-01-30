@@ -22,7 +22,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
@@ -148,10 +147,10 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
 	if *defaultProxy {
-		return i.run("kube-inject -f %s -o %s -n %s -i %s",
+		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
 			src, dest, i.namespace, i.namespace)
 	}
-	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s",
+	return i.run(`kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s --meshConfigMapName=istio`,
 		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
 }
 

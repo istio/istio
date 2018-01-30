@@ -18,6 +18,7 @@ package crd
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const (
@@ -81,7 +83,7 @@ func waitForSynced(ctx context.Context, informers map[string]cache.SharedInforme
 	return out
 }
 
-// Store offers store.Store2Backend interface through kubernetes custom resource definitions.
+// Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
 	conf         *rest.Config
 	ns           map[string]bool
@@ -97,9 +99,12 @@ type Store struct {
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
+
+	*probe.Probe
 }
 
-var _ store.Store2Backend = &Store{}
+var _ store.Backend = &Store{}
+var _ probe.SupportsProbe = &Store{}
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
@@ -110,12 +115,12 @@ func (s *Store) checkAndCreateCaches(
 	timeout time.Duration,
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) (informers map[string]cache.SharedInformer, remaining []string) {
+	kinds []string) []string {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers = map[string]cache.SharedInformer{}
+	informers := map[string]cache.SharedInformer{}
 	retry := false
 	retryCtx := ctx
 	if timeout > 0 {
@@ -155,14 +160,20 @@ func (s *Store) checkAndCreateCaches(
 		s.cacheMutex.Unlock()
 		retry = true
 	}
-	remaining = make([]string, 0, len(kindsSet))
+	<-waitForSynced(ctx, informers)
+	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	return informers, remaining
+	var err error
+	if len(remaining) > 0 {
+		err = fmt.Errorf("not yet ready: %+v", remaining)
+	}
+	s.SetAvailable(err)
+	return remaining
 }
 
-// Init implements store.Store2Backend interface.
+// Init implements store.StoreBackend interface.
 func (s *Store) Init(ctx context.Context, kinds []string) error {
 	d, err := s.discoveryBuilder(s.conf)
 	if err != nil {
@@ -173,16 +184,15 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
+	remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
 		go s.checkAndCreateCaches(ctx, 0, d, lwBuilder, remainingKinds)
 	}
-	<-waitForSynced(ctx, informers)
 	return nil
 }
 
-// Watch implements store.Store2Backend interface.
+// Watch implements store.StoreBackend interface.
 func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 	ch := make(chan store.BackendEvent)
 	s.watchMutex.Lock()
@@ -192,7 +202,7 @@ func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 	return ch, nil
 }
 
-// Get implements store.Store2Backend interface.
+// Get implements store.StoreBackend interface.
 func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 	if s.ns != nil && !s.ns[key.Namespace] {
 		return nil, store.ErrNotFound
@@ -231,7 +241,7 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 	}
 }
 
-// List implements store.Store2Backend interface.
+// List implements store.StoreBackend interface.
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()

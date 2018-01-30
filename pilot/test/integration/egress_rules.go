@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -109,6 +108,10 @@ func (t *egressRules) run() error {
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
 			log.Info("Success!")
+		}
+
+		if err := t.deleteConfig(cs.config, nil); err != nil {
+			return err
 		}
 	}
 	return errs

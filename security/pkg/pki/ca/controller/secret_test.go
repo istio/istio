@@ -30,7 +30,7 @@ import (
 
 type fakeCa struct{}
 
-func (ca *fakeCa) Sign([]byte) ([]byte, error) {
+func (ca *fakeCa) Sign([]byte, time.Duration, bool) ([]byte, error) {
 	return []byte("fake cert chain"), nil
 }
 
@@ -118,7 +118,7 @@ func TestSecretController(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+		controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
 
 		if tc.existingSecret != nil {
 			err := controller.scrtStore.Add(tc.existingSecret)
@@ -145,7 +145,7 @@ func TestSecretController(t *testing.T) {
 
 func TestRecoverFromDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+	controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
 	scrt := createSecret("test", "istio.test", "test-ns")
 	controller.scrtDeleted(scrt)
 
@@ -166,31 +166,31 @@ func TestUpdateSecret(t *testing.T) {
 	}
 	testCases := map[string]struct {
 		expectedActions []ktesting.Action
-		notAfter        time.Time
+		ttl             time.Duration
 		rootCert        []byte
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions: []ktesting.Action{},
-			notAfter:        time.Now().Add(time.Hour),
+			ttl:             time.Hour,
 		},
 		"Update expiring secret": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			notAfter: time.Now().Add(-time.Second),
+			ttl: -time.Second,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			notAfter: time.Now().Add(time.Hour),
+			ttl:      time.Hour,
 			rootCert: []byte("Outdated root cert"),
 		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+		controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
 
 		scrt := createSecret("test", "istio.test", "test-ns")
 		if rc := tc.rootCert; rc != nil {
@@ -199,10 +199,13 @@ func TestUpdateSecret(t *testing.T) {
 
 		opts := ca.CertOptions{
 			IsSelfSigned: true,
-			NotAfter:     tc.notAfter,
+			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _ := ca.GenCert(opts)
+		bs, _, err := ca.GenCertKeyFromOptions(opts)
+		if err != nil {
+			t.Error(err)
+		}
 		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)

@@ -20,7 +20,7 @@ spec:
     port: 9091
   - name: tcp-mtls
     port: 15004
-  - name: http-health
+  - name: http-monitoring
     port: 9093
   - name: configapi
     port: 9094
@@ -73,18 +73,40 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
+        - containerPort: 9093
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
-          - --configStore2URL=k8s://
+          - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
+          - --livenessProbePath=/live
+          - --livenessProbeInterval=5s
+          - --readinessProbePath=/ready
+          - --readinessProbeInterval=5s
           - --logtostderr
           - -v
           - "2"
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/live
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/ready
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
-        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15004

@@ -66,7 +66,7 @@ func (r *reportImpl) scheduleReport(op *sc.Operation) {
 
 		response, err := r.client.Report(r.serviceConfig.GoogleServiceName, request)
 		if err != nil || response.ReportErrors != nil {
-			logger.Errorf("fail to send report: %v", err)
+			_ = logger.Errorf("fail to send report: %v", err)
 		}
 
 		if logger.VerbosityLevel(logDebug) {

@@ -17,30 +17,110 @@ package cmd
 import (
 	"flag"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-func TestInitializeFlags(t *testing.T) {
+const (
+	defaultInt = 100
+
+	defaultString = "my default string"
+
+	defaultBool = true
+
+	defaultDuration = 24 * time.Hour
+)
+
+func TestInitializeIntFlag(t *testing.T) {
 	cmd := &cobra.Command{}
 	var testInt int
-	flag.IntVar(&testInt, "test", 137, "test int flag")
+	flag.IntVar(&testInt, "testint", defaultInt, "test int flag")
 	InitializeFlags(cmd)
 
-	testName := "Initialize Flags"
+	testName := "Initialize int Flag"
 	if !flag.Parsed() {
 		t.Errorf("%s: flag.Parsed() returns false, should be true", testName)
 	}
 
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		if f.Name != "test" {
-			t.Errorf("%s: pflag name error. Actual %s, Expected %s", testName, f.Name, "test")
+		if f.Name != "testint" {
+			t.Errorf("%s: pflag name error. Actual %s, Expected %s", testName, f.Name, "testint")
 		}
 	})
 
 	_ = cmd.Flags().Parse([]string{})
-	if testInt != 137 {
-		t.Errorf("%s: pflag parse error. Actual %d, Expected %d", testName, testInt, 137)
+	if testInt != defaultInt {
+		t.Errorf("%s: pflag parse error. Actual %d, Expected %d", testName, testInt, defaultInt)
+	}
+}
+
+func TestInitializeStringFlag(t *testing.T) {
+	cmd := &cobra.Command{}
+	var testString string
+	flag.StringVar(&testString, "teststring", defaultString, "test string flag")
+	InitializeFlags(cmd)
+
+	testName := "Initialize String Flag"
+	if !flag.Parsed() {
+		t.Errorf("%s: flag.Parsed() returns false, should be true", testName)
+	}
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Name != "teststring" {
+			t.Errorf("%s: pflag name error. Actual %s, Expected %s", testName, f.Name, "teststring")
+		}
+	})
+
+	_ = cmd.Flags().Parse([]string{})
+	if testString != defaultString {
+		t.Errorf("%s: pflag parse error. Actual %s, Expected %s", testName, testString, defaultString)
+	}
+}
+
+func TestInitializeBoolFlag(t *testing.T) {
+	cmd := &cobra.Command{}
+	var testBool bool
+	flag.BoolVar(&testBool, "testbool", defaultBool, "test bool flag")
+	InitializeFlags(cmd)
+
+	testName := "Initialize bool Flag"
+	if !flag.Parsed() {
+		t.Errorf("%s: flag.Parsed() returns false, should be true", testName)
+	}
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Name != "testbool" {
+			t.Errorf("%s: pflag name error. Actual %s, Expected %s", testName, f.Name, "testbool")
+		}
+	})
+
+	_ = cmd.Flags().Parse([]string{})
+	if testBool != defaultBool {
+		t.Errorf("%s: pflag parse error. Actual %t, Expected %t", testName, testBool, defaultBool)
+	}
+}
+
+func TestInitializeDurationFlag(t *testing.T) {
+	cmd := &cobra.Command{}
+	var testDuration time.Duration
+	flag.DurationVar(&testDuration, "testduration", defaultDuration, "test duration flag")
+	InitializeFlags(cmd)
+
+	testName := "Initialize duration flag"
+	if !flag.Parsed() {
+		t.Errorf("%s: flag.Parsed() returns false, should be true", testName)
+	}
+
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Name != "testduration" {
+			t.Errorf("%s: pflag name error. Actual %s, Expected %s", testName, f.Name, "testduration")
+		}
+	})
+
+	_ = cmd.Flags().Parse([]string{})
+	if testDuration != defaultDuration {
+		t.Errorf("%s: pflag parse error. Actual %d, Expected %d", testName, testDuration, defaultDuration)
 	}
 }

@@ -17,12 +17,11 @@ package main
 import (
 	"fmt"
 	"strings"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 )
 
@@ -43,7 +42,7 @@ func (t *ingress) setup() error {
 	if !t.Ingress {
 		return nil
 	}
-	if platform.ServiceRegistry(t.Registry) != platform.KubernetesRegistry {
+	if serviceregistry.ServiceRegistry(t.Registry) != serviceregistry.KubernetesRegistry {
 		return nil
 	}
 	t.logs = makeAccessLogs()
@@ -64,7 +63,7 @@ func (t *ingress) run() error {
 		log.Info("skipping test since ingress is missing")
 		return nil
 	}
-	if platform.ServiceRegistry(t.Registry) != platform.KubernetesRegistry {
+	if serviceregistry.ServiceRegistry(t.Registry) != serviceregistry.KubernetesRegistry {
 		return nil
 	}
 
@@ -141,7 +140,7 @@ func (t *ingress) checkRouteRule() status {
 
 // ensure that IPs/hostnames are in the ingress statuses
 func (t *ingress) checkIngressStatus() status {
-	ings, err := client.Extensions().Ingresses(t.Namespace).List(metav1.ListOptions{})
+	ings, err := client.ExtensionsV1beta1().Ingresses(t.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -167,7 +166,7 @@ func (t *ingress) teardown() {
 	if !t.Ingress {
 		return
 	}
-	if err := client.Extensions().Ingresses(t.Namespace).
+	if err := client.ExtensionsV1beta1().Ingresses(t.Namespace).
 		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
 		log.Warna(err)
 	}

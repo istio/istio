@@ -1,10 +1,11 @@
+apiVersion: v1
 name: istio
-version: 0.3.0
-description: Helm chart for complete istio deployment
+version: 0.5.0
+description: Helm chart for all istio components
 keywords:
   - istio
-  - auth
-  - initializer
+  - security
+  - sidecar-injector
   - mixer
   - pilot
 sources:
