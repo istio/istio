@@ -1025,13 +1025,12 @@ It applies on the new TCP connections.</p>
 
 </td>
 </tr>
-<tr id="TcpClientConfig.report_interval_ms">
-<td><code>reportIntervalMs</code></td>
-<td><code>int32</code></td>
+<tr id="TcpClientConfig.report_interval">
+<td><code>reportInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Specify report interval in milliseconds to send periodical reports for
-long TCP connections. If not specified, or 0 protobuf default value,
-the interval is 10 seconds.</p>
+<p>Specify report interval to send periodical reports for long TCP
+connections. If not specified, the interval is 10 seconds.</p>
 
 </td>
 </tr>
@@ -1079,13 +1078,12 @@ the interval is 10 seconds.</p>
 
 </td>
 </tr>
-<tr id="TransportConfig.stats_update_interval_ms">
-<td><code>statsUpdateIntervalMs</code></td>
-<td><code>int32</code></td>
+<tr id="TransportConfig.stats_update_interval">
+<td><code>statsUpdateInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Specify refresh interval in milliseconds to write mixer client statistics
-to Envoy share memory. If not specified, or 0 protobuf default value, the
-interval is 10 seconds</p>
+<p>Specify refresh interval to write mixer client statistics to Envoy share
+memory. If not specified, the interval is 10 seconds.</p>
 
 </td>
 </tr>
