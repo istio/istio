@@ -18,6 +18,13 @@ global:
   hyperkube:
     repository: {HYPERKUBE_HUB}
     tag: {HYPERKUBE_TAG}
+  # addons
+  grafana:
+    repository: {MIXER_HUB}/grafana
+    tag: {MIXER_TAG}
+  servicegraph:
+    repository: {MIXER_HUB}/servicegraph
+    tag: {MIXER_TAG}
 
   # create RBAC resources
   rbacEnabled: true
@@ -126,10 +133,7 @@ security:
 grafana:
   enabled: false
   replicaCount: 1
-  image:
-    repository: gcr.io/istio-testing/grafana
-    tag: 5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
-    pullPolicy: IfNotPresent
+  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
@@ -194,10 +198,7 @@ prometheus:
 servicegraph:
   enabled: false
   replicaCount: 1
-  image:
-    repository: gcr.io/istio-testing/servicegraph
-    tag: 5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
-    pullPolicy: IfNotPresent
+  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
