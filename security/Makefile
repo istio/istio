@@ -23,8 +23,6 @@ check.prereqs:
 	../bin/verify_go_version.sh
 
 clean:
-	rm -f docker/istio_ca
-	rm -f docker/node_agent
 	rm -f docker/ca-certificates.tgz
 
 .PHONY: docker.artifacts
