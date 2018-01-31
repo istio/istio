@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // CertUtil is an interface for utility functions on certificate.
@@ -34,7 +34,7 @@ type CertUtilImpl struct {
 // GetWaitTime returns the waititng time before renewing the cert, based on current time, the timestamps in cert and
 // graceperiod.
 func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPercentage int) (time.Duration, error) {
-	cert, certErr := pki.ParsePemEncodedCertificate(certBytes)
+	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
 	if certErr != nil {
 		return time.Duration(0), certErr
 	}

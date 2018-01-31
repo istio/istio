@@ -26,16 +26,16 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // TODO: Test the error messages.
 func TestAuthenticate(t *testing.T) {
 	callerID := "test.identity"
-	ids := []pki.Identity{
-		{Type: pki.TypeURI, Value: []byte(callerID)},
+	ids := []util.Identity{
+		{Type: util.TypeURI, Value: []byte(callerID)},
 	}
-	sanExt, err := pki.BuildSANExtension(ids)
+	sanExt, err := util.BuildSANExtension(ids)
 	if err != nil {
 		t.Error(err)
 	}

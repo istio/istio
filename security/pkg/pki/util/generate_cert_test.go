@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
+package util
 
 import (
 	"crypto/x509"
 	"testing"
 	"time"
-
-	"istio.io/istio/security/pkg/pki"
-	tu "istio.io/istio/security/pkg/pki/testutil"
 )
 
 var now = time.Now().Round(time.Second).UTC()
@@ -51,7 +48,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		t.Error(err)
 	}
 
-	fields := &tu.VerifyFields{
+	fields := &VerifyFields{
 		NotBefore:   caCertNotBefore,
 		TTL:         caCertTTL,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -59,16 +56,16 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		IsCA:        true,
 		Org:         "MyOrg",
 	}
-	if tu.VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
+	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
 		t.Error(err)
 	}
 
-	caCert, err := pki.ParsePemEncodedCertificate(caCertPem)
+	caCert, err := ParsePemEncodedCertificate(caCertPem)
 	if err != nil {
 		t.Error(err)
 	}
 
-	caPriv, err := pki.ParsePemEncodedKey(caPrivPem)
+	caPriv, err := ParsePemEncodedKey(caPrivPem)
 	if err != nil {
 		t.Error(err)
 	}
@@ -78,7 +75,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 	cases := []struct {
 		name         string
 		certOptions  CertOptions
-		verifyFields *tu.VerifyFields
+		verifyFields *VerifyFields
 	}{
 		// These certs are signed by the CA cert
 		{
@@ -96,7 +93,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: &tu.VerifyFields{
+			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -120,7 +117,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: &tu.VerifyFields{
+			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -144,7 +141,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: &tu.VerifyFields{
+			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -168,7 +165,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: &tu.VerifyFields{
+			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				IsCA:        false,
 				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -185,7 +182,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		if err != nil {
 			t.Errorf("[%s] cert/key generation error: %v", c.name, err)
 		}
-		if err := tu.VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
+		if err := VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
 			t.Errorf("[%s] cert verification error: %v", c.name, err)
 		}
 	}

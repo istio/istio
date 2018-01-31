@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testutil
+package util
 
 import (
 	"crypto/rsa"
@@ -22,8 +22,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"istio.io/istio/security/pkg/pki"
 )
 
 // VerifyFields contains the certficate fields to verify in the test.
@@ -54,7 +52,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		return fmt.Errorf("failed to parse certificate chain")
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(certChainPem)
+	cert, err := ParsePemEncodedCertificate(certChainPem)
 	if err != nil {
 		return err
 	}
@@ -76,7 +74,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		return fmt.Errorf("failed to verify certificate: " + err.Error())
 	}
 
-	priv, err := pki.ParsePemEncodedKey(privPem)
+	priv, err := ParsePemEncodedKey(privPem)
 	if err != nil {
 		return err
 	}
