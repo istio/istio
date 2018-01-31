@@ -123,11 +123,11 @@ func TestServiceDiscovery(t *testing.T) {
 	compareResponse(response, "testdata/sds.json", t)
 }
 
-func TestDiscoveryWebHooks(t *testing.T) {
+func TestDiscoveryLDSWebHooks(t *testing.T) {
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if (r.URL.Path != url) {
+		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
 		fmt.Fprintln(w, "'listeners': [ {'name': 'Hello-LDS-WebHook'}]")
@@ -139,6 +139,42 @@ func TestDiscoveryWebHooks(t *testing.T) {
 
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-webhook.json", t)
+}
+
+func TestDiscoveryCDSWebHooks(t *testing.T) {
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != url {
+			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
+		}
+		fmt.Fprintln(w, "'clusters': [ {'name': 'Hello-CDS-WebHook'}]")
+	}))
+	defer ts.Close()
+
+	_, _, ds := commonSetup(t)
+	ds.webhookEndpoint, ds.webhookClient = pkgutil.NewWebHookClient(ts.URL)
+
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-webhook.json", t)
+}
+
+func TestDiscoveryRDSWebHooks(t *testing.T) {
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != url {
+			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
+		}
+		fmt.Fprintln(w, "'routes': [ {'name': 'Hello-RDS-WebHook'}]")
+	}))
+	defer ts.Close()
+
+	_, _, ds := commonSetup(t)
+	ds.webhookEndpoint, ds.webhookClient = pkgutil.NewWebHookClient(ts.URL)
+
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-webhook.json", t)
 }
 
 // Can we list Services?
