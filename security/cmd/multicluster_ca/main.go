@@ -36,9 +36,7 @@ import (
 const (
 	defaultSigningCertTTL = 365 * 24 * time.Hour
 
-	defaultIssuedCertTTL = time.Hour
-
-	maxIssuedCertTTL = 7 * 24 * time.Hour
+	maxIssuedCertTTL = 15 * 24 * time.Hour
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
