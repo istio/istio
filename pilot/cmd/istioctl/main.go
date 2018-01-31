@@ -90,6 +90,7 @@ and destination policies.
 
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			_ = log.Configure(loggingOptions)
 			defaultNamespace = getDefaultNamespace(kubeconfig)
 		},
 	}
@@ -101,9 +102,6 @@ and destination policies.
 			istioctl create -f example-routing.yaml
 			`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			if len(args) != 0 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
