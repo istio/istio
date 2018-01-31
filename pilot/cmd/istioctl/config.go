@@ -32,13 +32,13 @@ import (
 var (
 
 	// TODO - Add support for non-kube istio deployments
-	// TODO - Add config-diff to get the difference between what pilot wants and what the proxy has
+	// TODO - Add config-diff to get the difference between pilot's xDS API response and the proxy config file
 	// TODO - Add support for non-default proxy config locations
 	configCmd = &cobra.Command{
 		Use:   "proxy-config <podID>",
 		Short: "Retrieves proxy configuration for the specified pod [kube only]",
 		Long: `
-Retrieves the proxy configuration for the specified pod when running in Kubernetes.
+Retrieves the static/bootstrap proxy configuration for the specified pod when running in Kubernetes.
 Support for other environments to follow.
 `,
 		Example: `  # Retrieve config for productpage-v1-bb8d5cbc7-k7qbm pod
