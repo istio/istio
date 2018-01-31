@@ -8,8 +8,6 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: ingress
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -18,6 +16,8 @@ spec:
         app: {{ template "istio.name" . }}
         release: {{ .Release.Name }}
         istio: ingress
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: {{ template "istio.serviceAccountName" . }}
       containers:

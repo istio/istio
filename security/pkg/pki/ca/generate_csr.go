@@ -32,12 +32,16 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	// Generates a CSR
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at RSA key generation (%v)", err)
+		return nil, nil, fmt.Errorf("RSA key generation failed (%v)", err)
 	}
-	template := GenCSRTemplate(options)
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, crypto.PrivateKey(priv))
+	template, err := GenCSRTemplate(options)
 	if err != nil {
-		return nil, nil, fmt.Errorf("CSR generation fails at X509 cert request generation (%v)", err)
+		return nil, nil, fmt.Errorf("CSR template creation failed (%v)", err)
+	}
+
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, template, crypto.PrivateKey(priv))
+	if err != nil {
+		return nil, nil, fmt.Errorf("CSR creation failed (%v)", err)
 	}
 
 	csr, privKey := encodePem(true, csrBytes, priv)
@@ -45,17 +49,20 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 }
 
 // GenCSRTemplate generates a certificateRequest template with the given options.
-func GenCSRTemplate(options CertOptions) x509.CertificateRequest {
-	template := x509.CertificateRequest{
+func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
+	template := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
 	}
 
 	if h := options.Host; len(h) > 0 {
-		s := buildSubjectAltNameExtension(h)
+		s, err := buildSubjectAltNameExtension(h)
+		if err != nil {
+			return nil, err
+		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
-	return template
+	return template, nil
 }

@@ -45,14 +45,14 @@ kind: Deployment
 metadata:
   name: istio-mixer
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         istio: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-mixer-service-account
       containers:
@@ -77,13 +77,34 @@ spec:
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
+          - --livenessProbePath=/live
+          - --livenessProbeInterval=5s
+          - --readinessProbePath=/ready
+          - --readinessProbeInterval=5s
           - --logtostderr
           - -v
           - "2"
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/live
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/ready
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
         image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent

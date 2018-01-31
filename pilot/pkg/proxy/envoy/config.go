@@ -862,8 +862,7 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := truncateClusterName(key)
-	externalTrafficCluster = buildOriginalDSTCluster(name, mesh.ConnectTimeout)
+	externalTrafficCluster = buildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination
 	externalTrafficCluster.port = port
@@ -1002,8 +1001,7 @@ func buildEgressTCPRoute(rule *routing.EgressRule,
 	destination := rule.Destination.Service
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := truncateClusterName(key)
-	externalTrafficCluster := buildOriginalDSTCluster(name, mesh.ConnectTimeout)
+	externalTrafficCluster := buildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.port = port
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination

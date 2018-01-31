@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -341,6 +342,10 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	if !*clusterWide {
 		content = replacePattern(k, content, istioSystem, k.Namespace)
+		// Customize mixer's configStoreURL to limit watching resources in the testing namespace.
+		vs := url.Values{}
+		vs.Add("ns", *namespace)
+		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?%s"+vs.Encode())
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.

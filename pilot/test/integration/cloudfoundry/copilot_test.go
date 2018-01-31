@@ -113,7 +113,7 @@ func TestEdgeRouterWithMockCopilot(t *testing.T) {
 			return fmt.Errorf("unexpected response data: %s", respData)
 		}
 		return nil
-	}, "5s", "100ms").Should(gomega.Succeed())
+	}, "30s", "100ms").Should(gomega.Succeed())
 }
 
 type testState struct {
@@ -175,12 +175,18 @@ func (testState *testState) runEnvoy(discoveryAddr string) error {
 	envoyProxy := envoy.NewProxy(config, "router~x~x~x", string(log.ErrorLevel))
 	abortCh := make(chan error, 1)
 
+	cleanupSignal := errors.New("test cleanup")
 	testState.addCleanupTask(func() {
-		abortCh <- errors.New("test cleanup")
+		abortCh <- cleanupSignal
 		os.RemoveAll(config.ConfigPath)
 	})
 
-	go envoyProxy.Run(envoyConfig, 0, abortCh)
+	go func() {
+		err := envoyProxy.Run(envoyConfig, 0, abortCh)
+		if err != nil && err != cleanupSignal {
+			panic(fmt.Sprintf("running envoy: %s", err))
+		}
+	}()
 
 	return nil
 }
