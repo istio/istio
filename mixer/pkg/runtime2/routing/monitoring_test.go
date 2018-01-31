@@ -23,6 +23,14 @@ import (
 )
 
 func TestDestinationCounters_Update(t *testing.T) {
+	reachedEnd := false
+	defer func() {
+		r := recover()
+		if !reachedEnd {
+			t.Fatalf("Panic detected: '%v'", r)
+		}
+	}()
+
 	// Ensure that the call doesn't crash
 	serviceConfig := data.ServiceConfig
 	table, _ := buildTable(serviceConfig, []string{data.HandlerACheck1, data.InstanceCheck1, data.RuleCheck1}, true)
@@ -30,4 +38,6 @@ func TestDestinationCounters_Update(t *testing.T) {
 	d := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	d.Entries()[0].Counters.Update(time.Second, false)
 	d.Entries()[0].Counters.Update(time.Second, true)
+
+	reachedEnd = true
 }

@@ -89,17 +89,17 @@ func TestTable_GetDestinations(t *testing.T) {
 func TestEmpty(t *testing.T) {
 	table := Empty()
 
-	if table.ID != -1 {
-		t.Fail()
+	if table.id != -1 {
+		t.Fatal("id should be -1")
 	}
 
 	if table.entries != nil {
-		t.Fail()
+		t.Fatal("table's entries should be nil")
 	}
 
 	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	if destinations.Count() > 0 {
-		t.Fail()
+		t.Fatal("destination count should be zero")
 	}
 }
 
@@ -125,7 +125,7 @@ func TestDestination_MaxInstances(t *testing.T) {
 		destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 		entries := destinations.Entries()
 		if len(entries) != 1 {
-			t.Fail()
+			t.Fatal("There should be one entry")
 		}
 		e := entries[0]
 		if e.MaxInstances() != tst.max {
@@ -142,18 +142,18 @@ func TestInputs_Matches(t *testing.T) {
 	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	entries := destinations.Entries()
 	if len(entries) != 1 {
-		t.Fail()
+		t.Fatal("There should be one entry")
 	}
 	e := entries[0]
-	if len(e.InputGroups) != 1 {
-		t.Fail()
+	if len(e.InstanceGroups) != 1 {
+		t.Fatal("There should be 1 InstanceGroup")
 	}
-	i := e.InputGroups[0]
+	i := e.InstanceGroups[0]
 
 	// Value is not in bag. This should match to false due to error in resolution.
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{})
 	if i.Matches(bag) {
-		t.Fail()
+		t.Fatal("The group shouldn't have matched")
 	}
 
 	// Value is in the bag, but does match the condition.
@@ -161,7 +161,7 @@ func TestInputs_Matches(t *testing.T) {
 		"target.name": "barfoo",
 	})
 	if i.Matches(bag) {
-		t.Fail()
+		t.Fatal("The group shouldn't have matched")
 	}
 
 	// Value is in the bag, and matches the condition
@@ -169,7 +169,7 @@ func TestInputs_Matches(t *testing.T) {
 		"target.name": "foobar",
 	})
 	if !i.Matches(bag) {
-		t.Fail()
+		t.Fatal("The group should have matched")
 	}
 }
 
@@ -180,17 +180,17 @@ func TestInputs_Matches_NoCondition(t *testing.T) {
 	destinations := table.GetDestinations(tpb.TEMPLATE_VARIETY_CHECK, "istio-system")
 	entries := destinations.Entries()
 	if len(entries) != 1 {
-		t.Fail()
+		t.Fatal("There should be one entry")
 	}
 	e := entries[0]
-	if len(e.InputGroups) != 1 {
-		t.Fail()
+	if len(e.InstanceGroups) != 1 {
+		t.Fatal("There should be 1 InstanceGroup")
 	}
-	i := e.InputGroups[0]
+	i := e.InstanceGroups[0]
 
 	// There no condition. Should simply return true.
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{})
 	if !i.Matches(bag) {
-		t.Fail()
+		t.Fatal("The group should have matched")
 	}
 }

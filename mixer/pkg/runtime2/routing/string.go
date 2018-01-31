@@ -28,7 +28,7 @@ func (t *Table) String() string {
 	var b bytes.Buffer
 
 	fmt.Fprintln(&b, "[Routing ExpectedTable]")
-	fmt.Fprintf(&b, "ID: %d", t.ID)
+	fmt.Fprintf(&b, "ID: %d", t.id)
 	fmt.Fprintln(&b)
 
 	// Stable sort order for varieties.
@@ -94,15 +94,15 @@ func (d *NamespaceTable) write(w io.Writer, indent int, debugInfo *tableDebugInf
 
 		idnt := strings.Repeat("  ", indent+1)
 
-		inputs := entry.InputGroups
+		inputs := entry.InstanceGroups
 		// Copy and stable sort the input sets, based on match clause text.
 		if debugInfo != nil {
-			i := make([]*InputGroup, len(inputs))
+			i := make([]*InstanceGroup, len(inputs))
 			copy(i, inputs)
 			inputs = i
 			sort.SliceStable(inputs, func(i int, j int) bool {
-				iMatch := debugInfo.matchesByID[inputs[i].ID]
-				jMatch := debugInfo.matchesByID[inputs[j].ID]
+				iMatch := debugInfo.matchesByID[inputs[i].id]
+				jMatch := debugInfo.matchesByID[inputs[j].id]
 				return iMatch < jMatch
 			})
 		}
@@ -121,13 +121,13 @@ func (d *NamespaceTable) string(t *Table) string {
 	return b.String()
 }
 
-func (i *InputGroup) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
+func (i *InstanceGroup) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	fmt.Fprintf(w, "%sCondition: ", idnt)
 	if i.Condition != nil {
 		if debugInfo != nil {
-			fmt.Fprint(w, debugInfo.matchesByID[i.ID])
+			fmt.Fprint(w, debugInfo.matchesByID[i.id])
 		} else {
 			fmt.Fprint(w, "<PRESENT>")
 		}
@@ -140,7 +140,7 @@ func (i *InputGroup) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 		// Copy and stable sort the input instance names, based on match clause text.
 		instanceNames := make([]string, len(i.Builders))
 		for j := range i.Builders {
-			instanceNames[j] = debugInfo.instanceNamesByID[i.ID][j]
+			instanceNames[j] = debugInfo.instanceNamesByID[i.id][j]
 		}
 		sort.Strings(instanceNames)
 

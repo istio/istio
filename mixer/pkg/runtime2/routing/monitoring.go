@@ -24,11 +24,12 @@ const (
 	meshFunction = "meshFunction"
 	handlerName  = "handler"
 	adapterName  = "adapter"
+	errorStr     = "error"
 )
 
 var (
 	durationBuckets    = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
-	dispatchLabelNames = []string{meshFunction, handlerName, adapterName}
+	dispatchLabelNames = []string{meshFunction, handlerName, adapterName, errorStr}
 
 	dispatchCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -36,14 +37,6 @@ var (
 			Subsystem: "runtime",
 			Name:      "dispatch_count",
 			Help:      "Total number of adapter dispatches handled by Mixer.",
-		}, dispatchLabelNames)
-
-	failedDispatchCount = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "mixer",
-			Subsystem: "runtime",
-			Name:      "failed_dispatch_count",
-			Help:      "Total number of failed adapter dispatches handled by Mixer.",
 		}, dispatchLabelNames)
 
 	dispatchDuration = prometheus.NewHistogramVec(
@@ -58,38 +51,49 @@ var (
 
 func init() {
 	prometheus.MustRegister(dispatchCount)
-	prometheus.MustRegister(failedDispatchCount)
 	prometheus.MustRegister(dispatchDuration)
 }
 
 // DestinationCounters are used to track the total/failed dispatch counts and dispatch duration for a target destination,
 // based on the template/handler/adapter label set.
 type DestinationCounters struct {
-	totalCount  prometheus.Counter
-	failedCount prometheus.Counter
-	duration    prometheus.Observer
+	totalCount       prometheus.Counter
+	failedTotalCount prometheus.Counter
+	duration         prometheus.Observer
+	failedDuration   prometheus.Observer
 }
 
 // newDestinationCounters returns a new set of DestinationCounters instance.
 func newDestinationCounters(template string, handler string, adapter string) DestinationCounters {
-	labels := prometheus.Labels{
+	successLabels := prometheus.Labels{
 		meshFunction: template,
 		handlerName:  handler,
 		adapterName:  adapter,
+		errorStr:     "false",
+	}
+
+	failedLabels := prometheus.Labels{
+		meshFunction: template,
+		handlerName:  handler,
+		adapterName:  adapter,
+		errorStr:     "true",
 	}
 
 	return DestinationCounters{
-		totalCount:  dispatchCount.With(labels),
-		failedCount: failedDispatchCount.With(labels),
-		duration:    dispatchDuration.With(labels),
+		totalCount:       dispatchCount.With(successLabels),
+		duration:         dispatchDuration.With(successLabels),
+		failedTotalCount: dispatchCount.With(failedLabels),
+		failedDuration:   dispatchDuration.With(failedLabels),
 	}
 }
 
 // Update the counters. Duration is the total dispatch duration. Failed indicates whether the dispatch returned an error or not.
 func (d DestinationCounters) Update(duration time.Duration, failed bool) {
-	d.totalCount.Inc()
 	if failed {
-		d.failedCount.Inc()
+		d.failedTotalCount.Inc()
+		d.failedDuration.Observe(duration.Seconds())
+	} else {
+		d.totalCount.Inc()
+		d.duration.Observe(duration.Seconds())
 	}
-	d.duration.Observe(duration.Seconds())
 }

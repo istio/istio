@@ -16,27 +16,32 @@
 // is structured for efficient use by the runtime code during actual dispatch. At a high-level, the structure
 // of table is as follows:
 //
-// Table:          map[variety]varietyTable
-// varietyTable:   map[namespace]NamespaceTable
-// NamespaceTable: list(Destination)
-// Destination:    unique(handler&template) + list(InputGroup)
-// InputGroup:     condition + list(InstanceBuilders) + list(OutputMappers)
+// Table:               map[variety]varietyTable
+// varietyTable:        map[namespace]NamespaceTable
+// NamespaceTable:      list(Destination)
+// Destination:         unique(handler&template) + list(InstanceGroup)
+// InstanceGroup:       condition + list(InstanceBuilders) + list(OutputMappers)
 //
 // The call into table.GetDestinations performs a lookup on the first map by the variety (i.e. quota, check,
 // report, apa etc.), followed by a lookup on the second map for the namespace, and a NamespaceTable struct
-// is returned. (If a namespace is not resolved, then data for the default namespace is used).
+// is returned.
 //
-// The NamespaceTable holds all the handlers that should be dispatched to, within this namespace, along with
-// conditions and builders for the instances. The same handler can appear multiple times in this list, for
-// each template that is supported by the handler. This helps caller to ensure that each dispatch to the
-// handler will use a unique template.
+// The returned NamespaceTable holds all the handlers that should be dispatched to, along with conditions and
+// builders for the instances. These include handlers that were defined for the namespace of the request, as
+// well as the handlers from the default namespace. If there were no explicit rules in the request's namespace,
+// then only the handlers from the default namespace is applied. Similarly, if the request is for the default
+// namespace, then only the handlers from the default namespace is applied.
+//
+// Beneath the namespace layer, the same handler can appear multiple times in this list for each template that
+// is supported by the handler. This helps caller to ensure that each dispatch to the handler will use a unique
+// template.
 //
 // The client code is expected to work as follows:
 // - Call GetDestinations(variety, namespace) to get a NamespaceTable.
 // - Go through the list of entries in the NamespaceTable.
 // - For each entry begin a dispatch session to the associated handler.
-// - Go through the InputGroups
-// - For each InputGroup, check the condition and see if the inputs/outputs apply.
+// - Go through the InstanceGroup
+// - For each InstanceGroup, check the condition and see if the inputs/outputs apply.
 // - If applies, then call InstanceBuilders to create instances
 // - Depending on the variety, either aggregate all instances in the group, and send them all at once, or
 //   dispatch for every instance individually to the adapter.
@@ -100,7 +105,7 @@ func BuildTable(
 	b := &builder{
 
 		table: &Table{
-			ID:      config.ID,
+			id:      config.ID,
 			entries: make(map[tpb.TemplateVariety]*varietyTable, 4),
 		},
 
@@ -311,14 +316,14 @@ func (b *builder) add(
 
 	if byHandler == nil {
 		byHandler = &Destination{
-			ID:           b.nextID(),
-			Handler:      handler,
-			FriendlyName: fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, a.Name),
-			HandlerName:  handlerName,
-			AdapterName:  a.Name,
-			Template:     t,
-			InputGroups:  []*InputGroup{},
-			Counters:     newDestinationCounters(t.Name, handlerName, a.Name),
+			id:             b.nextID(),
+			Handler:        handler,
+			FriendlyName:   fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, a.Name),
+			HandlerName:    handlerName,
+			AdapterName:    a.Name,
+			Template:       t,
+			InstanceGroups: []*InstanceGroup{},
+			Counters:       newDestinationCounters(t.Name, handlerName, a.Name),
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 	}
@@ -326,51 +331,51 @@ func (b *builder) add(
 	// TODO(Issue #2690): We should dedupe instances that are being dispatched to a particular handler.
 
 	// Find or create the input set.
-	var inputSet *InputGroup
-	for _, set := range byHandler.InputGroups {
-		// Try to find an input set to place the entry by comparing the copmiled expression and resource type.
+	var instanceGroup *InstanceGroup
+	for _, set := range byHandler.InstanceGroups {
+		// Try to find an input set to place the entry by comparing the compiled expression and resource type.
 		// This doesn't flatten across all actions, but only for actions coming from the same rule. We can
 		// flatten based on the expression text as well.
 		if set.Condition == condition && set.ResourceType == resourceType {
-			inputSet = set
+			instanceGroup = set
 			break
 		}
 	}
 
-	if inputSet == nil {
-		inputSet = &InputGroup{
-			ID:           b.nextID(),
+	if instanceGroup == nil {
+		instanceGroup = &InstanceGroup{
+			id:           b.nextID(),
 			Condition:    condition,
 			ResourceType: resourceType,
 			Builders:     []template.InstanceBuilderFn{},
 			Mappers:      []template.OutputMapperFn{},
 		}
-		byHandler.InputGroups = append(byHandler.InputGroups, inputSet)
+		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
 
 		if matchText != "" {
-			b.matchesByID[inputSet.ID] = matchText
+			b.matchesByID[instanceGroup.id] = matchText
 		}
 
 		// Create a slot in the debug info for storing the instance names for this input-set.
-		instanceNames, found := b.instanceNamesByID[inputSet.ID]
+		instanceNames, found := b.instanceNamesByID[instanceGroup.id]
 		if !found {
 			instanceNames = make([]string, 0, 1)
 		}
-		b.instanceNamesByID[inputSet.ID] = instanceNames
+		b.instanceNamesByID[instanceGroup.id] = instanceNames
 	}
 
 	// Append the builder & mapper.
-	inputSet.Builders = append(inputSet.Builders, builder)
+	instanceGroup.Builders = append(instanceGroup.Builders, builder)
 
 	if mapper != nil {
-		inputSet.Mappers = append(inputSet.Mappers, mapper)
+		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)
 	}
 
 	// Recalculate the maximum number of instances that can be created.
 	byHandler.recalculateMaxInstances()
 
 	// record the instance name for this id.
-	instanceNames := b.instanceNamesByID[inputSet.ID]
+	instanceNames := b.instanceNamesByID[instanceGroup.id]
 	instanceNames = append(instanceNames, instanceName)
-	b.instanceNamesByID[inputSet.ID] = instanceNames
+	b.instanceNamesByID[instanceGroup.id] = instanceNames
 }
