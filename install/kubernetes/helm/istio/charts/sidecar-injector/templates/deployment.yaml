@@ -48,7 +48,7 @@ spec:
           secretName: sidecar-injector-certs
       - name: inject-config
         configMap:
-          name: {{ .Release.fullname }}
+          name: {{ template "sidecar-injector.fullname" . }}
           items:
           - key: config
             path: config
