@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -91,37 +90,36 @@ func defaultRestConfig() (*rest.Config, error) {
 
 func readConfigFile(podName, podNamespace string) (string, error) {
 	// Get filename to read from
-	var lsOut, lsErr bytes.Buffer
+	var fileLocation string
 	cmd := []string{"ls", "-Art", "/etc/istio/proxy"}
-	err := podExec(podName, podNamespace, cmd, nil, &lsOut, &lsErr)
-	if err != nil {
+	if stdout, stderr, err := podExec(podName, podNamespace, cmd); err != nil {
 		return "", err
-	} else if lsErr.String() != "" {
-		return "", fmt.Errorf("unable to find config file: %v", lsErr.String())
+	} else if stderr.String() != "" {
+		return "", fmt.Errorf("unable to find config file: %v", stderr.String())
+	} else {
+		// Use the first file in the sorted ls
+		resp := strings.Fields(stdout.String())
+		fileLocation = fmt.Sprintf("/etc/istio/proxy/%v", resp[0])
 	}
-
-	// Use the first file in the sorted ls
-	resp := strings.Fields(lsOut.String())
-	fileLocation := fmt.Sprintf("/etc/istio/proxy/%v", resp[0])
 
 	// Cat the file
-	var catOut, catErr bytes.Buffer
 	cmd = []string{"cat", fileLocation}
-	err = podExec(podName, podNamespace, cmd, nil, &catOut, &catErr)
-	if err != nil {
+	if stdout, stderr, err := podExec(podName, podNamespace, cmd); err != nil {
 		return "", err
-	} else if catErr.String() != "" {
-		return "", fmt.Errorf("unable to find config file: %v", catErr.String())
+	} else if stderr.String() != "" {
+		return "", fmt.Errorf("unable to read config file: %v", stderr.String())
+	} else {
+		// Use the first file in the sorted ls
+		resp := strings.Fields(stdout.String())
+		fileLocation = fmt.Sprintf("/etc/istio/proxy/%v", resp[0])
+		return stdout.String(), nil
 	}
-
-	return catOut.String(), nil
-
 }
 
-func podExec(podName, podNamespace string, command []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func podExec(podName, podNamespace string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	client, err := createCoreV1Client()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	req := client.Post().
@@ -141,18 +139,21 @@ func podExec(podName, podNamespace string, command []string, stdin io.Reader, st
 
 	config, err := defaultRestConfig()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	return exec.Stream(remotecommand.StreamOptions{
+	var stdout, stderr bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  nil,
-		Stdout: stdout,
-		Stderr: stderr,
+		Stdout: &stdout,
+		Stderr: &stderr,
 		Tty:    false,
 	})
+
+	return &stdout, &stderr, err
 }
