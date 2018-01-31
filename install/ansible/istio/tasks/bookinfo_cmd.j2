@@ -1,4 +1,6 @@
-{{ cmd_path }} new-project {{ istio.bookinfo_namespace }}
+{{ cmd_path }} create namespace {{ istio.bookinfo_namespace }}
+{% if cluster_flavour == 'ocp' %}
 {{ cmd_path }} adm policy add-scc-to-user privileged -z default -n {{ istio.bookinfo_namespace }}
+{% endif %}
 {{ cmd_path }} apply -f <({{ istio_dir }}/bin/istioctl kube-inject -f {{ istio_dir }}/samples/bookinfo/kube/bookinfo.yaml)
 {{ cmd_path }} expose svc productpage
