@@ -50,7 +50,7 @@ message EgressRule {
     // A valid non-negative integer port number.
     int32 port = 1;
     // The protocol to communicate with the external services.
-    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2.
+    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|TCP|MONGO.
     string protocol = 2;
   }
 

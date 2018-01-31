@@ -87,7 +87,7 @@ type EgressRule_Port struct {
 	// A valid non-negative integer port number.
 	Port int32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
 	// The protocol to communicate with the external services.
-	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2.
+	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|TCP|MONGO.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol" json:"protocol,omitempty"`
 }
 
