@@ -90,7 +90,6 @@ spec:
               capabilities:
                 add:
                 - NET_ADMIN
-              privileged: true
           restartPolicy: OnFailure
           volumes:
           - emptyDir:

@@ -39,7 +39,9 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
+    [[ if eq .DebugMode true -]]  
     privileged: true
+    [[ end -]]
   restartPolicy: Always
 [[ if eq .EnableCoreDump true -]]
 - args:
