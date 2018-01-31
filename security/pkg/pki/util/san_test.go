@@ -21,6 +21,7 @@ import (
 	"testing"
 )
 
+// TODO(myidpt): Add more unit tests.
 func TestBuildAndExtractIdentities(t *testing.T) {
 	ids := []Identity{
 		{Type: TypeDNS, Value: []byte("test.domain.com")},

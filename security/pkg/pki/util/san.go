@@ -18,11 +18,18 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"net"
+	"strings"
 )
 
 // IdentityType represents type of an identity. This is used to properly encode
 // an identity into a SAN extension.
 type IdentityType int
+
+const (
+	// URIScheme is the URI scheme for Istio identities.
+	URIScheme string = "spiffe"
+)
 
 const (
 	// TypeDNS represents a DNS name.
@@ -66,6 +73,31 @@ var (
 type Identity struct {
 	Type  IdentityType
 	Value []byte
+}
+
+// BuildSubjectAltNameExtension builds the SAN extension for the certificate.
+func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
+	ids := []Identity{}
+	for _, host := range strings.Split(hosts, ",") {
+		if ip := net.ParseIP(host); ip != nil {
+			// Use the 4-byte representation of the IP address when possible.
+			if eip := ip.To4(); eip != nil {
+				ip = eip
+			}
+			ids = append(ids, Identity{Type: TypeIP, Value: ip})
+		} else if strings.HasPrefix(host, URIScheme+":") {
+			ids = append(ids, Identity{Type: TypeURI, Value: []byte(host)})
+		} else {
+			ids = append(ids, Identity{Type: TypeDNS, Value: []byte(host)})
+		}
+	}
+
+	san, err := BuildSANExtension(ids)
+	if err != nil {
+		return nil, fmt.Errorf("SAN extension building failure (%v)", err)
+	}
+
+	return san, nil
 }
 
 // BuildSANExtension builds a `pkix.Extension` of type "Subject

@@ -28,8 +28,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"net"
-	"strings"
 	"time"
 )
 
@@ -70,9 +68,6 @@ type CertOptions struct {
 	// The size of RSA private key to be generated.
 	RSAKeySize int
 }
-
-// URIScheme is the URI scheme for Istio identities.
-const URIScheme = "spiffe"
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
 func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
@@ -251,28 +246,4 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []by
 	privDer := x509.MarshalPKCS1PrivateKey(priv)
 	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
 	return csrOrCertPem, privPem
-}
-
-func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
-	ids := []Identity{}
-	for _, host := range strings.Split(hosts, ",") {
-		if ip := net.ParseIP(host); ip != nil {
-			// Use the 4-byte representation of the IP address when possible.
-			if eip := ip.To4(); eip != nil {
-				ip = eip
-			}
-			ids = append(ids, Identity{Type: TypeIP, Value: ip})
-		} else if strings.HasPrefix(host, URIScheme+":") {
-			ids = append(ids, Identity{Type: TypeURI, Value: []byte(host)})
-		} else {
-			ids = append(ids, Identity{Type: TypeDNS, Value: []byte(host)})
-		}
-	}
-
-	san, err := BuildSANExtension(ids)
-	if err != nil {
-		return nil, fmt.Errorf("SAN extension building failure (%v)", err)
-	}
-
-	return san, nil
 }
