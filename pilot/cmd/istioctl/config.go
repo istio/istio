@@ -109,9 +109,6 @@ func readConfigFile(podName, podNamespace string) (string, error) {
 	} else if stderr.String() != "" {
 		return "", fmt.Errorf("unable to read config file: %v", stderr.String())
 	} else {
-		// Use the first file in the sorted ls
-		resp := strings.Fields(stdout.String())
-		fileLocation = fmt.Sprintf("/etc/istio/proxy/%v", resp[0])
 		return stdout.String(), nil
 	}
 }
