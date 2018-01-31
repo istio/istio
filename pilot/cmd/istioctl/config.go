@@ -35,15 +35,15 @@ var (
 	// TODO - Add config-diff to get the difference between what pilot wants and what the proxy has
 	// TODO - Add support for non-default proxy config locations
 	configCmd = &cobra.Command{
-		Use:   "config <podID>",
+		Use:   "proxy-config <podID>",
 		Short: "Retrieves proxy configuration for the specified pod [kube only]",
 		Long: `
 Retrieves the proxy configuration for the specified pod when running in Kubernetes.
 Support for other environments to follow.
 `,
 		Example: `  # Retrieve config for productpage-v1-bb8d5cbc7-k7qbm pod
-  istioctl config productpage-v1-bb8d5cbc7-k7qbm`,
-		Aliases: []string{"conf"},
+  istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm`,
+		Aliases: []string{"pc"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
