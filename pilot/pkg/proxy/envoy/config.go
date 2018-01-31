@@ -270,7 +270,7 @@ func buildSidecarListenersClusters(
 		// only HTTP outbound clusters are needed
 		httpOutbound = buildExternalServiceHTTPRoutes(mesh, node, instances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.clusters()...)
-		opts := buildHTTPListenerOpts{
+		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			node:             node,
 			instances:        instances,
@@ -282,9 +282,7 @@ func buildSidecarListenersClusters(
 			direction:        traceOperation,
 			outboundListener: true,
 			store:            config,
-		}
-
-		listeners = append(listeners, buildHTTPListener(opts))
+		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -544,7 +542,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node, ins
 			operation = IngressTraceOperation
 		}
 
-		opts := buildHTTPListenerOpts{
+		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			node:             sidecar,
 			instances:        instances,
@@ -556,10 +554,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node, ins
 			direction:        operation,
 			outboundListener: true,
 			store:            config,
-		}
-
-		l := buildHTTPListener(opts)
-		listeners = append(listeners, l)
+		}))
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
 
@@ -841,7 +836,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			host.Routes = append(host.Routes, defaultRoute)
 
 			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
-			opts := buildHTTPListenerOpts{
+
+			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				node:             sidecar,
 				instances:        instances,
@@ -853,9 +849,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 				direction:        IngressTraceOperation,
 				outboundListener: false,
 				store:            config,
-			}
-
-			listener = buildHTTPListener(opts)
+			})
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{buildTCPRoute(cluster, []string{endpoint.Address})},
