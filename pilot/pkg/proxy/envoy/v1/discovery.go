@@ -418,7 +418,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	// This route retrieves the Availability Zone of the service node requested
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/az/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.AvailabilityZone).
+		To(ds.RetrieveAvailabilityZone).
 		Doc("AZ for service node").
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
@@ -632,8 +632,8 @@ func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (mod
 	return svcNode, nil
 }
 
-// AvailabilityZone responds to requests for an AZ for the given cluster node
-func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response *restful.Response) {
+// RetrieveAvailabilityZone responds to requests for an AZ for the given cluster node
+func (ds *DiscoveryService) RetrieveAvailabilityZone(request *restful.Request, response *restful.Response) {
 	methodName := "AvailabilityZone"
 	incCalls(methodName)
 
