@@ -2018,13 +2018,12 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		servicePortNumbers[port.Number] = true
 	}
 
-	if externalService.Discovery == routingv2.ExternalService_NONE {
+	switch externalService.Discovery {
+	case routingv2.ExternalService_NONE:
 		if len(externalService.Endpoints) != 0 {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
 		}
-	}
-
-	if externalService.Discovery == routingv2.ExternalService_STATIC {
+	case routingv2.ExternalService_STATIC:
 		if len(externalService.Endpoints) == 0 {
 			errs = appendErrors(errs,
 				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
@@ -2044,9 +2043,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 					ValidatePort(int(port)))
 			}
 		}
-	}
-
-	if externalService.Discovery == routingv2.ExternalService_DNS {
+	case routingv2.ExternalService_DNS:
 		if len(externalService.Endpoints) == 0 {
 			for _, host := range externalService.Hosts {
 				if err := ValidateFQDN(host); err != nil {
@@ -2070,6 +2067,9 @@ func ValidateExternalService(config proto.Message) (errs error) {
 					ValidatePort(int(port)))
 			}
 		}
+	default:
+		errs = appendErrors(errs, fmt.Errorf("unsupported discovery type %s",
+			routingv2.ExternalService_Discovery_name[int32(externalService.Discovery)]))
 	}
 
 	for _, port := range externalService.Ports {
