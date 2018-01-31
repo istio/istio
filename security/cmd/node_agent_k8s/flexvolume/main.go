@@ -161,6 +161,20 @@ var (
 			return driver.Unmount(args[0])
 		},
 	}
+
+	// GetVolNameCmd defines the getvolumename command
+	GetVolNameCmd = &cobra.Command{
+		Use:   "getvolumename",
+		Short: "Flex volume getvolumename command.",
+		Long:  "Flex volume getvolumename command.",
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.Error("mount takes 1 args")
+				return errors.New("mount takes 1 args")
+			}
+			return driver.GetVolName(args[0])
+		},
+	}
 )
 
 func init() {

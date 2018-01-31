@@ -18,18 +18,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"os"
 	"os/exec"
-	"strings"
 
 	"istio.io/istio/pkg/log"
+	nagent "istio.io/istio/security/cmd/node_agent_k8s"
 	pb "istio.io/istio/security/proto"
 )
 
 // Resp is the driver response
 type Resp struct {
 	// Status of the response
-	Status string `json:"status"`
+	Status  string `json:"status"`
 	// Response message of the response
 	Message string `json:"message"`
 	// Capability resp.
@@ -51,8 +52,9 @@ type NodeAgentInputs struct {
 }
 
 const (
-	volumeName       string = "tmpfs"
+	nodeAgentMgmtAPI string = "/tmp/udsuspver/mgmt.sock"
 	nodeAgentUdsHome string = "/tmp/nodeagent"
+	volumeName       string = "tmpfs"
 )
 
 // Init initialize the driver
@@ -64,7 +66,7 @@ func Init(version string) error {
 		}
 		return nil
 	}
-	log.Info("Init finishes successfully")
+  log.Info("Init finishes successfully")
 	return nil
 }
 
@@ -135,8 +137,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-	attrs := pb.WorkloadInfo_WorkloadAttributes{
-		Uid:            ninputs.UID,
+  attrs := pb.WorkloadInfo_WorkloadAttributes{
+		Uid: ninputs.UID,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -195,6 +197,38 @@ func doUnmount(dir string) error {
 	return nil
 }
 
+// addListener add the listener for the workload
+func addListener(ninputs *pb.WorkloadInfo) error {
+	client := nagent.ClientUds(nodeAgentMgmtAPI)
+	if client == nil {
+		return errors.New("Failed to create Nodeagent client.")
+	}
+
+	_, err := client.WorkloadAdded(ninputs)
+	if err != nil {
+		return err
+	}
+
+	client.Close()
+	return nil
+}
+
+// delListener delete the listener for the workload
+func delListener(ninputs *pb.WorkloadInfo) error {
+	client := nagent.ClientUds(nodeAgentMgmtAPI)
+	if client == nil {
+		return errors.New("Failed to create Nodeagent client.")
+	}
+
+	_, err := client.WorkloadDeleted(ninputs)
+	if err != nil {
+		return err
+	}
+
+	client.Close()
+	return nil
+}
+
 // Mount mount the file path.
 func Mount(dir, opts string) error {
 	inp := dir + "|" + opts
@@ -210,6 +244,11 @@ func Mount(dir, opts string) error {
 		return errors.New(sErr)
 	}
 
+  if err := addListener(ninputs); err != nil {
+		sErr := fmt.Sprintf("Failure to notify nodeagent with error: %v", err)
+		return errors.New(sErr)
+	}
+
 	log.Infof("Mount successfully with dir %s", inp)
 	return nil
 }
@@ -222,7 +261,14 @@ func Unmount(dir string) error {
 		return errors.New(sErr)
 	}
 
-	uid := comps[5]
+  uid := comps[5]
+	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: uid}
+
+	naInp := &pb.WorkloadInfo{Attrs: &attrs}
+	if err := delListener(naInp); err != nil {
+		sErr := fmt.Sprintf("Failed to notify node agent with error: %v", err)
+		return errors.New(sErr)
+	}
 
 	// unmount the bind mount
 	doUnmount(dir + "/nodeagent")
@@ -237,5 +283,11 @@ func Unmount(dir string) error {
 	}
 
 	log.Infof("Unmount successfully with dir %s", dir)
-	return nil
+  return nil
+}
+
+func GetVolName(opts string) error {
+	log.Infof("The opts is %s", opts)
+	_, err := json.Marshal(&Resp{VolumeName: volumeName, Status: "Success", Message: "ok"})
+	return err
 }
