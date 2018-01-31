@@ -226,6 +226,7 @@ jobs:
     resource_class: xlarge
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+      ISTIO_BIN: /go/bin
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
