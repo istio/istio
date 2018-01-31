@@ -83,8 +83,4 @@ racetest:
 
 platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
-
-# Installs istioctl only - for debugging istioctl during dev work
-.PHONY: istioctl
-istioctl:
-	go install istio.io/istio/pilot/cmd/istioctl
+	
