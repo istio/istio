@@ -129,7 +129,7 @@ ifeq (${DEBUG},1)
 	export GCFLAGS = -N -l
     $(info $(H) Build with debugger information)
 else ifneq ($(DEBUG),0)
-    $(error DEBUG has a default value of 0 for regular build and 1 for debugging)
+    $(error DEBUG must either be 0 for release build (default) or 1 for debug build)
 endif
 
 .PHONY: default
