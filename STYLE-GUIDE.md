@@ -13,6 +13,28 @@ developer experience in the long term.
 In addition to Google's guide, the following conventions should be
 followed for Istio APIs.
 
+## Naming
+
+Having consistent naming improves understanding of the APIs and reduce
+churns on the API design. Istio APIs should follow the following
+naming convention:
+
+* Package names must use `lowercase` without any `_`. Singular words
+  are recommended to avoid mixture of plural and singular words in
+  a package name. For example, `istio.network.config.v1`.
+
+* Message/enum/method names must use `CamelCase` with embedded
+  acronyms. For example, `HttpRequest`.
+
+* Enum values must use `UPPERCASE_WITH_UNDERSCORE`. For example,
+  `INT_TYPE`.
+
+* Field names must use `lowercase_with_underscore`. For example,
+  `display_name`.
+
+* Avoid using postpositive adjectives. For example,
+  `collected_items` is recommended over `items_collected`.
+
 ## Versioning
 
 When defining Kubernetes Custom Resource Definition (CRD) using
