@@ -104,7 +104,7 @@ func newKubeInfo(tmpDir, runID string, baseVersion string) (*KubeInfo, error) {
 	}
 	a := NewAppManager(tmpDir, *namespace, i)
 	// Download the base release if baseVersion is specified.
-	releaseDir := ""
+	var releaseDir string
 	if baseVersion != "" {
 		releaseDir, err = util.DownloadRelease(baseVersion, tmpDir)
 		if err != nil {

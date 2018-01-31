@@ -40,7 +40,7 @@ const (
 	testSrcDir     = "TEST_SRCDIR"
 	pathPrefix     = "io_istio_istio"
 	runfilesSuffix = ".runfiles"
-	releaseUrl     = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
+	releaseURL     = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
 )
 
 // GetHeadCommitSHA finds the SHA of the commit to which the HEAD of branch points
@@ -207,6 +207,7 @@ func HTTPDownload(dst string, src string) error {
 	return err
 }
 
+// GetOsExt returns the current OS tag.
 func GetOsExt() (string, error) {
 	var osExt string
 	switch runtime.GOOS {
@@ -265,7 +266,7 @@ func GetResourcePath(p string) string {
 	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
 }
 
-// Download the specified release from istio repo to tmpDir.
+// DownloadRelease gets the specified release from istio repo to tmpDir.
 func DownloadRelease(version, tmpDir string) (string, error) {
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -275,7 +276,7 @@ func DownloadRelease(version, tmpDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	url := fmt.Sprintf(releaseUrl, version, version, osExt)
+	url := fmt.Sprintf(releaseURL, version, version, osExt)
 	fname := fmt.Sprintf("istio-%s.tar.gz", version)
 	tgz := filepath.Join(tmpDir, fname)
 	err = HTTPDownload(tgz, url)
@@ -294,6 +295,7 @@ func DownloadRelease(version, tmpDir string) (string, error) {
 	return filepath.Join(tmpDir, subdir), nil
 }
 
+// ExtractTarGz extracts a .tar.gz file into current dir.
 func ExtractTarGz(gzipStream io.Reader) error {
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
@@ -327,9 +329,8 @@ func ExtractTarGz(gzipStream io.Reader) error {
 				return errors.Wrap(err, "ExtractTarGz: Copy() failed")
 			}
 		default:
-			return errors.New(fmt.Sprintf("ExtractTarGz: uknown type: %s in %s",
-				header.Typeflag,
-				header.Name))
+			return fmt.Errorf("unknown type: %s in %s",
+				string(header.Typeflag), header.Name)
 		}
 	}
 	return nil

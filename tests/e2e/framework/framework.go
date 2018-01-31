@@ -84,7 +84,7 @@ func InitLogging() error {
 	return nil
 }
 
-// NewCommonConfig creates a full config will all supported configs.
+// NewTestConfig creates a full config will all supported configs.
 func NewTestConfig(testID string, baseVersion string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
