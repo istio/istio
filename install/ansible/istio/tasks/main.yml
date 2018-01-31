@@ -26,7 +26,5 @@
 - include_tasks: change_scc.yml
   when: cluster_flavour == 'ocp'
 - include_tasks: install_on_cluster.yml
-
-- name: Install bookinfo showcase
-  include_tasks: install_bookinfo.yml
-  when: istio.bookinfo
+- include_tasks: install_samples.yml
+  when: (istio.samples is iterable) and (istio.samples | length > 0)
