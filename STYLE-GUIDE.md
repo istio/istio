@@ -24,7 +24,7 @@ naming convention:
   a package name. For example, `istio.network.config.v1`.
 
 * Message/enum/method names must use `CamelCase` with embedded
-  acronyms. For example, `HttpRequest`.
+  acronyms. For example, `HTTPRequest`.
 
 * Enum values must use `UPPERCASE_WITH_UNDERSCORE`. For example,
   `INT_TYPE`.
