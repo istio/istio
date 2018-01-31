@@ -41,23 +41,32 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   builder.AddString(AttributeName::kContextProtocol, "tcp");
 }
 
-void AttributesBuilder::ExtractReportAttributes(ReportData* report_data) {
+void AttributesBuilder::ExtractReportAttributes(
+    ReportData* report_data, bool is_final_report,
+    ReportData::ReportInfo* last_report_info) {
   ::istio::mixer_client::AttributesBuilder builder(&request_->attributes);
 
   ReportData::ReportInfo info;
   report_data->GetReportInfo(&info);
   builder.AddInt64(AttributeName::kConnectionReceviedBytes,
-                   info.received_bytes);
+                   info.received_bytes - last_report_info->received_bytes);
   builder.AddInt64(AttributeName::kConnectionReceviedTotalBytes,
                    info.received_bytes);
-  builder.AddInt64(AttributeName::kConnectionSendBytes, info.send_bytes);
+  builder.AddInt64(AttributeName::kConnectionSendBytes,
+                   info.send_bytes - last_report_info->send_bytes);
   builder.AddInt64(AttributeName::kConnectionSendTotalBytes, info.send_bytes);
-  builder.AddDuration(AttributeName::kConnectionDuration, info.duration);
-  if (!request_->check_status.ok()) {
-    builder.AddInt64(AttributeName::kCheckErrorCode,
-                     request_->check_status.error_code());
-    builder.AddString(AttributeName::kCheckErrorMessage,
-                      request_->check_status.ToString());
+
+  if (is_final_report) {
+    builder.AddDuration(AttributeName::kConnectionDuration, info.duration);
+    if (!request_->check_status.ok()) {
+      builder.AddInt64(AttributeName::kCheckErrorCode,
+                       request_->check_status.error_code());
+      builder.AddString(AttributeName::kCheckErrorMessage,
+                        request_->check_status.ToString());
+    }
+  } else {
+    last_report_info->received_bytes = info.received_bytes;
+    last_report_info->send_bytes = info.send_bytes;
   }
 
   std::string dest_ip;

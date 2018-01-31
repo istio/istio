@@ -27,7 +27,8 @@ namespace tcp {
 
 RequestHandlerImpl::RequestHandlerImpl(
     std::shared_ptr<ClientContext> client_context)
-    : client_context_(client_context) {}
+    : client_context_(client_context),
+      last_report_info_{0ULL, 0ULL, std::chrono::nanoseconds::zero()} {}
 
 CancelFunc RequestHandlerImpl::Check(CheckData* check_data, DoneFunc on_done) {
   if (client_context_->enable_mixer_check() ||
@@ -50,11 +51,17 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data, DoneFunc on_done) {
 
 // Make remote report call.
 void RequestHandlerImpl::Report(ReportData* report_data) {
+  Report(report_data, /* is_final_report */ true);
+}
+
+void RequestHandlerImpl::Report(ReportData* report_data, bool is_final_report) {
   if (!client_context_->enable_mixer_report()) {
     return;
   }
+
   AttributesBuilder builder(&request_context_);
-  builder.ExtractReportAttributes(report_data);
+  builder.ExtractReportAttributes(report_data, is_final_report,
+                                  &last_report_info_);
 
   client_context_->SendReport(request_context_);
 }

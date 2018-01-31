@@ -34,7 +34,14 @@ class RequestHandlerImpl : public RequestHandler {
       CheckData* check_data, ::istio::mixer_client::DoneFunc on_done) override;
 
   // Make a Report call.
+  // TODO(JimmyCYJ): Let TCP filter use
+  // void Report(ReportData* report_data, bool is_final_report), and deprecate
+  // this method.
   void Report(ReportData* report_data) override;
+
+  // Make a Report call. If is_final_report is true, then report all attributes,
+  // otherwise, report delta attributes.
+  void Report(ReportData* report_data, bool is_final_report) override;
 
  private:
   // The request context object.
@@ -42,6 +49,12 @@ class RequestHandlerImpl : public RequestHandler {
 
   // The client context object.
   std::shared_ptr<ClientContext> client_context_;
+
+  // Records reported information in last Report() call. This is needed for
+  // calculating delta information which will be sent in periodical report.
+  // Delta information includes incremented sent bytes and received bytes
+  // between last report and this report.
+  ReportData::ReportInfo last_report_info_;
 };
 
 }  // namespace tcp

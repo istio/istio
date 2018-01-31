@@ -85,18 +85,58 @@ attributes {
   key: "connection.duration"
   value {
     duration_value {
-      nanos: 1
+      nanos: 3
     }
   }
 }
 attributes {
   key: "connection.received.bytes"
   value {
-    int64_value: 100
+    int64_value: 144
   }
 }
 attributes {
   key: "connection.received.bytes_total"
+  value {
+    int64_value: 345
+  }
+}
+attributes {
+  key: "connection.sent.bytes"
+  value {
+    int64_value: 274
+  }
+}
+attributes {
+  key: "connection.sent.bytes_total"
+  value {
+    int64_value: 678
+  }
+}
+attributes {
+  key: "context.time"
+  value {
+    timestamp_value {
+    }
+  }
+}
+attributes {
+  key: "destination.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.port"
+  value {
+    int64_value: 8080
+  }
+}
+)";
+
+const char kDeltaOneReportAttributes[] = R"(
+attributes {
+  key: "connection.received.bytes"
   value {
     int64_value: 100
   }
@@ -108,9 +148,61 @@ attributes {
   }
 }
 attributes {
+  key: "connection.received.bytes_total"
+  value {
+    int64_value: 100
+  }
+}
+attributes {
   key: "connection.sent.bytes_total"
   value {
     int64_value: 200
+  }
+}
+attributes {
+  key: "context.time"
+  value {
+    timestamp_value {
+    }
+  }
+}
+attributes {
+  key: "destination.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.port"
+  value {
+    int64_value: 8080
+  }
+}
+)";
+
+const char kDeltaTwoReportAttributes[] = R"(
+attributes {
+  key: "connection.received.bytes"
+  value {
+    int64_value: 101
+  }
+}
+attributes {
+  key: "connection.sent.bytes"
+  value {
+    int64_value: 204
+  }
+}
+attributes {
+  key: "connection.received.bytes_total"
+  value {
+    int64_value: 201
+  }
+}
+attributes {
+  key: "connection.sent.bytes_total"
+  value {
+    int64_value: 404
   }
 }
 attributes {
@@ -175,35 +267,85 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 TEST(AttributesBuilderTest, TestReportAttributes) {
   ::testing::NiceMock<MockReportData> mock_data;
   EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
-      .WillOnce(Invoke([](std::string* ip, int* port) -> bool {
+      .Times(3)
+      .WillRepeatedly(Invoke([](std::string* ip, int* port) -> bool {
         *ip = "1.2.3.4";
         *port = 8080;
         return true;
       }));
   EXPECT_CALL(mock_data, GetReportInfo(_))
+      .Times(3)
       .WillOnce(Invoke([](ReportData::ReportInfo* info) {
         info->received_bytes = 100;
         info->send_bytes = 200;
         info->duration = std::chrono::nanoseconds(1);
+      }))
+      .WillOnce(Invoke([](ReportData::ReportInfo* info) {
+        info->received_bytes = 201;
+        info->send_bytes = 404;
+        info->duration = std::chrono::nanoseconds(2);
+      }))
+      .WillOnce(Invoke([](ReportData::ReportInfo* info) {
+        info->received_bytes = 345;
+        info->send_bytes = 678;
+        info->duration = std::chrono::nanoseconds(3);
       }));
 
   RequestContext request;
   request.check_status = ::google::protobuf::util::Status(
       ::google::protobuf::util::error::INVALID_ARGUMENT, "Invalid argument");
   AttributesBuilder builder(&request);
-  builder.ExtractReportAttributes(&mock_data);
 
+  ReportData::ReportInfo last_report_info{0ULL, 0ULL,
+                                          std::chrono::nanoseconds::zero()};
+  // Verify delta one report
+  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ false,
+                                  &last_report_info);
   ClearContextTime(&request);
 
   std::string out_str;
   TextFormat::PrintToString(request.attributes, &out_str);
   GOOGLE_LOG(INFO) << "===" << out_str << "===";
 
-  ::istio::mixer::v1::Attributes expected_attributes;
-  ASSERT_TRUE(
-      TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
-  EXPECT_TRUE(
-      MessageDifferencer::Equals(request.attributes, expected_attributes));
+  ::istio::mixer::v1::Attributes expected_delta_attributes;
+  ASSERT_TRUE(TextFormat::ParseFromString(kDeltaOneReportAttributes,
+                                          &expected_delta_attributes));
+  EXPECT_TRUE(MessageDifferencer::Equals(request.attributes,
+                                         expected_delta_attributes));
+  EXPECT_EQ(100, last_report_info.received_bytes);
+  EXPECT_EQ(200, last_report_info.send_bytes);
+
+  // Verify delta two report
+  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ false,
+                                  &last_report_info);
+  ClearContextTime(&request);
+
+  out_str.clear();
+  TextFormat::PrintToString(request.attributes, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  expected_delta_attributes.Clear();
+  ASSERT_TRUE(TextFormat::ParseFromString(kDeltaTwoReportAttributes,
+                                          &expected_delta_attributes));
+  EXPECT_TRUE(MessageDifferencer::Equals(request.attributes,
+                                         expected_delta_attributes));
+  EXPECT_EQ(201, last_report_info.received_bytes);
+  EXPECT_EQ(404, last_report_info.send_bytes);
+
+  // Verify final report
+  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ true,
+                                  &last_report_info);
+  ClearContextTime(&request);
+
+  out_str.clear();
+  TextFormat::PrintToString(request.attributes, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  ::istio::mixer::v1::Attributes expected_final_attributes;
+  ASSERT_TRUE(TextFormat::ParseFromString(kReportAttributes,
+                                          &expected_final_attributes));
+  EXPECT_TRUE(MessageDifferencer::Equals(request.attributes,
+                                         expected_final_attributes));
 }
 
 }  // namespace
