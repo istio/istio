@@ -319,7 +319,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
-istioctl:
+istioctl-install:
 	go install istio.io/istio/pilot/cmd/istioctl
 
 #-----------------------------------------------------------------------------

@@ -35,7 +35,7 @@ var (
 	// TODO - Add config-diff to get the difference between pilot's xDS API response and the proxy config file
 	// TODO - Add support for non-default proxy config locations
 	configCmd = &cobra.Command{
-		Use:   "proxy-config <podID>",
+		Use:   "proxy-config <pod-name>",
 		Short: "Retrieves proxy configuration for the specified pod [kube only]",
 		Long: `
 Retrieves the static/bootstrap proxy configuration for the specified pod when running in Kubernetes.
