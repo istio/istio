@@ -93,6 +93,10 @@ func TestEmpty(t *testing.T) {
 		t.Fatal("id should be -1")
 	}
 
+	if table.ID() != table.id {
+		t.Fatal("ID() method should return the id of the table.")
+	}
+
 	if table.entries != nil {
 		t.Fatal("table's entries should be nil")
 	}

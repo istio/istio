@@ -111,6 +111,11 @@ func Empty() *Table {
 	return emptyTable
 }
 
+// ID of the table. Based on the Config Snapshot id.
+func (t *Table) ID() int64 {
+	return t.id
+}
+
 // GetDestinations returns the set of destinations (handlers) for the given template variety and for the given namespace.
 func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) *NamespaceTable {
 	destinations, ok := t.entries[variety]
