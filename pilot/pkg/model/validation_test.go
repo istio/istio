@@ -1854,12 +1854,27 @@ func TestValidateEndUserAuthenticationPolicySpec(t *testing.T) {
 			},
 		},
 		{
-			name: "valid",
+			name: "valid with https jwks_uri",
 			in: &mccpb.EndUserAuthenticationPolicySpec{
 				Jwts: []*mccpb.JWT{{
 					Issuer:                 "https://issuer.example.com",
 					Audiences:              []string{"audience_foo.example.com"},
 					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+			valid: true,
+		},
+		{
+			name: "valid with http jwks_uri",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "http://www.example.com/oauth/v1/certs",
 					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
 					Locations: []*mccpb.JWT_Location{{
 						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
