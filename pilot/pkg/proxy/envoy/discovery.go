@@ -15,8 +15,10 @@
 package envoy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -32,6 +34,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
@@ -82,6 +85,20 @@ var (
 			Name:      "errors",
 			Help:      "Counter of errors encountered during a given method call within Pilot",
 		}, []string{metricLabelMethod, metricBuildVersion})
+	webhookCallCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
+			Name:      "webhook_calls",
+			Help:      "Counter of individual webhook calls made in Pilot",
+		}, []string{metricLabelMethod, metricBuildVersion})
+	webhookErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystem,
+			Name:      "webhook_errors",
+			Help:      "Counter of errors encountered when invoking the webhook endpoint within Pilot",
+		}, []string{metricLabelMethod, metricBuildVersion})
 
 	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
 	resourceCounter = prometheus.NewHistogramVec(
@@ -106,8 +123,9 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
-	server *http.Server
-
+	server          *http.Server
+	webhookClient   *http.Client
+	webhookEndpoint string
 	// TODO Profile and optimize cache eviction policy to avoid
 	// flushing the entire cache when any route, service, or endpoint
 	// changes. An explicit cache expiration policy should be
@@ -279,6 +297,7 @@ type DiscoveryServiceOptions struct {
 	MonitoringPort  int
 	EnableProfiling bool
 	EnableCaching   bool
+	WebhookEndpoint string
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
@@ -291,6 +310,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
+
 	container := restful.NewContainer()
 	if o.EnableProfiling {
 		container.ServeMux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -300,6 +320,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 	out.Register(container)
+
+	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
+
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
 
 	// Flush cached discovery responses whenever services, service
@@ -605,6 +628,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -623,13 +647,23 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 			errorResponse(methodName, response, http.StatusInternalServerError, "CDS "+err.Error())
 			return
 		}
+
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		// TODO: this is wrong as it doesn't take into account clusters added by webhook
 		resourceCount = uint32(len(clusters))
+		// TODO: BUG. if resourceCount is 0, but transformedOutput has added resources, the cache wont update
 		if resourceCount > 0 {
-			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
+
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
 }
 
 // ListListeners responds to LDS requests
@@ -639,6 +673,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.ldsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -658,13 +693,22 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 			errorResponse(methodName, response, http.StatusInternalServerError, "LDS "+err.Error())
 			return
 		}
+
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		// TODO: This does not take into account listeners added by webhook
 		resourceCount = uint32(len(listeners))
+		// TODO: Bug. If resourceCount is 0 but transformedOutput adds listeners, cache wont update
 		if resourceCount > 0 {
-			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 		}
 	}
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
 }
 
 // ListRoutes responds to RDS requests, used by HTTP routes
@@ -676,6 +720,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.rdsCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
 	if !cached {
 		svcNode, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
@@ -696,15 +741,44 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
-		if routeConfig != nil && routeConfig.VirtualHosts != nil {
+
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
+		if err != nil {
+			// Use whatever we generated.
+			transformedOutput = out
+		}
+
+		if routeConfig != nil && routeConfig.VirtualHosts != nil { //TODO: fix same bug as above.
 			resourceCount = uint32(len(routeConfig.VirtualHosts))
 			if resourceCount > 0 {
-				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
+				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
 			}
 		}
 	}
 	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
+	writeResponse(response, transformedOutput)
+}
+
+func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {
+	if ds.webhookClient == nil {
+		return payload, nil
+	}
+
+	incWebhookCalls(methodName)
+	resp, err := ds.webhookClient.Post(ds.webhookEndpoint+path, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		incWebhookErrors(methodName)
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		incWebhookErrors(methodName)
+	}
+
+	return out, err
 }
 
 func incCalls(methodName string) {
@@ -716,6 +790,20 @@ func incCalls(methodName string) {
 
 func incErrors(methodName string) {
 	errorCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
+}
+
+func incWebhookCalls(methodName string) {
+	webhookCallCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
+}
+
+func incWebhookErrors(methodName string) {
+	webhookErrorCounter.With(prometheus.Labels{
 		metricLabelMethod:  methodName,
 		metricBuildVersion: buildVersion,
 	}).Inc()
