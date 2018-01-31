@@ -339,7 +339,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
 		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
-		content = updateInjectImage("proxyImage", "proxy", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
@@ -388,8 +388,10 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		}
 		if *pilotHub != "" && *pilotTag != "" {
 			content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+		}
+		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
+			content = updateIstioYaml("proxy", *proxyHub, *proxyTag, content)
 		}
 		if *caHub != "" && *caTag != "" {
 			//Need to be updated when the string "istio-ca" is changed
