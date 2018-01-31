@@ -404,9 +404,6 @@ docker.prebuilt:
 	cp ${ISTIO_BIN}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
-	# TODO: generate or checkin test CA and keys
-	## These are not used so far
-	security/bin/gen-keys.sh
 	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
 	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
 
@@ -460,15 +457,6 @@ mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-
 
 FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
 
-# NOTE: this list is passed to rm -f during "make clean"
-GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key \
-                      security/docker/node_agent.crt security/docker/node_agent.key
-
-$(GENERATED_CERT_FILES): security/bin/gen-keys.sh
-	security/bin/gen-keys.sh
-
-FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
-
 # pilot docker images
 
 docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
@@ -503,11 +491,10 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 # security docker images
 
 docker.istio-ca: security/docker/istio_ca security/docker/ca-certificates.tgz
-docker.istio-ca-test: security/docker/istio_ca.crt security/docker/istio_ca.key
 docker.node-agent:      security/docker/node_agent
 docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_TEST_FILES}
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test
+SECURITY_DOCKER:=docker.istio-ca docker.node-agent docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
