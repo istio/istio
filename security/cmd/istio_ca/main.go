@@ -40,7 +40,7 @@ import (
 const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = 12 * time.Hour
+	defaultWorkloadCertTTL = time.Hour
 
 	maxWorkloadCertTTL = 7 * 24 * time.Hour
 
