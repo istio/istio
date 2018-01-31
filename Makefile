@@ -467,8 +467,6 @@ GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key 
 $(GENERATED_CERT_FILES): security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
 
-FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
-
 # pilot docker images
 
 docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
