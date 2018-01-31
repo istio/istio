@@ -24,14 +24,18 @@ set -o pipefail
 REQUIRED_GO_VERSION_MAJOR=1
 REQUIRED_GO_VERSION_MINOR=9
 
-GO_VERSION=$(go version | sed 's/go version go\([[:digit:]]\.[[:digit:]]\.[[:digit:]]\).*/\1/g')
-GO_VERSION_MAJOR=$(echo $GO_VERSION | cut -f1 -d.)
-GO_VERSION_MINOR=$(echo $GO_VERSION | cut -f2 -d.)
+GO_VERSION=$(go version)
+GO_VERSION_MAJOR=$(echo $GO_VERSION | sed 's/go version go\([[:digit:]]\)\.[[:digit:]]\.[[:digit:]]\.*/\1/g')
+GO_VERSION_MINOR=$(echo $GO_VERSION | sed 's/go version go[[:digit:]]\.\([[:digit:]]\)\.[[:digit:]]\.*/\1/g')
 
 function print_error_and_exit {
     echo Your Go version is ${GO_VERSION}. Istio compiles with Go 1.9+. Please update your Go.
     exit 1
 }
+
+if [ -z "${GO_VERSION##*devel*}" ]; then
+   exit 0
+fi
 
 if [ "$GO_VERSION_MAJOR" -lt "${REQUIRED_GO_VERSION_MAJOR}" ]; then
    print_error_and_exit
