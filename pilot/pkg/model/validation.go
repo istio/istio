@@ -1085,11 +1085,10 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 		return fmt.Errorf("cannot cast to destination rule")
 	}
 
-	// TODO: validate short name / FQDN
-	if rule.Name == "" {
-		errs = multierror.Append(errs, fmt.Errorf("destination rule name cannot be empty"))
-	}
-	errs = appendErrors(errs, validateTrafficPolicy(rule.TrafficPolicy))
+	errs = appendErrors(errs,
+		validateHost(rule.Name),
+		validateTrafficPolicy(rule.TrafficPolicy))
+
 	for _, subset := range rule.Subsets {
 		errs = appendErrors(errs, validateSubset(subset))
 	}
@@ -1097,19 +1096,17 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 	return
 }
 
-//
-func validateTrafficPolicy(policy *routingv2.TrafficPolicy) (errs error) {
+func validateTrafficPolicy(policy *routingv2.TrafficPolicy) error {
 	if policy == nil {
-		return
+		return nil
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
-	errs = appendErrors(errs, validateOutlierDetection(policy.OutlierDetection))
-	errs = appendErrors(errs, validateConnectionPool(policy.ConnectionPool))
-	errs = appendErrors(errs, validateLoadBalancer(policy.LoadBalancer))
-	return
+	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
+		validateConnectionPool(policy.ConnectionPool),
+		validateLoadBalancer(policy.LoadBalancer))
 }
 
 func validateOutlierDetection(outlier *routingv2.OutlierDetection) (errs error) {
@@ -1181,15 +1178,10 @@ func validateLoadBalancer(settings *routingv2.LoadBalancerSettings) (errs error)
 	return
 }
 
-func validateSubset(subset *routingv2.Subset) (errs error) {
-	// TODO: validate short name / FQDN
-	if subset.Name == "" {
-		errs = multierror.Append(errs, fmt.Errorf("subset rule name cannot be empty"))
-	}
-	errs = appendErrors(errs, Labels(subset.Labels).Validate())
-	errs = appendErrors(errs, validateTrafficPolicy(subset.TrafficPolicy))
-
-	return
+func validateSubset(subset *routingv2.Subset) error {
+	return appendErrors(validateSubsetName(subset.Name),
+		Labels(subset.Labels).Validate(),
+		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
 // ValidateDestinationPolicy checks proxy policies
@@ -1945,6 +1937,9 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 }
 
 func validateSubsetName(name string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("subset name cannot be empty")
+	}
 	if !IsDNS1123Label(name) {
 		return fmt.Errorf("subnet name is invalid: %s", name)
 	}
@@ -1956,11 +1951,16 @@ func validatePortSelector(selector *routingv2.PortSelector) error {
 		return nil
 	}
 
-	if name := selector.GetName(); name != "" {
-		return validateSubsetName(name)
+	// port selector is either a name or a number
+	name := selector.GetName()
+	number := int(selector.GetNumber())
+	if name == "" && number == 0 {
+		// an unset value is indistinguishable from a zero value, so return both errors
+		return appendErrors(validateSubsetName(name), ValidatePort(number))
+	} else if number != 0 {
+		return ValidatePort(number)
 	}
-
-	return ValidatePort(int(selector.GetNumber()))
+	return validateSubsetName(name)
 }
 
 func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {

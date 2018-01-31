@@ -724,11 +724,11 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			file: egressRuleTCP,
 		},
 		{
-			name: "egress-rule",
+			name: "egress-rule", // verify the output matches egress
 			file: externalServiceRule,
 		},
 		{
-			name: "egress-rule-tcp",
+			name: "egress-rule-tcp", // verify the output matches egress
 			file: externalServiceRuleTCP,
 		},
 	}
