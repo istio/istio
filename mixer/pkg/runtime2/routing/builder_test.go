@@ -513,7 +513,7 @@ func TestBuilder(t *testing.T) {
 }
 
 var (
-	normalizer = strings.NewReplacer("\t","","\n",""," ", "")
+	normalizer = strings.NewReplacer("\t", "", "\n", "", " ", "")
 )
 
 // Normalize a string for textual comparison.
