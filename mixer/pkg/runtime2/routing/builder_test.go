@@ -492,23 +492,33 @@ func TestBuilder(t *testing.T) {
 				tt.Logf("Config:\n%v\n\n", tst.Configs)
 				tt.Logf("Snapshot:\n%s\n\n", s)
 				tt.Logf("Debug: true")
-				tt.Fatalf("%v\n!=\n%v", actual, tst.ExpectedTable)
+				tt.Fatalf("got:\n%v\nwant:\n%v\n", actual, tst.ExpectedTable)
 			}
+
+			reachedEnd := false
+			defer func() {
+				r := recover()
+				if !reachedEnd {
+					tt.Fatalf("buildTable(debugInfo=false) failed with a panic: '%v'", r)
+				}
+			}()
 
 			// rerun with debug = false to ensure there is no crash.
 			t, _ = buildTable(serviceConfig, tst.Configs, false)
 			_ = t.String()
+
+			reachedEnd = true
 		})
 	}
 }
 
+var (
+	normalizer = strings.NewReplacer("\t","","\n",""," ", "")
+)
+
 // Normalize a string for textual comparison.
 func normalize(str string) string {
-	str = strings.TrimSpace(str)
-	str = strings.Replace(str, "\t", "", -1)
-	str = strings.Replace(str, "\n", "", -1)
-	str = strings.Replace(str, " ", "", -1)
-	return str
+	return normalizer.Replace(str)
 }
 
 // Convenience method for building a routing Table for tests.
