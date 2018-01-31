@@ -13,10 +13,11 @@
 //   limitations under the License.
 syntax = "proto3";
 
-package istio.broker.v1.config;
+package istio.broker.dev;
 
-option go_package="istio.io/api/broker/v1/config";
+option go_package="istio.io/api/broker/dev";
 
+// $hide_from_docs
 // ServicePlan defines the type of services available to Istio service
 // consumers.  One or more services are included in a plan. The plan is flexible
 // and subject to change along with business requirements.
@@ -30,6 +31,7 @@ message ServicePlan {
   repeated string services = 2;
 }
 
+// $hide_from_docs
 // CatalogPlan defines listing information for this service plan within the
 // exposed catalog.  The message is a subset of OSBI plan fields defined in
 // https://github.com/openservicebrokerapi

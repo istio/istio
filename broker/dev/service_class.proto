@@ -15,12 +15,13 @@ syntax = "proto3";
 
 // $title: Service Broker
 // $overview: Configuration affecting the Istio service broker
-// $location: https://istio.io/docs/reference/config/istio.broker.v1.config.html
+// $location: https://istio.io/docs/reference/config/istio.broker.dev.html
 
-package istio.broker.v1.config;
+package istio.broker.dev;
 
-option go_package="istio.io/api/broker/v1/config";
+option go_package="istio.io/api/broker/dev";
 
+// $hide_from_docs
 // ServiceClass defines a service that are exposed to Istio service consumers.
 // The service is linked into one or more ServicePlan.
 message ServiceClass {
@@ -31,12 +32,14 @@ message ServiceClass {
   CatalogEntry entry = 2;
 }
 
+// $hide_from_docs
 // Deployment defines how the service instances are deployed.
 message Deployment {
   // For truely multi-tenant service, the deployed service instance name.
   string instance = 1;
 }
 
+// $hide_from_docs
 // CatalogEntry defines listing information for this service within the exposed
 // catalog.  The message is a subset of OSBI service fields defined in
 // https://github.com/openservicebrokerapi

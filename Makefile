@@ -145,15 +145,15 @@ generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing
 # broker/...
 #####################
 
-broker_v1_path := broker/v1/config
+broker_v1_path := broker/dev
 broker_v1_protos := $(shell find $(broker_v1_path) -type f -name '*.proto' | sort)
 broker_v1_pb_gos := $(broker_v1_protos:.proto=.pb.go)
-broker_v1_pb_doc := $(broker_v1_path)/istio.broker.v1.config.pb.html
+broker_v1_pb_doc := $(broker_v1_path)/istio.broker.dev.pb.html
 
 generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
 
 $(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos) | depend $(protoc_gen_go) $(protoc_bin)
-	## Generate broker/v1/config/*.pb.go + $(broker_v1_pb_doc)
+	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
 	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
 
 clean-broker-generated:
