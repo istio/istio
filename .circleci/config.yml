@@ -149,7 +149,7 @@ jobs:
       - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -179,7 +179,7 @@ jobs:
       - run: make build test-bins docker.tag
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -226,6 +226,7 @@ jobs:
     resource_class: xlarge
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+      ISTIO_BIN: /go/bin
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
