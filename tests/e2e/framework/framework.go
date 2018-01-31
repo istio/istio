@@ -85,12 +85,12 @@ func InitLogging() error {
 }
 
 // NewTestConfig creates a full config will all supported configs.
-func NewTestConfig(testID string, baseVersion string) (*CommonConfig, error) {
+func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
+	k, err := newKubeInfoWithBaseVersion(t.TempDir, t.RunID, baseVersion)
 	if err != nil {
 		return nil, err
 	}
