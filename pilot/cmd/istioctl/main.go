@@ -89,9 +89,12 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			_ = log.Configure(loggingOptions)
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			defaultNamespace = getDefaultNamespace(kubeconfig)
+			return nil
 		},
 	}
 
