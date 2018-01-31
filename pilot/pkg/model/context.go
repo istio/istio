@@ -137,6 +137,9 @@ const (
 
 	// IngressKeyFilename is the ingress private key file name
 	IngressKeyFilename = "tls.key"
+
+	// DefaultDiscoveryPort is the default discovery port used by pilot and discovery
+	DefaultDiscoveryPort = 15003
 )
 
 // DefaultProxyConfig for individual proxies
@@ -148,7 +151,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryAddress:       "istio-pilot:15003",
+		DiscoveryAddress:       fmt.Sprintf("istio-pilot:%d", DefaultDiscoveryPort),
 		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),

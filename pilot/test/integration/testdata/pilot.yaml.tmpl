@@ -87,6 +87,7 @@ spec:
         - {{.Registry}}
         - --eurekaserverURL
         - http://eureka:8080
+        - --port=8080
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
