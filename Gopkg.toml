@@ -35,10 +35,6 @@ required = [
 ### END Mixer codegen deps
 
 [[constraint]]
-  name = "github.com/googleapis/googleapis"
-  source = "https://github.com/costinm/googleapis.git"
-
-[[constraint]]
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
@@ -70,10 +66,6 @@ required = [
   name = "k8s.io/apiextensions-apiserver"
   branch = "release-1.9"
 
-[[constraint]]
-  name = "k8s.io/apiserver"
-  branch = "release-1.9"
-
 [[override]]
   name = "k8s.io/kubernetes"
   branch = "release-1.9"
@@ -89,17 +81,9 @@ required = [
 #     "k8s.io/ingress-nginx/core/pkg/ingress/status"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/store"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
-[[constraint]]
-  name = "k8s.io/ingress-nginx"
-  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
-
-[[constraint]]
-  name = "github.com/russross/blackfriday"
-  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
-
-[[constraint]]
-  name = "code.cloudfoundry.org/copilot"
-  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
+#[[constraint]]
+#  name = "k8s.io/ingress-nginx"
+#  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -117,7 +101,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "a6c74ca9a8b5bba45bafd6d238a27dde4c406da7"
+  revision = "58de5731b5401268263924fae9df7d091813c19e"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -128,6 +112,12 @@ required = [
 [[override]]
   name = "github.com/gogo/protobuf"
   version = "=0.5"
+
+# Api is pinning this to a version, needs to be fixed. Protobuf is supposed to have stable master.
+# The api constraint prevents dep update
+[[override]]
+  name = "github.com/golang/protobuf"
+  branch = "master"
 
 ### End Mixer codegen dep pinning
 
@@ -144,3 +134,7 @@ required = [
 [[override]]
   name = "github.com/docker/distribution"
   branch = "master"
+
+[[constraint]]
+  name = "code.cloudfoundry.org/copilot"
+  revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"

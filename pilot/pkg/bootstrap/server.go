@@ -22,10 +22,10 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
+	multierror "github.com/hashicorp/go-multierror"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -471,8 +471,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
 				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
-				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
+				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
+					Client:      client,
+					ServicePort: cfConfig.ServicePort,
+				},
+				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
 			})
 
 		default:

@@ -38,10 +38,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-{{if eq .injectProxy "false"}}
-  annotations:
-    sidecar.istio.io/inject: "false"
-{{end}}
+
   name: {{.deployment}}
 spec:
   replicas: 1
@@ -50,6 +47,10 @@ spec:
       labels:
         app: {{.service}}
         version: {{.version}}
+{{if eq .injectProxy "false"}}
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{end}}
     spec:
       containers:
       - name: app

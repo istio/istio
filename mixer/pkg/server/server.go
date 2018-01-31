@@ -37,6 +37,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -52,12 +53,17 @@ type Server struct {
 	configDir string
 
 	dispatcher mixerRuntime.Dispatcher
+
+	// probes
+	livenessProbe  probe.Controller
+	readinessProbe probe.Controller
+	*probe.Probe
 }
 
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newILEvaluator func(cacheSize int) (*evaluator.IL, error)
-	newStore2      func(r2 *store.Registry, configURL string) (store.Store, error)
+	newStore       func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime     func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener,
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
@@ -75,7 +81,7 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newILEvaluator: evaluator.NewILEvaluator,
-		newStore2:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
+		newStore:       func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
@@ -110,6 +116,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	tmplRepo := template.NewRepository(a.Templates)
 	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
+	s.Probe = probe.NewProbe()
+
 	// construct the gRPC options
 
 	var grpcOptions []grpc.ServerOption
@@ -143,21 +151,26 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStoreURL := a.ConfigStoreURL
-	if configStoreURL == "" {
-		configStoreURL = "k8s://"
+	st := a.ConfigStore
+	if st != nil && a.ConfigStoreURL != "" {
+		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
+	if st == nil {
+		configStoreURL := a.ConfigStoreURL
+		if configStoreURL == "" {
+			configStoreURL = "k8s://"
+		}
 
-	reg2 := store.NewRegistry(config.StoreInventory()...)
-	store2, err := p.newStore2(reg2, configStoreURL)
-	if err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		reg := store.NewRegistry(config.StoreInventory()...)
+		if st, err = p.newStore(reg, configStoreURL); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
+		}
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
+		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
@@ -168,12 +181,27 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
+	if a.LivenessProbeOptions.IsValid() {
+		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
+		s.RegisterProbe(s.livenessProbe, "server")
+		s.livenessProbe.Start()
+	}
+	if a.ReadinessProbeOptions.IsValid() {
+		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
+		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
+			e.RegisterProbe(s.readinessProbe, "dispatcher")
+		}
+		st.RegisterProbe(s.readinessProbe, "store")
+		s.readinessProbe.Start()
+	}
+
 	return s, nil
 }
 
 // Run enables Mixer to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
 	s.shutdown = make(chan error, 1)
+	s.SetAvailable(nil)
 	go func() {
 		// go to work...
 		err := s.server.Serve(s.listener)
@@ -223,6 +251,14 @@ func (s *Server) Close() error {
 
 	if s.configDir != "" {
 		_ = os.RemoveAll(s.configDir)
+	}
+
+	if s.livenessProbe != nil {
+		_ = s.livenessProbe.Close()
+	}
+
+	if s.readinessProbe != nil {
+		_ = s.readinessProbe.Close()
 	}
 
 	// final attempt to purge buffered logs

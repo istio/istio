@@ -2,8 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: hello
-  annotations:
-    sidecar.istio.io/inject: "false"
+
 spec:
   replicas: 7
   template:
@@ -12,6 +11,8 @@ spec:
         app: hello
         tier: backend
         track: stable
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
         - name: hello

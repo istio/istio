@@ -93,7 +93,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/pkg/kube/config
+setup:
 
 #-----------------------------------------------------------------------------
 # Target: depend
@@ -135,8 +135,16 @@ depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
 
-lint:
+# Existence of build cache .a files actually affects the results of
+# some linters; they need to exist.
+lint: buildcache
 	SKIP_INIT=1 bin/linters.sh
+
+# Build with -i to store the build caches into $GOPATH/pkg
+buildcache:
+	GOBUILDFLAGS=-i $(MAKE) build
+
+.PHONY: buildcache
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
@@ -419,7 +427,9 @@ NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
 
 GRAFANA_FILES:=mixer/deploy/kube/conf/import_dashboard.sh \
                mixer/deploy/kube/conf/start.sh \
-               mixer/deploy/kube/conf/grafana-dashboard.json
+               mixer/deploy/kube/conf/grafana-dashboard.json \
+               mixer/deploy/kube/conf/mixer-dashboard.json \
+               mixer/deploy/kube/conf/pilot-dashboard.json
 
 # copied/generated files for docker build
 
@@ -530,9 +540,6 @@ push: checkvars clean.installgen installgen
 
 artifacts: docker
 	@echo 'To be added'
-
-pilot/pkg/kube/config:
-	touch $@
 
 kubelink:
 	ln -fs ~/.kube/config pilot/pkg/kube/

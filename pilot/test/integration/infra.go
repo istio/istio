@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017,2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,9 @@ type infra struct { // nolint: maligned
 
 	// store error logs in specific directory
 	errorLogsDir string
+
+	// copy core files in this directory on the Kubernetes node machine
+	coreFilesDir string
 
 	namespaceCreated      bool
 	istioNamespaceCreated bool
@@ -262,7 +265,12 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-
+	if err := deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
+	if err := deploy("externalbin.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 	return nil
 }
 

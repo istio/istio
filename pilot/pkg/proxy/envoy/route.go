@@ -162,7 +162,7 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		ServiceName: key,
 		Type:        clusterType,
 		LbType:      DefaultLbType,
-		outbound:    true,
+		outbound:    !isExternal, // outbound means outbound-in-mesh. The name to be refactored later.
 		hostname:    hostname,
 		port:        port,
 		tags:        labels,
@@ -650,7 +650,7 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 
 func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
-		Name:             OutboundClusterPrefix + name,
+		Name:             truncateClusterName(OutboundClusterPrefix + name),
 		Type:             ClusterTypeOriginalDST,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
 		LbType:           LbTypeOriginalDST,

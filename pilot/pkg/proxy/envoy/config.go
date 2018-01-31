@@ -76,9 +76,9 @@ func (conf *Config) Write(w io.Writer) error {
 	return err
 }
 
-// buildConfig creates a proxy config with discovery services and admin port
+// BuildConfig creates a proxy config with discovery services and admin port
 // it creates config for Ingress, Egress and Sidecar proxies
-func buildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
+func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 	listeners := Listeners{}
 
 	clusterRDS := buildCluster(config.DiscoveryAddress, RDSName, config.ConnectTimeout)
@@ -861,8 +861,7 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := truncateClusterName(key)
-	externalTrafficCluster = buildOriginalDSTCluster(name, mesh.ConnectTimeout)
+	externalTrafficCluster = buildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination
 	externalTrafficCluster.port = port
@@ -1001,8 +1000,7 @@ func buildEgressTCPRoute(rule *routing.EgressRule,
 	destination := rule.Destination.Service
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := truncateClusterName(key)
-	externalTrafficCluster := buildOriginalDSTCluster(name, mesh.ConnectTimeout)
+	externalTrafficCluster := buildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.port = port
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination
