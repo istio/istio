@@ -11,4 +11,12 @@ istio_all_addons:
   - "servicegraph"
   - "zipkin"
 
+istio_simple_samples:
+  - name: helloworld
+    path: helloworld/helloworld.yaml
+  - name: httpbin
+    path: httpbin/httpbin.yaml
+  - name: sleep
+    path: sleep/sleep.yaml
+
 istio_k8s_install_path: "install/kubernetes"

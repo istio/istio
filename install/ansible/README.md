@@ -54,9 +54,8 @@ The full list of configurable parameters is as follows:
 | `istio.namespace` | The namespace where istio will be installed | `istio-system` (default) |
 | `istio.addon` | Which Istio addons should be installed as well | This field is an array field, which by default contains `grafana`, `prometheus`, `zipkin` and `servicegraph` |
 | `istio.jaeger` | Whether or not Jaeger tracing should also be installed | `true` and `false` (default)|
-| `istio.bookinfo` | Whether or not to install Istio's Book Info showcase | `true` and `false` (default)|
-| `istio.bookinfo_namespace` | The namespace into which to install Book Info showcase | `bookinfo` (default) |
 | `istio.delete_resources` | Boolean value to delete resources created under the istio namespace | `true` and `false` (default)|
+| `istio.samples` | Array containing the names of the samples that should be installed | Valid names are: `bookinfo`, `helloworld`, `httpbin`, `sleep` 
 
 
 An example of an invocation where we want to deploy Jaeger instead of Zipkin would be:
@@ -103,6 +102,11 @@ ansible-playbook main.yml -e '{"istio": {"release_tag_name": "0.4.0", "auth": tr
 - User wants to install Istio on Openshift but with custom add-on settings
 ```bash
 ansible-playbook main.yml -e '{"istio": {"delete_resources": true, "addon": ["grafana", "prometheus"]}}'
+```
+
+- User wants to install Istio on Openshift and additionally wants to deploy some of the samples
+```bash
+ansible-playbook main.yml -e '{"istio": {"samples": ["helloworld", "bookinfo"]}}'
 ```
 
 The list of available addons can be found at `istio/vars.main.yml` under the name `istio_all_addons`.
