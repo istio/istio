@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package v1
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/pilot/test/util"
 	pkgutil "istio.io/istio/pkg/util"
 )
