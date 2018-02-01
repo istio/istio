@@ -33,6 +33,8 @@ func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
 }
 
+// WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
+// TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 	if err := os.MkdirAll(config.ConfigPath, 0700); err != nil {
 		return "", err

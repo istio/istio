@@ -242,6 +242,11 @@ var (
 		file: "testdata/destination-hello-v1alpha2.yaml.golden",
 	}
 
+	destinationRuleExternal = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-google"},
+		file: "testdata/subset-google-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
@@ -317,6 +322,11 @@ var (
 		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
 	}
 
+	googleTimeoutRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
+		file: "testdata/google-timeout-rule-v1alpha2.yaml.golden",
+	}
+
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",
@@ -330,6 +340,46 @@ var (
 	egressRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google"},
 		file: "testdata/egress-rule.yaml.golden",
+	}
+
+	externalServiceRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule.yaml.golden",
+	}
+
+	externalServiceRuleDNS = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns.yaml.golden",
+	}
+
+	externalServiceRuleStatic = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-static.yaml.golden",
+	}
+
+	externalServiceRuleTCP = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-tcp.yaml.golden",
+	}
+
+	externalServiceRuleTCPDNS = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-tcp-dns.yaml.golden",
+	}
+
+	externalServiceRuleTCPStatic = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-tcp-static.yaml.golden",
+	}
+
+	externalServiceRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "ext-route"},
+		file: "testdata/external-service-route-rule.yaml.golden",
+	}
+
+	destinationRuleGoogleCB = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "google"},
+		file: "testdata/subset-google-cb-v1alpha2.yaml.golden",
 	}
 
 	egressRuleCBPolicy = fileConfig{

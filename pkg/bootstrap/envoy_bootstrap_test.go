@@ -13,14 +13,17 @@ func TestGolden(t *testing.T) {
 	cases := []struct {
 		base string
 	}{
-		// Original pilot has only those 2 configs
+		// Original pilot tests only has those 2 configs
 		{
 			"default",
 		},
 		{
 			"auth",
 		},
-
+		{
+			// Specify zipkin/statsd address, similar with the default config in v1 tests
+			"all",
+		},
 	}
 
 	out := os.Getenv("OUT") // defined in the makefile
@@ -30,7 +33,10 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootrap-" + c.base, func(t *testing.T) {
-			cfg := loadProxyConfig(c.base, out, t)
+			cfg, err := loadProxyConfig(c.base, out, t)
+			if err != nil {
+				t.Fatal(err)
+			}
 			fn, err := WriteBootstrap(cfg, 0)
 			if err != nil {
 				t.Fatal(err)
@@ -52,19 +58,19 @@ func TestGolden(t *testing.T) {
 
 }
 
-func loadProxyConfig(base, out string, t *testing.T) *meshconfig.ProxyConfig {
+func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, error) {
 	content, err := ioutil.ReadFile("testdata/" + base + ".proto")
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	cfg := &meshconfig.ProxyConfig{}
 	err = proto.UnmarshalText(string(content), cfg)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	// TODO: move to base dir
 	cfg.ConfigPath = out + "/bootstraptest/" + base
 	cfg.CustomConfigFile = "envoy_bootstrap_tmpl.yaml"
-	return cfg;
+	return cfg, nil;
 }

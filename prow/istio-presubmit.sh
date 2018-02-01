@@ -72,11 +72,11 @@ fi
 echo 'Initialize'
 ${ROOT}/bin/init.sh
 echo 'Build'
-(cd ${ROOT}; make go-build)
+(cd ${ROOT}; make build)
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
-(cd ${ROOT}; make localTestEnv go-test)
+(cd ${ROOT}; make localTestEnv test)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
@@ -87,4 +87,4 @@ fi
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
 # run security e2e test
-${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"
+CERT_DIR=$(make where-is-docker-temp) ${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"

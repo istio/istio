@@ -259,9 +259,10 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 
 // NewV2Proxy creates an instance of the proxy using v2 bootstrap
 func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy.Proxy {
-	envoy := NewProxy(config, node, logLevel)
-	envoy.(envoy).v2 = true
-	return envoy
+	proxy := NewProxy(config, node, logLevel)
+	e := proxy.(envoy)
+	e.v2 = true
+	return e
 }
 
 func (proxy envoy) args(fname string, epoch int) []string {
@@ -296,6 +297,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	if proxy.v2 {
 		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch)
 		if err != nil {
+			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 			return err
 		}
 		fname = out
