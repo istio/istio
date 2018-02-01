@@ -41,6 +41,7 @@ class DatasetPem {
       "N09hdvlCtAF87Fu1qqfwEQ93A-J7m08bZJoyIPcNmTcYGHwfMR4-lcI5cC_93C_"
       "5BGE1FHPLOHpNghLuM6-rhOtgwZc9ywupn_bBK3QzuAoDnYwpqQhgQL_CdUD_bSHcmWFkw";
 
+  const std::string kJwtSub = "test@example.com";
   const std::string kJwtHeaderEncoded = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
   const std::string kJwtPayloadEncoded =
       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
@@ -340,7 +341,7 @@ namespace {
 bool EqJson(Json::ObjectSharedPtr p1, Json::ObjectSharedPtr p2) {
   return p1->asJsonString() == p2->asJsonString();
 }
-}
+}  // namespace
 
 class JwtTest : public testing::Test {
  protected:
@@ -457,6 +458,17 @@ TEST_F(JwtTestPem, AlgIsNotString) {
 TEST_F(JwtTestPem, InvalidAlg) {
   DoTest(ds.kJwtWithInvalidAlg, ds.kPublicKey, "pem", false,
          Status::ALG_NOT_IMPLEMENTED, nullptr);
+}
+
+TEST(JwtSubExtractionTest, NonEmptyJwtSubShouldEqual) {
+  DatasetPem ds;
+  Jwt jwt(ds.kJwt);
+  EXPECT_EQ(jwt.Sub(), ds.kJwtSub);
+}
+
+TEST(JwtSubExtractionTest, EmptyJwtSubShouldEqual) {
+  Jwt jwt("");
+  EXPECT_EQ(jwt.Sub(), "");
 }
 
 // Test cases w/ JWKs-formatted public key

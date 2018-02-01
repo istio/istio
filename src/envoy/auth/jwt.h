@@ -193,6 +193,10 @@ class Jwt : public WithStatus {
   // "aud" claim does not exist.
   const std::string& Aud();
 
+  // It returns the "sub" claim value of the given JWT, or an empty string if
+  // "sub" claim does not exist.
+  const std::string& Sub();
+
   // It returns the "exp" claim value of the given JWT, or 0 if "exp" claim does
   // not exist.
   int64_t Exp();
@@ -211,6 +215,7 @@ class Jwt : public WithStatus {
   std::string kid_;
   std::string iss_;
   std::string aud_;
+  std::string sub_;
   int64_t exp_;
 
   /*
@@ -254,8 +259,8 @@ class Pubkeys : public WithStatus {
   friend bool Verifier::Verify(const Jwt& jwt, const Pubkeys& pubkeys);
 };
 
-}  // Auth
-}  // Http
-}  // Envoy
+}  // namespace Auth
+}  // namespace Http
+}  // namespace Envoy
 
 #endif  // PROXY_JWT_H
