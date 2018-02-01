@@ -14,6 +14,7 @@
 
 package main
 
+/*
 import (
 	"fmt"
 
@@ -77,3 +78,4 @@ func (t *kubernetesExternalNameServices) run() error {
 	}
 	return parallel(funcs)
 }
+*/
