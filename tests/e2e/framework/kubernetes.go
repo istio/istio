@@ -89,7 +89,7 @@ type KubeInfo struct {
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
 // If baseVersion is not empty, will use the specified release of Istio instead of the local one.
-func newKubeInfoWithBaseVersion(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
+func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	if *namespace == "" {
 		if *clusterWide {
 			*namespace = istioSystem
@@ -129,10 +129,6 @@ func newKubeInfoWithBaseVersion(tmpDir, runID, baseVersion string) (*KubeInfo, e
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
 	}, nil
-}
-
-func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
-	return newKubeInfoWithBaseVersion(tmpDir, runID, "")
 }
 
 // Setup set up Kubernetes prerequest for tests

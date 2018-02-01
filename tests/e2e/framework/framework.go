@@ -90,7 +90,7 @@ func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfoWithBaseVersion(t.TempDir, t.RunID, baseVersion)
+	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
 	if err != nil {
 		return nil, err
 	}
