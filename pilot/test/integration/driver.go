@@ -210,17 +210,16 @@ func runTests(envs ...infra) {
 
 		tests := []test{
 			&http{infra: &istio},
-			/*
-				&grpc{infra: &istio},
-				&tcp{infra: &istio},
-				&headless{infra: &istio},
-				&ingress{infra: &istio},
-				&egressRules{infra: &istio},
-				&routing{infra: &istio},
-				&routingToEgress{infra: &istio},
-				&zipkin{infra: &istio},
-				&authExclusion{infra: &istio},
-				&kubernetesExternalNameServices{infra: &istio},*/
+			&grpc{infra: &istio},
+			&tcp{infra: &istio},
+			&headless{infra: &istio},
+			&ingress{infra: &istio},
+			&egressRules{infra: &istio},
+			&routing{infra: &istio},
+			&routingToEgress{infra: &istio},
+			&zipkin{infra: &istio},
+			&authExclusion{infra: &istio},
+			&kubernetesExternalNameServices{infra: &istio},
 		}
 
 		for _, test := range tests {
