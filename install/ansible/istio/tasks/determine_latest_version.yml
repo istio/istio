@@ -11,6 +11,7 @@
 - name: Get the tagged release
   uri:
     url: "{{ github_url }}/{{ istio_repo }}/releases/latest"
+    headers: "{{ github_api_http_headers }}"
   register: release
 
 - name: Set version

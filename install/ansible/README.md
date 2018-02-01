@@ -47,6 +47,7 @@ The full list of configurable parameters is as follows:
 | Parameter | Description | Values |
 | --- | --- | --- |
 | `cluster_flavour` | Defines whether the target cluster is a Kubernetes or an Openshift cluster. | Valid values are `k8s` and `ocp` (default) |
+| `github_api_token` | The API token used for authentication when calling the GitHub API | Any valid GitHub API token or empty (default) |
 | `cmd_path` | Can be used when the user does not have the `oc` or `kubectl` binary on the PATH | Defaults to expecting the binary is on the path | 
 | `istio.release_tag_name` | Should be a valid Istio release version. If left empty, the latest Istio release will be installed | `0.2.12`, `0.3.0`, `0.4.0` (default) |
 | `istio.dest` | Destination folder you want to install on your machine istio distribution | `~/.istio` (default) |
