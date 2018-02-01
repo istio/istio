@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package v1
 
 import (
 	"crypto/sha1"
@@ -272,9 +272,19 @@ func buildSidecarListenersClusters(
 		httpOutbound = buildEgressHTTPRoutes(mesh, node, instances, config, httpOutbound)
 		httpOutbound = buildExternalServiceHTTPRoutes(mesh, node, instances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.clusters()...)
-		listeners = append(listeners,
-			buildHTTPListener(mesh, node, instances, nil, listenAddress, int(mesh.ProxyHttpPort),
-				RDSAll, useRemoteAddress, traceOperation, true, config))
+		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
+			mesh:             mesh,
+			node:             node,
+			instances:        instances,
+			routeConfig:      nil,
+			ip:               listenAddress,
+			port:             int(mesh.ProxyHttpPort),
+			rds:              RDSAll,
+			useRemoteAddress: useRemoteAddress,
+			direction:        traceOperation,
+			outboundListener: true,
+			store:            config,
+		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -323,12 +333,25 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 	return httpConfigs[port], nil
 }
 
+// options required to build an HTTPListener
+type buildHTTPListenerOpts struct {
+	mesh             *meshconfig.MeshConfig
+	node             model.Node
+	instances        []*model.ServiceInstance
+	routeConfig      *HTTPRouteConfig
+	ip               string
+	port             int
+	rds              string
+	useRemoteAddress bool
+	direction        string
+	outboundListener bool
+	store            model.IstioConfigStore
+}
+
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
-func buildHTTPListener(mesh *meshconfig.MeshConfig, node model.Node, instances []*model.ServiceInstance,
-	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool, direction string,
-	outboundListener bool, store model.IstioConfigStore) *Listener {
-	filters := buildFaultFilters(routeConfig)
+func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
+	filters := buildFaultFilters(opts.routeConfig)
 
 	filters = append(filters, HTTPFilter{
 		Type:   decoder,
@@ -342,8 +365,8 @@ func buildHTTPListener(mesh *meshconfig.MeshConfig, node model.Node, instances [
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
 
-	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(mesh, node, instances, outboundListener, store)
+	if opts.mesh.MixerAddress != "" {
+		mixerConfig := mixerHTTPRouteConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -354,38 +377,38 @@ func buildHTTPListener(mesh *meshconfig.MeshConfig, node model.Node, instances [
 
 	config := &HTTPFilterConfig{
 		CodecType:        auto,
-		UseRemoteAddress: useRemoteAddress,
+		UseRemoteAddress: opts.useRemoteAddress,
 		StatPrefix:       "http",
 		Filters:          filters,
 	}
 
-	if mesh.AccessLogFile != "" {
+	if opts.mesh.AccessLogFile != "" {
 		config.AccessLog = []AccessLog{{
-			Path: mesh.AccessLogFile,
+			Path: opts.mesh.AccessLogFile,
 		}}
 	}
 
-	if mesh.EnableTracing {
+	if opts.mesh.EnableTracing {
 		config.GenerateRequestID = true
 		config.Tracing = &HTTPFilterTraceConfig{
-			OperationName: direction,
+			OperationName: opts.direction,
 		}
 	}
 
-	if rds != "" {
+	if opts.rds != "" {
 		config.RDS = &RDS{
 			Cluster:         RDSName,
-			RouteConfigName: rds,
-			RefreshDelayMs:  protoDurationToMS(mesh.RdsRefreshDelay),
+			RouteConfigName: opts.rds,
+			RefreshDelayMs:  protoDurationToMS(opts.mesh.RdsRefreshDelay),
 		}
 	} else {
-		config.RouteConfig = routeConfig
+		config.RouteConfig = opts.routeConfig
 	}
 
 	return &Listener{
 		BindToPort: true,
-		Name:       fmt.Sprintf("http_%s_%d", ip, port),
-		Address:    fmt.Sprintf("tcp://%s:%d", ip, port),
+		Name:       fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
 		Filters: []*NetworkFilter{{
 			Type:   read,
 			Name:   HTTPConnectionManager,
@@ -521,9 +544,19 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node, ins
 			operation = IngressTraceOperation
 		}
 
-		listener := buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
-			fmt.Sprintf("%d", port), useRemoteAddress, operation, true, config)
-		listeners = append(listeners, listener)
+		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
+			mesh:             mesh,
+			node:             sidecar,
+			instances:        instances,
+			routeConfig:      routeConfig,
+			ip:               WildcardAddress,
+			port:             port,
+			rds:              fmt.Sprintf("%d", port),
+			useRemoteAddress: useRemoteAddress,
+			direction:        operation,
+			outboundListener: true,
+			store:            config,
+		}))
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
 
@@ -805,8 +838,19 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			host.Routes = append(host.Routes, defaultRoute)
 
 			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
-			listener = buildHTTPListener(mesh, sidecar, instances, routeConfig, endpoint.Address,
-				endpoint.Port, "", false, IngressTraceOperation, false, config)
+			listener = buildHTTPListener(buildHTTPListenerOpts{
+				mesh:             mesh,
+				node:             sidecar,
+				instances:        instances,
+				routeConfig:      routeConfig,
+				ip:               endpoint.Address,
+				port:             endpoint.Port,
+				rds:              "",
+				useRemoteAddress: false,
+				direction:        IngressTraceOperation,
+				outboundListener: false,
+				store:            config,
+			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{

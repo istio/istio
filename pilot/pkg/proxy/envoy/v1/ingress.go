@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package v1
 
 import (
 	"errors"
@@ -29,20 +29,33 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func buildIngressListeners(mesh *meshconfig.MeshConfig,
-	instances []*model.ServiceInstance,
-	discovery model.ServiceDiscovery,
+func buildIngressListeners(mesh *meshconfig.MeshConfig, instances []*model.ServiceInstance, discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress model.Node) Listeners {
-	listeners := Listeners{
-		buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 80, "80", true, EgressTraceOperation, false, config),
+
+	opts := buildHTTPListenerOpts{
+		mesh:             mesh,
+		node:             ingress,
+		instances:        instances,
+		routeConfig:      nil,
+		ip:               WildcardAddress,
+		port:             80,
+		rds:              "80",
+		useRemoteAddress: true,
+		direction:        EgressTraceOperation,
+		outboundListener: false,
+		store:            config,
 	}
+
+	listeners := Listeners{buildHTTPListener(opts)}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
 	_, secret := buildIngressRoutes(mesh, ingress, instances, discovery, config)
 	if secret != "" {
-		listener := buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 443, "443", true, EgressTraceOperation, false, config)
+		opts.port = 443
+		opts.rds = "443"
+		listener := buildHTTPListener(opts)
 		listener.SSLContext = &SSLContext{
 			CertChainFile:  path.Join(model.IngressCertsPath, model.IngressCertFilename),
 			PrivateKeyFile: path.Join(model.IngressCertsPath, model.IngressKeyFilename),

@@ -15,7 +15,7 @@
 // Functions related to translation from the control policies to Envoy config
 // Policies apply to Envoy upstream clusters but may appear in the route section.
 
-package envoy
+package v1
 
 import (
 	"github.com/golang/protobuf/ptypes"
