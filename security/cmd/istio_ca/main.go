@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
@@ -143,6 +145,12 @@ func init() {
 		"Interval of updating file for the liveness probe.")
 
 	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio CA",
+		Section: "istio_ca CLI",
+		Manual:  "Istio CA",
+	}))
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)

@@ -34,9 +34,9 @@ Others docs you should look at:
       - Please consider package name when selecting an interface name, and avoid
       redundancy. For example, use `adapter.AspectConfig` instead of `adapter.AdapterConfig`.
 
-      - Must use lowerCamel case for Go package names.
+      - Must use lowercase for Go package names.
 
-      - Must use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
+      - Must use camel case for Go types.
 
       - Use singular nouns for types unless they represent a collection. Use plural nouns for collections.
 
@@ -122,8 +122,9 @@ the [adapter logger interface](https://godoc.org/istio.io/istio/mixer/pkg/adapte
   - Avoid general utility packages. Packages called "util" are suspect. Instead,
   derive a name that describes your desired function.
 
-  - All filenames and directory names use camelCasing. No dashes, no underscores. The exception is for
-  unit tests which follow the Go convention of having a \_test.go suffix.
+  - Use lowercase for file and directory names.
+
+  - Use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
 
   - All directory names should be singular unless required by existing frameworks.
   This is to avoid mixed singular and plural names in the full paths. NOTE:

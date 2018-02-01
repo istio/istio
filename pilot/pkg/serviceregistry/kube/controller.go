@@ -336,8 +336,8 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return nil, nil
 }
 
-// HostInstances implements a service catalog operation
-func (c *Controller) HostInstances(svcNodes map[string]*model.Node) ([]*model.ServiceInstance, error) {
+// GetSidecarServiceInstances implements a service catalog operation
+func (c *Controller) GetSidecarServiceInstances(svcNodes map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {

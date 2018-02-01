@@ -150,7 +150,7 @@ function merge_files() {
       cat $SRC/istio-rbac-beta.yaml.tmpl >> $COMPONENT_DIR/istio-rbac-beta.yaml
       cat $SRC/istio-mixer.yaml.tmpl >> $COMPONENT_DIR/istio-mixer.yaml
       cat $SRC/istio-config.yaml.tmpl >> $COMPONENT_DIR/istio-config.yaml
-      cat $SRC/istio-pilot.yaml.tmpl >> $COMPONENT_DIR/istio-pilot.yaml.yaml
+      cat $SRC/istio-pilot.yaml.tmpl >> $COMPONENT_DIR/istio-pilot.yaml
       cat $SRC/istio-ingress.yaml.tmpl >> $COMPONENT_DIR/istio-ingress.yaml
   fi
 
