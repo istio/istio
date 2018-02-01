@@ -65,6 +65,27 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorConfig, []int{0, 0}
 }
 
+// redisquota adapter supports the rate limit quota using either fixed or
+// rolling window algorithm. And it is using Redis as a shared data storage.
+//
+// Example configuration:
+//
+// redisServerUrl: localhost:6379
+// connectionPoolSize: 10
+// quotas:
+//   - name: requestCount.quota.istio-system
+//     maxAmount: 50
+//     validDuration: 60s
+//     bucketDuration: 1s
+//     rateLimitAlgorithm: ROLLING_WINDOW
+//     overrides:
+//       - dimensions:
+//           destination: ratings
+//           source: reviews
+//         maxAmount: 12
+//       - dimensions:
+//           destination: reviews
+//         maxAmount: 5
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
 	Quotas []Params_Quota `protobuf:"bytes,1,rep,name=quotas" json:"quotas"`
