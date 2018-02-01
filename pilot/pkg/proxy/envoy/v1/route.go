@@ -15,7 +15,7 @@
 // Functions related to data-path routes in Envoy config: virtual hosts, clusters,
 // routes.
 
-package envoy
+package v1
 
 import (
 	"fmt"
