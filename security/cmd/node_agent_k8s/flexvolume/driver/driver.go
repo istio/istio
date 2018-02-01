@@ -217,7 +217,7 @@ func addListener(ninputs *pb.WorkloadInfo) error {
 func delListener(ninputs *pb.WorkloadInfo) error {
 	client := nagent.ClientUds(nodeAgentMgmtAPI)
 	if client == nil {
-		return errors.New("failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client")
 	}
 
 	_, err := client.WorkloadDeleted(ninputs)
@@ -286,7 +286,7 @@ func Unmount(dir string) error {
 	return nil
 }
 
-// GelVolName get the volume name
+// GetVolName get the volume name
 func GetVolName(opts string) error {
 	log.Infof("The opts is %s", opts)
 	_, err := json.Marshal(&Resp{VolumeName: volumeName, Status: "Success", Message: "ok"})
