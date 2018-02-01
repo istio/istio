@@ -23,125 +23,14 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-  "istio.io/istio/pkg/log"
-  rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-  pb "istio.io/istio/security/proto"
+	pb "istio.io/istio/security/proto"
 )
 
-// Server specify the node agent server.
-type Server struct {
-	wlmgmts     map[string]WorkloadMgmtInterface
-	pathPrefix string
-	done       chan bool //main 2 mgmt-api server to stop
-	wli		*WlHandler
-}
-
 // Client specify a UDS client connection
-type Client struct {
+type NodeAgentClient struct {
 	conn  *grpc.ClientConn
 	dest  string
 	isUds bool
-}
-
-// NewServer create a new server.
-func NewServer(pathPrefix string, wli *WlHandler) *Server {
-	return &Server{
-		done: make(chan bool, 1),
-		pathPrefix: pathPrefix,
-		wli: wli,
-		wlmgmts: make(map[string]WorkloadMgmtInterface),
-	}
-}
-
-// Stop terminate the UDS.
-func (s *Server) Stop() {
-	s.done <- true
-}
-
-// WaitDone to wait for a response back from Workloadhandler
-func (s *Server) WaitDone() {
-	<-s.done
-}
-
-// Serve opens the UDS channel
-func (s *Server) Serve(isUds bool, path string) {
-	grpcServer := grpc.NewServer()
-	pb.RegisterNodeAgentServiceServer(grpcServer, s)
-
-	var lis net.Listener
-	var err error
-	if isUds == false {
-		lis, err = net.Listen("tcp", path)
-		if err != nil {
-			log.Errorf("failed to %v", err)
-		}
-	} else {
-		_, e := os.Stat(path)
-		if e == nil {
-			e := os.RemoveAll(path)
-			if e != nil {
-				log.Errorf("failed to %s with error %v", path, err)
-			}
-		}
-		lis, err = net.Listen("unix", path)
-		if err != nil {
-			log.Errorf("failed to %v", err)
-		}
-	}
-
-	go func(ln net.Listener, s *Server) {
-		<-s.done
-		ln.Close()
-		s.CloseAllWlds()
-	}(lis, s)
-
-	grpcServer.Serve(lis)
-}
-
-// WorkloadAdded define the server side action when a workload is added.
-func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
-	log.Infof("The request is %v", request)
-	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok == true {
-		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
-		return &pb.NodeAgentMgmtResponse{Status: status}, nil
-	}
-
-	s.wlmgmts[request.Attrs.Uid] = s.wli.NewWlhCb(request, s.wli.Wl, s.pathPrefix)
-	go s.wlmgmts[request.Attrs.Uid].Serve()
-
-  status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
-	return &pb.NodeAgentMgmtResponse{Status: status}, nil
-}
-
-// WorkloadDeleted define the server side action when a workload is deleted.
-func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
-	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok == false {
-    status := &rpc.Status{Code: int32(rpc.NOT_FOUND), Message: "Not found"}
-		return &pb.NodeAgentMgmtResponse{Status: status}, nil
-	}
-
-  log.Infof("Uid %s: Stop.", request.Attrs.Uid)
-	s.wlmgmts[request.Attrs.Uid].Stop()
-	s.wlmgmts[request.Attrs.Uid].WaitDone()
-
-	delete(s.wlmgmts, request.Attrs.Uid)
-
-	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
-	return &pb.NodeAgentMgmtResponse{Status: status}, nil
-}
-
-func (s *Server) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
-  // TODO(wattli): consolidate this.
-  return nil, nil
-}
-
-func (s *Server) CloseAllWlds() {
-	for _, wld := range s.wlmgmts {
-		wld.Stop()
-	}
-	for _, wld := range s.wlmgmts {
-		wld.WaitDone()
-	}
 }
 
 // unixDialer connect a target with specified timeout.
@@ -150,20 +39,20 @@ func unixDialer(target string, timeout time.Duration) (net.Conn, error) {
 }
 
 // NewClient is used by the flexvolume driver to interface with the nodeagent grpc server
-func NewClient(isUds bool, path string) *Client {
-	c := new(Client)
+func NewClient(isUds bool, path string) *NodeAgentClient {
+	c := new(NodeAgentClient)
 	c.dest = path
 	c.isUds = isUds
 	return c
 }
 
 // ClientUds create a new client with path
-func ClientUds(path string) *Client {
+func ClientUds(path string) *NodeAgentClient {
 	return NewClient(true, path)
 }
 
 // client create a new client
-func (c *Client) client() (pb.NodeAgentServiceClient, error) {
+func (c *NodeAgentClient) client() (pb.NodeAgentServiceClient, error) {
 	var conn *grpc.ClientConn
 	var err error
 	var opts []grpc.DialOption
@@ -195,7 +84,7 @@ func (c *Client) client() (pb.NodeAgentServiceClient, error) {
 }
 
 // WorkloadAdded add the workload.
-func (c *Client) WorkloadAdded(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
+func (c *NodeAgentClient) WorkloadAdded(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	cl, err := c.client()
 	if err != nil {
 		return nil, err
@@ -205,7 +94,7 @@ func (c *Client) WorkloadAdded(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtRespo
 }
 
 // WorkloadDeleted delete the workload.
-func (c *Client) WorkloadDeleted(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
+func (c *NodeAgentClient) WorkloadDeleted(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	cl, err := c.client()
 	if err != nil {
 		return nil, err
@@ -215,7 +104,7 @@ func (c *Client) WorkloadDeleted(ninputs *pb.WorkloadInfo) (*pb.NodeAgentMgmtRes
 }
 
 // Close terminates the connection.
-func (c *Client) Close() {
+func (c *NodeAgentClient) Close() {
 	if c.conn == nil {
 		return
 	}

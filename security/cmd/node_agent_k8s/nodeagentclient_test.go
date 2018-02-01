@@ -15,9 +15,7 @@
 package node_agent_k8s
 
 import (
-	"fmt"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,48 +24,43 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/platform"
-	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
 )
 
-type FakeIstioCAGrpcServer struct {
-	IsApproved      bool
-	Status          *rpc.Status
-	SignedCertChain []byte
-
+type FakeNodeAgentGrpcServer struct {
 	response *pb.CsrResponse
 	errorMsg string
 }
 
-func (s *FakeIstioCAGrpcServer) SetResponseAndError(response *pb.CsrResponse, errorMsg string) {
-	s.response = response
-	s.errorMsg = errorMsg
+func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
+	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
+	return &pb.NodeAgentMgmtResponse{Status: status}, nil
 }
 
-func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
-	if len(s.errorMsg) > 0 {
-		return nil, fmt.Errorf(s.errorMsg)
-	}
-
-	return s.response, nil
+func (s *FakeNodeAgentGrpcServer) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
+	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
+	return &pb.NodeAgentMgmtResponse{Status: status}, nil
 }
 
-func TestSendCSRAgainstLocalInstance(t *testing.T) {
+func (s *FakeNodeAgentGrpcServer) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
+	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
+	return &pb.CheckResponse{Status: status}, nil
+}
+
+func TestWorkloadAdded(t *testing.T) {
 	// create a local grpc server
 	s := grpc.NewServer()
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Errorf("failed to listen: %v", err)
 	}
-	serv := FakeIstioCAGrpcServer{}
+	serv := FakeNodeAgentGrpcServer{}
 
 	go func() {
 		defer func() {
 			s.Stop()
 		}()
-		pb.RegisterIstioCAServiceServer(s, &serv)
+		pb.RegisterNodeAgentServiceServer(s, &serv)
 		reflection.Register(s)
 		if err := s.Serve(lis); err != nil {
 			t.Errorf("failed to serve: %v", err)
@@ -76,109 +69,46 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
+	client := &NodeAgentClient{nil, "Dest", false}
 
-	defaultServerResponse := pb.CsrResponse{
-		IsApproved:      true,
-		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
-		SignedCertChain: nil,
-	}
+	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
+	naInp := &pb.WorkloadInfo{Attrs: &attrs}
 
-	testCases := map[string]struct {
-		caAddress   string
-		pc          platform.Client
-		expectedErr string
-	}{
-		"IstioCAAddress is empty": {
-			caAddress: "",
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
-			expectedErr: "istio CA address is empty",
-		},
-		"IstioCAAddress is incorrect": {
-			caAddress: lis.Addr().String() + "1",
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
-			expectedErr: "CSR request failed rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
-		},
-		"Without Insecure option": {
-			caAddress: lis.Addr().String(),
-			pc:        mockpc.FakeClient{[]grpc.DialOption{}, "", "service1", "", []byte{}, "", true},
-			expectedErr: fmt.Sprintf("failed to dial %s: grpc: no transport security set "+
-				"(use grpc.WithInsecure() explicitly or set credentials)", lis.Addr().String()),
-		},
-		"Error from GetDialOptions": {
-			caAddress: lis.Addr().String(),
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "Error from GetDialOptions", "service1", "", []byte{}, "", true},
-			expectedErr: "Error from GetDialOptions",
-		},
-		"SendCSR not approved": {
-			caAddress: lis.Addr().String(),
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
-			expectedErr: "",
-		},
-	}
-
-	for id, c := range testCases {
-		csr, _, err := ca.GenCSR(ca.CertOptions{
-			Host:       "service1",
-			Org:        "orgA",
-			RSAKeySize: 512,
-		})
-		if err != nil {
-			t.Errorf("CSR generation failure (%v)", err)
-		}
-
-		cred, err := c.pc.GetAgentCredential()
-		if err != nil {
-			t.Errorf("Error getting credential (%v)", err)
-		}
-
-		req := &pb.CsrRequest{
-			CsrPem:              csr,
-			NodeAgentCredential: cred,
-			CredentialType:      c.pc.GetCredentialType(),
-			RequestedTtlMinutes: 60,
-		}
-
-		serv.SetResponseAndError(&defaultServerResponse, "")
-
-		client := &CAGrpcClientImpl{}
-		_, err = client.SendCSR(req, c.pc, c.caAddress)
-		if len(c.expectedErr) > 0 {
-			if err == nil {
-				t.Errorf("Error expected: %v", c.expectedErr)
-			} else if !strings.Contains(err.Error(), c.expectedErr) {
-				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
-			}
-		} else {
-			if err != nil {
-				t.Errorf("Unexpected expected: %v", err)
-			}
-		}
+	_, err = client.WorkloadAdded(naInp)
+	if err == nil {
+		t.Errorf("Failed to WorkloadAdded.")
 	}
 }
 
-
-import (
-	"testing"
-)
-
-func TestInit(t *testing.T) {
-	ver := "1.8"
-	err := Init(ver)
+func TestWorkloadDeleted(t *testing.T) {
+	// create a local grpc server
+	s := grpc.NewServer()
+	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Errorf("Failed to init.")
+		t.Errorf("failed to listen: %v", err)
 	}
+	serv := FakeNodeAgentGrpcServer{}
 
-	ver = "1.9"
-	err = Init(ver)
-	if err != nil {
-		t.Errorf("Failed to init.")
+	go func() {
+		defer func() {
+			s.Stop()
+		}()
+		pb.RegisterNodeAgentServiceServer(s, &serv)
+		reflection.Register(s)
+		if err := s.Serve(lis); err != nil {
+			t.Errorf("failed to serve: %v", err)
+		}
+	}()
+
+	// The goroutine starting the server may not be ready, results in flakiness.
+	time.Sleep(1 * time.Second)
+	client := &NodeAgentClient{nil, "Dest", false}
+
+	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
+	naInp := &pb.WorkloadInfo{Attrs: &attrs}
+
+	_, err = client.WorkloadDeleted(naInp)
+	if err == nil {
+		t.Errorf("Failed to WorkloadDeleted.")
 	}
 }

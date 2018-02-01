@@ -17,32 +17,29 @@ package node_agent_k8s
 import (
 	"net"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-  "istio.io/istio/pkg/log"
-  rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-  pb "istio.io/istio/security/proto"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/pkg/log"
+	pb "istio.io/istio/security/proto"
 )
 
 // Server specify the node agent server.
 type Server struct {
-	wlmgmts     map[string]WorkloadMgmtInterface
+	wlmgmts    map[string]WorkloadMgmtInterface
 	pathPrefix string
 	done       chan bool //main 2 mgmt-api server to stop
-	wli		*WlHandler
+	wli        *WlHandler
 }
 
 // NewServer create a new server.
 func NewServer(pathPrefix string, wli *WlHandler) *Server {
 	return &Server{
-		done: make(chan bool, 1),
+		done:       make(chan bool, 1),
 		pathPrefix: pathPrefix,
-		wli: wli,
-		wlmgmts: make(map[string]WorkloadMgmtInterface),
+		wli:        wli,
+		wlmgmts:    make(map[string]WorkloadMgmtInterface),
 	}
 }
 
@@ -102,18 +99,18 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	s.wlmgmts[request.Attrs.Uid] = s.wli.NewWlhCb(request, s.wli.Wl, s.pathPrefix)
 	go s.wlmgmts[request.Attrs.Uid].Serve()
 
-  status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
+	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
 	return &pb.NodeAgentMgmtResponse{Status: status}, nil
 }
 
 // WorkloadDeleted define the server side action when a workload is deleted.
 func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok == false {
-    status := &rpc.Status{Code: int32(rpc.NOT_FOUND), Message: "Not found"}
+		status := &rpc.Status{Code: int32(rpc.NOT_FOUND), Message: "Not found"}
 		return &pb.NodeAgentMgmtResponse{Status: status}, nil
 	}
 
-  log.Infof("Uid %s: Stop.", request.Attrs.Uid)
+	log.Infof("Uid %s: Stop.", request.Attrs.Uid)
 	s.wlmgmts[request.Attrs.Uid].Stop()
 	s.wlmgmts[request.Attrs.Uid].WaitDone()
 
@@ -124,8 +121,8 @@ func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) 
 }
 
 func (s *Server) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
-  // TODO(wattli): consolidate this.
-  return nil, nil
+	// TODO(wattli): consolidate this.
+	return nil, nil
 }
 
 func (s *Server) CloseAllWlds() {
