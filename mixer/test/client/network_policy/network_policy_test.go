@@ -79,6 +79,6 @@ func TestNetworkFailure(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code == 200 {
-		t.Errorf("Non-200 status code 503 is expected, got %d.", code)
+		t.Errorf("Non-200 status code is expected, got %d.", code)
 	}
 }
