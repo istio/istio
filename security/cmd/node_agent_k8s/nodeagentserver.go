@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node_agent_k8s
+package nodeagentk8s
 
 import (
 	"net"
@@ -120,11 +120,13 @@ func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) 
 	return &pb.NodeAgentMgmtResponse{Status: status}, nil
 }
 
+// Check is a dummy func.
 func (s *Server) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
 	// TODO(wattli): consolidate this.
 	return nil, nil
 }
 
+// CloseAllWlds close the paths.
 func (s *Server) CloseAllWlds() {
 	for _, wld := range s.wlmgmts {
 		wld.Stop()

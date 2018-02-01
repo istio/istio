@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node_agent_k8s
+package nodeagentk8s
 
 import (
 	"testing"

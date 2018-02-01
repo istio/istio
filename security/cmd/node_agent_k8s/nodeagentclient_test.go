@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node_agent_k8s
+package nodeagentk8s
 
 import (
 	"net"
@@ -62,8 +62,8 @@ func TestWorkloadAdded(t *testing.T) {
 		}()
 		pb.RegisterNodeAgentServiceServer(s, &serv)
 		reflection.Register(s)
-		if err := s.Serve(lis); err != nil {
-			t.Errorf("failed to serve: %v", err)
+		if err2 := s.Serve(lis); err2 != nil {
+			t.Errorf("failed to serve: %v", err2)
 		}
 	}()
 
@@ -95,8 +95,8 @@ func TestWorkloadDeleted(t *testing.T) {
 		}()
 		pb.RegisterNodeAgentServiceServer(s, &serv)
 		reflection.Register(s)
-		if err := s.Serve(lis); err != nil {
-			t.Errorf("failed to serve: %v", err)
+		if err2 := s.Serve(lis); err2 != nil {
+			t.Errorf("failed to serve: %v", err2)
 		}
 	}()
 

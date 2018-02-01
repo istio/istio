@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node_agent_k8s
+package nodeagentk8s
 
 import (
 	"google.golang.org/grpc"
 	pb "istio.io/istio/security/proto"
 )
 
-// Workloadhandler support this given interface.
+// WorkloadMgmtInterface support this given interface.
 // nodeagentmgmt will invoke
 // Serve() as a go routine when a Workload is added.
 // Stop() when a Workload is deleted.

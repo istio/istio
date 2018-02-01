@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"os"
 	"os/exec"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 	nagent "istio.io/istio/security/cmd/node_agent_k8s"
@@ -30,7 +30,7 @@ import (
 // Resp is the driver response
 type Resp struct {
 	// Status of the response
-	Status  string `json:"status"`
+	Status string `json:"status"`
 	// Response message of the response
 	Message string `json:"message"`
 	// Capability resp.
@@ -66,7 +66,7 @@ func Init(version string) error {
 		}
 		return nil
 	}
-  log.Info("Init finishes successfully")
+	log.Info("Init finishes successfully")
 	return nil
 }
 
@@ -137,8 +137,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-  attrs := pb.WorkloadInfo_WorkloadAttributes{
-		Uid: ninputs.UID,
+	attrs := pb.WorkloadInfo_WorkloadAttributes{
+		Uid:            ninputs.UID,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -201,7 +201,7 @@ func doUnmount(dir string) error {
 func addListener(ninputs *pb.WorkloadInfo) error {
 	client := nagent.ClientUds(nodeAgentMgmtAPI)
 	if client == nil {
-		return errors.New("Failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client")
 	}
 
 	_, err := client.WorkloadAdded(ninputs)
@@ -217,7 +217,7 @@ func addListener(ninputs *pb.WorkloadInfo) error {
 func delListener(ninputs *pb.WorkloadInfo) error {
 	client := nagent.ClientUds(nodeAgentMgmtAPI)
 	if client == nil {
-		return errors.New("Failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client.")
 	}
 
 	_, err := client.WorkloadDeleted(ninputs)
@@ -244,7 +244,7 @@ func Mount(dir, opts string) error {
 		return errors.New(sErr)
 	}
 
-  if err := addListener(ninputs); err != nil {
+	if err := addListener(ninputs); err != nil {
 		sErr := fmt.Sprintf("Failure to notify nodeagent with error: %v", err)
 		return errors.New(sErr)
 	}
@@ -261,7 +261,7 @@ func Unmount(dir string) error {
 		return errors.New(sErr)
 	}
 
-  uid := comps[5]
+	uid := comps[5]
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: uid}
 
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
@@ -283,9 +283,10 @@ func Unmount(dir string) error {
 	}
 
 	log.Infof("Unmount successfully with dir %s", dir)
-  return nil
+	return nil
 }
 
+// GelVolName get the volume name
 func GetVolName(opts string) error {
 	log.Infof("The opts is %s", opts)
 	_, err := json.Marshal(&Resp{VolumeName: volumeName, Status: "Success", Message: "ok"})

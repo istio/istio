@@ -187,6 +187,7 @@ func init() {
 	RootCmd.AddCommand(UnmountDevCmd)
 	RootCmd.AddCommand(MountCmd)
 	RootCmd.AddCommand(UnmountCmd)
+	RootCmd.AddCommand(GetVolNameCmd)
 }
 
 func main() {

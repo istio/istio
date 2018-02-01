@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node_agent_k8s
+package nodeagentk8s
 
 import (
 	"net"
@@ -26,7 +26,7 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-// Client specify a UDS client connection
+// NodeAgentClient specify a UDS client connection
 type NodeAgentClient struct {
 	conn  *grpc.ClientConn
 	dest  string
