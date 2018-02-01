@@ -39,11 +39,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
+	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -89,8 +91,12 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			defaultNamespace = getDefaultNamespace(kubeconfig)
+			return nil
 		},
 	}
 
@@ -101,9 +107,6 @@ and destination policies.
 			istioctl create -f example-routing.yaml
 			`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			if len(args) != 0 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
@@ -527,6 +530,12 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Control",
+		Section: "istioctl CLI",
+		Manual:  "Istio Control",
+	}))
 }
 
 func main() {

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a simple command that is used to output the auto-generated collateral
-// files for the various mixer CLI commands. More specifically, this outputs
-// markdown files and man pages that describe the CLI commands, along with
-// bash completion files.
+package routing
 
-package main
+// tableDebugInfo contains debugging information for the table.
+type tableDebugInfo struct {
+	// match condition sets by the input set id.
+	matchesByID map[uint32]string
 
-import (
-	"os"
-
-	"istio.io/istio/broker/cmd/brkcol/cmd"
-	"istio.io/istio/broker/cmd/shared"
-)
-
-func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(-1)
-	}
+	// instanceName set of builders by the input set.
+	instanceNamesByID map[uint32][]string
 }
