@@ -89,8 +89,12 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			defaultNamespace = getDefaultNamespace(kubeconfig)
+			return nil
 		},
 	}
 
@@ -101,9 +105,6 @@ and destination policies.
 			istioctl create -f example-routing.yaml
 			`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			if len(args) != 0 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
