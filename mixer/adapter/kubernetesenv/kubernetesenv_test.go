@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
@@ -39,14 +40,31 @@ type fakeK8sBuilder struct {
 	calledEnv  adapter.Env
 }
 
-func (b *fakeK8sBuilder) build(path string, env adapter.Env) (kubernetes.Interface, error) {
+func (b *fakeK8sBuilder) conf(path string, env adapter.Env) (*rest.Config, error) {
 	b.calledPath = path
 	b.calledEnv = env
+	return &rest.Config{Host: "host", APIPath: "apipath", Prefix: "prefix"}, nil
+}
+
+func clientset(*rest.Config) (kubernetes.Interface, error) {
 	return fake.NewSimpleClientset(), nil
 }
 
-func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, error) {
+func nilConf(path string, env adapter.Env) (*rest.Config, error) {
+	return nil, nil
+}
+
+func errorConfigBuilder(path string, env adapter.Env) (*rest.Config, error) {
 	return nil, errors.New("can't build k8s client")
+}
+
+func errorClientset(*rest.Config) (kubernetes.Interface, error) {
+	return nil, errors.New("failure building clientset from config")
+}
+
+func newFakeBuilder() *builder {
+	fb := &fakeK8sBuilder{}
+	return newBuilder(fb.conf, clientset)
 }
 
 // note: not using TestAdapterInvariants here because of kubernetes dependency.
@@ -54,7 +72,7 @@ func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, err
 // test / e2e test must be written to validate the builder in relation to a
 // real kubernetes cluster.
 func TestBuilder(t *testing.T) {
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	if err := b.Validate(); err != nil {
 		t.Errorf("ValidateConfig() => builder can't validate its default configuration: %v", err)
@@ -71,7 +89,7 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly", PodLabelForService: "app"}, 3},
 	}
 
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	for _, v := range tests {
 		b.SetAdapterConfig(v.conf)
@@ -88,18 +106,21 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 
 func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 	tests := []struct {
-		name    string
-		testFn  clientFactoryFn
-		conf    adapter.Config
-		wantErr bool
+		name        string
+		configFn    configFactoryFn
+		clientsetFn clientsetFactoryFn
+		conf        adapter.Config
+		wantErr     bool
 	}{
-		{"success", (&fakeK8sBuilder{}).build, conf, false},
-		{"builder error", errorClientBuilder, conf, true},
+		{"success", (&fakeK8sBuilder{}).conf, clientset, conf, false},
+		{"success -- nil config", nilConf, clientset, conf, false},
+		{"builder error -- config", errorConfigBuilder, clientset, conf, true},
+		{"builder error -- clientset", (&fakeK8sBuilder{}).conf, errorClientset, conf, true},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			b := newBuilder(v.testFn)
+			b := newBuilder(v.configFn, v.clientsetFn)
 			b.SetAdapterConfig(v.conf)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
 			if err == nil && v.wantErr {
@@ -109,6 +130,24 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 				t.Fatalf("Got error, wanted none: %v", err)
 			}
 		})
+	}
+}
+
+func TestBuilder_ControllerCache(t *testing.T) {
+	b := newFakeBuilder()
+
+	for i := 0; i < 10; i++ {
+		if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
+			t.Errorf("error in builder: %v", err)
+		}
+	}
+
+	if b.controllers.Stats().Hits != 9 {
+		t.Errorf("Got %v hits, want 9", b.controllers.Stats().Hits)
+	}
+
+	if b.controllers.Stats().Misses != 1 {
+		t.Errorf("Got %v misses, want 1", b.controllers.Stats().Misses)
 	}
 }
 
@@ -132,7 +171,7 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			b := newBuilder(v.clientFactory.build)
+			b := newBuilder(v.clientFactory.conf, clientset)
 			b.SetAdapterConfig(v.conf)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -376,7 +415,7 @@ func TestKubegen_Generate(t *testing.T) {
 		objs = append(objs, pod)
 	}
 
-	builder := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+	builder := newBuilder((&fakeK8sBuilder{}).conf, func(*rest.Config) (kubernetes.Interface, error) {
 		return fake.NewSimpleClientset(objs...), nil
 	})
 

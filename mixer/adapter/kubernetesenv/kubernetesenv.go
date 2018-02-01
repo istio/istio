@@ -29,17 +29,20 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
+	istiocache "istio.io/istio/pkg/cache"
 )
 
 const (
@@ -53,9 +56,12 @@ const (
 	lookupIngressSourceAndOriginValues = false
 	istioIngressSvc                    = "istio-ingress.istio-system.svc.cluster.local"
 
-	// cache invalidation
+	// k8s cache invalidation
 	// TODO: determine a reasonable default
 	defaultRefreshPeriod = 5 * time.Minute
+
+	// max builder cache size for k8s controllers
+	maxControllersCacheEntries = 25
 )
 
 var (
@@ -73,7 +79,11 @@ var (
 type (
 	builder struct {
 		adapterConfig *config.Params
-		newClientFn   clientFactoryFn
+		newConfig     configFactoryFn
+		newClientset  clientsetFactoryFn
+
+		sync.Mutex
+		controllers istiocache.Cache
 	}
 
 	handler struct {
@@ -83,7 +93,8 @@ type (
 	}
 
 	// used strictly for testing purposes
-	clientFactoryFn func(kubeconfigPath string, env adapter.Env) (k8s.Interface, error)
+	configFactoryFn    func(kubeconfigPath string, env adapter.Env) (*rest.Config, error)
+	clientsetFactoryFn func(c *rest.Config) (k8s.Interface, error)
 )
 
 // compile-time validation
@@ -101,7 +112,7 @@ func GetInfo() adapter.Info {
 		},
 		DefaultConfig: conf,
 
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
+		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesConfig, newInterface) },
 	}
 }
 
@@ -138,20 +149,40 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
-	clientset, err := b.newClientFn(path, env)
+
+	config, err := b.newConfig(path, env)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not build config: %v", err)
 	}
-	controller := newCacheController(clientset, refresh)
-	env.ScheduleDaemon(func() { controller.Run(stopChan) })
-	// ensure that any request is only handled after
-	// a sync has occurred
-	env.Logger().Infof("Waiting for kubernetes cache sync...")
-	if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
-		stopChan <- struct{}{}
-		return nil, errors.New("cache sync failure")
+
+	var controller cacheController
+	key := configKey(config)
+	// only ever build a controller for a config once. this potential blocks
+	// the Build() for multiple handlers using the same config until the first
+	// one has synced. This should be OK, as the WaitForCacheSync was meant to
+	// provide this basic functionality before.
+	b.Lock()
+	if c, found := b.controllers.Get(key); !found {
+		clientset, err := b.newClientset(config)
+		if err != nil {
+			return nil, err
+		}
+		controller = newCacheController(clientset, refresh)
+		env.ScheduleDaemon(func() { controller.Run(stopChan) })
+		// ensure that any request is only handled after
+		// a sync has occurred
+		env.Logger().Infof("Waiting for kubernetes cache sync...")
+		if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
+			stopChan <- struct{}{}
+			return nil, errors.New("cache sync failure")
+		}
+		env.Logger().Infof("Cache sync successful.")
+		b.controllers.Set(key, controller)
+	} else {
+		controller = c.(cacheController)
 	}
-	env.Logger().Infof("Cache sync successful.")
+	b.Unlock()
+
 	return &handler{
 		env:    env,
 		pods:   controller,
@@ -159,9 +190,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}, nil
 }
 
-func newBuilder(clientFactory clientFactoryFn) *builder {
+func newBuilder(configFactory configFactoryFn, clientsetFactory clientsetFactoryFn) *builder {
 	return &builder{
-		newClientFn:   clientFactory,
+		newConfig:     configFactory,
+		newClientset:  clientsetFactory,
+		controllers:   istiocache.NewLRU(0, 0 /* never expire */, maxControllersCacheEntries),
 		adapterConfig: conf,
 	}
 }
@@ -404,6 +437,16 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	env.Logger().Infof("getting k8s client from config")
-	return k8s.NewForConfig(config)
+	return config, nil
+}
+
+func newInterface(c *rest.Config) (k8s.Interface, error) {
+	return k8s.NewForConfig(c)
+}
+
+func configKey(config *rest.Config) string {
+	if config == nil {
+		return ""
+	}
+	return config.Host + config.Prefix + config.APIPath
 }
