@@ -16,7 +16,7 @@
 // options. This implementation is Largely inspired from
 // https://golang.org/src/crypto/tls/generate_cert.go.
 
-package ca
+package util
 
 import (
 	"crypto"
@@ -57,7 +57,7 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 	}
 
 	if h := options.Host; len(h) > 0 {
-		s, err := buildSubjectAltNameExtension(h)
+		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
 		}

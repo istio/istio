@@ -16,7 +16,7 @@
 // options. This implementation is Largely inspired from
 // https://golang.org/src/crypto/tls/generate_cert.go.
 
-package ca
+package util
 
 import (
 	"crypto"
@@ -28,11 +28,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"net"
-	"strings"
 	"time"
-
-	"istio.io/istio/security/pkg/pki"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -72,9 +68,6 @@ type CertOptions struct {
 	// The size of RSA private key to be generated.
 	RSAKeySize int
 }
-
-// URIScheme is the URI scheme for Istio identities.
-const URIScheme = "spiffe"
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
 func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
@@ -129,12 +122,12 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 		return nil, nil, fmt.Errorf("private key file reading failure (%v)", err)
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(signerCertBytes)
+	cert, err := ParsePemEncodedCertificate(signerCertBytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pem encoded cert parsing failure (%v)", err)
 	}
 
-	key, err := pki.ParsePemEncodedKey(signerPrivBytes)
+	key, err := ParsePemEncodedKey(signerPrivBytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pem encoded key parsing failure (%v)", err)
 	}
@@ -213,7 +206,7 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 
 	exts := []pkix.Extension{}
 	if h := options.Host; len(h) > 0 {
-		s, err := buildSubjectAltNameExtension(h)
+		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
 		}
@@ -253,28 +246,4 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []by
 	privDer := x509.MarshalPKCS1PrivateKey(priv)
 	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
 	return csrOrCertPem, privPem
-}
-
-func buildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
-	ids := []pki.Identity{}
-	for _, host := range strings.Split(hosts, ",") {
-		if ip := net.ParseIP(host); ip != nil {
-			// Use the 4-byte representation of the IP address when possible.
-			if eip := ip.To4(); eip != nil {
-				ip = eip
-			}
-			ids = append(ids, pki.Identity{Type: pki.TypeIP, Value: ip})
-		} else if strings.HasPrefix(host, URIScheme+":") {
-			ids = append(ids, pki.Identity{Type: pki.TypeURI, Value: []byte(host)})
-		} else {
-			ids = append(ids, pki.Identity{Type: pki.TypeDNS, Value: []byte(host)})
-		}
-	}
-
-	san, err := pki.BuildSANExtension(ids)
-	if err != nil {
-		return nil, fmt.Errorf("SAN extension building failure (%v)", err)
-	}
-
-	return san, nil
 }
