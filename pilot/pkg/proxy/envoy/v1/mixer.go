@@ -14,7 +14,7 @@
 
 // Mixer filter configuration
 
-package envoy
+package v1
 
 import (
 	"net"

@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 )
 
 func TestServiceNode(t *testing.T) {

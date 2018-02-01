@@ -26,7 +26,7 @@ import (
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	mock_config "istio.io/istio/pilot/test/mock"
 )
 
