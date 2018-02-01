@@ -185,11 +185,11 @@ func MakeIP(service *model.Service, version int) string {
 type ServiceDiscovery struct {
 	services           map[string]*model.Service
 	versions           int
-	WantHostInstances  []*model.ServiceInstance
+	WantGetSidecarServiceInstances  []*model.ServiceInstance
 	ServicesError      error
 	GetServiceError    error
 	InstancesError     error
-	HostInstancesError error
+	GetSidecarServiceInstancesError error
 }
 
 // ClearErrors clear errors used for mocking failures during model.ServiceDiscovery interface methods
@@ -197,7 +197,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.ServicesError = nil
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
-	sd.HostInstancesError = nil
+	sd.GetSidecarServiceInstancesError = nil
 }
 
 // Services implements discovery interface
@@ -247,13 +247,13 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	return out, sd.InstancesError
 }
 
-// HostInstances implements discovery interface
-func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
-	if sd.HostInstancesError != nil {
-		return nil, sd.HostInstancesError
+// GetSidecarServiceInstances implements discovery interface
+func (sd *ServiceDiscovery) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+	if sd.GetSidecarServiceInstancesError != nil {
+		return nil, sd.GetSidecarServiceInstancesError
 	}
-	if sd.WantHostInstances != nil {
-		return sd.WantHostInstances, nil
+	if sd.WantGetSidecarServiceInstances != nil {
+		return sd.WantGetSidecarServiceInstances, nil
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
@@ -267,7 +267,7 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]*model.Node) ([]*mode
 			}
 		}
 	}
-	return out, sd.HostInstancesError
+	return out, sd.GetSidecarServiceInstancesError
 }
 
 // ManagementPorts implements discovery interface
