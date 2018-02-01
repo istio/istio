@@ -101,7 +101,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "58de5731b5401268263924fae9df7d091813c19e"
+  revision = "a31ac6dbd68579a553367ebb20b1c2b4551404bf"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
