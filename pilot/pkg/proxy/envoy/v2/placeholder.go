@@ -17,7 +17,7 @@
 // TODO: This is a placeholder file to import go-control-plane. This file
 // will be removed and substituted with real code.
 
-package dataplane
+package v2
 
 import (
 	"context"
