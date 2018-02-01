@@ -102,11 +102,13 @@ type ConfigArgs struct {
 type ConsulArgs struct {
 	Config    string
 	ServerURL string
+	Interval  time.Duration
 }
 
 // EurekaArgs provides configuration for the Eureka service registry
 type EurekaArgs struct {
 	ServerURL string
+	Interval  time.Duration
 }
 
 // ServiceArgs provides the composite configuration for all service registries in the system.
@@ -432,7 +434,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
-				args.Service.Consul.ServerURL, 2*time.Second)
+				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
@@ -448,9 +450,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name: serviceregistry.ServiceRegistry(r),
-					// TODO: Remove sync time hardcoding!
-					Controller:       eureka.NewController(eurekaClient, 2*time.Second),
+					Name:             serviceregistry.ServiceRegistry(r),
+					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
