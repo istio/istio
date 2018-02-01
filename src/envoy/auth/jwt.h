@@ -28,7 +28,16 @@ namespace Http {
 namespace Auth {
 
 enum class Status {
-  OK,
+  OK = 0,
+
+  // JWT token is required.
+  JWT_MISSED,
+
+  // Authorization header value doesn't have Bearer prefix.
+  BEARER_PREFIX_MISMATCH,
+
+  // Token expired.
+  JWT_EXPIRED,
 
   // Given JWT is not in the form of Header.Payload.Signature
   JWT_BAD_FORMAT,
@@ -54,6 +63,9 @@ enum class Status {
 
   // "kid" in the JWT header is not a string.
   JWT_HEADER_BAD_KID,
+
+  // Issuer is not configured.
+  JWT_UNKNOWN_ISSUER,
 
   // JWK is an invalid JSON.
   JWK_PARSE_ERROR,
@@ -81,6 +93,12 @@ enum class Status {
 
   // "n" or" "e" field of a JWK has a parse error or is missing.
   JWK_PUBKEY_PARSE_ERROR,
+
+  // Audience is not allowed.
+  AUDIENCE_NOT_ALLOWED,
+
+  // Failed to fetch public key
+  FAILED_FETCH_PUBKEY,
 };
 
 std::string StatusToString(Status status);

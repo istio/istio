@@ -33,7 +33,7 @@ For every request from user client:
 * Follow https://github.com/lyft/envoy/blob/master/bazel/README.md to set up environment, and build target envoy:
 
 ```
-  bazel build //src/envoy/auth:envoy
+  bazel build //src/envoy:envoy
 ```
 
 ## How to run it
@@ -41,7 +41,7 @@ For every request from user client:
 * Start Envoy proxy. Run
 
 ```
-bazel-bin/src/envoy/auth/envoy -c src/envoy/auth/sample/envoy.conf
+bazel-bin/src/envoy/envoy -c src/envoy/auth/sample/envoy.conf
 ```
 
 * Start backend Echo server.
@@ -78,8 +78,9 @@ curl --header "Authorization: Bearer $token" http://localhost:9090/echo -d "hell
 
 ### How to receive JWT
 
-Every HTTP request should contain a JWT in the HTTP Authorization header:
+If a HTTP request contains a JWT in the HTTP Authorization header:
 - `Authorization: Bearer <JWT>` 
+Envoy proxy will try to verify it with configured issuers.
 
 ### Behavior after verification
 
@@ -90,11 +91,8 @@ Every HTTP request should contain a JWT in the HTTP Authorization header:
   sec-istio-auth-userinfo: <UserInfo>
   ```
   
-  Here, `<UserInfo>` is one of the following, which you can configure in Envoy config:
-  
-  - Payload JSON
-  - base64url-encoded payload JSON
-  - JWT without signature (= base64url-encoded header and payload JSONs)
+  Here, `<UserInfo>` is  base64 encoded payload JSON.
+- The authorization header with JWT token is removed.
 
 
 ## How to configure it
@@ -115,79 +113,36 @@ In Envoy config,
 
 ### Config format
 
-Format of `<config>`:
+Format of `<config>` is defined in AuthFilterConfig message in config.proto file. It can be specified in JSON format as following examples
 ```
 {
- "userinfo_type": <type of user info>,
- "pubkey_cache_expiration_sec": <time in seconds to expire a cached public key>
- “issuers”:[
-   {
-     “name”: <issuer name>,
-     "audiences": [
-       <audience A>,
-       <audience B>,
-       ...
-     ],
-     “pubkey”: {
-        “type”: <type>, 
-        “uri”: <uri>, 
-        "cluster": <name of cluster>,
-        "file": <path of the file of public key>
-        “value”: <raw string of public key>,
-     }, 
-   },
-   ...
- ]
+   "jwts": [
+      {
+         "issuer": "issuer1_name",
+         "audiences": [
+            "audience1",
+            "audience2"
+          ],
+         "jwks_uri": "http://server1/path1",
+         "jwks_uri_envoy_cluster": "issuer1_cluster"
+      },
+      {
+         "issuer": "issuer2_name",
+         "audiences": [],
+         "jwks_uri": "server2",
+         "jwks_uri_envoy_cluster": "issuer2_cluster",
+         "public_key_cache_duration": {
+             "seconds": 600,
+             "nanos": 1000
+          }
+      }
+  ]
 }
 ```
 
-#### userinfo_type (string, optional)
-
-It specifies what will be added in `sec-istio-auth-userinfo` HTTP header.
-It should be one of the following:
-
-- `payload` : payload JSON
-- `payload_base64url` : base64url-encoded payload JSON
-- `header_payload_base64url` : JWT without  signature
-
-If not specified, the default value is `payload_base64url`.
-
-#### [WARNING, This feature is under construction ([issue](https://github.com/istio/proxy/issues/468))] pubkey_cache_expiration_sec (number, optional)
-
-It specifies how long a cached public key will be kept (in seconds).
-
-If not specified, the default value is `600`.
-
-#### issuers (array of object, required)
-
-It specifies the issuers and their public keys.
-You can register multiple issuers and 
-every JWT will be considered to be valid if it's verified with one of these issuers.
-
-
-For each issuer, the following informations are required:
-- __name__  (string, required): issuer's name. It should be the same as the value of the `iss` claim of a JWT.
-- __audiences__ (array of string, optional): 
-It specifies the set of acceptable audiences.
-If it is specified, JWT must have `aud` claim specified in this list.
-
-- __pubkey__ (object, required): information about public key.
-  `type` and (`value` or `file` or (`uri` and `cluster`)) are required.
-  - __type__ (string, required): the format of public key. It should be one of {`"jwks"`, `"pem"`}.
-  - __value__ (string, optional): string of public key.
-  - __file__ (string, optional): path of the plain text file of the public key.
-  - __uri__ (string, optional): URI of the public key. Note that in this case you should register the issuer as a cluster (as described below), and specify the name of the cluster.
-  - __cluster__ (string, optional): cluster name of the issuer.
-  
-  __(WARNING:This feature is under construction ([issue](https://github.com/istio/proxy/issues/468)))__ When `uri` and `cluster` are given, this proxy fetches the public key and 
-  updates every `pubkey_cache_expiration_sec` second. 
-
-
 ### Clusters
 
-You should specify all servers which the Envoy proxy will send requests to, as clusters in Envoy config.
-In particular, when the proxy needs to fetch a public key from an issuer server, 
-it should be registered as a cluster.
+All public key servers should be listed in the "clusters" section of the Envoy config.  The format of the "url" inside "hosts" section is "tcp://host-name:port".
 
 Example:
 ```
@@ -212,3 +167,4 @@ Example:
   ...
 ]
 ```
+

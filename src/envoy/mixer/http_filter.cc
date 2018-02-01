@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include "src/envoy/auth/http_filter.h"
 #include "common/common/base64.h"
 #include "common/common/logger.h"
+#include "common/config/utility.h"
 #include "common/http/headers.h"
 #include "common/http/utility.h"
 #include "control/include/utils/status.h"
@@ -23,8 +23,8 @@
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/auth/config.h"
 #include "src/envoy/auth/jwt.h"
+#include "src/envoy/auth/jwt_authenticator.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/mixer_control.h"
@@ -38,7 +38,7 @@ using ::google::protobuf::util::Status;
 using HttpCheckData = ::istio::mixer_control::http::CheckData;
 using HttpHeaderUpdate = ::istio::mixer_control::http::HeaderUpdate;
 using HttpReportData = ::istio::mixer_control::http::ReportData;
-using ::istio::mixer::v1::config::client::JWT;
+using ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 
 namespace Envoy {
@@ -77,36 +77,13 @@ const std::set<std::string> RequestHeaderExclusives = {
 // Set of headers excluded from response.headers attribute.
 const std::set<std::string> ResponseHeaderExclusives = {};
 
-std::shared_ptr<Auth::IssuerInfo> CreateIssuer(const JWT& jwt) {
-  std::vector<std::string> audiences;
-  for (const auto& audience : jwt.audiences()) {
-    audiences.push_back(audience);
-  }
-  return std::make_shared<Auth::IssuerInfo>(
-      jwt.issuer(), jwt.jwks_uri(), jwt.jwks_uri_envoy_cluster(),
-      Auth::Pubkeys::JWKS, std::move(audiences));
-}
-
-void CreateAuthIssuers(
-    const HttpMixerConfig& config,
-    std::vector<std::shared_ptr<Auth::IssuerInfo>>* issuers) {
-  for (const auto& it : config.http_config.service_configs()) {
-    if (it.second.has_end_user_authn_spec()) {
-      for (const auto& jwt : it.second.end_user_authn_spec().jwts()) {
-        issuers->push_back(CreateIssuer(jwt));
-      }
-    }
-  }
-}
-
 }  // namespace
 
-class Config {
+class Config : public Logger::Loggable<Logger::Id::http> {
  private:
   Upstream::ClusterManager& cm_;
   HttpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
-  std::shared_ptr<Auth::JwtAuthConfig> auth_config_;
 
  public:
   Config(const Json::Object& config,
@@ -121,20 +98,25 @@ class Config {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
                   new HttpMixerControl(mixer_config_, cm_, dispatcher, random));
             });
-
-    std::vector<std::shared_ptr<Auth::IssuerInfo>> issuers;
-    CreateAuthIssuers(mixer_config_, &issuers);
-    if (issuers.size() > 0) {
-      auth_config_ =
-          std::make_shared<Auth::JwtAuthConfig>(std::move(issuers), context);
-    }
   }
 
   HttpMixerControl& mixer_control() {
     return tls_->getTyped<HttpMixerControl>();
   }
 
-  std::shared_ptr<Auth::JwtAuthConfig> auth_config() { return auth_config_; }
+  std::unique_ptr<EndUserAuthenticationPolicySpec> auth_config() {
+    auto spec = std::unique_ptr<EndUserAuthenticationPolicySpec>(
+        new EndUserAuthenticationPolicySpec);
+    for (const auto& it : mixer_config_.http_config.service_configs()) {
+      if (it.second.has_end_user_authn_spec()) {
+        spec->MergeFrom(it.second.end_user_authn_spec());
+      }
+    }
+    if (spec->jwts_size() == 0) {
+      spec.reset();
+    }
+    return spec;
+  }
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;
@@ -283,7 +265,7 @@ class CheckData : public HttpCheckData,
   bool GetJWTPayload(
       std::map<std::string, std::string>* payload) const override {
     const HeaderEntry* entry =
-        headers_.get(Http::JwtVerificationFilter::AuthorizedHeaderKey());
+        headers_.get(Auth::JwtAuthenticator::JwtPayloadKey());
     if (!entry) {
       return false;
     }
@@ -292,8 +274,7 @@ class CheckData : public HttpCheckData,
     // Return an empty string if Base64 decode fails.
     if (payload_str.empty()) {
       ENVOY_LOG(error, "Invalid {} header, invalid base64: {}",
-                Http::JwtVerificationFilter::AuthorizedHeaderKey().get(),
-                value);
+                Auth::JwtAuthenticator::JwtPayloadKey().get(), value);
       return false;
     }
     try {
@@ -309,8 +290,7 @@ class CheckData : public HttpCheckData,
           });
     } catch (...) {
       ENVOY_LOG(error, "Invalid {} header, invalid json: {}",
-                Http::JwtVerificationFilter::AuthorizedHeaderKey().get(),
-                payload_str);
+                Auth::JwtAuthenticator::JwtPayloadKey().get(), payload_str);
       return false;
     }
     return true;
@@ -566,18 +546,29 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
                                           FactoryContext& context) override {
     Http::Mixer::ConfigPtr mixer_config(
         new Http::Mixer::Config(config, context));
-    return
-        [mixer_config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
-          if (mixer_config->auth_config()) {
-            callbacks.addStreamDecoderFilter(Http::StreamDecoderFilterSharedPtr{
-                new Http::JwtVerificationFilter(mixer_config->auth_config())});
-          }
-          std::shared_ptr<Http::Mixer::Instance> instance =
-              std::make_shared<Http::Mixer::Instance>(mixer_config);
-          callbacks.addStreamDecoderFilter(
-              Http::StreamDecoderFilterSharedPtr(instance));
-          callbacks.addAccessLogHandler(AccessLog::InstanceSharedPtr(instance));
-        };
+
+    HttpFilterFactoryCb auth_filter_cb;
+    auto auth_config = mixer_config->auth_config();
+    if (auth_config) {
+      auto& auth_factory =
+          Config::Utility::getAndCheckFactory<NamedHttpFilterConfigFactory>(
+              std::string("jwt-auth"));
+      auto proto_config = auth_factory.createEmptyConfigProto();
+      MessageUtil::jsonConvert(*auth_config, *proto_config);
+      auth_filter_cb =
+          auth_factory.createFilterFactoryFromProto(*proto_config, "", context);
+    }
+    return [mixer_config, auth_filter_cb](
+               Http::FilterChainFactoryCallbacks& callbacks) -> void {
+      if (auth_filter_cb) {
+        auth_filter_cb(callbacks);
+      }
+      std::shared_ptr<Http::Mixer::Instance> instance =
+          std::make_shared<Http::Mixer::Instance>(mixer_config);
+      callbacks.addStreamDecoderFilter(
+          Http::StreamDecoderFilterSharedPtr(instance));
+      callbacks.addAccessLogHandler(AccessLog::InstanceSharedPtr(instance));
+    };
   }
   std::string name() override { return "mixer"; }
 };

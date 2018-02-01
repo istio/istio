@@ -34,21 +34,16 @@
                 "type": "decoder",
                 "name": "jwt-auth",
                 "config": {
-                  "userinfo_type": "payload",
-                  "pubkey_cache_expiration_sec": 100,
-                  "issuers": [
-                    {
-                      "name": "https://example.com",
-                      "audiences": [
-                        "example_service"
-                      ],
-                      "pubkey": {
-                        "type": "jwks",
-                        "uri": "http://example.com/foobar_cert",
-                        "cluster": "example_issuer"
-                      }
-                    }
-                  ]
+                   "jwts": [
+                     {
+                        "issuer": "https://example.com",
+                        "audiences": [
+                           "example_service"
+                         ],
+                        "jwks_uri": "http://example.com/foobar_cert",
+                        "jwks_uri_envoy_cluster": "example_issuer"
+                     }
+                   ]
                 }
               },
               {

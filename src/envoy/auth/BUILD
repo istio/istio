@@ -24,13 +24,15 @@ load(
     "envoy_cc_test",
 )
 
-envoy_cc_binary(
-    name = "envoy",
-    repository = "@envoy",
-    deps = [
-        ":http_filter_config",
-        "@envoy//source/exe:envoy_main_entry_lib",
-    ],
+load(
+    "@envoy_api//bazel:api_build_system.bzl",
+    "api_proto_library",
+)
+
+api_proto_library(
+    name = "config_proto",
+    srcs = [":config.proto"],
+    require_py = 0,
 )
 
 envoy_cc_library(
@@ -46,6 +48,24 @@ envoy_cc_library(
 )
 
 envoy_cc_library(
+    name = "jwt_authenticator_lib",
+    srcs = [
+        "jwt_authenticator.cc",
+    ],
+    hdrs = [
+        "auth_store.h",
+        "jwt_authenticator.h",
+        "pubkey_cache.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        ":config_proto_cc",
+        ":jwt_lib",
+        "@envoy//source/exe:envoy_common_lib",
+    ],
+)
+
+envoy_cc_library(
     name = "http_filter_lib",
     srcs = [
         "http_filter.cc",
@@ -55,15 +75,14 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
-        ":jwt_lib",
-        ":config_lib",
+        ":jwt_authenticator_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
 
 envoy_cc_library(
-    name = "http_filter_config",
-    srcs = ["http_filter_config.cc"],
+    name = "http_filter_factory",
+    srcs = ["http_filter_factory.cc"],
     repository = "@envoy",
     deps = [
         ":http_filter_lib",
@@ -79,7 +98,7 @@ envoy_cc_test(
     ],
     repository = "@envoy",
     deps = [
-        ":http_filter_config",
+        ":http_filter_factory",
         ":jwt_lib",
         "@envoy//test/integration:http_integration_lib",
         "@envoy//test/integration:integration_lib",
@@ -100,17 +119,17 @@ envoy_cc_test(
     ],
 )
 
-envoy_cc_library(
-    name = "config_lib",
+envoy_cc_test(
+    name = "jwt_authenticator_test",
     srcs = [
-        "config.cc",
+        ":jwt_authenticator_test.cc",
     ],
-    hdrs = [
-        "config.h",
-    ],
+    data = [],
     repository = "@envoy",
     deps = [
-        ":jwt_lib",
+        ":jwt_authenticator_lib",
         "@envoy//source/exe:envoy_common_lib",
+        "@envoy//test/mocks/upstream:upstream_mocks",
+        "@envoy//test/test_common:utility_lib",
     ],
 )

@@ -15,22 +15,21 @@
 
 #pragma once
 
-#include "config.h"
+#include "src/envoy/auth/jwt_authenticator.h"
 
 #include "common/common/logger.h"
 #include "server/config/network/http_connection_manager.h"
 
-#include <map>
-#include <memory>
-#include <string>
-
 namespace Envoy {
 namespace Http {
 
+// The Envoy filter to process JWT auth.
 class JwtVerificationFilter : public StreamDecoderFilter,
+                              public Auth::JwtAuthenticator::Callbacks,
                               public Logger::Loggable<Logger::Id::http> {
  public:
-  JwtVerificationFilter(std::shared_ptr<Auth::JwtAuthConfig> config);
+  JwtVerificationFilter(Upstream::ClusterManager& cm,
+                        Auth::JwtAuthStore& store);
   ~JwtVerificationFilter();
 
   // Http::StreamFilterBase
@@ -43,33 +42,21 @@ class JwtVerificationFilter : public StreamDecoderFilter,
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override;
 
-  const LowerCaseString kAuthorizationHeaderKey =
-      LowerCaseString("Authorization");
-  const std::string kAuthorizationHeaderTokenPrefix = "Bearer ";
-  static const LowerCaseString& AuthorizedHeaderKey();
-
  private:
-  StreamDecoderFilterCallbacks* decoder_callbacks_;
-  std::shared_ptr<Auth::JwtAuthConfig> config_;
+  // the function for Auth::Authenticator::Callbacks interface.
+  // To be called when its Verify() call is completed.
+  void onDone(const Auth::Status& status);
 
+  // The callback funcion.
+  StreamDecoderFilterCallbacks* decoder_callbacks_;
+  // The auth object.
+  Auth::JwtAuthenticator jwt_auth_;
+
+  // The state of the request
   enum State { Init, Calling, Responded, Complete };
   State state_ = Init;
+  // Mark if request has been stopped.
   bool stopped_ = false;
-  std::function<void(void)> cancel_verification_;
-
-  // Key: name of issuer the public key of which is being fetched
-  // Value: (IssuerInfo object with that name, AsyncClientCallbacks object to
-  // make the request for public key)
-  std::map<std::string,
-           std::pair<std::shared_ptr<Auth::IssuerInfo>,
-                     std::unique_ptr<Auth::AsyncClientCallbacks> > >
-      calling_issuers_;
-
-  void ReceivePubkey(HeaderMap& headers, std::string issuer_name, bool succeed,
-                     const std::string& pubkey);
-  void LoadPubkeys(HeaderMap& headers);
-  std::string Verify(HeaderMap& headers);
-  void CompleteVerification(HeaderMap& headers);
 };
 
 }  // Http

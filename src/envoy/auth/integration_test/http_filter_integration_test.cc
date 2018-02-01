@@ -122,19 +122,18 @@ class JwtVerificationFilterIntegrationTest
       codec_client->makeHeaderOnlyRequest(request_headers, *response);
     }
 
-    fake_upstream_connection_issuer =
-        fake_upstreams_[1]->waitForHttpConnection(*dispatcher_);
-    request_stream_issuer =
-        fake_upstream_connection_issuer->waitForNewStream(*dispatcher_);
-    request_stream_issuer->waitForEndStream(*dispatcher_);
-
+    // Empty issuer_response_body indicates issuer will not be called.
     // Mock a response from an issuer server.
     if (!issuer_response_body.empty()) {
+      fake_upstream_connection_issuer =
+          fake_upstreams_[1]->waitForHttpConnection(*dispatcher_);
+      request_stream_issuer =
+          fake_upstream_connection_issuer->waitForNewStream(*dispatcher_);
+      request_stream_issuer->waitForEndStream(*dispatcher_);
+
       request_stream_issuer->encodeHeaders(issuer_response_headers, false);
       Buffer::OwnedImpl body(issuer_response_body);
       request_stream_issuer->encodeData(body, true);
-    } else {
-      request_stream_issuer->encodeHeaders(issuer_response_headers, true);
     }
 
     // Valid JWT case.
@@ -169,8 +168,10 @@ class JwtVerificationFilterIntegrationTest
     }
 
     codec_client->close();
-    fake_upstream_connection_issuer->close();
-    fake_upstream_connection_issuer->waitForDisconnect();
+    if (!issuer_response_body.empty()) {
+      fake_upstream_connection_issuer->close();
+      fake_upstream_connection_issuer->waitForDisconnect();
+    }
     if (verification_success) {
       fake_upstream_connection_backend->close();
       fake_upstream_connection_backend->waitForDisconnect();
@@ -228,10 +229,11 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "xfP590ACPyXrivtsxg";
 
   auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy("sec-istio-auth-userinfo",
-                           "{\"iss\":\"https://"
-                           "example.com\",\"sub\":\"test@example.com\",\"aud\":"
-                           "\"example_service\",\"exp\":2001001001}");
+  expected_headers.addCopy(
+      "sec-istio-auth-userinfo",
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
+      "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
+      "ImV4cCI6MjAwMTAwMTAwMX0");
 
   TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
                    kPublicKey, true, expected_headers, "");
@@ -249,9 +251,11 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, JwtExpired) {
       "qS7Wwf8C0V9o2KZu0KDV0j0c9nZPWTv3IMlaGZAtQgJUeyemzRDtf4g2yG3xBZrLm3AzDUj_"
       "EX_pmQAHA5ZjPVCAw";
 
-  TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
-                   kPublicKey, false,
-                   Http::TestHeaderMapImpl{{":status", "401"}}, "JWT_EXPIRED");
+  // Issuer is not called by passing empty pubkey.
+  std::string pubkey = "";
+  TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(), pubkey,
+                   false, Http::TestHeaderMapImpl{{":status", "401"}},
+                   "JWT is expired");
 }
 
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, AudInvalid) {
@@ -268,21 +272,20 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, AudInvalid) {
       "ajIcWwtQtogYx4bcmHBUvEjcYOC86TRrnArZSk1mnO7OGq4KrSrqhXnvqDmc14LfldyWqEks"
       "X5FkM94prXPK0iN-pPVhRjNZ4xvR-w";
 
-  TestVerification(createHeaders(jwt), "", createIssuerHeaders(), kPublicKey,
-                   false, Http::TestHeaderMapImpl{{":status", "401"}},
-                   "ISS_AUD_UNMATCH");
+  // Issuer is not called by passing empty pubkey.
+  std::string pubkey = "";
+  TestVerification(createHeaders(jwt), "", createIssuerHeaders(), pubkey, false,
+                   Http::TestHeaderMapImpl{{":status", "401"}},
+                   "Audience doesn't match");
 }
 
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
   std::string token = "invalidToken";
-  std::string pubkey = "weirdKey";
+  // Issuer is not called by passing empty pubkey.
+  std::string pubkey = "";
   TestVerification(createHeaders(token), "", createIssuerHeaders(), pubkey,
                    false, Http::TestHeaderMapImpl{{":status", "401"}},
                    "JWT_BAD_FORMAT");
 }
-
-/*
- * TODO: add tests
- */
 
 }  // Envoy
