@@ -115,7 +115,8 @@ find samples install -type f \( \
   -o -name "*.md" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
-  -o -name "*.sh" \
+  -o -name "webhook-create-signed-cert.sh" \
+  -o -name "webhook-patch-ca-bundle.sh" \
   \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
