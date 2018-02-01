@@ -200,14 +200,14 @@ class TcpInstance : public Network::Filter,
   void onAboveWriteBufferHighWatermark() override {}
   void onBelowWriteBufferLowWatermark() override {}
 
-  bool GetSourceIpPort(std::string* str_ip, int* port) const {
+  bool GetSourceIpPort(std::string* str_ip, int* port) const override {
     return Utils::GetIpPort(
         filter_callbacks_->connection().remoteAddress()->ip(), str_ip, port);
   }
-  bool GetSourceUser(std::string* user) const {
+  bool GetSourceUser(std::string* user) const override {
     return Utils::GetSourceUser(&filter_callbacks_->connection(), user);
   }
-  bool GetDestinationIpPort(std::string* str_ip, int* port) const {
+  bool GetDestinationIpPort(std::string* str_ip, int* port) const override {
     if (filter_callbacks_->upstreamHost() &&
         filter_callbacks_->upstreamHost()->address()) {
       return Utils::GetIpPort(
@@ -215,8 +215,8 @@ class TcpInstance : public Network::Filter,
     }
     return false;
   }
-  void GetReportInfo(
-      ::istio::mixer_control::tcp::ReportData::ReportInfo* data) const {
+  void GetReportInfo(::istio::mixer_control::tcp::ReportData::ReportInfo* data)
+      const override {
     data->received_bytes = received_bytes_;
     data->send_bytes = send_bytes_;
     data->duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
