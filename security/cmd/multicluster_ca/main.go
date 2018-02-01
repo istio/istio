@@ -26,25 +26,17 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra/doc"
-	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/registry"
-	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
 )
 
 const (
-	defaultCACertTTL = 365 * 24 * time.Hour
+	defaultSigningCertTTL = 365 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
-
-	maxWorkloadCertTTL = 7 * 24 * time.Hour
+	maxIssuedCertTTL = 15 * 24 * time.Hour
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -59,8 +51,6 @@ type cliOptions struct {
 	signingKeyFile  string
 	rootCertFile    string
 
-	namespace string
-
 	istioCaStorageNamespace string
 
 	kubeConfigFile string
@@ -68,29 +58,23 @@ type cliOptions struct {
 	selfSignedCA    bool
 	selfSignedCAOrg string
 
-	caCertTTL          time.Duration
-	workloadCertTTL    time.Duration
-	maxWorkloadCertTTL time.Duration
+	signingCertTTL   time.Duration
+	maxIssuedCertTTL time.Duration
 
 	grpcHostname string
 	grpcPort     int
 
 	loggingOptions *log.Options
-
-	// The path to the file which indicates the liveness of the server by its existence.
-	// This will be used for k8s liveness probe. If empty, it does nothing.
-	LivenessProbeOptions *probe.Options
 }
 
 var (
 	opts = cliOptions{
-		loggingOptions:       log.NewOptions(),
-		LivenessProbeOptions: &probe.Options{},
+		loggingOptions: log.NewOptions(),
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "istio_ca",
-		Short: "Istio Certificate Authority (CA)",
+		Use:   "multicluster_ca",
+		Short: "Istio Multicluster Certificate Authority (CA)",
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
@@ -98,11 +82,7 @@ var (
 )
 
 func fatalf(template string, args ...interface{}) {
-	if len(args) > 0 {
-		log.Errorf(template, args)
-	} else {
-		log.Errorf(template)
-	}
+	log.Errorf(template, args)
 	os.Exit(-1)
 }
 
@@ -114,11 +94,8 @@ func init() {
 	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Specifies path to the CA signing key file")
 	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Specifies path to the root certificate file")
 
-	flags.StringVar(&opts.namespace, "namespace", "",
-		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+namespaceKey+"} "+
-			"environment variable. If neither is set, Istio CA listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "istio-ca-storage-namespace", "istio-system", "Namespace where "+
-		"the Istio CA pods is running. Will not be used if explicit file or other storage mechanism is specified.")
+		"the Istio CA pods are running. Will not be used if explicit file or other storage mechanism is specified.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -130,22 +107,15 @@ func init() {
 		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
 			selfSignedCAOrgDefault))
 
-	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
-		"The TTL of self-signed CA root certificate")
-	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.DurationVar(&opts.signingCertTTL, "signing-cert-ttl", defaultSigningCertTTL,
+		"The TTL of self-signed CA signing certificate")
+	flags.DurationVar(&opts.maxIssuedCertTTL, "max-issued-cert-ttl", maxIssuedCertTTL, "The max TTL of issued certificates")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
-		"If unspecified, Istio CA will not server GRPC request.")
+		"If unspecified, Istio CA will not serve GRPC request.")
 
 	rootCmd.AddCommand(version.CobraCommand())
-
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
-		Title:   "Istio CA",
-		Section: "istio_ca CLI",
-		Manual:  "Istio CA",
-	}))
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
@@ -164,10 +134,6 @@ func runCA() {
 	}
 
 	if value, exists := os.LookupEnv(namespaceKey); exists {
-		// When -namespace is not set, try to read the namespace from environment variable.
-		if opts.namespace == "" {
-			opts.namespace = value
-		}
 		// Use environment variable for istioCaStorageNamespace if it exists
 		opts.istioCaStorageNamespace = value
 	}
@@ -176,33 +142,11 @@ func runCA() {
 
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
-	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc := controller.NewSecretController(ca, opts.workloadCertTTL, cs.CoreV1(), opts.namespace)
 
-	stopCh := make(chan struct{})
-	sc.Run(stopCh)
-
-	if opts.grpcPort > 0 {
-		// start registry if gRPC server is to be started
-		reg := registry.GetIdentityRegistry()
-		ch := make(chan struct{})
-
-		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
-		serviceController := kube.NewServiceController(cs.CoreV1(), opts.namespace, reg)
-		serviceController.Run(ch)
-
-		// monitor service account objects for istio mesh expansion
-		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.namespace, reg)
-		serviceAccountController.Run(ch)
-
-		// The CA API uses cert with the max workload cert TTL.
-		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.grpcHostname, opts.grpcPort)
-		if err := grpcServer.Run(); err != nil {
-			// stop the registry-related controllers
-			ch <- struct{}{}
-
-			log.Warnf("Failed to start GRPC server with error: %v", err)
-		}
+	// The CA API uses cert with the max workload cert TTL.
+	grpcServer := grpc.New(ca, opts.maxIssuedCertTTL, opts.grpcHostname, opts.grpcPort)
+	if err := grpcServer.Run(); err != nil {
+		log.Warnf("Failed to start GRPC server with error: %v", err)
 	}
 
 	log.Info("Istio CA has started")
@@ -225,11 +169,10 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 
-		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.caCertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.signingCertTTL, 0, /* unused */
+			opts.maxIssuedCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
-			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
+			fatalf("Failed to create a self-signed Istio Multicluster CA (error: %v)", err)
 		}
 	} else {
 		var certChainBytes []byte
@@ -238,15 +181,13 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		}
 		caOpts = &ca.IstioCAOptions{
 			CertChainBytes:   certChainBytes,
-			CertTTL:          opts.workloadCertTTL,
-			MaxCertTTL:       opts.maxWorkloadCertTTL,
+			CertTTL:          0, // unused
+			MaxCertTTL:       opts.maxIssuedCertTTL,
 			SigningCertBytes: readFile(opts.signingCertFile),
 			SigningKeyBytes:  readFile(opts.signingKeyFile),
 			RootCertBytes:    readFile(opts.rootCertFile),
 		}
 	}
-
-	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
@@ -281,6 +222,14 @@ func readFile(filename string) []byte {
 }
 
 func verifyCommandLineOptions() {
+	if opts.grpcHostname == "" {
+		fatalf("GRPC host name is not specified.")
+	}
+
+	if opts.grpcPort <= 0 || opts.grpcPort > 65535 {
+		fatalf("GPRC port number is invalid.")
+	}
+
 	if opts.selfSignedCA {
 		return
 	}
