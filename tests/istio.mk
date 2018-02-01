@@ -43,11 +43,12 @@ e2e_docker: push
 
 endif
 
+# If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
-E2E_ARGS += ${MINIKUBE_FLAGS}
-E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
 
-EXTRA_E2E_ARGS = --mixer_tag ${TAG}
+EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
+EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
+EXTRA_E2E_ARGS += --mixer_tag ${TAG}
 EXTRA_E2E_ARGS += --pilot_tag ${TAG}
 EXTRA_E2E_ARGS += --ca_tag ${TAG}
 EXTRA_E2E_ARGS += --mixer_hub ${HUB}

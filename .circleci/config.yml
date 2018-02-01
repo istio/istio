@@ -337,6 +337,7 @@ jobs:
             # pkg may include 'dep'
             - pkg/linux_amd64
             - bin
+            - out
       - run:  make sidecar.deb
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
