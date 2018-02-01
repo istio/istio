@@ -115,7 +115,6 @@ find samples install -type f \( \
   -o -name "*.md" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
-  -o -name "*.sh" \
   \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
