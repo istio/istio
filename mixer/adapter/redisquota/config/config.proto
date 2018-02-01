@@ -60,10 +60,10 @@ message Params {
   }
 
   // Algorithms for rate-limiting:
-  // FIXED_WINDOW - The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
-  // ROLLING_WINDOW - The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
   enum QuotaAlgorithm {
+    // FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
     FIXED_WINDOW = 0;
+    // ROLLING_WINDOW The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
     ROLLING_WINDOW = 1;
   }
 
