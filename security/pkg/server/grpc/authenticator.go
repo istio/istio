@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -74,7 +74,7 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 		return nil, fmt.Errorf("no verified chain is found")
 	}
 
-	ids, err := pki.ExtractIDs(chains[0][0].Extensions)
+	ids, err := util.ExtractIDs(chains[0][0].Extensions)
 	if err != nil {
 		return nil, err
 	}
