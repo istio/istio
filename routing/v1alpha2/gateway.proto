@@ -18,6 +18,9 @@ package istio.routing.v1alpha2;
 
 option go_package = "istio.io/api/routing/v1alpha2";
 
+// $title: Istio Gateway
+// $overview: Configuration of a generic load balancer
+
 // Gateway describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections. The specification
 // describes a set of ports that should be exposed, the type of protocol to
