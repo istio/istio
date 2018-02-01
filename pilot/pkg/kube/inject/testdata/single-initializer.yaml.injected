@@ -69,7 +69,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       - args:
         - -c
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c

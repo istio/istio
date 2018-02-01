@@ -1,4 +1,4 @@
----
+{{- if .Values.global.sidecarInjectEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,4 +11,4 @@ spec:
   - port: 443
   selector:
     istio: {{ template "sidecar-injector.name" . }}
----
+{{- end }}
