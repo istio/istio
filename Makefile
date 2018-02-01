@@ -15,7 +15,6 @@
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
-
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
@@ -65,13 +64,33 @@ else
    # export GOOS ?= windows
 endif
 
-# Another person's PR is adding the debug support, so this is in prep for that
+ifeq ($(GOOS),linux)
+  OS_DIR:=lx
+else ifeq ($(GOOS),darwin)
+  OS_DIR:=mac
+else ifeq ($(GOOS),windows)
+  OS_DIR:=win
+else
+   $(error "Building for $(GOOS) isn't recognized/supported")
+endif
+
+#-----------------------------------------------------------------------------
+# Output control
+#-----------------------------------------------------------------------------
+VERBOSE ?= 0
+V ?= $(or $(VERBOSE),0)
+Q = $(if $(filter 1,$V),,@)
+H = $(shell printf "\033[34;1m=>\033[0m")
+
+# To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
+export GCFLAGS:=-N -l
+$(info $(H) Build with debugger information)
 endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
@@ -114,23 +133,6 @@ GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
-
-#-----------------------------------------------------------------------------
-# Output control
-#-----------------------------------------------------------------------------
-VERBOSE ?= 0
-V ?= $(or $(VERBOSE),0)
-Q = $(if $(filter 1,$V),,@)
-H = $(shell printf "\033[34;1m=>\033[0m")
-
-# To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
-DEBUG ?= 0
-ifeq (${DEBUG},1)
-	export GCFLAGS = -N -l
-    $(info $(H) Build with debugger information)
-else ifneq ($(DEBUG),0)
-    $(error DEBUG must either be 0 for release build (default) or 1 for debug build)
-endif
 
 .PHONY: default
 default: depend build test
