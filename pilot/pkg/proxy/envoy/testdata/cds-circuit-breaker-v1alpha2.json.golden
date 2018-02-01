@@ -123,29 +123,6 @@
     }
    },
    {
-    "name": "out.*.google.com|external-HTTPS-443",
-    "service_name": "*.google.com|external-HTTPS-443",
-    "connect_timeout_ms": 1000,
-    "type": "original_dst",
-    "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 500,
-    "ssl_context": {},
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
     "name": "out.hello.default.svc.cluster.local|custom",
     "service_name": "hello.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,
