@@ -79,7 +79,7 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 
 func genMarkdown(cmd *cobra.Command, path string) error {
 	commands := make(map[string]*cobra.Command)
-	findCommands(commands, cmd, "")
+	findCommands(commands, cmd)
 	names := make([]string, len(commands), len(commands))
 	i := 0
 	for n := range commands {
@@ -91,6 +91,10 @@ func genMarkdown(cmd *cobra.Command, path string) error {
 	buf := &bytes.Buffer{}
 	genFileHeader(cmd, buf)
 	for _, n := range names {
+		if commands[n].Name() == "help" {
+			continue
+		}
+
 		genCommand(commands[n], buf)
 	}
 
@@ -98,20 +102,19 @@ func genMarkdown(cmd *cobra.Command, path string) error {
 	if err != nil {
 		return err
 	}
-	_, _ = f.WriteString(buf.String())
+	_, err = f.WriteString(buf.String())
 	_ = f.Close()
 
-	return nil
+	return err
 }
 
-func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command, path string) {
+func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command) {
 	cmd.InitDefaultHelpCmd()
 	cmd.InitDefaultHelpFlag()
 
-	name := path + " " + cmd.Name()
-	commands[name] = cmd
+	commands[cmd.CommandPath()] = cmd
 	for _, c := range cmd.Commands() {
-		findCommands(commands, c, name)
+		findCommands(commands, c)
 	}
 }
 
@@ -139,16 +142,10 @@ func genCommand(cmd *cobra.Command, b *bytes.Buffer) {
 	}
 
 	if cmd.Runnable() {
-		fmt.Fprintf(b, "```\n%s\n```\n\n", cmd.UseLine())
+		fmt.Fprintf(b, "```bash\n%s\n```\n\n", cmd.UseLine())
 	}
 
 	// TODO: output aliases
-
-	if len(cmd.Example) > 0 {
-		fmt.Fprintf(b, "\n")
-		fmt.Fprintf(b, "### Examples\n\n")
-		fmt.Fprintf(b, "```\n%s\n```\n\n", cmd.Example)
-	}
 
 	flags := cmd.NonInheritedFlags()
 	flags.SetOutput(b)
@@ -170,6 +167,12 @@ func genCommand(cmd *cobra.Command, b *bytes.Buffer) {
 		}
 		fmt.Fprintf(b, "\n")
 	}
+
+	if len(cmd.Example) > 0 {
+		fmt.Fprintf(b, "\n")
+		fmt.Fprintf(b, "### Examples\n\n")
+		fmt.Fprintf(b, "```bash\n%s\n```\n\n", cmd.Example)
+	}
 }
 
 func flagUsages(b *bytes.Buffer, f *pflag.FlagSet) []string {
@@ -186,20 +189,20 @@ func flagUsages(b *bytes.Buffer, f *pflag.FlagSet) []string {
 
 		varname, usage := unquoteUsage(flag)
 		if varname != "" {
-			varname = "<" + varname + ">"
+			varname = " <" + varname + ">"
 		}
 
 		def := ""
 		if flag.Value.Type() == "string" {
-			def = fmt.Sprintf(" (default %q)", flag.DefValue)
+			def = fmt.Sprintf(" (default `%q`)", flag.DefValue)
 		} else if flag.Value.Type() != "bool" {
-			def = fmt.Sprintf(" (default %s)", flag.DefValue)
+			def = fmt.Sprintf(" (default `%s`)", flag.DefValue)
 		}
 
 		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-			lines = append(lines, fmt.Sprintf("|--%s %s|-%s|%s %s", flag.Name, varname, flag.Shorthand, usage, def))
+			lines = append(lines, fmt.Sprintf("|`--%s%s`|`-%s`|%s %s", flag.Name, varname, flag.Shorthand, usage, def))
 		} else {
-			lines = append(lines, fmt.Sprintf("|--%s %s||%s %s", flag.Name, varname, usage, def))
+			lines = append(lines, fmt.Sprintf("|`--%s%s`||%s %s", flag.Name, varname, usage, def))
 		}
 	})
 
