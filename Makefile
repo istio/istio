@@ -326,7 +326,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 .PHONY: test localTestEnv test-bins
 
 # Run coverage tests
-test: pilot-test mixer-test security-test broker-test galley-test common-test
+test: common-test mixer-test security-test broker-test galley-test pilot-test 
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
