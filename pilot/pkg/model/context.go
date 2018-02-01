@@ -17,10 +17,10 @@ package model
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
-	"runtime"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
