@@ -349,7 +349,7 @@ func TestServicesError(t *testing.T) {
 	}
 }
 
-func TestHostInstances(t *testing.T) {
+func TestGetSidecarServiceInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
@@ -358,21 +358,21 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	var svcNode model.Node
-	services, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
+	services, err := controller.GetSidecarServiceInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
 	if err != nil {
-		t.Errorf("client encountered error during HostInstances(): %v", err)
+		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
 	}
 	if len(services) != 1 {
-		t.Errorf("HostInstances() returned wrong # of endpoints => %q, want 1", len(services))
+		t.Errorf("GetSidecarServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
 
 	if services[0].Service.Hostname != serviceHostname("productpage") {
-		t.Errorf("HostInstances() wrong service instance returned => hostname %q, want %q",
+		t.Errorf("GetSidecarServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, serviceHostname("productpage"))
 	}
 }
 
-func TestHostInstancesError(t *testing.T) {
+func TestGetSidecarServiceInstancesError(t *testing.T) {
 	ts := newServer()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
@@ -382,11 +382,11 @@ func TestHostInstancesError(t *testing.T) {
 
 	var svcNode model.Node
 	ts.Server.Close()
-	instances, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
+	instances, err := controller.GetSidecarServiceInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
 	if err == nil {
-		t.Error("HostInstances() should return error when client experiences connection problem")
+		t.Error("GetSidecarServiceInstances() should return error when client experiences connection problem")
 	}
 	if len(instances) != 0 {
-		t.Errorf("HostInstances() returned wrong # of instances: %q, want 0", len(instances))
+		t.Errorf("GetSidecarServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
 	}
 }
