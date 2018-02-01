@@ -3,6 +3,13 @@
 # Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
 cluster_flavour: ocp
 
+# The GitHub token to use when calling GitHub's API
+# The token is needed in order to avoid getting Rate Limited by GitHub's API
+# Rate Limiting can easily occur in large corporate environments
+# that make outgoing calls through a small range of IPs
+# If the token is not set, then no API Token will be used
+github_api_token: ""
+
 istio:
 
   # Could be a tag "0.2.12, 0.3.0, 0.4.0" version or be empty "", then in this case, the latest release will be downloaded
