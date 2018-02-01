@@ -64,16 +64,6 @@ else
    # export GOOS ?= windows
 endif
 
-ifeq ($(GOOS),linux)
-  OS_DIR:=lx
-else ifeq ($(GOOS),darwin)
-  OS_DIR:=mac
-else ifeq ($(GOOS),windows)
-  OS_DIR:=win
-else
-   $(error "Building for $(GOOS) isn't recognized/supported")
-endif
-
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -350,7 +340,7 @@ localTestEnv: test-bins
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
-pilot-test: proxy
+pilot-test: pilot-agent
 	go test ${GOTEST_P} ${T} ./pilot/...
 
 .PHONY: mixer-test
@@ -415,7 +405,7 @@ security-coverage:
 racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 .PHONY: pilot-racetest
-pilot-racetest: proxy
+pilot-racetest: pilot-agent
 	go test ${GOTEST_P} ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
