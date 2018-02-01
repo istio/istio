@@ -178,6 +178,8 @@ type ProxyConfig struct {
 	// Envoy's internal metrics take up 67 characters, for a total of 256 character name per metric.
 	// Increase the value of this field if you find that the metrics from Envoys are truncated.
 	StatNameLength int32 `protobuf:"varint,15,opt,name=stat_name_length,json=statNameLength" json:"stat_name_length,omitempty"`
+	// The number of worker threads to run. Default value is number of cores on the machine.
+	Concurrency int32 `protobuf:"varint,16,opt,name=concurrency,json=concurrency" json:"concurrency,omitempty"`
 }
 
 func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
