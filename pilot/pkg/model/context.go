@@ -138,16 +138,16 @@ const (
 	// IngressKeyFilename is the ingress private key file name
 	IngressKeyFilename = "tls.key"
 
-	// config directory for storing envoy json config files and also core files
+	// ConfigPathDir config directory for storing envoy json config files and also core files
 	ConfigPathDir = "/etc/istio/proxy"
 
-	// envoy binary location
+	// BinaryPathFilename envoy binary location
 	BinaryPathFilename = "/usr/local/bin/envoy"
 
-	// service cluster name used in xDS calls
+	// ServiceClusterName service cluster name used in xDS calls
 	ServiceClusterName = "istio-proxy"
 
-	// discovery IP address:port
+	// DiscoveryServerAddress discovery IP address:port
 	DiscoveryServerAddress = "istio-pilot:15003"
 )
 
