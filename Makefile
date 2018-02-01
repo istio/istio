@@ -36,7 +36,7 @@ GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
-GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+DESTDIR ?= $(shell echo ${GOPATH} | cut -d ':' -f1)
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
@@ -94,8 +94,8 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-export ISTIO_BIN=$(GO_TOP)/bin
-export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
+export ISTIO_BIN=$(DESTDIR)/bin
+export ISTIO_OUT:=$(DESTDIR)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
