@@ -56,6 +56,7 @@ var (
 	controlPlaneAuthPolicy string
 	customConfigFile       string
 	proxyLogLevel          string
+	concurrency            int
 
 	loggingOptions = log.NewOptions()
 
@@ -131,6 +132,7 @@ var (
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
@@ -267,6 +269,8 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
+	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
+		"# of worker threads to run")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"runtime"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
@@ -156,6 +157,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
+		Concurrency:            int32(runtime.NumCPU()),
 	}
 }
 

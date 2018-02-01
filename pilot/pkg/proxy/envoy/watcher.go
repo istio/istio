@@ -263,6 +263,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"--concurrency", fmt.Sprint(proxy.config.Concurrency),
 	}
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)
