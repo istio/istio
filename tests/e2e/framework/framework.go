@@ -84,13 +84,13 @@ func InitLogging() error {
 	return nil
 }
 
-// NewCommonConfig creates a full config will all supported configs.
-func NewCommonConfig(testID string) (*CommonConfig, error) {
+// NewTestConfig creates a full config will all supported configs.
+func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID)
+	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +107,11 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	return c, nil
+}
+
+// NewCommonConfig creates a full config will all supported configs.
+func NewCommonConfig(testID string) (*CommonConfig, error) {
+	return NewTestConfig(testID, "")
 }
 
 func (t *testCleanup) RegisterCleanable(c Cleanable) {
