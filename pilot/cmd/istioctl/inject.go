@@ -65,25 +65,25 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 	}
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Infof("could not find valid configmap %q from namespace  %q: %v - "+
+		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
 			injectConfigMapName, istioNamespace, err)
-		return "", nil
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
 	// key
 	injectData, exists := config.Data[injectConfigMapKey]
 	if !exists {
-		return "", fmt.Errorf("missing configuration map key %q", injectConfigMapKey)
+		return "", fmt.Errorf("missing configuration map key %q in %q",
+			injectConfigMapKey, injectConfigMapName)
 	}
-	log.Debugf("read inject template from configmap.")
 	var injectConfig inject.Config
 	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
-		return "", err
+		return "", fmt.Errorf("unable to convert data from configmap %q: %v",
+			injectConfigMapName, err)
 	}
-	sidecarTemplate := injectConfig.Template
-	return sidecarTemplate, nil
+	log.Debugf("using inject template from configmap %q", injectConfigMapName)
+	return injectConfig.Template, nil
 }
 
 var (
@@ -219,8 +219,11 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					return err
 				}
 				sidecarTemplate = config.Template
-			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil ||
-				sidecarTemplate == "" {
+			} else if injectConfigMapName != "" {
+				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
+			} else {
 				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:       inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
@@ -293,7 +296,8 @@ func init() {
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
-	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "istio-inject",
-		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q",
+	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "",
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
+			"This option overrides any other sidecar injection config options, ie. --hub",
 			injectConfigMapKey))
 }
