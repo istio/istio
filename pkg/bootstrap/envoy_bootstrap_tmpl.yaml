@@ -1,32 +1,3 @@
-stats_config:
-  # Without this option it create a lot of regex, may run out of space.
-  use_all_default_tags: false
-
-admin:
-  access_log_path: /dev/stdout
-  address:
-    # Only allow debugging from localhost
-    socket_address: { address: 127.0.0.1, port_value: 15000 }
-
-dynamic_resources:
-  lds_config:
-    api_config_source:
-      api_type: REST_LEGACY
-      refresh_delay: 10s
-      # Pilot cluster is named 'rds' for compatibility with existing LDS, which hardcodes this name for the RDS API.
-      cluster_names: [rds]
-  cds_config:
-     api_config_source:
-        api_type: REST_LEGACY
-        refresh_delay: 10s
-        cluster_names: [rds]
-  #Required - without it cds_config doesn't work
-  deprecated_v1:
-    sds_config:
-      api_config_source:
-            api_type: REST_LEGACY
-            refresh_delay: 10s
-            cluster_names: [rds]
 
 static_resources:
   listeners:

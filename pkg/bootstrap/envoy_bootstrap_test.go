@@ -71,6 +71,6 @@ func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, e
 
 	// TODO: move to base dir
 	cfg.ConfigPath = out + "/bootstraptest/" + base
-	cfg.CustomConfigFile = "envoy_bootstrap_tmpl.yaml"
+	cfg.CustomConfigFile = "envoy_bootstrap.pb_text"
 	return cfg, nil;
 }

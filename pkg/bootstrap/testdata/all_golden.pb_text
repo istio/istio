@@ -114,11 +114,11 @@ stats_sinks: [
                                 struct_value: {
                                     fields: {
                                         key: "address"
-                                        value: {string_value: "127.0.0.1"}
+                                        value: {string_value: "10.1.1.10"}
                                     }
                                     fields: {
                                         key: "port_value"
-                                        value: {number_value: 6000}
+                                        value: {number_value: 9125}
                                     }
                                 }
                             }
