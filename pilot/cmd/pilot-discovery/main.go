@@ -24,8 +24,10 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -136,6 +138,11 @@ func init() {
 
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Pilot Discovery",
+		Section: "pilot-discovery CLI",
+		Manual:  "Istio Pilot Discovery",
+	}))
 }
 
 func main() {

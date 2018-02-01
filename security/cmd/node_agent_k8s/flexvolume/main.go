@@ -19,7 +19,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/cmd/node_agent_k8s/flexvolume/driver"
 )
 
@@ -188,6 +191,13 @@ func init() {
 	RootCmd.AddCommand(MountCmd)
 	RootCmd.AddCommand(UnmountCmd)
 	RootCmd.AddCommand(GetVolNameCmd)
+
+	RootCmd.AddCommand(version.CobraCommand())
+	RootCmd.AddCommand(collateral.CobraCommand(RootCmd, &doc.GenManHeader{
+		Title:   "Istio FlexVolume",
+		Section: "flexvolume CLI",
+		Manual:  "Istio FlexVolume",
+	}))
 }
 
 func main() {
