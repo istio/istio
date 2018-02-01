@@ -1,6 +1,7 @@
 ---
 github_url: https://api.github.com/repos
 istio_repo: istio/istio
+minimum_cluster_version: 1.7.0
 addons_needing_sa:
   - "grafana"
   - "prometheus"
