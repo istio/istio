@@ -50,7 +50,7 @@ Support for other environments to follow.
 			log.Infof("Retrieving proxy config for %q", podName)
 
 			ns := namespace
-			if ns == "" {
+			if ns == v1.NamespaceAll {
 				ns = defaultNamespace
 			}
 			config, err := readConfigFile(podName, ns)
