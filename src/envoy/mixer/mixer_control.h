@@ -62,9 +62,20 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
     return controller_.get();
   }
 
+  std::chrono::milliseconds report_interval_ms() const {
+    return report_interval_ms_;
+  }
+
+  Event::Dispatcher& dispatcher() { return dispatcher_; }
+
  private:
   // The mixer control
   std::unique_ptr<::istio::mixer_control::tcp::Controller> controller_;
+
+  // Time interval in milliseconds for sending periodical delta reports.
+  std::chrono::milliseconds report_interval_ms_;
+
+  Event::Dispatcher& dispatcher_;
 };
 
 }  // namespace Mixer

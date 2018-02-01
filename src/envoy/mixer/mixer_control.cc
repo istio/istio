@@ -21,6 +21,12 @@ namespace Http {
 namespace Mixer {
 namespace {
 
+// Default time interval for periodical report is 10 seconds.
+const std::chrono::milliseconds kDefaultReportIntervalMs(10000);
+
+// Minimum time interval for periodical report is 1 seconds.
+const std::chrono::milliseconds kMinReportIntervalMs(1000);
+
 // A class to wrap envoy timer for mixer client timer.
 class EnvoyTimer : public ::istio::mixer_client::Timer {
  public:
@@ -74,13 +80,29 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
 TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
-                                 Runtime::RandomGenerator& random) {
+                                 Runtime::RandomGenerator& random)
+    : dispatcher_(dispatcher) {
   ::istio::mixer_control::tcp::Controller::Options options(
       mixer_config.tcp_config);
 
   CreateEnvironment(cm, dispatcher, random, &options.env);
 
   controller_ = ::istio::mixer_control::tcp::Controller::Create(options);
+
+  if (mixer_config.tcp_config.has_report_interval() &&
+      mixer_config.tcp_config.report_interval().seconds() >= 0 &&
+      mixer_config.tcp_config.report_interval().nanos() >= 0) {
+    report_interval_ms_ = std::chrono::milliseconds(
+        mixer_config.tcp_config.report_interval().seconds() * 1000 +
+        mixer_config.tcp_config.report_interval().nanos() / 1000000);
+    // If configured time interval is less than 1 second, then set report
+    // interval to 1 second.
+    if (report_interval_ms_ < kMinReportIntervalMs) {
+      report_interval_ms_ = kMinReportIntervalMs;
+    }
+  } else {
+    report_interval_ms_ = kDefaultReportIntervalMs;
+  }
 }
 
 }  // namespace Mixer
