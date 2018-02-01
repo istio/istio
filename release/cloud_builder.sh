@@ -33,6 +33,7 @@ BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
 REL_DOCKER_HUB=docker.io/istio
 TEST_DOCKER_HUB=""
+TEST_GCS_PATH=""
 
 function usage() {
   echo "$0
@@ -40,22 +41,31 @@ function usage() {
     -c        opts out of building docker artifacts
     -h        docker hub to use for testing (optional)
     -o        path to store build artifacts
+    -p        GCS bucket & prefix path where build will be stored for testing (optional)
     -q        path on gcr hub to use for testing (optional, alt to -h)
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts bch:o:q:t: arg ; do
+while getopts bch:o:p:q:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
     h) TEST_DOCKER_HUB="${OPTARG}";;
+    p) TEST_GCS_PATH="${OPTARG}";;
     q) TEST_DOCKER_HUB="gcr.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
   esac
 done
+
+DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
+if [[ -n "${TEST_GCS_PATH}" ]]; then
+  TEST_PATH="https://storage.googleapis.com/${TEST_GCS_PATH}"
+else
+  TEST_PATH="${DEFAULT_GCS_PATH}"
+fi
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
 
@@ -65,39 +75,44 @@ cd $ROOT
 
 export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
+ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
 apt-get -qqy install ruby ruby-dev rubygems build-essential
 gem install --no-ri --no-rdoc fpm
 
-VERBOSE=1 make setup
-
-VERBOSE=1 make init
-
-# pull in outside dependencies
-VERBOSE=1 make depend
-
+MAKE_TARGETS=istio-archive
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
-  # and hope that the name of the file doesn't change.
-  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make sidecar.deb
-  mkdir -p ${OUTPUT_PATH}/deb
-  cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
+  MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
+fi
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  MAKE_TARGETS="docker.save ${MAKE_TARGETS}"
 fi
 
-mkdir -p "${OUTPUT_PATH}/istioctl"
-VERBOSE=1 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
-cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
+  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH ISTIO_GCS_ISTIOCTL=istioctl-stage make istio-archive
+  cp ${ISTIO_OUT}/archive/istio*z* ${OUTPUT_PATH}
+  # These files are only used for testing, so use a name to help make this clear
+  for TAR_FILE in ${OUTPUT_PATH}/istio?${ISTIO_VERSION}*; do
+    mv "$TAR_FILE" $(dirname "$TAR_FILE")/TESTONLY-$(basename "$TAR_FILE")
+  done
   mkdir -p "${OUTPUT_PATH}/istioctl-stage"
-  VERBOSE=1 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make istioctl-all
-  cp ${GOPATH}/out/istioctl-* ${OUTPUT_PATH}/istioctl-stage
+  cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl-stage
 fi
+
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
+cp ${ISTIO_OUT}/archive/istio*z* ${OUTPUT_PATH}
+mkdir -p "${OUTPUT_PATH}/istioctl"
+cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  VERBOSE=1 VERSION=$ISTIO_VERSION ISTIO_DOCKER_HUB=$REL_DOCKER_HUB TAG=$ISTIO_VERSION make docker.save
-  cp -r ${GOPATH}/out/docker ${OUTPUT_PATH}
+  cp -r ${ISTIO_OUT}/docker ${OUTPUT_PATH}
+fi
+
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  mkdir -p ${OUTPUT_PATH}/deb
+  cp ${ISTIO_OUT}/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
 
 # log where git thinks the build might be dirty

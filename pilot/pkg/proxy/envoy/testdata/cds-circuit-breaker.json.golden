@@ -83,19 +83,20 @@
     "connect_timeout_ms": 1000,
     "type": "original_dst",
     "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 9,
+    "max_requests_per_connection": 500,
     "circuit_breakers": {
      "default": {
-      "max_connections": 9,
-      "max_pending_requests": 9,
-      "max_requests": 9
+      "max_connections": 100,
+      "max_pending_requests": 50,
+      "max_requests": 200,
+      "max_retries": 5
      }
     },
     "outlier_detection": {
-     "consecutive_5xx": 9,
-     "interval_ms": 9000,
-     "base_ejection_time_ms": 9000,
-     "max_ejection_percent": 9
+     "consecutive_5xx": 10,
+     "interval_ms": 30000,
+     "base_ejection_time_ms": 15500,
+     "max_ejection_percent": 100
     }
    },
    {
@@ -104,20 +105,21 @@
     "connect_timeout_ms": 1000,
     "type": "original_dst",
     "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 9,
+    "max_requests_per_connection": 500,
     "features": "http2",
     "circuit_breakers": {
      "default": {
-      "max_connections": 9,
-      "max_pending_requests": 9,
-      "max_requests": 9
+      "max_connections": 100,
+      "max_pending_requests": 50,
+      "max_requests": 200,
+      "max_retries": 5
      }
     },
     "outlier_detection": {
-     "consecutive_5xx": 9,
-     "interval_ms": 9000,
-     "base_ejection_time_ms": 9000,
-     "max_ejection_percent": 9
+     "consecutive_5xx": 10,
+     "interval_ms": 30000,
+     "base_ejection_time_ms": 15500,
+     "max_ejection_percent": 100
     }
    },
    {
@@ -126,20 +128,21 @@
     "connect_timeout_ms": 1000,
     "type": "original_dst",
     "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 9,
+    "max_requests_per_connection": 500,
     "ssl_context": {},
     "circuit_breakers": {
      "default": {
-      "max_connections": 9,
-      "max_pending_requests": 9,
-      "max_requests": 9
+      "max_connections": 100,
+      "max_pending_requests": 50,
+      "max_requests": 200,
+      "max_retries": 5
      }
     },
     "outlier_detection": {
-     "consecutive_5xx": 9,
-     "interval_ms": 9000,
-     "base_ejection_time_ms": 9000,
-     "max_ejection_percent": 9
+     "consecutive_5xx": 10,
+     "interval_ms": 30000,
+     "base_ejection_time_ms": 15500,
+     "max_ejection_percent": 100
     }
    },
    {

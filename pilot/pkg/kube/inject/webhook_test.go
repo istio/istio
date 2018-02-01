@@ -23,12 +23,13 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/util"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/util"
 )
 
 func TestInjectRequired(t *testing.T) {

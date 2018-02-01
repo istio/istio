@@ -54,7 +54,7 @@ cd $ROOT
 ${ROOT}/bin/init.sh
 
 echo 'Running Unit Tests'
-time make localTestEnv go-test
+time make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
