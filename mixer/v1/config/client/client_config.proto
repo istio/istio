@@ -126,6 +126,7 @@ message TcpClientConfig {
   QuotaSpec connection_quota_spec = 5;
 
   // Specify report interval to send periodical reports for long TCP
-  // connections. If not specified, the interval is 10 seconds.
+  // connections. If not specified, the interval is 10 seconds. This interval
+  // should not be less than 1 second, otherwise it will be reset to 1 second.
   google.protobuf.Duration report_interval = 6;
 }

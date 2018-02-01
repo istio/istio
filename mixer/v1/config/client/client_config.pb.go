@@ -125,7 +125,8 @@ type TcpClientConfig struct {
 	// It applies on the new TCP connections.
 	ConnectionQuotaSpec *QuotaSpec `protobuf:"bytes,5,opt,name=connection_quota_spec,json=connectionQuotaSpec" json:"connection_quota_spec,omitempty"`
 	// Specify report interval to send periodical reports for long TCP
-	// connections. If not specified, the interval is 10 seconds.
+	// connections. If not specified, the interval is 10 seconds. This interval
+	// should not be less than 1 second, otherwise it will be reset to 1 second.
 	ReportInterval *google_protobuf1.Duration `protobuf:"bytes,6,opt,name=report_interval,json=reportInterval" json:"report_interval,omitempty"`
 }
 

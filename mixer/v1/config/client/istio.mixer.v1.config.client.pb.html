@@ -1030,7 +1030,8 @@ It applies on the new TCP connections.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Specify report interval to send periodical reports for long TCP
-connections. If not specified, the interval is 10 seconds.</p>
+connections. If not specified, the interval is 10 seconds. This interval
+should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 
 </td>
 </tr>
