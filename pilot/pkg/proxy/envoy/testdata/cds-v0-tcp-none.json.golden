@@ -78,72 +78,11 @@
     ]
    },
    {
-    "name": "out.*.google.com|external-HTTP-80",
-    "service_name": "*.google.com|external-HTTP-80",
+    "name": "out.172.217.0.0/16|external-TCP-444",
+    "service_name": "172.217.0.0/16|external-TCP-444",
     "connect_timeout_ms": 1000,
     "type": "original_dst",
-    "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 500,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
-    "name": "out.*.google.com|external-HTTP2-8080",
-    "service_name": "*.google.com|external-HTTP2-8080",
-    "connect_timeout_ms": 1000,
-    "type": "original_dst",
-    "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 500,
-    "features": "http2",
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
-    "name": "out.*.google.com|external-HTTPS-443",
-    "service_name": "*.google.com|external-HTTPS-443",
-    "connect_timeout_ms": 1000,
-    "type": "original_dst",
-    "lb_type": "original_dst_lb",
-    "max_requests_per_connection": 500,
-    "ssl_context": {},
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
+    "lb_type": "original_dst_lb"
    },
    {
     "name": "out.hello.default.svc.cluster.local|custom",
@@ -212,59 +151,15 @@
     "lb_type": "round_robin"
    },
    {
-    "name": "out.world.default.svc.cluster.local|http-status|version=v0",
-    "service_name": "world.default.svc.cluster.local|http-status|version=v0",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "random",
-    "max_requests_per_connection": 500,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
-    "name": "out.world.default.svc.cluster.local|http-status|version=v1",
-    "service_name": "world.default.svc.cluster.local|http-status|version=v1",
+    "name": "out.world.default.svc.cluster.local|http",
+    "service_name": "world.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
    },
    {
-    "name": "out.world.default.svc.cluster.local|http|version=v0",
-    "service_name": "world.default.svc.cluster.local|http|version=v0",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "random",
-    "max_requests_per_connection": 500,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
-    "name": "out.world.default.svc.cluster.local|http|version=v1",
-    "service_name": "world.default.svc.cluster.local|http|version=v1",
+    "name": "out.world.default.svc.cluster.local|http-status",
+    "service_name": "world.default.svc.cluster.local|http-status",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
