@@ -1045,7 +1045,7 @@
 [[projects]]
   name = "istio.io/api"
   packages = [
-    "broker/v1/config",
+    "broker/dev",
     "mesh/v1alpha1",
     "mixer/v1",
     "mixer/v1/config/client",
