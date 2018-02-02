@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"path"
+
 	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
@@ -46,6 +48,7 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"k8s.io/client-go/util/homedir"
 )
 
 const (
@@ -89,6 +92,8 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
+		PersistentPreRun: getRealKubeConfig,
+
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -99,9 +104,10 @@ and destination policies.
 	}
 
 	postCmd = &cobra.Command{
-		Use:     "create",
-		Short:   "Create policies and rules",
-		Example: "istioctl create -f example-routing.yaml",
+		Use:              "create",
+		Short:            "Create policies and rules",
+		Example:          "istioctl create -f example-routing.yaml",
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -169,9 +175,10 @@ and destination policies.
 	}
 
 	putCmd = &cobra.Command{
-		Use:     "replace",
-		Short:   "Replace existing policies and rules",
-		Example: "istioctl replace -f example-routing.yaml",
+		Use:              "replace",
+		Short:            "Replace existing policies and rules",
+		Example:          "istioctl replace -f example-routing.yaml",
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -273,6 +280,7 @@ istioctl get destinationpolicies
 # Get a specific rule named productpage-default
 istioctl get routerule productpage-default
 `,
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := newClient()
 			if err != nil {
@@ -333,6 +341,7 @@ istioctl delete -f example-routing.yaml
 # Delete the rule productpage-default
 istioctl delete routerule productpage-default
 `,
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, errs := newClient()
 			if errs != nil {
@@ -425,6 +434,7 @@ istioctl delete routerule productpage-default
 		Example: `# Create a config file for the api server.
 istioctl context-create --api-server http://127.0.0.1:8080
 `,
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			if istioAPIServer == "" {
 				c.Println(c.UsageString())
@@ -479,11 +489,23 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
+const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
+
+func getRealKubeConfig(c *cobra.Command, args []string) {
+	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
+	if kubeconfig == defaultKubeConfigText {
+		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")
+		if v := os.Getenv("KUBECONFIG"); v != "" {
+			kubeconfig = v
+		}
+	}
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "$KUBECONFIG else $HOME/.kube/config",
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeConfigText,
 		"Kubernetes configuration file")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
