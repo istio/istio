@@ -13,7 +13,7 @@ different scopes (mesh, service …), and the most narrow scope with
 non-INHERIT value will be used.
 Mesh policy cannot be INHERIT.</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -46,7 +46,7 @@ policy.</p>
 <section>
 <p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -69,7 +69,7 @@ policy.</p>
 </section>
 <h3 id="MeshConfig.IngressControllerMode">MeshConfig.IngressControllerMode</h3>
 <section>
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -111,7 +111,7 @@ cloud-provided ingress controller).</p>
 <p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 Istio service mesh.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -262,7 +262,7 @@ Instead, use service-level annotations to overwrite the authentication policy.</
 <section>
 <p>ProxyConfig defines variables for individual Envoy instances.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -412,13 +412,11 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
-
-
 <tr id="ProxyConfig.concurrency">
 <td><code>concurrency</code></td>
 <td><code>int32</code></td>
 <td>
-    <p>The number of worker threads to run in Envoy. Default value is number of cores on the machine.</p>
+<p>The number of worker threads to run. Default value is number of cores on the machine.</p>
 
 </td>
 </tr>

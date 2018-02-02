@@ -10,7 +10,7 @@ redirect_from: /docs/reference/api/mixer/mixer.html
 <section>
 <p>How an attribute&rsquo;s value was matched</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -84,7 +84,7 @@ Following places may use this message:
 2) Service IDL definition to extract api attributes for active requests.
 3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -104,7 +104,7 @@ Following places may use this message:
 <section>
 <p>Specifies one attribute value with different type.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -164,7 +164,7 @@ Following places may use this message:
 <section>
 <p>Defines a string map.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -182,7 +182,7 @@ Following places may use this message:
 <section>
 <p>Used to get a thumbs-up/thumbs-down before performing an action.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -232,7 +232,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 <section>
 <p>parameters for a quota allocation</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -258,7 +258,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </section>
 <h3 id="CheckResponse">CheckResponse</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -284,7 +284,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </section>
 <h3 id="CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -341,7 +341,7 @@ along with matching conditions.</p>
 </section>
 <h3 id="CheckResponse.QuotaResult">CheckResponse.QuotaResult</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -385,7 +385,7 @@ dictionary instead. The message-level dictionary is carried by the
 <code>words</code> field of this message, the deployment-wide dictionary is determined via
 configuration.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -459,7 +459,7 @@ the message-level dictionary.</p>
 <p>Describes the attributes that were used to determine the response.
 This can be used to construct a response cache.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -486,7 +486,7 @@ on using dictionaries.</p>
 </section>
 <h3 id="ReferencedAttributes.AttributeMatch">ReferencedAttributes.AttributeMatch</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -541,7 +541,7 @@ entire STRING_MAP will be used.</p>
 <section>
 <p>Used to report telemetry after performing one or more actions.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -602,7 +602,7 @@ To detect global dictionary out of sync between client and server.</p>
 <p>A map of string to string. The keys and values in this map are dictionary
 indices (see the <a href="#Attributes">Attributes</a> message for an explanation)</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -675,7 +675,7 @@ represented directly using the <code>Status</code> message.</p></li>
 be used directly after any stripping needed for security/privacy reasons.</p></li>
 </ul>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>

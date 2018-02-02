@@ -7,7 +7,7 @@ layout: protoc-gen-docs
 <h2 id="Enumerations">Enumerations</h2>
 <h3 id="TransportConfig.NetworkFailPolicy">TransportConfig.NetworkFailPolicy</h3>
 <section>
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -37,7 +37,7 @@ layout: protoc-gen-docs
 <p>See https://swagger.io/docs/specification/authentication/api-keys
 for a general overview of API keys as defined by OpenAPI.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -96,7 +96,7 @@ Cookie: X-API-KEY=abcdef12345
 <section>
 <p>Specifies a match clause to match Istio attributes</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -125,7 +125,7 @@ Each map element specifies one condition to match.</p>
 <section>
 <p>Determines how to apply auth policies for individual requests.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -168,7 +168,7 @@ include a JWT.</p>
 <p>EndUserAuthenticationPolicySpecBinding defines the binding between
 EndUserAuthenticationPolicySpecs and one or more IstioService.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -196,7 +196,7 @@ that should be mapped to the specified service(s).</p>
 </section>
 <h3 id="EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -270,7 +270,7 @@ spec:
   - query: api-key
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -332,7 +332,7 @@ spec:
     namespace: default
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -373,7 +373,7 @@ generated.</p>
   uriTemplate: /foo/bar
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -443,7 +443,7 @@ HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.
   namespace: bar
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -473,7 +473,7 @@ HTTPAPISpecBinding&rsquo;s metadata namespace field.</p>
 <section>
 <p>Defines the client config for HTTP.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -533,7 +533,7 @@ includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p
 The FQDN of the service is composed from the name, namespace, and implementation-specific domain suffix
 (e.g. on Kubernetes, &ldquo;reviews&rdquo; + &ldquo;default&rdquo; + &ldquo;svc.cluster.local&rdquo; -&gt; &ldquo;reviews.default.svc.cluster.local&rdquo;).</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -600,7 +600,7 @@ audiences:
 jwks_uri: https://example.com/.well-known/jwks.json
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -706,7 +706,7 @@ locations are tried in order:</p>
 https://tools.ietf.org/html/rfc6750#section-2.3)
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -741,7 +741,7 @@ query parameter name.</p>
 <section>
 <p>Specifies a quota to use with quota name and amount.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -770,7 +770,7 @@ query parameter name.</p>
 <p>Specifies a rule with list of matches and list of quotas.
 If any clause matched, the list of quotas will be used.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -799,7 +799,7 @@ If any of match is true, it is matched.</p>
 <section>
 <p>Determines the quotas used for individual requests.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -820,7 +820,7 @@ If any of match is true, it is matched.</p>
 <p>QuotaSpecBinding defines the binding between QuotaSpecs and one or more
 IstioService.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -848,7 +848,7 @@ conditions defined in the QuotaSpecs should not overlap.</p>
 </section>
 <h3 id="QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -878,7 +878,7 @@ metadata namespace field.</p>
 <section>
 <p>Defines the per-service client configuration.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -940,7 +940,7 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 <p>Describes how to match a given string in HTTP headers. Match is
 case-sensitive.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -976,7 +976,7 @@ case-sensitive.</p>
 <section>
 <p>Defines the client config for TCP.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1041,7 +1041,7 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 <section>
 <p>Defines the transport config on how to call Mixer.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>

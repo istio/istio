@@ -60,7 +60,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "1f16f219da2bef71df7a0a53b69714cbc6409217"
+  revision = "3fa99877b875faeea9dfc8c07b492a3186548a28"
 
 [[projects]]
   branch = "master"
@@ -80,7 +80,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
+  revision = "b417086c80e91bfa321ef761574721644b8b9f61"
 
 [[projects]]
   branch = "master"
@@ -148,7 +148,7 @@
   branch = "master"
   name = "istio.io/gogo-genproto"
   packages = ["googleapis/google/rpc"]
-  revision = "67f8f8d47316e96703fa2fd09038285aecdb7535"
+  revision = "dd2b5b6a8f1400838165245e704a011a30154a44"
 
 [solve-meta]
   analyzer-name = "dep"

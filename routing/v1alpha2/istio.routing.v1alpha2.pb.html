@@ -38,7 +38,7 @@ services.</p>
 <p>Different ways of discovering the IP addresses associated with the
 service.</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -82,7 +82,7 @@ the destination IP address.</p>
 <section>
 <p>Standard load balancing algorithms that require no tuning.</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -129,7 +129,7 @@ Envoy for further details.</p>
 <section>
 <p>TLS modes enforced by the proxy</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -166,7 +166,7 @@ authentication.</p>
 <section>
 <p>TLS connection mode</p>
 
-<table>
+<table class="enum-values">
 <tr>
 <th>Name</th>
 <th>Description</th>
@@ -224,7 +224,7 @@ spec:
         connectTimeout: 30ms
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -252,7 +252,7 @@ spec:
 <section>
 <p>Settings applicable to HTTP1.1/HTTP2/GRPC connections.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -298,7 +298,7 @@ cluster at a given time. Defaults to 3.</p>
 <section>
 <p>Settings common to both HTTP and TCP upstream connections.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -357,7 +357,7 @@ spec:
       maxAge: &quot;1d&quot;
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -532,7 +532,7 @@ spec:
         name: wikipedia.org
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -636,7 +636,7 @@ spec:
 <p>Note that policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -735,7 +735,7 @@ spec:
       version: v2
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -914,7 +914,7 @@ endpoint&rsquo;s DNS name, i.e. &ldquo;:authority: uk.foo.bar.com&rdquo;. Refer 
 auto<em>host</em>rewrite for further details. The automatic rewrite can be
 overridden using a host rewrite route rule.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -969,7 +969,7 @@ accessible over the set of outPorts defined at the service level.</p>
 <p>Endpoint defines a network address (IP or hostname) associated with
 the external service.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1129,7 +1129,7 @@ spec:
         name: mongo.prod
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1165,7 +1165,7 @@ proxying of requests. A fault rule MUST HAVE delay or abort or both.</p>
 <p><em>Note:</em> Delay and abort faults are independent of one another, even if
 both are specified simultaneously.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1220,7 +1220,7 @@ return to the caller. The optional <em>percent</em> field, a value between 0
 and 100, is used to only abort a certain percentage of requests. If
 not specified, all requests are aborted.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1293,7 +1293,7 @@ seconds. An optional <em>percent</em> field, a value between 0 and 100, can
 be used to only delay a certain percentage of requests. If left
 unspecified, all request will be delayed.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1357,7 +1357,7 @@ spec:
 
 <p>MatchCondition CANNOT be empty.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1505,7 +1505,7 @@ spec:
   ...
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1555,7 +1555,7 @@ spec:
       perTryTimeout: 2s
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1608,7 +1608,7 @@ spec:
         subset: v1
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1639,7 +1639,7 @@ provided in this field will replace the corresponding matched prefix.</p>
 <p>Describes match conditions and actions for routing HTTP/1.1, HTTP2, and
 gRPC traffic. See RouteRule for usage examples.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1764,7 +1764,7 @@ destination service.</p>
 <p>L4 connection match attributes. Note that L4 connection matching support
 is incomplete.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1864,7 +1864,7 @@ spec:
         http_header: Cookie
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1892,7 +1892,7 @@ load balancing policy is applicable only for HTTP-based
 connections. A user specified HTTP header is used as the key with
 <a href="http://cyan4973.github.io/xxHash">xxHash</a> hashing.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1961,7 +1961,7 @@ spec:
         baseEjectionTime: 15m
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -1981,7 +1981,7 @@ spec:
 <section>
 <p>Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2032,7 +2032,7 @@ service that can be ejected. Defaults to 10%.</p>
 <section>
 <p>Port describes the properties of a specific port of a service.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2070,7 +2070,7 @@ MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.</p>
 <p>PortSelector specifies the name or number of a port to be used for
 matching or selection for final routing.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2163,7 +2163,7 @@ spec:
 can be used to describe traffic properties for multiple HTTP and TCP
 ports.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2284,7 +2284,7 @@ spec:
       privateKey: /etc/certs/privatekey.pem
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2329,7 +2329,7 @@ https, and the TLS modes to use.</p>
 </section>
 <h3 id="Server.TLSOptions">Server.TLSOptions</h3>
 <section>
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2398,7 +2398,7 @@ certificate presented by the client.</p>
 <p>Describes how to match a given string in HTTP headers. Match is
 case-sensitive.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2462,7 +2462,7 @@ spec:
 <p>Note that policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2522,7 +2522,7 @@ spec:
         name: mongo.prod
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2588,7 +2588,7 @@ spec:
     mode: SIMPLE
 </code></pre>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
@@ -2656,7 +2656,7 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <p>Traffic policies to apply for a specific destination. See
 DestinationRule for examples.</p>
 
-<table>
+<table class="message-fields">
 <tr>
 <th>Field</th>
 <th>Type</th>
