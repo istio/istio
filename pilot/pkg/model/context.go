@@ -138,7 +138,9 @@ const (
 	// IngressKeyFilename is the ingress private key file name
 	IngressKeyFilename = "tls.key"
 
-	// ConfigPathDir config directory for storing envoy json config files and also core files
+	// ConfigPathDir config directory for storing envoy json config files.
+	// It also stores core files as per
+	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
 	ConfigPathDir = "/etc/istio/proxy"
 
 	// BinaryPathFilename envoy binary location
