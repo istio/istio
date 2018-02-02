@@ -62,7 +62,7 @@ var retryInterval = time.Second / 2
 const logPerRetries = 100
 
 type listerWatcherBuilderInterface interface {
-	build(res metav1.APIResource) cache.ListerWatcher
+	build(res metav1.APIResource, ns string) cache.ListerWatcher
 }
 
 func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
@@ -91,7 +91,7 @@ func waitForSynced(ctx context.Context, informers map[string]cache.SharedInforme
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
 	conf         *rest.Config
-	ns           map[string]bool
+	ns           string
 	retryTimeout time.Duration
 
 	cacheMutex sync.Mutex
@@ -159,7 +159,7 @@ func (s *Store) checkAndCreateCaches(
 				continue
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
+				cl := lwBuilder.build(res, s.ns)
 				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
 				s.caches[res.Kind] = informer.GetStore()
 				informers[res.Kind] = informer
@@ -215,9 +215,6 @@ func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 
 // Get implements store.StoreBackend interface.
 func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
-	if s.ns != nil && !s.ns[key.Namespace] {
-		return nil, store.ErrNotFound
-	}
 	s.cacheMutex.Lock()
 	c, ok := s.caches[key.Kind]
 	s.cacheMutex.Unlock()
@@ -260,9 +257,6 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
-			if s.ns != nil && !s.ns[key.Namespace] {
-				continue
-			}
 			result[key] = backEndResource(uns)
 		}
 	}
@@ -294,25 +288,17 @@ func (s *Store) dispatch(ev store.BackendEvent) {
 
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
-	ev := toEvent(store.Update, obj)
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, obj))
 }
 
 // OnUpdate implements cache.ResourceEventHandler interface.
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
-	ev := toEvent(store.Update, newObj)
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, newObj))
 }
 
 // OnDelete implements cache.ResourceEventHandler interface.
 func (s *Store) OnDelete(obj interface{}) {
 	ev := toEvent(store.Delete, obj)
 	ev.Value = nil
-	if s.ns == nil || s.ns[ev.Key.Namespace] {
-		s.dispatch(ev)
-	}
+	s.dispatch(ev)
 }
