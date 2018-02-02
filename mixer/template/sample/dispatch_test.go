@@ -15,8 +15,10 @@
 package sample
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -129,6 +131,7 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 		apaOutput: sample_apa.Output{
 			StringPrimitive: "This is an output",
 			Int64Primitive:  defaultApaAttributes["ai"].(int64),
+			OutIp:           net.ParseIP("2.3.4.5"),
 		},
 	}
 
@@ -154,6 +157,10 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 	}
 	if ai, ok := outBag.Get("generated.ai"); !ok || ai != defaultApaAttributes["ai"] {
 		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, defaultApaAttributes["ai"])
+	}
+
+	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte{0x2, 0x3, 0x4, 0x5}) {
+		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, []byte{0x2, 0x3, 0x4, 0x5})
 	}
 }
 
