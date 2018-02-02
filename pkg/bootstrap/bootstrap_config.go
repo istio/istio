@@ -86,6 +86,5 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
-
-	return fname, nil
+	return fname, err
 }
