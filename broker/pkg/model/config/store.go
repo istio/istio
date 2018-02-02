@@ -104,10 +104,10 @@ type BrokerConfigStore interface {
 
 const (
 	// IstioAPIGroup defines API group name for Istio configuration resources
-	IstioAPIGroup = "config.istio.io"
+	IstioAPIGroup = "broker.istio.io"
 
 	// IstioAPIVersion defines API group version
-	IstioAPIVersion = "v1alpha2"
+	IstioAPIVersion = "dev"
 )
 
 var (
