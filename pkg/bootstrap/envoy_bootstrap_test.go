@@ -1,12 +1,13 @@
 package bootstrap
 
 import (
-	"testing"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"io/ioutil"
-	"github.com/golang/protobuf/proto"
 	"os"
+	"testing"
+
+	"github.com/golang/protobuf/proto"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestGolden(t *testing.T) {
@@ -31,7 +32,7 @@ func TestGolden(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run("Bootrap-" + c.base, func(t *testing.T) {
+		t.Run("Bootrap-"+c.base, func(t *testing.T) {
 			cfg, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatal(err)
@@ -75,5 +76,5 @@ func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, e
 		gobase = "../.."
 	}
 	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_tmpl.json"
-	return cfg, nil;
+	return cfg, nil
 }

@@ -33,8 +33,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/log"
 )
 
 // Watcher triggers reloads on changes to the proxy config
@@ -239,7 +239,7 @@ type envoy struct {
 	config    meshconfig.ProxyConfig
 	node      string
 	extraArgs []string
-	v2 		  bool
+	v2        bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -304,7 +304,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	} else if len(proxy.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
-	} else  {
+	} else {
 		// create parent directories if necessary
 		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
 			return multierror.Prefix(err, "failed to create directory for proxy configuration")

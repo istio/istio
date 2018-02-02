@@ -15,20 +15,21 @@
 package bootstrap
 
 import (
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"fmt"
-	"path"
-	"os"
 	"io/ioutil"
-	"text/template"
+	"os"
+	"path"
 	"strings"
+	"text/template"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
 const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.yaml"
-	DefaultCfgDir = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
+	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
 func configFile(config string, epoch int) string {
@@ -49,22 +50,22 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 		cfg = DefaultCfgDir
 	}
 
-	cfgTmpl , err := ioutil.ReadFile(cfg)
-		if err != nil {
-			return "", err
-		}
+	cfgTmpl, err := ioutil.ReadFile(cfg)
+	if err != nil {
+		return "", err
+	}
 
 	t, err := template.New("bootstrap").Parse(string(cfgTmpl))
 	if err != nil {
 		return "", err
 	}
 
-	opts := map[string]interface{} {
+	opts := map[string]interface{}{
 		"config": config,
-    }
+	}
 
 	// Simplify the template
-    opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
+	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
 	addPort := strings.Split(config.DiscoveryAddress, ":")
@@ -84,7 +85,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 	}
 
 	// Execute needs some sort of io.Writer
-    err = t.Execute(fout, opts)
+	err = t.Execute(fout, opts)
 
 	return fname, nil
 }

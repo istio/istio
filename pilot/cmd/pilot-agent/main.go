@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/cobra/doc"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/model"
@@ -58,7 +59,7 @@ var (
 	controlPlaneAuthPolicy string
 	customConfigFile       string
 	proxyLogLevel          string
-	bootstrapv2 		   bool
+	bootstrapv2            bool
 
 	loggingOptions = log.NewOptions()
 
