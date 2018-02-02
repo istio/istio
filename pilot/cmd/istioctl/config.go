@@ -31,9 +31,10 @@ import (
 
 var (
 
-	// TODO - Add support for non-kube istio deployments
-	// TODO - Add config-diff to get the difference between pilot's xDS API response and the proxy config file
+	// TODO - Pull in remaining xDS information from pilot agent via curl and add to output
+	// TODO - Add config-diff to get the difference between pilot's xDS API response and the proxy config
 	// TODO - Add support for non-default proxy config locations
+	// TODO - Add support for non-kube istio deployments
 	configCmd = &cobra.Command{
 		Use:   "proxy-config <pod-name>",
 		Short: "Retrieves proxy configuration for the specified pod [kube only]",
