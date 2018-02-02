@@ -79,7 +79,7 @@ func init() {
 			bootstrap.KubernetesRegistry, bootstrap.ConsulRegistry, bootstrap.EurekaRegistry, bootstrap.CloudFoundryRegistry, bootstrap.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
 		"Cloud Foundry config file")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterStoreDir, "clusterStoreDir", "",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesDir, "clusterRegistriesDir", "",
 		"Directory for a file-based cluster config store")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")

@@ -1,18 +1,16 @@
-/*
-Copyright 2018 Istio Authors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package clusterregistry
 
@@ -25,6 +23,8 @@ import (
 	"os"
 	"strconv"
 	"text/template"
+
+	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
@@ -89,7 +89,7 @@ type clusterData struct {
 	ClientCidr       string
 }
 
-func compareParsedCluster(inData clusterData, cluster *Cluster) error {
+func compareParsedCluster(inData clusterData, cluster *k8s_cr.Cluster) error {
 	if inData.AccessConfig != GetClusterAccessConfig(cluster) {
 		return fmt.Errorf("AccessConfig mismatch for parsed cluster '%s'--"+
 			"in:'%s' v. out:'%s'",
@@ -142,7 +142,7 @@ func compareParsedCluster(inData clusterData, cluster *Cluster) error {
 	return nil
 }
 
-func checkClusterDataInInput(inDataList []clusterData, cluster *Cluster) error {
+func checkClusterDataInInput(inDataList []clusterData, cluster *k8s_cr.Cluster) error {
 	// Check that the cluster is matching with data from the test input data
 	found := false
 	for _, inData := range inDataList {
@@ -158,7 +158,7 @@ func checkClusterDataInInput(inDataList []clusterData, cluster *Cluster) error {
 	return nil
 }
 
-func checkInputInClusterData(inData clusterData, clusters []*Cluster) error {
+func checkInputInClusterData(inData clusterData, clusters []*k8s_cr.Cluster) error {
 	// Check that the input data is in the clusters list
 	found := false
 	for _, cluster := range clusters {
@@ -174,7 +174,7 @@ func checkInputInClusterData(inData clusterData, clusters []*Cluster) error {
 	return nil
 }
 
-func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*Cluster) (err error) {
+func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*k8s_cr.Cluster) (err error) {
 	// check each cluster is in the input data
 	for _, cluster := range clusters {
 		t.Logf("Parser built cluster: \"%s\", AccessConfig: \"%s\"",

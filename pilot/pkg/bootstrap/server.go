@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
+	"path"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -94,11 +94,11 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	ClusterStoreDir   string
-	KubeConfig        string
-	CFConfig          string
-	ControllerOptions kube.ControllerOptions
-	FileDir           string
+	ClusterRegistriesDir string
+	KubeConfig           string
+	CFConfig             string
+	ControllerOptions    kube.ControllerOptions
+	FileDir              string
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -190,7 +190,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initClusters(&args); err != nil {
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initKubeClient(&args); err != nil {
@@ -250,10 +250,12 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initClusters(args *PilotArgs) (err error) {
-	if args.Config.ClusterStoreDir != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterStoreDir)
-		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
+	if args.Config.ClusterRegistriesDir != "" {
+		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterRegistriesDir)
+		if s.clusterStore != nil {
+			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+		}
 	}
 	return err
 }
@@ -308,7 +310,7 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 	// If the cluster store is configured, get pilot's kubeconfig from there
 	if s.clusterStore != nil {
 		if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
-			kubeCfgFile = strings.Join([]string{args.Config.ClusterStoreDir, kubeCfgFile}, "/")
+			kubeCfgFile = path.Join(args.Config.ClusterRegistriesDir, kubeCfgFile)
 		}
 	}
 	if kubeCfgFile == "" {
@@ -395,7 +397,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 }
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
-func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
@@ -410,13 +412,13 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		clusters := s.clusterStore.GetPilotClusters()
 		for _, cluster := range clusters {
 			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-			kubeCfgFile := strings.Join([]string{args.Config.ClusterStoreDir, kubeconfig}, "/")
+			kubeCfgFile := path.Join(args.Config.ClusterRegistriesDir, kubeconfig)
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
 			_, client, kuberr := kube.CreateInterface(kubeCfgFile)
 			if kuberr != nil {
-				return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile))
+				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile)))
 			}
 
-			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
 			kubectl := kube.NewController(client, args.Config.ControllerOptions)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
@@ -428,7 +430,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 				})
 		}
 	}
-	return nil
+	return
 }
 
 // initServiceControllers creates and initializes the service controllers
