@@ -13,12 +13,11 @@ func TestGolden(t *testing.T) {
 	cases := []struct {
 		base string
 	}{
-		// Original pilot tests only has those 2 configs
-		{
-			"default",
-		},
 		{
 			"auth",
+		},
+		{
+			"default",
 		},
 		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
@@ -46,7 +45,7 @@ func TestGolden(t *testing.T) {
 				t.Error("Error reading generated file ", err)
 				return
 			}
-			golden, err := ioutil.ReadFile("testdata/" + c.base + ".golden")
+			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
 			if err != nil {
 				golden = []byte{}
 			}
@@ -70,7 +69,7 @@ func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, e
 	}
 
 	// Exported from makefile or env
-	cfg.ConfigPath = out + "/" + base + ".json"
+	cfg.ConfigPath = out + "/bootstrap/" + base
 	gobase := os.Getenv("ISTIO_GO")
 	if gobase == "" {
 		gobase = "../.."

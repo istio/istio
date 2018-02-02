@@ -21,6 +21,7 @@ import (
 	"os"
 	"io/ioutil"
 	"text/template"
+	"strings"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -61,6 +62,22 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 	opts := map[string]interface{} {
 		"config": config,
     }
+
+	// Simplify the template
+    opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\" %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
+	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\" %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
+
+	addPort := strings.Split(config.DiscoveryAddress, ":")
+	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+
+	if config.ZipkinAddress != "" {
+		addPort = strings.Split(config.ZipkinAddress, ":")
+		opts["zipkin"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+	}
+	if config.StatsdUdpAddress != "" {
+		addPort = strings.Split(config.StatsdUdpAddress, ":")
+		opts["statsd"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+	}
 	fout, err := os.Create(fname)
 	if err != nil {
 		return "", err
