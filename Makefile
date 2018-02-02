@@ -283,15 +283,12 @@ build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
 
-IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector
+IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector multicluster-ca
 .PHONY: $(IDENTITY_ALIAS_LIST)
 $(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_OUT}/$(ITEM)))
 
 .PHONY: istio-ca
 istio-ca: ${ISTIO_OUT}/istio_ca
-
-.PHONY: multicluster-ca
-multicluster-ca: ${ISTIO_OUT}/multicluster_ca
 
 .PHONY: node-agent
 node-agent: ${ISTIO_OUT}/node_agent
