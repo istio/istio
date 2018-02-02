@@ -4,27 +4,27 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "Gopkg.toml",
-		"lastStableSHA": "58de5731b5401268263924fae9df7d091813c19e"
+		"lastStableSHA": "8d86ca75131ca50e7776480a1db1b0a5abfb3e67"
 	},
 	{
 		"name": "/envoy",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy",
-		"lastStableSHA": "8f532a4a7af2bdb09b09ef49906538ee25bd578d"
+		"lastStableSHA": "eebc91a64eff912edf55a4dae388d1a25037213e"
 	},
 	{
 		"name": "/envoy-debug",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy_debug",
-		"lastStableSHA": "8f532a4a7af2bdb09b09ef49906538ee25bd578d"
+		"lastStableSHA": "eebc91a64eff912edf55a4dae388d1a25037213e"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "8f532a4a7af2bdb09b09ef49906538ee25bd578d"
+		"lastStableSHA": "eebc91a64eff912edf55a4dae388d1a25037213e"
 	}
 ]
