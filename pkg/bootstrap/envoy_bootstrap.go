@@ -27,6 +27,7 @@ import (
 const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.yaml"
+	DefaultCfgDir = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
 func configFile(config string, epoch int) string {
@@ -42,11 +43,17 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
 	// attempt to write file
 	fname := configFile(config.ConfigPath, epoch)
 
-	f, err := ioutil.ReadFile(config.CustomConfigFile)
-	if err != nil {
-		return "", err
+	cfg := config.CustomConfigFile
+	if cfg == "" {
+		cfg = DefaultCfgDir
 	}
-	t, err := template.New("bootstrap").Parse(string(f))
+
+	cfgTmpl , err := ioutil.ReadFile(cfg)
+		if err != nil {
+			return "", err
+		}
+
+	t, err := template.New("bootstrap").Parse(string(cfgTmpl))
 	if err != nil {
 		return "", err
 	}

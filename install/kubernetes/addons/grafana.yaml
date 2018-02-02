@@ -17,14 +17,13 @@ kind: Deployment
 metadata:
   name: grafana
   namespace: istio-system
+
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         app: grafana
-      annotations:
-        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: grafana

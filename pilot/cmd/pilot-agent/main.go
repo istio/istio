@@ -275,7 +275,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
-	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", false,
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
 
 	// Attach the Istio logging options to the command.

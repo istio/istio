@@ -8,6 +8,6 @@ discovery_refresh_delay:  {seconds: 1}
 zipkin_address:           ""
 connect_timeout:          {seconds: 1}
 proxy_admin_port:         15000
-ControlPlaneAuthPolicy: MUTUAL_TLS
+control_plane_auth_policy: MUTUAL_TLS
 
 # Same as default, but with MUTUAL_TLS enabled

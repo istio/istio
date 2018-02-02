@@ -16,6 +16,7 @@
 # Global Variables
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.

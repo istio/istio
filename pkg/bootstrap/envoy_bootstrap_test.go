@@ -26,7 +26,7 @@ func TestGolden(t *testing.T) {
 		},
 	}
 
-	out := os.Getenv("OUT") // defined in the makefile
+	out := os.Getenv("ISTIO_OUT") // defined in the makefile
 	if out == "" {
 		out = "/tmp"
 	}
@@ -69,8 +69,12 @@ func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, e
 		return nil, err
 	}
 
-	// TODO: move to base dir
-	cfg.ConfigPath = out + "/bootstraptest/" + base
-	cfg.CustomConfigFile = "envoy_bootstrap.pb_text"
+	// Exported from makefile or env
+	cfg.ConfigPath = out + "/" + base + ".json"
+	gobase := os.Getenv("ISTIO_GO")
+	if gobase == "" {
+		gobase = "../.."
+	}
+	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_tmpl.json"
 	return cfg, nil;
 }
