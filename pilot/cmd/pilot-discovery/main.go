@@ -38,7 +38,7 @@ var (
 	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "pilot",
+		Use:   "pilot-discovery",
 		Short: "Istio Pilot",
 		Long:  "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 	}

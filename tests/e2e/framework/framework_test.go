@@ -53,7 +53,7 @@ func newCommonConfig(testID string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID)
+	k, err := newKubeInfo(t.TempDir, t.RunID, "")
 	if err != nil {
 		return nil, err
 	}
