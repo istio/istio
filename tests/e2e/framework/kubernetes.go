@@ -368,7 +368,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		// Customize mixer's configStoreURL to limit watching resources in the testing namespace.
 		vs := url.Values{}
 		vs.Add("ns", *namespace)
-		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?%s"+vs.Encode())
+		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
