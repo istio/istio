@@ -34,8 +34,10 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const configMapKey = "mesh"
-const injectConfigMapKey = "config"
+const (
+	configMapKey       = "mesh"
+	injectConfigMapKey = "config"
+)
 
 func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
 	_, client, err := kube.CreateInterface(kubeconfig)
@@ -129,7 +131,7 @@ kube-inject on deployments to get the most up-to-date changes.
 
 To override the sidecar injection template built into istioctl, the
 parameters --injectConfigFile or --injectConfigMapName can be used.
-Both options override any other template configuration parameters, ie.
+Both options override any other template configuration parameters, eg.
 --hub and --tag.  These options would typically be used with the
 file/configmap created with a new Istio release.
 `,
@@ -146,7 +148,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 
 # Create a persistent version of the deployment with Envoy sidecar
 # injected configuration from kubernetes configmap 'istio-inject'
-istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml -c kubeconfig --injectConfigMapName istio-inject
+istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
 		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
@@ -157,6 +159,8 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml -c kubeconfi
 				return errors.New("filename not specified (see --filename or -f)")
 			case meshConfigFile == "" && meshConfigMapName == "":
 				return errors.New("--meshConfigFile or --meshConfigMapName must be set")
+			case injectConfigFile != "" && injectConfigMapName != "":
+				return errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive")
 			}
 
 			var reader io.Reader
@@ -275,7 +279,7 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Takes precedence over --injectConfigMapName if set")
+		"injection configuration filename. Cannot be used with --injectConfigMapName")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
 
@@ -308,6 +312,6 @@ func init() {
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
 	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "",
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
-			"This option overrides any other sidecar injection config options, ie. --hub",
+			"This option overrides any other sidecar injection config options, eg. --hub",
 			injectConfigMapKey))
 }
