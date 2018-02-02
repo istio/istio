@@ -64,8 +64,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int) (string, error) {
     }
 
 	// Simplify the template
-    opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\" %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
-	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\" %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
+    opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
+	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
 	addPort := strings.Split(config.DiscoveryAddress, ":")
 	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
