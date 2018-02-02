@@ -518,3 +518,6 @@ workflows:
       - e2e-pilot:
           requires:
             - build
+      - e2e-simple:
+          requires:
+            - build
