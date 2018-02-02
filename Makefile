@@ -272,7 +272,7 @@ $(MIXER_GO_BINS): depend
 ${ISTIO_OUT}/servicegraph: depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
 $(SECURITY_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -289,6 +289,9 @@ $(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_OUT}/$(ITEM)))
 
 .PHONY: istio-ca
 istio-ca: ${ISTIO_OUT}/istio_ca
+
+.PHONY: multicluster-ca
+multicluster-ca: ${ISTIO_OUT}/multicluster_ca
 
 .PHONY: node-agent
 node-agent: ${ISTIO_OUT}/node_agent
