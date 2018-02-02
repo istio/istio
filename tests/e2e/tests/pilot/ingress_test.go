@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -23,10 +23,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type ingress struct {
-	*infra
+	*tutil.Infra
 	logs *accessLogs
 }
 
@@ -38,7 +39,7 @@ func (t *ingress) String() string {
 	return "ingress"
 }
 
-func (t *ingress) setup() error {
+func (t *ingress) Setup() error {
 	if !t.Ingress {
 		return nil
 	}
@@ -48,17 +49,17 @@ func (t *ingress) setup() error {
 	t.logs = makeAccessLogs()
 
 	// parse and send yamls
-	if yaml, err := fill("ingress.yaml.tmpl", t.infra); err != nil {
+	if yaml, err := t.Fill("ingress.yaml.tmpl", t.Infra); err != nil {
 		return err
-	} else if err = t.kubeApply(yaml, t.Namespace); err != nil {
+	} else if err = t.KubeApply(yaml, t.Namespace); err != nil {
 		return err
 	}
 
 	// send route rules for "c" only
-	return t.applyConfig("v1alpha1/rule-default-route.yaml.tmpl", nil)
+	return t.ApplyConfig("v1alpha1/rule-default-route.yaml.tmpl", nil)
 }
 
-func (t *ingress) run() error {
+func (t *ingress) Run() error {
 	if !t.Ingress {
 		log.Info("skipping test since ingress is missing")
 		return nil
@@ -67,7 +68,7 @@ func (t *ingress) run() error {
 		return nil
 	}
 
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	funcs["Ingress status IP"] = t.checkIngressStatus
 	funcs["Route rule for /c"] = t.checkRouteRule
 
@@ -92,55 +93,55 @@ func (t *ingress) run() error {
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
-		funcs[name] = (func(dst, url, host string) func() status {
+		funcs[name] = (func(dst, url, host string) func() tutil.Status {
 			extra := ""
 			if host != "" {
 				extra = "-key Host -val " + host
 			}
-			return func() status {
-				resp := t.clientRequest("t", url, 1, extra)
+			return func() tutil.Status {
+				resp := t.ClientRequest("t", url, 1, extra)
 				if dst == "" {
-					if len(resp.code) > 0 && resp.code[0] == "404" {
+					if len(resp.Code) > 0 && resp.Code[0] == "404" {
 						return nil
 					}
-				} else if len(resp.id) > 0 {
-					if !strings.Contains(resp.body, "X-Forwarded-For") &&
-						!strings.Contains(resp.body, "x-forwarded-for") {
-						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.body)
-						return errAgain
+				} else if len(resp.ID) > 0 {
+					if !strings.Contains(resp.Body, "X-Forwarded-For") &&
+						!strings.Contains(resp.Body, "x-forwarded-for") {
+						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
+						return tutil.ErrAgain
 					}
 
-					id := resp.id[0]
+					id := resp.ID[0]
 					t.logs.add(dst, id, name)
 					t.logs.add("ingress", id, name)
 					return nil
 				}
-				return errAgain
+				return tutil.ErrAgain
 			}
 		})(req.dst, req.url, req.host)
 	}
 
-	if err := parallel(funcs); err != nil {
+	if err := tutil.Parallel(funcs); err != nil {
 		return err
 	}
-	return t.logs.check(t.infra)
+	return t.logs.check(t.Infra)
 }
 
 // checkRouteRule verifies that version splitting is applied to ingress paths
-func (t *ingress) checkRouteRule() status {
+func (t *ingress) checkRouteRule() tutil.Status {
 	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.IstioNamespace)
-	resp := t.clientRequest("t", url, 100, "")
-	count := counts(resp.version)
+	resp := t.ClientRequest("t", url, 100, "")
+	count := counts(resp.Version)
 	log.Infof("counts: %v", count)
 	if count["v1"] >= 95 {
 		return nil
 	}
-	return errAgain
+	return tutil.ErrAgain
 }
 
 // ensure that IPs/hostnames are in the ingress statuses
-func (t *ingress) checkIngressStatus() status {
-	ings, err := client.ExtensionsV1beta1().Ingresses(t.Namespace).List(metav1.ListOptions{})
+func (t *ingress) checkIngressStatus() tutil.Status {
+	ings, err := t.KubeClient.ExtensionsV1beta1().Ingresses(t.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -149,12 +150,12 @@ func (t *ingress) checkIngressStatus() status {
 	}
 	for _, ing := range ings.Items {
 		if len(ing.Status.LoadBalancer.Ingress) == 0 {
-			return errAgain
+			return tutil.ErrAgain
 		}
 
 		for _, status := range ing.Status.LoadBalancer.Ingress {
 			if status.IP == "" && status.Hostname == "" {
-				return errAgain
+				return tutil.ErrAgain
 			}
 			log.Infof("Ingress Status IP: %s", status.IP)
 		}
@@ -162,19 +163,11 @@ func (t *ingress) checkIngressStatus() status {
 	return nil
 }
 
-func (t *ingress) teardown() {
+func (t *ingress) Teardown() {
 	if !t.Ingress {
 		return
 	}
-	if err := client.ExtensionsV1beta1().Ingresses(t.Namespace).
-		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
-		log.Warna(err)
-	}
-	if err := client.CoreV1().Secrets(t.Namespace).
-		Delete(ingressSecretName, &metav1.DeleteOptions{}); err != nil {
-		log.Warna(err)
-	}
-	if err := t.deleteAllConfigs(); err != nil {
+	if err := t.DeleteAllConfigs(); err != nil {
 		log.Warna(err)
 	}
 }

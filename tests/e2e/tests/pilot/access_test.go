@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 // envoy access log testing utilities
@@ -56,8 +58,8 @@ func (a *accessLogs) add(app, id, desc string) {
 }
 
 // check logs against a deployment
-func (a *accessLogs) check(infra *infra) error {
-	if !infra.checkLogs {
+func (a *accessLogs) check(infra *tutil.Infra) error {
+	if !infra.CheckLogs {
 		log.Info("Log checking is disabled")
 		return nil
 	}
@@ -66,16 +68,16 @@ func (a *accessLogs) check(infra *infra) error {
 	log.Info("Checking pod logs for request IDs...")
 	log.Debuga(a.logs)
 
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for app := range a.logs {
 		name := fmt.Sprintf("Checking log of %s", app)
-		funcs[name] = (func(app string) func() status {
-			return func() status {
-				if len(infra.apps[app]) == 0 {
+		funcs[name] = (func(app string) func() tutil.Status {
+			return func() tutil.Status {
+				if len(infra.Apps[app]) == 0 {
 					return fmt.Errorf("missing pods for app %q", app)
 				}
 
-				pod := infra.apps[app][0]
+				pod := infra.Apps[app][0]
 				container := inject.ProxyContainerName
 				ns := infra.Namespace
 				switch app {
@@ -85,16 +87,16 @@ func (a *accessLogs) check(infra *infra) error {
 				case "ingress":
 					ns = infra.IstioNamespace
 				}
-				util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.coreFilesDir+"/"+pod+"."+ns)
-				logs := util.FetchLogs(client, pod, ns, container)
+				util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.CoreFilesDir+"/"+pod+"."+ns)
+				logs := util.FetchLogs(infra.KubeClient, pod, ns, container)
 
 				if strings.Contains(logs, "segmentation fault") {
-					util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.coreFilesDir+"/"+pod+"."+ns)
+					util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.CoreFilesDir+"/"+pod+"."+ns)
 					return fmt.Errorf("segmentation fault %s log: %s", pod, logs)
 				}
 
 				if strings.Contains(logs, "assert failure") {
-					util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.coreFilesDir+"/"+pod+"."+ns)
+					util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, infra.CoreFilesDir+"/"+pod+"."+ns)
 					return fmt.Errorf("assert failure in %s log: %s", pod, logs)
 				}
 
@@ -109,7 +111,7 @@ func (a *accessLogs) check(infra *infra) error {
 					if got < want {
 						log.Errorf("Got %d for %s in logs of %s, want %d", got, id, pod, want)
 						log.Errorf("Log: %s", logs)
-						return errAgain
+						return tutil.ErrAgain
 					}
 				}
 
@@ -117,5 +119,5 @@ func (a *accessLogs) check(infra *infra) error {
 			}
 		})(app)
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }
