@@ -42,7 +42,7 @@ var (
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
-	proxyTag      = flag.String("proxy_tag", "", "proxy tag that identifies a debian pkg")
+	proxyDebTag   = flag.String("proxy_deb_tag", "", "proxy tag that identifies a debian pkg")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -179,7 +179,7 @@ func buildIstioVersion() error {
 	currentIstioCommit = strings.Trim(currentIstioCommit, "\n")
 	auth := *caTag
 	pilot := *pilotTag
-	proxy := *proxyTag
+	proxy := *proxyDebTag
 	if auth == "" {
 		auth = currentIstioCommit
 	}
