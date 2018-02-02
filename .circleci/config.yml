@@ -71,6 +71,7 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: ls -R /go # Debug attach_workspace, pkg must be restored.
       - run: bin/testEnvRootMinikube.sh start
       - restore_cache:
           keys:
@@ -193,7 +194,7 @@ jobs:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
             - /go/src/istio.io/istio/vendor
-      - run: make
+      - run: make build
       - run:
           name: Status and artifacts
           command: |
@@ -284,6 +285,7 @@ jobs:
     <<: *defaults
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+      RACE_TEST: 1
     resource_class: xlarge
     steps:
       - checkout
@@ -335,6 +337,7 @@ jobs:
             # pkg may include 'dep'
             - pkg/linux_amd64
             - bin
+            - out
       - run:  make sidecar.deb
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
@@ -513,5 +516,8 @@ workflows:
           requires:
             - dependencies
       - e2e-pilot:
+          requires:
+            - build
+      - e2e-simple:
           requires:
             - build

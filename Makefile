@@ -64,16 +64,6 @@ else
    # export GOOS ?= windows
 endif
 
-ifeq ($(GOOS),linux)
-  OS_DIR:=lx
-else ifeq ($(GOOS),darwin)
-  OS_DIR:=mac
-else ifeq ($(GOOS),windows)
-  OS_DIR:=win
-else
-   $(error "Building for $(GOOS) isn't recognized/supported")
-endif
-
 # Another person's PR is adding the debug support, so this is in prep for that
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
@@ -95,7 +85,8 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
 export ISTIO_BIN=$(GO_TOP)/bin
-export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
+# Using same package structure as pkg/
+export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
