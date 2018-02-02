@@ -58,10 +58,6 @@ ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
-if [[ -z "${E2E_ARGS:-}" ]]; then
-  E2E_ARGS="$@"
-else
-  E2E_ARGS+=("$@")
-fi
+E2E_ARGS+=" $@"
 echo 'Running Integration Tests'
 time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="$E2E_ARGS" make e2e_all
