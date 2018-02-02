@@ -326,7 +326,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 .PHONY: test localTestEnv test-bins
 
 # Run coverage tests
-test: common-test mixer-test security-test broker-test galley-test pilot-test 
+test: common-test mixer-test security-test broker-test galley-test pilot-test
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
@@ -455,12 +455,8 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 .PHONY: artifacts gcs.push.istioctl-all artifacts installgen
 
-# for now docker is limited to Linux compiles
-ifeq ($(GOOS),linux)
-
+# for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
-
-endif # end of docker block that's restricted to Linux
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
