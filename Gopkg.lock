@@ -35,8 +35,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "c2a68353555b68de3ee8455a4fd3e890a0ac6d99"
-  version = "v9.8.1"
+  revision = "d4e6b95c12a08b4de2d48b45d5b4d594e5d32fab"
+  version = "v9.9.0"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -186,7 +186,7 @@
     "digestset",
     "reference"
   ]
-  revision = "5cb406d511b7b9163bff9b6439072e4892e5ae3b"
+  revision = "85b4d46b4f4ab02aa90a172d9f4d3ca8114fe33b"
 
 [[projects]]
   name = "github.com/emicklei/go-restful"
@@ -246,7 +246,7 @@
   branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "fa03337d7da5735229ee8f5e9d5d0b996014b7f8"
+  revision = "f3499b5df53897321d6f5e9c22cf19309d41d3bc"
 
 [[projects]]
   branch = "master"
@@ -317,7 +317,6 @@
   revision = "84a468cf14b4376def5d68c722b139b881c450a4"
 
 [[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
@@ -332,6 +331,7 @@
     "ptypes/wrappers"
   ]
   revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -346,10 +346,10 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
   revision = "e48060a28fac52d0f1cb758bc8b87c07bac4a87d"
+  version = "v15.0.0"
 
 [[projects]]
   branch = "master"
@@ -397,7 +397,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "4a3f5ae58624b68283375060dad06a214b05a32b"
+  revision = "bb5adf2838a3646f74c131df11c061c3a1fe0bd4"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -487,7 +487,7 @@
     ".",
     "simplelru"
   ]
-  revision = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6"
+  revision = "0fb14efe8c47ae851c0034ed7a448854d3d34cf3"
 
 [[projects]]
   name = "github.com/hashicorp/serf"
@@ -753,8 +753,8 @@
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
-  version = "v1.2.0"
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   name = "github.com/tinylib/msgp"
@@ -846,7 +846,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
+  revision = "b417086c80e91bfa321ef761574721644b8b9f61"
 
 [[projects]]
   branch = "master"
@@ -873,7 +873,7 @@
     "unix",
     "windows"
   ]
-  revision = "ff2a66f350cefa5c93a634eadb5d25bb60c85a9c"
+  revision = "8f27ce8a604014414f8dfffc25cbcde83a3f2216"
 
 [[projects]]
   branch = "master"
@@ -942,7 +942,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "1a260eb4fee522e1504ed84285a054de9b65e458"
+  revision = "f7618f4b41caffc0e9f141e6f67957587341dde2"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1045,7 +1045,7 @@
 [[projects]]
   name = "istio.io/api"
   packages = [
-    "broker/v1/config",
+    "broker/dev",
     "mesh/v1alpha1",
     "mixer/v1",
     "mixer/v1/config/client",
@@ -1055,7 +1055,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "58de5731b5401268263924fae9df7d091813c19e"
+  revision = "8f67f05eeb370d50f427169d6ccce976413ad764"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1075,7 +1075,7 @@
     "googleapis/google/api",
     "googleapis/google/rpc"
   ]
-  revision = "67f8f8d47316e96703fa2fd09038285aecdb7535"
+  revision = "dd2b5b6a8f1400838165245e704a011a30154a44"
 
 [[projects]]
   branch = "release-1.9"
@@ -1182,7 +1182,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "1bf7de8f04f0b4d4274581e73a27bf850617b49a"
+  revision = "bfca9a4f48fbb5daa9495ab50437c8c9fb988113"
 
 [[projects]]
   branch = "release-6.0"
@@ -1320,7 +1320,7 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
+  revision = "275e2ce91dec4c05a4094a7b1daee5560b555ac9"
 
 [[projects]]
   branch = "release-1.9"
@@ -1335,11 +1335,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "58bd73b356c730eeb00c48095de1f9e3a30f7c20"
+  revision = "539166bcf5e8bf397b9d244644bef1afbd69063b"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "03d5d5d44656f6beb6ef793749262b8d33430acaee90bcaacde1d06fbb425958"
+  inputs-digest = "230b218ff6e2b76015186ab6cf57333f04ccefc26f0e7f069cded0bebaa9df0c"
   solver-name = "gps-cdcl"
   solver-version = 1
