@@ -248,7 +248,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 }
 
 // GetSidecarServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
 	if sd.GetSidecarServiceInstancesError != nil {
 		return nil, sd.GetSidecarServiceInstancesError
 	}
@@ -259,7 +259,7 @@ func (sd *ServiceDiscovery) GetSidecarServiceInstances(addrs map[string]*model.N
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
-				if addrs[MakeIP(service, v)] != nil {
+				if node.IPAddress == MakeIP(service, v) {
 					for _, port := range service.Ports {
 						out = append(out, MakeInstance(service, port, v, ""))
 					}

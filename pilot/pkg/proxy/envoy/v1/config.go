@@ -136,7 +136,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err := env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +159,7 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	var err error
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err = env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err = env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return clusters, err
 		}
@@ -303,7 +303,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 	case model.Ingress:
 		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config)
 	case model.Sidecar, model.Router:
-		instances, err := discovery.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := discovery.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}

@@ -177,9 +177,8 @@ func TestGetServiceError(t *testing.T) {
 func TestGetSidecarServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	var svcNode model.Node
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetSidecarServiceInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
+	instances, err := aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.HelloInstanceV0})
 	if err != nil {
 		t.Fatalf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
 	}
@@ -193,7 +192,7 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetSidecarServiceInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
+	instances, err = aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
 		t.Fatalf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
 	}
@@ -212,9 +211,8 @@ func TestGetSidecarServiceInstancesError(t *testing.T) {
 
 	discovery1.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
 
-	var svcNode model.Node
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetSidecarServiceInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
+	instances, err := aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.HelloInstanceV0})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -224,7 +222,7 @@ func TestGetSidecarServiceInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetSidecarServiceInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
+	instances, err = aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}

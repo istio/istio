@@ -92,7 +92,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.GetSidecarServiceInstances(make(map[string]*model.Node))
+	hostInstances, err := sd.GetSidecarServiceInstances(model.Node{})
 	if err == nil {
 		t.Error("GetSidecarServiceInstances() should return error")
 	}
@@ -157,15 +157,12 @@ func TestServiceDiscoveryGetSidecarServiceInstances(t *testing.T) {
 	serviceA := makeService("a.default.svc.local", []int{9090, 8080}, nil)
 	serviceB := makeService("b.default.svc.local", []int{7070}, nil)
 
-	var svcNode model.Node
 	instanceTests := []struct {
-		addrs     map[string]*model.Node
+		node      model.Node
 		instances []*model.ServiceInstance
 	}{
 		{
-			addrs: map[string]*model.Node{
-				"10.0.0.1": &svcNode,
-			},
+			node: model.Node{IPAddress: "10.0.0.1"},
 			instances: []*model.ServiceInstance{
 				makeServiceInstance(serviceA, "10.0.0.1", 9090, nil),
 				makeServiceInstance(serviceB, "10.0.0.1", 7070, nil),
@@ -174,7 +171,7 @@ func TestServiceDiscoveryGetSidecarServiceInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		instances, err := sd.GetSidecarServiceInstances(tt.addrs)
+		instances, err := sd.GetSidecarServiceInstances(tt.node)
 		if err != nil {
 			t.Errorf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
 		}
