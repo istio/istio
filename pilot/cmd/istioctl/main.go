@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"text/tabwriter"
 
@@ -37,7 +36,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
 	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
@@ -484,11 +482,8 @@ istioctl context-create --api-server http://127.0.0.1:8080
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
-	defaultKubeconfig := path.Join(homedir.HomeDir(), ".kube/config")
-	if v := os.Getenv("KUBECONFIG"); v != "" {
-		defaultKubeconfig = v
-	}
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeconfig,
+
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "$KUBECONFIG else $HOME/.kube/config",
 		"Kubernetes configuration file")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
