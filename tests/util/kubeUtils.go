@@ -34,6 +34,8 @@ import (
 const (
 	podRunning   = "Running"
 	podFailedGet = "Failed_Get"
+	// The index of STATUS field in kubectl CLI output.
+	statusField = 2
 )
 
 // Fill complete a template with given values and generate a new output file
@@ -224,16 +226,24 @@ func GetPodsName(n string) (pods []string) {
 }
 
 // GetPodStatus gets status of a pod from a namespace
+// Note: It is not enough to check pod phase, which only implies there is at
+// least one container running. Use kubectl CLI to get status so that we can
+// ensure that all containers are running.
 func GetPodStatus(n, pod string) string {
-	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}'", n, pod)
+	status, err := Shell("kubectl -n %s get pods %s --no-headers", n, pod)
 	if err != nil {
 		log.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
 		status = podFailedGet
 	}
-	return strings.Trim(status, "'")
+	f := strings.Fields(status)
+	if len(f) > statusField {
+		return f[statusField]
+	}
+	return ""
 }
 
 // CheckPodsRunning return if all pods in a namespace are in "Running" status
+// Also check container status to be running.
 func CheckPodsRunning(n string) (ready bool) {
 	retry := Retrier{
 		BaseDelay: 30 * time.Second,
