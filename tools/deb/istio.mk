@@ -63,7 +63,6 @@ deb/fpm:
 		--after-install tools/deb/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
-		--config-files /var/lib/istio/envoy/envoy.json \
 		--description "Istio" \
 		$(SIDECAR_FILES)
 
