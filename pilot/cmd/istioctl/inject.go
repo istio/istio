@@ -126,6 +126,12 @@ added as necessary.
 The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
+
+To override the sidecar injection template built into istioctl, the
+parameters --injectConfigFile or --injectConfigMapName can be used.
+Both options override any other template configuration parameters, ie.
+--hub and --tag.  These options would typically be used with the
+file/configmap created with a new Istio release.
 `,
 		Example: `
 # Update resources on the fly before applying.
@@ -137,6 +143,10 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
 # Update an existing deployment.
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+
+# Create a persistent version of the deployment with Envoy sidecar
+# injected configuration from kubernetes configmap 'istio-inject'
+istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml -c kubeconfig --injectConfigMapName istio-inject
 `,
 		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
