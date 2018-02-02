@@ -185,10 +185,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -324,10 +324,10 @@ var (
 					for k, v := range param.DimensionsFixedInt64ValueDType {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "DimensionsFixedInt64ValueDType", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "DimensionsFixedInt64ValueDType", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "DimensionsFixedInt64ValueDType", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -560,7 +560,7 @@ var (
 					var OptionalIP net.IP
 					if param.OptionalIP != "" {
 						if OptionalIPInterface, err = mapper.Eval(param.OptionalIP, attrs); err == nil {
-							OptionalIP = net.IP(OptionalIPInterface.([]uint8))
+							OptionalIP = OptionalIPInterface.(net.IP)
 						}
 					}
 
@@ -1152,10 +1152,10 @@ var (
 					for k, v := range param.StringMap {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "StringMap", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "StringMap", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "StringMap", k), t, istio_mixer_v1_config_descriptor.STRING)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "StringMap", k, t, istio_mixer_v1_config_descriptor.STRING)
 						}
 					}
 
@@ -1193,7 +1193,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -1236,10 +1236,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1274,7 +1274,7 @@ var (
 
 						if infrdType.Res2Map[k], err = BuildRes2(v, path+"Res2Map["+k+"]."); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Res2Map", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Res2Map", k, err)
 						}
 					}
 
@@ -1305,7 +1305,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -1754,17 +1754,17 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
 					for k, v := range param.BoolMap {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "BoolMap", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "BoolMap", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "BoolMap", k), t, istio_mixer_v1_config_descriptor.BOOL)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "BoolMap", k, t, istio_mixer_v1_config_descriptor.BOOL)
 						}
 					}
 
@@ -1802,7 +1802,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -1845,10 +1845,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1883,7 +1883,7 @@ var (
 
 						if infrdType.Res2Map[k], err = BuildRes2(v, path+"Res2Map["+k+"]."); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Res2Map", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Res2Map", k, err)
 						}
 					}
 
@@ -1914,7 +1914,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2362,7 +2362,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2405,10 +2405,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -2464,7 +2464,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2507,10 +2507,10 @@ var (
 					for k, v := range param.Int64Map {
 						if t, e := tEvalFn(v); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Int64Map", k, e)
 							}
 							return nil, fmt.Errorf(
-								"error type checking for field '%s': Evaluated expression type %v want %v", path+fmt.Sprintf("%s[%s]", "Int64Map", k), t, istio_mixer_v1_config_descriptor.INT64)
+								"error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "Int64Map", k, t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -2545,7 +2545,7 @@ var (
 
 						if infrdType.Res2Map[k], err = BuildRes2(v, path+"Res2Map["+k+"]."); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Res2Map", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Res2Map", k, err)
 						}
 					}
 
@@ -2576,7 +2576,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -3094,7 +3094,7 @@ var (
 					var IpAddr net.IP
 					if param.IpAddr != "" {
 						if IpAddrInterface, err = mapper.Eval(param.IpAddr, attrs); err == nil {
-							IpAddr = net.IP(IpAddrInterface.([]uint8))
+							IpAddr = IpAddrInterface.(net.IP)
 						}
 					}
 
@@ -3544,7 +3544,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 			return nil, template.NewErrorPath("OptionalIP", err)
 		}
 
-		r.OptionalIP = net.IP(vIface.([]uint8))
+		r.OptionalIP = vIface.(net.IP)
 
 	}
 
@@ -6151,7 +6151,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = net.IP(vIface.([]uint8))
+		r.IpAddr = vIface.(net.IP)
 
 	}
 

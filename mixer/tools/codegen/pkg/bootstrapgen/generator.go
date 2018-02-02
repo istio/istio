@@ -107,6 +107,13 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			"getAliasType": func(goType string) string {
 				return aliasTypes[goType]
 			},
+			"isAliasTypeSkipIp": func(goType string) bool {
+				if "net.IP" == goType {
+					return false
+				}
+				_, found := aliasTypes[goType]
+				return found
+			},
 			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
 				if len(ti.Import) > 0 {
