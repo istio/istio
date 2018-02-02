@@ -14,7 +14,7 @@
 
 package osb
 
-import brokerconfig "istio.io/api/broker/v1/config"
+import brokerconfig "istio.io/api/broker/dev"
 
 // ServicePlan defines the OSB service plan data structure.
 type ServicePlan struct {

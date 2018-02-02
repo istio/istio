@@ -3,8 +3,8 @@ kind: CustomResourceDefinition
 metadata:
   name: serviceclasses.config.istio.io
 spec:
-  group: config.istio.io
-  version: v1alpha2
+  group: broker.istio.io
+  version: dev
   scope: Namespaced
   names:
     plural: serviceclasses
@@ -16,8 +16,8 @@ kind: CustomResourceDefinition
 metadata:
   name: serviceplans.config.istio.io
 spec:
-  group: config.istio.io
-  version: v1alpha2
+  group: broker.istio.io
+  version: dev
   scope: Namespaced
   names:
     plural: serviceplans
