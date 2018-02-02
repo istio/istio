@@ -62,8 +62,8 @@ const char kExampleConfig[] = R"(
           ],
          "jwks_uri": "https://pubkey_server/pubkey_path",
          "jwks_uri_envoy_cluster": "pubkey_cluster",
-	 "public_key_cache_duration": {
-	     "seconds": 600
+         "public_key_cache_duration": {
+            "seconds": 600
          }
       }
    ]
@@ -253,6 +253,25 @@ TEST_F(JwtAuthenticatorTest, TestNonMatchAudJWT) {
 
   auto headers =
       TestHeaderMapImpl{{"Authorization", "Bearer " + kInvalidAudToken}};
+  auth_->Verify(headers, &mock_cb_);
+}
+
+TEST_F(JwtAuthenticatorTest, TestWrongCluster) {
+  // Get returns nullptr
+  EXPECT_CALL(mock_cm_, get(_))
+      .WillOnce(Invoke(
+          [](const std::string& cluster) -> Upstream::ThreadLocalCluster* {
+            EXPECT_EQ(cluster, "pubkey_cluster");
+            return nullptr;
+          }));
+
+  EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
+  EXPECT_CALL(mock_cb_, onDone(_))
+      .WillOnce(Invoke([](const Status& status) {
+        ASSERT_EQ(status, Status::FAILED_FETCH_PUBKEY);
+      }));
+
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
   auth_->Verify(headers, &mock_cb_);
 }
 

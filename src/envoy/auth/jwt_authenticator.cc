@@ -126,11 +126,15 @@ void JwtAuthenticator::FetchPubkey(PubkeyCacheItem* issuer) {
   message->headers().insertPath().value(path);
   message->headers().insertHost().value(host);
 
-  request_ = cm_.httpAsyncClientForCluster(
-                    issuer->jwt_config().jwks_uri_envoy_cluster())
-                 .send(std::move(message), *this,
-                       Optional<std::chrono::milliseconds>());
+  const auto& cluster = issuer->jwt_config().jwks_uri_envoy_cluster();
+  if (cm_.get(cluster) == nullptr) {
+    DoneWithStatus(Status::FAILED_FETCH_PUBKEY);
+    return;
+  }
+
   ENVOY_LOG(debug, "fetch pubkey from [uri = {}]: start", uri_);
+  request_ = cm_.httpAsyncClientForCluster(cluster).send(
+      std::move(message), *this, Optional<std::chrono::milliseconds>());
 }
 
 void JwtAuthenticator::onSuccess(MessagePtr&& response) {
@@ -195,10 +199,10 @@ void JwtAuthenticator::VerifyKey(const Auth::Pubkeys& pubkey) {
 }
 
 void JwtAuthenticator::DoneWithStatus(const Status& status) {
-  callback_->onDone(status);
-  callback_ = nullptr;
   ENVOY_LOG(debug, "Jwt authentication completed with: {}",
             Auth::StatusToString(status));
+  callback_->onDone(status);
+  callback_ = nullptr;
 }
 
 const LowerCaseString& JwtAuthenticator::JwtPayloadKey() {
