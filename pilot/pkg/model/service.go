@@ -243,8 +243,8 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
+	// GetSidecarServiceInstances returns the service instances that are hosted on (implemented by) a given Node
+	GetSidecarServiceInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management

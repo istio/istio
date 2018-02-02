@@ -1,0 +1,33 @@
+- name: Find samples that don't require special handling
+  set_fact:
+    selected_simple_samples: "{{ istio.samples | difference('bookinfo') }}"
+
+- include_tasks: safely_create_namespace.yml
+  vars:
+    ns_name: samples
+  when: "selected_simple_samples | length > 0"
+
+- name: Install sample
+  include_tasks: install_sample.yml
+  vars:
+    sample_cmd_template: simple_sample_cmd.j2
+    sample_path: "{{ item.path }}"
+    sample_namespace: samples
+  with_items: "{{ istio_simple_samples }}"
+  when: "item.name in selected_simple_samples"
+
+- set_fact:
+    bookinfo_selected: "{{ 'bookinfo' in istio.samples }}"
+
+- include_tasks: safely_create_namespace.yml
+  vars:
+    ns_name: bookinfo
+  when: bookinfo_selected == true
+
+- name: Install bookinfo
+  include_tasks: install_sample.yml
+  vars:
+    sample_cmd_template: bookinfo_cmd.j2
+    sample_path: bookinfo/kube/bookinfo.yaml
+    sample_namespace: bookinfo
+  when: bookinfo_selected == true

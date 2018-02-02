@@ -38,7 +38,7 @@ time ${GOPATH}/bin/generate_cert \
 --self-signed=true \
 --ca=true
 
-echo "Generate certificate and private key for node agent"
+echo "Generate certificate and private key for node agent in ${OUTPUT_DIR}"
 
 time ${GOPATH}/bin/generate_cert \
 --key-size=2048 \

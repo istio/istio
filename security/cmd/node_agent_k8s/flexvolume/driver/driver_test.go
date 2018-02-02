@@ -94,3 +94,10 @@ func TestUnmount(t *testing.T) {
 		t.Errorf("Unmount function failed.")
 	}
 }
+
+func TestGetVolName(t *testing.T) {
+	err := GetVolName("/tmp")
+	if err != nil {
+		t.Errorf("GetVolName function failed.")
+	}
+}

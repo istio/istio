@@ -80,10 +80,16 @@ type KubeInfo struct {
 	Istioctl *Istioctl
 	// App Manager
 	AppManager *AppManager
+
+	// Release directory
+	ReleaseDir string
+	// Use baseversion if not empty.
+	BaseVersion string
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
-func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
+// If baseVersion is not empty, will use the specified release of Istio instead of the local one.
+func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	if *namespace == "" {
 		if *clusterWide {
 			*namespace = istioSystem
@@ -97,7 +103,20 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		return nil, err
 	}
 	a := NewAppManager(tmpDir, *namespace, i)
-
+	// Download the base release if baseVersion is specified.
+	var releaseDir string
+	if baseVersion != "" {
+		releaseDir, err = util.DownloadRelease(baseVersion, tmpDir)
+		if err != nil {
+			return nil, err
+		}
+		// Use istioctl from base version to inject the sidecar.
+		i.localPath = filepath.Join(releaseDir, "/bin/istioctl")
+		os.Chmod(i.localPath, 0755)
+	} else {
+		releaseDir = util.GetResourcePath("")
+	}
+	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
@@ -107,6 +126,8 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		Istioctl:         i,
 		AppManager:       a,
 		AuthEnabled:      *authEnable,
+		ReleaseDir:       releaseDir,
+		BaseVersion:      baseVersion,
 	}, nil
 }
 
@@ -218,9 +239,8 @@ func (k *KubeInfo) Teardown() error {
 
 func (k *KubeInfo) deployAddons() error {
 	for _, addon := range addons {
-
-		baseYamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
-
+		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
+		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
 		content, err := ioutil.ReadFile(baseYamlFile)
 		if err != nil {
 			log.Errorf("Cannot read file %s", baseYamlFile)
@@ -258,7 +278,8 @@ func (k *KubeInfo) deployIstio() error {
 			istioYaml = authInstallFileNamespace
 		}
 	}
-	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
+	yamlDir := filepath.Join(istioInstallDir, istioYaml)
+	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
@@ -359,17 +380,19 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(k, content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(k, content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
 
-	if *mixerHub != "" && *mixerTag != "" {
-		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
-	}
-	if *pilotHub != "" && *pilotTag != "" {
-		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
-		//Need to be updated when the string "proxy" is changed as the default image name
-		content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
-	}
-	if *caHub != "" && *caTag != "" {
-		//Need to be updated when the string "istio-ca" is changed
-		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+	if k.BaseVersion == "" {
+		if *mixerHub != "" && *mixerTag != "" {
+			content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
+		}
+		if *pilotHub != "" && *pilotTag != "" {
+			content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+			//Need to be updated when the string "proxy" is changed as the default image name
+			content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
+		}
+		if *caHub != "" && *caTag != "" {
+			//Need to be updated when the string "istio-ca" is changed
+			content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+		}
 	}
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))

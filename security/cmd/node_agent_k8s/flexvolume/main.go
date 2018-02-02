@@ -19,7 +19,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/cmd/node_agent_k8s/flexvolume/driver"
 )
 
@@ -161,6 +164,20 @@ var (
 			return driver.Unmount(args[0])
 		},
 	}
+
+	// GetVolNameCmd defines the getvolumename command
+	GetVolNameCmd = &cobra.Command{
+		Use:   "getvolumename",
+		Short: "Flex volume getvolumename command.",
+		Long:  "Flex volume getvolumename command.",
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				log.Error("mount takes 1 args")
+				return errors.New("mount takes 1 args")
+			}
+			return driver.GetVolName(args[0])
+		},
+	}
 )
 
 func init() {
@@ -173,6 +190,14 @@ func init() {
 	RootCmd.AddCommand(UnmountDevCmd)
 	RootCmd.AddCommand(MountCmd)
 	RootCmd.AddCommand(UnmountCmd)
+	RootCmd.AddCommand(GetVolNameCmd)
+
+	RootCmd.AddCommand(version.CobraCommand())
+	RootCmd.AddCommand(collateral.CobraCommand(RootCmd, &doc.GenManHeader{
+		Title:   "Istio FlexVolume",
+		Section: "flexvolume CLI",
+		Manual:  "Istio FlexVolume",
+	}))
 }
 
 func main() {

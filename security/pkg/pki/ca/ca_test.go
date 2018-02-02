@@ -25,8 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/pki"
-	"istio.io/istio/security/pkg/pki/testutil"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 var (
@@ -152,7 +151,7 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	// Check the generated CA cert.
 	rootCertBytes := ca.GetRootCertificate()
 
-	rootCert, err := pki.ParsePemEncodedCertificate(rootCertBytes)
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		t.Error(err)
 	}
@@ -176,7 +175,7 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
 
-	signingCertFromSecret, err := pki.ParsePemEncodedCertificate(caSecret.Data[cACertID])
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[cACertID])
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -219,7 +218,7 @@ func TestSelfSignedIstioCAWithSecret(t *testing.T) {
 		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
 	}
 
-	signingCert, err := pki.ParsePemEncodedCertificate([]byte(signingCertPem))
+	signingCert, err := util.ParsePemEncodedCertificate([]byte(signingCertPem))
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -264,13 +263,13 @@ func TestInvalidIstioCAOptions(t *testing.T) {
 
 func TestSignCSRForWorkload(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/bar"
-	opts := CertOptions{
+	opts := util.CertOptions{
 		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 		IsCA:       false,
 	}
-	csrPEM, keyPEM, err := GenCSR(opts)
+	csrPEM, keyPEM, err := util.GenCSR(opts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -286,16 +285,16 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	fields := &testutil.VerifyFields{
+	fields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
-	if err = testutil.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(certPEM)
+	cert, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		t.Error(err)
 	}
@@ -303,11 +302,11 @@ func TestSignCSRForWorkload(t *testing.T) {
 	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
 		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
 	}
-	san := pki.ExtractSANExtension(cert.Extensions)
+	san := util.ExtractSANExtension(cert.Extensions)
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := buildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(host)
 	if err != nil {
 		t.Error(err)
 	}
@@ -318,13 +317,13 @@ func TestSignCSRForWorkload(t *testing.T) {
 
 func TestSignCSRForCA(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/baz"
-	opts := CertOptions{
+	opts := util.CertOptions{
 		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 		IsCA:       true,
 	}
-	csrPEM, keyPEM, err := GenCSR(opts)
+	csrPEM, keyPEM, err := util.GenCSR(opts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -340,15 +339,15 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	fields := &testutil.VerifyFields{
+	fields := &util.VerifyFields{
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
 	}
-	if err = testutil.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(certPEM)
+	cert, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		t.Error(err)
 	}
@@ -356,11 +355,11 @@ func TestSignCSRForCA(t *testing.T) {
 	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
 		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
 	}
-	san := pki.ExtractSANExtension(cert.Extensions)
+	san := util.ExtractSANExtension(cert.Extensions)
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected, err := buildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(host)
 	if err != nil {
 		t.Error(err)
 	}
@@ -371,12 +370,12 @@ func TestSignCSRForCA(t *testing.T) {
 
 func TestSignCSRTTLError(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/bar"
-	opts := CertOptions{
+	opts := util.CertOptions{
 		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
 	}
-	csrPEM, _, err := GenCSR(opts)
+	csrPEM, _, err := util.GenCSR(opts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -400,29 +399,29 @@ func TestSignCSRTTLError(t *testing.T) {
 
 func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
 	// Generate root CA key and cert.
-	rootCAOpts := CertOptions{
+	rootCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: true,
 		TTL:          time.Hour,
 		Org:          "Root CA",
 		RSAKeySize:   2048,
 	}
-	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(rootCAOpts)
+	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	rootCert, err := pki.ParsePemEncodedCertificate(rootCertBytes)
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	rootKey, err := pki.ParsePemEncodedKey(rootKeyBytes)
+	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	intermediateCAOpts := CertOptions{
+	intermediateCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: false,
 		TTL:          time.Hour,
@@ -431,7 +430,7 @@ func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
 	}
-	intermediateCert, intermediateKey, err := GenCertKeyFromOptions(intermediateCAOpts)
+	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
 	if err != nil {
 		return nil, err
 	}

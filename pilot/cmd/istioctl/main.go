@@ -39,11 +39,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
+	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -89,21 +91,20 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			defaultNamespace = getDefaultNamespace(kubeconfig)
+			return nil
 		},
 	}
 
 	postCmd = &cobra.Command{
-		Use:   "create",
-		Short: "Create policies and rules",
-		Example: `
-			istioctl create -f example-routing.yaml
-			`,
+		Use:     "create",
+		Short:   "Create policies and rules",
+		Example: "istioctl create -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
 			if len(args) != 0 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
@@ -170,11 +171,9 @@ and destination policies.
 	}
 
 	putCmd = &cobra.Command{
-		Use:   "replace",
-		Short: "Replace existing policies and rules",
-		Example: `
-			istioctl replace -f example-routing.yaml
-			`,
+		Use:     "replace",
+		Short:   "Replace existing policies and rules",
+		Example: "istioctl replace -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -267,16 +266,15 @@ and destination policies.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
-		Example: `
-		# List all route rules
-		istioctl get routerules
+		Example: `# List all route rules
+istioctl get routerules
 
-		# List all destination policies
-		istioctl get destinationpolicies
+# List all destination policies
+istioctl get destinationpolicies
 
-		# Get a specific rule named productpage-default
-		istioctl get routerule productpage-default
-		`,
+# Get a specific rule named productpage-default
+istioctl get routerule productpage-default
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := newClient()
 			if err != nil {
@@ -331,13 +329,12 @@ and destination policies.
 	deleteCmd = &cobra.Command{
 		Use:   "delete <type> <name> [<name2> ... <nameN>]",
 		Short: "Delete policies or rules",
-		Example: `
-		# Delete a rule using the definition in example-routing.yaml.
-		istioctl delete -f example-routing.yaml
+		Example: `# Delete a rule using the definition in example-routing.yaml.
+istioctl delete -f example-routing.yaml
 
-		# Delete the rule productpage-default
-		istioctl delete routerule productpage-default
-		`,
+# Delete the rule productpage-default
+istioctl delete routerule productpage-default
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, errs := newClient()
 			if errs != nil {
@@ -427,10 +424,9 @@ and destination policies.
 	configCmd = &cobra.Command{
 		Use:   "context-create --api-server http://<ip>:<port>",
 		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
-		Example: `
-		# Create a config file for the api server.
-		istioctl context-create --api-server http://127.0.0.1:8080
-		`,
+		Example: `# Create a config file for the api server.
+istioctl context-create --api-server http://127.0.0.1:8080
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if istioAPIServer == "" {
 				c.Println(c.UsageString())
@@ -527,6 +523,12 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Control",
+		Section: "istioctl CLI",
+		Manual:  "Istio Control",
+	}))
 }
 
 func main() {

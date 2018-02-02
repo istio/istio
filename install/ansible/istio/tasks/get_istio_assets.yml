@@ -5,6 +5,7 @@
 - name: Get the tagged release
   uri:
     url: "{{ github_url }}/{{ istio_repo }}/releases/{{ release_tag }}"
+    headers: "{{ github_api_http_headers }}"
   register: release
 
 - name: Set release
@@ -22,6 +23,7 @@
 - name: Get the list of assets
   uri:
     url: "{{ assets_url }}"
+    headers: "{{ github_api_http_headers }}"
   register: assets
 
 - name: Set file extension to lookup

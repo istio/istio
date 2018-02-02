@@ -23,8 +23,8 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters()
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil)
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
@@ -42,8 +42,8 @@ func TestBasic(t *testing.T) {
 }
 
 func TestCacheUse(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters()
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil)
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
 	i1 := s.Instances[data.FqnI1]
@@ -67,8 +67,8 @@ func TestCacheUse(t *testing.T) {
 }
 
 func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SupportedTemplates: []string{"additional-template"}})
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", SupportedTemplates: []string{"additional-template"}})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -86,8 +86,8 @@ func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
 }
 
 func TestInferError(t *testing.T) {
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", ErrorAtInferType: true})
-	attributes := data.BuildAdapters()
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", ErrorAtInferType: true})
+	attributes := data.BuildAdapters(nil)
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -101,8 +101,8 @@ func TestInferError(t *testing.T) {
 }
 
 func TestNilBuilder(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", NilBuilder: true})
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", NilBuilder: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -116,8 +116,8 @@ func TestNilBuilder(t *testing.T) {
 }
 
 func TestBuilderDoesNotSupportTemplate(t *testing.T) {
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", BuilderDoesNotSupportTemplate: true})
-	attributes := data.BuildAdapters()
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", BuilderDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(nil)
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -132,8 +132,8 @@ func TestBuilderDoesNotSupportTemplate(t *testing.T) {
 }
 
 func TestHandlerDoesNotSupportTemplate(t *testing.T) {
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
-	attributes := data.BuildAdapters()
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(nil)
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -149,8 +149,8 @@ func TestHandlerDoesNotSupportTemplate(t *testing.T) {
 
 func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 	// Trigger premature close due to handler not supporting the template.
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true})
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -166,8 +166,8 @@ func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 
 func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 	// Trigger premature close due to handler not supporting the template.
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true})
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -182,8 +182,8 @@ func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 }
 
 func TestPanicAtSetAdapterConfig(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtSetAdapterConfig: true})
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", PanicAtSetAdapterConfig: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 	i1 := s.Instances[data.FqnI1]
@@ -198,8 +198,8 @@ func TestPanicAtSetAdapterConfig(t *testing.T) {
 }
 
 func TestFailedValidation(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtValidate: true})
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", ErrorAtValidate: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
@@ -215,8 +215,8 @@ func TestFailedValidation(t *testing.T) {
 }
 
 func TestPanicAtValidation(t *testing.T) {
-	templates := data.BuildTemplates()
-	attributes := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtValidate: true})
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", PanicAtValidate: true})
 
 	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
 
