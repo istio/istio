@@ -33,7 +33,7 @@ declare -a tests
 
 HUB=gcr.io/istio-testing
 
-cd ${WORKSPACE}/github.com/istio
+cd ${WORKSPACE}/github.com/istio/istio
 git reset --hard ${TAG}
 
 for t in ${tests[@]}; do
