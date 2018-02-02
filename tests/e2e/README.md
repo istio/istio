@@ -143,6 +143,8 @@ go_test target. The script has a number of options:
 * `--mixer_tag <mixer image tag>`
 * `--pilot_hub <pilot image hub>`
 * `--pilot_tag <pilot image tag>`
+* `--proxy_hub <proxy image hub>`
+* `--proxy_tag <proxy image tag>`
 * `--ca_hub <CA image hub>`
 * `--ca_tag <CA image tag>`
 

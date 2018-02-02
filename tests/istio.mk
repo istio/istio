@@ -50,9 +50,11 @@ EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
 EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
 EXTRA_E2E_ARGS += --mixer_tag ${TAG}
 EXTRA_E2E_ARGS += --pilot_tag ${TAG}
+EXTRA_E2E_ARGS += --proxy_tag ${TAG}
 EXTRA_E2E_ARGS += --ca_tag ${TAG}
 EXTRA_E2E_ARGS += --mixer_hub ${HUB}
 EXTRA_E2E_ARGS += --pilot_hub ${HUB}
+EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
 # A make target to generate all the YAML files
