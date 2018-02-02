@@ -67,9 +67,11 @@ endif
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
+# Invoke make VERBOSE=1 to enable echoing of the command being executed
 VERBOSE ?= 0
-V ?= $(or $(VERBOSE),0)
-Q = $(if $(filter 1,$V),,@)
+# Place the variable Q in front of a command to control echoing of the command being executed.
+Q = $(if $(filter 1,$VERBOSE),,@)
+# Use the variable H to add a header (equivalent to =>) to informational output
 H = $(shell printf "\033[34;1m=>\033[0m")
 
 # To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
