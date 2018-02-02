@@ -26,12 +26,14 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
+	"github.com/spf13/cobra/doc"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -60,7 +62,7 @@ var (
 	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "agent",
+		Use:   "pilot-agent",
 		Short: "Istio Pilot agent",
 		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
 	}
@@ -264,7 +266,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the generated configuration file directory")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
 
@@ -275,6 +277,12 @@ func init() {
 
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Pilot Agent",
+		Section: "pilot-agent CLI",
+		Manual:  "Istio Pilot Agent",
+	}))
 }
 
 func main() {

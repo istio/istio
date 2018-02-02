@@ -25,12 +25,12 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 type fakeCa struct{}
 
-func (ca *fakeCa) Sign([]byte, time.Duration) ([]byte, error) {
+func (ca *fakeCa) Sign([]byte, time.Duration, bool) ([]byte, error) {
 	return []byte("fake cert chain"), nil
 }
 
@@ -197,12 +197,12 @@ func TestUpdateSecret(t *testing.T) {
 			scrt.Data[RootCertID] = rc
 		}
 
-		opts := ca.CertOptions{
+		opts := util.CertOptions{
 			IsSelfSigned: true,
 			TTL:          tc.ttl,
 			RSAKeySize:   512,
 		}
-		bs, _, err := ca.GenCert(opts)
+		bs, _, err := util.GenCertKeyFromOptions(opts)
 		if err != nil {
 			t.Error(err)
 		}

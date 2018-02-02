@@ -19,15 +19,17 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -74,11 +76,16 @@ type cliOptions struct {
 	grpcPort     int
 
 	loggingOptions *log.Options
+
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
 }
 
 var (
 	opts = cliOptions{
-		loggingOptions: log.NewOptions(),
+		loggingOptions:       log.NewOptions(),
+		LivenessProbeOptions: &probe.Options{},
 	}
 
 	rootCmd = &cobra.Command{
@@ -91,7 +98,11 @@ var (
 )
 
 func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
+	if len(args) > 0 {
+		log.Errorf(template, args)
+	} else {
+		log.Errorf(template)
+	}
 	os.Exit(-1)
 }
 
@@ -128,7 +139,18 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
+	flags.StringVar(&opts.LivenessProbeOptions.Path, "livenessProbePath", "",
+		"Path to the file for the liveness probe.")
+	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
+		"Interval of updating file for the liveness probe.")
+
 	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio CA",
+		Section: "istio_ca CLI",
+		Manual:  "Istio CA",
+	}))
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
@@ -202,30 +224,34 @@ func createClientset() *kubernetes.Clientset {
 }
 
 func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
+	var caOpts *ca.IstioCAOptions
+	var err error
+
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.workloadCertTTL, opts.maxWorkloadCertTTL, opts.selfSignedCAOrg,
-			opts.istioCaStorageNamespace, core)
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.caCertTTL, opts.workloadCertTTL,
+			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
-		return istioCA
+	} else {
+		var certChainBytes []byte
+		if opts.certChainFile != "" {
+			certChainBytes = readFile(opts.certChainFile)
+		}
+		caOpts = &ca.IstioCAOptions{
+			CertChainBytes:   certChainBytes,
+			CertTTL:          opts.workloadCertTTL,
+			MaxCertTTL:       opts.maxWorkloadCertTTL,
+			SigningCertBytes: readFile(opts.signingCertFile),
+			SigningKeyBytes:  readFile(opts.signingKeyFile),
+			RootCertBytes:    readFile(opts.rootCertFile),
+		}
 	}
 
-	var certChainBytes []byte
-	if opts.certChainFile != "" {
-		certChainBytes = readFile(opts.certChainFile)
-	}
-	caOpts := &ca.IstioCAOptions{
-		CertChainBytes:   certChainBytes,
-		CertTTL:          opts.workloadCertTTL,
-		MaxCertTTL:       opts.maxWorkloadCertTTL,
-		SigningCertBytes: readFile(opts.signingCertFile),
-		SigningKeyBytes:  readFile(opts.signingKeyFile),
-		RootCertBytes:    readFile(opts.rootCertFile),
-	}
+	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {

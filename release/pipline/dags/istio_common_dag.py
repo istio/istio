@@ -34,8 +34,8 @@ default_args = {
     'depends_on_past': False,
     # This is the date to when the airlfow pipline tryes to backfil to.
     'start_date': YESTERDAY,
-    'email': ['laane@google.com'],
-    'email_on_failure': False,
+    'email': environment_config.EMAIL_LIST,
+    'email_on_failure': True,
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
@@ -68,7 +68,7 @@ def GetSettingTemplate(setting):
 
 
 def MakeCommonDag(name='istio_daily_flow_test',
-                  schedule_interval='15 3 * * *',
+                  schedule_interval='15 9 * * *',
                   monthly=False):
   """Creates the shared part of the daily/monthly dags."""
   common_dag = DAG(
@@ -147,7 +147,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
           'MFEST_COMMIT') or Variable.get('latest_sha')
       gcs_path = conf.get('GCS_MONTHLY_STAGE_PATH')
       if not gcs_path:
-        gcs_path= default_conf['GCS_MONTHLY_STAGE_PATH']
+        gcs_path = default_conf['GCS_MONTHLY_STAGE_PATH']
     else:
       config_settings['MFEST_COMMIT'] = conf.get(
           'MFEST_COMMIT') or default_conf['MFEST_COMMIT']
@@ -156,8 +156,12 @@ def MakeCommonDag(name='istio_daily_flow_test',
     config_settings['GCS_STAGING_PATH'] = gcs_path
     config_settings['GCS_BUILD_PATH'] = '{}/{}'.format(
         config_settings['GCS_BUILD_BUCKET'], gcs_path)
+    config_settings['GCS_RELEASE_TOOLS_PATH'] = '{}/release-tools/{}'.format(
+        config_settings['GCS_BUILD_BUCKET'], gcs_path)
     config_settings['GCS_FULL_STAGING_PATH'] = '{}/{}'.format(
         config_settings['GCS_STAGING_BUCKET'], gcs_path)
+    config_settings['ISTIO_REPO'] = 'https://github.com/{}/{}.git'.format(
+        config_settings['GITHUB_ORG'],  config_settings['GITHUB_REPO'])
 
     return config_settings
 
@@ -173,8 +177,21 @@ def MakeCommonDag(name='istio_daily_flow_test',
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
     git clone {{ settings.MFEST_URL }} green-builds || exit 2
-    cd green-builds
-    git checkout {{ settings.MFEST_COMMIT }} || exit 3
+    pushd green-builds
+    git checkout {{ settings.MFEST_COMMIT }} || exit 5
+    SHA=`grep {{ settings.GITHUB_ORG }}/{{ settings.GITHUB_REPO }} {{ settings.MFEST_FILE }} | cut -f 6 -d \\"` || exit 3
+    if [ -z ${SHA} ]; then
+      echo "SHA not found"
+      exit 6
+    fi
+    popd
+    git clone {{ settings.ISTIO_REPO }} istio-code
+    pushd istio-code/release
+    git checkout ${SHA} || exit 4
+    gsutil cp *.sh gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/
+    gsutil cp *.json gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/
+    popd
+    pushd green-builds
     git rev-parse HEAD
     """
 
@@ -185,10 +202,12 @@ def MakeCommonDag(name='istio_daily_flow_test',
       dag=common_dag)
 
   build_template = """
-    chmod +x /home/airflow/gcs/data/release/*
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-    /home/airflow/gcs/data/release/start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
+    gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
+    gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
+    chmod +x *
+    ./start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
     }} -r {{ settings.GCR_STAGING_DEST }} -s {{ settings.GCS_BUILD_PATH }} \
     -v "{{ settings.VERSION }}" \
     -u "{{ settings.MFEST_URL }}" \
@@ -215,14 +234,13 @@ def MakeCommonDag(name='istio_daily_flow_test',
   run_release_quilification_tests = BashOperator(
       task_id='run_release_quilification_tests',
       bash_command=test_command,
-      retries=2,
+      retries=0,
       dag=common_dag)
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
       source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
       source_object=GetSettingTemplate('GCS_STAGING_PATH'),
       destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
-      destination_directory=GetSettingTemplate('GCS_STAGING_PATH'),
       dag=common_dag,
   )
   generate_flow_args >> get_git_commit >> build

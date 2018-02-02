@@ -114,12 +114,12 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return instances, errs
 }
 
-// HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+// GetSidecarServiceInstances lists service instances for a given set of IPv4 addresses.
+func (c *Controller) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	for _, r := range c.registries {
-		instances, err := r.HostInstances(addrs)
+		instances, err := r.GetSidecarServiceInstances(addrs)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {
@@ -129,7 +129,7 @@ func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("HostInstances() found match but encountered an error: %v", errs)
+			log.Warnf("GetSidecarServiceInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}

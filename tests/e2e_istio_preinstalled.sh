@@ -33,13 +33,13 @@ declare -a tests
 
 HUB=gcr.io/istio-testing
 
-cd ${WORKSPACE}/istio
+cd ${WORKSPACE}/github.com/istio
 git reset --hard ${TAG}
 
 for t in ${tests[@]}; do
   go test -v -timeout 20m ./tests/e2e/tests/${t} -args \
   --skip_setup --namespace istio-system \
-  --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
-  --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB} \
+  --mixer_tag ${TAG} --pilot_tag ${TAG} --proxy_tag ${TAG} --ca_tag ${TAG} \
+  --mixer_hub ${HUB} --pilot_hub ${HUB} --proxy_hub ${HUB} --ca_hub ${HUB} \
   --istioctl_url https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl
 done

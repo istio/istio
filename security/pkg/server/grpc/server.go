@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"net"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,8 +28,8 @@ import (
 
 	"google.golang.org/grpc/status"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
 )
@@ -60,13 +59,13 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
-	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
+	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR parsing error (error %v)", err)
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
-	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
+	requestedIDs, err := util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
@@ -78,7 +77,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
-	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, request.ForCA)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
@@ -164,17 +163,17 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 }
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
-	opts := ca.CertOptions{
+	opts := util.CertOptions{
 		Host:       s.hostname,
 		RSAKeySize: 2048,
 	}
 
-	csrPEM, privPEM, err := ca.GenCSR(opts)
+	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL)
+	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL, false)
 	if err != nil {
 		return nil, err
 	}

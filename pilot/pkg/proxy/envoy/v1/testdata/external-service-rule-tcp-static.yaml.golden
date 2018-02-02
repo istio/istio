@@ -1,0 +1,10 @@
+hosts:
+  - "172.217.0.0/16"
+ports:
+- number: 444
+  name: tcp-444
+  protocol: tcp
+discovery: STATIC
+endpoints:
+  - address: 1.1.1.1
+  - address: 2.2.2.2

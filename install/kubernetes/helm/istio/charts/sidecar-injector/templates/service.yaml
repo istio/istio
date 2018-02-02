@@ -1,0 +1,14 @@
+{{- if .Values.global.sidecarInjectEnabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "sidecar-injector.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio: {{ template "sidecar-injector.name" . }}
+spec:
+  ports:
+  - port: 443
+  selector:
+    istio: {{ template "sidecar-injector.name" . }}
+{{- end }}
