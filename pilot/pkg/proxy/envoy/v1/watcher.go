@@ -297,6 +297,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	if proxy.v2 {
 		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch)
 		if err != nil {
+			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 			return err
 		}

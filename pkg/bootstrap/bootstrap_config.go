@@ -28,7 +28,7 @@ import (
 // Generate the envoy v2 bootstrap configuration, using template.
 const (
 	// EpochFileTemplate is a template for the root config JSON
-	EpochFileTemplate = "envoy-rev%d.yaml"
+	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
 )
 
