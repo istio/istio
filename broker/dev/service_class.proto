@@ -16,9 +16,7 @@ syntax = "proto3";
 // $title: Service Broker
 // $overview: Configuration affecting the Istio service broker
 
-// The location tag is disabled so this package's doc is not publised to istio.io
-// XX location: https://istio.io/docs/reference/config/istio.broker.dev.html
-
+// This package defines service broker configurations.
 package istio.broker.dev;
 
 option go_package="istio.io/api/broker/dev";

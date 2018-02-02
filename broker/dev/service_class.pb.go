@@ -4,6 +4,8 @@
 /*
 Package dev is a generated protocol buffer package.
 
+This package defines service broker configurations.
+
 It is generated from these files:
 	broker/dev/service_class.proto
 	broker/dev/service_plan.proto
