@@ -172,17 +172,16 @@ func (vm *GCPRawVM) Setup() error {
 }
 
 func buildIstioVersion() error {
-	currentIstioCommit, err := u.Shell("git rev-parse HEAD")
-	if err != nil {
-		return err
+	proxy := *proxyDebTag
+	if proxy == "" {
+		currentIstioCommit, err := u.Shell("git rev-parse HEAD")
+		if err != nil {
+			return err
+		}
+		proxy = strings.Trim(currentIstioCommit, "\n")
 	}
-	currentIstioCommit = strings.Trim(currentIstioCommit, "\n")
-	pilot := *pilotTag
-	if pilot == "" {
-		pilot = currentIstioCommit
-	}
-	pilotURL := fmt.Sprintf(debURL, "pilot", pilot)
-	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, pilotURL)
+	proxyURL := fmt.Sprintf(debURL, "pilot", proxy)
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 
