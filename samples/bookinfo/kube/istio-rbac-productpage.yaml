@@ -1,0 +1,22 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRole
+metadata:
+  name: productpage-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage.default.svc.cluster.local"]
+    methods: ["GET"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-productpager
+  namespace: default
+spec:
+  subjects:
+  # This is a workaround representing all users.
+  - user: ""
+  roleRef:
+    kind: ServiceRole
+    name: "productpage-viewer"

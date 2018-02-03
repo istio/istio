@@ -1,0 +1,23 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRole
+metadata:
+  name: ratings-viewer
+  namespace: default
+spec:
+  rules:
+  - services: ["ratings.default.svc.cluster.local"]
+    methods: ["GET"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-ratings
+  namespace: default
+spec:
+  subjects:
+  - user: "cluster.local/ns/default/sa/bookinfo-reviews"
+    properties:
+      version: "v3"
+  roleRef:
+    kind: ServiceRole
+    name: "ratings-viewer"
