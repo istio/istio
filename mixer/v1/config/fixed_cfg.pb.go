@@ -19,7 +19,6 @@ package config
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/struct"
 import istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
 
 // Reference imports to suppress errors if they are not otherwise used.

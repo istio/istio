@@ -235,7 +235,9 @@ $(mixer_template_pb_gos) $(mixer_template_pb_doc) : $(mixer_template_protos) | d
 mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: mixer/v1/config/cfg.proto | depend $(protoc_gen_gogo) $(protoc_bin)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
 	@$(protoc) $(proto_path) $(gogo_plugin) $(protoc_gen_docs_plugin)mixer/v1/config $^
-	@sed -e 's/*google_protobuf.Struct/interface{}/g' -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' mixer/v1/config/cfg.pb.go >mixer/v1/config/fixed_cfg.pb.go
+	@sed -e 's/*google_protobuf.Struct/interface{}/g' \
+	     -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' mixer/v1/config/cfg.pb.go \
+	     | grep -v "google_protobuf" >mixer/v1/config/fixed_cfg.pb.go
 	@rm mixer/v1/config/cfg.pb.go
 
 clean-mixer-generated:
