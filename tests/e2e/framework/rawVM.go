@@ -177,29 +177,12 @@ func buildIstioVersion() error {
 		return err
 	}
 	currentIstioCommit = strings.Trim(currentIstioCommit, "\n")
-	auth := *caTag
 	pilot := *pilotTag
-	proxy := *proxyDebTag
-	if auth == "" {
-		auth = currentIstioCommit
-	}
 	if pilot == "" {
 		pilot = currentIstioCommit
 	}
-	if proxy == "" {
-		// Use debian pkg built from proxy master
-		proxy, err = u.GetHeadCommitSHA("istio", "proxy", "master")
-		if err != nil {
-			return err
-		}
-	}
-	authURL := fmt.Sprintf(debURL, "auth", auth)
 	pilotURL := fmt.Sprintf(debURL, "pilot", pilot)
-	proxyURL := fmt.Sprintf(debURL, "proxy", proxy)
-	urls := fmt.Sprintf(`
-		export AUTH_DEBIAN_URL="%s";
-		export PILOT_DEBIAN_URL="%s";
-		export PROXY_DEBIAN_URL="%s";`, authURL, pilotURL, proxyURL)
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, pilotURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 
