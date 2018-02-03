@@ -29,12 +29,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
+	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adpTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
@@ -1086,7 +1086,7 @@ func TestProcessReport(t *testing.T) {
 				"foo": &sample_report.InstanceParam{
 					// missing all fields
 					Res1: &sample_report.Res1InstanceParam{
-					// missing all fields
+						// missing all fields
 					},
 				},
 				"bar": &sample_report.InstanceParam{

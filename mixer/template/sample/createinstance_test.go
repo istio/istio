@@ -24,10 +24,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
+	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
@@ -687,7 +687,7 @@ func generateReportTests() []createInstanceTest {
 	emptyFieldsParam := sample_report.InstanceParam{
 		// missing all fields
 		Res1: &sample_report.Res1InstanceParam{
-		// missing all fields
+			// missing all fields
 		},
 	}
 	t = createInstanceTest{

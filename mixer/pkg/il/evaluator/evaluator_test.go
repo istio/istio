@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
-	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
