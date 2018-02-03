@@ -158,12 +158,8 @@ func newTestState(mockServerAddress string) *testState {
 func (testState *testState) runEnvoy(discoveryAddr string) error {
 	config := model.DefaultProxyConfig()
 	dir := os.Getenv("ISTIO_BIN")
-	var err error
 	if len(dir) == 0 {
-		dir, err = os.Getwd()
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("envoy binary dir empty")
 	}
 
 	config.BinaryPath = path.Join(dir, "envoy")
