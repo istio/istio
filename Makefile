@@ -304,6 +304,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
+	cp -r tools ${ISTIO_OUT}/archive
 	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" -A "$(ISTIO_URL)/deb" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
