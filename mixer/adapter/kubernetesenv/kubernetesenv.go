@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
-	istiocache "istio.io/istio/pkg/cache"
 )
 
 const (
@@ -59,9 +58,6 @@ const (
 	// k8s cache invalidation
 	// TODO: determine a reasonable default
 	defaultRefreshPeriod = 5 * time.Minute
-
-	// max builder cache size for k8s controllers
-	maxControllersCacheEntries = 25
 )
 
 var (
@@ -83,7 +79,7 @@ type (
 		newClientset  clientsetFactoryFn
 
 		sync.Mutex
-		controllers istiocache.Cache
+		controllers map[string]cacheController
 	}
 
 	handler struct {
@@ -155,14 +151,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, fmt.Errorf("could not build config: %v", err)
 	}
 
-	var controller cacheController
-	key := configKey(config)
 	// only ever build a controller for a config once. this potential blocks
 	// the Build() for multiple handlers using the same config until the first
 	// one has synced. This should be OK, as the WaitForCacheSync was meant to
 	// provide this basic functionality before.
 	b.Lock()
-	if c, found := b.controllers.Get(key); !found {
+	controller, found := b.controllers[path]
+	if !found {
 		clientset, err := b.newClientset(config)
 		if err != nil {
 			return nil, err
@@ -177,9 +172,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			return nil, errors.New("cache sync failure")
 		}
 		env.Logger().Infof("Cache sync successful.")
-		b.controllers.Set(key, controller)
-	} else {
-		controller = c.(cacheController)
+		b.controllers[path] = controller
 	}
 	b.Unlock()
 
@@ -194,7 +187,7 @@ func newBuilder(configFactory configFactoryFn, clientsetFactory clientsetFactory
 	return &builder{
 		newConfig:     configFactory,
 		newClientset:  clientsetFactory,
-		controllers:   istiocache.NewLRU(0, 0 /* never expire */, maxControllersCacheEntries),
+		controllers:   make(map[string]cacheController),
 		adapterConfig: conf,
 	}
 }

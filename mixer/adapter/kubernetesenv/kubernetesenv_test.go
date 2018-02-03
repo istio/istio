@@ -142,12 +142,8 @@ func TestBuilder_ControllerCache(t *testing.T) {
 		}
 	}
 
-	if b.controllers.Stats().Hits != 9 {
-		t.Errorf("Got %v hits, want 9", b.controllers.Stats().Hits)
-	}
-
-	if b.controllers.Stats().Misses != 1 {
-		t.Errorf("Got %v misses, want 1", b.controllers.Stats().Misses)
+	if len(b.controllers) != 1 {
+		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
 }
 
