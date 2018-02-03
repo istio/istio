@@ -38,10 +38,9 @@ RUN     cd /tmp && \
         sudo mv etcd-${ETCD_VER}-linux-amd64/etcd /usr/local/bin/etcd && \
         rm -rf etcd*
 
-RUN     mkdir -p /tmp/apiserver && \
-        cd /tmp/apiserver && \
-        curl -L -o kube-apiser https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && \
-        chmod +x /tmp/apiserver/kube-apiserver
+RUN     curl -L -o /tmp/kube-apiser https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && \
+        chmod +x /tmp/kube-apiserver && \
+        sudo mv /tmp/kube-apiser /usr/local/bin
 
 RUN     go get -u github.com/golang/dep/cmd/dep
 

@@ -63,13 +63,27 @@ function ensureK8SCerts() {
 function getDeps() {
    mkdir -p $TOP/bin
    if [ ! -f $TOP/bin/kubectl ] ; then
-     curl -Lo $TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x $TOP/bin/kubectl
+     if [ -f /usr/local/bin/kubectl ] ; then
+       ln -s /usr/local/bin/kubectl $TOP/bin/kubectl
+     else
+       curl -Lo $TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x $TOP/bin/kubectl
+     fi
    fi
    if [ ! -f $TOP/bin/kube-apiserver ] ; then
-     curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
+     if [ -f /usr/local/bin/kube-apiserver ] ; then
+       ln -s /usr/local/bin/kube-apiserver $TOP/bin/
+     elif [ -f /tmp/apiserver/kube-apiserver ] ; then
+       ln -s /tmp/apiserver/kube-apiserver $TOP/bin/
+     else
+       curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
+     fi
    fi
    if [ ! -f $TOP/bin/etcd ] ; then
-     curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
+     if [ -f /usr/local/bin/etcd ] ; then
+        ln -s /usr/local/bin/etcd $TOP/bin/
+     else
+       curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
+     fi
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
      # Init should be run after cloning the workspace
