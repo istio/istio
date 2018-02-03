@@ -4,6 +4,10 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `solarwinds` adapter enables Istio to deliver log and metric data to the
+	[Papertrail](https://www.papertrailapp.com) logging backendu and the
+	[AppOptics](https://www.appoptics.com) monitoring backend.
+
 	It is generated from these files:
 		mixer/adapter/solarwinds/config/config.proto
 
@@ -40,8 +44,10 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Configuration format for the `solarwinds` adapter.
+//
 // Example config usage:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: solarwinds
 // metadata:
@@ -102,7 +108,7 @@ type Params struct {
 	AppopticsAccessToken string `protobuf:"bytes,1,opt,name=appoptics_access_token,json=appopticsAccessToken,proto3" json:"appoptics_access_token,omitempty"`
 	// Optional. Max batch size of metrics to be sent to AppOptics.
 	// AppOptics does not allow batch size greater than 1000.
-	// If this is not specified a default batch size of 1000 will be used.
+	// If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.
 	AppopticsBatchSize int32 `protobuf:"varint,2,opt,name=appoptics_batch_size,json=appopticsBatchSize,proto3" json:"appoptics_batch_size,omitempty"`
 	// Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
 	// dropped.

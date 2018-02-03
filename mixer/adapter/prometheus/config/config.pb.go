@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `prometheus` adapter collects Istio metrics and makes them available to
+	[Prometheus](https://prometheus.io).
+
 	It is generated from these files:
 		mixer/adapter/prometheus/config/config.proto
 
@@ -64,6 +67,7 @@ func (Params_MetricInfo_Kind) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorConfig, []int{0, 0, 0}
 }
 
+// Configuration format for the `prometheus` adapter.
 type Params struct {
 	// The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn't have a corresponding
 	// shape here, it will not be populated at runtime.

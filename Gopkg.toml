@@ -30,6 +30,7 @@ required = [
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
+  "github.com/istio/tools/protoc-gen-docs",
 ]
 
 ### END Mixer codegen deps
@@ -138,3 +139,7 @@ required = [
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/istio/tools"

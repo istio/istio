@@ -34,12 +34,14 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/adapter/servicecontrol.html)
+// adapter.
 // A template used by Google Service Control (servicecontrol) adapter. The adapter
 // generates metrics and logentry for each request based on the data point
 // defined by this template.
 //
 // Config example:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrolreport
 // metadata:

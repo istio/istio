@@ -23,6 +23,9 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/adapter/servicecontrol.html)
+// adapter.
+
 // Fully qualified name of the template
 const TemplateName = "servicecontrolreport"
 
@@ -33,7 +36,7 @@ const TemplateName = "servicecontrolreport"
 // defined by this template.
 //
 // Config example:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrolreport
 // metadata:

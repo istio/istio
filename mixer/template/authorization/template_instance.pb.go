@@ -40,7 +40,9 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// The authorization template defines parameters for performing policy
+// The `authorization` template defines parameters for performing policy
+// enforcement within Istio. It is primarily concerned with enabling Mixer
+// The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
 // In this template, the "who" is defined in a Subject message. The "what" is
@@ -49,7 +51,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // passed to individual authorization adapters to adjudicate.
 //
 // Example config:
-// ```
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: authorization
 // metadata:
