@@ -150,6 +150,15 @@
   revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
+  branch = "reorg-arch"
+  name = "github.com/colabsaumoh/proto-udsuspver"
+  packages = [
+    "mgmtwlhintf",
+    "protos/mgmtintf_v1"
+  ]
+  revision = "81f7a4460994018fd0529c31df1ba43a26f7ee4f"
+
+[[projects]]
   branch = "v2"
   name = "github.com/coreos/go-oidc"
   packages = ["."]
@@ -317,6 +326,7 @@
   revision = "84a468cf14b4376def5d68c722b139b881c450a4"
 
 [[projects]]
+  branch = "master"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
@@ -330,8 +340,7 @@
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
 
 [[projects]]
   branch = "master"
@@ -791,6 +800,15 @@
   packages = ["metrics"]
   revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
   version = "v1.3.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/wattli/proto-udsuspver"
+  packages = [
+    "nodeagentmgmt",
+    "protos/mgmtintf_v1"
+  ]
+  revision = "8d11170ae123d24e7eda804c5517c8db2fa66f5f"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -1340,6 +1358,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "230b218ff6e2b76015186ab6cf57333f04ccefc26f0e7f069cded0bebaa9df0c"
+  inputs-digest = "d9024b48f50639821bfc0f6276a44141d54603a17d6360c763e043ad5a3c6086"
   solver-name = "gps-cdcl"
   solver-version = 1
