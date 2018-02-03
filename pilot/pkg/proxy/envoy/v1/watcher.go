@@ -240,7 +240,7 @@ type envoy struct {
 	node      string
 	extraArgs []string
 	v2        bool
-	pilotSAN []string
+	pilotSAN  []string
 }
 
 // NewProxy creates an instance of the proxy control commands

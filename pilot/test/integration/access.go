@@ -105,6 +105,7 @@ func (a *accessLogs) check(infra *infra) error {
 					got := strings.Count(logs, id)
 					if got < want {
 						log.Errorf("Got %d for %s in logs of %s, want %d", got, id, pod, want)
+						log.Errorf("Log: %s", logs)
 						return errAgain
 					}
 				}
