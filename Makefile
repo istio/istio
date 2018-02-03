@@ -99,6 +99,12 @@ ifeq ($(UNAME), Linux)
 	rm -rf protoc3
 endif
 
+# BUGBUG: we override the use of protoc_min_version here, since using
+#         that tool prevents warnings from protoc-gen-docs from being
+#         displayed. If protoc_min_version gets fixed to allow this
+#         data though, then remove this override
+protoc := $(shell which protoc)
+
 ###################
 # Deps
 ###################
@@ -154,7 +160,7 @@ generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
 
 $(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
 
 clean-broker-generated:
 	rm -f $(broker_v1_pb_gos)
@@ -173,7 +179,7 @@ generate-mesh-go: $(mesh_pb_gos) $(mesh_pb_doc)
 
 $(mesh_pb_gos) $(mesh_pb_doc): $(mesh_protos) | depend $(protoc_gen_GO) $(protoc_bin)
 	## Generate mesh/v1alpha1/*.pb.go + $(mesh_pb_doc)
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
 
 clean-mesh-generated:
 	rm -f $(mesh_pb_gos)
@@ -212,25 +218,25 @@ generate-mixer-go: \
 
 $(mixer_v1_pb_gos) $(mixer_v1_pb_doc): $(mixer_v1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
 	## Generate mixer/v1/*.pb.go + $(mixer_v1_pb_doc)
-	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_v1_path) $^
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_v1_path) $^
 
 $(mixer_config_client_pb_gos) $(mixer_config_client_pb_doc): $(mixer_config_client_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
 	## Generate mixer/v1/config/client/*.pb.go + $(mixer_config_client_pb_doc)
-	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_client_path) $^
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_client_path) $^
 
 $(mixer_config_descriptor_pb_gos) $(mixer_config_descriptor_pb_doc): $(mixer_config_descriptor_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
 	## Generate mixer/v1/config/descriptor/*.pb.go + $(mixer_config_descriptor_pb_doc)
-	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_descriptor_path) $^
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_descriptor_path) $^
 
 $(mixer_template_pb_gos) $(mixer_template_pb_doc) : $(mixer_template_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
 	## Generate mixer/v1/template/*.pb.go + $(mixer_template_pb_doc)
-	$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_template_path) $^
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_template_path) $^
 
 mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: mixer/v1/config/cfg.proto | depend $(protoc_gen_gogo) $(protoc_bin)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
-	$(protoc) $(proto_path) $(gogo_plugin) $(protoc_gen_docs_plugin)mixer/v1/config $^
-	sed -e 's/*google_protobuf.Struct/interface{}/g' -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' mixer/v1/config/cfg.pb.go >mixer/v1/config/fixed_cfg.pb.go
-	rm mixer/v1/config/cfg.pb.go
+	@$(protoc) $(proto_path) $(gogo_plugin) $(protoc_gen_docs_plugin)mixer/v1/config $^
+	@sed -e 's/*google_protobuf.Struct/interface{}/g' -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' mixer/v1/config/cfg.pb.go >mixer/v1/config/fixed_cfg.pb.go
+	@rm mixer/v1/config/cfg.pb.go
 
 clean-mixer-generated:
 	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) mixer/v1/config/fixed_cfg.pb.go
@@ -254,11 +260,11 @@ generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(rou
 
 $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate routing/v1alpha1/*.pb.go +
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
 
 $(routing_v1alpha2_pb_gos) $(routing_v1alpha2_pb_doc): $(routing_v1alpha2_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate routing/v1alpha2/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha2_path) $^
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha2_path) $^
 
 clean-routing-generated:
 	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha2_pb_gos)
@@ -277,7 +283,7 @@ generate-rbac-go: $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc)
 
 $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc): $(rbac_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate rbac/v1alpha1/*.pb.go
-	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
 
 clean-rbac-generated:
 	rm -f $(rbac_v1alpha1_pb_gos)

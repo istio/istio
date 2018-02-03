@@ -58,5 +58,6 @@ message ReportRequest {
   uint32 global_word_count = 3;
 }
 
+// Used to carry responses to telemetry reports
 message ReportResponse {
 }

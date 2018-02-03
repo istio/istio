@@ -53,6 +53,7 @@ func (m *ReportRequest) Reset()                    { *m = ReportRequest{} }
 func (*ReportRequest) ProtoMessage()               {}
 func (*ReportRequest) Descriptor() ([]byte, []int) { return fileDescriptorReport, []int{0} }
 
+// Used to carry responses to telemetry reports
 type ReportResponse struct {
 }
 

@@ -80,7 +80,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "b417086c80e91bfa321ef761574721644b8b9f61"
+  revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
 
 [[projects]]
   branch = "master"

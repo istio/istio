@@ -14,11 +14,6 @@
 
 syntax = "proto3";
 
-// $title: Mixer
-// $overview: API definitions to interact with Mixer
-// $location: https://istio.io/docs/reference/api/istio.mixer.v1.html
-// $front_matter: redirect_from: /docs/reference/api/mixer/mixer.html
-
 package istio.mixer.v1;
 
 option go_package = "istio.io/api/mixer/v1";
@@ -74,19 +69,35 @@ message Attributes {
   message AttributeValue {
     // The attribute value.
     oneof value {
+      // Used for values of type STRING, DNS_NAME, EMAIL_ADDRESS, and URI
       string string_value = 2;
+
+      // Used for values of type INT64
       int64 int64_value = 3;
+
+      // Used for values of type DOUBLE
       double double_value = 4;
+
+      // Used for values of type BOOL
       bool bool_value = 5;
+
+      // Used for values of type BYTES
       bytes bytes_value = 6;
+
+      // Used for values of type TIMESTAMP
       google.protobuf.Timestamp timestamp_value = 7;
+
+      // Used for values of type DURATION
       google.protobuf.Duration duration_value = 8;
+
+      // Used for values of type STRING_MAP
       StringMap string_map_value = 9;
     }
   }
 
   // Defines a string map.
   message StringMap {
+    // Holds a set of name/value pairs.
     map<string, string> entries = 1;
   }
 }
@@ -102,22 +113,34 @@ message CompressedAttributes {
   // The message-level dictionary.
   repeated string words = 1;
 
-  // Attribute payload. All `sint32` values represent indices into
-  // one of the word dictionaries. Positive values are indices into the
-  // global deployment-wide dictionary, negative values are indices into
-  // the message-level dictionary.
+  // Holds attributes of type STRING, DNS_NAME, EMAIL_ADDRESS, URI
   map<sint32, sint32> strings = 2;
+
+  // Holds attributes of type INT64
   map<sint32, int64> int64s = 3;
+
+  // Holds attributes of type DOUBLE
   map<sint32, double> doubles = 4;
+
+  // Holds attributes of type BOOL
   map<sint32, bool> bools = 5;
+
+  // Holds attributes of type TIMESTAMP
   map<sint32, google.protobuf.Timestamp> timestamps = 6 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+
+  // Holds attributes of type DURATION
   map<sint32, google.protobuf.Duration> durations = 7 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+  // Holds attributes of type BYTES
   map<sint32, bytes> bytes = 8;
+
+  // Holds attributes of type STRING_MAP
   map<sint32, StringMap> string_maps = 9 [(gogoproto.nullable) = false];
 }
 
 // A map of string to string. The keys and values in this map are dictionary
-// indices (see the [Attributes][istio.mixer.v1.Attributes] message for an explanation)
+// indices (see the [Attributes][istio.mixer.v1.CompressedAttributes] message for an explanation)
 message StringMap {
+  // Holds a set of name/value pairs.
   map<sint32, sint32> entries = 1;
 }

@@ -278,7 +278,7 @@ spec:
 </tr>
 <tr id="HTTPAPISpec.attributes">
 <td><code>attributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated when <em>any</em> of the HTTP
 patterns match. This list typically includes the &ldquo;api.service&rdquo;
@@ -381,7 +381,7 @@ generated.</p>
 </tr>
 <tr id="HTTPAPISpecPattern.attributes">
 <td><code>attributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated if the HTTP request matches
 the specified http<em>method and uri</em>template. This typically
@@ -508,7 +508,7 @@ client request.</p>
 </tr>
 <tr id="HttpClientConfig.mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -518,7 +518,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 </tr>
 <tr id="HttpClientConfig.forward_attributes">
 <td><code>forwardAttributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to forward to upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
@@ -902,7 +902,7 @@ metadata namespace field.</p>
 </tr>
 <tr id="ServiceConfig.mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Send these attributes to Mixer in both Check and Report. This
 typically includes the &ldquo;destination.service&rdquo; attribute.</p>
@@ -992,7 +992,7 @@ case-sensitive.</p>
 </tr>
 <tr id="TcpClientConfig.mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="https://istio.io/docs/reference/api/istio.mixer.v1.html#Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -1085,6 +1085,60 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 <td>
 <p>Specify refresh interval to write mixer client statistics to Envoy share
 memory. If not specified, the interval is 10 seconds.</p>
+
+</td>
+</tr>
+</table>
+</section>
+<h3 id="istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</h3>
+<section>
+<p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
+API either consume and/or return attributes.</p>
+
+<p>Istio uses attributes to control the runtime behavior of services running in the service mesh.
+Attributes are named and typed pieces of metadata describing ingress and egress traffic and the
+environment this traffic occurs in. An Istio attribute carries a specific piece
+of information such as the error code of an API request, the latency of an API request, or the
+original IP address of a TCP connection. For example:</p>
+
+<p><code>
+request.path: xyz/abc
+request.size: 234
+request.time: 12:34:56.789 04/17/2017
+source.ip: 192.168.0.1
+target.service: example
+</code></p>
+
+<p>A given Istio deployment has a fixed vocabulary of attributes that it understands.
+The specific vocabulary is determined by the set of attribute producers being used
+in the deployment. The primary attribute producer in Istio is Envoy, although
+specialized Mixer adapters and services can also generate attributes.</p>
+
+<p>The common baseline set of attributes available in most Istio deployments is defined
+<a href="https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html">here</a>.</p>
+
+<p>Attributes are strongly typed. The supported attribute types are defined by
+<a href="https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto">ValueType</a>.
+Each type of value is encoded into one of the so-called transport types present
+in this message.</p>
+
+<p>Defines a map of attributes in uncompressed format.
+Following places may use this message:
+1) Configure Istio/Proxy with static per-proxy attributes, such as source.uid.
+2) Service IDL definition to extract api attributes for active requests.
+3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
+
+<table class="message-fields">
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+<tr id="istio.mixer.v1.Attributes.attributes">
+<td><code>attributes</code></td>
+<td><code>map&lt;string, <a href="#istio.mixer.v1.Attributes.AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
+<td>
+<p>A map of attribute name to its value.</p>
 
 </td>
 </tr>

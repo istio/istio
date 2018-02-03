@@ -392,6 +392,7 @@ func _Attributes_AttributeValue_OneofSizer(msg proto.Message) (n int) {
 
 // Defines a string map.
 type Attributes_StringMap struct {
+	// Holds a set of name/value pairs.
 	Entries map[string]string `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
@@ -411,18 +412,22 @@ func (*Attributes_StringMap) Descriptor() ([]byte, []int) {
 type CompressedAttributes struct {
 	// The message-level dictionary.
 	Words []string `protobuf:"bytes,1,rep,name=words" json:"words,omitempty"`
-	// Attribute payload. All `sint32` values represent indices into
-	// one of the word dictionaries. Positive values are indices into the
-	// global deployment-wide dictionary, negative values are indices into
-	// the message-level dictionary.
-	Strings    map[int32]int32         `protobuf:"bytes,2,rep,name=strings" json:"strings,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"zigzag32,2,opt,name=value,proto3"`
-	Int64S     map[int32]int64         `protobuf:"bytes,3,rep,name=int64s" json:"int64s,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
-	Doubles    map[int32]float64       `protobuf:"bytes,4,rep,name=doubles" json:"doubles,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
-	Bools      map[int32]bool          `protobuf:"bytes,5,rep,name=bools" json:"bools,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
-	Timestamps map[int32]time.Time     `protobuf:"bytes,6,rep,name=timestamps,stdtime" json:"timestamps" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
-	Durations  map[int32]time.Duration `protobuf:"bytes,7,rep,name=durations,stdduration" json:"durations" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
-	Bytes      map[int32][]byte        `protobuf:"bytes,8,rep,name=bytes" json:"bytes,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	StringMaps map[int32]StringMap     `protobuf:"bytes,9,rep,name=string_maps,json=stringMaps" json:"string_maps" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// Holds attributes of type STRING, DNS_NAME, EMAIL_ADDRESS, URI
+	Strings map[int32]int32 `protobuf:"bytes,2,rep,name=strings" json:"strings,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"zigzag32,2,opt,name=value,proto3"`
+	// Holds attributes of type INT64
+	Int64S map[int32]int64 `protobuf:"bytes,3,rep,name=int64s" json:"int64s,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	// Holds attributes of type DOUBLE
+	Doubles map[int32]float64 `protobuf:"bytes,4,rep,name=doubles" json:"doubles,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
+	// Holds attributes of type BOOL
+	Bools map[int32]bool `protobuf:"bytes,5,rep,name=bools" json:"bools,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	// Holds attributes of type TIMESTAMP
+	Timestamps map[int32]time.Time `protobuf:"bytes,6,rep,name=timestamps,stdtime" json:"timestamps" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// Holds attributes of type DURATION
+	Durations map[int32]time.Duration `protobuf:"bytes,7,rep,name=durations,stdduration" json:"durations" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	// Holds attributes of type BYTES
+	Bytes map[int32][]byte `protobuf:"bytes,8,rep,name=bytes" json:"bytes,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Holds attributes of type STRING_MAP
+	StringMaps map[int32]StringMap `protobuf:"bytes,9,rep,name=string_maps,json=stringMaps" json:"string_maps" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *CompressedAttributes) Reset()                    { *m = CompressedAttributes{} }
@@ -430,8 +435,9 @@ func (*CompressedAttributes) ProtoMessage()               {}
 func (*CompressedAttributes) Descriptor() ([]byte, []int) { return fileDescriptorAttributes, []int{1} }
 
 // A map of string to string. The keys and values in this map are dictionary
-// indices (see the [Attributes][istio.mixer.v1.Attributes] message for an explanation)
+// indices (see the [Attributes][istio.mixer.v1.CompressedAttributes] message for an explanation)
 type StringMap struct {
+	// Holds a set of name/value pairs.
 	Entries map[int32]int32 `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty" protobuf_key:"zigzag32,1,opt,name=key,proto3" protobuf_val:"zigzag32,2,opt,name=value,proto3"`
 }
 
