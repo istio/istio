@@ -354,10 +354,7 @@ func TestEnvoyRun(t *testing.T) {
 	dir := os.Getenv("ISTIO_BIN")
 	var err error
 	if len(dir) == 0 {
-		dir, err = os.Getwd()
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Fatalf("envoy binary dir empty")
 	}
 	config.BinaryPath = path.Join(dir, "envoy")
 
