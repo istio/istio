@@ -65,9 +65,6 @@ else
               cp Gopkg.lock vendor/Gopkg.lock)
 fi
 
-# Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
-#ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' WORKSPACE))
-#PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
@@ -118,9 +115,4 @@ fi
 if [ ! -f ${ISTIO_BIN}/envoy ] ; then
     mkdir -p ${ISTIO_BIN}
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
-fi
-
-# Deprecated, may still be used in some tests
-if [ ! -f ${ROOT}/pilot/pkg/proxy/envoy/envoy ] ; then
-    ln -sf ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy
 fi

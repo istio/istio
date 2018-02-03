@@ -51,7 +51,7 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:n:p:x:c:a:h:r:A:P:E:d:D:m: arg; do
+while getopts :i:n:p:x:c:a:h:r:P:d:D:m: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -61,9 +61,7 @@ while getopts :i:n:p:x:c:a:h:r:A:P:E:d:D:m: arg; do
     a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     r) PROXY_TAG="${OPTARG}";;
-    A) AUTH_DEBIAN_URL="${OPTARG}";;
     P) PILOT_DEBIAN_URL="${OPTARG}";;
-    E) PROXY_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
     D) PROXY_DEBUG="${OPTARG}";;
     m) COMPONENT_FILES=true;;
@@ -215,9 +213,7 @@ export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PROXY_TAG="${PROXY_TAG}"
 export PROXY_DEBUG="${PROXY_DEBUG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
-export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
-export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
 export FORTIO_HUB="${FORTIO_HUB}"
 export FORTIO_TAG="${FORTIO_TAG}"
 export HYPERKUBE_HUB="${HYPERKUBE_HUB}"
