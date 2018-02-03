@@ -1,5 +1,5 @@
 # Change this and ../../WORKSPACE at the same time
-FROM gcr.io/istio-testing/envoy-debug:b9c8a9c6fc4b93bc15dc00b5e6a05844cdc5455c
+FROM gcr.io/istio-testing/envoy-debug:ee1682acdd87e53517a36e4639184ef60b829024
 ADD pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
