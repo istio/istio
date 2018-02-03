@@ -40,14 +40,18 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: ls -Rl /go/bin
+      - run: ls -Rl /go/out
+      - run: ls -Rl /go/pkg
       - run: bin/testEnvRootMinikube.sh start
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make build test-bins docker.tag
+      - run: ls -Rl /go/pkg
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple KUBECONFIG=$KUBECONFIG E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
