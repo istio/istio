@@ -202,7 +202,7 @@ var (
 			if bootstrapv2 {
 				// Using a different constructor - the code will likely be refactored / split from the v1,
 				// but may expose same interface to minimize risks
-				envoyProxy = envoy.NewV2Proxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
+				envoyProxy = envoy.NewV2Proxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			} else {
 				envoyProxy = envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			}
