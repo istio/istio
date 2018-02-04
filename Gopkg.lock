@@ -50,7 +50,6 @@
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
-    "ptypes/struct",
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
@@ -60,7 +59,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "3fa99877b875faeea9dfc8c07b492a3186548a28"
+  revision = "6e367b6e80075008a26f9f23cbd2bf4e51c5761d"
 
 [[projects]]
   branch = "master"
@@ -153,6 +152,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "35875a529f36a1b811a091ffb962de5be83c8ec23f84f277e92a86f77d3e13e8"
+  inputs-digest = "477201c5740251f34dce96426bf2ef361d899718bafd87b8896b6f36c37a46bf"
   solver-name = "gps-cdcl"
   solver-version = 1

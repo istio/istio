@@ -4,51 +4,47 @@ overview: API definitions to interact with Mixer
 location: https://istio.io/docs/reference/api/istio.mixer.v1.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/api/mixer/mixer.html
+number_of_entries: 17
 ---
+{% raw %}
 <p>This package defines the Mixer API that the sidecar proxy uses to perform
 precondition checks, manage quotas, and report telemetry.</p>
 
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="ReferencedAttributes.Condition">ReferencedAttributes.Condition</h3>
+<h2 id="Services">Services</h2>
+<h3 id="Mixer">Mixer</h3>
 <section>
-<p>How an attribute&rsquo;s value was matched</p>
+<p>Mixer provides three core features:</p>
 
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="ReferencedAttributes.Condition.CONDITION_UNSPECIFIED">
-<td><code>CONDITION_UNSPECIFIED</code></td>
-<td>
-<p>should not occur</p>
+<ul>
+<li><p><em>Precondition Checking</em>. Enables callers to verify a number of preconditions
+before responding to an incoming request from a service consumer.
+Preconditions can include whether the service consumer is properly
+authenticated, is on the service’s whitelist, passes ACL checks, and more.</p></li>
 
-</td>
-</tr>
-<tr id="ReferencedAttributes.Condition.ABSENCE">
-<td><code>ABSENCE</code></td>
-<td>
-<p>match when attribute doesn&rsquo;t exist</p>
+<li><p><em>Quota Management</em>. Enables services to allocate and free quota on a number
+of dimensions, Quotas are used as a relatively simple resource management tool
+to provide some fairness between service consumers when contending for limited
+resources. Rate limits are examples of quotas.</p></li>
 
-</td>
-</tr>
-<tr id="ReferencedAttributes.Condition.EXACT">
-<td><code>EXACT</code></td>
-<td>
-<p>match when attribute value is an exact byte-for-byte match</p>
+<li><p><em>Telemetry Reporting</em>. Enables services to report logging and monitoring.
+In the future, it will also enable tracing and billing streams intended for
+both the service operator as well as for service consumers.</p></li>
+</ul>
 
-</td>
-</tr>
-<tr id="ReferencedAttributes.Condition.REGEX">
-<td><code>REGEX</code></td>
-<td>
-<p>match when attribute value matches the included regex</p>
+<pre id="Mixer.Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
+</code></pre>
+<p>Checks preconditions and allocate quota before performing an operation.
+The preconditions enforced depend on the set of supplied attributes and
+the active configuration.</p>
 
-</td>
-</tr>
-</table>
+<pre id="Mixer.Report"><code class="language-proto">rpc Report(ReportRequest) returns (ReportResponse)
+</code></pre>
+<p>Reports telemetry, such as logs and metrics.
+The reported information depends on the set of supplied attributes and the
+active configuration.</p>
+
 </section>
-<h2 id="Messages">Messages</h2>
+<h2 id="Types">Types</h2>
 <h3 id="Attributes">Attributes</h3>
 <section>
 <p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
@@ -60,13 +56,12 @@ environment this traffic occurs in. An Istio attribute carries a specific piece
 of information such as the error code of an API request, the latency of an API request, or the
 original IP address of a TCP connection. For example:</p>
 
-<p><code>
-request.path: xyz/abc
+<pre><code>request.path: xyz/abc
 request.size: 234
 request.time: 12:34:56.789 04/17/2017
 source.ip: 192.168.0.1
 target.service: example
-</code></p>
+</code></pre>
 
 <p>A given Istio deployment has a fixed vocabulary of attributes that it understands.
 The specific vocabulary is determined by the set of attribute producers being used
@@ -88,11 +83,14 @@ Following places may use this message:
 3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Attributes.attributes">
 <td><code>attributes</code></td>
 <td><code>map&lt;string, <a href="#Attributes.AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
@@ -101,6 +99,7 @@ Following places may use this message:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="Attributes.AttributeValue">Attributes.AttributeValue</h3>
@@ -108,11 +107,14 @@ Following places may use this message:
 <p>Specifies one attribute value with different type.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Attributes.AttributeValue.string_value" class="oneof oneof-start">
 <td><code>stringValue</code></td>
 <td><code>string (oneof)</code></td>
@@ -177,6 +179,7 @@ Following places may use this message:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="Attributes.StringMap">Attributes.StringMap</h3>
@@ -184,11 +187,14 @@ Following places may use this message:
 <p>Defines a string map.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Attributes.StringMap.entries">
 <td><code>entries</code></td>
 <td><code>map&lt;string, string&gt;</code></td>
@@ -197,6 +203,7 @@ Following places may use this message:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CheckRequest">CheckRequest</h3>
@@ -204,11 +211,14 @@ Following places may use this message:
 <p>Used to get a thumbs-up/thumbs-down before performing an action.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CheckRequest.attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#CompressedAttributes">CompressedAttributes</a></code></td>
@@ -247,6 +257,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CheckRequest.QuotaParams">CheckRequest.QuotaParams</h3>
@@ -254,11 +265,14 @@ per call, where the same UUID is used for retries of the same call.</p>
 <p>parameters for a quota allocation</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CheckRequest.QuotaParams.amount">
 <td><code>amount</code></td>
 <td><code>int64</code></td>
@@ -275,6 +289,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CheckResponse">CheckResponse</h3>
@@ -282,11 +297,14 @@ per call, where the same UUID is used for retries of the same call.</p>
 <p>The response generated by the Check method.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CheckResponse.precondition">
 <td><code>precondition</code></td>
 <td><code><a href="#CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
@@ -303,6 +321,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</h3>
@@ -310,11 +329,14 @@ per call, where the same UUID is used for retries of the same call.</p>
 <p>Expresses the result of a precondition check.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CheckResponse.PreconditionResult.status">
 <td><code>status</code></td>
 <td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
@@ -362,6 +384,7 @@ along with matching conditions.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CheckResponse.QuotaResult">CheckResponse.QuotaResult</h3>
@@ -369,11 +392,14 @@ along with matching conditions.</p>
 <p>Expresses the result of a quota allocation.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CheckResponse.QuotaResult.valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
@@ -400,6 +426,7 @@ along with matching conditions.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="CompressedAttributes">CompressedAttributes</h3>
@@ -413,11 +440,14 @@ dictionary instead. The message-level dictionary is carried by the
 configuration.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CompressedAttributes.words">
 <td><code>words</code></td>
 <td><code>string[]</code></td>
@@ -490,6 +520,7 @@ configuration.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="ReferencedAttributes">ReferencedAttributes</h3>
@@ -498,11 +529,14 @@ configuration.</p>
 This can be used to construct a response cache.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ReferencedAttributes.words">
 <td><code>words</code></td>
 <td><code>string[]</code></td>
@@ -520,6 +554,7 @@ on using dictionaries.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="ReferencedAttributes.AttributeMatch">ReferencedAttributes.AttributeMatch</h3>
@@ -527,11 +562,14 @@ on using dictionaries.</p>
 <p>Describes a single attribute match.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ReferencedAttributes.AttributeMatch.name">
 <td><code>name</code></td>
 <td><code>int32</code></td>
@@ -575,6 +613,50 @@ entire STRING_MAP will be used.</p>
 
 </td>
 </tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReferencedAttributes.Condition">ReferencedAttributes.Condition</h3>
+<section>
+<p>How an attribute&rsquo;s value was matched</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ReferencedAttributes.Condition.CONDITION_UNSPECIFIED">
+<td><code>CONDITION_UNSPECIFIED</code></td>
+<td>
+<p>should not occur</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes.Condition.ABSENCE">
+<td><code>ABSENCE</code></td>
+<td>
+<p>match when attribute doesn&rsquo;t exist</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes.Condition.EXACT">
+<td><code>EXACT</code></td>
+<td>
+<p>match when attribute value is an exact byte-for-byte match</p>
+
+</td>
+</tr>
+<tr id="ReferencedAttributes.Condition.REGEX">
+<td><code>REGEX</code></td>
+<td>
+<p>match when attribute value matches the included regex</p>
+
+</td>
+</tr>
+</tbody>
 </table>
 </section>
 <h3 id="ReportRequest">ReportRequest</h3>
@@ -582,11 +664,14 @@ entire STRING_MAP will be used.</p>
 <p>Used to report telemetry after performing one or more actions.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ReportRequest.attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#CompressedAttributes">CompressedAttributes[]</a></code></td>
@@ -632,6 +717,7 @@ To detect global dictionary out of sync between client and server.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="ReportResponse">ReportResponse</h3>
@@ -645,11 +731,14 @@ To detect global dictionary out of sync between client and server.</p>
 indices (see the <a href="#CompressedAttributes">Attributes</a> message for an explanation)</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="StringMap.entries">
 <td><code>entries</code></td>
 <td><code>map&lt;int32, int32&gt;</code></td>
@@ -658,6 +747,7 @@ indices (see the <a href="#CompressedAttributes">Attributes</a> message for an e
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h3 id="google.rpc.Status">google.rpc.Status</h3>
@@ -720,11 +810,14 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </ul>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="google.rpc.Status.code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
@@ -752,39 +845,7 @@ message types for APIs to use.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h2 id="Services">Services</h2>
-<h3 id="Mixer">Mixer</h3>
-<section>
-<p>Mixer provides three core features:</p>
-
-<ul>
-<li><p><em>Precondition Checking</em>. Enables callers to verify a number of preconditions
-before responding to an incoming request from a service consumer.
-Preconditions can include whether the service consumer is properly
-authenticated, is on the service’s whitelist, passes ACL checks, and more.</p></li>
-
-<li><p><em>Quota Management</em>. Enables services to allocate and free quota on a number
-of dimensions, Quotas are used as a relatively simple resource management tool
-to provide some fairness between service consumers when contending for limited
-resources. Rate limits are examples of quotas.</p></li>
-
-<li><p><em>Telemetry Reporting</em>. Enables services to report logging and monitoring.
-In the future, it will also enable tracing and billing streams intended for
-both the service operator as well as for service consumers.</p></li>
-</ul>
-
-<pre id="Mixer.Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
-</code></pre>
-<p>Checks preconditions and allocate quota before performing an operation.
-The preconditions enforced depend on the set of supplied attributes and
-the active configuration.</p>
-
-<pre id="Mixer.Report"><code class="language-proto">rpc Report(ReportRequest) returns (ReportResponse)
-</code></pre>
-<p>Reports telemetry, such as logs and metrics.
-The reported information depends on the set of supplied attributes and the
-active configuration.</p>
-
-</section>
+{% endraw %}

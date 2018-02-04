@@ -3,7 +3,9 @@ title: RBAC
 overview: Configuration affecting resource-based access control
 location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
+number_of_entries: 6
 ---
+{% raw %}
 <p>Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 objects.</p>
 
@@ -93,11 +95,14 @@ spec:
 <p>AccessRule defines a permission to access a list of services.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AccessRule.services">
 <td><code>services</code></td>
 <td><code>string[]</code></td>
@@ -144,6 +149,7 @@ The above ServiceRole examples shows an example of constraint &ldquo;version&rdq
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="AccessRule.Constraint">AccessRule.Constraint</h2>
@@ -153,11 +159,14 @@ one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldq
 (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AccessRule.Constraint.key">
 <td><code>key</code></td>
 <td><code>string</code></td>
@@ -178,6 +187,7 @@ or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="RoleRef">RoleRef</h2>
@@ -185,11 +195,14 @@ or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
 <p>RoleRef refers to a role object.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="RoleRef.kind">
 <td><code>kind</code></td>
 <td><code>string</code></td>
@@ -209,6 +222,7 @@ object.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="ServiceRole">ServiceRole</h2>
@@ -218,11 +232,14 @@ This represent the &ldquo;Spec&rdquo; part of the ServiceRole object. The name a
 of the ServiceRole is specified in &ldquo;metadata&rdquo; section of the ServiceRole object.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ServiceRole.rules">
 <td><code>rules</code></td>
 <td><code><a href="#AccessRule">AccessRule[]</a></code></td>
@@ -231,6 +248,7 @@ of the ServiceRole is specified in &ldquo;metadata&rdquo; section of the Service
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="ServiceRoleBinding">ServiceRoleBinding</h2>
@@ -241,11 +259,14 @@ of the ServiceRoleBinding is specified in &ldquo;metadata&rdquo; section of the 
 object.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ServiceRoleBinding.subjects">
 <td><code>subjects</code></td>
 <td><code><a href="#Subject">Subject[]</a></code></td>
@@ -262,6 +283,7 @@ object.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="Subject">Subject</h2>
@@ -272,11 +294,14 @@ the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;aut
 (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Subject.user">
 <td><code>user</code></td>
 <td><code>string</code></td>
@@ -304,5 +329,7 @@ In the above ServiceRoleBinding example, the second subject has two properties:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}

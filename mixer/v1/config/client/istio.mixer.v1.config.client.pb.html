@@ -3,33 +3,10 @@ title: Mixer Client
 overview: Configuration state for the Mixer client library
 location: https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
 layout: protoc-gen-docs
+number_of_entries: 24
 ---
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="TransportConfig.NetworkFailPolicy">TransportConfig.NetworkFailPolicy</h3>
-<section>
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="TransportConfig.NetworkFailPolicy.FAIL_OPEN">
-<td><code>FAIL_OPEN</code></td>
-<td>
-<p>If network fails, request is passed to the backend.</p>
-
-</td>
-</tr>
-<tr id="TransportConfig.NetworkFailPolicy.FAIL_CLOSE">
-<td><code>FAIL_CLOSE</code></td>
-<td>
-<p>If network fails, request is rejected.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h2 id="Messages">Messages</h2>
-<h3 id="APIKey">APIKey</h3>
+{% raw %}
+<h2 id="APIKey">APIKey</h2>
 <section>
 <p>APIKey defines the explicit configuration for generating the
 <code>request.api_key</code> attribute from HTTP requests.</p>
@@ -38,11 +15,14 @@ layout: protoc-gen-docs
 for a general overview of API keys as defined by OpenAPI.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="APIKey.query" class="oneof oneof-start">
 <td><code>query</code></td>
 <td><code>string (oneof)</code></td>
@@ -90,18 +70,22 @@ Cookie: X-API-KEY=abcdef12345
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="AttributeMatch">AttributeMatch</h3>
+<h2 id="AttributeMatch">AttributeMatch</h2>
 <section>
 <p>Specifies a match clause to match Istio attributes</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AttributeMatch.clause">
 <td><code>clause</code></td>
 <td><code>map&lt;string, <a href="#StringMatch">StringMatch</a>&gt;</code></td>
@@ -119,18 +103,22 @@ Each map element specifies one condition to match.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="EndUserAuthenticationPolicySpec">EndUserAuthenticationPolicySpec</h3>
+<h2 id="EndUserAuthenticationPolicySpec">EndUserAuthenticationPolicySpec</h2>
 <section>
 <p>Determines how to apply auth policies for individual requests.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="EndUserAuthenticationPolicySpec.jwts">
 <td><code>jwts</code></td>
 <td><code><a href="#JWT">JWT[]</a></code></td>
@@ -161,19 +149,23 @@ include a JWT.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="EndUserAuthenticationPolicySpecBinding">EndUserAuthenticationPolicySpecBinding</h3>
+<h2 id="EndUserAuthenticationPolicySpecBinding">EndUserAuthenticationPolicySpecBinding</h2>
 <section>
 <p>EndUserAuthenticationPolicySpecBinding defines the binding between
 EndUserAuthenticationPolicySpecs and one or more IstioService.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="EndUserAuthenticationPolicySpecBinding.services">
 <td><code>services</code></td>
 <td><code><a href="#IstioService">IstioService[]</a></code></td>
@@ -192,16 +184,20 @@ that should be mapped to the specified service(s).</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference</h3>
+<h2 id="EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference</h2>
 <section>
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="EndUserAuthenticationPolicySpecReference.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -222,9 +218,10 @@ metadata namespace field.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPAPISpec">HTTPAPISpec</h3>
+<h2 id="HTTPAPISpec">HTTPAPISpec</h2>
 <section>
 <p>HTTPAPISpec defines the canonical configuration for generating
 API-related attributes from HTTP requests based on the method and
@@ -271,11 +268,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPAPISpec.attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
@@ -310,9 +310,10 @@ i.e. &lsquo;OR&rsquo; semantics.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPAPISpecBinding">HTTPAPISpecBinding</h3>
+<h2 id="HTTPAPISpecBinding">HTTPAPISpecBinding</h2>
 <section>
 <p>HTTPAPISpecBinding defines the binding between HTTPAPISpecs and one or more
 IstioService. For example, the following establishes a binding
@@ -333,11 +334,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPAPISpecBinding.services">
 <td><code>services</code></td>
 <td><code><a href="#IstioService">IstioService[]</a></code></td>
@@ -356,9 +360,10 @@ conditions defined in the HTTPAPISpecs should not overlap.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPAPISpecPattern">HTTPAPISpecPattern</h3>
+<h2 id="HTTPAPISpecPattern">HTTPAPISpecPattern</h2>
 <section>
 <p>HTTPAPISpecPattern defines a single pattern to match against
 incoming HTTP requests. The per-pattern list of attributes is
@@ -374,11 +379,14 @@ generated.</p>
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPAPISpecPattern.attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
@@ -430,9 +438,10 @@ example,</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPAPISpecReference">HTTPAPISpecReference</h3>
+<h2 id="HTTPAPISpecReference">HTTPAPISpecReference</h2>
 <section>
 <p>HTTPAPISpecReference defines a reference to an HTTPAPISpec. This is
 typically used for establishing bindings between an HTTPAPISpec and an
@@ -444,11 +453,14 @@ HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPAPISpecReference.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -467,18 +479,22 @@ HTTPAPISpecBinding&rsquo;s metadata namespace field.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HttpClientConfig">HttpClientConfig</h3>
+<h2 id="HttpClientConfig">HttpClientConfig</h2>
 <section>
 <p>Defines the client config for HTTP.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HttpClientConfig.transport">
 <td><code>transport</code></td>
 <td><code><a href="#TransportConfig">TransportConfig</a></code></td>
@@ -525,20 +541,24 @@ includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="IstioService">IstioService</h3>
+<h2 id="IstioService">IstioService</h2>
 <section>
 <p>IstioService identifies a service and optionally service version.
 The FQDN of the service is composed from the name, namespace, and implementation-specific domain suffix
 (e.g. on Kubernetes, &ldquo;reviews&rdquo; + &ldquo;default&rdquo; + &ldquo;svc.cluster.local&rdquo; -&gt; &ldquo;reviews.default.svc.cluster.local&rdquo;).</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="IstioService.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -581,9 +601,10 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="JWT">JWT</h3>
+<h2 id="JWT">JWT</h2>
 <section>
 <p>JSON Web Token (JWT) token format for authentication as defined by
 https://tools.ietf.org/html/rfc7519. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
@@ -601,11 +622,14 @@ jwks_uri: https://example.com/.well-known/jwks.json
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="JWT.issuer">
 <td><code>issuer</code></td>
 <td><code>string</code></td>
@@ -689,9 +713,10 @@ It is the cluster name in the Envoy config for the jwks_uri.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="JWT.Location">JWT.Location</h3>
+<h2 id="JWT.Location">JWT.Location</h2>
 <section>
 <p>Defines where to extract the JWT from an HTTP request.</p>
 
@@ -707,11 +732,14 @@ https://tools.ietf.org/html/rfc6750#section-2.3)
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="JWT.Location.header" class="oneof oneof-start">
 <td><code>header</code></td>
 <td><code>string (oneof)</code></td>
@@ -735,18 +763,22 @@ query parameter name.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Quota">Quota</h3>
+<h2 id="Quota">Quota</h2>
 <section>
 <p>Specifies a quota to use with quota name and amount.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Quota.quota">
 <td><code>quota</code></td>
 <td><code>string</code></td>
@@ -763,19 +795,23 @@ query parameter name.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="QuotaRule">QuotaRule</h3>
+<h2 id="QuotaRule">QuotaRule</h2>
 <section>
 <p>Specifies a rule with list of matches and list of quotas.
 If any clause matched, the list of quotas will be used.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="QuotaRule.match">
 <td><code>match</code></td>
 <td><code><a href="#AttributeMatch">AttributeMatch[]</a></code></td>
@@ -793,18 +829,22 @@ If any of match is true, it is matched.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="QuotaSpec">QuotaSpec</h3>
+<h2 id="QuotaSpec">QuotaSpec</h2>
 <section>
 <p>Determines the quotas used for individual requests.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="QuotaSpec.rules">
 <td><code>rules</code></td>
 <td><code><a href="#QuotaRule">QuotaRule[]</a></code></td>
@@ -813,19 +853,23 @@ If any of match is true, it is matched.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="QuotaSpecBinding">QuotaSpecBinding</h3>
+<h2 id="QuotaSpecBinding">QuotaSpecBinding</h2>
 <section>
 <p>QuotaSpecBinding defines the binding between QuotaSpecs and one or more
 IstioService.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="QuotaSpecBinding.services">
 <td><code>services</code></td>
 <td><code><a href="#IstioService">IstioService[]</a></code></td>
@@ -844,16 +888,20 @@ conditions defined in the QuotaSpecs should not overlap.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h3>
+<h2 id="QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h2>
 <section>
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="QuotaSpecBinding.QuotaSpecReference.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -872,18 +920,22 @@ metadata namespace field.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ServiceConfig">ServiceConfig</h3>
+<h2 id="ServiceConfig">ServiceConfig</h2>
 <section>
 <p>Defines the per-service client configuration.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ServiceConfig.disable_check_calls">
 <td><code>disableCheckCalls</code></td>
 <td><code>bool</code></td>
@@ -933,19 +985,23 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="StringMatch">StringMatch</h3>
+<h2 id="StringMatch">StringMatch</h2>
 <section>
 <p>Describes how to match a given string in HTTP headers. Match is
 case-sensitive.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="StringMatch.exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
@@ -970,18 +1026,22 @@ case-sensitive.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="TcpClientConfig">TcpClientConfig</h3>
+<h2 id="TcpClientConfig">TcpClientConfig</h2>
 <section>
 <p>Defines the client config for TCP.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TcpClientConfig.transport">
 <td><code>transport</code></td>
 <td><code><a href="#TransportConfig">TransportConfig</a></code></td>
@@ -1035,18 +1095,22 @@ should not be less than 1 second, otherwise it will be reset to 1 second.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="TransportConfig">TransportConfig</h3>
+<h2 id="TransportConfig">TransportConfig</h2>
 <section>
 <p>Defines the transport config on how to call Mixer.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TransportConfig.disable_check_cache">
 <td><code>disableCheckCache</code></td>
 <td><code>bool</code></td>
@@ -1088,9 +1152,37 @@ memory. If not specified, the interval is 10 seconds.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</h3>
+<h2 id="TransportConfig.NetworkFailPolicy">TransportConfig.NetworkFailPolicy</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TransportConfig.NetworkFailPolicy.FAIL_OPEN">
+<td><code>FAIL_OPEN</code></td>
+<td>
+<p>If network fails, request is passed to the backend.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig.NetworkFailPolicy.FAIL_CLOSE">
+<td><code>FAIL_CLOSE</code></td>
+<td>
+<p>If network fails, request is rejected.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</h2>
 <section>
 <p>Attributes represents a set of typed name/value pairs. Many of Mixer&rsquo;s
 API either consume and/or return attributes.</p>
@@ -1101,13 +1193,12 @@ environment this traffic occurs in. An Istio attribute carries a specific piece
 of information such as the error code of an API request, the latency of an API request, or the
 original IP address of a TCP connection. For example:</p>
 
-<p><code>
-request.path: xyz/abc
+<pre><code>request.path: xyz/abc
 request.size: 234
 request.time: 12:34:56.789 04/17/2017
 source.ip: 192.168.0.1
 target.service: example
-</code></p>
+</code></pre>
 
 <p>A given Istio deployment has a fixed vocabulary of attributes that it understands.
 The specific vocabulary is determined by the set of attribute producers being used
@@ -1129,11 +1220,14 @@ Following places may use this message:
 3) Forward attributes from client proxy to server proxy for HTTP requests.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="istio.mixer.v1.Attributes.attributes">
 <td><code>attributes</code></td>
 <td><code>map&lt;string, <a href="#istio.mixer.v1.Attributes.AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
@@ -1142,5 +1236,7 @@ Following places may use this message:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}

@@ -3,20 +3,45 @@ title: Template Metadata
 overview: Definitions used when creating Mixer templates
 location: https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html
 layout: protoc-gen-docs
+number_of_entries: 8
 ---
+{% raw %}
 <p>This proto describes the types that can be used inside Mixer templates. These message types are used to specify
 field datatype to express the equivalent ValueType for the expressions the field can be mapped to.</p>
 
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="TemplateVariety">TemplateVariety</h3>
+<h2 id="DNSName">DNSName</h2>
+<section>
+<p>DNSName is used inside templates for fields that are of ValueType &ldquo;DNS_NAME&rdquo;</p>
+
+</section>
+<h2 id="Duration">Duration</h2>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h2 id="EmailAddress">EmailAddress</h2>
+<section>
+<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
+DO NOT USE !! Under Development</p>
+
+</section>
+<h2 id="IPAddress">IPAddress</h2>
+<section>
+<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
+
+</section>
+<h2 id="TemplateVariety">TemplateVariety</h2>
 <section>
 <p>Specifies the varity of the the Template.</p>
 
 <table class="enum-values">
+<thead>
 <tr>
 <th>Name</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TemplateVariety.TEMPLATE_VARIETY_CHECK">
 <td><code>TEMPLATE_VARIETY_CHECK</code></td>
 <td>
@@ -37,44 +62,24 @@ field datatype to express the equivalent ValueType for the expressions the field
 <td>
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h2 id="Messages">Messages</h2>
-<h3 id="DNSName">DNSName</h3>
-<section>
-<p>DNSName is used inside templates for fields that are of ValueType &ldquo;DNS_NAME&rdquo;</p>
-
-</section>
-<h3 id="Duration">Duration</h3>
-<section>
-<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
-
-</section>
-<h3 id="EmailAddress">EmailAddress</h3>
-<section>
-<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
-DO NOT USE !! Under Development</p>
-
-</section>
-<h3 id="IPAddress">IPAddress</h3>
-<section>
-<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
-
-</section>
-<h3 id="TimeStamp">TimeStamp</h3>
+<h2 id="TimeStamp">TimeStamp</h2>
 <section>
 <p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
 
 </section>
-<h3 id="Uri">Uri</h3>
+<h2 id="Uri">Uri</h2>
 <section>
 <p>Uri is used inside templates for fields that are of ValueType &ldquo;URI&rdquo;
 DO NOT USE ! Under Development</p>
 
 </section>
-<h3 id="Value">Value</h3>
+<h2 id="Value">Value</h2>
 <section>
 <p>Value is used inside templates for fields that have dynamic types. The actual datatype
 of the field depends on the datatype of the expression used in the operator configuration.</p>
 
 </section>
+{% endraw %}

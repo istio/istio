@@ -131,7 +131,7 @@ $(protoc_gen_gogoslick) : vendor
 
 $(protoc_gen_docs) : vendor
 	@echo "Building protoc-gen-docs..."
-	go build --pkgdir $(protoc_gen_docs_path)/tools/protoc-gen-docs -o $(protoc_gen_docs) ./$(protoc_gen_docs_path)/protoc-gen-docs
+	go build --pkgdir $(protoc_gen_docs_path)/protoc-gen-docs -o $(protoc_gen_docs) ./$(protoc_gen_docs_path)/protoc-gen-docs
 
 $(protoc_min_version) : vendor
 	@echo "Building protoc-min-version..."

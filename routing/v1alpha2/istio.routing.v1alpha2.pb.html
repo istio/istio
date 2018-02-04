@@ -2,7 +2,9 @@
 title: Route Rules Alpha 2
 overview: Configuration affecting traffic routing
 layout: protoc-gen-docs
+number_of_entries: 37
 ---
+{% raw %}
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of routing rules.</p>
 
@@ -32,174 +34,7 @@ actual choice of the version is determined by the sidecar, enabling the
 application code to decouple itself from the evolution of dependent
 services.</p>
 
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="ExternalService.Discovery">ExternalService.Discovery</h3>
-<section>
-<p>Different ways of discovering the IP addresses associated with the
-service.</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="ExternalService.Discovery.NONE">
-<td><code>NONE</code></td>
-<td>
-<p>If set to &ldquo;none&rdquo;, the proxy will assume that incoming connections
-have already been resolved (to a specific destination IP
-address). Such connections are typically routed via the proxy using
-mechanisms such as IP table REDIRECT/ eBPF. After performing any
-routing related transformations, the proxy will forward the
-connection to the IP address to which the connection was bound.</p>
-
-</td>
-</tr>
-<tr id="ExternalService.Discovery.STATIC">
-<td><code>STATIC</code></td>
-<td>
-<p>If set to &ldquo;static&rdquo;, the proxy will use the IP addresses specified in
-endpoints (See below) as the backing nodes associated with the
-external service.</p>
-
-</td>
-</tr>
-<tr id="ExternalService.Discovery.DNS">
-<td><code>DNS</code></td>
-<td>
-<p>If set to &ldquo;dns&rdquo;, the proxy will attempt to resolve the DNS address
-during request processing. If no endpoints are specified, the proxy
-will resolve the DNS address specified in the hosts field, if
-wildcards are not used. If endpoints are specified, the DNS
-addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB</h3>
-<section>
-<p>Standard load balancing algorithms that require no tuning.</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="LoadBalancerSettings.SimpleLB.ROUND_ROBIN">
-<td><code>ROUND_ROBIN</code></td>
-<td>
-<p>Round Robin policy. Default</p>
-
-</td>
-</tr>
-<tr id="LoadBalancerSettings.SimpleLB.LEAST_CONN">
-<td><code>LEAST_CONN</code></td>
-<td>
-<p>The least request load balancer uses an O(1) algorithm which selects
-two random healthy hosts and picks the host which has fewer active
-requests.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancerSettings.SimpleLB.RANDOM">
-<td><code>RANDOM</code></td>
-<td>
-<p>The random load balancer selects a random healthy host. The random
-load balancer generally performs better than round robin if no health
-checking policy is configured.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancerSettings.SimpleLB.PASSTHROUGH">
-<td><code>PASSTHROUGH</code></td>
-<td>
-<p>This option will forward the connection to the original IP address
-requested by the caller without doing any form of load
-balancing. This option must be used with care. It is meant for
-advanced use cases. Refer to Original Destination load balancer in
-Envoy for further details.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="Server.TLSOptions.TLSmode">Server.TLSOptions.TLSmode</h3>
-<section>
-<p>TLS modes enforced by the proxy</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
-<td><code>PASSTHROUGH</code></td>
-<td>
-<p>If set to &ldquo;passthrough&rdquo;, the proxy will forward the connection
-to the upstream server selected based on the SNI string presented
-by the client.</p>
-
-</td>
-</tr>
-<tr id="Server.TLSOptions.TLSmode.SIMPLE">
-<td><code>SIMPLE</code></td>
-<td>
-<p>If set to &ldquo;simple&rdquo;, the proxy will secure connections with
-standard TLS semantics.</p>
-
-</td>
-</tr>
-<tr id="Server.TLSOptions.TLSmode.MUTUAL">
-<td><code>MUTUAL</code></td>
-<td>
-<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
-upstream using mutual TLS by presenting client certificates for
-authentication.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="TLSSettings.TLSmode">TLSSettings.TLSmode</h3>
-<section>
-<p>TLS connection mode</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="TLSSettings.TLSmode.DISABLE">
-<td><code>DISABLE</code></td>
-<td>
-<p>If set to &ldquo;disable&rdquo;, the proxy will use not setup a TLS connection to the
-upstream server.</p>
-
-</td>
-</tr>
-<tr id="TLSSettings.TLSmode.SIMPLE">
-<td><code>SIMPLE</code></td>
-<td>
-<p>If set to &ldquo;simple&rdquo;, the proxy will originate a TLS connection to the
-upstream server.</p>
-
-</td>
-</tr>
-<tr id="TLSSettings.TLSmode.MUTUAL">
-<td><code>MUTUAL</code></td>
-<td>
-<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
-upstream using mutual TLS by presenting client certificates for
-authentication.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h2 id="Messages">Messages</h2>
-<h3 id="ConnectionPoolSettings">ConnectionPoolSettings</h3>
+<h2 id="ConnectionPoolSettings">ConnectionPoolSettings</h2>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
 each individual host in the upstream service.  See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking">circuit
@@ -225,11 +60,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ConnectionPoolSettings.tcp">
 <td><code>tcp</code></td>
 <td><code><a href="#ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</a></code></td>
@@ -246,18 +84,22 @@ spec:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ConnectionPoolSettings.HTTPSettings">ConnectionPoolSettings.HTTPSettings</h3>
+<h2 id="ConnectionPoolSettings.HTTPSettings">ConnectionPoolSettings.HTTPSettings</h2>
 <section>
 <p>Settings applicable to HTTP1.1/HTTP2/GRPC connections.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ConnectionPoolSettings.HTTPSettings.http1_max_pending_requests">
 <td><code>http1MaxPendingRequests</code></td>
 <td><code>int32</code></td>
@@ -292,18 +134,22 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</h3>
+<h2 id="ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</h2>
 <section>
 <p>Settings common to both HTTP and TCP upstream connections.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ConnectionPoolSettings.TCPSettings.max_connections">
 <td><code>maxConnections</code></td>
 <td><code>int32</code></td>
@@ -320,9 +166,10 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="CorsPolicy">CorsPolicy</h3>
+<h2 id="CorsPolicy">CorsPolicy</h2>
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
@@ -358,11 +205,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CorsPolicy.allow_origin">
 <td><code>allowOrigin</code></td>
 <td><code>string[]</code></td>
@@ -419,9 +269,10 @@ Access-Control-Allow-Credentials header.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Destination">Destination</h3>
+<h2 id="Destination">Destination</h2>
 <section>
 <p>Destination indicates the network addressable service to which the
 request/connection will be sent after processing a routing rule. The
@@ -533,11 +384,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Destination.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -587,9 +441,10 @@ label>.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="DestinationRule">DestinationRule</h3>
+<h2 id="DestinationRule">DestinationRule</h2>
 <section>
 <p>DestinationRule defines policies that apply to traffic intended for a
 service after routing has occurred. These rules specify configuration
@@ -637,11 +492,14 @@ spec:
 a route rule explicitly sends traffic to this subset.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="DestinationRule.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -688,9 +546,10 @@ service. Traffic policies can be overridden at subset level.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="DestinationWeight">DestinationWeight</h3>
+<h2 id="DestinationWeight">DestinationWeight</h2>
 <section>
 <p>Each routing rule is associated with one or more service versions (see
 glossary in beginning of document). Weights associated with the version
@@ -736,11 +595,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="DestinationWeight.destination">
 <td><code>destination</code></td>
 <td><code><a href="#Destination">Destination</a></code></td>
@@ -761,9 +623,10 @@ be 100.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ExternalService">ExternalService</h3>
+<h2 id="ExternalService">ExternalService</h2>
 <section>
 <p>External service describes the endpoints, ports and protocols of a
 white-listed set of mesh-external domains and IP blocks that services in
@@ -915,11 +778,14 @@ auto<em>host</em>rewrite for further details. The automatic rewrite can be
 overridden using a host rewrite route rule.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ExternalService.hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
@@ -962,19 +828,72 @@ accessible over the set of outPorts defined at the service level.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ExternalService.Endpoint">ExternalService.Endpoint</h3>
+<h2 id="ExternalService.Discovery">ExternalService.Discovery</h2>
+<section>
+<p>Different ways of discovering the IP addresses associated with the
+service.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ExternalService.Discovery.NONE">
+<td><code>NONE</code></td>
+<td>
+<p>If set to &ldquo;none&rdquo;, the proxy will assume that incoming connections
+have already been resolved (to a specific destination IP
+address). Such connections are typically routed via the proxy using
+mechanisms such as IP table REDIRECT/ eBPF. After performing any
+routing related transformations, the proxy will forward the
+connection to the IP address to which the connection was bound.</p>
+
+</td>
+</tr>
+<tr id="ExternalService.Discovery.STATIC">
+<td><code>STATIC</code></td>
+<td>
+<p>If set to &ldquo;static&rdquo;, the proxy will use the IP addresses specified in
+endpoints (See below) as the backing nodes associated with the
+external service.</p>
+
+</td>
+</tr>
+<tr id="ExternalService.Discovery.DNS">
+<td><code>DNS</code></td>
+<td>
+<p>If set to &ldquo;dns&rdquo;, the proxy will attempt to resolve the DNS address
+during request processing. If no endpoints are specified, the proxy
+will resolve the DNS address specified in the hosts field, if
+wildcards are not used. If endpoints are specified, the DNS
+addresses specified in the endpoints will be resolved to determine
+the destination IP address.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ExternalService.Endpoint">ExternalService.Endpoint</h2>
 <section>
 <p>Endpoint defines a network address (IP or hostname) associated with
 the external service.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ExternalService.Endpoint.address">
 <td><code>address</code></td>
 <td><code>string</code></td>
@@ -1002,9 +921,10 @@ service.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Gateway">Gateway</h3>
+<h2 id="Gateway">Gateway</h2>
 <section>
 <p>Gateway describes a load balancer operating at the edge of the mesh
 receiving incoming or outgoing HTTP/TCP connections. The specification
@@ -1130,11 +1050,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Gateway.servers">
 <td><code>servers</code></td>
 <td><code><a href="#Server">Server[]</a></code></td>
@@ -1152,9 +1075,10 @@ on which this gateway configuration should be applied.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection">HTTPFaultInjection</h3>
+<h2 id="HTTPFaultInjection">HTTPFaultInjection</h2>
 <section>
 <p>HTTPFaultInjection can be used to specify one or more faults to inject
 while forwarding http requests to the destination specified in the route
@@ -1166,11 +1090,14 @@ proxying of requests. A fault rule MUST HAVE delay or abort or both.</p>
 both are specified simultaneously.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.delay">
 <td><code>delay</code></td>
 <td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
@@ -1189,9 +1116,10 @@ service, giving the impression that the upstream service is faulty.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h3>
+<h2 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
 pre-specified error code. The following example will return an HTTP
@@ -1221,11 +1149,14 @@ and 100, is used to only abort a certain percentage of requests. If
 not specified, all requests are aborted.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.Abort.percent">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
@@ -1258,9 +1189,10 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h3>
+<h2 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h2>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
@@ -1294,11 +1226,14 @@ be used to only delay a certain percentage of requests. If left
 unspecified, all request will be delayed.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.Delay.percent">
 <td><code>percent</code></td>
 <td><code>int32</code></td>
@@ -1326,9 +1261,10 @@ values &ndash;)</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPMatchRequest">HTTPMatchRequest</h3>
+<h2 id="HTTPMatchRequest">HTTPMatchRequest</h2>
 <section>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 route rule to be applied to the HTTP request. For example, the following
@@ -1358,11 +1294,14 @@ spec:
 <p>MatchCondition CANNOT be empty.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPMatchRequest.uri">
 <td><code>uri</code></td>
 <td><code><a href="#StringMatch">StringMatch</a></code></td>
@@ -1478,9 +1417,10 @@ independent of sourceLabels.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRedirect">HTTPRedirect</h3>
+<h2 id="HTTPRedirect">HTTPRedirect</h2>
 <section>
 <p>HTTPRedirect can be used to send a 302 redirect response to the caller,
 where the Authority/Host and the URI in the response can be swapped with
@@ -1506,11 +1446,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRedirect.uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
@@ -1530,9 +1473,10 @@ this value.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRetry">HTTPRetry</h3>
+<h2 id="HTTPRetry">HTTPRetry</h2>
 <section>
 <p>Describes the retry policy to use when a HTTP request fails. For
 example, the following rule sets the maximum number of retries to 3 when
@@ -1556,11 +1500,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRetry.attempts">
 <td><code>attempts</code></td>
 <td><code>int32</code></td>
@@ -1579,9 +1526,10 @@ number of retries attempted depends on the httpReqTimeout.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRewrite">HTTPRewrite</h3>
+<h2 id="HTTPRewrite">HTTPRewrite</h2>
 <section>
 <p>HTTPRewrite can be used to rewrite specific parts of a HTTP request
 before forwarding the request to the destination. Rewrite primitive can
@@ -1609,11 +1557,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRewrite.uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
@@ -1632,19 +1583,23 @@ provided in this field will replace the corresponding matched prefix.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRoute">HTTPRoute</h3>
+<h2 id="HTTPRoute">HTTPRoute</h2>
 <section>
 <p>Describes match conditions and actions for routing HTTP/1.1, HTTP2, and
 gRPC traffic. See RouteRule for usage examples.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRoute.match">
 <td><code>match</code></td>
 <td><code><a href="#HTTPMatchRequest">HTTPMatchRequest[]</a></code></td>
@@ -1757,19 +1712,23 @@ destination service.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="L4MatchAttributes">L4MatchAttributes</h3>
+<h2 id="L4MatchAttributes">L4MatchAttributes</h2>
 <section>
 <p>L4 connection match attributes. Note that L4 connection matching support
 is incomplete.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="L4MatchAttributes.destination_subnet">
 <td><code>destinationSubnet</code></td>
 <td><code>string</code></td>
@@ -1826,9 +1785,10 @@ independent of sourceLabels.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="LoadBalancerSettings">LoadBalancerSettings</h3>
+<h2 id="LoadBalancerSettings">LoadBalancerSettings</h2>
 <section>
 <p>Load balancing policies to apply for a specific destination. See Envoy&rsquo;s
 load balancing
@@ -1865,11 +1825,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="LoadBalancerSettings.simple" class="oneof oneof-start">
 <td><code>simple</code></td>
 <td><code><a href="#LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB (oneof)</a></code></td>
@@ -1882,9 +1845,10 @@ spec:
 <td>
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h3>
+<h2 id="LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
 <section>
 <p>Consistent hashing (ketama hash) based load balancer for even load
 distribution/redistribution when the connection pool changes. This
@@ -1893,11 +1857,14 @@ connections. A user specified HTTP header is used as the key with
 <a href="http://cyan4973.github.io/xxHash">xxHash</a> hashing.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="LoadBalancerSettings.ConsistentHashLB.http_header">
 <td><code>httpHeader</code></td>
 <td><code>string</code></td>
@@ -1921,9 +1888,61 @@ single virtual node.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="OutlierDetection">OutlierDetection</h3>
+<h2 id="LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB</h2>
+<section>
+<p>Standard load balancing algorithms that require no tuning.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings.SimpleLB.ROUND_ROBIN">
+<td><code>ROUND_ROBIN</code></td>
+<td>
+<p>Round Robin policy. Default</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings.SimpleLB.LEAST_CONN">
+<td><code>LEAST_CONN</code></td>
+<td>
+<p>The least request load balancer uses an O(1) algorithm which selects
+two random healthy hosts and picks the host which has fewer active
+requests.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings.SimpleLB.RANDOM">
+<td><code>RANDOM</code></td>
+<td>
+<p>The random load balancer selects a random healthy host. The random
+load balancer generally performs better than round robin if no health
+checking policy is configured.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings.SimpleLB.PASSTHROUGH">
+<td><code>PASSTHROUGH</code></td>
+<td>
+<p>This option will forward the connection to the original IP address
+requested by the caller without doing any form of load
+balancing. This option must be used with care. It is meant for
+advanced use cases. Refer to Original Destination load balancer in
+Envoy for further details.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OutlierDetection">OutlierDetection</h2>
 <section>
 <p>A Circuit breaker implementation that tracks the status of each
 individual host in the upstream service.  While currently applicable to
@@ -1962,11 +1981,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="OutlierDetection.http">
 <td><code>http</code></td>
 <td><code><a href="#OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
@@ -1975,18 +1997,22 @@ spec:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</h3>
+<h2 id="OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</h2>
 <section>
 <p>Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="OutlierDetection.HTTPSettings.consecutive_errors">
 <td><code>consecutiveErrors</code></td>
 <td><code>int32</code></td>
@@ -2026,18 +2052,22 @@ service that can be ejected. Defaults to 10%.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Port">Port</h3>
+<h2 id="Port">Port</h2>
 <section>
 <p>Port describes the properties of a specific port of a service.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Port.number">
 <td><code>number</code></td>
 <td><code>uint32</code></td>
@@ -2063,19 +2093,23 @@ MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="PortSelector">PortSelector</h3>
+<h2 id="PortSelector">PortSelector</h2>
 <section>
 <p>PortSelector specifies the name or number of a port to be used for
 matching or selection for final routing.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="PortSelector.number" class="oneof oneof-start">
 <td><code>number</code></td>
 <td><code>uint32 (oneof)</code></td>
@@ -2092,9 +2126,10 @@ matching or selection for final routing.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="RouteRule">RouteRule</h3>
+<h2 id="RouteRule">RouteRule</h2>
 <section>
 <p>RouteRule provides a custom routing policy based on the destination
 service and its subsets/versions, the source of the traffic as well as
@@ -2164,11 +2199,14 @@ can be used to describe traffic properties for multiple HTTP and TCP
 ports.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="RouteRule.hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
@@ -2230,9 +2268,10 @@ specify &ldquo;mesh&rdquo; as one of the gateway names.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Server">Server</h3>
+<h2 id="Server">Server</h2>
 <section>
 <p>Server describes the properties of the proxy on a given load balancer port.
 For example,</p>
@@ -2285,11 +2324,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Server.port">
 <td><code>port</code></td>
 <td><code><a href="#Port">Port</a></code></td>
@@ -2325,16 +2367,20 @@ https, and the TLS modes to use.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Server.TLSOptions">Server.TLSOptions</h3>
+<h2 id="Server.TLSOptions">Server.TLSOptions</h2>
 <section>
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Server.TLSOptions.https_redirect">
 <td><code>httpsRedirect</code></td>
 <td><code>bool</code></td>
@@ -2391,19 +2437,64 @@ certificate presented by the client.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="StringMatch">StringMatch</h3>
+<h2 id="Server.TLSOptions.TLSmode">Server.TLSOptions.TLSmode</h2>
+<section>
+<p>TLS modes enforced by the proxy</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
+<td><code>PASSTHROUGH</code></td>
+<td>
+<p>If set to &ldquo;passthrough&rdquo;, the proxy will forward the connection
+to the upstream server selected based on the SNI string presented
+by the client.</p>
+
+</td>
+</tr>
+<tr id="Server.TLSOptions.TLSmode.SIMPLE">
+<td><code>SIMPLE</code></td>
+<td>
+<p>If set to &ldquo;simple&rdquo;, the proxy will secure connections with
+standard TLS semantics.</p>
+
+</td>
+</tr>
+<tr id="Server.TLSOptions.TLSmode.MUTUAL">
+<td><code>MUTUAL</code></td>
+<td>
+<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
+upstream using mutual TLS by presenting client certificates for
+authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="StringMatch">StringMatch</h2>
 <section>
 <p>Describes how to match a given string in HTTP headers. Match is
 case-sensitive.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="StringMatch.exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
@@ -2428,9 +2519,10 @@ case-sensitive.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="Subset">Subset</h3>
+<h2 id="Subset">Subset</h2>
 <section>
 <p>A subset of endpoints of a service. Subsets can be used for scenarios
 like A/B testing, or routing to a specific version of a service. Refer
@@ -2463,11 +2555,14 @@ spec:
 a route rule explicitly sends traffic to this subset.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Subset.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -2497,9 +2592,10 @@ specified at the DestinationRule level.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="TCPRoute">TCPRoute</h3>
+<h2 id="TCPRoute">TCPRoute</h2>
 <section>
 <p>Describes match conditions and actions for routing TCP traffic.  The
 following routing rule forwards traffic arriving at port 2379 named
@@ -2523,11 +2619,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TCPRoute.match">
 <td><code>match</code></td>
 <td><code><a href="#L4MatchAttributes">L4MatchAttributes[]</a></code></td>
@@ -2550,9 +2649,10 @@ with weights can be specified.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="TLSSettings">TLSSettings</h3>
+<h2 id="TLSSettings">TLSSettings</h2>
 <section>
 <p>SSL/TLS related settings for upstream connections. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl">TLS
 context</a>
@@ -2589,11 +2689,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TLSSettings.mode">
 <td><code>mode</code></td>
 <td><code><a href="#TLSSettings.TLSmode">TLSSettings.TLSmode</a></code></td>
@@ -2649,19 +2752,63 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="TrafficPolicy">TrafficPolicy</h3>
+<h2 id="TLSSettings.TLSmode">TLSSettings.TLSmode</h2>
+<section>
+<p>TLS connection mode</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSSettings.TLSmode.DISABLE">
+<td><code>DISABLE</code></td>
+<td>
+<p>If set to &ldquo;disable&rdquo;, the proxy will use not setup a TLS connection to the
+upstream server.</p>
+
+</td>
+</tr>
+<tr id="TLSSettings.TLSmode.SIMPLE">
+<td><code>SIMPLE</code></td>
+<td>
+<p>If set to &ldquo;simple&rdquo;, the proxy will originate a TLS connection to the
+upstream server.</p>
+
+</td>
+</tr>
+<tr id="TLSSettings.TLSmode.MUTUAL">
+<td><code>MUTUAL</code></td>
+<td>
+<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
+upstream using mutual TLS by presenting client certificates for
+authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TrafficPolicy">TrafficPolicy</h2>
 <section>
 <p>Traffic policies to apply for a specific destination. See
 DestinationRule for examples.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="TrafficPolicy.load_balancer">
 <td><code>loadBalancer</code></td>
 <td><code><a href="#LoadBalancerSettings">LoadBalancerSettings</a></code></td>
@@ -2694,5 +2841,7 @@ DestinationRule for examples.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}

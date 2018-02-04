@@ -4,9 +4,10 @@ overview: Configuration affecting the service mesh as a whole
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/config/service-mesh.html
+number_of_entries: 5
 ---
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="AuthenticationPolicy">AuthenticationPolicy</h3>
+{% raw %}
+<h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
 <p>AuthenticationPolicy defines authentication policy. It can be set for
 different scopes (mesh, service …), and the most narrow scope with
@@ -14,10 +15,13 @@ non-INHERIT value will be used.
 Mesh policy cannot be INHERIT.</p>
 
 <table class="enum-values">
+<thead>
 <tr>
 <th>Name</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AuthenticationPolicy.NONE">
 <td><code>NONE</code></td>
 <td>
@@ -40,83 +44,23 @@ policy.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="MeshConfig.AuthPolicy">MeshConfig.AuthPolicy</h3>
-<section>
-<p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="MeshConfig.AuthPolicy.NONE">
-<td><code>NONE</code></td>
-<td>
-<p>Do not encrypt Envoy to Envoy traffic.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.AuthPolicy.MUTUAL_TLS">
-<td><code>MUTUAL_TLS</code></td>
-<td>
-<p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h3 id="MeshConfig.IngressControllerMode">MeshConfig.IngressControllerMode</h3>
-<section>
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="MeshConfig.IngressControllerMode.OFF">
-<td><code>OFF</code></td>
-<td>
-<p>Disables Istio ingress controller.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.IngressControllerMode.DEFAULT">
-<td><code>DEFAULT</code></td>
-<td>
-<p>Istio ingress controller will act on ingress resources that do not
-contain any annotation or whose annotations match the value
-specified in the ingress_class parameter described earlier. Use this
-mode if Istio ingress controller will be the default ingress
-controller for the entire kubernetes cluster.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.IngressControllerMode.STRICT">
-<td><code>STRICT</code></td>
-<td>
-<p>Istio ingress controller will only act on ingress resources whose
-annotations match the value specified in the ingress_class parameter
-described earlier. Use this mode if Istio ingress controller will be
-a secondary ingress controller (e.g., in addition to a
-cloud-provided ingress controller).</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h2 id="Messages">Messages</h2>
-<h3 id="MeshConfig">MeshConfig</h3>
+<h2 id="MeshConfig">MeshConfig</h2>
 <section>
 <p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 Istio service mesh.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="MeshConfig.egress_proxy_address">
 <td><code>egressProxyAddress</code></td>
 <td><code>string</code></td>
@@ -256,18 +200,93 @@ Instead, use service-level annotations to overwrite the authentication policy.</
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="ProxyConfig">ProxyConfig</h3>
+<h2 id="MeshConfig.AuthPolicy">MeshConfig.AuthPolicy</h2>
+<section>
+<p>TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig.AuthPolicy.NONE">
+<td><code>NONE</code></td>
+<td>
+<p>Do not encrypt Envoy to Envoy traffic.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig.AuthPolicy.MUTUAL_TLS">
+<td><code>MUTUAL_TLS</code></td>
+<td>
+<p>Envoy to Envoy traffic is wrapped into mutual TLS connections.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig.IngressControllerMode">MeshConfig.IngressControllerMode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig.IngressControllerMode.OFF">
+<td><code>OFF</code></td>
+<td>
+<p>Disables Istio ingress controller.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig.IngressControllerMode.DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>Istio ingress controller will act on ingress resources that do not
+contain any annotation or whose annotations match the value
+specified in the ingress_class parameter described earlier. Use this
+mode if Istio ingress controller will be the default ingress
+controller for the entire kubernetes cluster.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig.IngressControllerMode.STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Istio ingress controller will only act on ingress resources whose
+annotations match the value specified in the ingress_class parameter
+described earlier. Use this mode if Istio ingress controller will be
+a secondary ingress controller (e.g., in addition to a
+cloud-provided ingress controller).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ProxyConfig">ProxyConfig</h2>
 <section>
 <p>ProxyConfig defines variables for individual Envoy instances.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="ProxyConfig.config_path">
 <td><code>configPath</code></td>
 <td><code>string</code></td>
@@ -420,5 +439,7 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}

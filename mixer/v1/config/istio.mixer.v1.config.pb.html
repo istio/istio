@@ -4,7 +4,9 @@ overview: Describes the rules used to configure Mixer's policy and telemetry fea
 location: https://istio.io/docs/reference/config/istio.mixer.v1.config.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/config/mixer/policy-and-telemetry-rules.html
+number_of_entries: 7
 ---
+{% raw %}
 <h2 id="Action">Action</h2>
 <section>
 <p>Action describes which <a href="#Handler">Handler</a> to invoke and what data to pass to it for processing.</p>
@@ -12,18 +14,20 @@ redirect_from: /docs/reference/config/mixer/policy-and-telemetry-rules.html
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler and pass it the object
 constructed using the instance &lsquo;RequestCountByService&rsquo;</p>
 
-<p><code>yaml
-  handler: prometheus-handler
+<pre><code class="language-yaml">  handler: prometheus-handler
   instances:
   - RequestCountByService
-</code></p>
+</code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Action.handler">
 <td><code>handler</code></td>
 <td><code>string</code></td>
@@ -44,6 +48,7 @@ The constructed objects are then passed to the <code>handler</code> referenced w
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="AttributeManifest">AttributeManifest</h2>
@@ -52,11 +57,14 @@ The constructed objects are then passed to the <code>handler</code> referenced w
 of an Istio deployment.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AttributeManifest.revision">
 <td><code>revision</code></td>
 <td><code>string</code></td>
@@ -96,6 +104,7 @@ request.count-my.component</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</h2>
@@ -143,11 +152,14 @@ attribute name and value becomes the HTTP header name and value. The actual
 encoding scheme will be decided later.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="AttributeManifest.AttributeInfo.description">
 <td><code>description</code></td>
 <td><code>string</code></td>
@@ -164,6 +176,7 @@ encoding scheme will be decided later.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="Handler">Handler</h2>
@@ -174,18 +187,20 @@ Each adapter implementation defines its own <code>params</code> proto.</p>
 <p>In the following example we define a <code>metrics</code> handler using the Mixer&rsquo;s prepackaged
 prometheus adapter. This handler doesn&rsquo;t require any parameters.</p>
 
-<p><code>yaml
-name: prometheus-handler
+<pre><code class="language-yaml">name: prometheus-handler
 adapter: prometheus
 params:
-</code></p>
+</code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Handler.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -213,6 +228,7 @@ proto defined by the adapter implementation; this varies depending on the value 
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="Instance">Instance</h2>
@@ -228,22 +244,24 @@ instances of the specified template at runtime.</p>
 Instances produced with this instance can be referenced by <a href="#Action">Actions</a> using name
 &lsquo;RequestCountByService&rsquo;.</p>
 
-<p><code>yaml
-- name: RequestCountByService
+<pre><code class="language-yaml">- name: RequestCountByService
   template: istio.mixer.adapter.metric.Metric
   params:
     value: 1
     dimensions:
       source: source.service
       destination_ip: destination.ip
-</code></p>
+</code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Instance.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -273,6 +291,7 @@ proto defined by the template; this varies depending on the value of field <code
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="Rule">Rule</h2>
@@ -283,20 +302,22 @@ selector is <code>true</code></p>
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
 instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 
-<p><code>yaml
-- match: destination.service == &quot;*&quot;
+<pre><code class="language-yaml">- match: destination.service == &quot;*&quot;
   actions:
   - handler: prometheus-handler
     instances:
     - RequestCountByService
-</code></p>
+</code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="Rule.match">
 <td><code>match</code></td>
 <td><code>string</code></td>
@@ -325,6 +346,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
 <h2 id="google.protobuf.Struct">google.protobuf.Struct</h2>
@@ -339,11 +361,14 @@ with the proto support for the language.</p>
 <p>The JSON representation for <code>Struct</code> is JSON object.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="google.protobuf.Struct.fields">
 <td><code>fields</code></td>
 <td><code>map&lt;string, <a href="#google.protobuf.Value">google.protobuf.Value</a>&gt;</code></td>
@@ -352,5 +377,7 @@ with the proto support for the language.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}

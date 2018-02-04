@@ -4,7 +4,9 @@ overview: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
+number_of_entries: 28
 ---
+{% raw %}
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of routing rules.</p>
 
@@ -35,45 +37,7 @@ without knowledge of individual service versions. The actual choice of
 the version is determined by Envoy, enabling the application code to
 decouple itself from the evolution of dependent services.</p>
 
-<h2 id="Enumerations">Enumerations</h2>
-<h3 id="LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy</h3>
-<section>
-<p>Load balancing algorithms supported by Envoy.</p>
-
-<table class="enum-values">
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-<tr id="LoadBalancing.SimpleLBPolicy.ROUND_ROBIN">
-<td><code>ROUND_ROBIN</code></td>
-<td>
-<p>Simple round robin policy.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancing.SimpleLBPolicy.LEAST_CONN">
-<td><code>LEAST_CONN</code></td>
-<td>
-<p>The least request load balancer uses an O(1) algorithm which selects
-two random healthy hosts and picks the host which has fewer active
-requests.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancing.SimpleLBPolicy.RANDOM">
-<td><code>RANDOM</code></td>
-<td>
-<p>The random load balancer selects a random healthy host. The random
-load balancer generally performs better than round robin if no health
-checking policy is configured.</p>
-
-</td>
-</tr>
-</table>
-</section>
-<h2 id="Messages">Messages</h2>
-<h3 id="CircuitBreaker">CircuitBreaker</h3>
+<h2 id="CircuitBreaker">CircuitBreaker</h2>
 <section>
 <p>Circuit breaker configuration for Envoy. The circuit breaker
 implementation is fine-grained in that it tracks the success/failure
@@ -86,11 +50,14 @@ and <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/out
 for more details.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CircuitBreaker.simple_cb" class="oneof oneof-start">
 <td><code>simpleCb</code></td>
 <td><code><a href="#CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy (oneof)</a></code></td>
@@ -105,9 +72,10 @@ for more details.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy</h3>
+<h2 id="CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy</h2>
 <section>
 <p>A simple circuit breaker can be set based on a number of criteria such as
 connection and request limits. For example, the following destination
@@ -152,11 +120,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.max_connections">
 <td><code>maxConnections</code></td>
 <td><code>int32</code></td>
@@ -235,9 +206,10 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="CorsPolicy">CorsPolicy</h3>
+<h2 id="CorsPolicy">CorsPolicy</h2>
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
@@ -270,11 +242,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="CorsPolicy.allow_origin">
 <td><code>allowOrigin</code></td>
 <td><code>string[]</code></td>
@@ -331,9 +306,10 @@ Access-Control-Allow-Credentials header.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="DestinationPolicy">DestinationPolicy</h3>
+<h2 id="DestinationPolicy">DestinationPolicy</h2>
 <section>
 <p>DestinationPolicy defines client/caller-side policies that determine how
 to handle traffic bound to a particular destination service. The policy
@@ -384,11 +360,14 @@ destination policy defined, at least one route rule must refer to the
 service version indicated in the destination policy.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="DestinationPolicy.destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
@@ -431,9 +410,10 @@ with this policy.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="DestinationWeight">DestinationWeight</h3>
+<h2 id="DestinationWeight">DestinationWeight</h2>
 <section>
 <p>Each routing rule is associated with one or more service versions (see
 glossary in beginning of document). Weights associated with the version
@@ -458,11 +438,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="DestinationWeight.destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
@@ -494,9 +477,10 @@ specified.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="EgressRule">EgressRule</h3>
+<h2 id="EgressRule">EgressRule</h2>
 <section>
 <p>Egress rules describe the properties of a service outside Istio. When transparent proxying
 is used, egress rules signify a white listed set of domains that microserves in the mesh
@@ -524,11 +508,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="EgressRule.destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
@@ -564,18 +551,22 @@ These dedicated egress nodes could then be more closely monitored for security v
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="EgressRule.Port">EgressRule.Port</h3>
+<h2 id="EgressRule.Port">EgressRule.Port</h2>
 <section>
 <p>Port describes the properties of a specific TCP port of an external service.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="EgressRule.Port.port">
 <td><code>port</code></td>
 <td><code>int32</code></td>
@@ -593,9 +584,10 @@ MUST BE one of HTTP|HTTPS|GRPC|HTTP2|TCP|MONGO.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection">HTTPFaultInjection</h3>
+<h2 id="HTTPFaultInjection">HTTPFaultInjection</h2>
 <section>
 <p>HTTPFaultInjection can be used to specify one or more faults to inject
 while forwarding http requests to the destination specified in the route
@@ -607,11 +599,14 @@ proxying of requests. A fault rule MUST HAVE delay or abort or both.</p>
 both are specified simultaneously.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.delay">
 <td><code>delay</code></td>
 <td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
@@ -630,9 +625,10 @@ service, giving the impression that the upstream service is faulty.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h3>
+<h2 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
 pre-specified error code. The following example will return an HTTP
@@ -658,11 +654,14 @@ and 100, is used to only abort a certain percentage of requests. If
 not specified, all requests are aborted.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.Abort.percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
@@ -700,9 +699,10 @@ TODO: The semantics and syntax of the headers is undefined. &ndash;)</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h3>
+<h2 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h2>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
@@ -729,11 +729,14 @@ be used to only delay a certain percentage of requests. If left
 unspecified, all request will be delayed.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPFaultInjection.Delay.percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
@@ -769,9 +772,10 @@ TODO: The semantics and syntax of the headers is undefined. &ndash;)</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRedirect">HTTPRedirect</h3>
+<h2 id="HTTPRedirect">HTTPRedirect</h2>
 <section>
 <p>HTTPRedirect can be used to send a 302 redirect response to the caller,
 where the Authority/Host and the URI in the response can be swapped with
@@ -795,11 +799,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRedirect.uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
@@ -819,9 +826,10 @@ this value</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRetry">HTTPRetry</h3>
+<h2 id="HTTPRetry">HTTPRetry</h2>
 <section>
 <p>Describes the retry policy to use when a HTTP request fails. For
 example, the following rule sets the maximum number of retries to 3 when
@@ -843,11 +851,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRetry.simple_retry" class="oneof oneof-start">
 <td><code>simpleRetry</code></td>
 <td><code><a href="#HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy (oneof)</a></code></td>
@@ -862,16 +873,20 @@ spec:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy</h3>
+<h2 id="HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy</h2>
 <section>
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRetry.SimpleRetryPolicy.attempts">
 <td><code>attempts</code></td>
 <td><code>int32</code></td>
@@ -899,9 +914,10 @@ Envoy, if Envoy supports such a feature. &ndash;)</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPRewrite">HTTPRewrite</h3>
+<h2 id="HTTPRewrite">HTTPRewrite</h2>
 <section>
 <p>HTTPRewrite can be used to rewrite specific parts of a HTTP request
 before forwarding the request to the destination. Rewrite primitive can
@@ -928,11 +944,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPRewrite.uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
@@ -951,9 +970,10 @@ provided in this field will replace the corresponding matched prefix.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPTimeout">HTTPTimeout</h3>
+<h2 id="HTTPTimeout">HTTPTimeout</h2>
 <section>
 <p>Describes HTTP request timeout. For example, the following rule sets a
 10 second timeout for calls to the ratings:v1 service</p>
@@ -973,11 +993,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPTimeout.simple_timeout" class="oneof oneof-start">
 <td><code>simpleTimeout</code></td>
 <td><code><a href="#HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy (oneof)</a></code></td>
@@ -992,16 +1015,20 @@ spec:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy</h3>
+<h2 id="HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy</h2>
 <section>
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="HTTPTimeout.SimpleTimeoutPolicy.timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
@@ -1022,9 +1049,10 @@ Envoy, if Envoy supports such a feature. &ndash;)</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="IngressRule">IngressRule</h3>
+<h2 id="IngressRule">IngressRule</h2>
 <section>
 <p>Ingress rules are routing rules applied to the ingress proxy pool. The
 ingress proxes serve as the receiving edge proxy for the entire mesh, but
@@ -1040,11 +1068,14 @@ also effective.</p>
 <p>WARNING: This API is experimental and under active development</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="IngressRule.port">
 <td><code>port</code></td>
 <td><code>int32</code></td>
@@ -1109,20 +1140,24 @@ of the service and therefore the IstioService&rsquo;s labels field MUST be empty
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="IstioService">IstioService</h3>
+<h2 id="IstioService">IstioService</h2>
 <section>
 <p>IstioService identifies a service and optionally service version.
 The FQDN of the service is composed from the name, namespace, and implementation-specific domain suffix
 (e.g. on Kubernetes, &ldquo;reviews&rdquo; + &ldquo;default&rdquo; + &ldquo;svc.cluster.local&rdquo; -&gt; &ldquo;reviews.default.svc.cluster.local&rdquo;).</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="IstioService.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
@@ -1165,9 +1200,10 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="L4FaultInjection">L4FaultInjection</h3>
+<h2 id="L4FaultInjection">L4FaultInjection</h2>
 <section>
 <p>(&ndash; Faults can be injected into the connections from downstream by the
 Envoy, for testing the failure recovery capabilities of downstream
@@ -1179,11 +1215,14 @@ with the rate limiting policy enforcement provided by the Mixer
 component. L4 fault injection is not supported at the moment. &ndash;)</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="L4FaultInjection.throttle">
 <td><code>throttle</code></td>
 <td><code><a href="#L4FaultInjection.Throttle">L4FaultInjection.Throttle</a></code></td>
@@ -1202,19 +1241,23 @@ We first throttle (if set) and then terminate the connection.</p>
 <td>
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="L4FaultInjection.Terminate">L4FaultInjection.Terminate</h3>
+<h2 id="L4FaultInjection.Terminate">L4FaultInjection.Terminate</h2>
 <section>
 <p>Abruptly reset (terminate) the Tcp connection after it has been
 established, emulating remote server crash or link failure.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="L4FaultInjection.Terminate.percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
@@ -1232,18 +1275,22 @@ express time interval related configs.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="L4FaultInjection.Throttle">L4FaultInjection.Throttle</h3>
+<h2 id="L4FaultInjection.Throttle">L4FaultInjection.Throttle</h2>
 <section>
 <p>Bandwidth throttling for Tcp and Udp connections</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="L4FaultInjection.Throttle.percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
@@ -1297,19 +1344,23 @@ will be throttled for its lifetime.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="L4MatchAttributes">L4MatchAttributes</h3>
+<h2 id="L4MatchAttributes">L4MatchAttributes</h2>
 <section>
 <p>(&ndash; L4 connection match attributes. Note that L4 connection matching
 support is incomplete. &ndash;)</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="L4MatchAttributes.source_subnet">
 <td><code>sourceSubnet</code></td>
 <td><code>string[]</code></td>
@@ -1329,9 +1380,10 @@ service has several IPs and the application explicitly specifies a particular IP
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="LoadBalancing">LoadBalancing</h3>
+<h2 id="LoadBalancing">LoadBalancing</h2>
 <section>
 <p>Load balancing policy to use when forwarding traffic. These policies
 directly correlate to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing">load balancer
@@ -1349,11 +1401,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="LoadBalancing.name" class="oneof oneof-start">
 <td><code>name</code></td>
 <td><code><a href="#LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy (oneof)</a></code></td>
@@ -1370,9 +1425,50 @@ spec:
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="MatchCondition">MatchCondition</h3>
+<h2 id="LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy</h2>
+<section>
+<p>Load balancing algorithms supported by Envoy.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancing.SimpleLBPolicy.ROUND_ROBIN">
+<td><code>ROUND_ROBIN</code></td>
+<td>
+<p>Simple round robin policy.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancing.SimpleLBPolicy.LEAST_CONN">
+<td><code>LEAST_CONN</code></td>
+<td>
+<p>The least request load balancer uses an O(1) algorithm which selects
+two random healthy hosts and picks the host which has fewer active
+requests.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancing.SimpleLBPolicy.RANDOM">
+<td><code>RANDOM</code></td>
+<td>
+<p>The random load balancer selects a random healthy host. The random
+load balancer generally performs better than round robin if no health
+checking policy is configured.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MatchCondition">MatchCondition</h2>
 <section>
 <p>Match condition specifies a set of criterion to be met in order for the
 route rule to be applied to the connection or HTTP request. The
@@ -1406,11 +1502,14 @@ spec:
 request header must be specified.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="MatchCondition.source">
 <td><code>source</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
@@ -1443,18 +1542,22 @@ request header must be specified.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="MatchRequest">MatchRequest</h3>
+<h2 id="MatchRequest">MatchRequest</h2>
 <section>
 <p>MatchRequest specifies the attributes of an HTTP request to be used for matching a request.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="MatchRequest.headers">
 <td><code>headers</code></td>
 <td><code>map&lt;string, <a href="#StringMatch">StringMatch</a>&gt;</code></td>
@@ -1481,9 +1584,10 @@ regular expression matches are supported.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="RouteRule">RouteRule</h3>
+<h2 id="RouteRule">RouteRule</h2>
 <section>
 <p>Route rule provides a custom routing policy based on the source and
 destination service versions and connection/request metadata.  The rule
@@ -1512,11 +1616,14 @@ spec:
 </code></pre>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="RouteRule.destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
@@ -1659,18 +1766,22 @@ destnation service.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
-<h3 id="StringMatch">StringMatch</h3>
+<h2 id="StringMatch">StringMatch</h2>
 <section>
 <p>Describes how to match a given string in HTTP headers. Match is case-sensitive.</p>
 
 <table class="message-fields">
+<thead>
 <tr>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
 </tr>
+</thead>
+<tbody>
 <tr id="StringMatch.exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
@@ -1695,5 +1806,7 @@ destnation service.</p>
 
 </td>
 </tr>
+</tbody>
 </table>
 </section>
+{% endraw %}
