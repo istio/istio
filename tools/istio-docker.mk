@@ -57,6 +57,10 @@ DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eure
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
+# This generates rules like:
+#$(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
+# 	cp $$< $$(@D))
+
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
