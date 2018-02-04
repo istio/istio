@@ -52,14 +52,14 @@ spec:
   # Describes how to map Istio logs into Stackdriver.
   logInfo:
     stackdriverglobalmr.logentry.istio-system:
-      payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      payloadTemplate: '{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
       httpMapping:
         status: responseCode
         requestSize: requestSize
         responseSize: responseSize
         latency: latency
-        localIp: originIp
-        remoteIp: targetIp
+        localIp: sourceIp
+        remoteIp: destinationIp
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -86,9 +86,9 @@ spec:
   severity: '"Default"'
   timestamp: request.time
   variables:
-    originIp: origin.ip | ip("0.0.0.0")
-    targetIp: target.ip | ip("0.0.0.0")
-    sourceUser: origin.user | ""
+    sourceIp: source.ip | ip("0.0.0.0")
+    destinationIp: destination.ip | ip("0.0.0.0")
+    sourceUser: source.user | ""
     method: request.method | ""
     url: request.path | ""
     protocol: request.scheme | "http"
