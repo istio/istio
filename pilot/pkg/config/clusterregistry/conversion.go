@@ -25,7 +25,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.uber.org/multierr"
 
@@ -33,6 +32,7 @@ import (
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -119,12 +119,12 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 		}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			glog.Warningf("Failed to read %s: %v", path, err)
+			log.Warnf("Failed to read %s: %v", path, err)
 			return err
 		}
 		result, err := parseClusters(crPath, data)
 		if err != nil {
-			glog.Warningf("Failed to parse cluster file %s: %v", path, err)
+			log.Warnf("Failed to parse cluster file %s: %v", path, err)
 			return err
 		}
 		clusters = append(clusters, result...)
@@ -135,11 +135,11 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 		// For the time being, assume that ClusterPilotCfgStore is only set for one cluster only.
 		// This cluster will be used as the pilot's config store.
 		for _, cluster := range clusters {
-			glog.Infof("ClusterPilotCfgStore: %s", cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
+			log.Infof("ClusterPilotCfgStore: %s", cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
 			if isCfgStore, _ := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); isCfgStore {
 				if cs.cfgStore != nil {
 					err = fmt.Errorf("multiple cluster config stores are defined")
-					glog.Warningf("%v", err)
+					log.Warnf("%v", err)
 					return nil, err
 				}
 				cs.cfgStore = cluster
@@ -148,7 +148,7 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 			}
 		}
 		if cs.cfgStore == nil {
-			glog.Warningf("no config store is defined in the cluster registries")
+			log.Warnf("no config store is defined in the cluster registries")
 			return nil, nil
 		}
 	}
