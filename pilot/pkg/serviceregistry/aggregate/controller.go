@@ -114,12 +114,12 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return instances, errs
 }
 
-// GetSidecarServiceInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+// GetSidecarServiceInstances lists service instances hosted on a given node
+func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	for _, r := range c.registries {
-		instances, err := r.GetSidecarServiceInstances(addrs)
+		instances, err := r.GetSidecarServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {

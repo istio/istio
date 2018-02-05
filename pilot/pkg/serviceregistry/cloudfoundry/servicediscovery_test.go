@@ -229,7 +229,7 @@ func TestServiceDiscovery_GetSidecarServiceInstances(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
 	state.mockClient.RoutesOutput.Ret1 <- nil
 
-	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(map[string]*model.Node{"": nil})
+	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
 	g.Expect(err).To(gomega.BeNil())
 
 	servicePort := &model.Port{
@@ -290,10 +290,10 @@ func TestServiceDiscovery_GetSidecarServiceInstances_ClientError(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- nil
 	state.mockClient.RoutesOutput.Ret1 <- errors.New("no instances")
 
-	serviceModel, err := state.serviceDiscovery.GetSidecarServiceInstances(map[string]*model.Node{"": nil})
+	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
 
 	g.Expect(err).To(gomega.MatchError("getting host instances: no instances"))
-	g.Expect(serviceModel).To(gomega.BeNil())
+	g.Expect(instances).To(gomega.BeNil())
 }
 
 func TestServiceDiscovery_GetSidecarServiceInstances_NotFound(t *testing.T) {
@@ -303,7 +303,7 @@ func TestServiceDiscovery_GetSidecarServiceInstances_NotFound(t *testing.T) {
 	state.mockClient.RoutesOutput.Ret0 <- nil
 	state.mockClient.RoutesOutput.Ret1 <- nil
 
-	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(map[string]*model.Node{"": nil})
+	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(instances).To(gomega.BeNil())
 }

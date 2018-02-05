@@ -1030,32 +1030,32 @@ func TestDiscoveryCache(t *testing.T) {
 
 func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	tests := []struct {
-		name          string
-		hostInstances []*model.ServiceInstance
-		err           error
-		want          string
+		name             string
+		sidecarInstances []*model.ServiceInstance
+		err              error
+		want             string
 	}{
 		{
 			name: "golden path returns region/zone",
-			hostInstances: []*model.ServiceInstance{
+			sidecarInstances: []*model.ServiceInstance{
 				{AvailabilityZone: "region/zone"},
 			},
 			want: "region/zone",
 		},
 		{
 			name: "when no AZ return blank",
-			hostInstances: []*model.ServiceInstance{
+			sidecarInstances: []*model.ServiceInstance{
 				{},
 			},
 			want: "",
 		},
 		{
-			name:          "when unable to find the given cluster node tell us",
-			hostInstances: []*model.ServiceInstance{},
-			want:          "AvailabilityZone couldn't find the given cluster node",
+			name:             "when unable to find the given cluster node tell us",
+			sidecarInstances: []*model.ServiceInstance{},
+			want:             "AvailabilityZone couldn't find the given cluster node",
 		},
 		{
-			name: "when HostInstaces errors return that error",
+			name: "when GetSidecarServiceInstances errors return that error",
 			err:  errors.New("bang"),
 			want: "AvailabilityZone bang",
 		},
@@ -1064,7 +1064,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, ds := commonSetup(t)
 			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-			mock.Discovery.WantGetSidecarServiceInstances = tt.hostInstances
+			mock.Discovery.WantGetSidecarServiceInstances = tt.sidecarInstances
 			mockDiscovery.GetSidecarServiceInstancesError = tt.err
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			if tt.want != string(response) {
