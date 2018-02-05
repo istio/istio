@@ -15,6 +15,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"time"
 	// TODO(nmittler): Remove this
@@ -27,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 )
 
@@ -40,7 +43,8 @@ var (
 		privateKeyFile      string
 		port                int
 		healthCheckInterval time.Duration
-		healthCheckPath     string
+		healthCheckFile     string
+		probeOptions        probe.Options
 	}{
 		loggingOptions: log.NewOptions(),
 	}
@@ -62,7 +66,7 @@ var (
 				KeyFile:             flags.privateKeyFile,
 				Port:                flags.port,
 				HealthCheckInterval: flags.healthCheckInterval,
-				HealthCheckPath:     flags.healthCheckPath,
+				HealthCheckFile:     flags.healthCheckFile,
 			}
 			wh, err := inject.NewWebhook(parameters)
 			if err != nil {
@@ -72,6 +76,21 @@ var (
 			stop := make(chan struct{})
 			go wh.Run(stop)
 			cmd.WaitSignal(stop)
+			return nil
+		},
+	}
+
+	probeCmd = &cobra.Command{
+		Use:   "probe",
+		Short: "Check the liveness or readiness of a locally-running server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !flags.probeOptions.IsValid() {
+				return errors.New("Some options are not valid")
+			}
+			if err := probe.NewFileClient(&flags.probeOptions).GetStatus(); err != nil {
+				return fmt.Errorf("Fail on inspecting path %s: %v", flags.probeOptions.Path, err)
+			}
+			fmt.Println("OK")
 			return nil
 		},
 	}
@@ -90,7 +109,7 @@ func init() {
 
 	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
 		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
-	rootCmd.PersistentFlags().StrinVar(&flags.healthCheckFile, "healthCheckFile", "",
+	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
 
 	// Attach the Istio logging options to the command.
@@ -104,6 +123,12 @@ func init() {
 		Section: "sidecar-injector CLI",
 		Manual:  "Istio Sidecar Injector",
 	}))
+
+	probeCmd.PersistentFlags().StringVar(&flags.probeOptions.Path, "probe-path", "",
+		"Path of the file for checking the availability.")
+	probeCmd.PersistentFlags().DurationVar(&flags.probeOptions.UpdateInterval, "interval", 0,
+		"Duration used for checking the target file's last modified time.")
+	rootCmd.AddCommand(probeCmd)
 }
 
 func main() {
