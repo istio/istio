@@ -1,4 +1,4 @@
-{{- if .Values.global.sidecarInjectEnabled }}
+{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1" -}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -25,4 +25,4 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
-{{- end }}
+{{- end -}}
