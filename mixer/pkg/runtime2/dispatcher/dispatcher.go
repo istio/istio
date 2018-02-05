@@ -178,21 +178,20 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 }
 
 func (d *Dispatcher) dispatch(session *session) error {
-	// Capture the routing context locally. It can change underneath us. We also need to decRef before
-	// completing the call.
-	r := d.acquireRoutingContext()
-
 	// Lookup the value of the identity attribute, so that we can extract the namespace to use for route
 	// lookup.
 	identityAttributeValue, err := getIdentityAttributeValue(session.bag, d.identityAttribute)
 	if err != nil {
 		// early return.
-		r.DecRef()
 		updateRequestCounters(time.Since(session.start), 0, 0, err != nil)
 		log.Warnf("unable to determine identity attribute value: '%v', operation='%d'", err, session.variety)
 		return err
 	}
 	namespace := getNamespace(identityAttributeValue)
+
+	// Capture the routing context locally. It can change underneath us. We also need to decRef before
+	// completing the call.
+	r := d.acquireRoutingContext()
 
 	destinations := r.Routes.GetDestinations(session.variety, namespace)
 
