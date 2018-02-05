@@ -85,6 +85,7 @@ type LivenessCheckController struct {
 	ca       *IstioCA
 }
 
+// Run starts the check routine
 func (c *LivenessCheckController) Run() {
 	go func() {
 		t := time.NewTicker(c.interval)
@@ -95,10 +96,6 @@ func (c *LivenessCheckController) Run() {
 			}
 		}
 	}()
-}
-
-func (c *LivenessCheckController) Close() error {
-	return nil
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
