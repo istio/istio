@@ -108,8 +108,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-$(info "Build will use HUB=$(HUB) and TAG=$(TAG) for docker images and generated istioctl")
-
 # Discover if user has dep installed -- prefer that
 DEP    := $(shell which dep    || echo "${ISTIO_BIN}/dep" )
 GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
