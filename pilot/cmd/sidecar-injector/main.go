@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"time"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -33,11 +34,13 @@ var (
 	flags = struct {
 		loggingOptions *log.Options
 
-		meshconfig       string
-		injectConfigFile string
-		certFile         string
-		privateKeyFile   string
-		port             int
+		meshconfig          string
+		injectConfigFile    string
+		certFile            string
+		privateKeyFile      string
+		port                int
+		healthCheckInterval time.Duration
+		healthCheckPath     string
 	}{
 		loggingOptions: log.NewOptions(),
 	}
@@ -52,7 +55,16 @@ var (
 
 			log.Infof("version %s", version.Info.String())
 
-			wh, err := inject.NewWebhook(flags.injectConfigFile, flags.meshconfig, flags.certFile, flags.privateKeyFile, flags.port) // nolint: lll
+			parameters := inject.WebhookParameters{
+				ConfigFile:          flags.injectConfigFile,
+				MeshFile:            flags.meshconfig,
+				CertFile:            flags.certFile,
+				KeyFile:             flags.privateKeyFile,
+				Port:                flags.port,
+				HealthCheckInterval: flags.healthCheckInterval,
+				HealthCheckPath:     flags.healthCheckPath,
+			}
+			wh, err := inject.NewWebhook(parameters)
 			if err != nil {
 				return multierror.Prefix(err, "failed to create injection webhook")
 			}
@@ -75,6 +87,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.privateKeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",
 		"File containing the x509 private key matching --tlsCertFile.")
 	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 443, "Webhook port")
+
+	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
+		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
+	rootCmd.PersistentFlags().StrinVar(&flags.healthCheckFile, "healthCheckFile", "",
+		"File that should be periodically updated if health checking is enabled")
 
 	// Attach the Istio logging options to the command.
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
