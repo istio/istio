@@ -1,0 +1,17 @@
+{{range $i, $e := until .Values.loadTestIngresses}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /test/{{ $i }}/.*
+            backend:
+              serviceName: echosrv
+              servicePort: http-echo
+---
+{{ end }}

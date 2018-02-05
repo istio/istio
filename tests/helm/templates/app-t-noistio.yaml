@@ -1,0 +1,96 @@
+# Test service without the proxy. Ports are swapped.
+apiVersion: v1
+kind: Service
+metadata:
+  name: t
+  labels:
+    app: t
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 8080
+    targetPort: 80
+    name: http-two
+  - port: 90
+    targetPort: 9090
+    name: tcp
+  - port: 9090
+    targetPort: 90
+    name: https
+  - port: 70
+    targetPort: 7070
+    name: http2-example
+  - port: 7070
+    targetPort: 70
+    name: grpc
+  selector:
+    app: t
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: t
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: t
+        version: unversioned
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: app
+        image: {{.Values.testHub}}/app:{{.Values.testTag}}
+        imagePullPolicy: IfNotPresent
+        args:
+          - --port
+          - "8080"
+          - --port
+          - "80"
+          - --port
+          - "9090"
+          - --port
+          - "90"
+          - --grpc
+          - "7070"
+          - --grpc
+          - "70"
+          - --port
+          - "10090"
+          - --port
+          - "19090"
+{{if .Values.healthCheck}}
+          - --port
+          - "3333"
+{{end}}
+          - --version
+          - "unversioned"
+        ports:
+        - containerPort: 8080
+        - containerPort: 80
+        - containerPort: 9090
+        - containerPort: 90
+        - containerPort: 10090
+        - containerPort: 19090
+{{if .Values.healthCheck}}
+        - name: tcp-health-port
+          containerPort: 3333
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3333
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+{{end}}
+---

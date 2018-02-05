@@ -1,0 +1,42 @@
+{{ range $i, $e := until .Values.testAServices }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a-{{ $i }}
+  labels:
+    app: a
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: a
+---
+{{ end }}
+{{ range $i, $e := until .Values.testAServices }}
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: vm-{{ $i }}
+spec:
+  ports:
+    - protocol: TCP
+      port: 8080
+      name: http
+
+---
+
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: vm-{{ $i }}-ep
+subsets:
+  - addresses:
+      - ip: 127.0.0.1
+    ports:
+      - port: 8080
+---
+{{ end }}
