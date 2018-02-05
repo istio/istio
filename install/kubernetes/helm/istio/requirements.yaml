@@ -1,7 +1,7 @@
   - name: sidecar-injector
     version: 0.5.0
     # repository: file://../sidecar-injector
-    condition: sidecar-injector.enabled
+    condition: sidecarInjector.enabled
   - name: mixer
     version: 0.5.0
     # repository: file://../mixer
