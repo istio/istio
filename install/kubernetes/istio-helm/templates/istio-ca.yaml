@@ -1,0 +1,73 @@
+################################
+# Istio-CA cluster-wide
+################################
+# Service account CA
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: {{ .Values.istioNamespace }}
+---
+# Istio CA watching all namespaces
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: {{ .Values.istioNamespace }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: {{ .Values.istioHub }}/istio-ca:{{ .Values.istioTag }}
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --istio-ca-storage-namespace={{ .Values.istioNamespace }}
+          - --grpc-port=8060
+          - --grpc-hostname=istio-ca
+          - --self-signed-ca=true
+{{ if .Values.security.cacerts }}
+          - --self-signed-ca=false
+          - --signing-cert=/etc/cacerts/ca-cert.pem
+          - --signing-key=/etc/cacerts/ca-key.pem
+          - --root-cert=/etc/cacerts/root-cert.pem
+          - --cert-chain=/etc/cacerts/cert-chain.pem
+{{ else }}
+          - --self-signed-ca=true
+{{ end }}
+          - --logtostderr
+          - --stderrthreshold
+          - INFO
+{{ if .Values.security.singleNamespace }}
+        # Extracted from 'singleNamespace' config - to use when istio control plane and
+        # ca are installed in a different namespace, and should not interfere with other ns.
+        # Discovery also has "-a istio-system" flag
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+{{ end }}
+{{ if .Values.security.cacerts }}
+        # Based on istio-ca-plugin.certs -
+        volumeMounts:
+        - name: cacerts
+          mountPath: /etc/cacerts
+          readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+{{ end }}
+---
