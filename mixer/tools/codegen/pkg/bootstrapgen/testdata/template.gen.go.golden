@@ -588,7 +588,7 @@ var (
 					var IpAddr net.IP
 					if param.IpAddr != "" {
 						if IpAddrInterface, err = mapper.Eval(param.IpAddr, attrs); err == nil {
-							IpAddr = net.IP(IpAddrInterface.([]uint8))
+							IpAddr = IpAddrInterface.(net.IP)
 						}
 					}
 
@@ -981,7 +981,6 @@ var (
 								default:
 									return nil, false
 								}
-
 							}
 							return attrs.Get(name)
 						},
@@ -1955,7 +1954,7 @@ var (
 					var IpAddr net.IP
 					if param.IpAddr != "" {
 						if IpAddrInterface, err = mapper.Eval(param.IpAddr, attrs); err == nil {
-							IpAddr = net.IP(IpAddrInterface.([]uint8))
+							IpAddr = IpAddrInterface.(net.IP)
 						}
 					}
 
@@ -3877,7 +3876,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = net.IP(vIface.([]uint8))
+		r.IpAddr = vIface.(net.IP)
 
 	}
 
@@ -5304,7 +5303,7 @@ func (b *builder_istio_mixer_template_list_Res2) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = net.IP(vIface.([]uint8))
+		r.IpAddr = vIface.(net.IP)
 
 	}
 

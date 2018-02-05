@@ -45,10 +45,12 @@ const (
 
 var (
 	namespace           = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub            = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub, if different from istio.Version")
-	mixerTag            = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag, if different from istio.Version")
-	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "pilot hub, if different from istio.Version")
-	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "pilot tag, if different from istio.Version")
+	mixerHub            = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag            = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub            = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag            = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub               = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag               = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
 	authEnable          = flag.Bool("auth_enable", false, "Enable auth")
@@ -98,7 +100,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *pilotHub, *pilotTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +339,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
 		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
-		content = updateInjectImage("proxyImage", "proxy", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
@@ -366,7 +368,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		// Customize mixer's configStoreURL to limit watching resources in the testing namespace.
 		vs := url.Values{}
 		vs.Add("ns", *namespace)
-		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?%s"+vs.Encode())
+		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
@@ -386,8 +388,10 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		}
 		if *pilotHub != "" && *pilotTag != "" {
 			content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+		}
+		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateIstioYaml("proxy", *pilotHub, *pilotTag, content)
+			content = updateIstioYaml("proxy", *proxyHub, *proxyTag, content)
 		}
 		if *caHub != "" && *caTag != "" {
 			//Need to be updated when the string "istio-ca" is changed

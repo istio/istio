@@ -47,13 +47,18 @@ func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 		return r
 	}
 	other := otherPtr.(*CheckResult)
+	r.CombineCheckResult(other)
+	return r
+}
+
+// CombineCheckResult combines other result with self. It does not handle Status.
+func (r *CheckResult) CombineCheckResult(other *CheckResult) {
 	if r.ValidDuration > other.ValidDuration {
 		r.ValidDuration = other.ValidDuration
 	}
 	if r.ValidUseCount > other.ValidUseCount {
 		r.ValidUseCount = other.ValidUseCount
 	}
-	return r
 }
 
 func (r *CheckResult) String() string {

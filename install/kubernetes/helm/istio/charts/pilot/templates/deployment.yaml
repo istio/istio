@@ -78,10 +78,6 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
       volumes:
       - name: config-volume
         configMap:
@@ -90,3 +86,7 @@ spec:
         secret:
           secretName: "istio.{{ template "pilot.serviceAccountName" . }}"
           optional: true
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

@@ -36,6 +36,36 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
+  name: istio-mixer-{{.IstioNamespace}}
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io/v1beta1"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["externaladmissionhookconfigurations"]
+  verbs: ["create", "delete"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
   name: istio-ca-{{.IstioNamespace}}
 rules:
 - apiGroups: [""]
@@ -79,6 +109,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-ca-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to mixer.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-mixer-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-mixer-{{.IstioNamespace}}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.

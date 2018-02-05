@@ -1,9 +1,13 @@
----
+{{- $namespace := .Release.Namespace }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prometheus
-  namespace: istio-system
+  name: {{ template "prometheus.fullname" . }}
+  labels:
+    app: {{ template "prometheus.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 data:
   prometheus.yml: |-
     global:
@@ -20,7 +24,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;prometheus
+        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -34,7 +38,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;statsd-prom
+        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;statsd-prom
 
     - job_name: 'mixer'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -48,7 +52,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;http-monitoring
+        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -62,7 +66,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-pilot;http-monitoring
+        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-pilot;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
@@ -182,58 +186,3 @@ data:
       - source_labels: [__meta_kubernetes_pod_name]
         action: replace
         target_label: pod_name
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    prometheus.io/scrape: 'true'
-  labels:
-    name: prometheus
-  name: prometheus
-  namespace: istio-system
-spec:
-  selector:
-    app: prometheus
-  ports:
-  - name: prometheus
-    protocol: TCP
-    port: 9090
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: prometheus
-  namespace: istio-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: prometheus
-  template:
-    metadata:
-      name: prometheus
-      labels:
-        app: prometheus
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      containers:
-      - name: prometheus
-        image: docker.io/prom/prometheus:v2.0.0
-        imagePullPolicy: IfNotPresent
-        args:
-          - '--storage.tsdb.retention=6h'
-          - '--config.file=/etc/prometheus/prometheus.yml'
-        ports:
-        - name: web
-          containerPort: 9090
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/prometheus
-      volumes:
-      - name: config-volume
-        configMap:
-          name: prometheus
----

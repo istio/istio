@@ -29,10 +29,9 @@ import (
 )
 
 const (
-	istioctlURL = "ISTIOCTL_URL"
-	// We use proxy always from pilot, at lease for now, so proxy and pilot always share the same hub and tag
-	proxyHubConst = "PILOT_HUB"
-	proxyTagConst = "PILOT_TAG"
+	istioctlURL   = "ISTIOCTL_URL"
+	proxyHubConst = "HUB"
+	proxyTagConst = "TAG"
 )
 
 var (
