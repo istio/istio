@@ -436,10 +436,3 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 func newInterface(c *rest.Config) (k8s.Interface, error) {
 	return k8s.NewForConfig(c)
 }
-
-func configKey(config *rest.Config) string {
-	if config == nil {
-		return ""
-	}
-	return config.Host + config.Prefix + config.APIPath
-}
