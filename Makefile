@@ -254,7 +254,7 @@ $(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
 
 ${ISTIO_OUT}/$(1):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(1)
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
 endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
@@ -295,15 +295,14 @@ build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 .PHONY: istio-ca
 istio-ca:
-	$(MAKE) ${ISTIO_OUT}/istio_ca
+	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
 
 .PHONY: node-agent
 node-agent:
-	$(MAKE) ${ISTIO_OUT}/node_agent
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node-agent
 
 .PHONY: pilot
-pilot:
-	$(MAKE) ${ISTIO_OUT}/pilot-discovery
+pilot: pilot-discovery
 
 .PHONY: multicluster_ca
 multicluster_ca:
