@@ -424,7 +424,7 @@ func istioComponentName(name string) string {
 	return "istio-" + name
 }
 
-func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface, error) {
+func newKubernetesConfig(kubeconfigPath string, env adapter.Env) (*rest.Config, error) {
 	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil || config == nil {
