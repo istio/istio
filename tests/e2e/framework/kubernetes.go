@@ -56,6 +56,7 @@ var (
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	installer           = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
 
 	addons = []string{
 		"prometheus",
@@ -119,14 +120,28 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if err = k.deployIstio(); err != nil {
-			log.Error("Failed to deploy Istio.")
-			return err
-		}
+		if *installer == "helm" {
+			// install helm tiller first
+			if err = k.deployTiller(); err != nil {
+				log.Error("Failed to deploy helm tiller.")
+				return err
+			}
 
-		if err = k.deployAddons(); err != nil {
-			log.Error("Failed to deploy istio addons")
-			return err
+			// install istio using helm
+			if err = k.deployIstioWithHelm(); err != nil {
+				log.Error("Failed to deploy Istio with helm.")
+				return err
+			}
+		} else {
+			if err = k.deployIstio(); err != nil {
+				log.Error("Failed to deploy Istio.")
+				return err
+			}
+	
+			if err = k.deployAddons(); err != nil {
+				log.Error("Failed to deploy istio addons")
+				return err
+			}
 		}
 	}
 
@@ -246,6 +261,75 @@ func (k *KubeInfo) deployAddons() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
+	istioYaml := nonAuthInstallFileNamespace
+	if *clusterWide {
+		if *authEnable {
+			istioYaml = authInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	} else {
+		if *authEnable {
+			istioYaml = authInstallFileNamespace
+		}
+	}
+	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
+	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+		log.Errorf("Generating yaml %s failed", testIstioYaml)
+		return err
+	}
+	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
+		log.Errorf("Istio core %s deployment failed", testIstioYaml)
+		return err
+	}
+
+	if *useAutomaticInjection {
+		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
+		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
+		if err := k.generateSidecarInjector(baseSidecarInjectorYAML, testSidecarInjectorYAML); err != nil {
+			log.Errorf("Generating sidecar injector yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML); err != nil {
+			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
+			return err
+		}
+
+		// alow time for sidecar injector to start
+		time.Sleep(60 * time.Second)
+	}
+
+	return nil
+}
+
+
+func (k *KubeInfo) deployTiller(yamlFileName string) error {
+	// apply helm service account
+	if err := util.KubeApply("kube-system", yamlFileName); err != nil {
+		log.Errorf("Failed to apply %s", yamlFileName)
+		return err
+	}
+
+	// deploy tiller, helm cli is already available
+	if err := util.HelmInit("tiller"); err != nil {
+		log.Errorf("Failed to init helm tiller ")
+		return err
+	}
+	// wait till tiller reaches running
+
+	return nil
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// install helm cli
+
+	// init helm tiller
+
+	// install istio helm chart, which includes addon
+
+
 	istioYaml := nonAuthInstallFileNamespace
 	if *clusterWide {
 		if *authEnable {

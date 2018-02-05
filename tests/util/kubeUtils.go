@@ -96,9 +96,15 @@ func KubeApplyContents(namespace, yamlContents string) error {
 	return KubeApply(namespace, tmpfile)
 }
 
-// KubeApply kubectl apply from file
+// KubeApply kubectl apply from file to a namespace
 func KubeApply(namespace, yamlFileName string) error {
 	_, err := Shell("kubectl apply -n %s -f %s", namespace, yamlFileName)
+	return err
+}
+
+// HelmInit init helm with a service account
+func HelmInit(serviceAccount string) error {
+	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
 	return err
 }
 
@@ -223,6 +229,22 @@ func GetPodsName(n string) (pods []string) {
 	return
 }
 
+// GetPodName gets the name of a first pod by the name in the label in specific namespace.
+func GetPodName(n, name string) (pod string) {
+	res, err := Shell("kubectl -n %s get pod -l name=%s -o jsonpath='{.items[*].metadata.name}'", n, name)
+	if err != nil {
+		log.Infof("Failed to get the pod labelled as name %s in namespace %s: %s", name, n, err)
+		return
+	}
+	res = strings.Trim(res, "'")
+	pods := strings.Split(res, " ")
+	log.Infof("Found list of pods that matches the label name %s: %v", name, pods)
+
+	// return the first one
+	return pods[0]
+}
+
+
 // GetPodStatus gets status of a pod from a namespace
 func GetPodStatus(n, pod string) string {
 	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}'", n, pod)
@@ -264,5 +286,34 @@ func CheckPodsRunning(n string) (ready bool) {
 		return false
 	}
 	log.Info("Get all pods running!")
+	return true
+}
+
+// CheckPodRunning return if a given pod with labeled name in a namespace are in "Running" status
+func CheckPodRunning(n, name string) (ready bool) {
+	retry := Retrier{
+		BaseDelay: 30 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   6,
+	}
+
+	retryFn := func(i int) error {
+		pod := GetPodName(n, name)
+		ready = true
+		if status := GetPodStatus(n, pod); status != podRunning {
+			log.Infof("%s in namespace %s is not running: %s", pod, n, status)
+			ready = false
+		}
+
+		if !ready {
+			return fmt.Errorf("pod %s is not ready", pod)
+		}
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	if err != nil {
+		return false
+	}
+	log.Info("Get the pod running!")
 	return true
 }

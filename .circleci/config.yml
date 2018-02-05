@@ -123,6 +123,40 @@ jobs:
       - store_artifacts:
           path: /tmp
 
+  e2e-bookinfo-helm:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: bin/testEnvRootMinikube.sh start
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make init go-build test-bins docker.prebuilt
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run:
+            no_output_timeout: 20m
+            when: always
+            command: |
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl --installer helm"
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+
   e2e-pilot:
     <<: *integrationDefaults
     environment:
