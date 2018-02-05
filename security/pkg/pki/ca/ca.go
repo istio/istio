@@ -64,6 +64,7 @@ type IstioCAOptions struct {
 	RootCertBytes    []byte
 
 	LivenessProbeOptions *probe.Options
+	ProbeCheckInterval   time.Duration
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -76,6 +77,28 @@ type IstioCA struct {
 	certChainBytes []byte
 	rootCertBytes  []byte
 	livenessProbe  *probe.Probe
+}
+
+// LivenessCheckController updates the availability of the liveness probe of the CA instance
+type LivenessCheckController struct {
+	interval time.Duration
+	ca       *IstioCA
+}
+
+func (c *LivenessCheckController) Run() {
+	go func() {
+		t := time.NewTicker(c.interval)
+		for {
+			select {
+			case <-t.C:
+				c.ca.livenessProbe.SetAvailable(c.ca.verify())
+			}
+		}
+	}()
+}
+
+func (c *LivenessCheckController) Close() error {
+	return nil
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -167,6 +190,12 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
 		livenessProbeController.Start()
 		ca.livenessProbe.SetAvailable(nil)
+
+		livenessProbeChecker := &LivenessCheckController{
+			interval: opts.ProbeCheckInterval,
+			ca:       ca,
+		}
+		livenessProbeChecker.Run()
 	}
 
 	return ca, nil

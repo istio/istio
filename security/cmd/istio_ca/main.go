@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -45,6 +45,8 @@ const (
 	defaultWorkloadCertTTL = time.Hour
 
 	maxWorkloadCertTTL = 7 * 24 * time.Hour
+
+	defaultProbeCheckInterval = 30 * time.Second
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -80,6 +82,8 @@ type cliOptions struct {
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
 	LivenessProbeOptions *probe.Options
+
+	probeCheckInterval time.Duration
 }
 
 var (
@@ -143,6 +147,9 @@ func init() {
 		"Path to the file for the liveness probe.")
 	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
 		"Interval of updating file for the liveness probe.")
+
+	flags.DurationVar(&opts.probeCheckInterval, "probeCheckInterval", defaultProbeCheckInterval,
+		"Interval of checking the liveness of the service.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -252,6 +259,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
+	caOpts.ProbeCheckInterval = opts.probeCheckInterval
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
