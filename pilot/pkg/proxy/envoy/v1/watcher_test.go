@@ -342,8 +342,8 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
-		"--concurrency", "8",
 		"-l", "trace",
+		"--concurrency", "8",
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {

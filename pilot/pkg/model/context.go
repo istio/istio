@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -157,7 +156,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
-		Concurrency:            int32(runtime.NumCPU()),
+		Concurrency:            0,
 	}
 }
 
