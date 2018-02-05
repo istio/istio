@@ -1,4 +1,3 @@
-{{- if .Values.global.sidecarInjectEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -16,4 +15,3 @@ spec:
     app: {{ template "sidecar-injector.name" . }}
     release: {{ .Release.Name }}
     istio: sidecar-injector
-{{- end }}
