@@ -45,6 +45,12 @@
   version = "v0.3.0"
 
 [[projects]]
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  revision = "9487d3a9d3be5bf3cf60b86ae810b97926964515"
+  version = "2.0.0"
+
+[[projects]]
   name = "github.com/Masterminds/semver"
   packages = ["."]
   revision = "15d8430ab86497c5c0da827b748823945e1cf1e1"
