@@ -14,6 +14,7 @@ FROM    circleci/golang:1.10rc1
 ARG     K8S_VER=v1.9.2
 ARG     ETCD_VER=v3.2.15
 ARG     MINIKUBE_VER=v0.25.0
+ARG     HELM_VER=v2.8.0
 
 # The local test cluster config
 ARG     MASTER_IP=127.0.0.1
@@ -38,9 +39,9 @@ RUN     cd /tmp && \
         sudo mv etcd-${ETCD_VER}-linux-amd64/etcd /usr/local/bin/etcd && \
         rm -rf etcd*
 
-RUN     curl -L -o /tmp/kube-apiser https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && \
+RUN     curl -L -o /tmp/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && \
         chmod +x /tmp/kube-apiserver && \
-        sudo mv /tmp/kube-apiser /usr/local/bin
+        sudo mv /tmp/kube-apiserver /usr/local/bin
 
 RUN     go get -u github.com/golang/dep/cmd/dep
 
@@ -58,4 +59,10 @@ RUN curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/rele
 RUN curl -Lo /tmp/minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 &&\
     chmod +x /tmp/minikube && sudo mv /tmp/minikube /usr/local/bin/
 
+# Install helm
+RUN cd /tmp && \
+    curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
+    tar xfz helm.tgz && \
+    sudo mv linux-amd64/helm /usr/local/bin && \
+    rm -rf helm.tgz linux-amd64
 
