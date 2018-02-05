@@ -41,6 +41,14 @@ type Resp struct {
 	Device string `json:"device,omitempty"`
 	// Volumen name resp.
 	VolumeName string `json:"volumename,omitempty"`
+	// Defines the driver's capability
+	Capabilities *DriverCapabilities `json:",omitempty"`
+}
+
+// DriverCapabilities define whether driver is attachable and the linux relabel
+type DriverCapabilities struct {
+	Attach         bool `json:"attach"`
+	SELinuxRelabel bool `json:"selinuxRelabel"`
 }
 
 // NodeAgentInputs defines the input from FlexVolume driver.
@@ -60,7 +68,7 @@ const (
 // Init initialize the driver
 func Init(version string) error {
 	if version == "1.8" {
-		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Attach: false})
+		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &DriverCapabilities{Attach: false}})
 		if err != nil {
 			return err
 		}
