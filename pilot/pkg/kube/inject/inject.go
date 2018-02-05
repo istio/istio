@@ -28,8 +28,6 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
