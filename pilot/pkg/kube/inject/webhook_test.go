@@ -307,7 +307,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
 		port       = 0
 	)
 
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil {
+	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
@@ -315,19 +315,19 @@ func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
 	mesh := model.DefaultMeshConfig()
 	m := jsonpb.Marshaler{}
 	var meshBytes bytes.Buffer
-	if err := m.Marshal(&meshBytes, &mesh); err != nil {
+	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
-	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil {
+	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", meshFile, err)
 	}
 
 	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil {
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil {
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
@@ -358,6 +358,7 @@ volumes:
 	validReview := makeTestData(t, false)
 	skipReview := makeTestData(t, true)
 
+	// nolint: lll
 	validPatch := []byte(`[
    {
       "op":"add",
@@ -493,7 +494,7 @@ volumes:
 			}
 
 			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got %s \n want %s", gotPatch, wantPatch)
+				t.Fatalf("got bad patch: \n got %v \n want %v", gotPatch, wantPatch)
 			}
 		})
 	}
