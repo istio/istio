@@ -45,7 +45,7 @@ type Resp struct {
 	Capabilities *Capabilities `json:",omitempty"`
 }
 
-// DriverCapabilities define whether driver is attachable and the linux relabel
+// Capabilities define whether driver is attachable and the linux relabel
 type Capabilities struct {
 	Attach         bool `json:"attach"`
 	SELinuxRelabel bool `json:"selinuxRelabel"`
