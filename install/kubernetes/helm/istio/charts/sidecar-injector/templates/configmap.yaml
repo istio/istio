@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "sidecar-injector.fullname" . }}
+  labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: sidecar-injector
+data:
+  config: |-
+    policy: enabled
+    template: |-
+      initContainers:
+      - name: istio-init
+        image: {{ .Values.global.sidecarInjector.repository }}:{{ .Values.global.sidecarInjector.tag }}
+        args:
+        - "-p"
+        - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
+        - "-u"
+        - 1337
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+        restartPolicy: Always
+      containers:
+      - name: istio-proxy
+        image: {{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}
+        args:
+        - proxy
+        - sidecar
+        - --configPath
+        - {{ "{{ .ProxyConfig.ConfigPath }}" }}
+        - --binaryPath
+        - {{ "{{ .ProxyConfig.BinaryPath }}" }}
+        - --serviceCluster
+        {{ "{{ if ne \"\" (index .ObjectMeta.Labels \"app\") -}}" }}
+        - {{ "{{ index .ObjectMeta.Labels \"app\" }}" }}
+        {{ "{{ else -}}" }}
+        - "istio-proxy"
+        {{ "{{ end -}}" }}
+        - --drainDuration
+        - 2s
+        - --parentShutdownDuration
+        - 3s
+        - --discoveryAddress
+        - {{ "{{ .ProxyConfig.DiscoveryAddress }}" }}
+        - --discoveryRefreshDelay
+        - 1s
+        - --zipkinAddress
+        - {{ "{{ .ProxyConfig.ZipkinAddress }}" }}
+        - --connectTimeout
+        - 1s
+        - --statsdUdpAddress
+        - {{ "{{ .ProxyConfig.StatsdUdpAddress }}" }}
+        - --proxyAdminPort
+        - {{ "{{ .ProxyConfig.ProxyAdminPort }}" }}
+        - --controlPlaneAuthPolicy
+        - {{ "{{ .ProxyConfig.ControlPlaneAuthPolicy }}" }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        imagePullPolicy: IfNotPresent
+        securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsUser: 1337
+        restartPolicy: Always
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          {{ "{{ if eq .Spec.ServiceAccountName \"\" -}}" }}
+          secretName: istio.default
+          {{ "{{ else -}}" }}
+          secretName: {{ "{{ printf \"istio.%s\" .Spec.ServiceAccountName }}"  }}
+          {{ "{{ end -}}" }}

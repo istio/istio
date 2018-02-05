@@ -74,10 +74,6 @@ spec:
   {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -90,3 +86,7 @@ spec:
       - name: config-volume
         configMap:
           name: {{ template "mixer.fullname" . }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
