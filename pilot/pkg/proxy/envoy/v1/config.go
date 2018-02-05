@@ -136,7 +136,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err := env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,22 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
 	case model.Ingress:
-		return buildIngressListeners(env.Mesh, nil, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		services, err := env.Services()
+		if err != nil {
+			return nil, err
+		}
+		var svc *model.Service
+		for _, s := range services {
+			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+				svc = s
+				break
+			}
+		}
+		insts := make([]*model.ServiceInstance, 0, 1)
+		if svc != nil {
+			insts = append(insts, &model.ServiceInstance{Service: svc})
+		}
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }
@@ -159,7 +174,7 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	var err error
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err = env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err = env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return clusters, err
 		}
@@ -303,7 +318,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 	case model.Ingress:
 		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config)
 	case model.Sidecar, model.Router:
-		instances, err := discovery.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := discovery.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}

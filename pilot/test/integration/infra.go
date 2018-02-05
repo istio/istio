@@ -26,6 +26,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -132,18 +133,26 @@ func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 }
 
 func (infra *infra) setup() error {
+
 	crdclient, crderr := crd.NewClient(kubeconfig, model.IstioConfigTypes, "")
 	if crderr != nil {
 		return crderr
 	}
-	if err := crdclient.RegisterResources(); err != nil {
-		return err
+	skipSystemEnv := os.Getenv("ISTIO_SKIP_SYSTEM")
+	skipSystem := skipSystemEnv != ""
+
+	if !skipSystem {
+		if err := crdclient.RegisterResources(); err != nil {
+			return err
+		}
 	}
+
 
 	infra.config = model.MakeIstioStore(crdclient)
 
+	var err error
+
 	if infra.Namespace == "" {
-		var err error
 		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-app-", infra.UseAutomaticInjection); err != nil { // nolint: lll
 			return err
 		}
@@ -155,7 +164,6 @@ func (infra *infra) setup() error {
 	}
 
 	if infra.IstioNamespace == "" {
-		var err error
 		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-", false); err != nil {
 			return err
 		}
@@ -174,69 +182,71 @@ func (infra *infra) setup() error {
 		}
 		return nil
 	}
-	if err := deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
-	}
+	if !skipSystem {
+		if err := deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
+			return err
+		}
 
-	if err := deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
+		if err := deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
+			return err
+		}
 	}
-
-	var err error
 	_, infra.meshConfig, err = getMeshConfig(client, infra.IstioNamespace, "istio")
 	if err != nil {
 		return err
 	}
-	debugMode := infra.debugImagesAndMode
-	log.Infof("mesh %s", spew.Sdump(infra.meshConfig))
+	if !skipSystem {
+		debugMode := infra.debugImagesAndMode
+		log.Infof("mesh %s", spew.Sdump(infra.meshConfig))
 
-	infra.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-		InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
-		ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
-		Verbosity:       infra.Verbosity,
-		SidecarProxyUID: inject.DefaultSidecarProxyUID,
-		EnableCoreDump:  true,
-		Version:         "integration-test",
-		Mesh:            infra.meshConfig,
-		DebugMode:       debugMode,
-	})
-	if err != nil {
-		return err
-	}
-
-	if infra.UseAutomaticInjection {
-		if err := infra.createSidecarInjector(); err != nil {
+		infra.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+			InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
+			ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
+			Verbosity:       infra.Verbosity,
+			SidecarProxyUID: inject.DefaultSidecarProxyUID,
+			EnableCoreDump:  true,
+			Version:         "integration-test",
+			Mesh:            infra.meshConfig,
+			DebugMode:       debugMode,
+		})
+		if err != nil {
 			return err
 		}
-	}
 
-	if infra.UseAdmissionWebhook {
-		if err := infra.createAdmissionWebhookSecret(); err != nil {
+		if infra.UseAutomaticInjection {
+			if err := infra.createSidecarInjector(); err != nil {
+				return err
+			}
+		}
+
+		if infra.UseAdmissionWebhook {
+			if err := infra.createAdmissionWebhookSecret(); err != nil {
+				return err
+			}
+		}
+
+		if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-	}
+		if infra.Mixer {
+			if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+				return err
+			}
+		}
+		if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
+			if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
+				return err
+			}
+		}
 
-	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
-	}
-	if infra.Mixer {
-		if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err := deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-	}
-	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
-		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-	}
-
-	if err := deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
 	}
 	if err := deploy("headless.yaml.tmpl", infra.Namespace); err != nil {
 		return err
 	}
-	if infra.Ingress {
+	if infra.Ingress && !skipSystem {
 		if err := deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
@@ -249,7 +259,7 @@ func (infra *infra) setup() error {
 		if err != nil {
 			return err
 		}
-		_, err = client.CoreV1().Secrets(infra.IstioNamespace).Create(&v1.Secret{
+		_, err = client.CoreV1().Secrets(infra.IstioNamespace).Update(&v1.Secret{
 			ObjectMeta: meta_v1.ObjectMeta{Name: ingressSecretName},
 			Data: map[string][]byte{
 				"tls.key": key,
@@ -260,7 +270,7 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-	if infra.Zipkin {
+	if infra.Zipkin && !skipSystem {
 		if err := deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
 			return err
 		}

@@ -6,8 +6,7 @@ usage() {
     cat <<EOF
 Generate certificate suitable for use with an Istio webhook service.
 
-This script demonstrates how to use the CloudFlare's PKI toolkit
-(cfssl) and k8s' CertificateSigningRequest API to a generate a
+This script uses k8s' CertificateSigningRequest API to a generate a
 certificate signed by k8s CA suitable for use with Istio webhook
 services. This requires permissions to create and approve CSR. See
 https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster for
@@ -47,9 +46,9 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-[ -z ${service} ] && usage
-[ -z ${secret} ] && usage
-[ -z ${namespace} ] && usage
+[ -z ${service} ] && service=istio-sidecar-injector
+[ -z ${secret} ] && secret=sidecar-injector-certs
+[ -z ${namespace} ] && namespace=istio-system
 
 if [ ! -x "$(command -v openssl)" ]; then
     echo "openssl not found"

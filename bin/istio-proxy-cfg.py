@@ -34,7 +34,7 @@ class XDS(object):
         elif "egress" in pod.name:
             role = "egress"
 
-        return "{role}~{pod.ip}~{pod.namespace}~{pod.name}.svc.cluster.local".format(
+        return "{role}~{pod.ip}~{pod.name}.{pod.namespace}~{pod.namespace}.svc.cluster.local".format(
             role=role, pod=pod)
 
     def query(self, path):
