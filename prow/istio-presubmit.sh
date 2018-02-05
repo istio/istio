@@ -15,7 +15,6 @@
 # limitations under the License.
 
 # Presubmit script triggered by Prow.
-# - run the unit tests, in local environment
 # - push docker images to grc.io for the integration tests.
 
 # Separate (and parallel) jobs are doing lint, coverage, etc.
@@ -30,44 +29,8 @@ set -u
 set -x
 set -e
 
-die () {
-  echo "$@"
-  exit -1
-}
-
-if [ "${CI:-}" == 'bootstrap' ]; then
-  # Handle prow environment and checkout
-  export USER=Prow
-
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio
-
-  # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_PULL_SHA}"
-
-  # check if rewrite history is present
-  PR_BRANCH=$(git show-ref | grep refs/pr | awk '{print $2}')
-  if [[ -z $PR_BRANCH ]];then
-    echo "Could not get PR branch"
-    die $(git show-ref)
-  fi
-
-  git ls-tree  $PR_BRANCH | grep .history_rewritten_20171102
-  if [[ $? -ne 0 ]];then
-    echo "This PR is from an out of date clone of istio.io/istio"
-    die "Create a fresh clone of istio.io/istio and re-submit the PR"
-  fi
-
-  # Use volume mount from pilot-presubmit job's pod spec.
-  # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/pkg/kube/config
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
-fi
+source ${ROOT}/prow/lib.sh
+setup_and_export_git_sha
 
 echo 'Build'
 (cd ${ROOT}; make build)

@@ -20,6 +20,10 @@ import (
 	"os"
 	"sort"
 
+	"html"
+
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/pflag"
@@ -42,6 +46,9 @@ type Control struct {
 	// EmitMarkdown controls whether to produce mankdown documentation files.
 	EmitMarkdown bool
 
+	// EmitJeyllHTML controls whether to produce Jekyll-friendly HTML documentation files.
+	EmitJekyllHTML bool
+
 	// ManPageInfo provides extra information necessary when emitting man pages.
 	ManPageInfo doc.GenManHeader
 }
@@ -57,8 +64,14 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 	}
 
 	if c.EmitMarkdown {
-		if err := genMarkdown(root, c.OutputDir+"/"+root.Name()+".md"); err != nil {
+		if err := doc.GenMarkdownTree(root, c.OutputDir); err != nil {
 			return fmt.Errorf("unable to output markdown tree: %v", err)
+		}
+	}
+
+	if c.EmitJekyllHTML {
+		if err := genJekyllHTML(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
+			return fmt.Errorf("unable to output Jekyll HTML file: %v", err)
 		}
 	}
 
@@ -77,35 +90,15 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 	return nil
 }
 
-func genMarkdown(cmd *cobra.Command, path string) error {
-	commands := make(map[string]*cobra.Command)
-	findCommands(commands, cmd)
-	names := make([]string, len(commands), len(commands))
-	i := 0
-	for n := range commands {
-		names[i] = n
-		i++
+type generator struct {
+	buffer *bytes.Buffer
+}
+
+func (g *generator) emit(str ...string) {
+	for _, s := range str {
+		g.buffer.WriteString(s)
 	}
-	sort.Strings(names)
-
-	buf := &bytes.Buffer{}
-	genFileHeader(cmd, buf)
-	for _, n := range names {
-		if commands[n].Name() == "help" {
-			continue
-		}
-
-		genCommand(commands[n], buf)
-	}
-
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = f.WriteString(buf.String())
-	_ = f.Close()
-
-	return err
+	g.buffer.WriteByte('\n')
 }
 
 func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command) {
@@ -118,67 +111,115 @@ func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command) {
 	}
 }
 
-func genFileHeader(cmd *cobra.Command, b *bytes.Buffer) {
-	_, _ = b.WriteString("---\n")
-	_, _ = b.WriteString("title: " + cmd.Name() + "\n")
-	_, _ = b.WriteString("overview: " + cmd.Short + "\n")
-	_, _ = b.WriteString("layout: docs\n")
-	_, _ = b.WriteString("---\n")
+func genJekyllHTML(cmd *cobra.Command, path string) error {
+	commands := make(map[string]*cobra.Command)
+	findCommands(commands, cmd)
+
+	names := make([]string, len(commands), len(commands))
+	i := 0
+	for n := range commands {
+		names[i] = n
+		i++
+	}
+	sort.Strings(names)
+
+	g := &generator{
+		buffer: &bytes.Buffer{},
+	}
+
+	g.genFileHeader(cmd)
+	for _, n := range names {
+		if commands[n].Name() == "help" {
+			continue
+		}
+
+		g.genCommand(commands[n])
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	_, err = g.buffer.WriteTo(f)
+	_ = f.Close()
+
+	return err
 }
 
-func genCommand(cmd *cobra.Command, b *bytes.Buffer) {
+func (g *generator) genFileHeader(root *cobra.Command) {
+	g.emit("---")
+	g.emit("title: ", root.Name())
+	g.emit("overview: ", html.EscapeString(root.Short))
+	g.emit("layout: pkg-collateral-docs")
+	g.emit("---")
+}
+
+func (g *generator) genCommand(cmd *cobra.Command) {
 	if cmd.Hidden || cmd.Deprecated != "" {
 		return
 	}
 
 	if cmd.HasParent() {
-		b.WriteString("\n## " + cmd.CommandPath() + "\n\n")
+		g.emit("<h2 id=\"", cmd.CommandPath(), "\">", cmd.CommandPath(), "</h2>")
 	}
 
 	if cmd.Long != "" {
-		b.WriteString(cmd.Long + "\n")
+		g.emitText(cmd.Long)
 	} else if cmd.Short != "" {
-		b.WriteString(cmd.Short + "\n")
+		g.emitText(cmd.Short)
 	}
 
 	if cmd.Runnable() {
-		fmt.Fprintf(b, "```bash\n%s\n```\n\n", cmd.UseLine())
+		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.UseLine()))
+		g.emit("</code></pre>")
 	}
 
 	// TODO: output aliases
 
 	flags := cmd.NonInheritedFlags()
-	flags.SetOutput(b)
+	flags.SetOutput(g.buffer)
 
 	parentFlags := cmd.InheritedFlags()
-	parentFlags.SetOutput(b)
+	parentFlags.SetOutput(g.buffer)
 
 	if flags.HasFlags() || parentFlags.HasFlags() {
-		fmt.Fprintf(b, "\n")
-		fmt.Fprintf(b, "|Option|Shorthand|Description\n")
-		fmt.Fprintf(b, "|------|---------|-----------\n")
+		g.emit("<table class=\"command-flags\">")
+		g.emit("<thead>")
+		g.emit("<th>Flags</th>")
+		g.emit("<th>Shorthand</th>")
+		g.emit("<th>Description</th>")
+		g.emit("</thead>")
+		g.emit("<tbody>")
 
-		lines := flagUsages(b, flags)
-		lines = append(lines, flagUsages(b, parentFlags)...)
+		f := make(map[string]*pflag.Flag)
+		addFlags(f, flags)
+		addFlags(f, parentFlags)
 
-		sort.Strings(lines)
-		for _, l := range lines {
-			fmt.Fprintf(b, l+"\n")
+		names := make([]string, len(f))
+		i := 0
+		for n := range f {
+			names[i] = n
+			i++
 		}
-		fmt.Fprintf(b, "\n")
+		sort.Strings(names)
+
+		for _, n := range names {
+			g.genFlag(f[n])
+		}
+
+		g.emit("</tbody>")
+		g.emit("</table>")
 	}
 
 	if len(cmd.Example) > 0 {
-		fmt.Fprintf(b, "\n")
-		fmt.Fprintf(b, "### Examples\n\n")
-		fmt.Fprintf(b, "```bash\n%s\n```\n\n", cmd.Example)
+		g.emit("<h3 id=\"", cmd.CommandPath(), " Examples\">", "Examples", "</h3>")
+		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.Example))
+		g.emit("</code></pre>")
 	}
 }
 
-func flagUsages(b *bytes.Buffer, f *pflag.FlagSet) []string {
-	var lines []string
-
-	f.VisitAll(func(flag *pflag.Flag) {
+func addFlags(f map[string]*pflag.Flag, s *pflag.FlagSet) {
+	s.VisitAll(func(flag *pflag.Flag) {
 		if flag.Deprecated != "" || flag.Hidden {
 			return
 		}
@@ -187,26 +228,39 @@ func flagUsages(b *bytes.Buffer, f *pflag.FlagSet) []string {
 			return
 		}
 
-		varname, usage := unquoteUsage(flag)
-		if varname != "" {
-			varname = " <" + varname + ">"
-		}
-
-		def := ""
-		if flag.Value.Type() == "string" {
-			def = fmt.Sprintf(" (default `%q`)", flag.DefValue)
-		} else if flag.Value.Type() != "bool" {
-			def = fmt.Sprintf(" (default `%s`)", flag.DefValue)
-		}
-
-		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-			lines = append(lines, fmt.Sprintf("|`--%s%s`|`-%s`|%s %s", flag.Name, varname, flag.Shorthand, usage, def))
-		} else {
-			lines = append(lines, fmt.Sprintf("|`--%s%s`||%s %s", flag.Name, varname, usage, def))
-		}
+		f[flag.Name] = flag
 	})
+}
 
-	return lines
+func (g *generator) genFlag(flag *pflag.Flag) {
+	varname, usage := unquoteUsage(flag)
+	if varname != "" {
+		varname = " <" + varname + ">"
+	}
+
+	def := ""
+	if flag.Value.Type() == "string" {
+		def = fmt.Sprintf(" (default `%s`)", flag.DefValue)
+	} else if flag.Value.Type() != "bool" {
+		def = fmt.Sprintf(" (default `%s`)", flag.DefValue)
+	}
+
+	g.emit("<tr>")
+	g.emit("<td><code>", "--", flag.Name, html.EscapeString(varname), "</code></td>")
+	if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
+		g.emit("<td><code>", "-", flag.Shorthand, "</code></td>")
+	} else {
+		g.emit("<td></td>")
+	}
+	g.emit("<td>", html.EscapeString(usage), " ", def, "</td>")
+	g.emit("</tr>")
+}
+
+func (g *generator) emitText(text string) {
+	paras := strings.Split(text, "\n\n")
+	for _, p := range paras {
+		g.emit("<p>", html.EscapeString(p), "</p>")
+	}
 }
 
 // unquoteUsage extracts a back-quoted name from the usage

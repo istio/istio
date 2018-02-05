@@ -139,6 +139,11 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
+	flags.StringVar(&opts.LivenessProbeOptions.Path, "livenessProbePath", "",
+		"Path to the file for the liveness probe.")
+	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
+		"Interval of updating file for the liveness probe.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
