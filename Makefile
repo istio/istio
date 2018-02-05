@@ -102,7 +102,7 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# If tag not explicitly set in users' .istiorc or command line, default to the git sha.
+# If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
@@ -305,11 +305,11 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" -A "$(ISTIO_URL)/deb" \
+	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
                                  -P "$(ISTIO_URL)/deb" \
-                                 -r "$(VERSION)" -E "$(ISTIO_URL)/deb" -d "${ISTIO_OUT}/archive"
+                                 -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 #-----------------------------------------------------------------------------
