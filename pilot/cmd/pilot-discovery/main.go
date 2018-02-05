@@ -24,8 +24,10 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -36,7 +38,7 @@ var (
 	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "pilot",
+		Use:   "pilot-discovery",
 		Short: "Istio Pilot",
 		Long:  "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 	}
@@ -112,8 +114,12 @@ func init() {
 		"Consul Config file for discovery")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,
+		"Interval (in seconds) for polling the Consul service registry")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Eureka.ServerURL, "eurekaserverURL", "",
 		"URL for the Eureka server")
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Eureka.Interval, "eurekaserverInterval", 2*time.Second,
+		"Interval (in seconds) for polling the Eureka service registry")
 
 	// Admission controller arguments.
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Admission.ExternalAdmissionWebhookName,
@@ -136,6 +142,11 @@ func init() {
 
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Pilot Discovery",
+		Section: "pilot-discovery CLI",
+		Manual:  "Istio Pilot Discovery",
+	}))
 }
 
 func main() {

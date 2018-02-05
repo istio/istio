@@ -14,7 +14,7 @@
 
 package osb
 
-import brokerconfig "istio.io/api/broker/v1/config"
+import brokerconfig "istio.io/api/broker/dev"
 
 // Service defines OSB service data structure.
 type Service struct {

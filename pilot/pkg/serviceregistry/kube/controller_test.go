@@ -221,7 +221,7 @@ func TestController_getPodAZ(t *testing.T) {
 
 }
 
-func TestHostInstances(t *testing.T) {
+func TestGetSidecarServiceInstances(t *testing.T) {
 	controller := makeFakeKubeAPIController()
 
 	k8sSaOnVM := "acct4"
@@ -244,25 +244,25 @@ func TestHostInstances(t *testing.T) {
 	svcNode.IPAddress = "128.0.0.1"
 	svcNode.ID = "pod1.nsA"
 	svcNode.Domain = "nsA.svc.cluster.local"
-	services, err := controller.HostInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
+	services, err := controller.GetSidecarServiceInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
 	if err != nil {
-		t.Errorf("client encountered error during HostInstances(): %v", err)
+		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
 	}
 
 	if len(services) != 1 {
-		t.Errorf("HostInstances() returned wrong # of endpoints => %q, want 1", len(services))
+		t.Errorf("GetSidecarServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
 	if services[0].Service.Hostname != hostname {
-		t.Errorf("HostInstances() wrong service instance returned => hostname %q, want %q",
+		t.Errorf("GetSidecarServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
 	}
 
 	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.HostInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
+	_, err = controller.GetSidecarServiceInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
 	if err == nil {
-		t.Errorf("HostInstances() should have returned error for unknown domain.")
+		t.Errorf("GetSidecarServiceInstances() should have returned error for unknown domain.")
 	}
 }
 

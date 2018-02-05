@@ -1,0 +1,8 @@
+FROM scratch
+
+# All containers need a /tmp directory
+WORKDIR /tmp/
+ADD multicluster_ca /usr/local/bin/multicluster_ca
+
+ENTRYPOINT [ "/usr/local/bin/multicluster_ca", "--self-signed-ca" ]
+

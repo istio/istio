@@ -841,6 +841,9 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	if strings.HasSuffix(expr2, "source.email") {
 		return "foo@bar.com", nil
 	}
+	if strings.HasSuffix(expr2, ".ip") {
+		return net.ParseIP("2.3.4.5"), nil
+	}
 	if strings.HasSuffix(expr2, "timestamp") {
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
@@ -958,7 +961,7 @@ func TestProcessReport(t *testing.T) {
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
 					Value:           "1",
-					Dimensions:      map[string]string{"s": "2"},
+					Dimensions:      map[string]string{"s": "2", "p": "source.ip"},
 					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
 					Int64Primitive:  "54362",
@@ -1019,7 +1022,7 @@ func TestProcessReport(t *testing.T) {
 				{
 					Name:            "foo",
 					Value:           int64(1),
-					Dimensions:      map[string]interface{}{"s": int64(2)},
+					Dimensions:      map[string]interface{}{"s": int64(2), "p": net.ParseIP("2.3.4.5")},
 					BoolPrimitive:   true,
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
@@ -1760,7 +1763,7 @@ func TestProcessApa(t *testing.T) {
 				"source.myboolPrimitive":   true,
 				"source.mydoublePrimitive": float64(1237),
 				"source.email":             "updatedfoo@bar.com",
-				"source.ip":                []uint8(net.ParseIP("1.2.3.4")),
+				"source.ip":                []uint8{0x1, 0x2, 0x3, 0x4},
 				"source.labels":            map[string]string{"a": "b"},
 			},
 			wantInstance: &istio_mixer_adapter_sample_myapa.Instance{

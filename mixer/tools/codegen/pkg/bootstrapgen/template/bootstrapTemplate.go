@@ -337,7 +337,7 @@ var (
 					}
 					{{else}}
 
-					{{if isAliasType .GoType.Name}}
+					{{if isAliasTypeSkipIp .GoType.Name}}
 					var {{.GoName}}Interface interface{}
 					var {{.GoName}} {{.GoType.Name}}
 					if param.{{.GoName}} != "" {
@@ -376,7 +376,7 @@ var (
                                 {{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
                                     res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
                                     for k, v := range m {
-                                        {{if isAliasType .GoType.MapValue.Name}}
+                                        {{if isAliasTypeSkipIp .GoType.MapValue.Name}}
                                         res[k] = {{.GoType.MapValue.Name}}(v.({{getAliasType .GoType.MapValue.Name}}))
                                         {{else}}
                                         res[k] = v.({{.GoType.MapValue.Name}})
@@ -446,7 +446,6 @@ var (
                                     default:
                                     return nil, false
                                 }
- 
                             }
                             return attrs.Get(name)
                         },
@@ -833,7 +832,7 @@ var (
 	                            {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
 	                                r.{{$f.GoName}}[k] = vIface
 	                            {{else}}
-	                                {{if isAliasType $f.GoType.MapValue.Name}}
+	                                {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
 	                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}(vIface.({{getAliasType $f.GoType.MapValue.Name}}))
 	                                {{else}}
 	                                    r.{{$f.GoName}}[k] = vIface.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
@@ -862,7 +861,7 @@ var (
 	                        {{if containsValueTypeOrResMsg $f.GoType}}
 	                            r.{{$f.GoName}} = vIface
 	                        {{else}}
-	                            {{if isAliasType $f.GoType.Name}}
+	                            {{if isAliasTypeSkipIp $f.GoType.Name}}
 	                                r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
 	                            {{else}}
 	                                r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}

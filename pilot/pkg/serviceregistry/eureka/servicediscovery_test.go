@@ -92,12 +92,12 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.HostInstances(make(map[string]*model.Node))
+	hostInstances, err := sd.GetSidecarServiceInstances(make(map[string]*model.Node))
 	if err == nil {
-		t.Error("HostInstances() should return error")
+		t.Error("GetSidecarServiceInstances() should return error")
 	}
 	if hostInstances != nil {
-		t.Error("HostInstances() should return nil on error")
+		t.Error("GetSidecarServiceInstances() should return nil on error")
 	}
 }
 
@@ -139,7 +139,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 }
 
-func TestServiceDiscoveryHostInstances(t *testing.T) {
+func TestServiceDiscoveryGetSidecarServiceInstances(t *testing.T) {
 	cl := &mockClient{
 		apps: []*application{
 			{
@@ -174,9 +174,9 @@ func TestServiceDiscoveryHostInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		instances, err := sd.HostInstances(tt.addrs)
+		instances, err := sd.GetSidecarServiceInstances(tt.addrs)
 		if err != nil {
-			t.Errorf("HostInstances() encountered unexpected error: %v", err)
+			t.Errorf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
 		}
 		sortServiceInstances(instances)
 		if err := compare(t, instances, tt.instances); err != nil {

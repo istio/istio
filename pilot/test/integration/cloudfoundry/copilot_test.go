@@ -34,8 +34,9 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/test/integration/cloudfoundry/mock"
 	"istio.io/istio/pkg/log"
@@ -157,12 +158,8 @@ func newTestState(mockServerAddress string) *testState {
 func (testState *testState) runEnvoy(discoveryAddr string) error {
 	config := model.DefaultProxyConfig()
 	dir := os.Getenv("ISTIO_BIN")
-	var err error
 	if len(dir) == 0 {
-		dir, err = os.Getwd()
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("envoy binary dir empty")
 	}
 
 	config.BinaryPath = path.Join(dir, "envoy")

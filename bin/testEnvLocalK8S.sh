@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # testEnv will setup a local test environment, for running Istio unit tests.
 
 # Based on circleCI config - used to reproduce the environment and to improve local testing
@@ -27,6 +29,7 @@ ${ISTIO_GO}/bin/init.sh
 
 CERTDIR=${CERTDIR:-${OUT}/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
+ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
 EASYRSA_DIR=$OUT/easy-rsa-master/easyrsa3
 EASYRSA=$EASYRSA_DIR/easyrsa
@@ -78,8 +81,8 @@ function startLocalApiserver() {
     getDeps
 
     mkdir -p ${LOG_DIR}
-
-    ${TOP}/bin/etcd > ${LOG_DIR}/etcd.log 2>&1 &
+    mkdir -p ${ETCD_DATADIR}
+    ${TOP}/bin/etcd --data-dir ${ETCD_DATADIR} > ${LOG_DIR}/etcd.log 2>&1 &
     echo $! > $LOG_DIR/etcd.pid
 
     ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \

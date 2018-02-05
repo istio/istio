@@ -45,6 +45,10 @@ if [[ -z $HUB ]]; then
 fi
 ARGS="$ARGS --hub $HUB"
 
+if [[ -z $CERT_DIR ]]; then
+  CERT_DIR=${SECURITY_ROOT}/docker
+fi
+
 if [[ "$HUB" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
@@ -60,7 +64,6 @@ go test istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
 
 go test istio.io/istio/security/tests/integration/nodeAgentTest $ARGS  \
 -kube-config=$HOME/.kube/config \
--root-cert=${SECURITY_ROOT}/docker/istio_ca.crt \
--cert-chain=${SECURITY_ROOT}/docker/node_agent.crt \
+-root-cert=${CERT_DIR}/istio_ca.crt \
+-cert-chain=${CERT_DIR}/node_agent.crt \
 -stderrthreshold=INFO --alsologtostderr
-

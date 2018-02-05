@@ -243,8 +243,8 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
+	// GetSidecarServiceInstances returns the service instances that are hosted on (implemented by) a given Node
+	GetSidecarServiceInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -263,8 +263,8 @@ type ServiceAccounts interface {
 }
 
 // SubsetOf is true if the tag has identical values for the keys
-func (t Labels) SubsetOf(that Labels) bool {
-	for k, v := range t {
+func (l Labels) SubsetOf(that Labels) bool {
+	for k, v := range l {
 		if that[k] != v {
 			return false
 		}
@@ -273,14 +273,14 @@ func (t Labels) SubsetOf(that Labels) bool {
 }
 
 // Equals returns true if the labels are identical
-func (t Labels) Equals(that Labels) bool {
-	if t == nil {
+func (l Labels) Equals(that Labels) bool {
+	if l == nil {
 		return that == nil
 	}
 	if that == nil {
-		return t == nil
+		return l == nil
 	}
-	return t.SubsetOf(that) && that.SubsetOf(t)
+	return l.SubsetOf(that) && that.SubsetOf(l)
 }
 
 // HasSubsetOf returns true if the input labels are a super set of one labels in a
@@ -334,9 +334,9 @@ func (s *Service) External() bool {
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
-func (s *Service) Key(port *Port, tag Labels) string {
+func (s *Service) Key(port *Port, labels Labels) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{tag})
+	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
@@ -414,9 +414,9 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 	return
 }
 
-func (t Labels) String() string {
-	labels := make([]string, 0, len(t))
-	for k, v := range t {
+func (l Labels) String() string {
+	labels := make([]string, 0, len(l))
+	for k, v := range l {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {

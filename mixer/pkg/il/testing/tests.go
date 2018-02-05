@@ -462,7 +462,7 @@ end`,
 		E:          `target.ip| ip("10.1.12.3")`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
-		R:          []uint8(net.ParseIP("10.1.12.3")),
+		R:          net.ParseIP("10.1.12.3"),
 		Referenced: []string{"target.ip"},
 		conf:       exprEvalAttrs,
 	},
@@ -1757,7 +1757,7 @@ end`,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 		},
-		R: []byte{0x1, 0x2, 0x3, 0x4},
+		R: net.ParseIP("1.2.3.4"),
 	},
 	{
 		E:    `aip | bip`,
@@ -1765,7 +1765,7 @@ end`,
 		I: map[string]interface{}{
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: []byte{0x4, 0x5, 0x6, 0x7},
+		R: net.ParseIP("4.5.6.7"),
 	},
 	{
 		E:    `aip | bip`,
@@ -1774,12 +1774,12 @@ end`,
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: []byte{0x1, 0x2, 0x3, 0x4},
+		R: net.ParseIP("1.2.3.4"),
 	},
 	{
 		E:    `ip("0.0.0.0")`,
 		Type: descriptor.IP_ADDRESS,
-		R:    []byte(net.IPv4zero),
+		R:    net.IPv4zero,
 		IL: `fn eval() interface
   apush_s "0.0.0.0"
   call ip
@@ -1910,7 +1910,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1926,7 +1926,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1942,7 +1942,7 @@ L0:
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1958,7 +1958,7 @@ L0:
   ret
 end
 `,
-		R: []uint8(net.ParseIP("5.6.7.8")),
+		R: net.ParseIP("5.6.7.8"),
 	},
 
 	{
@@ -1967,7 +1967,7 @@ end
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1990,7 +1990,7 @@ end
 		I: map[string]interface{}{
 			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{

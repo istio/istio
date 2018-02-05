@@ -109,6 +109,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 # Update an existing deployment.
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 `,
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			switch {
 			case inFilename != "" && emitTemplate:

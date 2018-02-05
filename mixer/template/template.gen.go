@@ -352,7 +352,7 @@ var (
 					var SourceIp net.IP
 					if param.SourceIp != "" {
 						if SourceIpInterface, err = mapper.Eval(param.SourceIp, attrs); err == nil {
-							SourceIp = net.IP(SourceIpInterface.([]uint8))
+							SourceIp = SourceIpInterface.(net.IP)
 						}
 					}
 
@@ -380,7 +380,7 @@ var (
 					var DestinationIp net.IP
 					if param.DestinationIp != "" {
 						if DestinationIpInterface, err = mapper.Eval(param.DestinationIp, attrs); err == nil {
-							DestinationIp = net.IP(DestinationIpInterface.([]uint8))
+							DestinationIp = DestinationIpInterface.(net.IP)
 						}
 					}
 
@@ -408,7 +408,7 @@ var (
 					var OriginIp net.IP
 					if param.OriginIp != "" {
 						if OriginIpInterface, err = mapper.Eval(param.OriginIp, attrs); err == nil {
-							OriginIp = net.IP(OriginIpInterface.([]uint8))
+							OriginIp = OriginIpInterface.(net.IP)
 						}
 					}
 
@@ -546,7 +546,6 @@ var (
 								default:
 									return nil, false
 								}
-
 							}
 							return attrs.Get(name)
 						},
@@ -1607,7 +1606,7 @@ var (
 
 						if infrdType.Properties[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Properties", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Properties", k, err)
 						}
 					}
 
@@ -1668,7 +1667,7 @@ var (
 
 						if infrdType.Properties[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Properties", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Properties", k, err)
 						}
 					}
 
@@ -2288,7 +2287,7 @@ var (
 
 						if infrdType.Variables[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Variables", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Variables", k, err)
 						}
 					}
 
@@ -2325,7 +2324,7 @@ var (
 
 						if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "MonitoredResourceDimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "MonitoredResourceDimensions", k, err)
 						}
 					}
 
@@ -2555,7 +2554,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -2574,7 +2573,7 @@ var (
 
 						if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "MonitoredResourceDimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "MonitoredResourceDimensions", k, err)
 						}
 					}
 
@@ -2779,7 +2778,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -3135,7 +3134,7 @@ var (
 
 						if infrdType.SpanTags[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "SpanTags", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "SpanTags", k, err)
 						}
 					}
 
@@ -3530,7 +3529,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 			return nil, template.NewErrorPath("SourceIp", err)
 		}
 
-		r.SourceIp = net.IP(vIface.([]uint8))
+		r.SourceIp = vIface.(net.IP)
 
 	}
 
@@ -3550,7 +3549,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 			return nil, template.NewErrorPath("DestinationIp", err)
 		}
 
-		r.DestinationIp = net.IP(vIface.([]uint8))
+		r.DestinationIp = vIface.(net.IP)
 
 	}
 
@@ -3570,7 +3569,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 			return nil, template.NewErrorPath("OriginIp", err)
 		}
 
-		r.OriginIp = net.IP(vIface.([]uint8))
+		r.OriginIp = vIface.(net.IP)
 
 	}
 

@@ -25,8 +25,7 @@ import (
 	"github.com/fullsailor/pkcs7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -95,7 +94,7 @@ func (ci *AwsClientImpl) GetServiceIdentity() (string, error) {
 }
 
 func (ci *AwsClientImpl) getInstanceIdentityDocument() ([]byte, error) {
-	cert, err := pki.ParsePemEncodedCertificate([]byte(AWSCertificatePem))
+	cert, err := util.ParsePemEncodedCertificate([]byte(AWSCertificatePem))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse AWS public certificate: %v", err)
 	}
