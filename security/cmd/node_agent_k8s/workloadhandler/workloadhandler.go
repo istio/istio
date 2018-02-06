@@ -1,3 +1,17 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package workloadhandler
 
 import (
@@ -7,33 +21,33 @@ import (
 
 	"google.golang.org/grpc"
 
-  pbmgmt "istio.io/istio/security/proto"
-  mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	pbmgmt "istio.io/istio/security/proto"
 )
 
 // The WorkloadHandler (one per workload).
 type Server struct {
-	creds		*CredInfo
-	filePath       string
-	done           chan bool
-	wlS		*mwi.WlServer
+	creds    *CredInfo
+	filePath string
+	done     chan bool
+	wlS      *mwi.WlServer
 }
 
 func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 	return &CredInfo{
-		Uid: wli.Attrs.Uid,
-		Name: wli.Attrs.Workload,
-		Namespace: wli.Attrs.Namespace,
+		Uid:            wli.Attrs.Uid,
+		Name:           wli.Attrs.Workload,
+		Namespace:      wli.Attrs.Namespace,
 		ServiceAccount: wli.Attrs.Serviceaccount,
 	}
 }
 
 func NewServer(wli *pbmgmt.WorkloadInfo, wlS *mwi.WlServer, pathPrefix string) mwi.WorkloadMgmtInterface {
 	s := &Server{
-		done: make(chan bool, 1),
-		creds: NewCreds(wli),
+		done:     make(chan bool, 1),
+		creds:    NewCreds(wli),
 		filePath: pathPrefix + "/" + wli.Attrs.Uid + wlS.SockFile,
-		wlS: wlS,
+		wlS:      wlS,
 	}
 	return s
 }
