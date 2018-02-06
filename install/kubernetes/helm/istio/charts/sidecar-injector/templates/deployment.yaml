@@ -42,7 +42,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: {{ template "istio.configmap.fullname" . }}
+          name: istio
       - name: certs
         secret:
           secretName: sidecar-injector-certs

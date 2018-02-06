@@ -33,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/log"
 )
 
@@ -238,6 +239,8 @@ type envoy struct {
 	config    meshconfig.ProxyConfig
 	node      string
 	extraArgs []string
+	v2        bool
+	pilotSAN  []string
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -253,6 +256,15 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 		node:      node,
 		extraArgs: args,
 	}
+}
+
+// NewV2Proxy creates an instance of the proxy using v2 bootstrap
+func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
+	proxy := NewProxy(config, node, logLevel)
+	e := proxy.(envoy)
+	e.v2 = true
+	e.pilotSAN = pilotSAN
+	return e
 }
 
 func (proxy envoy) args(fname string, epoch int) []string {
@@ -284,7 +296,15 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if len(proxy.config.CustomConfigFile) > 0 {
+	if proxy.v2 {
+		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN)
+		if err != nil {
+			log.Errora("Failed to generate bootstrap config", err)
+			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
+			return err
+		}
+		fname = out
+	} else if len(proxy.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
 	} else {

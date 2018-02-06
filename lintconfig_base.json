@@ -8,6 +8,9 @@
     "lineLength": 160,
     "tests": true,
     "sort": ["path"],
+    "Linters": {
+        "goimports": {"Command": "goimports -l --local istio.io"}
+    },
     "enable": [
         "deadcode",
         "errcheck",
@@ -50,7 +53,6 @@
         ".pb.go",
         "mock_*",
         "mixer/adapter/doc.go",
-        "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
         ".*.gen_test.go",
         "mixer/template/doc.go",

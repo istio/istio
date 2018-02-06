@@ -17,11 +17,9 @@ package collateral
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"os"
 	"sort"
-
-	"html"
-
 	"strings"
 
 	"github.com/spf13/cobra"

@@ -62,7 +62,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # 	cp $$< $$(@D))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -84,6 +84,7 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
 $(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
+docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 

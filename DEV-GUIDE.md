@@ -19,6 +19,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
+  - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
   - [Running tests](#running-tests)
   - [Getting coverage numbers](#getting-coverage-numbers)
   - [Auto-formatting source code](#auto-formatting-source-code)
@@ -180,6 +181,14 @@ make
 This build command figures out what it needs to do and does not need any
 input from you.
 
+To build those components with debugger information so that a debugger such as
+[Delve](https://github.com/derekparker/delve) can be used to debug them, run
+
+
+```shell
+make DEBUG=1
+```
+
 *TIP*: To speed up consecutive builds of the project, run the following
 command instead:
 
@@ -201,6 +210,13 @@ Build the containers in your local docker cache:
 
 ```shell
 make docker
+```
+
+To build the containers with the debugger information so that they can be
+debugged with a debugger such as [Delve](https://github.com/derekparker), run
+
+```shell
+make DEBUG=1 docker
 ```
 
 Push the containers to your registry:
@@ -225,6 +241,29 @@ You can delete any build artifacts with:
 ```shell
 make clean
 ```
+
+### Debug an Istio container with Delve
+
+To debug an Istio container with Delve in a Kubernetes environment:
+
+* Locate the Kubernetes node on which your container is running.
+* Make sure that the node has Go tool installed as described in above.
+* Make sure the node has [Delve installed](https://github.com/derekparker/delve/tree/master/Documentation/installation).
+* Clone the Istio repo from which your debuggable executables
+   have been built onto the node.
+* Log on to the node and find out the process id that you'd like to debug. For
+   example, if you want to debug Pilot, the process name is pilot-discovery.
+   Issue command ```ps -ef | grep pilot-discovery``` to find the process id.
+* Issue the command ```sudo dlv attach <pilot-pid>``` to start the debug
+   session.
+
+You may find this [Delve tutorial](http://blog.ralch.com/tutorial/golang-debug-with-delve/) is useful.
+
+Alternatively, you can use [Squash](https://github.com/solo-io/squash) with
+Delve to debug your container. You may need to modify the Istio Dockerfile to
+use a base image such as alpine (versus scratch in Pilot Dockerfiles). One of
+the benefits of using Squash is that you don't need to install Go tool and Delve
+on every Kubernetes nodes.
 
 ### Running tests
 

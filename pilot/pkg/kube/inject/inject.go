@@ -251,28 +251,24 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 			return err
 		}
 
-		var typeMeta metav1.TypeMeta
-		if err = yaml.Unmarshal(raw, &typeMeta); err != nil {
+		obj, err := fromRawToObject(raw)
+		if err != nil && !runtime.IsNotRegisteredError(err) {
 			return err
 		}
 
-		gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
-		obj, err := injectScheme.New(gvk)
 		var updated []byte
 		if err == nil {
-			if err = yaml.Unmarshal(raw, obj); err != nil {
-				return err
-			}
-			out, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			outObject, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
-			if updated, err = yaml.Marshal(out); err != nil {
+			if updated, err = yaml.Marshal(outObject); err != nil {
 				return err
 			}
 		} else {
 			updated = raw // unchanged
 		}
+
 		if _, err = out.Write(updated); err != nil {
 			return err
 		}
@@ -283,11 +279,54 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 	return nil
 }
 
+func fromRawToObject(raw []byte) (runtime.Object, error) {
+	var typeMeta metav1.TypeMeta
+	if err := yaml.Unmarshal(raw, &typeMeta); err != nil {
+		return nil, err
+	}
+
+	gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
+	obj, err := injectScheme.New(gvk)
+	if err != nil {
+		return nil, err
+	}
+	if err = yaml.Unmarshal(raw, obj); err != nil {
+		return nil, err
+	}
+
+	return obj, nil
+}
+
 func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
 	var podSpec *v1.PodSpec
+
+	// Handle Lists
+	if list, ok := out.(*v1.List); ok {
+		result := list
+
+		for i, item := range list.Items {
+			obj, err := fromRawToObject(item.Raw)
+			if runtime.IsNotRegisteredError(err) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			r, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			if err != nil {
+				return nil, err
+			}
+
+			re := runtime.RawExtension{}
+			re.Object = r.(runtime.Object)
+			result.Items[i] = re
+		}
+		return result, nil
+	}
 
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
