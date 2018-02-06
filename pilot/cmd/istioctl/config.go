@@ -20,13 +20,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/log"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"istio.io/istio/pkg/log"
 )
 
 var (
