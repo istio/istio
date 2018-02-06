@@ -50,7 +50,6 @@
         ".pb.go",
         "mock_*",
         "mixer/adapter/doc.go",
-        "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
         "mixer/template/doc.go",
         "mixer/template/sample/doc.go",

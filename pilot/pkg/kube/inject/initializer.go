@@ -47,6 +47,8 @@ var (
 		{v2alpha1.SchemeGroupVersion, &v2alpha1.CronJob{}, "cronjobs", "/apis"},
 
 		{appsv1beta1.SchemeGroupVersion, &appsv1beta1.StatefulSet{}, "statefulsets", "/apis"},
+
+		{v1.SchemeGroupVersion, &v1.List{}, "lists", "/apis"},
 	}
 	injectScheme = runtime.NewScheme()
 )

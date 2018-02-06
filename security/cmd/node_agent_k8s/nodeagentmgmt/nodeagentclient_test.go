@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentk8s
+package nodeagentmgmt
 
 import (
 	"net"
@@ -40,11 +40,6 @@ func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb
 func (s *FakeNodeAgentGrpcServer) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
 	return &pb.NodeAgentMgmtResponse{Status: status}, nil
-}
-
-func (s *FakeNodeAgentGrpcServer) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
-	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
-	return &pb.CheckResponse{Status: status}, nil
 }
 
 func TestWorkloadAdded(t *testing.T) {

@@ -16,6 +16,7 @@
 # Global Variables
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
@@ -64,13 +65,25 @@ else
    # export GOOS ?= windows
 endif
 
-# Another person's PR is adding the debug support, so this is in prep for that
+#-----------------------------------------------------------------------------
+# Output control
+#-----------------------------------------------------------------------------
+# Invoke make VERBOSE=1 to enable echoing of the command being executed
+VERBOSE ?= 0
+# Place the variable Q in front of a command to control echoing of the command being executed.
+Q = $(if $(filter 1,$VERBOSE),,@)
+# Use the variable H to add a header (equivalent to =>) to informational output
+H = $(shell printf "\033[34;1m=>\033[0m")
+
+# To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
+export GCFLAGS:=-N -l
+$(info $(H) Build with debugger information)
 endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
@@ -113,14 +126,6 @@ GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
-
-#-----------------------------------------------------------------------------
-# Output control
-#-----------------------------------------------------------------------------
-VERBOSE ?= 0
-V ?= $(or $(VERBOSE),0)
-Q = $(if $(filter 1,$V),,@)
-H = $(shell printf "\033[34;1m=>\033[0m")
 
 .PHONY: default
 default: depend build test

@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/cobra/doc"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/model"
@@ -59,6 +60,7 @@ var (
 	customConfigFile       string
 	proxyLogLevel          string
 	concurrency            int
+	bootstrapv2            bool
 
 	loggingOptions = log.NewOptions()
 
@@ -198,7 +200,14 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
+			var envoyProxy proxy.Proxy
+			if bootstrapv2 {
+				// Using a different constructor - the code will likely be refactored / split from the v1,
+				// but may expose same interface to minimize risks
+				envoyProxy = envoy.NewV2Proxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
+			} else {
+				envoyProxy = envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
+			}
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -273,6 +282,8 @@ func init() {
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
+		"Use bootstrap v2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
