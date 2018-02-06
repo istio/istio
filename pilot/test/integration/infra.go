@@ -147,7 +147,6 @@ func (infra *infra) setup() error {
 		}
 	}
 
-
 	infra.config = model.MakeIstioStore(crdclient)
 
 	var err error
@@ -183,11 +182,11 @@ func (infra *infra) setup() error {
 		return nil
 	}
 	if !skipSystem {
-		if err := deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 
-		if err := deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 	}
@@ -214,40 +213,40 @@ func (infra *infra) setup() error {
 		}
 
 		if infra.UseAutomaticInjection {
-			if err := infra.createSidecarInjector(); err != nil {
+			if err = infra.createSidecarInjector(); err != nil {
 				return err
 			}
 		}
 
 		if infra.UseAdmissionWebhook {
-			if err := infra.createAdmissionWebhookSecret(); err != nil {
+			if err = infra.createAdmissionWebhookSecret(); err != nil {
 				return err
 			}
 		}
 
-		if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 		if infra.Mixer {
-			if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+			if err = deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
 				return err
 			}
 		}
 		if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
-			if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
+			if err = deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
 				return err
 			}
 		}
 
-		if err := deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 	}
-	if err := deploy("headless.yaml.tmpl", infra.Namespace); err != nil {
+	if err = deploy("headless.yaml.tmpl", infra.Namespace); err != nil {
 		return err
 	}
 	if infra.Ingress && !skipSystem {
-		if err := deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err = deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
 		// Create ingress key/cert in secret
@@ -271,14 +270,14 @@ func (infra *infra) setup() error {
 		}
 	}
 	if infra.Zipkin && !skipSystem {
-		if err := deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
+		if err = deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
 			return err
 		}
 	}
-	if err := deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
+	if err = deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
 		return err
 	}
-	if err := deploy("externalbin.yaml.tmpl", infra.Namespace); err != nil {
+	if err = deploy("externalbin.yaml.tmpl", infra.Namespace); err != nil {
 		return err
 	}
 	return nil
