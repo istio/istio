@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/adapter/servicecontrol.html)
+// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/adapters/servicecontrol.html)
 // adapter.
 
 // Fully qualified name of the template

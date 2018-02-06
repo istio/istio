@@ -18,7 +18,7 @@ syntax = "proto3";
 // $overview: Adapter that implements an Open Policy Agent engine
 // $location: https://istio.io/docs/reference/config/adapters/opa.html
 
-// The `opa` adapter exposes an [Open Policy Agent](https://www.openpolicyagent.org) engine
+// The `opa` adapter exposes an [Open Policy Agent](http://www.openpolicyagent.org) engine
 // that provides sophisticated access control mechanisms.
 package adapter.opa.config;
 

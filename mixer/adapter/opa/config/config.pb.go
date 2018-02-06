@@ -4,7 +4,7 @@
 /*
 	Package config is a generated protocol buffer package.
 
-	The `opa` adapter exposes an [Open Policy Agent](https://www.openpolicyagent.org) engine
+	The `opa` adapter exposes an [Open Policy Agent](http://www.openpolicyagent.org) engine
 	that provides sophisticated access control mechanisms.
 
 	It is generated from these files:
