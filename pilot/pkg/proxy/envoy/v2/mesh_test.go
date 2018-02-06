@@ -15,15 +15,11 @@
 package v2
 
 import (
-	"fmt"
-	"math"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
-
-	route "istio.io/api/routing/v1alpha2"
 )
 
 const (
@@ -37,6 +33,10 @@ const (
 	testSubset1  = "test-subset-1"
 	testSubset2  = "test-subset-2"
 )
+
+// Enums used to tweak attributes while building an endpoint for testing.
+// Enums can be combined to change multiple attributes at once.
+type attrToChange int
 
 const (
 	_                         = iota
@@ -92,85 +92,148 @@ var (
 	testProtocols = []string{"http", "https", "grpc", "redis", "mongo"}
 )
 
-// Enums used to tweak attributes while
-// building an endpoint for testing
-type attrToChange int
-
-type samplePoint struct {
-	name      string
-	rule      int
-	subset    int
-	endpoints int
-}
-
-type dataSet struct {
-	cntEps           int
-	cntSvcs          int
-	cntSubsetsPerSvc int
-}
-
-func TestMeshNewMesh(t *testing.T) {
+func TestMesh_NewMesh(t *testing.T) {
 	tm := NewMesh()
 	if tm == nil {
 		t.Error("expecting valid Mesh, found nil")
 	}
 }
 
-func TestMeshXDS(t *testing.T) {
+func TestMesh_Reconcile(t *testing.T) {
+	// Build Test data
+	countEps, countSvcs, countSubsetsPerSvc := 32, 2, 2
+	_, _, expectedEps, _ := buildTestEndpoints(t, countEps, countSvcs, countSubsetsPerSvc)
+	subsetsToVerify := []string{
+		"test-service-1.default.domain-1.com",
+		"test-service-2.domain-2.com",
+	}
+
+	tm := NewMesh()
+	err := tm.Reconcile(expectedEps)
+	if err != nil {
+		t.Errorf("unable to reconcile(): %v", err)
+		return
+	}
+	t.Run("EndpointsAdded", func(t *testing.T) {
+		actual := tm.SubsetEndpoints(subsetsToVerify)
+		assertEqualEndpointLists(t, expectedEps, actual)
+	})
+	err = tm.Reconcile(expectedEps[:countEps/2])
+	if err != nil {
+		t.Errorf("unable to reconcile(): %v", err)
+		return
+	}
+	t.Run("EndpointsDeleted", func(t *testing.T) {
+		actual := tm.SubsetEndpoints(subsetsToVerify)
+		assertEqualEndpointLists(t, expectedEps[:countEps/2], actual)
+		actual = tm.SubsetEndpoints(subsetsToVerify[1:])
+		assertEqualEndpointLists(t, []*Endpoint{}, actual)
+	})
+	expectedDomains := expectedEps[2].getMultiValuedAttrs(DestinationDomain.AttrName())
+	expectedDomains = expectedDomains[1:]
+	expectedEps[2].setMultiValuedAttrs(DestinationDomain.AttrName(), expectedDomains)
+	t.Run("EndpointsUpdated", func(t *testing.T) {
+		err := tm.Reconcile(expectedEps[0 : countEps/2])
+		if err != nil {
+			t.Errorf("unable to reconcile(): %v", err)
+			return
+		}
+		actual := tm.SubsetEndpoints(subsetsToVerify[:1])
+		assertEqualEndpointLists(t, expectedEps[0:countEps/2], actual)
+		for _, ep := range actual {
+			if ep.getSingleValuedAttrs()[DestinationUID.AttrName()] == expectedEps[2].getSingleValuedAttrs()[DestinationUID.AttrName()] {
+				actualDomains := ep.getMultiValuedAttrs(DestinationDomain.AttrName())
+				sort.Strings(expectedDomains)
+				sort.Strings(actualDomains)
+				if !reflect.DeepEqual(expectedDomains, actualDomains) {
+					t.Errorf("expected domains %q does not match actual %q", expectedDomains, actualDomains)
+				}
+			}
+		}
+	})
+	t.Run("NoChangeForIdenticalUpdates", func(t *testing.T) {
+		_, _, epsFirstUpdate, _ := buildTestEndpoints(t, countEps, countSvcs, countSubsetsPerSvc)
+		err := tm.Reconcile(epsFirstUpdate)
+		if err != nil {
+			t.Errorf("unable to reconcile(): %v", err)
+			return
+		}
+		prevEps := tm.SubsetEndpoints(subsetsToVerify)
+		expectedEps := make(map[string]*Endpoint, len(prevEps))
+		for _, ep := range tm.allEndpoints {
+			expectedEps[ep.getSingleValuedAttrs()[DestinationUID.AttrName()]] = ep
+		}
+		_, _, epsIdenticalUpdate, _ := buildTestEndpoints(t, countEps, countSvcs, countSubsetsPerSvc)
+		err = tm.Reconcile(epsIdenticalUpdate)
+		if err != nil {
+			t.Errorf("unable to reconcile(): %v", err)
+			return
+		}
+		actualEps := tm.SubsetEndpoints(subsetsToVerify)
+		if len(expectedEps) != len(actualEps) {
+			t.Error("mismatched counts for identical datasets for Reconcile()")
+		}
+		// Using pointer equality to detect unintended updates.
+		for _, ep := range actualEps {
+			epUID := ep.getSingleValuedAttrs()[DestinationUID.AttrName()]
+			expectedEp := expectedEps[epUID]
+			if ep != expectedEp {
+				t.Error("unexpected underlying updates of identical datasets for Reconcile()")
+			}
+			delete(expectedEps, epUID)
+		}
+		if len(expectedEps) > 0 {
+			t.Errorf("expected %v, found none", expectedEps)
+		}
+	})
+}
+
+func TestMesh_SubsetEndpoints(t *testing.T) {
 	tm := NewMesh()
 	expectedEps := []*Endpoint{}
 	t.Run("EmptyMesh", func(t *testing.T) {
 		actual := tm.SubsetEndpoints([]string{"test-service-1.default.domain-1.com"})
 		assertEqualEndpointLists(t, expectedEps, actual)
 	})
+
 	countEps, countSvcs, countSubsetsPerSvc := 32, 2, 2
 	rules, subsets, expectedEps, _ := buildTestEndpoints(t, countEps, countSvcs, countSubsetsPerSvc)
-	expectedSubsets := []string{}
+	subsetsToVerify := []string{}
 	for i := 0; i < countSvcs; i++ {
 		servicePrefix := "test-service-" + strconv.Itoa(i+1)
 		for _, domain := range testDomainSets[i] {
-			expectedSubsets = append(expectedSubsets, servicePrefix+"."+domain)
+			subsetsToVerify = append(subsetsToVerify, servicePrefix+"."+domain)
 		}
 	}
 	err := tm.Reconcile(expectedEps)
 	if err != nil {
-		t.Errorf("unable to reconcile(): %v", err)
-		return
+		t.Fatalf("test setup precondition failure: %v", err)
 	}
-	t.Run("AfterReconcile", func(t *testing.T) {
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		t.Run("SubsetNames", func(t *testing.T) {
-			t.Parallel()
-			actualSubsets := tm.SubsetNames()
-			assertEqualsSubsetNames(t, expectedSubsets, actualSubsets)
-		})
-		t.Run("SubsetEndpoints", func(t *testing.T) {
-			t.Parallel()
-			actualEps := tm.SubsetEndpoints(expectedSubsets)
-			assertEqualEndpointLists(t, expectedEps, actualEps)
-		})
-		t.Run("FetchServiceNoLabels", func(t *testing.T) {
+	t.Run("EndpointsAdded", func(t *testing.T) {
+		t.Run("SingleSubset", func(t *testing.T) {
 			t.Parallel()
 			actualEps := tm.SubsetEndpoints([]string{"test-service-1.default.domain-1.com"})
 			assertEqualEndpointLists(t, expectedEps[0:countEps/countSvcs], actualEps)
 		})
-		t.Run("FetchNonExistentService", func(t *testing.T) {
+		t.Run("AllSubsets", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints(subsetsToVerify)
+			assertEqualEndpointLists(t, expectedEps, actualEps)
+		})
+		t.Run("NonExistentSubset", func(t *testing.T) {
 			t.Parallel()
 			actualEps := tm.SubsetEndpoints([]string{"test-non-existent-service.default.domain-1.com"})
 			assertEqualEndpointLists(t, []*Endpoint{}, actualEps)
 		})
 	})
-	t.Run("AfterUpdateRules", func(t *testing.T) {
+
+	t.Run("SubsetsAdded", func(t *testing.T) {
 		err := tm.UpdateRules([]RuleChange{{
 			Rule: rules[0],
 			Type: ConfigAdd,
 		}})
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatalf("test setup precondition failure: %v", err)
 		}
 		t.Run("LabeledSubset", func(t *testing.T) {
 			t.Parallel()
@@ -178,191 +241,171 @@ func TestMeshXDS(t *testing.T) {
 				"test-service-1.default.domain-1.com|" + subsets[0].Name})
 			assertEqualEndpointLists(t, expectedEps[0:countEps/(countSvcs*countSubsetsPerSvc)], actualEps)
 		})
-		t.Run("SubsetNames", func(t *testing.T) {
-			t.Parallel()
-			for i := 0; i < countSubsetsPerSvc; i++ {
-				for _, subset := range rules[0].Subsets {
-					expectedSubsets = append(expectedSubsets, rules[0].Name+"|"+subset.Name)
-				}
-			}
-			actualSubsets := tm.SubsetNames()
-			assertEqualsSubsetNames(t, expectedSubsets, actualSubsets)
-		})
-		t.Run("SubsetEndpoints", func(t *testing.T) {
-			t.Parallel()
-			actualEps := tm.SubsetEndpoints(expectedSubsets)
-			assertEqualEndpointLists(t, expectedEps, actualEps)
-		})
-		t.Run("FetchServiceNoLabels", func(t *testing.T) {
+		t.Run("SingleSubset", func(t *testing.T) {
 			t.Parallel()
 			actualEps := tm.SubsetEndpoints([]string{"test-service-1.default.domain-1.com"})
 			assertEqualEndpointLists(t, expectedEps[0:countEps/countSvcs], actualEps)
 		})
-		t.Run("FetchNonExistentService", func(t *testing.T) {
+		t.Run("AllSubsets", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints(subsetsToVerify)
+			assertEqualEndpointLists(t, expectedEps, actualEps)
+		})
+		t.Run("NonExistentSubset", func(t *testing.T) {
 			t.Parallel()
 			actualEps := tm.SubsetEndpoints([]string{"test-non-existent-service.default.domain-1.com"})
 			assertEqualEndpointLists(t, []*Endpoint{}, actualEps)
 		})
 	})
-	// Uncomment for debugging!
-	//	t.Logf(
-	//		"tm.reverseAttrMap:\n%v\n\ntm.reverseEpSubsets:\n%v\n\ntm.subsetEndpoints:\n%v\n\ntm.subsetDefinitions:\n%v\n\ntm.allEndpoints:\n%v\n\n",
-	//		tm.reverseAttrMap, tm.reverseEpSubsets, tm.subsetEndpoints, tm.subsetDefinitions, tm.allEndpoints)
-}
 
-func BenchmarkMeshXds(b *testing.B) {
-	b.Run("SubsetEndpoints", func(b *testing.B) {
-		dataSets := []dataSet{{
-			cntEps:           20000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 3,
-		}, {
-			cntEps:           50000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 3,
-		}, {
-			cntEps:           100000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 4,
-		}, {
-			cntEps:           1000000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 10,
-		}}
-		var testRules []*route.DestinationRule
-		var testSubsets []*route.Subset
-		var testEps []*Endpoint
-		var samplePoints []samplePoint
-		var tm *Mesh
-		for _, ds := range dataSets {
-			testRules, testSubsets, testEps, samplePoints =
-				buildTestEndpoints(b, ds.cntEps, ds.cntSvcs, ds.cntSubsetsPerSvc)
-			tm = NewMesh()
-			err := tm.Reconcile(testEps)
-			if err != nil {
-				b.Error(err)
-			}
-			cntRules := len(testRules)
-			ruleChanges := make([]RuleChange, cntRules)
-			for ridx := 0; ridx < ds.cntSvcs; ridx++ {
-				ruleChanges[ridx] = RuleChange{Rule: testRules[ridx], Type: ConfigUpdate}
-			}
-			err = tm.UpdateRules(ruleChanges)
-			if err != nil {
-				b.Error(err)
-			}
-			b.ResetTimer()
-			for _, samplePoint := range samplePoints {
-				b.Run(fmt.Sprintf("EP_%d__%s__Matched_%d",
-					ds.cntEps, samplePoint.name, samplePoint.endpoints), func(b *testing.B) {
-					b.ResetTimer()
-					for i := 0; i < b.N; i++ {
-						subset := testSubsets[samplePoint.subset]
-						subsetName := testRules[samplePoint.rule].Name + "|" + subset.Name
-						actualEps := tm.SubsetEndpoints([]string{subsetName})
-						if len(actualEps) != samplePoint.endpoints {
-							b.Errorf("actual endpoint count '%d' does not match expected '%d'",
-								len(actualEps), samplePoint.endpoints)
-						}
-					}
-				})
-			}
+	t.Run("SubsetsDeleted", func(t *testing.T) {
+		err := tm.UpdateRules([]RuleChange{{
+			Rule: rules[0],
+			Type: ConfigDelete,
+		}})
+		if err != nil {
+			t.Fatalf("test setup precondition failure: %v", err)
 		}
+		t.Run("LabeledSubset", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints([]string{
+				"test-service-1.default.domain-1.com|" + subsets[0].Name})
+			assertEqualEndpointLists(t, []*Endpoint{}, actualEps)
+		})
+		t.Run("SingleSubset", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints([]string{"test-service-1.default.domain-1.com"})
+			assertEqualEndpointLists(t, expectedEps[0:countEps/countSvcs], actualEps)
+		})
+		t.Run("AllSubsets", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints(subsetsToVerify)
+			assertEqualEndpointLists(t, expectedEps, actualEps)
+		})
+		t.Run("NonExistentSubset", func(t *testing.T) {
+			t.Parallel()
+			actualEps := tm.SubsetEndpoints([]string{"test-non-existent-service.default.domain-1.com"})
+			assertEqualEndpointLists(t, []*Endpoint{}, actualEps)
+		})
 	})
 }
 
-func BenchmarkMeshUpdates(b *testing.B) {
-	b.Run("Reconcile", func(b *testing.B) {
-		cntEps, cntSvcs, cntSubsetsPerSvc := 50000, 1000, 2
-		tm := NewMesh()
-		_, _, testEps, _ := buildTestEndpoints(b, cntEps, cntSvcs, cntSubsetsPerSvc)
-		benchmarks := []int{1000, 5000, 10000, 25000, cntEps}
-		b.ResetTimer()
-		for _, bm := range benchmarks {
-			b.Run(fmt.Sprintf("EP_%d", bm), func(b *testing.B) {
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					err := tm.Reconcile(testEps[0:bm])
-					if err != nil {
-						b.Error(err)
-					}
-				}
-			})
-		}
+func TestMesh_SubsetNames(t *testing.T) {
+	tm := NewMesh()
+	expectedEps := []*Endpoint{}
+	t.Run("EmptyMesh", func(t *testing.T) {
+		actual := tm.SubsetEndpoints([]string{"test-service-1.default.domain-1.com"})
+		assertEqualEndpointLists(t, expectedEps, actual)
 	})
-	b.Run("UpdateRules", func(b *testing.B) {
-		dataSets := []dataSet{{
-			cntEps:           20000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 3,
-		}, {
-			cntEps:           50000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 3,
-		}, {
-			cntEps:           100000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 4,
-		}, {
-			cntEps:           1000000,
-			cntSvcs:          1000,
-			cntSubsetsPerSvc: 10,
-		}}
-		var testRules []*route.DestinationRule
-		var testEps []*Endpoint
-		var samplePoints []samplePoint
-		var tm *Mesh
 
-		for _, ds := range dataSets {
-			testRules, _, testEps, samplePoints =
-				buildTestEndpoints(b, ds.cntEps, ds.cntSvcs, ds.cntSubsetsPerSvc)
-			tm = NewMesh()
-			err := tm.Reconcile(testEps)
-			if err != nil {
-				b.Error(err)
-			}
-			b.ResetTimer()
-			for _, samplePoint := range samplePoints {
-				b.Run(fmt.Sprintf("EP_%d__%s__Matched_%d",
-					ds.cntEps, samplePoint.name, samplePoint.endpoints), func(b *testing.B) {
-					b.ResetTimer()
-					for i := 0; i < b.N; i++ {
-						err = tm.UpdateRules(
-							[]RuleChange{{Rule: testRules[samplePoint.rule], Type: ConfigUpdate}})
-						if err != nil {
-							b.Error(err)
-						}
-					}
-				})
-			}
+	countEps, countSvcs, countSubsetsPerSvc := 32, 2, 2
+	rules, _, expectedEps, _ := buildTestEndpoints(t, countEps, countSvcs, countSubsetsPerSvc)
+	subsetsToVerify := []string{}
+	for i := 0; i < countSvcs; i++ {
+		servicePrefix := "test-service-" + strconv.Itoa(i+1)
+		for _, domain := range testDomainSets[i] {
+			subsetsToVerify = append(subsetsToVerify, servicePrefix+"."+domain)
 		}
-	})
-}
-
-func TestMeshEndpointDeepEquals(t *testing.T) {
-	type epEqualsTestCase struct {
-		tcName       string // name of the test case
-		attrToChange attrToChange
-		expectation  bool
 	}
+	err := tm.Reconcile(expectedEps)
+	if err != nil {
+		t.Fatalf("test setup precondition failure: %v", err)
+	}
+	t.Run("EndpointsAdded", func(t *testing.T) {
+		t.Run("ServiceNameSubsets", func(t *testing.T) {
+			t.Parallel()
+			actualSubsets := tm.SubsetNames()
+			assertEqualsSubsetNames(t, subsetsToVerify, actualSubsets)
+		})
+	})
+
+	err = tm.Reconcile(expectedEps[countEps/2:])
+	if err != nil {
+		t.Fatalf("test setup precondition failure: %v", err)
+	}
+	t.Run("EndpointsDeleted", func(t *testing.T) {
+		t.Run("ServiceNameSubsets", func(t *testing.T) {
+			t.Parallel()
+			actualSubsets := tm.SubsetNames()
+			assertEqualsSubsetNames(t, subsetsToVerify[3:], actualSubsets)
+		})
+	})
+
+	ruleSubsets := make([]string, 0, countSvcs*countSubsetsPerSvc)
+	for _, rule := range rules {
+		for _, subset := range rule.Subsets {
+			ruleSubsets = append(ruleSubsets, rule.Name+RuleSubsetSeparator+subset.Name)
+		}
+	}
+	ruleChanges := []RuleChange{{
+		Rule: rules[0],
+		Type: ConfigAdd,
+	}, {
+		Rule: rules[1],
+		Type: ConfigAdd,
+	}}
+	err = tm.Reconcile(expectedEps)
+	if err != nil {
+		t.Fatalf("test setup precondition failure: %v", err)
+	}
+	err = tm.UpdateRules(ruleChanges)
+	if err != nil {
+		t.Fatalf("test setup precondition failure: %v", err)
+	}
+	t.Run("SubsetsAdded", func(t *testing.T) {
+		actualSubsets := tm.SubsetNames()
+		assertEqualsSubsetNames(t, append(subsetsToVerify, ruleSubsets...), actualSubsets)
+	})
+
+	t.Run("SubsetsDeleted", func(t *testing.T) {
+		err := tm.UpdateRules([]RuleChange{{
+			Rule: rules[0],
+			Type: ConfigDelete,
+		}})
+		if err != nil {
+			t.Fatalf("test setup precondition failure: %v", err)
+		}
+		actualSubsets := tm.SubsetNames()
+		assertEqualsSubsetNames(t, append(subsetsToVerify, ruleSubsets[countSubsetsPerSvc:]...), actualSubsets)
+	})
+}
+
+// TestMeshEndpointDeepEquals ensures that reflect.DeepEquals() works correctly for Endpoints created via NewEndpoint().
+// DeepEquals() is essential for Mesh.Reconcile() to detect updates to existing Endpoints in Mesh.
+func TestEndpoint_DeepEquals(t *testing.T) {
+	// epEqualsTestCase encapsulates test data for subtests involving reflect.DeepEquals() for Endpoint.
+	type epEqualsTestCase struct {
+		// Name to use for the sub test
+		tcName string
+		// The set of attributes to change.
+		attrToChange attrToChange
+		// Expected result from reflect.DeepEquals()
+		expectation bool
+	}
+
+	// Build parameterized test cases for subtests.
 	testCases := make([]epEqualsTestCase, len(allAttrToChange))
-	// Single attribute change test cases
+	// Test cases involving a single attribute change.
+	// Example, only the label for DestinationService differs between the two Endpoints.
 	for idx, attrToChange := range allAttrToChange {
 		testCases[idx] = epEqualsTestCase{
 			attrToChange.String(),
 			attrToChange,
+			// Only the following values of attrToChange should return true for DeepEquals().
 			attrToChange == noAttrChange || attrToChange == diffDomainOrder || attrToChange == diffServiceOrder,
 		}
 	}
-	// Other types of attribute changes
+	// Test cases involving multiple attribute changes.
 	otherTestCases := []epEqualsTestCase{{
 		"MultipleAttributes",
 		diffNamespace | diffDomains,
 		false,
 	}}
 	testCases = append(testCases, otherTestCases...)
+
 	for _, tc := range testCases {
 		t.Run(tc.tcName, func(t *testing.T) {
+			t.Parallel()
 			firstEp, _ := buildEndpoint(t, noAttrChange, true)
 			secondEp, _ := buildEndpoint(t, tc.attrToChange, true)
 			actual := reflect.DeepEqual(*firstEp, *secondEp)
@@ -482,7 +525,7 @@ func assertEqualEndpoints(t *testing.T, expected, actual *Endpoint) {
 	}
 }
 
-// String outputs the type of attribute change that should be made on the Endpoint.
+// String outputs a string representation of attr.
 func (attr attrToChange) String() string {
 	switch attr {
 	case noAttrChange:
@@ -512,150 +555,6 @@ func (attr attrToChange) String() string {
 
 	}
 	return (string)(attr)
-}
-
-// buildTestEndpoints build a list or test destination rules, the subset definitions, the list of endpoints and a few key sample points of rules and
-// subsets. The list is predictable and can be used for guaging regressions on performance tests. The inputs are the count of desired endpoints,
-// the count of service involved and the count of subsets that need to be created for each service.
-func buildTestEndpoints(t testing.TB, cntEps, cntSvcs, cntSubsetsPerSvc int) ([]*route.DestinationRule, []*route.Subset, []*Endpoint, []samplePoint) {
-	type labelSpec struct {
-		labelName   string
-		countValues int
-		currValue   int
-	}
-	maxLblValues := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29}
-	currLblValues := make([]labelSpec, len(maxLblValues))
-	for idx := range currLblValues {
-		labelInfo := &currLblValues[idx]
-		labelInfo.labelName = "label-" + strconv.Itoa(idx+1)
-		labelInfo.countValues = maxLblValues[idx]
-	}
-
-	ttlSubsets := cntSvcs * cntSubsetsPerSvc
-	outRules := make([]*route.DestinationRule, cntSvcs)
-	outSubsets := make([]*route.Subset, ttlSubsets)
-	outEndpoints := make([]*Endpoint, cntEps)
-	outSamplePoints := []samplePoint{{
-		name: "Median",
-	}, {
-		name: "1\u03c3",
-	}, {
-		name: "2\u03c3",
-	}, {
-		name: "3\u03c3", // This is ignored for now, because sum of long tailed can skew results
-	},
-	}
-
-	// Assuming fixed endpoints per subsets (only for endpoint counts < 1000)
-	epsForSS := cntEps / ttlSubsets
-	// For large values of endpoint counts assume normal distribution
-	sig := -3.0
-	sigIncr := 6.0 / (float64)(ttlSubsets)
-	prevCdf := 0.0
-
-	epIdx := 0
-	ssIdx := 0
-	sampleIdx := 3 // start with the furthest
-	for svcIdx := 0; svcIdx < cntSvcs; svcIdx++ {
-		serviceName := "test-service-" + strconv.Itoa(svcIdx+1)
-		domIdx := svcIdx % len(testDomainSets)
-		svcDomains := testDomainSets[domIdx]
-		rule := &route.DestinationRule{
-			Name:    serviceName + "." + svcDomains[0],
-			Subsets: make([]*route.Subset, cntSubsetsPerSvc),
-		}
-		outRules[svcIdx] = rule
-		var namespace string
-		countLblNS := 0
-		if domIdx == 0 {
-			namespace = testNamespaces[svcIdx%len(testNamespaces)]
-			countLblNS = 1
-		}
-		var firstOctet int
-		switch {
-		case svcIdx%2 == 0:
-			firstOctet = 10
-		default:
-			firstOctet = 72
-		}
-		for svcSSIdx := 0; svcSSIdx < cntSubsetsPerSvc; svcSSIdx, ssIdx = svcSSIdx+1, ssIdx+1 {
-			ssIdx := (svcSSIdx * cntSubsetsPerSvc) + svcSSIdx
-			subset := &route.Subset{
-				Name:   "subset-" + strconv.Itoa(svcSSIdx),
-				Labels: make(map[string]string, len(currLblValues)),
-			}
-			rule.Subsets[svcSSIdx] = subset
-			outSubsets[ssIdx] = subset
-			// UID + Protocol + Name + user + possibly Namespace + FQDNs + domains + labels
-			epLabels := make([]EndpointLabel, 4+countLblNS+(len(svcDomains)*2)+len(currLblValues))
-			lblIdx := 2 // UID, Protocol are endpoint specific
-			epLabels[lblIdx] = EndpointLabel{DestinationName.AttrName(), serviceName}
-			lblIdx++
-			epLabels[lblIdx] = EndpointLabel{DestinationUser.AttrName(),
-				serviceName + "-user-" + strconv.Itoa(svcIdx+1)}
-			lblIdx++
-			if countLblNS != 0 {
-				epLabels[lblIdx] = EndpointLabel{DestinationNamespace.AttrName(), namespace}
-				lblIdx++
-			}
-			for _, domain := range svcDomains {
-				epLabels[lblIdx] =
-					EndpointLabel{DestinationService.AttrName(), serviceName + "." + domain}
-				epLabels[lblIdx+1] = EndpointLabel{DestinationDomain.AttrName(), domain}
-				lblIdx += 2
-			}
-			// Fix the labels for this subset
-			for liIdx := range currLblValues {
-				labelInfo := &currLblValues[liIdx]
-				labelName := labelInfo.labelName
-				labelInfo.currValue++
-				labelValue := labelName + "-" + strconv.Itoa(labelInfo.currValue)
-				subset.Labels[labelName] = labelValue
-				epLabels[lblIdx] = EndpointLabel{labelName, labelValue}
-				lblIdx++
-			}
-			// Override endpoints per subset for large values of cntEps
-			if cntEps >= 1000 {
-				sig += sigIncr
-				currCdf := (1 + math.Erf(sig/math.Sqrt2)) / 2.0
-				epsForSS = (int)(math.Ceil((currCdf - prevCdf) * (float64)(cntEps)))
-				if sig > -(float64)(sampleIdx) {
-					if sampleIdx >= 0 {
-						samplePoint := &outSamplePoints[sampleIdx]
-						samplePoint.rule = svcIdx
-						samplePoint.subset = ssIdx
-						samplePoint.endpoints = epsForSS
-						// Uncomment for debugging
-						// t.Logf("name: %s, sampleIdx: %d, currentSig: %f, eps %d, currCdf %f prevCdf %f", samplePoint.name, sampleIdx, sig, epsForSS, currCdf, prevCdf)
-						sampleIdx--
-					}
-				}
-				prevCdf = currCdf
-			}
-			for epSSIdx := 0; epIdx < cntEps && epSSIdx < epsForSS; epIdx, epSSIdx = epIdx+1, epSSIdx+1 {
-				// Build address of the form 10|72.1.1.1 through 10|72.254.254.254
-				addr := strconv.Itoa(firstOctet) + "." +
-					strconv.Itoa(((epIdx%16387064)/64516)+1) + "." +
-					strconv.Itoa(((epIdx%64516)/254)+1) + "." +
-					strconv.Itoa((epIdx%254)+1)
-				port := testPorts[epIdx%len(testPorts)]
-				// Add the endpoint specific labels: UID + Protocol
-				epLabels[0] = EndpointLabel{DestinationUID.AttrName(),
-					"ep-uid-" + strconv.Itoa(epIdx)}
-				epLabels[1] = EndpointLabel{DestinationProtocol.AttrName(),
-					testProtocols[epIdx%len(testProtocols)]}
-				// Uncomment for debugging test data build logic
-				// t.Logf("Lbsl: %v\n", epLabels)
-				ep, err := NewEndpoint(addr, port, SocketProtocolTCP, epLabels)
-				if err != nil {
-					t.Fatalf("bad test data: %s", err.Error())
-				}
-				outEndpoints[epIdx] = ep
-			}
-		}
-	}
-	// Ignore last sample point, cause sum of long tail can skew result sets
-	return outRules, outSubsets, outEndpoints, outSamplePoints[0:3]
 }
 
 // buildEndpoint builds a single endpoint. The endpoint's values are always the same, except for
