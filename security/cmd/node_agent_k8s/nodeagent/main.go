@@ -29,14 +29,21 @@ import (
 )
 
 const (
-	MgmtApiPath        string = "/tmp/udsuspver/mgmt.sock"
-	WorkloadApiUdsHome string = "/tmp/nodeagent"
+	// MgmtAPIPath is the path to call mgmt
+	MgmtAPIPath string = "/tmp/udsuspver/mgmt.sock"
+
+	// WorkloadAPIUdsHome is the path for workload
+	WorkloadAPIUdsHome string = "/tmp/nodeagent"
 )
 
 var (
-	CfgMgmtApiPath   string
-	CfgWldApiUdsHome string
+	// CfgMgmtAPIPath is the path for management api
+	CfgMgmtAPIPath string
 
+	// CfgWldAPIUdsHome is the path for worklaod api
+	CfgWldAPIUdsHome string
+
+	// RootCmd define the command for node agent
 	RootCmd = &cobra.Command{
 		Use:   "nodeagent",
 		Short: "Node agent",
@@ -45,17 +52,18 @@ var (
 )
 
 func init() {
-	RootCmd.PersistentFlags().StringVarP(&CfgMgmtApiPath, "mgmtpath", "m", MgmtApiPath, "Mgmt API Uds path")
-	RootCmd.PersistentFlags().StringVarP(&CfgWldApiUdsHome, "wldpath", "w", WorkloadApiUdsHome, "Workload API home path")
+	RootCmd.PersistentFlags().StringVarP(&CfgMgmtAPIPath, "mgmtpath", "m", MgmtAPIPath, "Mgmt API Uds path")
+	RootCmd.PersistentFlags().StringVarP(&CfgWldAPIUdsHome, "wldpath", "w", WorkloadAPIUdsHome, "Workload API home path")
 }
 
-func MgmtApi() {
+// MgmtAPI manage the api
+func MgmtAPI() {
 	// initialize the workload api.
 	wl := wlapi.NewWlAPIServer()
 	// initialize the workload api handler with the workload api.
 	wli := mwi.NewWlHandler(wl, wlh.NewServer)
 	// finally initialize the node mgmt interface with workload handler.
-	mgmtServer := nam.NewServer(CfgWldApiUdsHome, wli)
+	mgmtServer := nam.NewServer(CfgWldAPIUdsHome, wli)
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
@@ -66,7 +74,7 @@ func MgmtApi() {
 		os.Exit(1)
 	}(mgmtServer, sigc)
 
-	mgmtServer.Serve(true, CfgMgmtApiPath)
+	mgmtServer.Serve(true, CfgMgmtAPIPath)
 }
 
 func main() {
@@ -74,9 +82,9 @@ func main() {
 		log.Fatal(err)
 	}
 	// Check if the base directory exisits
-	_, e := os.Stat(WorkloadApiUdsHome)
+	_, e := os.Stat(WorkloadAPIUdsHome)
 	if e != nil {
-		log.Fatalf("workloadApi directory not present (%v)", WorkloadApiUdsHome)
+		log.Fatalf("workloadApi directory not present (%v)", WorkloadAPIUdsHome)
 	}
-	MgmtApi()
+	MgmtAPI()
 }

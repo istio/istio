@@ -21,38 +21,40 @@ import (
 
 	"google.golang.org/grpc"
 
-	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
-	pbmgmt "istio.io/istio/security/proto"
+  pbmgmt "istio.io/istio/security/proto"
+  mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 )
 
-// The WorkloadHandler (one per workload).
+// Server is the WorkloadHandler (one per workload).
 type Server struct {
-	creds    *CredInfo
-	filePath string
-	done     chan bool
-	wlS      *mwi.WlServer
+	creds		*CredInfo
+	filePath       string
+	done           chan bool
+	wlS		*mwi.WlServer
 }
 
+// NewCreds return the new creds
 func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 	return &CredInfo{
-		Uid:            wli.Attrs.Uid,
-		Name:           wli.Attrs.Workload,
-		Namespace:      wli.Attrs.Namespace,
+		UID: wli.Attrs.Uid,
+		Name: wli.Attrs.Workload,
+		Namespace: wli.Attrs.Namespace,
 		ServiceAccount: wli.Attrs.Serviceaccount,
 	}
 }
 
+// NewServer return the new server with default setup
 func NewServer(wli *pbmgmt.WorkloadInfo, wlS *mwi.WlServer, pathPrefix string) mwi.WorkloadMgmtInterface {
 	s := &Server{
-		done:     make(chan bool, 1),
-		creds:    NewCreds(wli),
+		done: make(chan bool, 1),
+		creds: NewCreds(wli),
 		filePath: pathPrefix + "/" + wli.Attrs.Uid + wlS.SockFile,
-		wlS:      wlS,
+		wlS: wlS,
 	}
 	return s
 }
 
-// WorkloadApi adherence to nodeagent workload management interface.
+// Serve adherence to nodeagent workload management interface.
 func (s *Server) Serve() {
 	grpcServer := grpc.NewServer(grpc.Creds(s.GetCred()))
 	s.wlS.RegAPI(grpcServer)
@@ -85,12 +87,12 @@ func (s *Server) Serve() {
 	grpcServer.Serve(lis)
 }
 
-// Tell the server it should stop
+// Stop tell the server it should stop
 func (s *Server) Stop() {
 	s.done <- true
 }
 
-// Wait for the server to stop and then return
+// WaitDone for the server to stop and then return
 func (s *Server) WaitDone() {
 	<-s.done
 }

@@ -22,8 +22,8 @@ import (
 	"google.golang.org/grpc"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/pkg/log"
-	pb "istio.io/istio/security/proto"
 	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	pb "istio.io/istio/security/proto"
 )
 
 // Server specify the node agent server.

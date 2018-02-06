@@ -24,27 +24,32 @@ import (
 )
 
 var (
+	// ErrInvalidConnection define the invalide connection
 	ErrInvalidConnection = errors.New("invalid connection")
-	ErrNoCredentials     = errors.New("No credentials available")
+
+	// ErrNoCredentials define no creds
+	ErrNoCredentials = errors.New("No credentials available")
 )
 
 const (
 	authType = "udsuspver"
 )
 
-// Information returned by grpc Credential that the workload API can use.
+// CredInfo returned by grpc Credential that the workload API can use.
 type CredInfo struct {
-	Uid            string
+	UID            string
 	Name           string
 	Namespace      string
 	ServiceAccount string
 	Err            error
 }
 
+// AuthType return the auth type
 func (c CredInfo) AuthType() string {
 	return authType
 }
 
+// CallerFromContext return the caller info
 func CallerFromContext(ctx context.Context) (CredInfo, bool) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -53,6 +58,7 @@ func CallerFromContext(ctx context.Context) (CredInfo, bool) {
 	return CallerFromAuthInfo(peer.AuthInfo)
 }
 
+// CallerFromAuthInfo return the auth info
 func CallerFromAuthInfo(ainfo credentials.AuthInfo) (CredInfo, bool) {
 	if ci, ok := ainfo.(CredInfo); ok {
 		return ci, true

@@ -18,10 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"log/syslog"
 	"os"
 	"os/exec"
+	"strings"
 
 	nagent "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
 	pb "istio.io/istio/security/proto"
@@ -30,7 +30,7 @@ import (
 // Resp is the driver response
 type Resp struct {
 	// Status of the response
-	Status  string `json:"status"`
+	Status string `json:"status"`
 	// Response message of the response
 	Message string `json:"message"`
 	// Capability resp.
@@ -40,7 +40,7 @@ type Resp struct {
 	// Dev mount resp.
 	Device string `json:"device,omitempty"`
 	// Volumen name resp.
-	VolumeName string `json:"volumename,omitempty"`
+	VolumeName   string              `json:"volumename,omitempty"`
 	Capabilities *DriverCapabilities `json:",omitempty"`
 }
 
@@ -149,8 +149,8 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		return nil, false
 	}
 
-  attrs := pb.WorkloadInfo_WorkloadAttributes{
-		Uid: ninputs.UID,
+	attrs := pb.WorkloadInfo_WorkloadAttributes{
+		Uid:            ninputs.UID,
 		Workload:       ninputs.Name,
 		Namespace:      ninputs.Namespace,
 		Serviceaccount: ninputs.ServiceAccount}
@@ -246,21 +246,21 @@ func Mount(dir, opts string) error {
 	inp := dir + "|" + opts
 
 	ninputs, s := checkValidMountOpts(opts)
-		if s == false {
-			return Failure("mount", inp, "Incomplete inputs")
-		}
+	if s == false {
+		return Failure("mount", inp, "Incomplete inputs")
+	}
 
-		if err := doMount(dir, ninputs.Attrs); err != nil {
-			sErr := "Failure to mount: " + err.Error()
-			return Failure("mount", inp, sErr)
-		}
+	if err := doMount(dir, ninputs.Attrs); err != nil {
+		sErr := "Failure to mount: " + err.Error()
+		return Failure("mount", inp, sErr)
+	}
 
-		if err := addListener(ninputs); err != nil {
-			sErr := "Failure to notify nodeagent: " + err.Error()
-			return Failure("mount", inp, sErr)
-		}
+	if err := addListener(ninputs); err != nil {
+		sErr := "Failure to notify nodeagent: " + err.Error()
+		return Failure("mount", inp, sErr)
+	}
 
-		return genericSucc("mount", inp, "Mount ok.")
+	return genericSucc("mount", inp, "Mount ok.")
 }
 
 // Unmount unmount the file path.
@@ -315,6 +315,7 @@ func genericSucc(caller, inp, msg string) error {
 	return nil
 }
 
+// Failure report failure case
 func Failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
 	if err != nil {
