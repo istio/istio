@@ -14,7 +14,13 @@
 
 syntax = "proto3";
 
-package adapter.kubernetes.config;
+// $title: Kubernetes Env
+// $overview: Adapter that extracts information from a Kubernetes environment.
+// $location: https://istio.io/docs/reference/config/adapters/kubernetesenv.html
+
+// The `kubernetesenv` adapter extracts information from a Kubernetes environment
+// and produces attribtes that can be used in downstream adapters.
+package adapter.kubernetesenv.config;
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";

@@ -14,6 +14,17 @@
 
 syntax = "proto3";
 
+// $title: Memquota
+// $overview: Adapter for a simple in-memory quota management system.
+// $location: https://istio.io/docs/reference/config/adapters/memquota.html
+
+// The `memquota` adapter can be used to support Istio's quota management
+// system. Although functional, this adapter is not intended for production
+// use and is suited for local testing only. The reason for this limitation
+// is that this adapter can only be used in meshes where there is a single
+// instance of Mixer running for the whole mesh (i.e. non-HA configuration)
+// and if that single instance crashes, all outstanding quota values will
+// be lost.
 package adapter.memquota.config;
 
 import "google/protobuf/duration.proto";
@@ -24,6 +35,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Configuration format for the `memquota` adapter.
 message Params {
 	message Quota {
 		option (gogoproto.goproto_getters) = true;

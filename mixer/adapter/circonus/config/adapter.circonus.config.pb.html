@@ -1,0 +1,113 @@
+---
+title: Circonus
+overview: Adapter for circonus.com's monitoring solution.
+location: https://istio.io/docs/reference/config/adapters/circonus.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>circonus</code> adapter enables Istio to deliver metric data to the
+<a href="https://www.circonus.com">Circonus</a> monitoring backend.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Cnofiguration format for the Circonus adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.submission_url">
+<td><code>submissionUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Circonus SubmissionURL to HTTPTrap check</p>
+
+</td>
+</tr>
+<tr id="Params.submission_interval">
+<td><code>submissionInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.metrics">
+<td><code>metrics</code></td>
+<td><code><a href="#Params.MetricInfo">Params.MetricInfo[]</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent a metric</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>name</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.type">
+<td><code>type</code></td>
+<td><code><a href="#Params.MetricInfo.Type">Params.MetricInfo.Type</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.Type">Params.MetricInfo.Type</h2>
+<section>
+<p>The type of metric.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.Type.UNKNOWN">
+<td><code>UNKNOWN</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

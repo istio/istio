@@ -1,0 +1,121 @@
+---
+title: Kubernetes Env
+overview: Adapter that extracts information from a Kubernetes environment.
+location: https://istio.io/docs/reference/config/adapters/kubernetesenv.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>kubernetesenv</code> adapter extracts information from a Kubernetes environment
+and produces attribtes that can be used in downstream adapters.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration parameters for the kubernetes adapter. These params
+control the manner in which the kubernetes adapter discovers and
+generates values related to pod information.</p>
+
+<p>The adapter works by looking up pod information by UIDs (of the
+form: &ldquo;kubernetes://pod.namespace&rdquo;). It expects that the UIDs will be
+supplied in an input map for three distinct traffic classes (source,
+destination, and origin).</p>
+
+<p>For all valid UIDs supplied, this adapter generates output
+values containing information about the related pods.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.kubeconfig_path">
+<td><code>kubeconfigPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>File path to discover kubeconfig. For in-cluster configuration,
+this should be left unset. For local configuration, this should
+be set to the path of a kubeconfig file that can be used to
+reach a kubernetes API server.</p>
+
+<p>NOTE: The kubernetes adapter will use the value of the env var
+KUBECONFIG in the case where it is set (overriding any value configured
+through this proto).</p>
+
+<p>Default: &ldquo;&rdquo; (unset)</p>
+
+</td>
+</tr>
+<tr id="Params.cache_refresh_duration">
+<td><code>cacheRefreshDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Controls the resync period of the kubernetes cluster info cache.
+The cache will watch for events and every so often completely resync.
+This controls how frequently the complete resync occurs.</p>
+
+<p>Default: 5 minutes</p>
+
+</td>
+</tr>
+<tr id="Params.cluster_domain_name">
+<td><code>clusterDomainName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configures the cluster domain name to use for service name normalization.</p>
+
+<p>Default: svc.cluster.local</p>
+
+</td>
+</tr>
+<tr id="Params.pod_label_for_service">
+<td><code>podLabelForService</code></td>
+<td><code>string</code></td>
+<td>
+<p>In order to extract the service associated with a source, destination, or
+origin, this adapter relies on pod labels. In particular, it looks for
+the value of a specific label, as specified by this parameter.</p>
+
+<p>Default: app</p>
+
+</td>
+</tr>
+<tr id="Params.pod_label_for_istio_component_service">
+<td><code>podLabelForIstioComponentService</code></td>
+<td><code>string</code></td>
+<td>
+<p>In order to extract the service associated with a source, destination, or
+origin, this adapter relies on pod labels. In particular, it looks for
+the value of a specific label for istio component services, as specified
+by this parameter.</p>
+
+<p>Default: istio</p>
+
+</td>
+</tr>
+<tr id="Params.lookup_ingress_source_and_origin_values">
+<td><code>lookupIngressSourceAndOriginValues</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Default: false</p>
+
+</td>
+</tr>
+<tr id="Params.fully_qualified_istio_ingress_service_name">
+<td><code>fullyQualifiedIstioIngressServiceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Istio ingress service string. This is used to identify the
+ingress service in requests.</p>
+
+<p>Default: &ldquo;ingress.istio-system.svc.cluster.local&rdquo;</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
