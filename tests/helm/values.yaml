@@ -10,17 +10,6 @@ fortioImage: istio/fortio:latest
 # Number of test cluster-IP services pointing to A. Used to create a realistic
 # number of k-8s managed endpoint sets
 # Each will create an envoy cluster and listener.
-<<<<<<< HEAD
-testAServices: 100
-
-# Number of test 'rawVM' services pointing to unused IP addresses.
-# Each will create an envoy cluster and listener. They point to localhost:8080
-testVMServices: 100
-
-# Number of ingress routing rules, routing "/test/N/.*" to fortio.
-# Will generate envoy RDS for ingress.
-loadTestIngresses: 100
-=======
 testAServices: 200
 
 # Number of test 'rawVM' services pointing to unused IP addresses.
@@ -30,4 +19,3 @@ testVMServices: 200
 # Number of ingress routing rules, routing "/test/N/.*" to fortio.
 # Will generate envoy RDS for ingress.
 loadTestIngresses: 200
->>>>>>> b5ac97ee... Fix float to int conversion

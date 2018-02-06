@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-{{ range $i, $e := until .Values.testAServices }}
-=======
 {{ $v := int .Values.testAServices }}
 {{ range $i, $e := until $v }}
->>>>>>> b5ac97ee... Fix float to int conversion
 ---
 apiVersion: v1
 kind: Service
@@ -20,13 +16,9 @@ spec:
     app: a
 ---
 {{ end }}
-<<<<<<< HEAD
-{{ range $i, $e := until .Values.testAServices }}
-=======
 
 {{ $v := int .Values.testVMServices }}
 {{ range $i, $e := until $v }}
->>>>>>> b5ac97ee... Fix float to int conversion
 
 kind: Service
 apiVersion: v1
