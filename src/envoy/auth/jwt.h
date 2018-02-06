@@ -209,7 +209,7 @@ class Jwt : public WithStatus {
 
   // It returns the "aud" claim value of the given JWT, or an empty string if
   // "aud" claim does not exist.
-  const std::string& Aud();
+  const std::vector<std::string>& Aud();
 
   // It returns the "sub" claim value of the given JWT, or an empty string if
   // "sub" claim does not exist.
@@ -232,7 +232,7 @@ class Jwt : public WithStatus {
   std::string alg_;
   std::string kid_;
   std::string iss_;
-  std::string aud_;
+  std::vector<std::string> aud_;
   std::string sub_;
   int64_t exp_;
 

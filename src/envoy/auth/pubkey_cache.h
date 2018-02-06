@@ -52,8 +52,16 @@ class PubkeyCacheItem {
   const Pubkeys* pubkey() const { return pubkey_.get(); }
 
   // Check if an audience is allowed.
-  bool IsAudienceAllowed(const std::string& aud) {
-    return audiences_.empty() || audiences_.find(aud) != audiences_.end();
+  bool IsAudienceAllowed(const std::vector<std::string>& jwt_audiences) {
+    if (audiences_.empty()) {
+      return true;
+    }
+    for (const auto& aud : jwt_audiences) {
+      if (audiences_.find(aud) != audiences_.end()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Set a pubkey as string.

@@ -229,7 +229,7 @@ Jwt::Jwt(const std::string &jwt) {
   header_str_ = Base64UrlDecode(header_str_base64url_);
   try {
     header_ = Json::Factory::loadFromString(header_str_);
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWT_HEADER_PARSE_ERROR);
     return;
   }
@@ -241,7 +241,7 @@ Jwt::Jwt(const std::string &jwt) {
   }
   try {
     alg_ = header_->getString("alg");
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWT_HEADER_BAD_ALG);
     return;
   }
@@ -260,7 +260,7 @@ Jwt::Jwt(const std::string &jwt) {
   // Header may contain "kid", which should be a string if exists.
   try {
     kid_ = header_->getString("kid", "");
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWT_HEADER_BAD_KID);
     return;
   }
@@ -271,15 +271,29 @@ Jwt::Jwt(const std::string &jwt) {
   payload_str_ = Base64UrlDecode(payload_str_base64url_);
   try {
     payload_ = Json::Factory::loadFromString(payload_str_);
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWT_PAYLOAD_PARSE_ERROR);
     return;
   }
 
   iss_ = payload_->getString("iss", "");
-  aud_ = payload_->getString("aud", "");
   sub_ = payload_->getString("sub", "");
   exp_ = payload_->getInteger("exp", 0);
+
+  // "aud" can be either string array or string.
+  // Try as string array, read it as empty array if doesn't exist.
+  try {
+    aud_ = payload_->getStringArray("aud", true);
+  } catch (Json::Exception &e) {
+    // Try as string
+    try {
+      auto audience = payload_->getString("aud");
+      aud_.push_back(audience);
+    } catch (Json::Exception &e) {
+      UpdateStatus(Status::JWT_PAYLOAD_PARSE_ERROR);
+      return;
+    }
+  }
 
   // Set up signature
   signature_ =
@@ -369,7 +383,7 @@ Json::ObjectSharedPtr Jwt::Payload() { return payload_; }
 const std::string &Jwt::PayloadStr() { return payload_str_; }
 const std::string &Jwt::PayloadStrBase64Url() { return payload_str_base64url_; }
 const std::string &Jwt::Iss() { return iss_; }
-const std::string &Jwt::Aud() { return aud_; }
+const std::vector<std::string> &Jwt::Aud() { return aud_; }
 const std::string &Jwt::Sub() { return sub_; }
 int64_t Jwt::Exp() { return exp_; }
 
@@ -390,7 +404,7 @@ void Pubkeys::CreateFromJwksCore(const std::string &pkey_jwks) {
   Json::ObjectSharedPtr jwks_json;
   try {
     jwks_json = Json::Factory::loadFromString(pkey_jwks);
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWK_PARSE_ERROR);
     return;
   }
@@ -401,7 +415,7 @@ void Pubkeys::CreateFromJwksCore(const std::string &pkey_jwks) {
   }
   try {
     keys = jwks_json->getObjectArray("keys", true);
-  } catch (...) {
+  } catch (Json::Exception &e) {
     UpdateStatus(Status::JWK_BAD_KEYS);
     return;
   }
@@ -416,7 +430,7 @@ void Pubkeys::CreateFromJwksCore(const std::string &pkey_jwks) {
       pubkey->alg_specified_ = true;
       n_str = jwk_json->getString("n");
       e_str = jwk_json->getString("e");
-    } catch (...) {
+    } catch (Json::Exception &e) {
       continue;
     }
     EvpPkeyGetter e;

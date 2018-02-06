@@ -41,6 +41,15 @@ class DatasetPem {
       "N09hdvlCtAF87Fu1qqfwEQ93A-J7m08bZJoyIPcNmTcYGHwfMR4-lcI5cC_93C_"
       "5BGE1FHPLOHpNghLuM6-rhOtgwZc9ywupn_bBK3QzuAoDnYwpqQhgQL_CdUD_bSHcmWFkw";
 
+  // {"iss":"https://example.com","sub":"test@example.com","exp":1501281058,
+  // aud: [aud1, aud2] }
+  // signature part is invalid.
+  const std::string kJwtMultiSub =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFmMDZjMTlmOGU1YjMzMTUyMT"
+      "ZkZjAxMGZkMmI5YTkzYmFjMTM1YzgifQ.eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tI"
+      "iwiaWF0IjoxNTE3ODc1MDU5LCJhdWQiOlsiYXVkMSIsImF1ZDIiXSwiZXhwIjoxNTE3ODc"
+      "4NjU5LCJzdWIiOiJodHRwczovL2V4YW1wbGUuY29tIn0.fzzlfQG2wZpPRRAPa6Yu";
+
   const std::string kJwtSub = "test@example.com";
   const std::string kJwtHeaderEncoded = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
   const std::string kJwtPayloadEncoded =
@@ -376,6 +385,11 @@ class JwtTestPem : public JwtTest {
 TEST_F(JwtTestPem, OK) {
   auto payload = Json::Factory::loadFromString(ds.kJwtPayload);
   DoTest(ds.kJwt, ds.kPublicKey, "pem", true, Status::OK, payload);
+}
+
+TEST_F(JwtTestPem, MultiAudiences) {
+  Jwt jwt(ds.kJwtMultiSub);
+  ASSERT_EQ(jwt.Aud(), std::vector<std::string>({"aud1", "aud2"}));
 }
 
 TEST_F(JwtTestPem, InvalidSignature) {
