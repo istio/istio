@@ -23,8 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/pkg/log"
 )
 
