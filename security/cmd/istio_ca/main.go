@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
