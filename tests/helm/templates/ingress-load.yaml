@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 {{range $i, $e := until .Values.loadTestIngresses}}
+=======
+{{ $v := int .Values.loatTestIngresses }}
+{{range $i, $e := until $v}}
+>>>>>>> b5ac97ee... Fix float to int conversion
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
