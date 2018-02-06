@@ -202,8 +202,3 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 docker.tag: $(DOCKER_TAG_TARGETS)
 docker.push: $(DOCKER_PUSH_TARGETS)
 #endif
-
-# if first part of URL (i.e., hostname) is gcr.io then upload istioctl
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all),)
-
-push: docker.push installgen
