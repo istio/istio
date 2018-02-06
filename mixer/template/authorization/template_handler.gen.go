@@ -22,12 +22,15 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `authorization` template defines parameters for performing policy
+// enforcement within Istio. It is primarily concerned with enabling Mixer
+
 // Fully qualified name of the template
 const TemplateName = "authorization"
 
 // Instance is constructed by Mixer for the 'authorization' template.
 //
-// The authorization template defines parameters for performing policy
+// The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
 // In this template, the "who" is defined in a Subject message. The "what" is
@@ -36,7 +39,8 @@ const TemplateName = "authorization"
 // passed to individual authorization adapters to adjudicate.
 //
 // Example config:
-// ```
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: authorization
 // metadata:

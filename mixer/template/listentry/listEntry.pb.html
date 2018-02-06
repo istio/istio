@@ -1,0 +1,52 @@
+---
+title: List Entry
+overview: A template designed to let you perform list checking operations.
+location: https://istio.io/docs/reference/config/template/listentry.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>listentry</code> template is designed to let you perform list check operations
+with the <a href="https://istio.io/docs/reference/config/adapters/list.html">list</a> adapter.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>listentry</code> template is used to verify the presence/absence of a string
+within a list.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code>apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: listentry
+metadata:
+  name: appversion
+  namespace: istio-system
+spec:
+  value: source.labels[&quot;version&quot;]
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the entry to verify in the list.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

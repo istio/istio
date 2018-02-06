@@ -1,0 +1,61 @@
+---
+title: RBAC
+overview: Adapter that exposes Istio's Role-Based Access Control model.
+location: https://istio.io/docs/reference/config/adapters/rbac.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>rbac</code> adapter provides Role-Based Access Control (RBAC) functionality for
+for services within the Istio mesh.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>rbac</code> adapter.</p>
+
+<p>For example, the following configuration defines a RBAC handler with
+configuration store URL pointing to Kubernetes etcd (&ldquo;k8s://&rdquo;).
+If you want to run Mixer locally, you can set the configuration store
+URL to a local directory (e.g., &ldquo;fs:///tmp/testdata/configroot&rdquo;).</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: rbac
+metadata:
+  name: rbachandler
+  namespace: istio-system
+spec:
+  config_store_url: &quot;fs:///tmp/testdata/config&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.config_store_url">
+<td><code>configStoreUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL for the config store. It is used to initiate a new Store instance.
+Following are some examples of the config store URL:
+* &ldquo;k8s://&rdquo;
+* &ldquo;fs:///tmp/testdata/configroot&rdquo;</p>
+
+</td>
+</tr>
+<tr id="Params.cache_duration">
+<td><code>cacheDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The duration for which authorization results may be cached.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

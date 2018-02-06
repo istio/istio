@@ -1,0 +1,149 @@
+---
+title: StatsD
+overview: Adapter to deliver metrics to a StatsD backend
+location: https://istio.io/docs/reference/config/adapters/statsd.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>statsd</code> adapter enables Istio to deliver metric data to a
+<a href="https://github.com/etsy/statsd">StatsD</a> monitoring backend.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>statsd</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the statsd server, e.g. localhost:8125</p>
+
+</td>
+</tr>
+<tr id="Params.prefix">
+<td><code>prefix</code></td>
+<td><code>string</code></td>
+<td>
+<p>Metric prefix, do not specify for no prefix</p>
+
+</td>
+</tr>
+<tr id="Params.flush_duration">
+<td><code>flushDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>FlushDuration controls the maximum amount of time between sending metrics to the statsd collection server.
+Metrics are reported when either flush<em>bytes is full or flush</em>duration time has elapsed since the last report.</p>
+
+</td>
+</tr>
+<tr id="Params.flush_bytes">
+<td><code>flushBytes</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Maximum UDP packet size to send; if not specified defaults to 512 bytes. If the statsd server is running on the
+same (private) network 1432 bytes is recommended for better performance.</p>
+
+</td>
+</tr>
+<tr id="Params.sampling_rate">
+<td><code>samplingRate</code></td>
+<td><code>float</code></td>
+<td>
+<p>Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.</p>
+
+</td>
+</tr>
+<tr id="Params.metrics">
+<td><code>metrics</code></td>
+<td><code>map&lt;string, <a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td>
+<p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent this metric in statsd</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.type">
+<td><code>type</code></td>
+<td><code><a href="#Params.MetricInfo.Type">Params.MetricInfo.Type</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.name_template">
+<td><code>nameTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>The template will be filled with values from the metric&rsquo;s labels and the resulting string will be used as
+the statsd metric name. This allows easier creation of statsd metrics like <code>action_name-response_code</code>.
+The template strings must conform to go&rsquo;s text/template syntax. For the example of <code>action_name-response_code</code>,
+we use the template:
+   <code>{{.apiMethod}}-{{.responseCode}}</code></p>
+
+<p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.Type">Params.MetricInfo.Type</h2>
+<section>
+<p>The type of metric.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.Type.UNKNOWN">
+<td><code>UNKNOWN</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

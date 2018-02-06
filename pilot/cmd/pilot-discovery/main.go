@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"os"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/collateral"

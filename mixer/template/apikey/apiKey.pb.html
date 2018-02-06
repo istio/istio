@@ -1,0 +1,82 @@
+---
+title: API Key
+overview: A template that represents a single API key.
+location: https://istio.io/docs/reference/config/template/apikey.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>apikey</code> template represents a single API key, which is used for authorization checks.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>apikey</code> template represents a single API key, used to authorize API calls.</p>
+
+<p>Sample config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: apikey
+metadata:
+  name: validate-apikey
+  namespace: istio-system
+spec:
+  api: api.service | &quot;&quot;
+  api_version: api.version | &quot;&quot;
+  api_operation: api.operation | &quot;&quot;
+  api_key: api.key | &quot;&quot;
+  timestamp: request.time
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.api">
+<td><code>api</code></td>
+<td><code>string</code></td>
+<td>
+<p>The API being called (api.service).</p>
+
+</td>
+</tr>
+<tr id="Template.api_version">
+<td><code>apiVersion</code></td>
+<td><code>string</code></td>
+<td>
+<p>The version of the API (api.version).</p>
+
+</td>
+</tr>
+<tr id="Template.api_operation">
+<td><code>apiOperation</code></td>
+<td><code>string</code></td>
+<td>
+<p>The API operation is being called.</p>
+
+</td>
+</tr>
+<tr id="Template.api_key">
+<td><code>apiKey</code></td>
+<td><code>string</code></td>
+<td>
+<p>API key used in API call.</p>
+
+</td>
+</tr>
+<tr id="Template.timestamp">
+<td><code>timestamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#TimeStamp">istio.mixer.v1.template.TimeStamp</a></code></td>
+<td>
+<p>Timestamp of API call.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

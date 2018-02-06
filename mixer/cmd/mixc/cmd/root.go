@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/tracing"
