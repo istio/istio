@@ -368,7 +368,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	for _, r := range args.Service.Registries {
 		serviceRegistry := ServiceRegistry(r)
 		if _, exists := registered[serviceRegistry]; exists {
-			return multierror.Prefix(nil, r+" registry specified multiple times.")
+			log.Warnf("%s registry specified multiple times.", r)
+			continue
 		}
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)

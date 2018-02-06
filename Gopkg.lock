@@ -69,19 +69,19 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/alicebob/gopher-json"
+  packages = ["."]
+  revision = "5a6b3ba71ee69b77cf64febf8b5a7526ca5eaef0"
+
+[[projects]]
   name = "github.com/alicebob/miniredis"
   packages = [
     ".",
     "server"
   ]
-  revision = "aefbaa72e488a5bbca434ab16c56cdffecbdfd47"
-  version = "2.3.0"
-
-[[projects]]
-  name = "github.com/garyburd/redigo"
-  packages = ["."]
-  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
-  version = "v1.4.0"
+  revision = "9d52b1fc8da9c42dae29127fdc6f795ddcd4810f"
+  version = "2.3.2"
 
 [[projects]]
   name = "github.com/aokoli/goutils"
@@ -204,6 +204,15 @@
   revision = "fea8bd51143307d3454703eadecbeeb778aa75e8"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/docker/spdystream"
+  packages = [
+    ".",
+    "spdy"
+  ]
+  revision = "bc6354cbbc295e925e4c611ffe90c1f287ee54db"
+
+[[projects]]
   name = "github.com/emicklei/go-restful"
   packages = [
     ".",
@@ -232,6 +241,15 @@
   name = "github.com/fullsailor/pkcs7"
   packages = ["."]
   revision = "a009d8d7de53d9503c797cb8ec66fa3b21eed209"
+
+[[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = [
+    "internal",
+    "redis"
+  ]
+  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -279,8 +297,8 @@
     "internal/pool",
     "internal/proto"
   ]
-  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
-  version = "v6.8.0"
+  revision = "8b4fa6d443e35ca8b1c37be877285252430b06a3"
+  version = "v6.8.3"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -426,7 +444,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "20b1624f68f5c4cbc77a05db6b713f769da22b33"
+  revision = "104e2578924bb3b211150c19414d0144b82165bb"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -842,7 +860,7 @@
     "parse",
     "pm"
   ]
-  revision = "478861c8ce6e8c2f16d5984d5ed30c4327c70437"
+  revision = "7d7bc8747e3f614c5c587729a341fe7d8903cdb8"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -880,7 +898,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
+  revision = "d9133f5469342136e669e85192a26056b587f503"
 
 [[projects]]
   branch = "master"
@@ -994,7 +1012,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "dd4abe06aa49b67d2b9beb8fd75c39809625dada"
+  revision = "d476d6e92dcf611f322cced73d8bd2842daff90b"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1114,7 +1132,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
+  revision = "ebec456e6f980d4938b94924da14954e31c206eb"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1183,7 +1201,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "6f29dd12234812844d29f52bd520bb01374619ce"
+  revision = "f1425805c0335c1f5b23e70f0154747b3df5a16a"
 
 [[projects]]
   branch = "release-1.9"
@@ -1215,10 +1233,13 @@
     "pkg/util/diff",
     "pkg/util/errors",
     "pkg/util/framer",
+    "pkg/util/httpstream",
+    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/mergepatch",
     "pkg/util/net",
+    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -1230,6 +1251,7 @@
     "pkg/version",
     "pkg/watch",
     "third_party/forked/golang/json",
+    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
   revision = "19e3f5aa3adca672c153d324e6b7d82ff8935f03"
@@ -1331,9 +1353,12 @@
     "tools/pager",
     "tools/record",
     "tools/reference",
+    "tools/remotecommand",
     "transport",
+    "transport/spdy",
     "util/buffer",
     "util/cert",
+    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
@@ -1394,11 +1419,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "ac1d59be31cbe3d8260feec77939ba9637fb43f1"
+  revision = "d2835416544f298c919e2ead3be3d0864b52323b"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1e49dcb1cab3b44eb42c25a061615f386ff2bcdd48fbea82430a7f24555afd34"
+  inputs-digest = "86ab2030a704d8548af57b50e980b7eec866cba9de1b632f4eaf211b5b42ea40"
   solver-name = "gps-cdcl"
   solver-version = 1

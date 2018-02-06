@@ -692,6 +692,7 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 	if err != nil {
 		log.Warnf("Error communicating with %s: %v", url, err)
 	} else {
+		defer closeResponseBody(resp)
 		log.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
 		var ba []byte
 		ba, err = ioutil.ReadAll(resp.Body)
@@ -701,7 +702,6 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 		}
 		contents = string(ba)
 		status = resp.StatusCode
-		closeResponseBody(resp)
 	}
 	return
 }

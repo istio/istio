@@ -190,6 +190,7 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	if err != nil {
 		return -1, err
 	}
+	defer closeResponseBody(resp)
 	if resp.StatusCode != http.StatusOK {
 		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
 	}
@@ -203,7 +204,6 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
 		duration = -1
 	}
-	closeResponseBody(resp)
 	return duration, err
 }
 
