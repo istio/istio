@@ -11,12 +11,12 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
 metadata:
-  name: test-binding-productpager
+  name: bind-productpager-viewer
   namespace: default
 spec:
   subjects:
-  # This is a workaround representing all users.
-  - user: ""
+  - properties:
+      namespace: "istio-system"
   roleRef:
     kind: ServiceRole
     name: "productpage-viewer"

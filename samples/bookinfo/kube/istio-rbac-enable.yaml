@@ -6,11 +6,11 @@ metadata:
 spec:
   subject:
     user: source.user | ""
-    groups: source.user | ""
+    groups: ""
     properties:
       app: source.labels["app"] | ""
       version: source.labels["version"] | ""
-      namespace: source.namespace | "default"
+      namespace: source.namespace | ""
   action:
     namespace: destination.namespace | ""
     service: destination.service | ""
