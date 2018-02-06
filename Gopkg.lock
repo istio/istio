@@ -69,13 +69,19 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/alicebob/gopher-json"
+  packages = ["."]
+  revision = "5a6b3ba71ee69b77cf64febf8b5a7526ca5eaef0"
+
+[[projects]]
   name = "github.com/alicebob/miniredis"
   packages = [
     ".",
     "server"
   ]
-  revision = "aefbaa72e488a5bbca434ab16c56cdffecbdfd47"
-  version = "2.3.0"
+  revision = "9d52b1fc8da9c42dae29127fdc6f795ddcd4810f"
+  version = "2.3.2"
 
 [[projects]]
   name = "github.com/aokoli/goutils"
@@ -291,8 +297,8 @@
     "internal/pool",
     "internal/proto"
   ]
-  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
-  version = "v6.8.0"
+  revision = "8b4fa6d443e35ca8b1c37be877285252430b06a3"
+  version = "v6.8.3"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -438,7 +444,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "20b1624f68f5c4cbc77a05db6b713f769da22b33"
+  revision = "104e2578924bb3b211150c19414d0144b82165bb"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -854,7 +860,7 @@
     "parse",
     "pm"
   ]
-  revision = "478861c8ce6e8c2f16d5984d5ed30c4327c70437"
+  revision = "7d7bc8747e3f614c5c587729a341fe7d8903cdb8"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -892,7 +898,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
+  revision = "d9133f5469342136e669e85192a26056b587f503"
 
 [[projects]]
   branch = "master"
@@ -1006,7 +1012,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "dd4abe06aa49b67d2b9beb8fd75c39809625dada"
+  revision = "d476d6e92dcf611f322cced73d8bd2842daff90b"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1195,7 +1201,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "6f29dd12234812844d29f52bd520bb01374619ce"
+  revision = "f1425805c0335c1f5b23e70f0154747b3df5a16a"
 
 [[projects]]
   branch = "release-1.9"
@@ -1413,7 +1419,7 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "ac1d59be31cbe3d8260feec77939ba9637fb43f1"
+  revision = "d2835416544f298c919e2ead3be3d0864b52323b"
 
 [solve-meta]
   analyzer-name = "dep"
