@@ -41,10 +41,12 @@ type Resp struct {
 	Device string `json:"device,omitempty"`
 	// Volumen name resp.
 	VolumeName string `json:"volumename,omitempty"`
-	Capabilities *DriverCapabilities `json:",omitempty"`
+	// Defines the driver's capability
+	Capabilities *Capabilities `json:",omitempty"`
 }
 
-type DriverCapabilities struct {
+// Capabilities define whether driver is attachable and the linux relabel
+type Capabilities struct {
 	Attach         bool `json:"attach"`
 	SELinuxRelabel bool `json:"selinuxRelabel"`
 }
@@ -70,7 +72,7 @@ var (
 // Init initialize the driver
 func Init(version string) error {
 	if version == "1.8" {
-		resp, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &DriverCapabilities{Attach: false}})
+		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}})
 		if err != nil {
 			return err
 		}

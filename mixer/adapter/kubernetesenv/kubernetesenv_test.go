@@ -206,6 +206,7 @@ func TestKubegen_Generate(t *testing.T) {
 			Status:     v1.PodStatus{PodIP: "192.168.234.3"},
 		},
 		"istio-system/ingress": {ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: "istio-system", Labels: map[string]string{"istio": "ingress"}}},
+		"istio-system/mixer":   {ObjectMeta: metav1.ObjectMeta{Name: "mixer", Namespace: "istio-system", Labels: map[string]string{"istio": "istio-mixer"}}},
 		"testns/ipApp":         {ObjectMeta: metav1.ObjectMeta{Name: "ipApp", Namespace: "testns", Labels: map[string]string{"app": "10.1.10.1"}}},
 	}
 
@@ -306,14 +307,14 @@ func TestKubegen_Generate(t *testing.T) {
 		},
 		DestinationNamespace: "istio-system",
 		DestinationPodName:   "ingress",
-		DestinationService:   "ingress.istio-system.svc.cluster.local",
+		DestinationService:   "istio-ingress.istio-system.svc.cluster.local",
 	}
 
 	istioDestinationWithSrcOut := &kubernetes_apa_tmpl.Output{
 		DestinationLabels:        map[string]string{"istio": "ingress"},
 		DestinationNamespace:     "istio-system",
 		DestinationPodName:       "ingress",
-		DestinationService:       "ingress.istio-system.svc.cluster.local",
+		DestinationService:       "istio-ingress.istio-system.svc.cluster.local",
 		SourceServiceAccountName: "test",
 		SourceService:            "test.testns.svc.cluster.local",
 		SourceLabels:             map[string]string{"app": "test", "something": ""},
@@ -335,6 +336,19 @@ func TestKubegen_Generate(t *testing.T) {
 		DestinationPodName:   "ipApp",
 	}
 
+	mixerIn := &kubernetes_apa_tmpl.Instance{
+		SourceUid: "kubernetes://mixer.istio-system",
+	}
+
+	mixerOut := &kubernetes_apa_tmpl.Output{
+		SourceLabels: map[string]string{
+			"istio": "istio-mixer",
+		},
+		SourceService:   "istio-mixer.istio-system.svc.cluster.local",
+		SourceNamespace: "istio-system",
+		SourcePodName:   "mixer",
+	}
+
 	confWithIngressLookups := *conf
 	confWithIngressLookups.LookupIngressSourceAndOriginValues = true
 
@@ -354,6 +368,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"istio ingress service (no lookup source)", istioDestinationSvcIn, istioDestinationOut, conf},
 		{"istio ingress service (lookup source)", istioDestinationSvcIn, istioDestinationWithSrcOut, &confWithIngressLookups},
 		{"ip app", ipAppSvcIn, ipAppDestinationOut, conf},
+		{"istio component label", mixerIn, mixerOut, conf},
 	}
 
 	objs := make([]runtime.Object, 0, len(pods))
