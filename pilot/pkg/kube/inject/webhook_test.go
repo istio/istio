@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -283,11 +284,14 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	return reviewJSON
 }
 
-func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
+func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 	t.Helper()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
+	}
+	cleanup := func() {
+		os.RemoveAll(dir) // nolint: errcheck
 	}
 
 	config := &Config{
@@ -296,6 +300,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
 	}
 	configBytes, err := yaml.Marshal(config)
 	if err != nil {
+		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
 
@@ -308,6 +313,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
 	)
 
 	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
@@ -316,26 +322,31 @@ func createWebhook(t testing.TB, sidecarTemplate string) *Webhook {
 	m := jsonpb.Marshaler{}
 	var meshBytes bytes.Buffer
 	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("yaml.Marshal(mesh) failed: %v", err)
 	}
 	if err := ioutil.WriteFile(meshFile, meshBytes.Bytes(), 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", meshFile, err)
 	}
 
 	// cert
 	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
 	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
 	wh, err := NewWebhook(configFile, meshFile, certFile, keyFile, port)
 	if err != nil {
+		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)
 	}
-	return wh
+	return wh, cleanup
 }
 
 func TestRunAndServe(t *testing.T) {
@@ -350,7 +361,8 @@ volumes:
 `
 	)
 
-	wh := createWebhook(t, minimalSidecarTemplate)
+	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
+	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 	go wh.Run(stop)
@@ -515,7 +527,8 @@ func BenchmarkInjectServe(b *testing.B) {
 	if err != nil {
 		b.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
 	}
-	wh := createWebhook(b, sidecarTemplate)
+	wh, cleanup := createWebhook(b, sidecarTemplate)
+	defer cleanup()
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
