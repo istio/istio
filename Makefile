@@ -268,7 +268,7 @@ $(MIXER_GO_BINS): depend
 ${ISTIO_OUT}/servicegraph: depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -288,6 +288,9 @@ istio-ca: ${ISTIO_OUT}/istio_ca
 
 .PHONY: node-agent
 node-agent: ${ISTIO_OUT}/node_agent
+
+.PHONY: flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume
 
 .PHONY: pilot
 pilot: ${ISTIO_OUT}/pilot-discovery
