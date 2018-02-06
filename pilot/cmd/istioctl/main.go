@@ -40,6 +40,8 @@ import (
 	"path"
 
 	"github.com/spf13/cobra/doc"
+	"k8s.io/client-go/util/homedir"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -48,7 +50,6 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"k8s.io/client-go/util/homedir"
 )
 
 const (
