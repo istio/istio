@@ -38,7 +38,7 @@ var (
 		Long:  "Flex volume driver interface for Node Agent.",
 	}
 
-  // InitCmd defines the init command for the driver.
+	// InitCmd defines the init command for the driver.
 	InitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Flex volume init command.",
@@ -51,7 +51,7 @@ var (
 		},
 	}
 
-  // AttachCmd defines the attach command for the driver.
+	// AttachCmd defines the attach command for the driver.
 	AttachCmd = &cobra.Command{
 		Use:   "attach",
 		Short: "Flex volumen attach command.",
@@ -64,7 +64,7 @@ var (
 		},
 	}
 
-  // DetachCmd defines the detach command for the driver.
+	// DetachCmd defines the detach command for the driver.
 	DetachCmd = &cobra.Command{
 		Use:   "detach",
 		Short: "Flex volume detach command.",
@@ -77,7 +77,7 @@ var (
 		},
 	}
 
-  // WaitAttachCmd defines the waitattach command for the driver.
+	// WaitAttachCmd defines the waitattach command for the driver.
 	WaitAttachCmd = &cobra.Command{
 		Use:   "waitforattach",
 		Short: "Flex volume waitforattach command.",
@@ -90,7 +90,7 @@ var (
 		},
 	}
 
-  // IsAttachedCmd defines the isattached command
+	// IsAttachedCmd defines the isattached command
 	IsAttachedCmd = &cobra.Command{
 		Use:   "isattached",
 		Short: "Flex volume isattached command.",
@@ -103,7 +103,7 @@ var (
 		},
 	}
 
-  // MountDevCmd defines the Mountdev command
+	// MountDevCmd defines the Mountdev command
 	MountDevCmd = &cobra.Command{
 		Use:   "mountdevice",
 		Short: "Flex volume unmount command.",
@@ -116,7 +116,7 @@ var (
 		},
 	}
 
-  // UnmountDevCmd defines the unmountdev command
+	// UnmountDevCmd defines the unmountdev command
 	UnmountDevCmd = &cobra.Command{
 		Use:   "unmountdevice",
 		Short: "Flex volume unmount command.",
@@ -129,7 +129,7 @@ var (
 		},
 	}
 
-  // MountCmd defines the mount command
+	// MountCmd defines the mount command
 	MountCmd = &cobra.Command{
 		Use:   "mount",
 		Short: "Flex volume unmount command.",
@@ -142,7 +142,7 @@ var (
 		},
 	}
 
-  // UnmountCmd defines the unmount command
+	// UnmountCmd defines the unmount command
 	UnmountCmd = &cobra.Command{
 		Use:   "unmount",
 		Short: "Flex volume unmount command.",
@@ -155,7 +155,7 @@ var (
 		},
 	}
 
-  // GetVolNameCmd defines the getvolumename command
+	// GetVolNameCmd defines the getvolumename command
 	GetVolNameCmd = &cobra.Command{
 		Use:   "getvolumename",
 		Short: "Flex volume getvolumename command.",
@@ -184,17 +184,17 @@ func init() {
 
 func main() {
 	var err error
-  logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer logWrt.Close()
+	logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logWrt.Close()
 
-		if logWrt == nil {
-			fmt.Println("am Logwrt is nil")
-		}
-		if err = RootCmd.Execute(); err != nil {
-			log.Fatal(err)
-		}
+	if logWrt == nil {
+		fmt.Println("am Logwrt is nil")
+	}
+	if err = RootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 
 }
