@@ -17,6 +17,8 @@
 package v1
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net"
 	"net/url"
 	"sort"
@@ -29,6 +31,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -41,17 +44,29 @@ const (
 	// MixerFilter name and its attributes
 	MixerFilter = "mixer"
 
+	// AttrSourcePrefix all source attributes start with this prefix
+	AttrSourcePrefix = "source"
+
 	// AttrSourceIP is client source IP
 	AttrSourceIP = "source.ip"
 
 	// AttrSourceUID is platform-specific unique identifier for the client instance of the source service
 	AttrSourceUID = "source.uid"
 
+	// Labels associated with the source
+	AttrSourceLabels = "source.labels"
+
+	// AttrDestinationPrefix all destination attributes start with this prefix
+	AttrDestinationPrefix = "destination"
+
 	// AttrDestinationIP is the server source IP
 	AttrDestinationIP = "destination.ip"
 
 	// AttrDestinationUID is platform-specific unique identifier for the server instance of the target service
 	AttrDestinationUID = "destination.uid"
+
+	// Labels associated with the destination
+	AttrDestinationLabels = "destination.labels"
 
 	// AttrDestinationService is name of the target service
 	AttrDestinationService = "destination.service"
@@ -150,6 +165,34 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
 	return mixerClusters
 }
 
+// buildMixerConfig build per route mixer config to be deployed at the `model.Node` workload
+// with destination of Service `dest` and `destName` as the service name
+func buildMixerConfig(source model.Node, destName string, dest *model.Service, config model.IstioConfigStore) map[string]string {
+	var err error
+	var cfg string
+	var ba []byte
+
+	sc := serviceConfig(&model.ServiceInstance{Service: dest}, config, false, false)
+	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source, nil)
+	oc := map[string]string{}
+	oc[AttrDestinationService] = destName
+
+	if ba, err = proto.Marshal(sc); err != nil {
+		log.Warnf("Unable to marshal service config: %v", err)
+		return oc
+	}
+
+	oc["mixer"] = base64.StdEncoding.EncodeToString(ba)
+	h := sha256.New()
+	_, _ = h.Write(ba)
+	oc["mixer_sha"] = base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	if cfg, err = model.ToJSON(sc); err == nil {
+		oc["mixer_debug"] = base64.StdEncoding.EncodeToString([]byte(cfg))
+	}
+	return oc
+}
+
 func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[string]string {
 	keys := map[bool]string{true: "on", false: "off"}
 	m := map[string]string{
@@ -164,8 +207,8 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 }
 
 // Mixer filter uses outbound configuration by default (forward attributes,
-// but not invoke check calls)
-func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+// but not invoke check calls)  ServiceInstances belong to the Node.
+func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -188,24 +231,25 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 
 	v2 := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
-				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-			},
+			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 		Transport:      transport,
 	}
 
+	var labels map[string]string
+	if len(instances)>0 {
+		labels = instances[0].Labels
+	}
+	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
+
 	if role.Type == model.Sidecar && !outboundRoute {
 		// Don't forward mixer attributes to the app from inbound sidecar routes
 	} else {
 		v2.ForwardAttributes = &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrSourceIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
-				AttrSourceUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-			},
+			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
+		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role, labels)
 	}
 
 	if len(instances) > 0 {
@@ -229,60 +273,8 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 	}
 
 	for _, instance := range instances {
-		sc := &mccpb.ServiceConfig{
-			MixerAttributes: &mpb.Attributes{
-				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					AttrDestinationService: {
-						Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname},
-					},
-				},
-			},
-			DisableCheckCalls:  outboundRoute || mesh.DisablePolicyChecks,
-			DisableReportCalls: outboundRoute,
-		}
-
-		// omit API, Quota, and Auth portion of service config when
-		// check and report are disabled.
-		if !sc.DisableCheckCalls || !sc.DisableReportCalls {
-			apiSpecs := config.HTTPAPISpecByDestination(instance)
-			model.SortHTTPAPISpec(apiSpecs)
-			for _, config := range apiSpecs {
-				sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-			}
-
-			quotaSpecs := config.QuotaSpecByDestination(instance)
-			model.SortQuotaSpec(quotaSpecs)
-			for _, config := range quotaSpecs {
-				sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
-			}
-
-			authSpecs := config.EndUserAuthenticationPolicySpecByDestination(instance)
-			model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
-			if len(authSpecs) > 0 {
-				spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
-
-				// Update jwks_uri_envoy_cluster This cluster should be
-				// created elsewhere using the same host-to-cluster naming
-				// scheme, i.e. buildJWKSURIClusterNameAndAddress.
-				for _, jwt := range spec.Jwts {
-					if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-						log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
-							jwt.JwksUri, err)
-					} else {
-						jwt.JwksUriEnvoyCluster = name
-					}
-				}
-
-				sc.EndUserAuthnSpec = spec
-				if len(authSpecs) > 1 {
-					// TODO - validation should catch this problem earlier at config time.
-					log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
-						instance.Service, spec)
-				}
-			}
-		}
-
-		v2.ServiceConfigs[instance.Service.Hostname] = sc
+		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance, config,
+			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
@@ -291,6 +283,93 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 		filter.V2 = v2JSONMap
 	}
 	return filter
+}
+
+// addStandardNodeAttributes add standard node attributes with the given prefix
+func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, node model.Node, labels map[string]string) {
+	attr[prefix+".ip"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(node.IPAddress)},
+	}
+
+	attr[prefix+".uid"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + node.ID},
+	}
+
+	if len(labels) > 0 {
+		attr[prefix+".labels"] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				StringMapValue: &mpb.Attributes_StringMap{Entries: labels},
+			},
+		}
+	}
+}
+
+// generate serviceConfig for a given instance
+func serviceConfig(dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig{
+	sc := &mccpb.ServiceConfig{
+		MixerAttributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				AttrDestinationService: {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: dest.Service.Hostname},
+				},
+			},
+		},
+		DisableCheckCalls:  disableCheck,
+		DisableReportCalls: disableReport,
+	}
+
+	if len(dest.Labels) > 0 {
+		sc.MixerAttributes.Attributes[AttrDestinationLabels] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				StringMapValue: &mpb.Attributes_StringMap{Entries: dest.Labels},
+			},
+		}
+	}
+
+	// omit API, Quota, and Auth portion of service config when
+	// check is disabled.
+	if disableCheck {
+		return sc
+	}
+
+	apiSpecs := config.HTTPAPISpecByDestination(dest)
+	model.SortHTTPAPISpec(apiSpecs)
+	for _, config := range apiSpecs {
+		sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+	}
+
+	quotaSpecs := config.QuotaSpecByDestination(dest)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
+
+	authSpecs := config.EndUserAuthenticationPolicySpecByDestination(dest)
+	model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
+	if len(authSpecs) > 0 {
+		spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
+
+		// Update jwks_uri_envoy_cluster This cluster should be
+		// created elsewhere using the same host-to-cluster naming
+		// scheme, i.e. buildJWKSURIClusterNameAndAddress.
+		for _, jwt := range spec.Jwts {
+			if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+				log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
+					jwt.JwksUri, err)
+			} else {
+				jwt.JwksUriEnvoyCluster = name
+			}
+		}
+
+		sc.EndUserAuthnSpec = spec
+		if len(authSpecs) > 1 {
+			// TODO - validation should catch this problem earlier at config time.
+			log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
+				dest.Service, spec)
+		}
+	}
+
+	return sc
 }
 
 // Mixer TCP filter config for inbound requests.

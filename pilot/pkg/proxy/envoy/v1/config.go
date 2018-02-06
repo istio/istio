@@ -651,7 +651,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
-func buildOutboundHTTPRoutes(mesh *meshconfig.MeshConfig, sidecar model.Node,
+func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, sidecar model.Node,
 	instances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(sidecar.Domain, ".")
@@ -916,7 +916,7 @@ func truncateClusterName(name string) string {
 	return name
 }
 
-func buildEgressVirtualHost(destination string,
+func buildEgressVirtualHost(serviceName string, destination string,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
@@ -949,9 +949,17 @@ func buildEgressVirtualHost(destination string,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config, buildOutboundCluster)
+	dest := &model.Service{Hostname: destination}
+	routes := buildDestinationHTTPRoutes(sidecar, dest, port, instances, config, buildOutboundCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
+
+	if mesh.MixerAddress != "" && !mesh.DisablePolicyChecks {
+		oc := buildMixerConfig(sidecar, serviceName, dest, config)
+		for _, route := range routes {
+			route.OpaqueConfig = oc
+		}
+	}
 
 	// Set the destination clusters to the cluster we computed above.
 	// Services defined via egress rules do not have labels and hence no weighted clusters
@@ -986,7 +994,10 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
 		log.Warnf("Rejected rules: %v", errs)
 	}
 
-	for _, rule := range egressRules {
+	for _, r := range egressRules {
+		rule, _ := r.Spec.(*routing.EgressRule)
+		meshName := r.Name + "." + r.Namespace + "." + r.Domain
+
 		for _, port := range rule.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
@@ -997,7 +1008,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule.Destination.Service, mesh, node, modelPort, instances, config))
+				buildEgressVirtualHost(meshName, rule.Destination.Service, mesh, node, modelPort, instances, config))
 		}
 	}
 
@@ -1025,7 +1036,8 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
 	tcpRulesByPort := make(map[int][]*routing.EgressRule)
 	tcpProtocolByPort := make(map[int]model.Protocol)
 
-	for _, rule := range egressRules {
+	for _, r := range egressRules {
+		rule, _ := r.Spec.(*routing.EgressRule)
 		for _, port := range rule.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {

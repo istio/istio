@@ -10,6 +10,12 @@
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTPS-443",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "GnEKJQoTZGVzdGluYXRpb24uc2VydmljZRIOEgwqLmdvb2dsZS5jb20KHwoJc291cmNlLmlwEhIyEAAAAAAAAAAAAAD//woBAQAKJwoKc291cmNlLnVpZBIZEhdrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdA==",
+       "mixer_debug": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiKi5nb29nbGUuY29tIn0sInNvdXJjZS5pcCI6eyJieXRlc1ZhbHVlIjoiQUFBQUFBQUFBQUFBQVAvL0NnRUJBQT09In0sInNvdXJjZS51aWQiOnsic3RyaW5nVmFsdWUiOiJrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdCJ9fX19",
+       "mixer_sha": "mSwca23SiZL67DV3+6xvvq/ygI0DRiVvUX6iEneUVdw="
+      },
       "decorator": {
        "operation": "default-route"
       }
@@ -27,6 +33,12 @@
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP-80",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "GnEKJQoTZGVzdGluYXRpb24uc2VydmljZRIOEgwqLmdvb2dsZS5jb20KHwoJc291cmNlLmlwEhIyEAAAAAAAAAAAAAD//woBAQAKJwoKc291cmNlLnVpZBIZEhdrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdA==",
+       "mixer_debug": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiKi5nb29nbGUuY29tIn0sInNvdXJjZS5pcCI6eyJieXRlc1ZhbHVlIjoiQUFBQUFBQUFBQUFBQVAvL0NnRUJBQT09In0sInNvdXJjZS51aWQiOnsic3RyaW5nVmFsdWUiOiJrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdCJ9fX19",
+       "mixer_sha": "mSwca23SiZL67DV3+6xvvq/ygI0DRiVvUX6iEneUVdw="
+      },
       "decorator": {
        "operation": "default-route"
       }
@@ -43,6 +55,12 @@
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP2-8080",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "GnEKJQoTZGVzdGluYXRpb24uc2VydmljZRIOEgwqLmdvb2dsZS5jb20KHwoJc291cmNlLmlwEhIyEAAAAAAAAAAAAAD//woBAQAKJwoKc291cmNlLnVpZBIZEhdrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdA==",
+       "mixer_debug": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiKi5nb29nbGUuY29tIn0sInNvdXJjZS5pcCI6eyJieXRlc1ZhbHVlIjoiQUFBQUFBQUFBQUFBQVAvL0NnRUJBQT09In0sInNvdXJjZS51aWQiOnsic3RyaW5nVmFsdWUiOiJrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdCJ9fX19",
+       "mixer_sha": "mSwca23SiZL67DV3+6xvvq/ygI0DRiVvUX6iEneUVdw="
+      },
       "decorator": {
        "operation": "default-route"
       }

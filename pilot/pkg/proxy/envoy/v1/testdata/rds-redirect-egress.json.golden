@@ -12,6 +12,12 @@
       "path_redirect": "/new/path",
       "host_redirect": "foo.bar.com",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "GnEKHwoJc291cmNlLmlwEhIyEAAAAAAAAAAAAAD//woBAQAKJwoKc291cmNlLnVpZBIZEhdrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdAolChNkZXN0aW5hdGlvbi5zZXJ2aWNlEg4SDCouZ29vZ2xlLmNvbQ==",
+       "mixer_debug": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiKi5nb29nbGUuY29tIn0sInNvdXJjZS5pcCI6eyJieXRlc1ZhbHVlIjoiQUFBQUFBQUFBQUFBQVAvL0NnRUJBQT09In0sInNvdXJjZS51aWQiOnsic3RyaW5nVmFsdWUiOiJrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdCJ9fX19",
+       "mixer_sha": "+drGuBZDt0d7qkPNSQ2gbvt1c2XlTsNrzpNc+D+BCL0="
+      },
       "decorator": {
        "operation": "redirect-to-egress"
       }
@@ -20,6 +26,12 @@
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP-80",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "GnEKHwoJc291cmNlLmlwEhIyEAAAAAAAAAAAAAD//woBAQAKJwoKc291cmNlLnVpZBIZEhdrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdAolChNkZXN0aW5hdGlvbi5zZXJ2aWNlEg4SDCouZ29vZ2xlLmNvbQ==",
+       "mixer_debug": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiKi5nb29nbGUuY29tIn0sInNvdXJjZS5pcCI6eyJieXRlc1ZhbHVlIjoiQUFBQUFBQUFBQUFBQVAvL0NnRUJBQT09In0sInNvdXJjZS51aWQiOnsic3RyaW5nVmFsdWUiOiJrdWJlcm5ldGVzOi8vdjAuZGVmYXVsdCJ9fX19",
+       "mixer_sha": "+drGuBZDt0d7qkPNSQ2gbvt1c2XlTsNrzpNc+D+BCL0="
+      },
       "decorator": {
        "operation": "default-route"
       }
