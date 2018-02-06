@@ -52,6 +52,7 @@ type CertificateAuthority interface {
 	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetRootCertificate retrieves the root certificate from CA.
 	GetRootCertificate() []byte
+	GetCertificateChain() []byte
 }
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
@@ -77,25 +78,6 @@ type IstioCA struct {
 	certChainBytes []byte
 	rootCertBytes  []byte
 	livenessProbe  *probe.Probe
-}
-
-// LivenessCheckController updates the availability of the liveness probe of the CA instance
-type LivenessCheckController struct {
-	interval time.Duration
-	ca       *IstioCA
-}
-
-// Run starts the check routine
-func (c *LivenessCheckController) Run() {
-	go func() {
-		t := time.NewTicker(c.interval)
-		for {
-			select {
-			case <-t.C:
-				c.ca.livenessProbe.SetAvailable(c.ca.verify())
-			}
-		}
-	}()
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -182,25 +164,17 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		return nil, err
 	}
 
-	if opts.LivenessProbeOptions.IsValid() {
-		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
-		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-		livenessProbeController.Start()
-		ca.livenessProbe.SetAvailable(nil)
-
-		livenessProbeChecker := &LivenessCheckController{
-			interval: opts.ProbeCheckInterval,
-			ca:       ca,
-		}
-		livenessProbeChecker.Run()
-	}
-
 	return ca, nil
 }
 
 // GetRootCertificate returns the PEM-encoded root certificate.
 func (ca *IstioCA) GetRootCertificate() []byte {
 	return copyBytes(ca.rootCertBytes)
+}
+
+// GetCertificateChain returns the certificate chain
+func (ca *IstioCA) GetCertificateChain() []byte {
+	return copyBytes(ca.certChainBytes)
 }
 
 // Sign takes a PEM-encoded certificate signing request and returns a signed
