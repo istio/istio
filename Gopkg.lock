@@ -276,10 +276,9 @@
   revision = "36d33bfe519efae5632669801b180bf1a245da3b"
 
 [[projects]]
-  branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "f3499b5df53897321d6f5e9c22cf19309d41d3bc"
+  revision = "84b5bee7bcb76f3d17bcbaf421bac44bd5709ca6"
 
 [[projects]]
   branch = "master"
@@ -1366,6 +1365,15 @@
     "util/workqueue"
   ]
   revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
+
+[[projects]]
+  name = "k8s.io/cluster-registry"
+  packages = [
+    "pkg/apis/clusterregistry",
+    "pkg/apis/clusterregistry/v1alpha1"
+  ]
+  revision = "a636176fd5730d0638f1dee29307d6073eb0ba72"
+  version = "v0.0.3"
 
 [[projects]]
   name = "k8s.io/helm"
