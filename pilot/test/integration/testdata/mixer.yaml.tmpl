@@ -1,12 +1,5 @@
 # Mixer
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-mixer
-data:
-  mapping.conf: |-
----
-apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
@@ -16,7 +9,7 @@ spec:
   ports:
   - name: tcp-plain
     port: 9091
-  - name: tcp-mtls
+  - name: grpc
     port: 15004
   - name: http-monitoring
     port: 9093
@@ -52,18 +45,6 @@ spec:
     spec:
       serviceAccountName: istio-mixer-service-account
       containers:
-      - name: statsd-to-prometheus
-        image: prom/statsd-exporter:v0.5.0
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9102
-        - containerPort: 9125
-          protocol: UDP
-        args:
-        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/statsd
       - name: mixer
         image: {{.Hub}}/mixer_debug:{{.Tag}}
         imagePullPolicy: IfNotPresent
@@ -73,12 +54,14 @@ spec:
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=k8s://
-          - --configDefaultNamespace={{.IstioNamespace}}
-          - --zipkinURL=http://zipkin:9411/api/v1/spans
-          - --logtostderr
-          - -v
-          - "2"
+        - --configStoreURL=k8s://?ns={{.IstioNamespace}}
+        - --configDefaultNamespace={{.IstioNamespace}}
+        - --logtostderr
+        - -v
+        - "2"
+        - --log_callers
+        - --log_output_level
+        - debug # pilot verification required debug output
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
         imagePullPolicy: IfNotPresent
@@ -113,9 +96,6 @@ spec:
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-      - name: config-volume
-        configMap:
-          name: istio-mixer
 ---
 # Mixer CRD definitions are generated using
 # mixs crd all
