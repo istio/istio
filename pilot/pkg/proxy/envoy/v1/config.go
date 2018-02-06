@@ -78,6 +78,7 @@ func (conf *Config) Write(w io.Writer) error {
 
 // BuildConfig creates a proxy config with discovery services and admin port
 // it creates config for Ingress, Egress and Sidecar proxies
+// TODO: remove after new agent package is done
 func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 	listeners := Listeners{}
 
