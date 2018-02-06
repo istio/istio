@@ -482,10 +482,18 @@ ifeq ($(GOOS),linux)
 
 include tools/istio-docker.mk
 
-endif # end of docker block that's restricted to Linux
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
+
+push: docker.push installgen
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
+
+gcs.push.deb: deb
+	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs"
+
+endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'
