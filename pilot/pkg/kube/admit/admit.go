@@ -252,8 +252,12 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // configuration types.
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.ValidatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
 	var resources []string
+	var groups []string
+	var versions []string
 	for _, schema := range ac.options.Descriptor {
 		resources = append(resources, crd.ResourceName(schema.Plural))
+		groups = append(groups, crd.ResourceGroup(schema))
+		versions = append(versions, schema.Version)
 	}
 
 	webhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
@@ -269,8 +273,8 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 						admissionregistrationv1beta1.Update,
 					},
 					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{model.IstioAPIGroup},
-						APIVersions: []string{model.IstioAPIVersion},
+						APIGroups:   groups,
+						APIVersions: versions,
 						Resources:   resources,
 					},
 				}},

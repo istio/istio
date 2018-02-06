@@ -613,8 +613,8 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
 			crd.KabobCaseToCamelCase(c.Type),
-			model.IstioAPIVersion,
-			model.IstioAPIGroup,
+			c.Group,
+			c.Version,
 		)
 		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
 	}
@@ -679,7 +679,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 			return err
 		}
 		if config.APIVersion == "" {
-			configs[i].APIVersion = crd.IstioAPIGroupVersion.String()
+			return err
 		}
 		// TODO: invokes the mixer validation webhook.
 	}
@@ -713,7 +713,7 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 func restClientForOthers(config *rest.Config) (*rest.RESTClient, error) {
 	configCopied := *config
 	configCopied.ContentConfig = dynamic.ContentConfig()
-	configCopied.GroupVersion = &crd.IstioAPIGroupVersion
+	configCopied.GroupVersion = config.GroupVersion
 	return rest.RESTClientFor(config)
 }
 

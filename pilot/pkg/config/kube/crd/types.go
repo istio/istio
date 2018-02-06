@@ -24,7 +24,7 @@ var knownTypes = map[string]struct {
 		object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MockConfig",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &MockConfigList{},
@@ -33,7 +33,7 @@ var knownTypes = map[string]struct {
 		object: &RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "RouteRule",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &RouteRuleList{},
@@ -42,7 +42,7 @@ var knownTypes = map[string]struct {
 		object: &V1alpha2RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "V1alpha2RouteRule",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &V1alpha2RouteRuleList{},
@@ -51,7 +51,7 @@ var knownTypes = map[string]struct {
 		object: &IngressRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "IngressRule",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &IngressRuleList{},
@@ -60,7 +60,7 @@ var knownTypes = map[string]struct {
 		object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Gateway",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &GatewayList{},
@@ -69,7 +69,7 @@ var knownTypes = map[string]struct {
 		object: &EgressRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EgressRule",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &EgressRuleList{},
@@ -78,7 +78,7 @@ var knownTypes = map[string]struct {
 		object: &ExternalService{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ExternalService",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &ExternalServiceList{},
@@ -87,7 +87,7 @@ var knownTypes = map[string]struct {
 		object: &DestinationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationPolicy",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &DestinationPolicyList{},
@@ -96,7 +96,7 @@ var knownTypes = map[string]struct {
 		object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationRule",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &DestinationRuleList{},
@@ -105,7 +105,7 @@ var knownTypes = map[string]struct {
 		object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpec",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &HTTPAPISpecList{},
@@ -114,7 +114,7 @@ var knownTypes = map[string]struct {
 		object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &HTTPAPISpecBindingList{},
@@ -123,7 +123,7 @@ var knownTypes = map[string]struct {
 		object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpec",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &QuotaSpecList{},
@@ -132,7 +132,7 @@ var knownTypes = map[string]struct {
 		object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &QuotaSpecBindingList{},
@@ -141,7 +141,7 @@ var knownTypes = map[string]struct {
 		object: &EndUserAuthenticationPolicySpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EndUserAuthenticationPolicySpec",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &EndUserAuthenticationPolicySpecList{},
@@ -150,7 +150,7 @@ var knownTypes = map[string]struct {
 		object: &EndUserAuthenticationPolicySpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EndUserAuthenticationPolicySpecBinding",
-				APIVersion: model.IstioAPIGroup + "/" + model.IstioAPIVersion,
+				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
 			},
 		},
 		collection: &EndUserAuthenticationPolicySpecBindingList{},

@@ -45,13 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-// IstioAPIGroupVersion defines schema.GroupVersion for Istio configuration
-// resources.
-var IstioAPIGroupVersion = schema.GroupVersion{
-	Group:   model.IstioAPIGroup,
-	Version: model.IstioAPIVersion,
-}
-
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
 	runtime.Object
@@ -155,14 +148,15 @@ func (cl *Client) RegisterResources() error {
 	}
 
 	for _, schema := range cl.descriptor {
-		name := ResourceName(schema.Plural) + "." + model.IstioAPIGroup
+		group := ResourceGroup(schema)
+		name := ResourceName(schema.Plural) + "." + group
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
 			},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Group:   model.IstioAPIGroup,
-				Version: model.IstioAPIVersion,
+				Group:   group,
+				Version: schema.Version,
 				Scope:   apiextensionsv1beta1.NamespaceScoped,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Plural: ResourceName(schema.Plural),
@@ -181,7 +175,7 @@ func (cl *Client) RegisterResources() error {
 	errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 	descriptor:
 		for _, schema := range cl.descriptor {
-			name := ResourceName(schema.Plural) + "." + model.IstioAPIGroup
+			name := ResourceName(schema.Plural) + "." + ResourceGroup(schema)
 			crd, errGet := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
@@ -225,7 +219,7 @@ func (cl *Client) DeregisterResources() error {
 
 	var errs error
 	for _, schema := range cl.descriptor {
-		name := ResourceName(schema.Plural) + "." + model.IstioAPIGroup
+		name := ResourceName(schema.Plural) + "." + ResourceGroup(schema)
 		err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, nil)
 		errs = multierror.Append(errs, err)
 	}
