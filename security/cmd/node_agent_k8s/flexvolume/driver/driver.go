@@ -62,7 +62,6 @@ type NodeAgentInputs struct {
 const (
 	nodeAgentMgmtAPI string = "/tmp/udsuspver/mgmt.sock"
 	nodeAgentUdsHome string = "/tmp/nodeagent"
-	volumeName       string = "tmpfs"
 )
 
 var (
@@ -255,16 +254,6 @@ func genericSucc(caller, inp, msg string) error {
 // Failure report failure case
 func Failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
-	if err != nil {
-		return err
-	}
-
-	printAndLog(caller, inp, string(resp))
-	return nil
-}
-
-func genericUnsupported(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Resp{Status: "Not supported", Message: msg})
 	if err != nil {
 		return err
 	}
