@@ -17,11 +17,11 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"sort"
 
 	multierror "github.com/hashicorp/go-multierror"
 
 	routing "istio.io/api/routing/v1alpha1"
-	"sort"
 )
 
 // RejectConflictingEgressRules rejects conflicting egress rules.
@@ -151,7 +151,7 @@ func egressRulesSupportedProtocols() string {
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func rejectConflictingOnPortTCPEgressRules (cfg []Config) ([]Config, error) {
+func rejectConflictingOnPortTCPEgressRules(cfg []Config) ([]Config, error) {
 	filteredEgressRules := cfg[:0]
 	var errs error
 

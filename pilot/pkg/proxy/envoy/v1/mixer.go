@@ -26,12 +26,13 @@ import (
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
+	"github.com/gogo/protobuf/proto"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"github.com/gogo/protobuf/proto"
 )
 
 const (
@@ -238,7 +239,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 	}
 
 	var labels map[string]string
-	if len(instances)>0 {
+	if len(instances) > 0 {
 		labels = instances[0].Labels
 	}
 	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
@@ -305,7 +306,7 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 }
 
 // generate serviceConfig for a given instance
-func serviceConfig(dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig{
+func serviceConfig(dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
