@@ -15,15 +15,13 @@
 package handler
 
 import (
+	"fmt"
 	"strings"
 	"testing"
-
-	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-
-	"time"
 
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"

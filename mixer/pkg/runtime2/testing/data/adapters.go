@@ -17,10 +17,9 @@ package data
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )

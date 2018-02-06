@@ -22,10 +22,8 @@ import (
 	"time"
 
 	tpb "istio.io/api/mixer/v1/template"
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/pkg/log"
-
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
@@ -34,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/pkg/log"
 )
 
 var gp = pool.NewGoroutinePool(10, true)

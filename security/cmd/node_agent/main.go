@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
