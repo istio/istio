@@ -16,10 +16,13 @@ POD = collections.namedtuple('Pod', ['name', 'namespace', 'ip', 'labels'])
     The information is in XDS V1 format.
 """
 
+PILOT_SVC = "istio-pilot"
+ISTIO_NS = "istio-system"
+CLUSTER = "istio-proxy"
 
 class XDS(object):
 
-    def __init__(self, url, ns="istio-system", cluster="istio-proxy", headers=None):
+    def __init__(self, url, ns=ISTIO_NS, cluster=CLUSTER, headers=None):
         self.url = url
         self.ns = ns
         self.cluster = cluster
@@ -38,16 +41,17 @@ class XDS(object):
             role=role, pod=pod)
 
     def query(self, path):
-        print path
+        url = self.url + path
+        print url
         try:
-            return requests.get(self.url + "/v1" + path, headers=self.headers).json()
+            return requests.get(url, headers=self.headers).json()
         except Exception as ex:
             print ex
-            print "Is pilot accessible at ", self.url, " ?"
+            print "Is pilot accessible at %s?" % url
             sys.exit(-1)
 
     def lds(self, pod, hydrate=False):
-        data = self.query("/listeners/{cluster}/{key}".format(
+        data = self.query("/v1/listeners/{cluster}/{key}".format(
             cluster=self.cluster, key=self.key(pod)))
         if not hydrate:
             return data
@@ -72,7 +76,7 @@ class XDS(object):
         return data
 
     def rds(self, pod, route="80", hydrate=False):
-        data = self.query("/routes/{route}/{cluster}/{key}".format(
+        data = self.query("/v1/routes/{route}/{cluster}/{key}".format(
             route=route, cluster=self.cluster, key=self.key(pod)))
         if not hydrate:
             return data
@@ -92,7 +96,7 @@ class XDS(object):
     def cds(self, pod, cn, hydrate=False):
         pk = self.key(pod)
         if pk not in self.cds_info:
-            data = self.query("/clusters/{cluster}/{key}".format(
+            data = self.query("/v1/clusters/{cluster}/{key}".format(
                 cluster=self.cluster, key=self.key(pod)))
             self.cds_info[pk] = {c['name']: c for c in data['clusters']}
 
@@ -107,8 +111,11 @@ class XDS(object):
     def sds(self, service_key):
         if service_key not in self.sds_info:
             self.sds_info[service_key] = self.query(
-                "/registration/{service_key}".format(service_key=service_key))
+                "/v1/registration/{service_key}".format(service_key=service_key))
         return self.sds_info[service_key]
+
+    def cache_stats(self):
+        return self.query("/cache_stats")
 
 # Class XDS end
 
@@ -158,54 +165,101 @@ def pod_info():
     op = subprocess.check_output(
         "kubectl get pod --all-namespaces -o json".split())
     o = json.loads(op)
-    return {i['metadata']['name'] + "." + i['metadata']['namespace']:
+    return {i['metadata']['name']:
             POD(i['metadata']['name'], i['metadata']['namespace'],
                 i['status']['podIP'], i['metadata']['labels']) for i in o['items']}
 
 
 def searchpod(pi, searchstr):
-    if "," in searchstr:
+    podname = podns = podip = ""
+    if "." in searchstr:
         si = searchstr.split(',')
         if len(si) != 3:
-            print "Use podname,podnamespace,podip format to skip contacting kube api server"
+            print "podname must be either name,namespace,podip or name.namespace or any string that's a pod's label or a prefix of a pod's name"
             return None
 
-        return POD(si[0], si[1], si[2], None)
+        podname = si[0]
+        podns = si[1]
+        podip = si[2]
 
+    pods = []
     for pn, pod in pi.items():
-        if pn == searchstr:
-            return pod
-        if searchstr == pod.name:
-            return pod
-        if searchstr in pod.labels.values():
-            return pod
+        if podname and podns:
+            if podip:
+                if podname == pod.name and podns == pod.namespace and podip == pod.ip:
+                    pods.append(pod)
+                    return pods
+            elif podname == pod.name and podns == pod.namespace:
+                pods.append(pod)
+                return pods
+        elif searchstr in pod.labels.values():
+            pods.append(pod)
+        elif pn.startswith(searchstr):
+            pods.append(pod)
 
-    return None
+    return pods
+
+
+def find_pilot_url():
+    try:
+        pilot_svc = subprocess.check_output(
+            "kubectl get svc {svc} -n {ns} -o json".format(svc=PILOT_SVC, ns=ISTIO_NS).split())
+    except:
+        pilot_svc = {}
+    pilot_url = ""
+    if pilot_svc:
+        pilot_spec = json.loads(pilot_svc)['spec']
+        for port in pilot_spec['ports']:
+            if port['name'] == 'http-discovery':
+                pilot_url = "http://{ip}:{port}".format(ip=pilot_spec['clusterIP'], port=port['port'])
+                break
+    return pilot_url
 
 
 def main(args):
-    pod = searchpod(pod_info(), args.podname)
-    if pod is None:
+    pods = searchpod(pod_info(), args.podname)
+
+    if not pods:
         print "Cound not find pod ", args.podname
         return -1
 
-    if args.pilot_url:
-        print "Fetching from Pilot"
-        src = "pilot"
-        xds = XDS(url=args.pilot_url)
-        data = xds.lds(pod, True)
-    else:
-        print "Fetching from Envoy admin port via kubectl"
-        src = "proxy"
-        pr = Proxy(pod)
-        data = pr.routes()
+    if len(pods) > 1:
+        podnames = ["%s.%s" % (pod.name, pod.namespace) for pod in pods]
+        print "More than one pod is found: %s" % ", ".join(podnames)
+        return -1
+
+    pod = pods[0]
+    pilot_url = args.pilot_url
+    if not pilot_url:
+        pilot_url = find_pilot_url()
 
     if args.output is None:
-        args.output = pod.name + "_" + src + "_xds.yaml"
+        args.output = pod.name + "_xds.yaml"
 
     op = open(args.output, "wt")
+
+    op.write("==== Fetching from Pilot for pod %s in %s namespace\n" % (pod.name, pod.namespace))
+    print "Fetching from Pilot for pod %s in %s namespace" % (pod.name, pod.namespace)
+    xds = XDS(url=pilot_url)
+    data = xds.lds(pod, True)
     yaml.safe_dump(data, op, default_flow_style=False,
                    allow_unicode=False, indent=2)
+
+    op.write("\n\n")
+    op.write("==== Fetching from sidecar Envoy for pod %s in %s namespace\n" % (pod.name, pod.namespace))
+    print("Fetching from Envoy for pod %s in %s namespace" % (pod.name, pod.namespace))
+    pr = Proxy(pod)
+    data = pr.routes()
+    yaml.safe_dump(data, op, default_flow_style=False,
+                   allow_unicode=False, indent=2)
+
+    if args.cache_stats:
+        data = xds.cache_stats()
+        op.write("\n\n")
+        op.write("==== Fetching Pilot cache stats\n")
+        yaml.safe_dump(data, op, default_flow_style=False,
+                       allow_unicode=False, indent=2)
+
     print "Wrote ", args.output
 
     return 0
@@ -216,11 +270,13 @@ if __name__ == "__main__":
 
     parser.add_argument("--pilot_url",
                         help="Often this is localhost:8080 or 15003 through a port-forward."
-                        " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080"
+                        " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080."
+                        "\n\nIf not provided, attempt will be made to find it out."
                         )
-    parser.add_argument("podname", help="podname or a label value to search. ingress, mixer, istio-ca all work."
-                        " If podname,podnamespace,podip is provided, kubectl is not used to search for the pod")
+    parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
     parser.add_argument(
         "--output", help="where to write output. default is podname.yaml")
+    parser.add_argument(
+        "--cache_stats", action='store_true', help="Fetch Pilot cache stats")
     args = parser.parse_args()
     sys.exit(main(args))
