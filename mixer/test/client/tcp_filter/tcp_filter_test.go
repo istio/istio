@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"testing"
 
+	"os"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/test/client/env"
-	"os"
 )
 
 // Check attributes from a good POST request

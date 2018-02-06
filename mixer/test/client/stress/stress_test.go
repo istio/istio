@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/test/client/env"
 	"os"
+
+	"istio.io/istio/mixer/test/client/env"
 )
 
 const (

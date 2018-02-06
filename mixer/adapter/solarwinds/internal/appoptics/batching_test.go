@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	test2 "istio.io/istio/mixer/pkg/adapter/test"
 	"os"
+
+	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestBatchMeasurements(t *testing.T) {

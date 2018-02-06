@@ -19,10 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"os"
+
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
-	"os"
 )
 
 func TestNewMetricsHandler(t *testing.T) {
