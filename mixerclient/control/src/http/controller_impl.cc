@@ -23,8 +23,35 @@ namespace istio {
 namespace mixer_control {
 namespace http {
 
-ControllerImpl::ControllerImpl(const Options& data) {
-  client_context_.reset(new ClientContext(data));
+namespace {
+// The service context cache size.
+const int kServiceContextCacheSize = 1000;
+}  // namespace
+
+ControllerImpl::ControllerImpl(std::shared_ptr<ClientContext> client_context)
+    : client_context_(client_context) {
+  int cache_size = client_context_->service_config_cache_size();
+  if (cache_size <= 0) {
+    cache_size = kServiceContextCacheSize;
+  }
+  service_context_cache_.reset(new LRUCache(cache_size));
+}
+
+ControllerImpl::~ControllerImpl() { service_context_cache_->RemoveAll(); }
+
+bool ControllerImpl::LookupServiceConfig(const std::string& service_config_id) {
+  LRUCache::ScopedLookup lookup(service_context_cache_.get(),
+                                service_config_id);
+  return lookup.Found();
+}
+
+void ControllerImpl::AddServiceConfig(
+    const std::string& service_config_id,
+    const ::istio::mixer::v1::config::client::ServiceConfig& config) {
+  CacheElem* cache_elem = new CacheElem;
+  cache_elem->service_context =
+      std::make_shared<ServiceContext>(client_context_, &config);
+  service_context_cache_->Insert(service_config_id, cache_elem, 1);
 }
 
 std::unique_ptr<RequestHandler> ControllerImpl::CreateRequestHandler(
@@ -43,6 +70,14 @@ std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(
   if (config.legacy_config) {
     return std::make_shared<ServiceContext>(client_context_,
                                             config.legacy_config);
+  }
+
+  if (!config.service_config_id.empty()) {
+    LRUCache::ScopedLookup lookup(service_context_cache_.get(),
+                                  config.service_config_id);
+    if (lookup.Found()) {
+      return lookup.value()->service_context;
+    }
   }
 
   const std::string& origin_name = config.destination_service;
@@ -66,7 +101,8 @@ std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(
 }
 
 std::unique_ptr<Controller> Controller::Create(const Options& data) {
-  return std::unique_ptr<Controller>(new ControllerImpl(data));
+  return std::unique_ptr<Controller>(
+      new ControllerImpl(std::make_shared<ClientContext>(data)));
 }
 
 }  // namespace http

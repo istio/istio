@@ -24,15 +24,18 @@ namespace http {
 ClientContext::ClientContext(const Controller::Options& data)
     : ClientContextBase(data.config.transport(), data.env),
       config_(data.config),
-      legacy_quotas_(data.legacy_quotas) {}
+      legacy_quotas_(data.legacy_quotas),
+      service_config_cache_size_(data.service_config_cache_size) {}
 
 ClientContext::ClientContext(
     std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client,
     const ::istio::mixer::v1::config::client::HttpClientConfig& config,
-    const std::vector<::istio::quota::Requirement>& legacy_quotas)
+    const std::vector<::istio::quota::Requirement>& legacy_quotas,
+    int service_config_cache_size)
     : ClientContextBase(std::move(mixer_client)),
       config_(config),
-      legacy_quotas_(legacy_quotas) {}
+      legacy_quotas_(legacy_quotas),
+      service_config_cache_size_(service_config_cache_size) {}
 
 void ClientContext::AddLegacyQuotas(
     std::vector<::istio::quota::Requirement>* quotas) const {

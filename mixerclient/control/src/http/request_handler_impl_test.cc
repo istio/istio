@@ -91,9 +91,10 @@ class RequestHandlerImplTest : public ::testing::Test {
     ASSERT_TRUE(TextFormat::ParseFromString(config_text, &client_config_));
 
     mock_client_ = new ::testing::NiceMock<MockMixerClient>;
+    // set LRU cache size is 3
     client_context_ = std::make_shared<ClientContext>(
         std::unique_ptr<MixerClient>(mock_client_), client_config_,
-        legacy_quotas_);
+        legacy_quotas_, 3);
     controller_ =
         std::unique_ptr<Controller>(new ControllerImpl(client_context_));
   }
@@ -108,6 +109,24 @@ class RequestHandlerImplTest : public ::testing::Test {
   ::testing::NiceMock<MockMixerClient>* mock_client_;
   std::unique_ptr<Controller> controller_;
 };
+
+TEST_F(RequestHandlerImplTest, TestServiceConfigManage) {
+  EXPECT_FALSE(controller_->LookupServiceConfig("1111"));
+  ServiceConfig config;
+  controller_->AddServiceConfig("1111", config);
+  EXPECT_TRUE(controller_->LookupServiceConfig("1111"));
+
+  // LRU cache size is 3
+  controller_->AddServiceConfig("2222", config);
+  controller_->AddServiceConfig("3333", config);
+  controller_->AddServiceConfig("4444", config);
+
+  // 1111 should be purged
+  EXPECT_FALSE(controller_->LookupServiceConfig("1111"));
+  EXPECT_TRUE(controller_->LookupServiceConfig("2222"));
+  EXPECT_TRUE(controller_->LookupServiceConfig("3333"));
+  EXPECT_TRUE(controller_->LookupServiceConfig("4444"));
+}
 
 TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   ::testing::NiceMock<MockCheckData> mock_data;

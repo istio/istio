@@ -22,6 +22,8 @@
 #include "client_context.h"
 #include "control/include/http/controller.h"
 #include "service_context.h"
+#include "utils/simple_lru_cache.h"
+#include "utils/simple_lru_cache_inl.h"
 
 namespace istio {
 namespace mixer_control {
@@ -30,10 +32,16 @@ namespace http {
 // The class to implement Controller interface.
 class ControllerImpl : public Controller {
  public:
-  ControllerImpl(const Controller::Options& data);
-  // A constructor for unit-test to pass in a mock client_context
-  ControllerImpl(std::shared_ptr<ClientContext> client_context)
-      : client_context_(client_context) {}
+  ControllerImpl(std::shared_ptr<ClientContext> client_context);
+  ~ControllerImpl();
+
+  // Lookup a service config by its config id. Return true if found.
+  bool LookupServiceConfig(const std::string& service_config_id) override;
+
+  // Add a new service config.
+  void AddServiceConfig(
+      const std::string& service_config_id,
+      const ::istio::mixer::v1::config::client::ServiceConfig& config) override;
 
   // Creates a HTTP request handler
   std::unique_ptr<RequestHandler> CreateRequestHandler(
@@ -53,6 +61,18 @@ class ControllerImpl : public Controller {
   // The map to cache service context. key is destination.service
   std::unordered_map<std::string, std::shared_ptr<ServiceContext>>
       service_context_map_;
+
+  // per-route service config may be changed overtime.  A LRU cacahe is used to
+  // store used service contexts. ServiceContext initialization is expensive.
+  // This cache helps reducing number of ServiceContext creation.
+  // The cache has fixed size to control the memory usage. The oldest ones
+  // will be purged if the size limit is reached.
+  struct CacheElem {
+    std::shared_ptr<ServiceContext> service_context;
+  };
+  using LRUCache =
+      ::istio::mixer_client::SimpleLRUCache<std::string, CacheElem>;
+  std::unique_ptr<LRUCache> service_context_cache_;
 };
 
 }  // namespace http

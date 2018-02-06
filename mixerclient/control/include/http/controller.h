@@ -31,11 +31,30 @@ class Controller {
  public:
   virtual ~Controller() {}
 
+  // Following two functions are used to manage service configs.
+  // Callers should call LookupServiceConfig to lookup the config with id
+  // and use AddServiceConfig to add the config if it is new.
+
+  // Lookup a service config by its config id. Return true if found.
+  virtual bool LookupServiceConfig(const std::string& service_config_id) = 0;
+
+  // Add a new service config.
+  virtual void AddServiceConfig(
+      const std::string& service_config_id,
+      const ::istio::mixer::v1::config::client::ServiceConfig& config) = 0;
+
   // A data struct to pass in per-route config.
   struct PerRouteConfig {
     // The per route destination.server name.
     // It will be used to lookup per route config map.
     std::string destination_service;
+
+    // A unique ID to identify a config version for a service.
+    // Usually it is a sha of the whole service config.
+    // The config should have been added by AddServiceConfig().
+    // If it is empty, destination_service is used to lookup
+    // service_configs map in the HttpClientConfig.
+    std::string service_config_id;
 
     // if not NULL, legacy per-route config for 0.2 and before.
     const ::istio::mixer::v1::config::client::ServiceConfig* legacy_config{};
@@ -51,6 +70,7 @@ class Controller {
   // The initial data required by the Controller. It needs:
   // * client_config: the mixer client config.
   // * some functions provided by the environment (Envoy)
+  // * optional service config cache size.
   struct Options {
     Options(const ::istio::mixer::v1::config::client::HttpClientConfig& config,
             const std::vector<::istio::quota::Requirement>& legacy_quotas)
@@ -64,6 +84,10 @@ class Controller {
 
     // Some plaform functions for mixer client library.
     ::istio::mixer_client::Environment env;
+
+    // The LRU cache size for service config.
+    // If not set or is 0 default value, the cache size is 1000.
+    int service_config_cache_size{};
   };
 
   // The factory function to create a new instance of the controller.

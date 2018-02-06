@@ -33,7 +33,8 @@ class ClientContext : public ClientContextBase {
   ClientContext(
       std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client,
       const ::istio::mixer::v1::config::client::HttpClientConfig& config,
-      const std::vector<::istio::quota::Requirement>& legacy_quotas);
+      const std::vector<::istio::quota::Requirement>& legacy_quotas,
+      int service_config_cache_size);
 
   // Retrieve mixer client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config() const {
@@ -52,12 +53,18 @@ class ClientContext : public ClientContextBase {
   const ::istio::mixer::v1::config::client::ServiceConfig* GetServiceConfig(
       const std::string& service_name) const;
 
+  // Get the service config cache size
+  int service_config_cache_size() const { return service_config_cache_size_; }
+
  private:
   // The http client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config_;
 
   // Legacy mixer config quota requirements.
   const std::vector<::istio::quota::Requirement>& legacy_quotas_;
+
+  // The service config cache size
+  int service_config_cache_size_;
 };
 
 }  // namespace http
