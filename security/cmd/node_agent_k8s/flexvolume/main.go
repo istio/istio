@@ -51,7 +51,7 @@ var (
 		},
 	}
 
-  // MountCmd defines the mount command
+	// MountCmd defines the mount command
 	MountCmd = &cobra.Command{
 		Use:   "mount",
 		Short: "Flex volume unmount command.",
@@ -64,7 +64,7 @@ var (
 		},
 	}
 
-  // UnmountCmd defines the unmount command
+	// UnmountCmd defines the unmount command
 	UnmountCmd = &cobra.Command{
 		Use:   "unmount",
 		Short: "Flex volume unmount command.",
@@ -86,7 +86,7 @@ func init() {
 
 func main() {
 	var err error
-  logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
+	logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -98,4 +98,5 @@ func main() {
 		if err = RootCmd.Execute(); err != nil {
 			log.Fatal(err)
 		}
+
 }
