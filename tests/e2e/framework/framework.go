@@ -185,10 +185,7 @@ func (t *testCleanup) cleanup() {
 // Fetch and save cluster pod logs using kuebctl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
-	if c.Cleanup.skipCleanup {
-		log.Info("Dev mode (--skip_cleanup), skipping log fetching")
-		return nil
-	}
+	// Logs are fetched even if skip_cleanup is called - the namespace is left around.
 	if c.Info == nil {
 		log.Warn("Skipping log saving as Info is not initialized")
 		return nil

@@ -45,6 +45,7 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make build test-bins docker.tag
+      - run: echo $KUBECONFIG
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
