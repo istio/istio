@@ -18,12 +18,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/syslog"
 	"os"
 	"os/exec"
 	"strings"
 
-	"istio.io/istio/pkg/log"
-	nagent "istio.io/istio/security/cmd/node_agent_k8s"
+	nagent "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -41,6 +41,14 @@ type Resp struct {
 	Device string `json:"device,omitempty"`
 	// Volumen name resp.
 	VolumeName string `json:"volumename,omitempty"`
+	// Defines the driver's capability
+	Capabilities *Capabilities `json:",omitempty"`
+}
+
+// Capabilities define whether driver is attachable and the linux relabel
+type Capabilities struct {
+	Attach         bool `json:"attach"`
+	SELinuxRelabel bool `json:"selinuxRelabel"`
 }
 
 // NodeAgentInputs defines the input from FlexVolume driver.
@@ -57,75 +65,81 @@ const (
 	volumeName       string = "tmpfs"
 )
 
+var (
+	logWrt *syslog.Writer
+)
+
 // Init initialize the driver
 func Init(version string) error {
 	if version == "1.8" {
-		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Attach: false})
+		resp, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}})
 		if err != nil {
 			return err
 		}
+		fmt.Println(string(resp))
 		return nil
 	}
-	log.Info("Init finishes successfully")
-	return nil
+	return genericSucc("init", "", "Init ok.")
 }
 
 // Attach attach the driver
 func Attach(opts, nodeName string) error {
-	_, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
+	resp, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
 	if err != nil {
-		log.Errorf("Failed to attach with error: %v", err)
 		return err
 	}
+	fmt.Println(string(resp))
 	inp := opts + "|" + nodeName
-	log.Infof("Attach to %s successfully", inp)
+	logToSys("attach", inp, string(resp))
 	return nil
 }
 
 // Detach detach the driver
 func Detach(devID string) error {
-	_, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
+	resp, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
 	if err != nil {
-		log.Errorf("Failed to detach with error: %v", err)
+		fmt.Println(err)
 		return err
 	}
-	log.Infof("Detach to %s successfully", devID)
+	fmt.Println(string(resp))
+	logToSys("detach", devID, string(resp))
 	return nil
 }
 
 // WaitAttach wait the driver to be attached.
 func WaitAttach(dev, opts string) error {
-	_, err := json.Marshal(&Resp{Device: dev, Status: "Success", Message: "Wait ok"})
+	resp, err := json.Marshal(&Resp{Device: dev, Status: "Success", Message: "Wait ok"})
 	if err != nil {
 		return err
 	}
+	fmt.Println(string(resp))
 	inp := dev + "|" + opts
-	log.Infof("Watiattach to %s successfully", inp)
+	logToSys("waitattach", inp, string(resp))
 	return nil
 }
 
 // IsAttached checks whether the driver is attached.
 func IsAttached(opts, node string) error {
-	_, err := json.Marshal(&Resp{Attached: true, Status: "Success", Message: "Is attached"})
+	resp, err := json.Marshal(&Resp{Attached: true, Status: "Success", Message: "Is attached"})
 	if err != nil {
 		return err
 	}
+	sResp := string(resp)
+	fmt.Println(sResp)
 	inp := opts + "|" + node
-	log.Infof("IsAttached to %s successfully", inp)
+	logToSys("isattached", inp, sResp)
 	return nil
 }
 
 // MountDev mounts the device
 func MountDev(dir, dev, opts string) error {
 	inp := dir + "|" + dev + "|" + opts
-	log.Infof("Mountdev to %s successfully", inp)
-	return nil
+	return genericSucc("mountdev", inp, "Mount dev ok.")
 }
 
 // UnmountDev unmounts the device
 func UnmountDev(dev string) error {
-	log.Infof("Unmountdev to %s successfully", dev)
-	return nil
+	return genericSucc("unmountdev", dev, "Unmount dev ok.")
 }
 
 // checkValidMountOpts checks if there are sufficient inputs to
@@ -235,22 +249,20 @@ func Mount(dir, opts string) error {
 
 	ninputs, s := checkValidMountOpts(opts)
 	if s == false {
-		sErr := fmt.Sprintf("Mount failed with dir %s with incomplete inputs", inp)
-		return errors.New(sErr)
+		return Failure("mount", inp, "Incomplete inputs")
 	}
 
 	if err := doMount(dir, ninputs.Attrs); err != nil {
-		sErr := fmt.Sprintf("Mount failed with dir %s with error: %v", inp, err)
-		return errors.New(sErr)
+		sErr := "Failure to mount: " + err.Error()
+		return Failure("mount", inp, sErr)
 	}
 
 	if err := addListener(ninputs); err != nil {
-		sErr := fmt.Sprintf("Failure to notify nodeagent with error: %v", err)
-		return errors.New(sErr)
+		sErr := "Failure to notify nodeagent: " + err.Error()
+		return Failure("mount", inp, sErr)
 	}
 
-	log.Infof("Mount successfully with dir %s", inp)
-	return nil
+	return genericSucc("mount", inp, "Mount ok.")
 }
 
 // Unmount unmount the file path.
@@ -258,16 +270,16 @@ func Unmount(dir string) error {
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
 		sErr := fmt.Sprintf("Unmount failed with dir %s.", dir)
-		return errors.New(sErr)
+		return Failure("unmount", dir, sErr)
 	}
 
 	uid := comps[5]
+	// TBD: Check if uid is the correct format.
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: uid}
-
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
 	if err := delListener(naInp); err != nil {
-		sErr := fmt.Sprintf("Failed to notify node agent with error: %v", err)
-		return errors.New(sErr)
+		sErr := "Failure to notify nodeagent: " + err.Error()
+		return Failure("unmount", dir, sErr)
 	}
 
 	// unmount the bind mount
@@ -278,17 +290,61 @@ func Unmount(dir string) error {
 	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
 	if err != nil {
-		sErr := fmt.Sprintf("Unmount failed when delete dir %s with error: %v", delDir, err)
-		return errors.New(sErr)
+		estr := fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error())
+		return genericSucc("unmount", dir, estr)
 	}
 
-	log.Infof("Unmount successfully with dir %s", dir)
-	return nil
+	return genericSucc("unmount", dir, "Unmount ok.")
 }
 
 // GetVolName get the volume name
 func GetVolName(opts string) error {
-	log.Infof("The opts is %s", opts)
-	_, err := json.Marshal(&Resp{VolumeName: volumeName, Status: "Success", Message: "ok"})
-	return err
+	return genericUnsupported("getvolname", opts, "not supported")
+}
+
+func printAndLog(caller, inp, s string) {
+	fmt.Println(s)
+	logToSys(caller, inp, s)
+}
+
+func genericSucc(caller, inp, msg string) error {
+	resp, err := json.Marshal(&Resp{Status: "Success", Message: msg})
+	if err != nil {
+		return err
+	}
+
+	printAndLog(caller, inp, string(resp))
+	return nil
+}
+
+// Failure report failure case
+func Failure(caller, inp, msg string) error {
+	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
+	if err != nil {
+		return err
+	}
+
+	printAndLog(caller, inp, string(resp))
+	return nil
+}
+
+func genericUnsupported(caller, inp, msg string) error {
+	resp, err := json.Marshal(&Resp{Status: "Not supported", Message: msg})
+	if err != nil {
+		return err
+	}
+
+	printAndLog(caller, inp, string(resp))
+	return nil
+}
+
+func logToSys(caller, inp, opts string) {
+	if logWrt == nil {
+		return
+	}
+
+	op := caller + "|"
+	op = op + inp + "|"
+	op = op + opts
+	logWrt.Warning(op)
 }

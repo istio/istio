@@ -69,6 +69,21 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
+  name = "github.com/alicebob/miniredis"
+  packages = [
+    ".",
+    "server"
+  ]
+  revision = "aefbaa72e488a5bbca434ab16c56cdffecbdfd47"
+  version = "2.3.0"
+
+[[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = ["."]
+  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
+  version = "v1.4.0"
+
+[[projects]]
   name = "github.com/aokoli/goutils"
   packages = ["."]
   revision = "3391d3790d23d03408670993e957e8f408993c34"
@@ -253,6 +268,19 @@
   name = "github.com/go-openapi/swag"
   packages = ["."]
   revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+
+[[projects]]
+  name = "github.com/go-redis/redis"
+  packages = [
+    ".",
+    "internal",
+    "internal/consistenthash",
+    "internal/hashtag",
+    "internal/pool",
+    "internal/proto"
+  ]
+  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
+  version = "v6.8.0"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -793,6 +821,17 @@
   version = "v1.3.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/yuin/gopher-lua"
+  packages = [
+    ".",
+    "ast",
+    "parse",
+    "pm"
+  ]
+  revision = "478861c8ce6e8c2f16d5984d5ed30c4327c70437"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
@@ -1048,6 +1087,7 @@
     "broker/dev",
     "mesh/v1alpha1",
     "mixer/v1",
+    "mixer/v1/config",
     "mixer/v1/config/client",
     "mixer/v1/config/descriptor",
     "mixer/v1/template",
@@ -1055,7 +1095,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "8f67f05eeb370d50f427169d6ccce976413ad764"
+  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1340,6 +1380,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "230b218ff6e2b76015186ab6cf57333f04ccefc26f0e7f069cded0bebaa9df0c"
+  inputs-digest = "bf98cffd312a696b19fd0939387432d92110a329bad0a255e59d9d3c5c985659"
   solver-name = "gps-cdcl"
   solver-version = 1

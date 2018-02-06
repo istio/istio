@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentk8s
+package nodeagentmgmt
 
 import (
 	"net"
@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
 	pb "istio.io/istio/security/proto"
 )
 

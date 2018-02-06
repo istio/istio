@@ -608,7 +608,7 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	instances, err := ds.GetSidecarServiceInstances(map[string]*model.Node{svcNode.IPAddress: &svcNode})
+	instances, err := ds.GetSidecarServiceInstances(svcNode)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return

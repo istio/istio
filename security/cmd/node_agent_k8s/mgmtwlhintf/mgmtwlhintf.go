@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentk8s
+package mgmtwlhintf
 
 import (
 	"google.golang.org/grpc"
+
 	pb "istio.io/istio/security/proto"
 )
 
@@ -52,7 +53,7 @@ type WlHandler struct {
 	Wl *WlServer
 }
 
-// NewWlHandler create a new handler
+// NewWlHandler define the new handler
 func NewWlHandler(wls *WlServer, cb NewWorkloadHandler) *WlHandler {
 	return &WlHandler{
 		Wl:       wls,

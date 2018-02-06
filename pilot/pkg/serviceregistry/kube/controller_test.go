@@ -243,7 +243,7 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	svcNode.IPAddress = "128.0.0.1"
 	svcNode.ID = "pod1.nsA"
 	svcNode.Domain = "nsA.svc.cluster.local"
-	services, err := controller.GetSidecarServiceInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
+	services, err := controller.GetSidecarServiceInstances(svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
 	}
@@ -259,7 +259,7 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	}
 
 	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetSidecarServiceInstances(map[string]*model.Node{"128.0.0.1": &svcNode})
+	_, err = controller.GetSidecarServiceInstances(svcNode)
 	if err == nil {
 		t.Errorf("GetSidecarServiceInstances() should have returned error for unknown domain.")
 	}

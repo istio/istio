@@ -151,7 +151,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // GetSidecarServiceInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err
@@ -163,7 +163,7 @@ func (c *Controller) GetSidecarServiceInstances(addrs map[string]*model.Node) ([
 			return nil, err
 		}
 		for _, endpoint := range endpoints {
-			if addrs[endpoint.ServiceAddress] != nil {
+			if node.IPAddress == endpoint.ServiceAddress {
 				out = append(out, convertInstance(endpoint))
 			}
 		}
