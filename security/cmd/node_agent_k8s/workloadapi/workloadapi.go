@@ -31,6 +31,7 @@ const (
 	socName string = "/server.sock"
 )
 
+// WlServer define the struct for workload server
 type WlServer struct{}
 
 // NewWlAPIServer define the new api
