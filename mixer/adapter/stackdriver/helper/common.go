@@ -26,13 +26,13 @@ import (
 type shouldFillFn func(*config.Params) bool
 type projectIDFn func() (string, error)
 
-// ProjectIDFiller checks and fills project id for adapter config.
+// ProjectIDFiller checks and fills project id for stack adapter config.
 type ProjectIDFiller struct {
 	shouldFill shouldFillFn
 	projectID  projectIDFn
 }
 
-// NewProjectIDFiller creates an adapter config project ID filler based on the given functions.
+// NewProjectIDFiller creates a project id filler for stackdriver adapter config with the given functions.
 func NewProjectIDFiller(s shouldFillFn, p projectIDFn) *ProjectIDFiller {
 	return &ProjectIDFiller{s, p}
 }
