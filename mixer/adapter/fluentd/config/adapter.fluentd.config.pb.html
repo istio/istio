@@ -1,0 +1,43 @@
+---
+title: Fluentd
+overview: Adapter that delivers logs to a fluentd daemon.
+location: https://istio.io/docs/reference/config/adapters/fluentd.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>fluentd</code> adapter is designed to deliver Istio log entries to a
+listening <a href="https://www.fluentd.org">fluentd</a> daemon.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration parameters for the fluentd adapter.</p>
+
+<p>This adapter accepts instances of kind: logentry. It then routes
+those logentries to a listening fluentd daemon with minimal
+transformation. Fluentd uses a &ldquo;tag&rdquo; for all logs. The &ldquo;Name&rdquo; of
+the logentry is used as the &ldquo;tag&rdquo;, unless the logentry already has
+a variable &ldquo;tag&rdquo;.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of listening fluentd daemon. Example: fluentd-server:24224
+Default value is localhost:24224</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

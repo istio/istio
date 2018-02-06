@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Circonus
+// $overview: Adapter for circonus.com's monitoring solution.
+// $location: https://istio.io/docs/reference/config/adapters/circonus.html
+
+// The `circonus` adapter enables Istio to deliver metric data to the
+// [Circonus](https://www.circonus.com) monitoring backend.
 package adapter.circonus.config;
 
 import "gogoproto/gogo.proto";
@@ -24,6 +30,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Cnofiguration format for the Circonus adapter.
 message Params {
     // Circonus SubmissionURL to HTTPTrap check
     string submission_url = 1;

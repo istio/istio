@@ -1,0 +1,173 @@
+---
+title: Authorization
+overview: A template used to represent an access control query.
+location: https://istio.io/docs/reference/config/template/authorization.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>authorization</code> template defines parameters for performing policy
+enforcement within Istio. It is primarily concerned with enabling Mixer</p>
+
+<h2 id="Action">Action</h2>
+<section>
+<p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Action.namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace the target action is taking place in.</p>
+
+</td>
+</tr>
+<tr id="Action.service">
+<td><code>service</code></td>
+<td><code>string</code></td>
+<td>
+<p>The Service the action is being taken on.</p>
+
+</td>
+</tr>
+<tr id="Action.method">
+<td><code>method</code></td>
+<td><code>string</code></td>
+<td>
+<p>What action is being taken.</p>
+
+</td>
+</tr>
+<tr id="Action.path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+<p>HTTP REST path within the service</p>
+
+</td>
+</tr>
+<tr id="Action.properties">
+<td><code>properties</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>Additional data about the action for use in policy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Subject">Subject</h2>
+<section>
+<p>A subject contains a list of attributes that identify
+the caller identity.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Subject.user">
+<td><code>user</code></td>
+<td><code>string</code></td>
+<td>
+<p>The user name/ID that the subject represents.</p>
+
+</td>
+</tr>
+<tr id="Subject.groups">
+<td><code>groups</code></td>
+<td><code>string</code></td>
+<td>
+<p>Groups the subject belongs to depending on the authentication mechanism,
+&ldquo;groups&rdquo; are normally populated from JWT claim or client certificate.
+The operator can define how it is populated when creating an instance of
+the template.</p>
+
+</td>
+</tr>
+<tr id="Subject.properties">
+<td><code>properties</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>Additional attributes about the subject.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>authorization</code> template defines parameters for performing policy
+enforcement within Istio. It is primarily concerned with enabling Mixer
+adapters to make decisions about who is allowed to do what.
+In this template, the &ldquo;who&rdquo; is defined in a Subject message. The &ldquo;what&rdquo; is
+defined in an Action message. During a Mixer Check call, these values
+will be populated based on configuration from request attributes and
+passed to individual authorization adapters to adjudicate.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: authorization
+metadata:
+  name: authinfo
+  namespace: istio-system
+spec:
+ subject:
+   user: source.user | request.auth.token[user] | &quot;&quot;
+   groups: request.auth.token[groups]
+   properties:
+    iss: request.auth.token[&quot;iss&quot;]
+ action:
+   namespace: target.namespace | &quot;default&quot;
+   service: target.service | &quot;&quot;
+   path: request.path | &quot;/&quot;
+   method: request.method | &quot;post&quot;
+   properties:
+     version: destination.labels[version] | &quot;&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.subject">
+<td><code>subject</code></td>
+<td><code><a href="#Subject">Subject</a></code></td>
+<td>
+<p>A subject contains a list of attributes that identify
+the caller identity.</p>
+
+</td>
+</tr>
+<tr id="Template.action">
+<td><code>action</code></td>
+<td><code><a href="#Action">Action</a></code></td>
+<td>
+<p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

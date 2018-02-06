@@ -25,12 +25,14 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/authorization"
 	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	"istio.io/istio/mixer/template/reportnothing"
+	"istio.io/istio/mixer/template/tracespan"
 )
 
 type handler struct{}
@@ -41,12 +43,12 @@ var checkResult = adapter.CheckResult{
 	ValidUseCount: 1000000000,
 }
 
-func (*handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+func (*handler) HandleAuthorization(context.Context, *authorization.Instance) (adapter.CheckResult, error) {
 	return checkResult, nil
 }
 
-func (*handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
-	return nil
+func (*handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
 
 func (*handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
@@ -69,6 +71,14 @@ func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter
 		nil
 }
 
+func (*handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
+	return nil
+}
+
+func (*handler) HandleTraceSpan(context.Context, []*tracespan.Instance) error {
+	return nil
+}
+
 func (*handler) Close() error { return nil }
 
 ////////////////// Config //////////////////////////
@@ -80,12 +90,14 @@ func GetInfo() adapter.Info {
 		Impl:        "istio.io/istio/mixer/adapter/noop",
 		Description: "Does nothing (useful for testing)",
 		SupportedTemplates: []string{
+			authorization.TemplateName,
 			checknothing.TemplateName,
 			reportnothing.TemplateName,
 			listentry.TemplateName,
 			logentry.TemplateName,
 			metric.TemplateName,
 			quota.TemplateName,
+			tracespan.TemplateName,
 		},
 		DefaultConfig: &types.Empty{},
 

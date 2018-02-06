@@ -1,0 +1,212 @@
+---
+title: Stdio
+overview: Adapter for outputting logs and metrics locally.
+location: https://istio.io/docs/reference/config/adapters/stdio.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>stdio</code> adapter enables Istio to output logs and metrics to
+the local machine. Logs and metrics can be directed to Mixer&rsquo;s
+standard output stream, standard error stream, or to any locally
+reachable file. When outputting to files, you can enable file rotation
+such that the adapter will automatically manage a set of file backups
+as data is generated.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>stdio</code> adapter</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.log_stream">
+<td><code>logStream</code></td>
+<td><code><a href="#Params.Stream">Params.Stream</a></code></td>
+<td>
+<p>Selects which standard stream to write to for log entries.
+STDERR is the default Stream.</p>
+
+</td>
+</tr>
+<tr id="Params.severity_levels">
+<td><code>severityLevels</code></td>
+<td><code>map&lt;string, <a href="#Params.Level">Params.Level</a>&gt;</code></td>
+<td>
+<p>Maps from severity strings as specified in LogEntry instances to
+the set of levels supported by this adapter. This defaults to a map of</p>
+
+<pre><code>&quot;INFORMATIONAL&quot; : INFO,
+&quot;informational&quot; : INFO,
+&quot;INFO&quot; : INFO,
+&quot;info&quot; : INFO,
+&quot;WARNING&quot; : WARNING,
+&quot;warning&quot; : WARNING,
+&quot;WARN&quot;: WARNING,
+&quot;warning&quot;: WARNING,
+&quot;ERROR&quot;: ERROR,
+&quot;error&quot;: ERROR,
+&quot;ERR&quot;: ERROR,
+&quot;err&quot;: ERROR,
+&quot;FATAL&quot;: ERROR,
+&quot;fatal&quot;: ERROR,
+</code></pre>
+
+</td>
+</tr>
+<tr id="Params.metric_level">
+<td><code>metricLevel</code></td>
+<td><code><a href="#Params.Level">Params.Level</a></code></td>
+<td>
+<p>The level to assign to metrics being output. Defaults to INFO.</p>
+
+</td>
+</tr>
+<tr id="Params.output_as_json">
+<td><code>outputAsJson</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Whether to output a console-friendly or json-friendly format. Defaults to true.</p>
+
+</td>
+</tr>
+<tr id="Params.output_level">
+<td><code>outputLevel</code></td>
+<td><code><a href="#Params.Level">Params.Level</a></code></td>
+<td>
+<p>The minimum level to output, anything less than this level is ignored. Defaults to INFO (everything).</p>
+
+</td>
+</tr>
+<tr id="Params.output_path">
+<td><code>outputPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>The file system path when outputting to a file or rotating file.</p>
+
+<p>When using rotated log files, this path is used as a foundational path. This is where log
+output is normally saved. When a rotation needs to take place because the file got too big
+or too old, then the file is renamed by appending a timestamp to the name. Such renamed
+files are called backups. Once a backup has been created, output resumes to this path.</p>
+
+</td>
+</tr>
+<tr id="Params.max_megabytes_before_rotation">
+<td><code>maxMegabytesBeforeRotation</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The maximum size in megabytes of a log file before it gets
+rotated. It defaults to 100 megabytes.</p>
+
+</td>
+</tr>
+<tr id="Params.max_days_before_rotation">
+<td><code>maxDaysBeforeRotation</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The maximum number of days to retain old rotated log files based on the
+timestamp encoded in their filename. Note that a day is defined as 24
+hours and may not exactly correspond to calendar days due to daylight
+savings, leap seconds, etc. The default is to remove log files
+older than 30 days. 0 indicates no limit.</p>
+
+</td>
+</tr>
+<tr id="Params.max_rotated_files">
+<td><code>maxRotatedFiles</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The maximum number of old rotated log files to retain.  The default
+is to retain at most 1000 logs. 0 indicates no limit.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Level">Params.Level</h2>
+<section>
+<p>Importance level for individual items output by this adapter.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Level.INFO">
+<td><code>INFO</code></td>
+<td>
+<p>informational, warning, and error log messages are included</p>
+
+</td>
+</tr>
+<tr id="Params.Level.WARNING">
+<td><code>WARNING</code></td>
+<td>
+<p>warning and error log messges are included</p>
+
+</td>
+</tr>
+<tr id="Params.Level.ERROR">
+<td><code>ERROR</code></td>
+<td>
+<p>only error log messages are included</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Stream">Params.Stream</h2>
+<section>
+<p>Stream is used to select between different log output sinks.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Stream.STDOUT">
+<td><code>STDOUT</code></td>
+<td>
+<p>Output to the Mixer process&rsquo; standard output stream. This is the default value.</p>
+
+</td>
+</tr>
+<tr id="Params.Stream.STDERR">
+<td><code>STDERR</code></td>
+<td>
+<p>Output to the Mixer process&rsquo; standard error stream.</p>
+
+</td>
+</tr>
+<tr id="Params.Stream.FILE">
+<td><code>FILE</code></td>
+<td>
+<p>Output to a specific file.</p>
+
+</td>
+</tr>
+<tr id="Params.Stream.ROTATED_FILE">
+<td><code>ROTATED_FILE</code></td>
+<td>
+<p>Output to a specific rotating file, controlled by the various file rotation options.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

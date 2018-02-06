@@ -14,6 +14,11 @@
 
 syntax = "proto3";
 
+// $title: API Key
+// $overview: A template that represents a single API key.
+// $location: https://istio.io/docs/reference/config/template/apikey.html
+
+// The `apikey` template represents a single API key, which is used for authorization checks.
 package apiKey;
 
 import "mixer/v1/template/standard_types.proto";
@@ -21,10 +26,11 @@ import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
-// apiKey template data point is associated with an API call with a caller supplied API key. Adapter supports this
-// template to validate API key to authorize API call.
+// The `apikey` template represents a single API key, used to authorize API calls.
 //
 // Sample config:
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: apikey
 // metadata:
@@ -36,8 +42,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 //   api_operation: api.operation | ""
 //   api_key: api.key | ""
 //   timestamp: request.time
-
-// Template to check if an API call should proceed.
+// ```
 message Template {
     // The API being called (api.service).
     string api = 1;

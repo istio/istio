@@ -1,0 +1,175 @@
+---
+title: Service Control
+overview: Adapter that delivers logs and metrics to Google Service Control
+location: https://istio.io/docs/reference/config/adapters/servicecontrol.html
+layout: protoc-gen-docs
+number_of_entries: 4
+---
+{% raw %}
+<p>The <code>servicecontrol</code> adapter delivers logs and metrics to
+<a href="https://cloud.google.com/service-control">Google Service Control</a>.</p>
+
+<h2 id="GcpServiceSetting">GcpServiceSetting</h2>
+<section>
+<p>Adapter setting for a managed GCP service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="GcpServiceSetting.mesh_service_name">
+<td><code>meshServiceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Local service name on the mesh, which matches destination.service attribute.</p>
+
+</td>
+</tr>
+<tr id="GcpServiceSetting.google_service_name">
+<td><code>googleServiceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Fully qualified GCP service name.</p>
+
+</td>
+</tr>
+<tr id="GcpServiceSetting.quotas">
+<td><code>quotas</code></td>
+<td><code><a href="#Quota">Quota[]</a></code></td>
+<td>
+<p>Quota configs</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>servicecontrol</code> adapter.</p>
+
+<p>Sample adapter config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: servicecontrol
+metadata:
+  name: testhandler
+  namespace: istio-system
+spec:
+  runtime_config:
+    check_cache_size: 200
+    check_result_expiration: 60s
+  credential_path: &quot;/path/to/token.json&quot;
+  service_configs:
+    - mesh_service_name: &quot;echo.local.svc&quot;
+      google_service_name: &quot;echo.endpoints.cloud.goog&quot;
+      quotas:
+        - name: ratelimit.quota.istio-system
+          google_quota_metric_name: read-requests
+          expiration: 1m
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.runtime_config">
+<td><code>runtimeConfig</code></td>
+<td><code><a href="#RuntimeConfig">RuntimeConfig</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.credential_path">
+<td><code>credentialPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>A path to JSON token file, usually mounted as Kubernetes secret on pod.</p>
+
+</td>
+</tr>
+<tr id="Params.service_configs">
+<td><code>serviceConfigs</code></td>
+<td><code><a href="#GcpServiceSetting">GcpServiceSetting[]</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Quota">Quota</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Quota.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Istio quota name.</p>
+
+</td>
+</tr>
+<tr id="Quota.google_quota_metric_name">
+<td><code>googleQuotaMetricName</code></td>
+<td><code>string</code></td>
+<td>
+<p>The corresponding Google quota metric name.</p>
+
+</td>
+</tr>
+<tr id="Quota.expiration">
+<td><code>expiration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Quota token expiration time period.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RuntimeConfig">RuntimeConfig</h2>
+<section>
+<p>Adapter runtime config paramters.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RuntimeConfig.check_cache_size">
+<td><code>checkCacheSize</code></td>
+<td><code>int32</code></td>
+<td>
+</td>
+</tr>
+<tr id="RuntimeConfig.check_result_expiration">
+<td><code>checkResultExpiration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
