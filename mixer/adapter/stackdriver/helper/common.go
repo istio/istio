@@ -19,8 +19,14 @@ import (
 
 	gapiopts "google.golang.org/api/option"
 
+	md "cloud.google.com/go/compute/metadata"
+
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/pkg/adapter"
 )
+
+var mdOnGCE = md.OnGCE
+var mdProjectID = md.ProjectID
 
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.
 func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
@@ -45,4 +51,15 @@ func ToStringMap(in map[string]interface{}) map[string]string {
 		out[key] = fmt.Sprintf("%v", val)
 	}
 	return out
+}
+
+// FillProjectID tries to fill project ID in adapter config if it is empty, it only supports project on GCE.
+func FillProjectID(c adapter.Config) {
+	cfg := c.(*config.Params)
+	if cfg.ProjectId != "" || !mdOnGCE() {
+		return
+	}
+	if pid, err := mdProjectID(); err == nil {
+		cfg.ProjectId = pid
+	}
 }

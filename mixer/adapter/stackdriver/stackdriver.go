@@ -24,6 +24,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/adapter/stackdriver/log"
 	sdmetric "istio.io/istio/mixer/adapter/stackdriver/metric"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -74,6 +75,7 @@ func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
 	b.l.SetLogEntryTypes(entries)
 }
 func (b *builder) SetAdapterConfig(c adapter.Config) {
+	helper.FillProjectID(c)
 	b.m.SetAdapterConfig(c)
 	b.l.SetAdapterConfig(c)
 }
