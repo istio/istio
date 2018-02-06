@@ -1,11 +1,12 @@
-{{ $v := int .Values.loatTestIngresses }}
-{{range $i, $e := until $v}}
+{{ $v := int .Values.loadTestIngress }}
+# {{ $v }}
+{{ range $i, $e := until $v }}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   annotations:
     kubernetes.io/ingress.class: istio
-  name: istio-ingress
+  name: istio-ingress-load-{{ $i }}
 spec:
   rules:
     - http:

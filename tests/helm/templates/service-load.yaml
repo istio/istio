@@ -17,13 +17,42 @@ spec:
 ---
 {{ end }}
 
-{{ $v := int .Values.testVMServices }}
-{{ range $i, $e := until $v }}
+{{ $v1 := int .Values.testVMServices }}
+{{ range $i, $e := until $v1 }}
 
 kind: Service
 apiVersion: v1
 metadata:
   name: vm-{{ $i }}
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      name: http
+
+---
+
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: vm-{{ $i }}-ep
+subsets:
+  # This is a real machine listening on port 80
+  - addresses:
+      - ip: 73.158.64.15
+    ports:
+      - port: 80
+        name: http
+---
+{{ end }}
+
+{{ $v1 := int .Values.testVMMissingServices }}
+{{ range $i, $e := until $v1 }}
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: vmnf-{{ $i }}
 spec:
   ports:
     - protocol: TCP
@@ -35,10 +64,12 @@ spec:
 kind: Endpoints
 apiVersion: v1
 metadata:
-  name: vm-{{ $i }}-ep
+  name: vmnf-{{ $i }}-ep
 subsets:
+  # K8s doesn't accept localhost. Will need to create a real network - but for now let's
+  # see how it reacts to missing endpoints.
   - addresses:
-      - ip: 127.0.0.1
+      - ip: 10.1.10.10
     ports:
       - port: 8080
 ---
