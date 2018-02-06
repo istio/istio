@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
 type env struct {

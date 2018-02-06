@@ -37,8 +37,8 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
@@ -102,11 +102,13 @@ type ConfigArgs struct {
 type ConsulArgs struct {
 	Config    string
 	ServerURL string
+	Interval  time.Duration
 }
 
 // EurekaArgs provides configuration for the Eureka service registry
 type EurekaArgs struct {
 	ServerURL string
+	Interval  time.Duration
 }
 
 // ServiceArgs provides the composite configuration for all service registries in the system.
@@ -278,6 +280,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
 func (s *Server) initMixerSan(args *PilotArgs) error {
+	if s.mesh == nil {
+		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
+	}
 	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
 	}
@@ -363,7 +368,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	for _, r := range args.Service.Registries {
 		serviceRegistry := ServiceRegistry(r)
 		if _, exists := registered[serviceRegistry]; exists {
-			return multierror.Prefix(nil, r+" registry specified multiple times.")
+			log.Warnf("%s registry specified multiple times.", r)
+			continue
 		}
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
@@ -429,7 +435,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
-				args.Service.Consul.ServerURL, 2*time.Second)
+				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
@@ -445,9 +451,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name: serviceregistry.ServiceRegistry(r),
-					// TODO: Remove sync time hardcoding!
-					Controller:       eureka.NewController(eurekaClient, 2*time.Second),
+					Name:             serviceregistry.ServiceRegistry(r),
+					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})

@@ -1,0 +1,150 @@
+---
+title: Denier
+overview: Adapter that always returns a precondition denial.
+location: https://istio.io/docs/reference/config/adapters/denier.html
+layout: protoc-gen-docs
+number_of_entries: 2
+---
+{% raw %}
+<p>The <code>denier</code> adapter is designed to always return a denial to precondition
+checks. You can specify the exact error to return for these denials.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Cnofiguration format for the Denier adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.status">
+<td><code>status</code></td>
+<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td>
+<p>The error to return when denying a request.</p>
+
+</td>
+</tr>
+<tr id="Params.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The duration for which the denial is valid.</p>
+
+</td>
+</tr>
+<tr id="Params.valid_use_count">
+<td><code>validUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of times the denial may be used.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google.rpc.Status">google.rpc.Status</h2>
+<section>
+<p>The <code>Status</code> type defines a logical error model that is suitable for different
+programming environments, including REST APIs and RPC APIs. It is used by
+<a href="https://github.com/grpc">gRPC</a>. The error model is designed to be:</p>
+
+<ul>
+<li>Simple to use and understand for most users</li>
+<li>Flexible enough to meet unexpected needs</li>
+</ul>
+
+<h3 id="overview">Overview</h3>
+
+<p>The <code>Status</code> message contains three pieces of data: error code, error message,
+and error details. The error code should be an enum value of
+<em>google.rpc.Code</em>, but it may accept additional error codes if needed.  The
+error message should be a developer-facing English message that helps
+developers <em>understand</em> and <em>resolve</em> the error. If a localized user-facing
+error message is needed, put the localized message in the error details or
+localize it in the client. The optional error details may contain arbitrary
+information about the error. There is a predefined set of error detail types
+in the package <code>google.rpc</code> that can be used for common error conditions.</p>
+
+<h3 id="language-mapping">Language mapping</h3>
+
+<p>The <code>Status</code> message is the logical representation of the error model, but it
+is not necessarily the actual wire format. When the <code>Status</code> message is
+exposed in different client libraries and different wire protocols, it can be
+mapped differently. For example, it will likely be mapped to some exceptions
+in Java, but more likely mapped to some error codes in C.</p>
+
+<h3 id="other-uses">Other uses</h3>
+
+<p>The error model and the <code>Status</code> message can be used in a variety of
+environments, either with or without APIs, to provide a
+consistent developer experience across different environments.</p>
+
+<p>Example uses of this error model include:</p>
+
+<ul>
+<li><p>Partial errors. If a service needs to return partial errors to the client,
+it may embed the <code>Status</code> in the normal response to indicate the partial
+errors.</p></li>
+
+<li><p>Workflow errors. A typical workflow has multiple steps. Each step may
+have a <code>Status</code> message for error reporting.</p></li>
+
+<li><p>Batch operations. If a client uses batch request and batch response, the
+<code>Status</code> message should be used directly inside batch response, one for
+each error sub-response.</p></li>
+
+<li><p>Asynchronous operations. If an API call embeds asynchronous operation
+results in its response, the status of those operations should be
+represented directly using the <code>Status</code> message.</p></li>
+
+<li><p>Logging. If some API errors are stored in logs, the message <code>Status</code> could
+be used directly after any stripping needed for security/privacy reasons.</p></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google.rpc.Status.code">
+<td><code>code</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The status code, which should be an enum value of <em>google.rpc.Code</em>.</p>
+
+</td>
+</tr>
+<tr id="google.rpc.Status.message">
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>
+<p>A developer-facing error message, which should be in English. Any
+user-facing error message should be localized and sent in the
+<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+
+</td>
+</tr>
+<tr id="google.rpc.Status.details">
+<td><code>details</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
+<td>
+<p>A list of messages that carry the error details.  There is a common set of
+message types for APIs to use.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

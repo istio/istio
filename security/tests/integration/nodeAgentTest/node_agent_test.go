@@ -76,13 +76,15 @@ func readURI(uri string) (string, error) {
 	return string(bodyBytes), nil
 }
 
+// Test that the node agent's root cert is equal to the initial root cert, and the node agent's
+// cert chain is updated to be different from the initial cert chain.
 func TestNodeAgent(t *testing.T) {
-	orgRootCert, err := readFile(config.rootCert)
+	initialRootCert, err := readFile(config.rootCert)
 	if err != nil {
 		t.Errorf("unable to read original root certificate: %v", config.rootCert)
 	}
 
-	orgCertChain, err := readFile(config.certChain)
+	initialCertChain, err := readFile(config.certChain)
 	if err != nil {
 		t.Errorf("unable to read original certificate chain: %v", config.certChain)
 	}
@@ -100,43 +102,41 @@ func TestNodeAgent(t *testing.T) {
 			term = term * 2
 		}
 
-		certPEM, err := readURI(fmt.Sprintf("http://%v:8080/cert", nodeAgentIPAddress))
+		retrievedCertChain, err := readURI(fmt.Sprintf("http://%v:8080/cert", nodeAgentIPAddress))
 		if err != nil {
 			glog.Errorf("failed to read the certificate of NodeAgent: %v", err)
 			continue
 		}
 
-		rootPEM, err := readURI(fmt.Sprintf("http://%v:8080/root", nodeAgentIPAddress))
+		retrievedRootCert, err := readURI(fmt.Sprintf("http://%v:8080/root", nodeAgentIPAddress))
 		if err != nil {
 			glog.Errorf("failed to read the root certificate of NodeAgent: %v", err)
 			continue
 		}
 
-		t.Logf("Local root certificate\n%v\nRemote root certificate\n%v\nTimestamp: %v", orgRootCert, rootPEM, time.Now().String())
-
-		if orgRootCert != rootPEM {
-			t.Errorf("invalid root certificate was downloaded")
+		if initialRootCert != retrievedRootCert {
+			t.Errorf("invalid root certificate was downloaded:\n%s\nExpected:\n%s", retrievedRootCert, initialRootCert)
 		}
 
-		if orgCertChain == certPEM {
-			glog.Error("certificate chain was not updated yet")
+		if initialCertChain == retrievedCertChain {
+			glog.Warning("certificate chain is not updated yet")
 			continue
 		}
 
 		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(orgRootCert))
+		ok := roots.AppendCertsFromPEM([]byte(initialRootCert))
 		if !ok {
-			t.Errorf("failed to parse root certificate")
+			t.Errorf("failed to append initial root certificate from PEM: %s", initialRootCert)
 		}
 
-		block, _ := pem.Decode([]byte(certPEM))
+		block, _ := pem.Decode([]byte(retrievedCertChain))
 		if block == nil {
-			t.Errorf("failed to parse certificate PEM")
+			t.Errorf("failed to parse retrieved certificate chain PEM: %s", retrievedCertChain)
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			t.Errorf("failed to parse certificate: %v", err)
+			t.Errorf("failed to parse retrieved x509 certificate: %v", err)
 		}
 
 		opts := x509.VerifyOptions{
@@ -144,13 +144,13 @@ func TestNodeAgent(t *testing.T) {
 		}
 
 		if _, err := cert.Verify(opts); err != nil {
-			t.Errorf("failed to verify certificate: %v", err)
+			t.Errorf("failed to verify certificate. Error: %v\nCertificate:\n%s", err, retrievedCertChain)
 		}
 
 		return
 	}
 
-	t.Errorf("failed to check certificate update and validate after %v retry", certValidateRetry)
+	t.Errorf("failed to check certificate update and validate after %v retries", certValidateRetry)
 }
 
 func TestMain(m *testing.M) {

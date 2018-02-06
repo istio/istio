@@ -35,8 +35,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "c2a68353555b68de3ee8455a4fd3e890a0ac6d99"
-  version = "v9.8.1"
+  revision = "fc3b03a2d2d1f43fad3007038bd16f044f870722"
+  version = "v9.10.0"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -67,6 +67,21 @@
   name = "github.com/PuerkitoBio/urlesc"
   packages = ["."]
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
+
+[[projects]]
+  name = "github.com/alicebob/miniredis"
+  packages = [
+    ".",
+    "server"
+  ]
+  revision = "aefbaa72e488a5bbca434ab16c56cdffecbdfd47"
+  version = "2.3.0"
+
+[[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = ["."]
+  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/aokoli/goutils"
@@ -108,8 +123,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "1b176c5c6b57adb03bb982c21930e708ebca5a77"
-  version = "v1.12.70"
+  revision = "0cbaf57ea311890e62f0b01652529295079e9e95"
+  version = "v1.12.71"
 
 [[projects]]
   branch = "master"
@@ -158,8 +173,8 @@
 [[projects]]
   name = "github.com/cpuguy83/go-md2man"
   packages = ["md2man"]
-  revision = "1d903dcb749992f3741d744c0f8376b4bd7eb3e1"
-  version = "v1.0.7"
+  revision = "20f5889cbdc3c73dbd2862796665e7c465ade7d1"
+  version = "v1.0.8"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -186,7 +201,7 @@
     "digestset",
     "reference"
   ]
-  revision = "5cb406d511b7b9163bff9b6439072e4892e5ae3b"
+  revision = "fea8bd51143307d3454703eadecbeeb778aa75e8"
 
 [[projects]]
   name = "github.com/emicklei/go-restful"
@@ -194,8 +209,8 @@
     ".",
     "log"
   ]
-  revision = "2dd44038f0b95ae693b266c5f87593b5d2fdd78d"
-  version = "v2.5.0"
+  revision = "26b41036311f2da8242db402557a0dbd09dc83da"
+  version = "v2.6.0"
 
 [[projects]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -246,13 +261,26 @@
   branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "fa03337d7da5735229ee8f5e9d5d0b996014b7f8"
+  revision = "f3499b5df53897321d6f5e9c22cf19309d41d3bc"
 
 [[projects]]
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
   revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+
+[[projects]]
+  name = "github.com/go-redis/redis"
+  packages = [
+    ".",
+    "internal",
+    "internal/consistenthash",
+    "internal/hashtag",
+    "internal/pool",
+    "internal/proto"
+  ]
+  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
+  version = "v6.8.0"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -314,7 +342,7 @@
   branch = "master"
   name = "github.com/golang/groupcache"
   packages = ["lru"]
-  revision = "84a468cf14b4376def5d68c722b139b881c450a4"
+  revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
   branch = "master"
@@ -323,6 +351,7 @@
     "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
+    "protoc-gen-go/plugin",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -331,7 +360,7 @@
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
 
 [[projects]]
   branch = "master"
@@ -346,10 +375,10 @@
   revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
 
 [[projects]]
-  branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
   revision = "e48060a28fac52d0f1cb758bc8b87c07bac4a87d"
+  version = "v15.0.0"
 
 [[projects]]
   branch = "master"
@@ -397,7 +426,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "4a3f5ae58624b68283375060dad06a214b05a32b"
+  revision = "20b1624f68f5c4cbc77a05db6b713f769da22b33"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -487,7 +516,7 @@
     ".",
     "simplelru"
   ]
-  revision = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6"
+  revision = "0fb14efe8c47ae851c0034ed7a448854d3d34cf3"
 
 [[projects]]
   name = "github.com/hashicorp/serf"
@@ -524,6 +553,12 @@
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/istio/tools"
+  packages = ["protoc-gen-docs"]
+  revision = "6e367b6e80075008a26f9f23cbd2bf4e51c5761d"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -730,6 +765,12 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/shurcooL/sanitized_anchor_name"
+  packages = ["."]
+  revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
+
+[[projects]]
   name = "github.com/spf13/cobra"
   packages = [
     ".",
@@ -753,8 +794,8 @@
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
-  version = "v1.2.0"
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   name = "github.com/tinylib/msgp"
@@ -791,6 +832,17 @@
   packages = ["metrics"]
   revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
   version = "v1.3.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/yuin/gopher-lua"
+  packages = [
+    ".",
+    "ast",
+    "parse",
+    "pm"
+  ]
+  revision = "478861c8ce6e8c2f16d5984d5ed30c4327c70437"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -846,7 +898,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
+  revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
 
 [[projects]]
   branch = "master"
@@ -873,7 +925,7 @@
     "unix",
     "windows"
   ]
-  revision = "ff2a66f350cefa5c93a634eadb5d25bb60c85a9c"
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
   branch = "master"
@@ -922,7 +974,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "25101aadb97aa42907eee6a238d6d26a6cb3c756"
+  revision = "66487607e2081c7c2af2281c62c14ee000d5024b"
 
 [[projects]]
   branch = "master"
@@ -942,7 +994,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "1a260eb4fee522e1504ed84285a054de9b65e458"
+  revision = "dd4abe06aa49b67d2b9beb8fd75c39809625dada"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -979,7 +1031,7 @@
     "googleapis/rpc/status",
     "protobuf/field_mask"
   ]
-  revision = "4eb30f4778eed4c258ba66527a0d4f9ec8a36c45"
+  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -1021,6 +1073,12 @@
   version = "v0.9.0"
 
 [[projects]]
+  name = "gopkg.in/russross/blackfriday.v2"
+  packages = ["."]
+  revision = "cadec560ec52d93835bf2f15bd794700d3a2473b"
+  version = "v2.0.0"
+
+[[projects]]
   name = "gopkg.in/square/go-jose.v2"
   packages = [
     ".",
@@ -1034,7 +1092,7 @@
   branch = "v2"
   name = "gopkg.in/validator.v2"
   packages = ["."]
-  revision = "460c83432a98c35224a6fe352acf8b23e067ad06"
+  revision = "59c90c7046f643cbe0d4e7c8776c42a84ce75910"
 
 [[projects]]
   branch = "v2"
@@ -1045,9 +1103,10 @@
 [[projects]]
   name = "istio.io/api"
   packages = [
-    "broker/v1/config",
+    "broker/dev",
     "mesh/v1alpha1",
     "mixer/v1",
+    "mixer/v1/config",
     "mixer/v1/config/client",
     "mixer/v1/config/descriptor",
     "mixer/v1/template",
@@ -1055,7 +1114,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "58de5731b5401268263924fae9df7d091813c19e"
+  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1075,7 +1134,7 @@
     "googleapis/google/api",
     "googleapis/google/rpc"
   ]
-  revision = "67f8f8d47316e96703fa2fd09038285aecdb7535"
+  revision = "dd2b5b6a8f1400838165245e704a011a30154a44"
 
 [[projects]]
   branch = "release-1.9"
@@ -1182,7 +1241,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "1bf7de8f04f0b4d4274581e73a27bf850617b49a"
+  revision = "340247246b5ea93d9b51908592ed8f6b94f82674"
 
 [[projects]]
   branch = "release-6.0"
@@ -1320,7 +1379,7 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
+  revision = "275e2ce91dec4c05a4094a7b1daee5560b555ac9"
 
 [[projects]]
   branch = "release-1.9"
@@ -1335,11 +1394,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "58bd73b356c730eeb00c48095de1f9e3a30f7c20"
+  revision = "ac1d59be31cbe3d8260feec77939ba9637fb43f1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "03d5d5d44656f6beb6ef793749262b8d33430acaee90bcaacde1d06fbb425958"
+  inputs-digest = "1e49dcb1cab3b44eb42c25a061615f386ff2bcdd48fbea82430a7f24555afd34"
   solver-name = "gps-cdcl"
   solver-version = 1

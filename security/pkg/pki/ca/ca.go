@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -92,14 +92,14 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	if err != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", err)
 
-		options := CertOptions{
+		options := util.CertOptions{
 			TTL:          caCertTTL,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
 		}
-		pemCert, pemKey, err := GenCertKeyFromOptions(options)
+		pemCert, pemKey, err := util.GenCertKeyFromOptions(options)
 		if err != nil {
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", err)
 		}
@@ -148,12 +148,12 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
 
 	var err error
-	ca.signingCert, err = pki.ParsePemEncodedCertificate(opts.SigningCertBytes)
+	ca.signingCert, err = util.ParsePemEncodedCertificate(opts.SigningCertBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	ca.signingKey, err = pki.ParsePemEncodedKey(opts.SigningKeyBytes)
+	ca.signingKey, err = util.ParsePemEncodedKey(opts.SigningKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (ca *IstioCA) GetRootCertificate() []byte {
 // Sign takes a PEM-encoded certificate signing request and returns a signed
 // certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
-	csr, err := pki.ParsePemEncodedCSR(csrPEM)
+	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
 	}
 
-	certBytes, err := GenCertFromCSR(csr, ca.signingCert, csr.PublicKey, ca.signingKey, ttl, forCA)
+	certBytes, err := util.GenCertFromCSR(csr, ca.signingCert, csr.PublicKey, ca.signingKey, ttl, forCA)
 	if err != nil {
 		return nil, err
 	}

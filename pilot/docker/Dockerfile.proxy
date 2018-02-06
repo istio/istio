@@ -1,10 +1,11 @@
-# Change this and ../../WORKSPACE at the same time
-FROM gcr.io/istio-testing/envoy:55debe7c355d1a474819cdd812cdd73f6b5fb033
+# keep Dockerfile.proxy and Dockerfile.proxy_debug consistent for proxy sha
+FROM gcr.io/istio-testing/envoy:4a59a04196e99d30438d49fef5666fe68d49fc84
 ADD pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
 COPY envoy_pilot_auth.json /etc/istio/proxy/envoy_pilot_auth.json
 COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json
 COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
+COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

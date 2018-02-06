@@ -77,20 +77,27 @@ func TestUnmountDev(t *testing.T) {
 // TODO(wattli): improve the testing cases for Mount().
 func TestMount(t *testing.T) {
 	err := Mount("device", "opts")
-	if err == nil {
+	if err != nil {
 		t.Errorf("Mount function failed.")
 	}
 
 	opts := `{"Uid": "myuid", "Nme": "myname", "Namespace": "mynamespace", "ServiceAccount": "myaccount"}`
 	err = Mount("/tmp", opts)
-	if err == nil {
+	if err != nil {
 		t.Errorf("Mount function failed: %s.", err.Error())
 	}
 }
 
 func TestUnmount(t *testing.T) {
 	err := Unmount("/tmp")
-	if err == nil {
+	if err != nil {
 		t.Errorf("Unmount function failed.")
+	}
+}
+
+func TestGetVolName(t *testing.T) {
+	err := GetVolName("/tmp")
+	if err != nil {
+		t.Errorf("GetVolName function failed.")
 	}
 }

@@ -24,11 +24,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	cpb "istio.io/api/mixer/v1/config"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"

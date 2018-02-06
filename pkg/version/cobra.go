@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CobraCommand is a command used to print version information.
+// CobraCommand returns a command used to print version information.
 func CobraCommand() *cobra.Command {
 	var short bool
 

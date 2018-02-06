@@ -31,7 +31,7 @@ CLUSTER_NAME=
 # CLUSTER_VERSION="${VERSIONS[1]}"
 
 # TODO(https://github.com/istio/istio/issues/2929)
-CLUSTER_VERSION=1.9.1-gke.0
+CLUSTER_VERSION=1.9.2-gke.0
 
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
 CLUSTER_CREATED=false

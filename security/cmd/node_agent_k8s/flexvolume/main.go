@@ -15,11 +15,12 @@
 package main
 
 import (
-	"errors"
-	"os"
+	"fmt"
+	"log"
+	"log/syslog"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/log"
+
 	"istio.io/istio/security/cmd/node_agent_k8s/flexvolume/driver"
 )
 
@@ -29,6 +30,8 @@ const (
 )
 
 var (
+	logWrt *syslog.Writer
+
 	// RootCmd defines the root command for the driver.
 	RootCmd = &cobra.Command{
 		Use:   "flexvoldrv",
@@ -43,8 +46,7 @@ var (
 		Long:  "Flex volume init command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				log.Error("mount takes 0 args")
-				return errors.New("mount takes 0 args")
+				return fmt.Errorf("init takes no arguments")
 			}
 			return driver.Init(ver)
 		},
@@ -57,8 +59,7 @@ var (
 		Long:  "Flex volumen attach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 || len(args) > 2 {
-				log.Error("mount takes 2 args")
-				return errors.New("mount takes 2 args")
+				return fmt.Errorf("attach takes at most 2 args")
 			}
 			return driver.Attach(args[0], args[1])
 		},
@@ -71,8 +72,7 @@ var (
 		Long:  "Flex volume detach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				log.Error("mount takes 1 args")
-				return errors.New("mount takes 1 args")
+				return fmt.Errorf("detach takes at least 1 arg")
 			}
 			return driver.Detach(args[0])
 		},
@@ -85,8 +85,7 @@ var (
 		Long:  "Flex volume waitforattach command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				log.Error("mount takes 2 args")
-				return errors.New("mount takes 2 args")
+				return fmt.Errorf("waitforattach takes at least 2 arg")
 			}
 			return driver.WaitAttach(args[0], args[1])
 		},
@@ -99,8 +98,7 @@ var (
 		Long:  "Flex volume isattached command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				log.Error("mount takes 2 args")
-				return errors.New("mount takes 2 args")
+				return fmt.Errorf("isattached takes at least 2 arg")
 			}
 			return driver.IsAttached(args[0], args[1])
 		},
@@ -113,8 +111,7 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 3 {
-				log.Error("mount takes 3 args")
-				return errors.New("mount takes 3 args")
+				return fmt.Errorf("mountdevice takes 3 args")
 			}
 			return driver.MountDev(args[0], args[1], args[2])
 		},
@@ -127,8 +124,7 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				log.Error("mount takes 1 args")
-				return errors.New("mount takes 1 args")
+				return fmt.Errorf("unmountdevice takes 1 arg")
 			}
 			return driver.UnmountDev(args[0])
 		},
@@ -141,8 +137,7 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				log.Error("mount takes 2 args")
-				return errors.New("mount takes 2 args")
+				return fmt.Errorf("mount takes 2 args")
 			}
 			return driver.Mount(args[0], args[1])
 		},
@@ -155,10 +150,22 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				log.Error("mount takes 1 args")
-				return errors.New("mount takes 1 args")
+				return fmt.Errorf("mount takes 1 args")
 			}
 			return driver.Unmount(args[0])
+		},
+	}
+
+	// GetVolNameCmd defines the getvolumename command
+	GetVolNameCmd = &cobra.Command{
+		Use:   "getvolumename",
+		Short: "Flex volume getvolumename command.",
+		Long:  "Flex volume getvolumename command.",
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("mount takes 1 args")
+			}
+			return driver.GetVolName(args[0])
 		},
 	}
 )
@@ -173,11 +180,22 @@ func init() {
 	RootCmd.AddCommand(UnmountDevCmd)
 	RootCmd.AddCommand(MountCmd)
 	RootCmd.AddCommand(UnmountCmd)
+	RootCmd.AddCommand(GetVolNameCmd)
 }
 
 func main() {
-	if err := RootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(-1)
+	var err error
+	logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer logWrt.Close()
+
+	if logWrt == nil {
+		fmt.Println("am Logwrt is nil")
+	}
+	if err = RootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
+
 }

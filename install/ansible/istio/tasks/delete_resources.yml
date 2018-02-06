@@ -27,8 +27,12 @@
   ignore_errors: true
 
 - name: Delete whatever else might be left over
-  command: "{{ cmd_path }} delete all --all -n {{ istio.namespace }}"
+  command: "{{ cmd_path }} delete all --all -n {{ item }}"
   ignore_errors: true
+  with_items:
+    - "{{ istio.namespace }}"
+    - samples
+    - bookinfo
 
 - name: Wait for the previous command to complete
   pause:
