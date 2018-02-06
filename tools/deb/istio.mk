@@ -8,8 +8,8 @@ deb/build-in-docker:
         -w ${PWD} \
         -e USER=${USER} \
         -e GOPATH=${GOPATH} \
-		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
-		deb )
+		--entrypoint /bin/bash ${CI_HUB}/ci:${CI_VERSION} \
+		-c "make deb/fpm")
 
 # Create the 'sidecar' deb, including envoy and istio agents and configs.
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
@@ -34,7 +34,8 @@ ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env \
-		/var/lib/istio/envoy/envoy.json
+		/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+
 $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb:   tools/deb/$(notdir $(DEST))) \
         $(eval SIDECAR_FILES+=src/istio.io/istio/tools/deb/$(notdir $(DEST))=$(DEST)))
@@ -49,6 +50,10 @@ ISTIO_DEB_NAME ?= istio-sidecar
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
 ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
+	$(MAKE) deb/fpm
+
+# This got way too complex - used only to run fpm in a container.
+deb/fpm:
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
 		--url http://istio.io  \
@@ -56,8 +61,8 @@ ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 		--vendor istio.io \
 		--maintainer istio@istio.io \
 		--after-install tools/deb/postinst.sh \
+		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
-		--config-files /var/lib/istio/envoy/envoy.json \
 		--description "Istio" \
 		$(SIDECAR_FILES)
 

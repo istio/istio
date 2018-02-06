@@ -56,6 +56,11 @@ const (
 // to allow changing the value for unittests.
 var retryInterval = time.Second / 2
 
+// When retrying happens on initializing caches, it shouldn't log the message for
+// every retry, it may flood the log messages if the initialization is never satisfied.
+// see also https://github.com/istio/istio/issues/3138
+const logPerRetries = 100
+
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
@@ -121,7 +126,7 @@ func (s *Store) checkAndCreateCaches(
 		kindsSet[k] = true
 	}
 	informers := map[string]cache.SharedInformer{}
-	retry := false
+	retryCount := 0
 	retryCtx := ctx
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -132,10 +137,17 @@ func (s *Store) checkAndCreateCaches(
 		if retryCtx.Err() != nil {
 			break
 		}
-		if retry {
-			log.Debug("Retrying to fetch config...")
+		if retryCount > 0 {
+			if retryCount%logPerRetries == 1 {
+				remainingKeys := make([]string, 0, len(kinds))
+				for k := range kindsSet {
+					remainingKeys = append(remainingKeys, k)
+				}
+				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
+			}
 			time.Sleep(retryInterval)
 		}
+		retryCount++
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
 			log.Debugf("Failed to obtain resources for CRD: %v", err)
@@ -158,7 +170,6 @@ func (s *Store) checkAndCreateCaches(
 			}
 		}
 		s.cacheMutex.Unlock()
-		retry = true
 	}
 	<-waitForSynced(ctx, informers)
 	remaining := make([]string, 0, len(kindsSet))

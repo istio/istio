@@ -199,6 +199,10 @@ type LabelsCollection []Labels
 // description (which is oblivious to various versions) and a set of labels
 // that describe the service version associated with this instance.
 //
+// Since a ServiceInstance has a single NetworkEndpoint, which has a single port,
+// multiple ServiceInstances are required to represent a workload that listens
+// on multiple ports.
+//
 // The labels associated with a service instance are unique per a network endpoint.
 // There is one well defined set of labels for each service instance network endpoint.
 //
@@ -244,6 +248,17 @@ type ServiceDiscovery interface {
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetSidecarServiceInstances returns the service instances that are hosted on (implemented by) a given Node
+	//
+	// There are two reasons why this returns multiple ServiceInstances instead of one:
+	// - A ServiceInstance has a single NetworkEndpoint which has a single Port.  But a Service
+	//   may have many ports.  So a workload implementing such a Service would need
+	//   multiple ServiceInstances, one for each port.
+	// - A single workload may implement multiple logical Services.
+	//
+	// In the second case, multiple services may be implemented by the same physical port number,
+	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
+	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
+	// determine the intendend destination of a connection without a Host header on the request.
 	GetSidecarServiceInstances(Node) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.

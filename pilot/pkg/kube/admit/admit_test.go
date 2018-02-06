@@ -386,6 +386,7 @@ func TestServe(t *testing.T) {
 			t.Errorf("%v: AdmissionReview.Response.Allowed is wrong : got %v want %v",
 				c.name, gotReview.Response.Allowed, c.wantAllowed)
 		}
+		_ = res.Body.Close()
 	}
 }
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentk8s
+package nodeagentmgmt
 
 import (
 	"net"
@@ -20,26 +20,28 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/pkg/log"
+	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 	pb "istio.io/istio/security/proto"
 )
 
 // Server specify the node agent server.
 type Server struct {
-	wlmgmts    map[string]WorkloadMgmtInterface
+	wlmgmts    map[string]mwi.WorkloadMgmtInterface
 	pathPrefix string
 	done       chan bool //main 2 mgmt-api server to stop
-	wli        *WlHandler
+	wli        *mwi.WlHandler
 }
 
 // NewServer create a new server.
-func NewServer(pathPrefix string, wli *WlHandler) *Server {
+func NewServer(pathPrefix string, wli *mwi.WlHandler) *Server {
 	return &Server{
 		done:       make(chan bool, 1),
 		pathPrefix: pathPrefix,
 		wli:        wli,
-		wlmgmts:    make(map[string]WorkloadMgmtInterface),
+		wlmgmts:    make(map[string]mwi.WorkloadMgmtInterface),
 	}
 }
 
@@ -118,12 +120,6 @@ func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) 
 
 	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
 	return &pb.NodeAgentMgmtResponse{Status: status}, nil
-}
-
-// Check is a dummy func.
-func (s *Server) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
-	// TODO(wattli): consolidate this.
-	return nil, nil
 }
 
 // CloseAllWlds close the paths.

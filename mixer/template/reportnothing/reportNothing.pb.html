@@ -1,0 +1,29 @@
+---
+title: Report Nothing
+overview: A template that carries no data, useful for testing.
+location: https://istio.io/docs/reference/config/template/reportnothing.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>reportnothing</code> template represents an empty block of data, which can useful
+in different testing scenarios.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>ReportNothing represents an empty block of data that is used for Report-capable
+adapters which don&rsquo;t require any parameters. This is primarily intended for testing
+scenarios.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: reportnothing
+metadata:
+  name: reportrequest
+  namespace: istio-system
+spec:
+</code></pre>
+
+</section>
+{% endraw %}

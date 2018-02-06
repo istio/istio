@@ -1,0 +1,86 @@
+---
+title: Metric
+overview: A template that represents a single runtime metric.
+location: https://istio.io/docs/reference/config/template/metric.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>metric</code> template is designed to let you describe runtime metric to dispatch to
+monitoring backends.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>metric</code> template represents a single piece of data to report.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: metric
+metadata:
+  name: requestsize
+  namespace: istio-system
+spec:
+  value: request.size | 0
+  dimensions:
+    source_service: source.service | &quot;unknown&quot;
+    source_version: source.labels[&quot;version&quot;] | &quot;unknown&quot;
+    destination_service: destination.service | &quot;unknown&quot;
+    destination_version: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
+    response_code: response.code | 200
+  monitored_resource_type: '&quot;UNSPECIFIED&quot;'
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.value">
+<td><code>value</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a></code></td>
+<td>
+<p>The value being reported.</p>
+
+</td>
+</tr>
+<tr id="Template.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>The unique identity of the particular metric to report.</p>
+
+</td>
+</tr>
+<tr id="Template.monitored_resource_type">
+<td><code>monitoredResourceType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. An expression to compute the type of the monitored resource this metric is being reported on.
+If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
+these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+<tr id="Template.monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
+If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
+these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

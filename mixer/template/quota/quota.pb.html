@@ -1,0 +1,54 @@
+---
+title: Quota
+overview: A template that represents a quota allocation request
+location: https://istio.io/docs/reference/config/template/quota.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>quota</code> template represents an item for which to check quota.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>quota</code> template represents a piece of data to check Quota for.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code>apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: quota
+metadata:
+  name: requestcount
+  namespace: istio-system
+spec:
+  dimensions:
+    source: source.labels[&quot;app&quot;] | source.service | &quot;unknown&quot;
+    sourceVersion: source.labels[&quot;version&quot;] | &quot;unknown&quot;
+    destination: destination.labels[&quot;app&quot;] | destination.service | &quot;unknown&quot;
+    destinationVersion: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>The unique identity of the particular quota to manipulate.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

@@ -1,0 +1,139 @@
+---
+title: Memory quota
+overview: Adapter for a simple in-memory quota management system.
+location: https://istio.io/docs/reference/config/adapters/memquota.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>memquota</code> adapter can be used to support Istio&rsquo;s quota management
+system. Although functional, this adapter is not intended for production
+use and is suited for local testing only. The reason for this limitation
+is that this adapter can only be used in meshes where there is a single
+instance of Mixer running for the whole mesh (i.e. non-HA configuration)
+and if that single instance crashes, all outstanding quota values will
+be lost.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>memquota</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.quotas">
+<td><code>quotas</code></td>
+<td><code><a href="#Params.Quota">Params.Quota[]</a></code></td>
+<td>
+<p>The set of known quotas.</p>
+
+</td>
+</tr>
+<tr id="Params.min_deduplication_duration">
+<td><code>minDeduplicationDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Minimum number of seconds that deduplication is possible for a given operation.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Override">Params.Override</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Override.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string, string&gt;</code></td>
+<td>
+<p>The specific dimensions for which this override applies.
+String representation of instance dimensions is used to check against configured dimensions.</p>
+
+</td>
+</tr>
+<tr id="Params.Override.max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota.</p>
+
+</td>
+</tr>
+<tr id="Params.Override.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time allocated quota remains valid before it is
+automatically released. This is only meaningful for rate limit
+quotas, otherwise the value must be zero.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Quota">Params.Quota</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Quota.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the quota</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota.</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time allocated quota remains valid before it is
+automatically released. This is only meaningful for rate limit
+quotas, otherwise the value must be zero.</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.overrides">
+<td><code>overrides</code></td>
+<td><code><a href="#Params.Override">Params.Override[]</a></code></td>
+<td>
+<p>Overrides associated with this quota.
+The first matching override is applied.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
