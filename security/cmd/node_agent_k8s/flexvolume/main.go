@@ -38,7 +38,7 @@ var (
 		Long:  "Flex volume driver interface for Node Agent.",
 	}
 
-  // InitCmd defines the init command for the driver.
+	// InitCmd defines the init command for the driver.
 	InitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Flex volume init command.",
@@ -51,7 +51,7 @@ var (
 		},
 	}
 
-  // MountCmd defines the mount command
+	// MountCmd defines the mount command
 	MountCmd = &cobra.Command{
 		Use:   "mount",
 		Short: "Flex volume unmount command.",
@@ -64,7 +64,7 @@ var (
 		},
 	}
 
-  // UnmountCmd defines the unmount command
+	// UnmountCmd defines the unmount command
 	UnmountCmd = &cobra.Command{
 		Use:   "unmount",
 		Short: "Flex volume unmount command.",
@@ -86,17 +86,17 @@ func init() {
 
 func main() {
 	var err error
-  logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer logWrt.Close()
+	logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logWrt.Close()
 
-		if logWrt == nil {
-			fmt.Println("am Logwrt is nil")
-		}
-		if err = RootCmd.Execute(); err != nil {
-			log.Fatal(err)
-		}
+	if logWrt == nil {
+		fmt.Println("am Logwrt is nil")
+	}
+	if err = RootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 
 }
