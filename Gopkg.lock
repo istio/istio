@@ -78,12 +78,6 @@
   version = "2.3.0"
 
 [[projects]]
-  name = "github.com/garyburd/redigo"
-  packages = ["."]
-  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
-  version = "v1.4.0"
-
-[[projects]]
   name = "github.com/aokoli/goutils"
   packages = ["."]
   revision = "3391d3790d23d03408670993e957e8f408993c34"
@@ -204,6 +198,15 @@
   revision = "fea8bd51143307d3454703eadecbeeb778aa75e8"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/docker/spdystream"
+  packages = [
+    ".",
+    "spdy"
+  ]
+  revision = "bc6354cbbc295e925e4c611ffe90c1f287ee54db"
+
+[[projects]]
   name = "github.com/emicklei/go-restful"
   packages = [
     ".",
@@ -232,6 +235,15 @@
   name = "github.com/fullsailor/pkcs7"
   packages = ["."]
   revision = "a009d8d7de53d9503c797cb8ec66fa3b21eed209"
+
+[[projects]]
+  name = "github.com/garyburd/redigo"
+  packages = [
+    "internal",
+    "redis"
+  ]
+  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -1114,7 +1126,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
+  revision = "ebec456e6f980d4938b94924da14954e31c206eb"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1215,10 +1227,13 @@
     "pkg/util/diff",
     "pkg/util/errors",
     "pkg/util/framer",
+    "pkg/util/httpstream",
+    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/mergepatch",
     "pkg/util/net",
+    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -1230,6 +1245,7 @@
     "pkg/version",
     "pkg/watch",
     "third_party/forked/golang/json",
+    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect"
   ]
   revision = "19e3f5aa3adca672c153d324e6b7d82ff8935f03"
@@ -1331,9 +1347,12 @@
     "tools/pager",
     "tools/record",
     "tools/reference",
+    "tools/remotecommand",
     "transport",
+    "transport/spdy",
     "util/buffer",
     "util/cert",
+    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
@@ -1399,6 +1418,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1e49dcb1cab3b44eb42c25a061615f386ff2bcdd48fbea82430a7f24555afd34"
+  inputs-digest = "86ab2030a704d8548af57b50e980b7eec866cba9de1b632f4eaf211b5b42ea40"
   solver-name = "gps-cdcl"
   solver-version = 1
