@@ -44,6 +44,10 @@ const (
 
 	maxWorkloadCertTTL = 7 * 24 * time.Hour
 
+	// The default length of certificate rotation grace period, configured as
+	// the ratio of the certificate TTL.
+	defaultWorkloadCertGracePeriodRatio = 0.5
+
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
 
@@ -66,9 +70,10 @@ type cliOptions struct {
 	selfSignedCA    bool
 	selfSignedCAOrg string
 
-	caCertTTL          time.Duration
-	workloadCertTTL    time.Duration
-	maxWorkloadCertTTL time.Duration
+	caCertTTL                    time.Duration
+	workloadCertTTL              time.Duration
+	maxWorkloadCertTTL           time.Duration
+	workloadCertGracePeriodRatio float32
 
 	grpcHostname string
 	grpcPort     int
@@ -123,6 +128,8 @@ func init() {
 		"The TTL of self-signed CA root certificate")
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
 	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio", defaultWorkloadCertGracePeriodRatio,
+		"The workload certificate rotation grace period, as a ratio of the workload certificate TTL.")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
@@ -160,7 +167,8 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc := controller.NewSecretController(ca, opts.workloadCertTTL, cs.CoreV1(), opts.namespace)
+	sc := controller.NewSecretController(ca, opts.workloadCertTTL, time.Duration(opts.workloadCertGracePeriodRatio)*opts.workloadCertTTL,
+		cs.CoreV1(), opts.namespace)
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)

@@ -60,7 +60,10 @@ const (
 type SecretController struct {
 	ca      ca.CertificateAuthority
 	certTTL time.Duration
-	core    corev1.CoreV1Interface
+	// Length of the grace period for the certificate rotation.
+	gracePeriod time.Duration
+
+	core corev1.CoreV1Interface
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -72,13 +75,14 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, core corev1.CoreV1Interface,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriod time.Duration, core corev1.CoreV1Interface,
 	namespace string) *SecretController {
 
 	c := &SecretController{
-		ca:      ca,
-		certTTL: certTTL,
-		core:    core,
+		ca:          ca,
+		certTTL:     certTTL,
+		core:        core,
+		gracePeriod: gracePeriod,
 	}
 
 	saLW := &cache.ListWatch{
@@ -269,7 +273,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if ttl < sc.gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
