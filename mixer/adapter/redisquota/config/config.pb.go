@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `redisquota` adapter can be used to support Istio's quota management
+	system. It depends on a Redis server to store quota values.
+
 	It is generated from these files:
 		mixer/adapter/redisquota/config/config.proto
 
@@ -43,12 +46,12 @@ var _ = time.Kitchen
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Algorithms for rate-limiting:
-// FIXED_WINDOW - The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
-// ROLLING_WINDOW - The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
 type Params_QuotaAlgorithm int32
 
 const (
-	FIXED_WINDOW   Params_QuotaAlgorithm = 0
+	// FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+	FIXED_WINDOW Params_QuotaAlgorithm = 0
+	// ROLLING_WINDOW The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
 	ROLLING_WINDOW Params_QuotaAlgorithm = 1
 )
 

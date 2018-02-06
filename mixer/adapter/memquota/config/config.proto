@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-// $title: Memquota
+// $title: Memory quota
 // $overview: Adapter for a simple in-memory quota management system.
 // $location: https://istio.io/docs/reference/config/adapters/memquota.html
 
