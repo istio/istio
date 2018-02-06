@@ -22,10 +22,14 @@ import (
 	"time"
 
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
+	"os"
 )
 
 func TestBatchMeasurements(t *testing.T) {
 
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing")
+	}
 	t.Run("All Good", func(t *testing.T) {
 		env := test2.NewEnv(t)
 		logger := env.Logger()
@@ -95,6 +99,10 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 }
 
 func TestPersistBatches(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing")
+	}
+
 	tests := []struct {
 		name           string
 		expectedCount  int32

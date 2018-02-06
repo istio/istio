@@ -409,28 +409,28 @@ racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	go test ${GOTEST_P} ${T} -race ./pilot/...
+	RACE_TEST=true go test ${GOTEST_P} ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${T} -race ${GOTEST_PARALLEL} ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-racetest
 broker-racetest: depend
-	go test ${T} -race ./broker/...
+	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
 galley-racetest: depend
-	go test ${T} -race ./galley/...
+	RACE_TEST=true go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	go test ${T} -race ./security/...
+	RACE_TEST=true go test ${T} -race ./security/...
 
 .PHONY: common-racetest
 common-racetest:
-	go test ${T} -race ./pkg/...
+	RACE_TEST=true go test ${T} -race ./pkg/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

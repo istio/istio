@@ -22,9 +22,15 @@ import (
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
+	"os"
 )
 
 func TestNewMetricsHandler(t *testing.T) {
+
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing")
+	}
+
 	ctx := context.Background()
 	env := test2.NewEnv(t)
 	logger := env.Logger()

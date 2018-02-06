@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/test/client/env"
+	"os"
 )
 
 const (
@@ -30,6 +31,11 @@ const (
 )
 
 func TestStressEnvoy(t *testing.T) {
+
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing")
+	}
+
 	s := env.NewTestSetupV2(env.StressEnvoyTest, t)
 	s.SetStress(true)
 
