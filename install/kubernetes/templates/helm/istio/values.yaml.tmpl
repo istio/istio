@@ -30,8 +30,6 @@ global:
   rbacEnabled: true
   # mutual TLS authentication
   securityEnabled: false
-  # mutating webhooks avail with automatic sidecar injection
-  sidecarInjectEnabled: false
 
 #
 # ingress configuration
@@ -58,7 +56,7 @@ service:
 # sidecar-injector configuration
 #
 sidecarInjector:
-  enabled: true
+  enabled: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
