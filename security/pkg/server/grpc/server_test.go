@@ -60,6 +60,10 @@ func (ca *mockCA) GetRootCertificate() []byte {
 	return []byte(ca.root)
 }
 
+func (ca *mockCA) GetCertificateChain() []byte {
+	return []byte("")
+}
+
 type mockAuthenticator struct {
 	authSource authSource
 	identities []string
