@@ -10,7 +10,7 @@ spec:
         app: flex-deploy
     spec:
       containers:
-        - image: "gcr.io/kubernetes-1-151323/flex_deploy:lita-code-latest"
+        - image: "gcr.io/kubernetes-1-151323/flex_deploy:latest-dummy"
           name: flex-deploy
           imagePullPolicy: Always
           securityContext:
@@ -21,4 +21,4 @@ spec:
       volumes:
         - name: flexvolume-mount
           hostPath:
-            path: /home/kubernetes/flexvolume/nodeagent~uds/
+            path: /etc/srv/kubernetes/kubelet-plugins/volume/exec/
