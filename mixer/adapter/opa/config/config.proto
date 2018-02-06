@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: OPA
+// $overview: Adapter that implements an Open Policy Agent engine
+// $location: https://istio.io/docs/reference/config/adapters/opa.html
+
+// The `opa` adapter exposes an [Open Policy Agent](https://www.openpolicyagent.org) engine
+// that provides sophisticated access control mechanisms.
 package adapter.opa.config;
 
 import "gogoproto/gogo.proto";
@@ -23,8 +29,10 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Example configuration:
+// Configuration format for the `opa` adapter.
 //
+// Example configuration:
+// ```
 // policy:
 //   - |+
 //     package mixerauthz
@@ -50,6 +58,7 @@ option (gogoproto.gostring_all) = false;
 //     }
 // checkMethod: "data.mixerauthz.allow"
 // failClose: true
+// ```
 message Params {
   // List of OPA policies
   repeated string policy = 1;

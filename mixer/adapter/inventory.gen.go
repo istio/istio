@@ -49,9 +49,9 @@ func Inventory() []adptr.InfoFn {
 		prometheus.GetInfo,
 		rbac.GetInfo,
 		servicecontrol.GetInfo,
+		solarwinds.GetInfo,
 		stackdriver.GetInfo,
 		statsd.GetInfo,
 		stdio.GetInfo,
-		solarwinds.GetInfo,
 	}
 }

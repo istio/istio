@@ -1,0 +1,99 @@
+---
+title: Log Entry
+overview: A template that represents a single runtime log entry.
+location: https://istio.io/docs/reference/config/template/logentry.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>logentry</code> template represents an individual entry within a log.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>logentry</code> template represents an individual entry within a log.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: logentry
+metadata:
+  name: accesslog
+  namespace: istio-system
+spec:
+  severity: '&quot;Default&quot;'
+  timestamp: request.time
+  variables:
+    sourceIp: source.ip | ip(&quot;0.0.0.0&quot;)
+    destinationIp: destination.ip | ip(&quot;0.0.0.0&quot;)
+    sourceUser: source.user | &quot;&quot;
+    method: request.method | &quot;&quot;
+    url: request.path | &quot;&quot;
+    protocol: request.scheme | &quot;http&quot;
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
+    latency: response.duration | &quot;0ms&quot;
+  monitored_resource_type: '&quot;UNSPECIFIED&quot;'
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.variables">
+<td><code>variables</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>Variables that are delivered for each log entry.</p>
+
+</td>
+</tr>
+<tr id="Template.timestamp">
+<td><code>timestamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#TimeStamp">istio.mixer.v1.template.TimeStamp</a></code></td>
+<td>
+<p>Timestamp is the time value for the log entry</p>
+
+</td>
+</tr>
+<tr id="Template.severity">
+<td><code>severity</code></td>
+<td><code>string</code></td>
+<td>
+<p>Severity indicates the importance of the log entry.</p>
+
+</td>
+</tr>
+<tr id="Template.monitored_resource_type">
+<td><code>monitoredResourceType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. An expression to compute the type of the monitored resource this log entry is being recorded on.
+If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+<tr id="Template.monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
+recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

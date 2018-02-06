@@ -1,0 +1,139 @@
+---
+title: List
+overview: Adapter that performs whitelist or blacklist checks
+location: https://istio.io/docs/reference/config/adapters/list.html
+layout: protoc-gen-docs
+number_of_entries: 2
+---
+{% raw %}
+<p>The <code>list</code> adapter makes it possible to perform simple whitelist or blacklist
+checks. You can configure the adapter with the list to check, or you can point
+it to a URL from where the list should be fetched. Lists can be simple strings,
+IP addresses, or regex patterns.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.provider_url">
+<td><code>providerUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Where to find the list to check against. This may be ommited for a completely local list.</p>
+
+</td>
+</tr>
+<tr id="Params.refresh_interval">
+<td><code>refreshInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Determines how often the provider is polled for
+an updated list</p>
+
+</td>
+</tr>
+<tr id="Params.ttl">
+<td><code>ttl</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Indicates how long to keep a list before discarding it.
+Typically, the TTL value should be set to noticeably longer (&gt; 2x) than the
+refresh interval to ensure continued operation in the face of transient
+server outages.</p>
+
+</td>
+</tr>
+<tr id="Params.caching_interval">
+<td><code>cachingInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Indicates the amount of time a caller of this adapter can cache an answer
+before it should ask the adapter again.</p>
+
+</td>
+</tr>
+<tr id="Params.caching_use_count">
+<td><code>cachingUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Indicates the number of times a caller of this adapter can use a cached answer
+before it should ask the adapter again.</p>
+
+</td>
+</tr>
+<tr id="Params.overrides">
+<td><code>overrides</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List entries that are consulted first, before the list from the server</p>
+
+</td>
+</tr>
+<tr id="Params.entry_type">
+<td><code>entryType</code></td>
+<td><code><a href="#Params.ListEntryType">Params.ListEntryType</a></code></td>
+<td>
+<p>Determines the kind of list entry and overrides.</p>
+
+</td>
+</tr>
+<tr id="Params.blacklist">
+<td><code>blacklist</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Whether the list operates as a blacklist or a whitelist.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.ListEntryType">Params.ListEntryType</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.ListEntryType.STRINGS">
+<td><code>STRINGS</code></td>
+<td>
+<p>List entries are treated as plain strings.</p>
+
+</td>
+</tr>
+<tr id="Params.ListEntryType.CASE_INSENSITIVE_STRINGS">
+<td><code>CASE_INSENSITIVE_STRINGS</code></td>
+<td>
+<p>List entries are treated as case-insensitive strings.</p>
+
+</td>
+</tr>
+<tr id="Params.ListEntryType.IP_ADDRESSES">
+<td><code>IP_ADDRESSES</code></td>
+<td>
+<p>List entries are treated as IP addresses and ranges.</p>
+
+</td>
+</tr>
+<tr id="Params.ListEntryType.REGEX">
+<td><code>REGEX</code></td>
+<td>
+<p>List entries are treated as re2 regexp. See https://github.com/google/re2/wiki/Syntax for syntax.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

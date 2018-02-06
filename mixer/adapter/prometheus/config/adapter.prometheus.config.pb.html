@@ -1,0 +1,321 @@
+---
+title: Prometheus
+overview: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
+location: https://istio.io/docs/reference/config/adapters/prometheus.html
+layout: protoc-gen-docs
+number_of_entries: 7
+---
+{% raw %}
+<p>The <code>prometheus</code> adapter collects Istio metrics and makes them available to
+<a href="https://prometheus.io">Prometheus</a>.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>prometheus</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.metrics">
+<td><code>metrics</code></td>
+<td><code><a href="#Params.MetricInfo">Params.MetricInfo[]</a></code></td>
+<td>
+<p>The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn&rsquo;t have a corresponding
+shape here, it will not be populated at runtime.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how a metric should be represented in Prometheus.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Recommended. The name is used to register the prometheus metric.
+It must be unique across all prometheus metrics as prometheus does not allow duplicate names.
+If name is not specified a sanitized version of instance_name is used.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.instance_name">
+<td><code>instanceName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name is the fully qualified name of the Istio metric instance
+that this MetricInfo processes.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.description">
+<td><code>description</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. A human readable description of this metric.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.kind">
+<td><code>kind</code></td>
+<td><code><a href="#Params.MetricInfo.Kind">Params.MetricInfo.Kind</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.buckets">
+<td><code>buckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
+<td>
+<p>For metrics with a metric kind of DISTRIBUTION, this provides a mechanism
+for configuring the buckets that will be used to store the aggregated values.
+This field must be provided for metrics declared to be of type DISTRIBUTION.
+This field will be ignored for non-distribution metric kinds.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.label_names">
+<td><code>labelNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The names of labels to use: these need to match the dimensions of the Istio metric.
+TODO: see if we can remove this and rely on only the dimensions in the future.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
+<section>
+<p>Describes buckets for DISTRIBUTION kind metrics.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.linear_buckets" class="oneof oneof-start">
+<td><code>linearBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
+<td>
+<p>The linear buckets.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.exponential_buckets" class="oneof">
+<td><code>exponentialBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
+<td>
+<p>The exponential buckets.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.explicit_buckets" class="oneof">
+<td><code>explicitBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
+<td>
+<p>The explicit buckets.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
+<section>
+<p>Specifies a set of buckets with arbitrary widths.</p>
+
+<p>There are <code>size(bounds) + 1</code> (= <code>N</code>) buckets. Bucket <code>i</code> has the following
+boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>bounds[i]</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>bounds[i - 1]</code></li>
+</ul>
+
+<p>The <code>bounds</code> field must contain at least one element. If <code>bounds</code> has
+only one element, then there are no finite buckets, and that single
+element is the common boundary of the overflow and underflow buckets.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Explicit.bounds">
+<td><code>bounds</code></td>
+<td><code>double[]</code></td>
+<td>
+<p>The values must be monotonically increasing.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
+<section>
+<p>Specifies an exponential sequence of buckets that have a width that is
+proportional to the value of the lower bound. Each bucket represents a
+constant relative uncertainty on a specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (0 &lt;= i &lt; N-1): <code>scale * (growth_factor ^ i)</code></li>
+<li>Lower bound (1 &lt;= i &lt; N): <code>scale * (growth_factor ^ (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.growth_factor">
+<td><code>growthFactor</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 1.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.scale">
+<td><code>scale</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
+<section>
+<p>Specifies a linear sequence of buckets that all have the same width
+(except overflow and underflow). Each bucket represents a constant
+absolute uncertainty on the specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>offset + (width * i)</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>offset + (width * (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.width">
+<td><code>width</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.offset">
+<td><code>offset</code></td>
+<td><code>double</code></td>
+<td>
+<p>Lower bound of the first bucket.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.Kind">Params.MetricInfo.Kind</h2>
+<section>
+<p>Describes what kind of metric this is.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.Kind.UNSPECIFIED">
+<td><code>UNSPECIFIED</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Kind.GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Kind.COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.Kind.DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
