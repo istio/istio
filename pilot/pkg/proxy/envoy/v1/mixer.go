@@ -54,9 +54,6 @@ const (
 	// AttrSourceUID is platform-specific unique identifier for the client instance of the source service
 	AttrSourceUID = "source.uid"
 
-	// Labels associated with the source
-	AttrSourceLabels = "source.labels"
-
 	// AttrDestinationPrefix all destination attributes start with this prefix
 	AttrDestinationPrefix = "destination"
 
@@ -66,7 +63,7 @@ const (
 	// AttrDestinationUID is platform-specific unique identifier for the server instance of the target service
 	AttrDestinationUID = "destination.uid"
 
-	// Labels associated with the destination
+	// AttrDestinationLabels is Labels associated with the destination
 	AttrDestinationLabels = "destination.labels"
 
 	// AttrDestinationService is name of the target service
@@ -80,9 +77,6 @@ const (
 
 	// MixerReport switches Report call on and off
 	MixerReport = "mixer_report"
-
-	// DisableTCPCheckCalls switches Check call on and off for tcp listeners
-	DisableTCPCheckCalls = "disable_tcp_check_calls"
 
 	// MixerForward switches attribute forwarding on and off
 	MixerForward = "mixer_forward"
