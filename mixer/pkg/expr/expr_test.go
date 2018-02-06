@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	cfgpb "istio.io/api/mixer/v1/config"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 )
 
 func TestGoodParse(t *testing.T) {
