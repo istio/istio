@@ -17,140 +17,156 @@ import (
 )
 
 var knownTypes = map[string]struct {
+    schema     model.ProtoSchema
 	object     IstioObject
 	collection IstioObjectList
 }{
 	model.MockConfig.Type: {
+	    schema: model.MockConfig,
 		object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "MockConfig",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.MockConfig) + "/" + model.MockConfig.Version,
 			},
 		},
 		collection: &MockConfigList{},
 	},
 	model.RouteRule.Type: {
+	    schema: model.RouteRule,
 		object: &RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "RouteRule",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.RouteRule) + "/" + model.RouteRule.Version,
 			},
 		},
 		collection: &RouteRuleList{},
 	},
 	model.V1alpha2RouteRule.Type: {
+	    schema: model.V1alpha2RouteRule,
 		object: &V1alpha2RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "V1alpha2RouteRule",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.V1alpha2RouteRule) + "/" + model.V1alpha2RouteRule.Version,
 			},
 		},
 		collection: &V1alpha2RouteRuleList{},
 	},
 	model.IngressRule.Type: {
+	    schema: model.IngressRule,
 		object: &IngressRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "IngressRule",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.IngressRule) + "/" + model.IngressRule.Version,
 			},
 		},
 		collection: &IngressRuleList{},
 	},
 	model.Gateway.Type: {
+	    schema: model.Gateway,
 		object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Gateway",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.Gateway) + "/" + model.Gateway.Version,
 			},
 		},
 		collection: &GatewayList{},
 	},
 	model.EgressRule.Type: {
+	    schema: model.EgressRule,
 		object: &EgressRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EgressRule",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.EgressRule) + "/" + model.EgressRule.Version,
 			},
 		},
 		collection: &EgressRuleList{},
 	},
 	model.ExternalService.Type: {
+	    schema: model.ExternalService,
 		object: &ExternalService{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "ExternalService",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.ExternalService) + "/" + model.ExternalService.Version,
 			},
 		},
 		collection: &ExternalServiceList{},
 	},
 	model.DestinationPolicy.Type: {
+	    schema: model.DestinationPolicy,
 		object: &DestinationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationPolicy",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.DestinationPolicy) + "/" + model.DestinationPolicy.Version,
 			},
 		},
 		collection: &DestinationPolicyList{},
 	},
 	model.DestinationRule.Type: {
+	    schema: model.DestinationRule,
 		object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "DestinationRule",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.DestinationRule) + "/" + model.DestinationRule.Version,
 			},
 		},
 		collection: &DestinationRuleList{},
 	},
 	model.HTTPAPISpec.Type: {
+	    schema: model.HTTPAPISpec,
 		object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpec",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.HTTPAPISpec) + "/" + model.HTTPAPISpec.Version,
 			},
 		},
 		collection: &HTTPAPISpecList{},
 	},
 	model.HTTPAPISpecBinding.Type: {
+	    schema: model.HTTPAPISpecBinding,
 		object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "HTTPAPISpecBinding",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.HTTPAPISpecBinding) + "/" + model.HTTPAPISpecBinding.Version,
 			},
 		},
 		collection: &HTTPAPISpecBindingList{},
 	},
 	model.QuotaSpec.Type: {
+	    schema: model.QuotaSpec,
 		object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpec",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.QuotaSpec) + "/" + model.QuotaSpec.Version,
 			},
 		},
 		collection: &QuotaSpecList{},
 	},
 	model.QuotaSpecBinding.Type: {
+	    schema: model.QuotaSpecBinding,
 		object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "QuotaSpecBinding",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.QuotaSpecBinding) + "/" + model.QuotaSpecBinding.Version,
 			},
 		},
 		collection: &QuotaSpecBindingList{},
 	},
 	model.EndUserAuthenticationPolicySpec.Type: {
+	    schema: model.EndUserAuthenticationPolicySpec,
 		object: &EndUserAuthenticationPolicySpec{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EndUserAuthenticationPolicySpec",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.EndUserAuthenticationPolicySpec) + "/" + model.EndUserAuthenticationPolicySpec.Version,
 			},
 		},
 		collection: &EndUserAuthenticationPolicySpecList{},
 	},
 	model.EndUserAuthenticationPolicySpecBinding.Type: {
+	    schema: model.EndUserAuthenticationPolicySpecBinding,
 		object: &EndUserAuthenticationPolicySpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "EndUserAuthenticationPolicySpecBinding",
-				APIVersion: model.IstioAPIGroupSuffix + "/" + model.istioAPIVersion,
+				APIVersion: ResourceGroup(&model.EndUserAuthenticationPolicySpecBinding) + "/" + model.EndUserAuthenticationPolicySpecBinding.Version,
 			},
 		},
 		collection: &EndUserAuthenticationPolicySpecBindingList{},

@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/aws/aws-sdk-go/service/configservice"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"

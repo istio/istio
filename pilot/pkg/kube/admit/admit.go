@@ -256,7 +256,7 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 	var versions []string
 	for _, schema := range ac.options.Descriptor {
 		resources = append(resources, crd.ResourceName(schema.Plural))
-		groups = append(groups, crd.ResourceGroup(schema))
+		groups = append(groups, crd.ResourceGroup(&schema))
 		versions = append(versions, schema.Version)
 	}
 

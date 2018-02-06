@@ -86,17 +86,21 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 		return
 	}
 
-	config.GroupVersion = &IstioAPIGroupVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
 	types := runtime.NewScheme()
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
-			for _, kind := range knownTypes {
-				scheme.AddKnownTypes(IstioAPIGroupVersion, kind.object, kind.collection)
+			for c, kind := range knownTypes {
+				gvk := schema.GroupVersionKind{
+					Group:   ResourceGroup(&kind.schema),
+					Version: kind.schema.Version,
+					Kind:    c,
+				}
+				scheme.AddKnownTypeWithName(gvk, kind.object)
+				meta_v1.AddToGroupVersion(scheme, gvk.GroupVersion())
 			}
-			meta_v1.AddToGroupVersion(scheme, IstioAPIGroupVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
@@ -148,7 +152,7 @@ func (cl *Client) RegisterResources() error {
 	}
 
 	for _, schema := range cl.descriptor {
-		group := ResourceGroup(schema)
+		group := ResourceGroup(&schema)
 		name := ResourceName(schema.Plural) + "." + group
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: meta_v1.ObjectMeta{
@@ -175,7 +179,7 @@ func (cl *Client) RegisterResources() error {
 	errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 	descriptor:
 		for _, schema := range cl.descriptor {
-			name := ResourceName(schema.Plural) + "." + ResourceGroup(schema)
+			name := ResourceName(schema.Plural) + "." + ResourceGroup(&schema)
 			crd, errGet := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
@@ -219,7 +223,7 @@ func (cl *Client) DeregisterResources() error {
 
 	var errs error
 	for _, schema := range cl.descriptor {
-		name := ResourceName(schema.Plural) + "." + ResourceGroup(schema)
+		name := ResourceName(schema.Plural) + "." + ResourceGroup(&schema)
 		err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, nil)
 		errs = multierror.Append(errs, err)
 	}

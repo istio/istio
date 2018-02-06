@@ -115,7 +115,7 @@ func createIngressRule(name, host, path, domainSuffix string,
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            model.IngressRule.Type,
-			Group:           crd.ResourceGroup(model.IngressRule),
+			Group:           crd.ResourceGroup(&model.IngressRule),
 			Version:         model.IngressRule.Version,
 			Name:            name,
 			Namespace:       ingress.Namespace,

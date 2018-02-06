@@ -41,7 +41,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-var knownTypes = map[*model.ProtoSchema]struct {
+var knownTypes = map[string]struct {
+    schema     model.ProtoSchema
 	object     IstioObject
 	collection IstioObjectList
 }{
@@ -51,11 +52,12 @@ CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule Exte
 
 for crd in $CRDS; do
 cat << EOF
-	model.$crd: {
+	model.$crd.Type: {
+	    schema: model.$crd,
 		object: &${crd}{
 			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "${crd}",
-				APIVersion: "${crd}".Group + model.IstioAPIGroupSuffix + "/" + "${crd}".Version,
+				APIVersion: ResourceGroup(&model.$crd) + "/" + model.$crd.Version,
 			},
 		},
 		collection: &${crd}List{},

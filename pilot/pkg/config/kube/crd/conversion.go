@@ -40,7 +40,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            schema.Type,
-			Group:           ResourceGroup(schema),
+			Group:           ResourceGroup(&schema),
 			Version:         schema.Version,
 			Name:            meta.Name,
 			Namespace:       meta.Namespace,
@@ -83,7 +83,7 @@ func ResourceName(s string) string {
 }
 
 // ResourceGroup generates the k8s API group for each schema.
-func ResourceGroup(schema model.ProtoSchema) string {
+func ResourceGroup(schema *model.ProtoSchema) string {
 	return schema.GroupPrefix + model.IstioAPIGroupSuffix
 }
 
