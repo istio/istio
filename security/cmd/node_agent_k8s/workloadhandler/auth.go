@@ -24,10 +24,10 @@ import (
 )
 
 var (
-  // ErrInvalidConnection define the invalide connection
+	// ErrInvalidConnection define the invalide connection
 	ErrInvalidConnection = errors.New("invalid connection")
 
-  // ErrNoCredentials define no creds
+	// ErrNoCredentials define no creds
 	ErrNoCredentials = errors.New("no credentials available")
 )
 
@@ -41,7 +41,7 @@ type CredInfo struct {
 	Name           string
 	Namespace      string
 	ServiceAccount string
-	Err		error
+	Err            error
 }
 
 // AuthType return the auth type

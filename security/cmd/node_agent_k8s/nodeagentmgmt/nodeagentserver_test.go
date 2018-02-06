@@ -20,8 +20,8 @@ import (
 	"golang.org/x/net/context"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	pb "istio.io/istio/security/proto"
 	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	pb "istio.io/istio/security/proto"
 )
 
 // TODO(wattli): add more tests.
