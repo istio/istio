@@ -149,7 +149,22 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
 	case model.Ingress:
-		return buildIngressListeners(env.Mesh, nil, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		services, err := env.Services()
+		if err != nil {
+			return nil, err
+		}
+		var svc *model.Service
+		for _, s := range services {
+			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+				svc = s
+				break
+			}
+		}
+		insts := make([]*model.ServiceInstance, 0, 1)
+		if svc != nil {
+			insts = append(insts, &model.ServiceInstance{Service: svc})
+		}
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }

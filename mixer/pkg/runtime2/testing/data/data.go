@@ -95,6 +95,36 @@ metadata:
 spec:
 `
 
+// InstanceReport1 is a standard testing instance for template treport.
+var InstanceReport1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: treport
+metadata:
+  name: ireport1
+  namespace: istio-system
+spec:
+`
+
+// InstanceQuota1 is a standard testing instance for template tquota.
+var InstanceQuota1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tquota
+metadata:
+  name: iquota1
+  namespace: istio-system
+spec:
+`
+
+// InstanceQuota2 is a copy of InstanceQuota1 with a different name.
+var InstanceQuota2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tquota
+metadata:
+  name: iquota2
+  namespace: istio-system
+spec:
+`
+
 // InstanceAPA1 is an APA instance
 var InstanceAPA1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -137,6 +167,32 @@ metadata:
   namespace: ns2
 spec:
 `
+
+// HandlerAReport1 is a handler of type acheck with name hreport1.
+var HandlerAReport1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: areport
+metadata:
+  name: hreport1
+  namespace: istio-system
+spec:
+`
+
+// FqnAReport1 is the fully qualified name of HandlerAReport1.
+var FqnAReport1 = "hreport1.areport.istio-system"
+
+// HandlerAQuota1 is a handler of type aquota with name hquota1.
+var HandlerAQuota1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: aquota
+metadata:
+  name: hquota1
+  namespace: istio-system
+spec:
+`
+
+// FqnAQuota1 is the fully qualified name of HandlerAReport1.
+var FqnAQuota1 = "hquota1.aquota.istio-system"
 
 // HandlerAPA1 is an APA handler.
 var HandlerAPA1 = `
@@ -353,6 +409,48 @@ spec:
     instances:
     - icheck1.tcheck.istio-system
     - ihalt1.thalt.istio-system
+`
+
+// RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.
+var RuleReport1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rreport1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hreport1.areport
+    instances:
+    - ireport1.treport.istio-system
+`
+
+// RuleQuota1 is a standard testing instance config with name rquota1. It references I1 and H1.
+var RuleQuota1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rquota1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hquota1.aquota
+    instances:
+    - iquota1.tquota.istio-system
+`
+
+// RuleQuota2 references iquota1 and hquota1.
+var RuleQuota2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rquota2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hquota1.aquota
+    instances:
+    - iquota2.tquota.istio-system
 `
 
 // RuleApa1 is a rule that target APA.

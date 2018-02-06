@@ -32,4 +32,4 @@ echo 'Build'
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
-(cd ${ROOT}; make localTestEnv go-test)
+(cd ${ROOT}; make localTestEnv test)
