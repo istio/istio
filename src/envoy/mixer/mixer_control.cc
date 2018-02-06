@@ -45,9 +45,11 @@ class EnvoyTimer : public ::istio::mixer_client::Timer {
 void CreateEnvironment(Upstream::ClusterManager& cm,
                        Event::Dispatcher& dispatcher,
                        Runtime::RandomGenerator& random,
+                       const std::string& check_cluster,
+                       const std::string& report_cluster,
                        ::istio::mixer_client::Environment* env) {
-  env->check_transport = CheckTransport::GetFunc(cm, nullptr);
-  env->report_transport = ReportTransport::GetFunc(cm);
+  env->check_transport = CheckTransport::GetFunc(cm, check_cluster, nullptr);
+  env->report_transport = ReportTransport::GetFunc(cm, report_cluster);
 
   env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
       -> std::unique_ptr<::istio::mixer_client::Timer> {
@@ -70,10 +72,13 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
   ::istio::mixer_control::http::Controller::Options options(
       mixer_config.http_config, mixer_config.legacy_quotas);
 
-  CreateEnvironment(cm, dispatcher, random, &options.env);
+  check_cluster_ = mixer_config.check_cluster;
+  report_cluster_ = mixer_config.report_cluster;
+
+  CreateEnvironment(cm, dispatcher, random, check_cluster_, report_cluster_,
+                    &options.env);
 
   controller_ = ::istio::mixer_control::http::Controller::Create(options);
-
   has_v2_config_ = mixer_config.has_v2_config;
 }
 
@@ -85,7 +90,11 @@ TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
   ::istio::mixer_control::tcp::Controller::Options options(
       mixer_config.tcp_config);
 
-  CreateEnvironment(cm, dispatcher, random, &options.env);
+  check_cluster_ = mixer_config.check_cluster;
+  report_cluster_ = mixer_config.report_cluster;
+
+  CreateEnvironment(cm, dispatcher, random, check_cluster_, report_cluster_,
+                    &options.env);
 
   controller_ = ::istio::mixer_control::tcp::Controller::Create(options);
 

@@ -51,6 +51,9 @@ const std::string kDisableTcpCheckCalls("disable_tcp_check_calls");
 
 const std::string kV2Config("v2");
 
+// The name for the mixer server cluster.
+const std::string kDefaultMixerClusterName("mixer_server");
+
 void ReadStringMap(const Json::Object& json, const std::string& name,
                    Attributes* attributes) {
   if (json.hasObject(name)) {
@@ -62,7 +65,8 @@ void ReadStringMap(const Json::Object& json, const std::string& name,
   }
 }
 
-void ReadTransportConfig(const Json::Object& json, TransportConfig* config) {
+void ReadLegacyTransportConfig(const Json::Object& json,
+                               TransportConfig* config) {
   // Default is open, unless it specifically set to "close"
   config->set_network_fail_policy(TransportConfig::FAIL_OPEN);
   if (json.hasObject(kNetworkFailPolicy) &&
@@ -110,13 +114,21 @@ void HttpMixerConfig::Load(const Json::Object& json) {
     legacy_quotas.push_back({json.getString(kQuotaName), amount});
   }
 
-  ReadTransportConfig(json, http_config.mutable_transport());
+  TransportConfig* transport_config = http_config.mutable_transport();
+  ReadLegacyTransportConfig(json, transport_config);
 
   has_v2_config = ReadV2Config(json, &http_config);
   if (has_v2_config) {
     // If v2 config is valid, clear v1 legacy_quotas.
     legacy_quotas.clear();
   }
+
+  check_cluster = transport_config->check_cluster().empty()
+                      ? kDefaultMixerClusterName
+                      : transport_config->check_cluster();
+  report_cluster = transport_config->report_cluster().empty()
+                       ? kDefaultMixerClusterName
+                       : transport_config->report_cluster();
 }
 
 void HttpMixerConfig::CreateLegacyRouteConfig(
@@ -135,12 +147,20 @@ void HttpMixerConfig::CreateLegacyRouteConfig(
 void TcpMixerConfig::Load(const Json::Object& json) {
   ReadStringMap(json, kMixerAttributes, tcp_config.mutable_mixer_attributes());
 
-  ReadTransportConfig(json, tcp_config.mutable_transport());
+  TransportConfig* transport_config = tcp_config.mutable_transport();
+  ReadLegacyTransportConfig(json, transport_config);
 
   tcp_config.set_disable_check_calls(
       json.getBoolean(kDisableTcpCheckCalls, false));
 
   ReadV2Config(json, &tcp_config);
+
+  check_cluster = transport_config->check_cluster().empty()
+                      ? kDefaultMixerClusterName
+                      : transport_config->check_cluster();
+  report_cluster = transport_config->report_cluster().empty()
+                       ? kDefaultMixerClusterName
+                       : transport_config->report_cluster();
 }
 
 }  // namespace Mixer

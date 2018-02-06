@@ -438,7 +438,8 @@ class Instance : public Http::StreamDecoderFilter,
     HeaderUpdate header_update(&headers);
     cancel_check_ = handler_->Check(
         &check_data, &header_update,
-        CheckTransport::GetFunc(mixer_control_.cm(), &headers),
+        CheckTransport::GetFunc(mixer_control_.cm(),
+                                mixer_control_.check_cluster(), &headers),
         [this](const Status& status) { completeCheck(status); });
     initiating_call_ = false;
 

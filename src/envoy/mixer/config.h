@@ -39,6 +39,10 @@ struct HttpMixerConfig {
   std::vector<::istio::quota::Requirement> legacy_quotas;
   // If true, v2 config is valid.
   bool has_v2_config;
+  // check cluster
+  std::string check_cluster;
+  // report cluster
+  std::string report_cluster;
 
   // Create per route legacy config.
   static void CreateLegacyRouteConfig(
@@ -54,6 +58,10 @@ struct TcpMixerConfig {
 
   // The Tcp client config.
   ::istio::mixer::v1::config::client::TcpClientConfig tcp_config;
+  // check cluster
+  std::string check_cluster;
+  // report cluster
+  std::string report_cluster;
 };
 
 }  // namespace Mixer

@@ -35,9 +35,6 @@ const LowerCaseString kB3Sampled("x-b3-sampled");
 const LowerCaseString kB3Flags("x-b3-flags");
 const LowerCaseString kOtSpanContext("x-ot-span-context");
 
-// The name for the mixer server cluster.
-const char* kMixerServerClusterName = "mixer_server";
-
 inline void CopyHeaderEntry(const HeaderEntry* entry,
                             const LowerCaseString& key,
                             Http::HeaderMap& headers) {
@@ -109,14 +106,16 @@ void GrpcTransport<RequestType, ResponseType>::Cancel() {
 
 template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
-GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm,
-                                                  const HeaderMap* headers) {
-  return [&cm, headers](const RequestType& request, ResponseType* response,
-                        istio::mixer_client::DoneFunc on_done)
+GrpcTransport<RequestType, ResponseType>::GetFunc(
+    Upstream::ClusterManager& cm, const std::string& cluster_name,
+    const HeaderMap* headers) {
+  return [&cm, cluster_name, headers](const RequestType& request,
+                                      ResponseType* response,
+                                      istio::mixer_client::DoneFunc on_done)
              -> istio::mixer_client::CancelFunc {
                auto transport = new GrpcTransport<RequestType, ResponseType>(
                    Grpc::AsyncClientPtr(
-                       new Grpc::AsyncClientImpl(cm, kMixerServerClusterName)),
+                       new Grpc::AsyncClientImpl(cm, cluster_name.c_str())),
                    request, headers, response, on_done);
                return [transport]() { transport->Cancel(); };
              };
@@ -142,9 +141,11 @@ const google::protobuf::MethodDescriptor& ReportTransport::descriptor() {
 
 // explicitly instantiate CheckTransport and ReportTransport
 template CheckTransport::Func CheckTransport::GetFunc(
-    Upstream::ClusterManager& cm, const HeaderMap* headers);
+    Upstream::ClusterManager& cm, const std::string& cluster_name,
+    const HeaderMap* headers);
 template ReportTransport::Func ReportTransport::GetFunc(
-    Upstream::ClusterManager& cm, const HeaderMap* headers);
+    Upstream::ClusterManager& cm, const std::string& cluster_name,
+    const HeaderMap* headers);
 
 }  // namespace Mixer
 }  // namespace Http

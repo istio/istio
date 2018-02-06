@@ -36,6 +36,10 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
 
   Upstream::ClusterManager& cm() { return cm_; }
 
+  const std::string& check_cluster() const { return check_cluster_; }
+
+  const std::string& report_cluster() const { return report_cluster_; }
+
   ::istio::mixer_control::http::Controller* controller() {
     return controller_.get();
   }
@@ -49,6 +53,10 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
   // has v2 config;
   bool has_v2_config_;
+  // check cluster
+  std::string check_cluster_;
+  // report cluster
+  std::string report_cluster_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
@@ -66,6 +74,10 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
     return report_interval_ms_;
   }
 
+  const std::string& check_cluster() const { return check_cluster_; }
+
+  const std::string& report_cluster() const { return report_cluster_; }
+
   Event::Dispatcher& dispatcher() { return dispatcher_; }
 
  private:
@@ -76,6 +88,11 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   std::chrono::milliseconds report_interval_ms_;
 
   Event::Dispatcher& dispatcher_;
+
+  // check cluster
+  std::string check_cluster_;
+  // report cluster
+  std::string report_cluster_;
 };
 
 }  // namespace Mixer
