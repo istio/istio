@@ -81,7 +81,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: {{ template "istio.configmap.fullname" . }}
+          name: istio
       - name: istio-certs
         secret:
           secretName: "istio.{{ template "pilot.serviceAccountName" . }}"
