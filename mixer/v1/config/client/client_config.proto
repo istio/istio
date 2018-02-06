@@ -79,6 +79,26 @@ message TransportConfig {
   // Specify refresh interval to write mixer client statistics to Envoy share
   // memory. If not specified, the interval is 10 seconds.
   google.protobuf.Duration stats_update_interval = 5;
+
+  // Name of the cluster that will forward check calls to a pool of mixer
+  // servers. Defaults to "mixer_server". By using different names for
+  // checkCluster and reportCluster, it is possible to have one set of
+  // mixer servers handle check calls, while another set of mixer servers
+  // handle report calls.
+  //
+  // NOTE: Any value other than the default "mixer_server" will require the
+  // Istio Grafana dashboards to be reconfigured to use the new name.
+  string check_cluster = 6;
+
+  // Name of the cluster that will forward report calls to a pool of mixer
+  // servers. Defaults to "mixer_server". By using different names for
+  // checkCluster and reportCluster, it is possible to have one set of
+  // mixer servers handle check calls, while another set of mixer servers
+  // handle report calls.
+  //
+  // NOTE: Any value other than the default "mixer_server" will require the
+  // Istio Grafana dashboards to be reconfigured to use the new name.
+  string report_cluster = 7;
 }
 
 // Defines the client config for HTTP.

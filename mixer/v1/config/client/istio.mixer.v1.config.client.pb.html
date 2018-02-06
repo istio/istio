@@ -1152,6 +1152,36 @@ memory. If not specified, the interval is 10 seconds.</p>
 
 </td>
 </tr>
+<tr id="TransportConfig.check_cluster">
+<td><code>checkCluster</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the cluster that will forward check calls to a pool of mixer
+servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
+checkCluster and reportCluster, it is possible to have one set of
+mixer servers handle check calls, while another set of mixer servers
+handle report calls.</p>
+
+<p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
+Istio Grafana dashboards to be reconfigured to use the new name.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig.report_cluster">
+<td><code>reportCluster</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the cluster that will forward report calls to a pool of mixer
+servers. Defaults to &ldquo;mixer_server&rdquo;. By using different names for
+checkCluster and reportCluster, it is possible to have one set of
+mixer servers handle check calls, while another set of mixer servers
+handle report calls.</p>
+
+<p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
+Istio Grafana dashboards to be reconfigured to use the new name.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
