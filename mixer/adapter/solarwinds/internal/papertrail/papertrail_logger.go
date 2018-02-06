@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
+	"istio.io/istio/mixer/adapter/solarwinds/internal/utils"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/logentry"
@@ -69,7 +70,7 @@ type Logger struct {
 
 	maxWorkers int
 
-	loopFactor bool
+	loopFactor *utils.LoopFactor
 
 	loopWait chan struct{}
 }
@@ -91,7 +92,7 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 		log:             logger,
 		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
-		loopFactor:      true,
+		loopFactor:      utils.NewLoopFactor(true),
 		loopWait:        make(chan struct{}),
 	}
 
@@ -165,7 +166,7 @@ func (p *Logger) flushLogs() {
 		p.loopWait <- struct{}{}
 	}()
 	re := regexp.MustCompile(keyPattern)
-	for p.loopFactor {
+	for p.loopFactor.GetBool() {
 		hose := make(chan interface{}, p.maxWorkers)
 		var wg sync.WaitGroup
 
@@ -207,7 +208,7 @@ func (p *Logger) flushLogs() {
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	p.loopFactor = false
+	p.loopFactor.SetBool(false)
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
+	"istio.io/istio/mixer/adapter/solarwinds/internal/utils"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 )
@@ -67,7 +68,7 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	loopFactor := true
+	loopFactor := utils.NewLoopFactor(true)
 	t.Run("No log info for msg name", func(t *testing.T) {
 		env := test.NewEnv(t)
 		logger := env.Logger()
