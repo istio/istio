@@ -1,0 +1,195 @@
+---
+title: Mixer Adapter Model
+overview: Definitions used when creating Mixer templates
+location: https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta.html
+layout: protoc-gen-docs
+number_of_entries: 9
+---
+{% raw %}
+<p>This package defines the types that are used when creating Mixer templates. <code>ValueType</code> defined in this pacakge
+is also used by adapters to know the underlying datatype of the instance fields.</p>
+
+<h2 id="DNSName">DNSName</h2>
+<section>
+<p>DNSName is used inside templates for fields that are of ValueType &ldquo;DNS_NAME&rdquo;</p>
+
+</section>
+<h2 id="Duration">Duration</h2>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h2 id="EmailAddress">EmailAddress</h2>
+<section>
+<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
+DO NOT USE !! Under Development</p>
+
+</section>
+<h2 id="IPAddress">IPAddress</h2>
+<section>
+<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
+
+</section>
+<h2 id="TemplateVariety">TemplateVariety</h2>
+<section>
+<p>The available varieties of templates, controlling the semantics of what an adapter does with each instance.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TemplateVariety.TEMPLATE_VARIETY_CHECK">
+<td><code>TEMPLATE_VARIETY_CHECK</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s check calls.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety.TEMPLATE_VARIETY_REPORT">
+<td><code>TEMPLATE_VARIETY_REPORT</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s report calls.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety.TEMPLATE_VARIETY_QUOTA">
+<td><code>TEMPLATE_VARIETY_QUOTA</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
+
+</td>
+</tr>
+<tr id="TemplateVariety.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR">
+<td><code>TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR</code></td>
+<td>
+<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TimeStamp">TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
+<h2 id="Uri">Uri</h2>
+<section>
+<p>Uri is used inside templates for fields that are of ValueType &ldquo;URI&rdquo;
+DO NOT USE ! Under Development</p>
+
+</section>
+<h2 id="Value">Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
+</section>
+<h2 id="ValueType">ValueType</h2>
+<section>
+<p>ValueType describes the types that values in the Istio system can take. These
+are used to describe the type of Attributes at run time, describe the type of
+the result of evaluating an expression, and to describe the runtime type of
+fields of other descriptors.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ValueType.VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Invalid, default value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.STRING">
+<td><code>STRING</code></td>
+<td>
+<p>An undiscriminated variable-length string.</p>
+
+</td>
+</tr>
+<tr id="ValueType.INT64">
+<td><code>INT64</code></td>
+<td>
+<p>An undiscriminated 64-bit signed integer.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>An undiscriminated 64-bit floating-point value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>An undiscriminated boolean value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.TIMESTAMP">
+<td><code>TIMESTAMP</code></td>
+<td>
+<p>A point in time.</p>
+
+</td>
+</tr>
+<tr id="ValueType.IP_ADDRESS">
+<td><code>IP_ADDRESS</code></td>
+<td>
+<p>An IP address.</p>
+
+</td>
+</tr>
+<tr id="ValueType.EMAIL_ADDRESS">
+<td><code>EMAIL_ADDRESS</code></td>
+<td>
+<p>An email address.</p>
+
+</td>
+</tr>
+<tr id="ValueType.URI">
+<td><code>URI</code></td>
+<td>
+<p>A URI.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DNS_NAME">
+<td><code>DNS_NAME</code></td>
+<td>
+<p>A DNS name.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DURATION">
+<td><code>DURATION</code></td>
+<td>
+<p>A span between two points in time.</p>
+
+</td>
+</tr>
+<tr id="ValueType.STRING_MAP">
+<td><code>STRING_MAP</code></td>
+<td>
+<p>A map string -&gt; string, typically used by headers.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
