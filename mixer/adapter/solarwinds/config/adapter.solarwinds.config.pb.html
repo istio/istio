@@ -1,0 +1,195 @@
+---
+title: SolarWinds
+overview: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
+location: https://istio.io/docs/reference/config/adapters/solarwinds.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+{% raw %}
+<p>The <code>solarwinds</code> adapter enables Istio to deliver log and metric data to the
+<a href="https://www.papertrailapp.com">Papertrail</a> logging backendu and the
+<a href="https://www.appoptics.com">AppOptics</a> monitoring backend.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>solarwinds</code> adapter.</p>
+
+<p>Example config usage:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: solarwinds
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  appoptics_access_token: &lt;APPOPTICS SAMPLE TOKEN&gt;
+  papertrail_url: &lt;PAPERTRAIL URL&gt;
+  papertrail_local_retention_duration: &lt;RETENTION PERIOD FOR LOGS LOCALLY, Optional&gt;
+  metrics:
+    requestcount.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    requestduration.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    requestsize.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    responsesize.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+      - response_code
+    tcpbytesent.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+    tcpbytereceived.metric.istio-system:
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+  logs:
+    solarwindslogentry.logentry.istio-system:
+      payloadTemplate: '{{or (.originIp) &quot;-&quot;}} - {{or (.sourceUser) &quot;-&quot;}} [{{or (.timestamp.Format &quot;2006-01-02T15:04:05Z07:00&quot;) &quot;-&quot;}}] &quot;{{or (.method) &quot;-&quot;}} {{or (.url) &quot;-&quot;}} {{or (.protocol) &quot;-&quot;}}&quot; {{or (.responseCode) &quot;-&quot;}} {{or (.responseSize) &quot;-&quot;}}'
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.appoptics_access_token">
+<td><code>appopticsAccessToken</code></td>
+<td><code>string</code></td>
+<td>
+<p>AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics
+will NOT be shipped to AppOptics</p>
+
+</td>
+</tr>
+<tr id="Params.appoptics_batch_size">
+<td><code>appopticsBatchSize</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Optional. Max batch size of metrics to be sent to AppOptics.
+AppOptics does not allow batch size greater than 1000.
+If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.</p>
+
+</td>
+</tr>
+<tr id="Params.papertrail_url">
+<td><code>papertrailUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
+dropped.</p>
+
+</td>
+</tr>
+<tr id="Params.papertrail_local_retention_duration">
+<td><code>papertrailLocalRetentionDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>This is the duration for which logs will be persisted locally until it is shipped to papertrail in the event
+of a network failure. Default value is 1 hour.</p>
+
+</td>
+</tr>
+<tr id="Params.metrics">
+<td><code>metrics</code></td>
+<td><code>map&lt;string, <a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td>
+<p>A map of Istio metric name to solarwinds metric info.</p>
+
+</td>
+</tr>
+<tr id="Params.logs">
+<td><code>logs</code></td>
+<td><code>map&lt;string, <a href="#Params.LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td>
+<p>A map of Istio logentry name to solarwinds log info.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.LogInfo">Params.LogInfo</h2>
+<section>
+<p>Describes how to represent an Istio log entry in Solarwinds AppOptics</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.LogInfo.payload_template">
+<td><code>payloadTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. A golang text/template template (more details about golang text/template&rsquo;s templating can be
+found here: https://golang.org/pkg/text/template/) that will be executed to construct the payload for
+this log entry.
+An example template that could be used:
+{{or (.originIp) &ldquo;-&rdquo;}} - {{or (.sourceUser) &ldquo;-&rdquo;}} [{{or (.timestamp.Format &ldquo;2006-01-02T15:04:05Z07:00&rdquo;) &ldquo;-&rdquo;}}] &ldquo;{{or (.method) &ldquo;-&rdquo;}} {{or (.url) &ldquo;-&rdquo;}} {{or (.protocol) &ldquo;-&rdquo;}}&rdquo; {{or (.responseCode) &ldquo;-&rdquo;}} {{or (.responseSize) &ldquo;-&rdquo;}}
+A sample log that will be created after parsing the template with appropriate variables will look like this:
+Jan 23 21:53:02 istio-mixer-57d88dc4b4-rbgmc istio: 10.32.0.15 - kubernetes://istio-ingress-78545c5bc9-wbr6g.istio-system [2018-01-24T02:53:02Z] &ldquo;GET /productpage http&rdquo; 200 5599
+It will be given the full set of variables for the log to use to construct its result.
+If it is not provided, a default template in place will be used.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent an Istio metric in Solarwinds AppOptics</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.label_names">
+<td><code>labelNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The names of labels to use: these need to match the dimensions of the Istio metric.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

@@ -1,0 +1,273 @@
+---
+title: istio.mixer.adapter.sample.myApa
+layout: protoc-gen-docs
+number_of_entries: 5
+---
+{% raw %}
+<h2 id="OutputTemplate">OutputTemplate</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OutputTemplate.int64Primitive">
+<td><code>int64Primitive</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.boolPrimitive">
+<td><code>boolPrimitive</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.doublePrimitive">
+<td><code>doublePrimitive</code></td>
+<td><code>double</code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.stringPrimitive">
+<td><code>stringPrimitive</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.timeStamp">
+<td><code>timeStamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#TimeStamp">istio.mixer.v1.template.TimeStamp</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.duration">
+<td><code>duration</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Duration">istio.mixer.v1.template.Duration</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.email">
+<td><code>email</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#EmailAddress">istio.mixer.v1.template.EmailAddress</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.out_ip">
+<td><code>outIp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#IPAddress">istio.mixer.v1.template.IPAddress</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="OutputTemplate.out_str_map">
+<td><code>outStrMap</code></td>
+<td><code>map&lt;string, string&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Resource1">Resource1</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resource1.str">
+<td><code>str</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource1.self_ref_res1">
+<td><code>selfRefRes1</code></td>
+<td><code><a href="#Resource1">Resource1</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource1.resRef2">
+<td><code>resRef2</code></td>
+<td><code><a href="#Resource2">Resource2</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Resource2">Resource2</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resource2.str">
+<td><code>str</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource2.res3">
+<td><code>res3</code></td>
+<td><code><a href="#Resource3">Resource3</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource2.res3_map">
+<td><code>res3Map</code></td>
+<td><code>map&lt;string, <a href="#Resource3">Resource3</a>&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Resource3">Resource3</h2>
+<section>
+<p>resource3 comment</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resource3.int64Primitive">
+<td><code>int64Primitive</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.boolPrimitive">
+<td><code>boolPrimitive</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.doublePrimitive">
+<td><code>doublePrimitive</code></td>
+<td><code>double</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.stringPrimitive">
+<td><code>stringPrimitive</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.dimensionsFixedInt64ValueDType">
+<td><code>dimensionsFixedInt64ValueDType</code></td>
+<td><code>map&lt;string, int64&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.timeStamp">
+<td><code>timeStamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#TimeStamp">istio.mixer.v1.template.TimeStamp</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Resource3.duration">
+<td><code>duration</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Duration">istio.mixer.v1.template.Duration</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Template">Template</h2>
+<section>
+<p>myapa template is ..</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.int64Primitive">
+<td><code>int64Primitive</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.boolPrimitive">
+<td><code>boolPrimitive</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.doublePrimitive">
+<td><code>doublePrimitive</code></td>
+<td><code>double</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.stringPrimitive">
+<td><code>stringPrimitive</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.dimensionsFixedInt64ValueDType">
+<td><code>dimensionsFixedInt64ValueDType</code></td>
+<td><code>map&lt;string, int64&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.timeStamp">
+<td><code>timeStamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#TimeStamp">istio.mixer.v1.template.TimeStamp</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.duration">
+<td><code>duration</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Duration">istio.mixer.v1.template.Duration</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.res3_map">
+<td><code>res3Map</code></td>
+<td><code>map&lt;string, <a href="#Resource3">Resource3</a>&gt;</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.optionalIP">
+<td><code>optionalIP</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#IPAddress">istio.mixer.v1.template.IPAddress</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Template.email">
+<td><code>email</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#EmailAddress">istio.mixer.v1.template.EmailAddress</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

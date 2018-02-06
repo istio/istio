@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `opa` adapter exposes an [Open Policy Agent](https://www.openpolicyagent.org) engine
+	that provides sophisticated access control mechanisms.
+
 	It is generated from these files:
 		mixer/adapter/opa/config/config.proto
 
@@ -33,8 +36,10 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Example configuration:
+// Configuration format for the `opa` adapter.
 //
+// Example configuration:
+// ```
 // policy:
 //   - |+
 //     package mixerauthz
@@ -60,6 +65,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //     }
 // checkMethod: "data.mixerauthz.allow"
 // failClose: true
+// ```
 type Params struct {
 	// List of OPA policies
 	Policy []string `protobuf:"bytes,1,rep,name=policy" json:"policy,omitempty"`
