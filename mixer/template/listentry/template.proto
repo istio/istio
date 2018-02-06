@@ -14,13 +14,19 @@
 
 syntax = "proto3";
 
+// $title: List Entry
+// $overview: A template designed to let you perform list checking operations.
+// $location: https://istio.io/docs/reference/config/template/listentry.html
+
+// The `listentry` template is designed to let you perform list check operations
+// with the [list](https://istio.io/docs/reference/adapters/list.html) adapter.
 package listEntry;
 
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
-// ListEntry is used to verify the presence/absence of a string
+// The `listentry` template is used to verify the presence/absence of a string
 // within a list.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
