@@ -21,24 +21,24 @@ import (
 
 	"google.golang.org/grpc"
 
-  pbmgmt "istio.io/istio/security/proto"
-  mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	pbmgmt "istio.io/istio/security/proto"
 )
 
 // Server is the WorkloadHandler (one per workload).
 type Server struct {
-	creds		*CredInfo
-	filePath       string
-	done           chan bool
-	wlS		*mwi.WlServer
+	creds    *CredInfo
+	filePath string
+	done     chan bool
+	wlS      *mwi.WlServer
 }
 
 // NewCreds return the new creds
 func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 	return &CredInfo{
-		UID: wli.Attrs.Uid,
-		Name: wli.Attrs.Workload,
-		Namespace: wli.Attrs.Namespace,
+		UID:            wli.Attrs.Uid,
+		Name:           wli.Attrs.Workload,
+		Namespace:      wli.Attrs.Namespace,
 		ServiceAccount: wli.Attrs.Serviceaccount,
 	}
 }
@@ -46,10 +46,10 @@ func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 // NewServer return the new server with default setup
 func NewServer(wli *pbmgmt.WorkloadInfo, wlS *mwi.WlServer, pathPrefix string) mwi.WorkloadMgmtInterface {
 	s := &Server{
-		done: make(chan bool, 1),
-		creds: NewCreds(wli),
+		done:     make(chan bool, 1),
+		creds:    NewCreds(wli),
 		filePath: pathPrefix + "/" + wli.Attrs.Uid + wlS.SockFile,
-		wlS: wlS,
+		wlS:      wlS,
 	}
 	return s
 }

@@ -33,6 +33,7 @@ const (
 
 type WlServer struct{}
 
+// NewWlAPIServer define the new api
 func NewWlAPIServer() *mwi.WlServer {
 	return &mwi.WlServer{
 		SockFile: socName,
@@ -40,10 +41,12 @@ func NewWlAPIServer() *mwi.WlServer {
 	}
 }
 
+// RegisterGrpc register grpc
 func RegisterGrpc(s *grpc.Server) {
 	pb.RegisterWorkloadServiceServer(s, &WlServer{})
 }
 
+// Check do the check
 func (s *WlServer) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
 
 	log.Printf("[%v]: %v Check called", s, request)

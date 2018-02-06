@@ -21,11 +21,12 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	pb "istio.io/istio/security/proto"
+	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 )
 
 // TODO(wattli): add more tests.
 func TestWorkloadAddedService(t *testing.T) {
-	wlmgmts := map[string]WorkloadMgmtInterface{
+	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
 		"testid": nil,
 	}
 	server := &Server{wlmgmts, "path", make(chan bool), nil}
@@ -43,7 +44,7 @@ func TestWorkloadAddedService(t *testing.T) {
 }
 
 func TestWorkloadDeletedService(t *testing.T) {
-	wlmgmts := map[string]WorkloadMgmtInterface{
+	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
 		"testid": nil,
 	}
 	server := &Server{wlmgmts, "path", make(chan bool), nil}

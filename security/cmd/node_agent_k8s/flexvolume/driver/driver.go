@@ -72,7 +72,7 @@ var (
 // Init initialize the driver
 func Init(version string) error {
 	if version == "1.8" {
-		_, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}})
+		resp, err := json.Marshal(&Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}})
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func addListener(ninputs *pb.WorkloadInfo) error {
 func delListener(ninputs *pb.WorkloadInfo) error {
 	client := nagent.ClientUds(nodeAgentMgmtAPI)
 	if client == nil {
-		return errors.New("failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client")
 	}
 
 	_, err := client.WorkloadDeleted(ninputs)
@@ -297,7 +297,7 @@ func Unmount(dir string) error {
 	return genericSucc("unmount", dir, "Unmount ok.")
 }
 
-// GelVolName get the volume name
+// GetVolName get the volume name
 func GetVolName(opts string) error {
 	return genericUnsupported("getvolname", opts, "not supported")
 }
