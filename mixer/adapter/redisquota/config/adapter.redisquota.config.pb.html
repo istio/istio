@@ -1,0 +1,202 @@
+---
+title: Redis Quota
+overview: Adapter for a Redis-based quota management system.
+location: https://istio.io/docs/reference/config/adapters/redisquota.html
+layout: protoc-gen-docs
+number_of_entries: 4
+---
+{% raw %}
+<p>The <code>redisquota</code> adapter can be used to support Istio&rsquo;s quota management
+system. It depends on a Redis server to store quota values.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>redisquota adapter supports the rate limit quota using either fixed or
+rolling window algorithm. And it is using Redis as a shared data storage.</p>
+
+<p>Example configuration:</p>
+
+<p>redisServerUrl: localhost:6379
+connectionPoolSize: 10
+quotas:
+  - name: requestCount.quota.istio-system
+    maxAmount: 50
+    validDuration: 60s
+    bucketDuration: 1s
+    rateLimitAlgorithm: ROLLING_WINDOW
+    overrides:
+      - dimensions:
+          destination: ratings
+          source: reviews
+        maxAmount: 12
+      - dimensions:
+          destination: reviews
+        maxAmount: 5</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.quotas">
+<td><code>quotas</code></td>
+<td><code><a href="#Params.Quota">Params.Quota[]</a></code></td>
+<td>
+<p>The set of known quotas. At least one quota configuration is required</p>
+
+</td>
+</tr>
+<tr id="Params.redis_server_url">
+<td><code>redisServerUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Redis connection string <hostname>:<port number>
+ex) localhost:6379</p>
+
+</td>
+</tr>
+<tr id="Params.connection_pool_size">
+<td><code>connectionPoolSize</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Maximum number of idle connections to redis
+Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Override">Params.Override</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Override.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string, string&gt;</code></td>
+<td>
+<p>The specific dimensions for which this override applies.
+String representation of instance dimensions is used to check against configured dimensions.
+dimensions should not be empty</p>
+
+</td>
+</tr>
+<tr id="Params.Override.max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota override.
+This value should be bigger than 0</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Quota">Params.Quota</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Quota.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the quota</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota. max_amount should be bigger than 0</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time allocated quota remains valid before it is
+automatically released. This is only meaningful for rate limit quotas.
+value should be 0 &lt; valid_duration</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.bucket_duration">
+<td><code>bucketDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>bucket<em>duration will be ignored if rate</em>limit<em>algorithm is FIXED</em>WINDOW
+value should be 0 &lt; bucket<em>duration &lt; valid</em>duration</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.rate_limit_algorithm">
+<td><code>rateLimitAlgorithm</code></td>
+<td><code><a href="#Params.QuotaAlgorithm">Params.QuotaAlgorithm</a></code></td>
+<td>
+<p>Quota management algorithm. The default value is FIXED_WINDOW</p>
+
+</td>
+</tr>
+<tr id="Params.Quota.overrides">
+<td><code>overrides</code></td>
+<td><code><a href="#Params.Override">Params.Override[]</a></code></td>
+<td>
+<p>Overrides associated with this quota.
+The first matching override is applied.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.QuotaAlgorithm">Params.QuotaAlgorithm</h2>
+<section>
+<p>Algorithms for rate-limiting:</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.QuotaAlgorithm.FIXED_WINDOW">
+<td><code>FIXED_WINDOW</code></td>
+<td>
+<p>FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
+
+</td>
+</tr>
+<tr id="Params.QuotaAlgorithm.ROLLING_WINDOW">
+<td><code>ROLLING_WINDOW</code></td>
+<td>
+<p>ROLLING_WINDOW The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}
