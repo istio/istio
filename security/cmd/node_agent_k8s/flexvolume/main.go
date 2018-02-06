@@ -38,7 +38,7 @@ var (
 		Long:  "Flex volume driver interface for Node Agent.",
 	}
 
-  // InitCmd defines the init command for the driver.
+	// InitCmd defines the init command for the driver.
 	InitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Flex volume init command.",
