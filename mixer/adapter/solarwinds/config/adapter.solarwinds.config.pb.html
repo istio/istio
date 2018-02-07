@@ -5,7 +5,6 @@ location: https://istio.io/docs/reference/config/adapters/solarwinds.html
 layout: protoc-gen-docs
 number_of_entries: 3
 ---
-{% raw %}
 <p>The <code>solarwinds</code> adapter enables Istio to deliver log and metric data to the
 <a href="https://www.papertrailapp.com">Papertrail</a> logging backendu and the
 <a href="https://www.appoptics.com">AppOptics</a> monitoring backend.</p>
@@ -68,7 +67,7 @@ spec:
       - destination_version
   logs:
     solarwindslogentry.logentry.istio-system:
-      payloadTemplate: '{{or (.originIp) &quot;-&quot;}} - {{or (.sourceUser) &quot;-&quot;}} [{{or (.timestamp.Format &quot;2006-01-02T15:04:05Z07:00&quot;) &quot;-&quot;}}] &quot;{{or (.method) &quot;-&quot;}} {{or (.url) &quot;-&quot;}} {{or (.protocol) &quot;-&quot;}}&quot; {{or (.responseCode) &quot;-&quot;}} {{or (.responseSize) &quot;-&quot;}}'
+      payloadTemplate: '&lbrace;&lbrace;or (.originIp) &quot;-&quot;}} - &lbrace;&lbrace;or (.sourceUser) &quot;-&quot;}} [&lbrace;&lbrace;or (.timestamp.Format &quot;2006-01-02T15:04:05Z07:00&quot;) &quot;-&quot;}}] &quot;&lbrace;&lbrace;or (.method) &quot;-&quot;}} &lbrace;&lbrace;or (.url) &quot;-&quot;}} &lbrace;&lbrace;or (.protocol) &quot;-&quot;}}&quot; &lbrace;&lbrace;or (.responseCode) &quot;-&quot;}} &lbrace;&lbrace;or (.responseSize) &quot;-&quot;}}'
 </code></pre>
 
 <table class="message-fields">
@@ -157,7 +156,7 @@ of a network failure. Default value is 1 hour.</p>
 found here: https://golang.org/pkg/text/template/) that will be executed to construct the payload for
 this log entry.
 An example template that could be used:
-{{or (.originIp) &ldquo;-&rdquo;}} - {{or (.sourceUser) &ldquo;-&rdquo;}} [{{or (.timestamp.Format &ldquo;2006-01-02T15:04:05Z07:00&rdquo;) &ldquo;-&rdquo;}}] &ldquo;{{or (.method) &ldquo;-&rdquo;}} {{or (.url) &ldquo;-&rdquo;}} {{or (.protocol) &ldquo;-&rdquo;}}&rdquo; {{or (.responseCode) &ldquo;-&rdquo;}} {{or (.responseSize) &ldquo;-&rdquo;}}
+&lbrace;&lbrace;or (.originIp) &ldquo;-&rdquo;}} - &lbrace;&lbrace;or (.sourceUser) &ldquo;-&rdquo;}} [&lbrace;&lbrace;or (.timestamp.Format &ldquo;2006-01-02T15:04:05Z07:00&rdquo;) &ldquo;-&rdquo;}}] &ldquo;&lbrace;&lbrace;or (.method) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.url) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.protocol) &ldquo;-&rdquo;}}&rdquo; &lbrace;&lbrace;or (.responseCode) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.responseSize) &ldquo;-&rdquo;}}
 A sample log that will be created after parsing the template with appropriate variables will look like this:
 Jan 23 21:53:02 istio-mixer-57d88dc4b4-rbgmc istio: 10.32.0.15 - kubernetes://istio-ingress-78545c5bc9-wbr6g.istio-system [2018-01-24T02:53:02Z] &ldquo;GET /productpage http&rdquo; 200 5599
 It will be given the full set of variables for the log to use to construct its result.
@@ -192,4 +191,3 @@ If it is not provided, a default template in place will be used.</p>
 </tbody>
 </table>
 </section>
-{% endraw %}
