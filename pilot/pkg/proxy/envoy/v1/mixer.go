@@ -32,8 +32,11 @@ import (
 )
 
 const (
-	// MixerCluster is the name of the mixer cluster
-	MixerCluster = "mixer_server"
+	// PolicyCheckClusterName is the name of the mixer cluster used for policy checks
+	PolicyCheckClusterName = "mixer_server"
+
+	// TelemetryClusterName is the name of the mixer cluster used for telemetry
+	TelemetryClusterName = "telemetry_mixer_server"
 
 	// MixerFilter name and its attributes
 	MixerFilter = "mixer"
@@ -106,26 +109,54 @@ type FilterMixerConfig struct {
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) *Cluster {
-	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
-	mixerCluster.CircuitBreaker = &CircuitBreaker{
-		Default: DefaultCBPriority{
-			MaxPendingRequests: 10000,
-			MaxRequests:        10000,
-		},
-	}
-	mixerCluster.Features = ClusterFeatureHTTP2
+func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) []*Cluster {
+    mixerClusters := make([]*Cluster, 0)
 
-	// apply auth policies
-	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
-	case meshconfig.AuthenticationPolicy_NONE:
-		// do nothing
-	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
-		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
-		mixerCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
+	if mesh.PolicyCheckServer != "" {
+		mixerCheckCluster := buildCluster(mesh.PolicyCheckServer, PolicyCheckClusterName, mesh.ConnectTimeout)
+		mixerCheckCluster.CircuitBreaker = &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+			},
+		}
+		mixerCheckCluster.Features = ClusterFeatureHTTP2
+		// apply auth policies
+		switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
+		case meshconfig.AuthenticationPolicy_NONE:
+			// do nothing
+		case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
+			// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
+			mixerCheckCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
+		}
+		mixerClusters = append(mixerClusters, mixerCheckCluster)
 	}
 
-	return mixerCluster
+	if mesh.TelemetryServer != "" {
+		// if both fields point to same server, reuse the cluster
+		if mesh.TelemetryServer == mesh.PolicyCheckServer {
+			return mixerClusters
+		}
+		mixerTelemetryCluster := buildCluster(mesh.TelemetryServer, TelemetryClusterName, mesh.ConnectTimeout)
+		mixerTelemetryCluster.CircuitBreaker = &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+			},
+		}
+		mixerTelemetryCluster.Features = ClusterFeatureHTTP2
+		// apply auth policies
+		switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
+		case meshconfig.AuthenticationPolicy_NONE:
+			// do nothing
+		case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
+			// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
+			mixerTelemetryCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
+		}
+		mixerClusters = append(mixerClusters, mixerTelemetryCluster)
+	}
+
+	return mixerClusters
 }
 
 func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[string]string {
@@ -163,6 +194,12 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+		Transport: &mccpb.TransportConfig{
+			// TODO: This should be used as a way to indicate enable/disable policy/telemetry,
+			// instead of having another boolean to do the same.
+			CheckCluster: PolicyCheckClusterName,
+			ReportCluster:TelemetryClusterName,
+		},
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -205,7 +242,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 					},
 				},
 			},
-			DisableCheckCalls:  outboundRoute || mesh.DisablePolicyChecks,
+			DisableCheckCalls:  outboundRoute || mesh.DisablePolicyChecks, //TODO mesh.DisablePolicyChecks has to go
 			DisableReportCalls: outboundRoute,
 		}
 
@@ -270,12 +307,19 @@ func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance
 		},
 	}
 	v2 := &mccpb.TcpClientConfig{
+
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationIP:      {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
 				AttrDestinationUID:     {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 				AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}},
 			},
+		},
+		Transport: &mccpb.TransportConfig{
+			// TODO: This should be used as a way to indicate enable/disable policy/telemetry,
+			// instead of having another boolean to do the same.
+			CheckCluster: PolicyCheckClusterName,
+			ReportCluster:TelemetryClusterName,
 		},
 	}
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {

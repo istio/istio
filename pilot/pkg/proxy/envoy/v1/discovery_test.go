@@ -412,7 +412,8 @@ func TestRouteDiscoveryError2(t *testing.T) {
 
 func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.MixerAddress = ""
+	mesh.PolicyCheckServer = ""
+	mesh.TelemetryServer = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
 	addConfig(registry, egressRuleTCP, t)
@@ -808,7 +809,8 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 
 			// test with no mixer
 			mesh := makeMeshConfig()
-			mesh.MixerAddress = ""
+			mesh.PolicyCheckServer = ""
+			mesh.TelemetryServer = ""
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response = makeDiscoveryRequest(ds, "GET", url, t)

@@ -237,12 +237,6 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/fullsailor/pkcs7"
-  packages = ["."]
-  revision = "a009d8d7de53d9503c797cb8ec66fa3b21eed209"
-
-[[projects]]
   name = "github.com/garyburd/redigo"
   packages = [
     "internal",
@@ -1131,7 +1125,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "12edb320898356a89682507fb96bb49c86c96254"
+  revision = "2cf2ac3e9b0bc6c9c6cbfcf1d6c7d9db60997c61"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1432,6 +1426,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e13e398df2cfdf68f0d0f65bd0d1bdfd0d491474ea1be63adfc757349b5a17e"
+  inputs-digest = "d5a4c7d71184581c0b656170520d9f14aa3b4e7e93d1c4d05cf7ffd28f69b46f"
   solver-name = "gps-cdcl"
   solver-version = 1

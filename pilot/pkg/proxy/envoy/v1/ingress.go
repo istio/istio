@@ -197,7 +197,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, sidecar model.Node,
 		}
 
 		// enable mixer check on the route
-		if mesh.MixerAddress != "" {
+		if mesh.PolicyCheckServer != "" || mesh.TelemetryServer != "" {
 			route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, true, service.Hostname)
 		}
 
