@@ -14,7 +14,6 @@
  */
 
 #include "src/envoy/mixer/mixer_control.h"
-#include "src/envoy/mixer/grpc_transport.h"
 
 namespace Envoy {
 namespace Http {
@@ -68,15 +67,12 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                                    Upstream::ClusterManager& cm,
                                    Event::Dispatcher& dispatcher,
                                    Runtime::RandomGenerator& random)
-    : cm_(cm) {
+    : config_(mixer_config), cm_(cm) {
   ::istio::mixer_control::http::Controller::Options options(
       mixer_config.http_config, mixer_config.legacy_quotas);
 
-  check_cluster_ = mixer_config.check_cluster;
-  report_cluster_ = mixer_config.report_cluster;
-
-  CreateEnvironment(cm, dispatcher, random, check_cluster_, report_cluster_,
-                    &options.env);
+  CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
+                    config_.report_cluster(), &options.env);
 
   controller_ = ::istio::mixer_control::http::Controller::Create(options);
   has_v2_config_ = mixer_config.has_v2_config;
@@ -86,15 +82,12 @@ TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
                                  Runtime::RandomGenerator& random)
-    : dispatcher_(dispatcher) {
+    : config_(mixer_config), dispatcher_(dispatcher) {
   ::istio::mixer_control::tcp::Controller::Options options(
       mixer_config.tcp_config);
 
-  check_cluster_ = mixer_config.check_cluster;
-  report_cluster_ = mixer_config.report_cluster;
-
-  CreateEnvironment(cm, dispatcher, random, check_cluster_, report_cluster_,
-                    &options.env);
+  CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
+                    config_.report_cluster(), &options.env);
 
   controller_ = ::istio::mixer_control::tcp::Controller::Create(options);
 

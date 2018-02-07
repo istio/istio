@@ -22,6 +22,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "src/envoy/mixer/config.h"
+#include "src/envoy/mixer/grpc_transport.h"
 
 namespace Envoy {
 namespace Http {
@@ -36,27 +37,25 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
 
   Upstream::ClusterManager& cm() { return cm_; }
 
-  const std::string& check_cluster() const { return check_cluster_; }
-
-  const std::string& report_cluster() const { return report_cluster_; }
-
   ::istio::mixer_control::http::Controller* controller() {
     return controller_.get();
   }
 
   bool has_v2_config() const { return has_v2_config_; }
 
+  CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
+    return CheckTransport::GetFunc(cm_, config_.check_cluster(), headers);
+  }
+
  private:
+  // The mixer config.
+  const HttpMixerConfig& config_;
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
   // has v2 config;
   bool has_v2_config_;
-  // check cluster
-  std::string check_cluster_;
-  // report cluster
-  std::string report_cluster_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
@@ -74,13 +73,11 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
     return report_interval_ms_;
   }
 
-  const std::string& check_cluster() const { return check_cluster_; }
-
-  const std::string& report_cluster() const { return report_cluster_; }
-
   Event::Dispatcher& dispatcher() { return dispatcher_; }
 
  private:
+  // The mixer config.
+  const TcpMixerConfig& config_;
   // The mixer control
   std::unique_ptr<::istio::mixer_control::tcp::Controller> controller_;
 
@@ -88,11 +85,6 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   std::chrono::milliseconds report_interval_ms_;
 
   Event::Dispatcher& dispatcher_;
-
-  // check cluster
-  std::string check_cluster_;
-  // report cluster
-  std::string report_cluster_;
 };
 
 }  // namespace Mixer

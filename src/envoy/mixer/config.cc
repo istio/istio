@@ -79,6 +79,15 @@ void ReadLegacyTransportConfig(const Json::Object& json,
   config->set_disable_report_batch(json.getBoolean(kDisableReportBatch, false));
 }
 
+void SetDefaultMixerClusters(TransportConfig* config) {
+  if (config->check_cluster().empty()) {
+    config->set_check_cluster(kDefaultMixerClusterName);
+  }
+  if (config->report_cluster().empty()) {
+    config->set_report_cluster(kDefaultMixerClusterName);
+  }
+}
+
 bool ReadV2Config(const Json::Object& json, Message* message) {
   if (!json.hasObject(kV2Config)) {
     return false;
@@ -114,8 +123,7 @@ void HttpMixerConfig::Load(const Json::Object& json) {
     legacy_quotas.push_back({json.getString(kQuotaName), amount});
   }
 
-  TransportConfig* transport_config = http_config.mutable_transport();
-  ReadLegacyTransportConfig(json, transport_config);
+  ReadLegacyTransportConfig(json, http_config.mutable_transport());
 
   has_v2_config = ReadV2Config(json, &http_config);
   if (has_v2_config) {
@@ -123,12 +131,7 @@ void HttpMixerConfig::Load(const Json::Object& json) {
     legacy_quotas.clear();
   }
 
-  check_cluster = transport_config->check_cluster().empty()
-                      ? kDefaultMixerClusterName
-                      : transport_config->check_cluster();
-  report_cluster = transport_config->report_cluster().empty()
-                       ? kDefaultMixerClusterName
-                       : transport_config->report_cluster();
+  SetDefaultMixerClusters(http_config.mutable_transport());
 }
 
 void HttpMixerConfig::CreateLegacyRouteConfig(
@@ -147,20 +150,14 @@ void HttpMixerConfig::CreateLegacyRouteConfig(
 void TcpMixerConfig::Load(const Json::Object& json) {
   ReadStringMap(json, kMixerAttributes, tcp_config.mutable_mixer_attributes());
 
-  TransportConfig* transport_config = tcp_config.mutable_transport();
-  ReadLegacyTransportConfig(json, transport_config);
+  ReadLegacyTransportConfig(json, tcp_config.mutable_transport());
 
   tcp_config.set_disable_check_calls(
       json.getBoolean(kDisableTcpCheckCalls, false));
 
   ReadV2Config(json, &tcp_config);
 
-  check_cluster = transport_config->check_cluster().empty()
-                      ? kDefaultMixerClusterName
-                      : transport_config->check_cluster();
-  report_cluster = transport_config->report_cluster().empty()
-                       ? kDefaultMixerClusterName
-                       : transport_config->report_cluster();
+  SetDefaultMixerClusters(tcp_config.mutable_transport());
 }
 
 }  // namespace Mixer
