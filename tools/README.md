@@ -18,7 +18,7 @@ $ git clone https://github.com/istio/istio.git && cd istio
 ### Prepare the Istio Deployment Manifest and Istio Client
 __Option A:__ Build the deployment manifest and `istioctl` binary:
 ```
-$ ./install/updateVersion.sh
+$ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
 Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
 Make the kubectl binary executable.
