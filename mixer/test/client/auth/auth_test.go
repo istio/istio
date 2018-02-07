@@ -69,6 +69,7 @@ const checkAttributes = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+	"connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -106,10 +107,13 @@ const reportAttributes = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+	"destination.ip": "[127 0 0 1]",
+	"destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+	"connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -166,6 +170,7 @@ const FailedReportAttributes = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+	"connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
