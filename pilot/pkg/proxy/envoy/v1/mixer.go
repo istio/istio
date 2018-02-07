@@ -239,6 +239,8 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 	}
 
 	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
 	if len(instances) > 0 {
 		labels = instances[0].Labels
 	}
