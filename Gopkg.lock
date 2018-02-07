@@ -493,8 +493,8 @@
 [[projects]]
   name = "github.com/hashicorp/consul"
   packages = ["api"]
-  revision = "48f3dd5642374d079f5a64359023fb8318eb81cc"
-  version = "v1.0.3"
+  revision = "95587edecaa48fa9ea9e865db02ae0bf8407918e"
+  version = "v1.0.4"
 
 [[projects]]
   branch = "master"
@@ -1131,7 +1131,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "ebec456e6f980d4938b94924da14954e31c206eb"
+  revision = "12edb320898356a89682507fb96bb49c86c96254"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1432,6 +1432,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "86ab2030a704d8548af57b50e980b7eec866cba9de1b632f4eaf211b5b42ea40"
+  inputs-digest = "84d07cfc76ab76390f61c7966ef44b2a886b51bb4cf8cf7b0bb3fc5121a7ac67"
   solver-name = "gps-cdcl"
   solver-version = 1

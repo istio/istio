@@ -4,7 +4,7 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "Gopkg.toml",
-		"lastStableSHA": "ebec456e6f980d4938b94924da14954e31c206eb"
+		"lastStableSHA": "12edb320898356a89682507fb96bb49c86c96254"
 	},
 	{
 		"name": "/envoy",
