@@ -57,6 +57,25 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	return model.ApplyMeshConfigDefaults(yaml)
 }
 
+func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
+	_, client, err := kube.CreateInterface(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+	injectConfigMap := "istio-inject"
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMap, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
+				"Use --meshConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+			meshConfigMapName, istioNamespace, err)
+	}
+	yaml, exists := config.Data["config"]
+	if !exists {
+		return "", fmt.Errorf("missing configuration map key %q", configMapKey)
+	}
+	return string(yaml), nil
+}
+
 var (
 	hub             string
 	tag             string
@@ -190,18 +209,12 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				}
 				sidecarTemplate = config.Template
 			} else {
-				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:       inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:       verbosity,
-					SidecarProxyUID: sidecarProxyUID,
-					Version:         versionStr,
-					EnableCoreDump:  enableCoreDump,
-					Mesh:            meshConfig,
-					ImagePullPolicy: imagePullPolicy,
-					IncludeIPRanges: includeIPRanges,
-					DebugMode:       debugMode,
-				})
+				sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig)
+				var config inject.Config
+				if err := yaml.Unmarshal([]byte(sidecarTemplate), &config); err != nil {
+					return err
+				}
+				sidecarTemplate = config.Template
 			}
 
 			if emitTemplate {
