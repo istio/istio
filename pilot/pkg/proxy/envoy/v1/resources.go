@@ -505,7 +505,7 @@ type HTTPFilterConfig struct {
 	AccessLog         []AccessLog            `json:"access_log"`
 }
 
-func (*HTTPFilterConfig) isNetworkFilterConfig() {}
+func (*HTTPFilterConfig) IsNetworkFilterConfig() {}
 
 // HTTPFilterTraceConfig definition
 type HTTPFilterTraceConfig struct {
@@ -575,7 +575,7 @@ type TCPProxyFilterConfig struct {
 	RouteConfig *TCPRouteConfig `json:"route_config"`
 }
 
-func (*TCPProxyFilterConfig) isNetworkFilterConfig() {}
+func (*TCPProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // TCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
 type TCPRouteConfig struct {
@@ -587,13 +587,13 @@ type MongoProxyFilterConfig struct {
 	StatPrefix string `json:"stat_prefix"`
 }
 
-func (*MongoProxyFilterConfig) isNetworkFilterConfig() {}
+func (*MongoProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // CORSFilterConfig definition
 // See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
 type CORSFilterConfig struct{}
 
-func (*CORSFilterConfig) isNetworkFilterConfig() {}
+func (*CORSFilterConfig) IsNetworkFilterConfig() {}
 
 // RedisConnPool definition
 type RedisConnPool struct {
@@ -607,7 +607,7 @@ type RedisProxyFilterConfig struct {
 	StatPrefix  string         `json:"stat_prefix"`
 }
 
-func (*RedisProxyFilterConfig) isNetworkFilterConfig() {}
+func (*RedisProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // NetworkFilter definition
 type NetworkFilter struct {
@@ -618,7 +618,7 @@ type NetworkFilter struct {
 
 // NetworkFilterConfig is a marker interface
 type NetworkFilterConfig interface {
-	isNetworkFilterConfig()
+	IsNetworkFilterConfig()
 }
 
 // Listener definition
