@@ -183,6 +183,8 @@ class CheckData : public HttpCheckData,
     return Utils::ExtractHeaders(headers_, RequestHeaderExclusives);
   }
 
+  bool IsMutualTLS() const override { return Utils::IsMutualTLS(connection_); }
+
   bool FindHeaderByType(HttpCheckData::HeaderType header_type,
                         std::string* value) const override {
     switch (header_type) {
@@ -304,6 +306,14 @@ class ReportData : public HttpReportData {
  public:
   ReportData(const HeaderMap* headers, const RequestInfo::RequestInfo& info)
       : headers_(headers), info_(info) {}
+
+  bool GetDestinationIpPort(std::string* str_ip, int* port) const override {
+    if (info_.upstreamHost() && info_.upstreamHost()->address()) {
+      return Utils::GetIpPort(info_.upstreamHost()->address()->ip(), str_ip,
+                              port);
+    }
+    return false;
+  }
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
     if (headers_) {

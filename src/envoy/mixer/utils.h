@@ -35,6 +35,9 @@ bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port);
 // Get user id from ssl.
 bool GetSourceUser(const Network::Connection* connection, std::string* user);
 
+// Returns true if connection is mutual TLS enabled.
+bool IsMutualTLS(const Network::Connection* connection);
+
 }  // namespace Utils
 }  // namespace Http
 }  // namespace Envoy

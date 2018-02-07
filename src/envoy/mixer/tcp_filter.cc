@@ -207,6 +207,11 @@ class TcpInstance : public Network::Filter,
   bool GetSourceUser(std::string* user) const override {
     return Utils::GetSourceUser(&filter_callbacks_->connection(), user);
   }
+
+  bool IsMutualTLS() const override {
+    return Utils::IsMutualTLS(&filter_callbacks_->connection());
+  }
+
   bool GetDestinationIpPort(std::string* str_ip, int* port) const override {
     if (filter_callbacks_->upstreamHost() &&
         filter_callbacks_->upstreamHost()->address()) {

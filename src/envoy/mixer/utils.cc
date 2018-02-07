@@ -84,6 +84,11 @@ bool GetSourceUser(const Network::Connection* connection, std::string* user) {
   return false;
 }
 
+bool IsMutualTLS(const Network::Connection* connection) {
+  return connection != nullptr && connection->ssl() != nullptr &&
+         connection->ssl()->peerCertificatePresented();
+}
+
 }  // namespace Utils
 }  // namespace Http
 }  // namespace Envoy
