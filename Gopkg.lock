@@ -575,7 +575,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "6e367b6e80075008a26f9f23cbd2bf4e51c5761d"
+  revision = "1e861aafb19104e025d5de4f3898f88f6f6b6534"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1432,6 +1432,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "84d07cfc76ab76390f61c7966ef44b2a886b51bb4cf8cf7b0bb3fc5121a7ac67"
+  inputs-digest = "2e13e398df2cfdf68f0d0f65bd0d1bdfd0d491474ea1be63adfc757349b5a17e"
   solver-name = "gps-cdcl"
   solver-version = 1
