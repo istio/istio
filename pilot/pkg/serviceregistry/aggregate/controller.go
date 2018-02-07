@@ -26,7 +26,8 @@ import (
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name serviceregistry.ServiceRegistry
+	Name        serviceregistry.ServiceRegistry
+	ClusterName string
 	model.Controller
 	model.ServiceDiscovery
 	model.ServiceAccounts
@@ -51,6 +52,7 @@ func (c *Controller) AddRegistry(registry Registry) {
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
+	smap := make(map[string]*model.Service)
 	services := make([]*model.Service, 0)
 	var errs error
 	for _, r := range c.registries {
@@ -58,7 +60,12 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {
-			services = append(services, svcs...)
+			for _, s := range svcs {
+				if smap[s.Hostname] == nil {
+					services = append(services, s)
+					smap[s.Hostname] = s
+				}
+			}
 		}
 	}
 	return services, errs
@@ -97,19 +104,22 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	var instances []*model.ServiceInstance
+	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	for _, r := range c.registries {
 		var err error
-		instances, err = r.Instances(hostname, ports, labels)
+		tmpInstances, err = r.Instances(hostname, ports, labels)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else if len(instances) > 0 {
+		} else if len(tmpInstances) > 0 {
 			if errs != nil {
 				log.Warnf("Instances() found match but encountered an error: %v", errs)
 			}
-			return instances, nil
+			instances = append(instances, tmpInstances...)
 		}
+	}
+	if len(instances) > 0 {
+		errs = nil
 	}
 	return instances, errs
 }
