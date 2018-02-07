@@ -79,6 +79,7 @@ func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Nod
 
 const (
 	requiredCertsCheckInterval = 4 * time.Second
+	requiredCertsCheckTimeout  = 90 * time.Second
 	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
 	defaultMinDelay = 10 * time.Second
 	azRetryInterval = time.Second * 30
@@ -86,6 +87,15 @@ const (
 )
 
 func (w *watcher) Run(ctx context.Context) {
+	// Wait until the required certificate files present. This prevents Envoy failing caused by non-existing cert files.
+	// Note: this function is blocking.
+	log.Infof("Check required cert files are present (up to %v)...", requiredCertsCheckTimeout)
+	if err := certsExist(w.requiredCerts, requiredCertsCheckInterval, requiredCertsCheckTimeout); err != nil {
+		log.Errorf("Required cert file check failed: %v", err)
+		return
+	}
+	log.Info("All required cert files are present!")
+
 	// agent consumes notifications from the controller
 	go w.agent.Run(ctx)
 
@@ -105,11 +115,6 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	// Wait until the required certificate files present. This prevents Envoy failing caused by non-existing cert files.
-	// Note: this function is blocking.
-	log.Info("Check required cert files are present...")
-	certsExist(w.requiredCerts, requiredCertsCheckInterval)
-	log.Info("All required cert files are present!")
 	config := BuildConfig(w.config, w.pilotSAN)
 
 	// compute hash of dependent certificates
@@ -216,16 +221,26 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
-func certsExist(certs []CertSource, interval time.Duration) {
-	for _, cert := range certs {
-		for {
-			if err := checkCerts(cert); err != nil {
-				log.Warnf("%v. Will retry in %v", err, interval)
-				time.Sleep(interval)
-			} else {
-				break
+func certsExist(certs []CertSource, interval time.Duration, timeout time.Duration) error {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		for _, cert := range certs {
+			for {
+				if err := checkCerts(cert); err != nil {
+					log.Warnf("%v. Will retry in %v", err, interval)
+					time.Sleep(interval)
+				} else {
+					break
+				}
 			}
 		}
+	}()
+	select {
+	case <-c:
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("certs do not present after timeout %v", timeout)
 	}
 }
 

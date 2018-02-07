@@ -296,7 +296,7 @@ func TestCheckCerts(t *testing.T) {
 			expectedErr: "file " + tempdir + "/emptyfile.pem is empty",
 		},
 		{
-			name: "file exists",
+			name: "files exist",
 			certs: CertSource{
 				Directory: tempdir,
 				Files:     []string{"file1.pem", "file2.pem"},
@@ -307,6 +307,71 @@ func TestCheckCerts(t *testing.T) {
 
 	for _, tc := range tests {
 		err = checkCerts(tc.certs)
+
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: no error thrown. Error expected: %v", tc.name, err)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					tc.name, err.Error(), tc.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("%s: Unexpected Error: %v", tc.name, err)
+		}
+	}
+}
+
+func TestCertsExist(t *testing.T) {
+	tempdir, err := ioutil.TempDir("testdata", "certs")
+	if err != nil {
+		t.Errorf("failed to create a temp dir: %v", err)
+	}
+	defer func() {
+		if err = os.RemoveAll(tempdir); err != nil {
+			t.Errorf("failed to remove temp dir: %v", err)
+		}
+	}()
+
+	content := []byte("Certificate content")
+	if err = ioutil.WriteFile(path.Join(tempdir, "file1.pem"), content, 0644); err != nil {
+		t.Errorf("failed to write file: %v", err)
+	}
+
+	if err = ioutil.WriteFile(path.Join(tempdir, "file2.pem"), content, 0644); err != nil {
+		t.Errorf("failed to write file: %v", err)
+	}
+
+	interval := 20 * time.Millisecond
+	timeout := 2 * time.Second
+	tests := []struct {
+		name        string
+		certs       []CertSource
+		expectedErr string
+	}{
+		{
+			name: "timeout due to cert file not exist",
+			certs: []CertSource{
+				CertSource{
+					Directory: tempdir,
+					Files:     []string{"file1.pem", "file2.pem", "file3.pem"},
+				},
+			},
+			expectedErr: "certs do not present after timeout " + timeout.String(),
+		},
+		{
+			name: "Success",
+			certs: []CertSource{
+				CertSource{
+					Directory: tempdir,
+					Files:     []string{"file1.pem", "file2.pem"},
+				},
+			},
+			expectedErr: "",
+		},
+	}
+
+	for _, tc := range tests {
+		err = certsExist(tc.certs, interval, timeout)
 
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
