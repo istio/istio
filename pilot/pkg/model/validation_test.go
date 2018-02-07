@@ -951,8 +951,8 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		PolicyCheckServer:  "10.0.0.100",
-		TelemetryServer:    "10.0.0.100",
+		MixerCheckServer:  "10.0.0.100",
+		MixerReportServer:    "10.0.0.100",
 		ProxyListenPort:    0,
 		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
 		AuthPolicy:         -1,

@@ -57,8 +57,8 @@
            },
            "serviceConfigs": {},
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -141,8 +141,8 @@
            },
            "serviceConfigs": {},
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }

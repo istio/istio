@@ -77,8 +77,8 @@
             }
            },
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -174,8 +174,8 @@
             }
            },
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -308,8 +308,8 @@
             }
            },
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -531,8 +531,8 @@
             }
            },
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -571,6 +571,7 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
+        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -585,8 +586,8 @@
          }
         },
         "transport": {
-         "checkCluster": "mixer_server",
-         "reportCluster": "mixer_server"
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -624,6 +625,7 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
+        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -638,8 +640,8 @@
          }
         },
         "transport": {
-         "checkCluster": "mixer_server",
-         "reportCluster": "mixer_server"
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -684,6 +686,7 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
+        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -698,8 +701,8 @@
          }
         },
         "transport": {
-         "checkCluster": "mixer_server",
-         "reportCluster": "mixer_server"
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -828,8 +831,8 @@
             }
            },
            "transport": {
-            "checkCluster": "mixer_server",
-            "reportCluster": "mixer_server"
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }

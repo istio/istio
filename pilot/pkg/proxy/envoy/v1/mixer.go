@@ -33,7 +33,7 @@ import (
 
 const (
 	// MixerCheckClusterName is the name of the mixer cluster used for policy checks
-	MixerReportClusterName = "mixer_check_server"
+	MixerCheckClusterName = "mixer_check_server"
 
 	// MixerReportClusterName is the name of the mixer cluster used for telemetry
 	MixerReportClusterName = "mixer_report_server"
@@ -136,7 +136,7 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
     mixerClusters := make([]*Cluster, 0)
 
 	if mesh.MixerCheckServer != "" {
-		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerCheckServer, mesh.MixerCheckClusterName)
+		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerCheckServer, MixerCheckClusterName))
 	}
 
 	if mesh.MixerReportServer != "" {
@@ -144,7 +144,7 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
 		if mesh.MixerReportServer == mesh.MixerCheckServer {
 			return mixerClusters
 		}
-		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerReportServer, mesh.MixerReportClusterName)
+		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerReportServer, MixerReportClusterName))
 	}
 
 	return mixerClusters
@@ -303,8 +303,8 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, ins
 	}
 
 	transport := &mccpb.TransportConfig{
-		CheckCluster: PolicyCheckClusterName,
-		ReportCluster: TelemetryClusterName,
+		CheckCluster: MixerCheckClusterName,
+		ReportCluster: MixerReportClusterName,
 	}
 	if mesh.MixerCheckServer == mesh.MixerReportServer {
 		transport.ReportCluster = transport.CheckCluster
