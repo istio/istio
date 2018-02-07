@@ -55,6 +55,12 @@ attributes {
   }
 }
 attributes {
+  key: "connection.mtls"
+  value {
+    bool_value: true
+  }
+}
+attributes {
   key: "source.port"
   value {
     int64_value: 8080
@@ -241,6 +247,8 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         *port = 8080;
         return true;
       }));
+  EXPECT_CALL(mock_data, IsMutualTLS())
+      .WillOnce(Invoke([]() -> bool { return true; }));
   EXPECT_CALL(mock_data, GetSourceUser(_))
       .WillOnce(Invoke([](std::string* user) -> bool {
         *user = "test_user";

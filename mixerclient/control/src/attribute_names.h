@@ -55,6 +55,7 @@ struct AttributeName {
   static const char kConnectionSendBytes[];
   static const char kConnectionSendTotalBytes[];
   static const char kConnectionDuration[];
+  static const char kConnectionMtls[];
 
   // Context attributes
   static const char kContextProtocol[];

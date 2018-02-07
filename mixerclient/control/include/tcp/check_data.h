@@ -33,6 +33,9 @@ class CheckData {
 
   // If SSL is used, get origin user name.
   virtual bool GetSourceUser(std::string* user) const = 0;
+
+  // Returns true if connection is mutual TLS enabled.
+  virtual bool IsMutualTLS() const = 0;
 };
 
 }  // namespace tcp

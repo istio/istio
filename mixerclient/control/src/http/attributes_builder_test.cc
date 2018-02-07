@@ -23,10 +23,10 @@
 #include "mock_check_data.h"
 #include "mock_report_data.h"
 
-using ::istio::mixer::v1::Attributes;
-using ::istio::mixer::v1::Attributes_StringMap;
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer::v1::Attributes_StringMap;
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -93,6 +93,12 @@ attributes {
   key: "source.port"
   value {
     int64_value: 8080
+  }
+}
+attributes {
+  key: "connection.mtls"
+  value {
+    bool_value: true
   }
 }
 attributes {
@@ -175,6 +181,18 @@ attributes {
     duration_value {
       nanos: 1
     }
+  }
+}
+attributes {
+  key: "destination.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.port"
+  value {
+    int64_value: 8080
   }
 }
 attributes {
@@ -280,6 +298,8 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         *user = "test_user";
         return true;
       }));
+  EXPECT_CALL(mock_data, IsMutualTLS())
+      .WillOnce(Invoke([]() -> bool { return true; }));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -330,6 +350,12 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 
 TEST(AttributesBuilderTest, TestReportAttributes) {
   ::testing::NiceMock<MockReportData> mock_data;
+  EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetResponseHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;

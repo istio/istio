@@ -36,6 +36,8 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   if (check_data->GetSourceUser(&source_user)) {
     builder.AddString(AttributeName::kSourceUser, source_user);
   }
+  builder.AddBool(AttributeName::kConnectionMtls, check_data->IsMutualTLS());
+
   builder.AddTimestamp(AttributeName::kContextTime,
                        std::chrono::system_clock::now());
   builder.AddString(AttributeName::kContextProtocol, "tcp");

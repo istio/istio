@@ -53,6 +53,7 @@ const char AttributeName::kConnectionSendBytes[] = "connection.sent.bytes";
 const char AttributeName::kConnectionSendTotalBytes[] =
     "connection.sent.bytes_total";
 const char AttributeName::kConnectionDuration[] = "connection.duration";
+const char AttributeName::kConnectionMtls[] = "connection.mtls";
 
 // Context attributes
 const char AttributeName::kContextProtocol[] = "context.protocol";
