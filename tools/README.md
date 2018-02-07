@@ -144,6 +144,16 @@ to one of the Fortio echo servers:
 Fortio provides additional load testing capabilities not covered by this document. For more information, refer to the
 [Fortio documentation](https://github.com/istio/fortio/blob/master/README.md)
 
+### Uninstall
+Use the `delete_all` function to remove everything done by the `setup_all` function. The following delete functions are used by
+`delete_all` and may be called individually:
+```
+$ delete_istio
+$ delete_cluster
+$ delete_vm
+$ delete_vm_firewall
+```
+
 ### See also
 
 [Perf setup FAQ wiki](https://github.com/istio/istio/wiki/Istio-Performance-oriented-setup-FAQ)
