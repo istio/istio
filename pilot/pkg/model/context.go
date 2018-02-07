@@ -180,7 +180,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 	return meshconfig.MeshConfig{
 		PolicyCheckServer:     "",
 		TelemetryServer:       "",
-		DisablePolicyChecks:   false,
+		DisablePolicyChecks:   true,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
