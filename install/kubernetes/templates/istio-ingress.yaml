@@ -91,6 +91,10 @@ spec:
         - --controlPlaneAuthPolicy
         - NONE
 {{ end }}
+{{ if .Values.sni.enabled }}
+        - --customConfigFile
+        - /etc/envoy/envoy.yaml
+{{ end }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -113,6 +117,15 @@ spec:
         - name: ingress-certs
           mountPath: /etc/istio/ingress-certs
           readOnly: true
+{{ if .Values.sni.enabled }}
+        - name: envoyconfig
+          mountPath: /etc/envoy
+{{ range $app := .Values.sni.apps }}
+        - name: secrets-{{ $app.name }}
+          readOnly: true
+          mountPath: /etc/istio/sni/{{ $app.name }}
+{{ end }}
+{{ end }}
       volumes:
       - name: istio-certs
         secret:
@@ -122,4 +135,15 @@ spec:
         secret:
           secretName: istio-ingress-certs
           optional: true
+{{ if .Values.sni.enabled }}
+      - name: envoyconfig
+        configMap:
+            name: envoy-config
+{{ range $app := .Values.sni.apps }}
+      - name: secrets-{{ $app.name }}
+        secret:
+            secretName: sni-{{ $app.name }}
+            optional: true
+{{ end }}
+{{ end }}
 ---

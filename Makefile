@@ -476,7 +476,7 @@ installgen: generate_yaml
 
 # A make target to generate the install/test YAML files
 generate_yaml:
-	install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	install/updateVersion.sh -a ${HUB},${TAG}
 
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \

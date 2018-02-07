@@ -51,6 +51,20 @@ sidecarCoreDump: false
 
 # TODO: template for list of excluded services
 
+# If set, create an internal load balancer for mesh expansion with VPN support.
+# This will allocate an IP address and create a gateway, using ILB by default.
+# This setting will also enable a UDP DNS port over ILB.
+meshExpansion:
+  enabled: false
+
+# If set, will allocate an external IP and load balancer exposing the mesh expansion
+# ingress.
+zvpn:
+  enabled: false
+
+sni:
+  enabled: false
+
 # =============== Testing or special cases only ============
 
 # If running in minikube, uncomment this or run with --set ingressNodePort=30001
