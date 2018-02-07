@@ -174,7 +174,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -186,6 +186,15 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 		},
 		QuotaName: MixerRequestCount,
 	}
+
+	transport := &mccpb.TransportConfig{
+		CheckCluster: PolicyCheckClusterName,
+		ReportCluster: TelemetryClusterName,
+	}
+	if mesh.PolicyCheckServer == mesh.TelemetryServer {
+		transport.ReportCluster = transport.CheckCluster
+	}
+
 	v2 := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
@@ -194,12 +203,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
-		Transport: &mccpb.TransportConfig{
-			// TODO: This should be used as a way to indicate enable/disable policy/telemetry,
-			// instead of having another boolean to do the same.
-			CheckCluster: PolicyCheckClusterName,
-			ReportCluster:TelemetryClusterName,
-		},
+		Transport: transport,
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -299,13 +303,23 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 }
 
 // Mixer TCP filter config for inbound requests.
-func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
+func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
 			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
 	}
+
+	// TODO (Bug): DisablePolicyChecks is being ignored in this function
+	transport := &mccpb.TransportConfig{
+		CheckCluster: PolicyCheckClusterName,
+		ReportCluster: TelemetryClusterName,
+	}
+	if mesh.PolicyCheckServer == mesh.TelemetryServer {
+		transport.ReportCluster = transport.CheckCluster
+	}
+
 	v2 := &mccpb.TcpClientConfig{
 
 		MixerAttributes: &mpb.Attributes{
@@ -315,12 +329,7 @@ func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance
 				AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}},
 			},
 		},
-		Transport: &mccpb.TransportConfig{
-			// TODO: This should be used as a way to indicate enable/disable policy/telemetry,
-			// instead of having another boolean to do the same.
-			CheckCluster: PolicyCheckClusterName,
-			ReportCluster:TelemetryClusterName,
-		},
+		Transport: transport,
 	}
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
 		log.Warnf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)

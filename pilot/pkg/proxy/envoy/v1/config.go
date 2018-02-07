@@ -382,7 +382,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if opts.mesh.PolicyCheckServer != "" || opts.mesh.TelemetryServer != "" {
-		mixerConfig := mixerHTTPRouteConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
+		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -878,7 +878,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 				filter := &NetworkFilter{
 					Type:   both,
 					Name:   MixerFilter,
-					Config: mixerTCPConfig(sidecar, !mesh.DisablePolicyChecks, instance),
+					Config: buildTCPMixerFilterConfig(mesh, sidecar, instance),
 				}
 				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
 			}
