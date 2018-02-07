@@ -34,23 +34,25 @@ global:
 #
 # ingress configuration
 #
-serviceAccountName: default
-imagePullPolicy: IfNotPresent
-resources: {}
+ingress:
+  enabled: true
+  serviceAccountName: default
+  imagePullPolicy: IfNotPresent
+  resources: {}
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
-nodeSelector: {}
+  nodeSelector: {}
 # istio ingress configuration
-service:
+  service:
   # By default istio ingress uses LoadBalancer type of service
   # to use NodePort, it needs to be enabled and desired port specified
-  nodePort:
-    enabled: false
-    port: 32000
+    nodePort:
+      enabled: false
+      port: 32000
 
 #
 # sidecar-injector configuration
