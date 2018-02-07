@@ -154,8 +154,8 @@ func setupRBACStore() *configStore {
 	role5Spec := &rbacproto.ServiceRole{
 		Rules: []*rbacproto.AccessRule{
 			{
-				Services:    []string{"abc"},
-				Methods:     []string{"GET"},
+				Services: []string{"abc"},
+				Methods:  []string{"GET"},
 			},
 		},
 	}
