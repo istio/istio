@@ -159,6 +159,14 @@ func TestIntoResourceFile(t *testing.T) {
 			in:   "testdata/list-frontend.yaml",
 			want: "testdata/list-frontend.yaml.injected",
 		},
+		{
+			in:   "testdata/deploymentconfig.yaml",
+			want: "testdata/deploymentconfig.yaml.injected",
+		},
+		{
+			in:   "testdata/deploymentconfig-multi.yaml",
+			want: "testdata/deploymentconfig-multi.yaml.injected",
+		},
 	}
 
 	for _, c := range cases {
