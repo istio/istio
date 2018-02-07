@@ -175,7 +175,6 @@ const (
 // should be interpreted.
 // TODO: Move DestinationRuleType to github.com/istio.io/api
 const (
-	_ = iota
 	// DestinationRuleService is a type of destination rule where the
 	// rule name is an FQDN of the service and resulting Subsets ought
 	// to be further scoped to this FQDN.
@@ -447,7 +446,7 @@ func (m *Mesh) UpdateRules(ruleChanges []RuleChange) error {
 				case DestinationRuleName:
 					labelsToMatch =
 						newMapWithLabelValue(subset.GetLabels(), DestinationName.AttrName(), labelValue)
-				case DestinationRuleCIDR | DestinationRuleWildcard:
+				case DestinationRuleCIDR, DestinationRuleWildcard:
 					// Direct matches will not work. Scoping is done later.
 					labelsToMatch = subset.GetLabels()
 				}
