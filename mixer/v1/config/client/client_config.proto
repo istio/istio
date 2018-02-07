@@ -67,6 +67,8 @@ message TransportConfig {
   // The flag to disable report batch.
   bool disable_report_batch = 3;
 
+  // NetworkFailPolicy defines behavior when network connection
+  // failure occurs.
   enum NetworkFailPolicy {
     // If network fails, request is passed to the backend.
     FAIL_OPEN = 0;

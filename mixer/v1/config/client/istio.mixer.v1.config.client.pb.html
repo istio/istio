@@ -189,6 +189,9 @@ that should be mapped to the specified service(s).</p>
 </section>
 <h2 id="EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference</h2>
 <section>
+<p>EndUserAuthenticationPolicySpecReference identifies a
+EndUserAuthenticationPolicySpec that is bound to a set of services.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -702,6 +705,8 @@ specified.</p>
 <td><code>locations</code></td>
 <td><code><a href="#JWT.Location">JWT.Location[]</a></code></td>
 <td>
+<p>Zero or more locations to search for JWT in an HTTP request.</p>
+
 </td>
 </tr>
 <tr id="JWT.jwks_uri_envoy_cluster">
@@ -893,6 +898,9 @@ conditions defined in the QuotaSpecs should not overlap.</p>
 </section>
 <h2 id="QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference</h2>
 <section>
+<p>QuotaSpecReference uniquely identifies the QuotaSpec used in the
+Binding.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -1187,6 +1195,9 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 </section>
 <h2 id="TransportConfig.NetworkFailPolicy">TransportConfig.NetworkFailPolicy</h2>
 <section>
+<p>NetworkFailPolicy defines behavior when network connection
+failure occurs.</p>
+
 <table class="enum-values">
 <thead>
 <tr>

@@ -123,6 +123,8 @@ message QuotaSpecBinding {
   // REQUIRED. One or more services to map the listed QuotaSpec onto.
   repeated IstioService services = 1;
 
+  // QuotaSpecReference uniquely identifies the QuotaSpec used in the
+  // Binding.
   message QuotaSpecReference {
     // REQUIRED. The short name of the QuotaSpec. This is the resource
     // name defined by the metadata name field.

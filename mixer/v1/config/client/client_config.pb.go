@@ -23,6 +23,8 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// NetworkFailPolicy defines behavior when network connection
+// failure occurs.
 type TransportConfig_NetworkFailPolicy int32
 
 const (

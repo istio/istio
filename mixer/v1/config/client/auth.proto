@@ -114,6 +114,7 @@ message JWT {
       string query = 2;
     }
   }
+  // Zero or more locations to search for JWT in an HTTP request.
   repeated Location locations = 6;
 
   // This field is specific for Envoy proxy implementation.
@@ -148,6 +149,8 @@ message EndUserAuthenticationPolicySpec {
   repeated JWT jwts = 2;
 }
 
+// EndUserAuthenticationPolicySpecReference identifies a
+// EndUserAuthenticationPolicySpec that is bound to a set of services.
 message EndUserAuthenticationPolicySpecReference {
   // REQUIRED. The short name of the
   // EndUserAuthenticationPolicySpec. This is the resource name

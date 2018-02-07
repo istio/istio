@@ -73,7 +73,8 @@ type JWT struct {
 	// system wide default is applied if no duration is explicitly
 	// specified.
 	PublicKeyCacheDuration *google_protobuf1.Duration `protobuf:"bytes,5,opt,name=public_key_cache_duration,json=publicKeyCacheDuration" json:"public_key_cache_duration,omitempty"`
-	Locations              []*JWT_Location            `protobuf:"bytes,6,rep,name=locations" json:"locations,omitempty"`
+	// Zero or more locations to search for JWT in an HTTP request.
+	Locations []*JWT_Location `protobuf:"bytes,6,rep,name=locations" json:"locations,omitempty"`
 	// This field is specific for Envoy proxy implementation.
 	// It is the cluster name in the Envoy config for the jwks_uri.
 	JwksUriEnvoyCluster string `protobuf:"bytes,7,opt,name=jwks_uri_envoy_cluster,json=jwksUriEnvoyCluster,proto3" json:"jwks_uri_envoy_cluster,omitempty"`
@@ -242,6 +243,8 @@ func (*EndUserAuthenticationPolicySpec) Descriptor() ([]byte, []int) {
 	return fileDescriptorAuth, []int{1}
 }
 
+// EndUserAuthenticationPolicySpecReference identifies a
+// EndUserAuthenticationPolicySpec that is bound to a set of services.
 type EndUserAuthenticationPolicySpecReference struct {
 	// REQUIRED. The short name of the
 	// EndUserAuthenticationPolicySpec. This is the resource name
