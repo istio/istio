@@ -12,7 +12,7 @@
       "timeout_ms": 0,
       "opaque_config": {
        "destination.service": "hello.default.svc.cluster.local",
-       "mixer_check": "off",
+       "mixer_check": "on",
        "mixer_forward": "on",
        "mixer_report": "on"
       },

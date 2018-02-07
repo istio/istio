@@ -469,7 +469,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "off",
+             "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -510,7 +510,6 @@
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
-             "disableCheckCalls": true,
              "mixerAttributes": {
               "attributes": {
                "destination.service": {
@@ -567,7 +566,6 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
-        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -627,7 +625,6 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
-        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -694,7 +691,6 @@
         "destination.uid": "kubernetes://v0.default"
        },
        "v2": {
-        "disableCheckCalls": true,
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
@@ -793,7 +789,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "off",
+             "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -834,7 +830,6 @@
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
-             "disableCheckCalls": true,
              "mixerAttributes": {
               "attributes": {
                "destination.service": {
