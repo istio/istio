@@ -109,6 +109,7 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 GO_VERSION_REQUIRED:=1.9
 
+# TODO: replace this with DOCKER_ISTIO_HUB (20 lines above)
 HUB?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
@@ -471,9 +472,11 @@ gcs.push.istioctl-all: istioctl-all
 artifacts: docker
 	@echo 'To be added'
 
-# generate_yaml in tests/istio.mk can build without specifying a hub & tag
-installgen:
-	install/updateVersion.sh -a ${HUB},${TAG}
+installgen: generate_yaml
+
+# A make target to generate the install/test YAML files
+generate_yaml:
+	install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \

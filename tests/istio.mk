@@ -57,10 +57,6 @@ EXTRA_E2E_ARGS += --pilot_hub ${HUB}
 EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh >/dev/null 2>&1
-
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
