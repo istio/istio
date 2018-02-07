@@ -50,6 +50,9 @@ const (
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
 
+	recommendedMinGracePeriodRatio = 0.5
+	recommendedMaxGracePeriodRatio = 0.8
+
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	// The size of a private key for a leaf certificate.
@@ -80,6 +83,10 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
+	}
+	if gracePeriodRatio < recommendedMinGracePeriodRatio || gracePeriodRatio > recommendedMaxGracePeriodRatio {
+		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
+			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
 	c := &SecretController{
@@ -272,13 +279,15 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	certLifeTimeLeft := time.Until(cert.NotAfter)
 	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
+	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
+	gracePeriod := time.Duration(sc.gracePeriodRatio) * certLifeTime
 	rootCertificate := sc.ca.GetRootCertificate()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if certLifeTimeLeft < time.Duration(sc.gracePeriodRatio)*certLifeTime || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
