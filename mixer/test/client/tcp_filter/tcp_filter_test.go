@@ -32,7 +32,7 @@ const checkAttributesOkPost = `
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-	"connection.mtls": false
+  "connection.mtls": false
 }
 `
 
@@ -48,7 +48,7 @@ const reportAttributesOkPost = `
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
-	"connection.mtls": false,
+  "connection.mtls": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
@@ -67,7 +67,7 @@ const reportAttributesFailPost = `
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-	"connection.mtls": false,
+  "connection.mtls": false,
   "connection.received.bytes": 0,
   "connection.received.bytes_total": 0,
   "connection.sent.bytes": 0,
