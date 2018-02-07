@@ -61,6 +61,7 @@ import (
 	"math"
 	"net"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -88,14 +89,10 @@ const (
 	// the key to the subsetEndpoints map.
 	RuleSubsetSeparator = "|"
 
-	// TODO: Do not submit without accommodating
-	//	dns1123LabelFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
-	//	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
-	//	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
+	dns1123LabelFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
 
-	// wildCardDomainPrefix is used to check if rule names are wild card domains. If
-	// the rule name is prefixed with this pattern, consider it a wild card.
-	wildCardDomainPrefix = "*."
+	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
+	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 )
 
 // DestinationRuleType is an enumeration for how route.DestinationRule.Name
@@ -216,6 +213,8 @@ var (
 		DestinationIP.AttrName():   true,
 		DestinationPort.AttrName(): true,
 	}
+	// Compiled regex for comparing wildcard prefixes.
+	wildcardDomainRegex = regexp.MustCompile(wildcardPrefix)
 )
 
 // DestinationAttribute encapsulates enums for key Istio attribute names used in Subsets
@@ -682,6 +681,8 @@ func (eps endpointSet) mergeEndpoints(other endpointSet) {
 
 // scopeToRule returns a subset of this eps by matching either the wildcard domain or CIDR depending on ruleType.
 // This is an expensive method, but is only used for determining new subsets when Rules are updated.
+// For wildcard domains, if the domainSuffix is empty, this will match all endpoints in the set that have the domain
+// attribute set.
 func (eps endpointSet) scopeToRule(ruleType DestinationRuleType, domainSuffix string, cidrNet *net.IPNet) endpointSet {
 	out := make(endpointSet, len(eps))
 	switch ruleType {
@@ -961,8 +962,12 @@ func (ep *Endpoint) getIstioMetadata() map[string]*types.Value {
 }
 
 // matchDomainSuffix returns true if any of the domains attribute for this Endpoint match the domain suffix.
+// If the domainSuffix is empty, it matches any endpoints that have a domain attribute set.
 func (ep *Endpoint) matchDomainSuffix(domainSuffix string) bool {
 	for _, epDomainName := range ep.getMultiValuedAttrs(DestinationDomain.AttrName()) {
+		if domainSuffix == "" {
+			return true
+		}
 		if strings.HasSuffix(epDomainName, domainSuffix) {
 			return true
 		}
@@ -976,8 +981,15 @@ func (ep *Endpoint) matchDomainSuffix(domainSuffix string) bool {
 // For CIDRs, the query value is set to nil, but a IP network corresponding to the CIDR specified in
 // ruleName is returned. For all other types, the returned IP Network is nil.
 func getDestinationRuleType(ruleName string) (DestinationRuleType, string, *net.IPNet) {
-	if strings.HasPrefix(ruleName, wildCardDomainPrefix) {
-		return DestinationRuleService, ruleName[2:], nil
+	if wildcardDomainRegex.MatchString(ruleName) {
+		switch {
+		case ruleName == "*":
+			return DestinationRuleWildcard, "", nil
+		case strings.HasPrefix(ruleName, "*-"):
+			return DestinationRuleWildcard, ruleName[2:], nil
+		case strings.HasPrefix(ruleName, "*"):
+			return DestinationRuleWildcard, ruleName[1:], nil
+		}
 	}
 	_, ciderNet, cidrErr := net.ParseCIDR(ruleName)
 	if cidrErr == nil {
