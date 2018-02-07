@@ -3,7 +3,14 @@ This guide provides step-by-step instructions for using the `setup_perf_cluster.
 The script deploys a GKE cluster, an Istio service mesh, a GCE VM and runs [Fortio](https://github.com/istio/fortio/)
 on the VM and within the mesh. Fortio is used to perform load testing, graph results and as a backend echo server.
 
-### Clone Istio
+### Download a Release or Clone Istio
+
+From release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
+```
+curl -L https://git.io/getLatestIstio | sh -  # or download the daily TGZ
+```
+
+From source:
 ```
 $ git clone https://github.com/istio/istio.git && cd istio
 ```
@@ -28,7 +35,7 @@ __Option B:__ Follow the [quickstart guide](https://istio.io/docs/setup/kubernet
 manifests and `istioctl` binary. Make sure `istioctl` in your path is the one matching the downloaded release.
 For instance, in `~/tmp/istio-0.4.0/` run:
 ```
-$ ln -s $GOPATH/src/istio.io/istio/tools
+$ ln -s $GOPATH/src/istio.io/istio/tools # This isn't necessary since 0.5.0, the tools/ directory is now part of the release
 ```
 
 ### Set Your Google Cloud Credentials.
