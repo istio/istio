@@ -20,10 +20,10 @@ import (
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	configpb "istio.io/api/mixer/v1/config"
 	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
 	istio_mixer_v1_template "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
-	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"

@@ -1,0 +1,542 @@
+---
+title: Stackdriver
+overview: Adapter to deliver logs and metrics to Stackdriver
+location: https://istio.io/docs/reference/config/adapters/stackdriver.html
+layout: protoc-gen-docs
+number_of_entries: 10
+---
+{% raw %}
+<p>The <code>stackdriver</code> adapter enables Istio to deliver log and metric data to the
+<a href="https://cloud.google.com/stackdriver/">Stackdriver</a> logging and monitoring backend.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>stackdriver</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.endpoint">
+<td><code>endpoint</code></td>
+<td><code>string</code></td>
+<td>
+<p>Endpoint URL to send stackdriver data - leave empty to use the
+StackDriver SDK&rsquo;s default value (monitoring.googleapis.com).</p>
+
+</td>
+</tr>
+<tr id="Params.project_id">
+<td><code>projectId</code></td>
+<td><code>string</code></td>
+<td>
+<p>GCP Project to attach metrics to.</p>
+
+</td>
+</tr>
+<tr id="Params.push_interval">
+<td><code>pushInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
+If no value is provided we default to once per minute.</p>
+
+</td>
+</tr>
+<tr id="Params.app_credentials" class="oneof oneof-start">
+<td><code>appCredentials</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Use Google&rsquo;s Application Default Credentials to authorize calls made
+by the StackDriver SDK.</p>
+
+<p><a href="https://developers.google.com/identity/protocols/application-default-credentials">See Google&rsquo;s documentation</a>.</p>
+
+</td>
+</tr>
+<tr id="Params.api_key" class="oneof">
+<td><code>apiKey</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>The API Key to be used for auth.</p>
+
+</td>
+</tr>
+<tr id="Params.service_account_path" class="oneof">
+<td><code>serviceAccountPath</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>The path to a Google service account credential file, relative to
+the Mixer. E.g. <code>/etc/opt/mixer/gcp-serviceaccount-creds.json</code>
+or <code>./testdata/my-test-account-creds.json</code>.</p>
+
+</td>
+</tr>
+<tr id="Params.metric_info">
+<td><code>metricInfo</code></td>
+<td><code>map&lt;string, <a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td>
+<p>A map of Istio metric name to Stackdriver metric info.</p>
+
+</td>
+</tr>
+<tr id="Params.log_info">
+<td><code>logInfo</code></td>
+<td><code>map&lt;string, <a href="#Params.LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td>
+<p>A map of Istio LogEntry name to Stackdriver log info.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.LogInfo">Params.LogInfo</h2>
+<section>
+<p>Describes how to represent an Istio Log in Stackdriver.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.LogInfo.label_names">
+<td><code>labelNames</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The logging template provides a set of variables; these list the subset of variables that should be used to
+form Stackdriver labels for the log entry.</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.payload_template">
+<td><code>payloadTemplate</code></td>
+<td><code>string</code></td>
+<td>
+<p>A golang text/template template that will be executed to construct the payload for this log entry.
+It will be given the full set of variables for the log to use to construct its result.</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.http_mapping">
+<td><code>httpMapping</code></td>
+<td><code><a href="#Params.LogInfo.HttpRequestMapping">Params.LogInfo.HttpRequestMapping</a></code></td>
+<td>
+<p>If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
+variables named in the mapping to populate the fields of the request struct from the instance&rsquo;s variables.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.LogInfo.HttpRequestMapping">Params.LogInfo.HttpRequestMapping</h2>
+<section>
+<p>Maps from template variable names to the various fields of Stackdriver&rsquo;s HTTP request struct.
+See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.LogInfo.HttpRequestMapping.status">
+<td><code>status</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.Status</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.HttpRequestMapping.request_size">
+<td><code>requestSize</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.RequestSize</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.HttpRequestMapping.response_size">
+<td><code>responseSize</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.ResponseSize</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.HttpRequestMapping.latency">
+<td><code>latency</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.Latency</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.HttpRequestMapping.local_ip">
+<td><code>localIp</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.LocalIP</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.HttpRequestMapping.remote_ip">
+<td><code>remoteIp</code></td>
+<td><code>string</code></td>
+<td>
+<p>template variable name to map into HTTPRequest.RemoteIP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent an Istio metric in Stackdriver.
+See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.kind">
+<td><code>kind</code></td>
+<td><code><a href="#google.api.MetricDescriptor.MetricKind">google.api.MetricDescriptor.MetricKind</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.value">
+<td><code>value</code></td>
+<td><code><a href="#google.api.MetricDescriptor.ValueType">google.api.MetricDescriptor.ValueType</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricInfo.buckets">
+<td><code>buckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
+<td>
+<p>For metrics with a metric value of DISTRIBUTION, this provides a mechanism
+for configuring the buckets that will be used to store the aggregated values.
+This field must be provided for metrics declared to be of type DISTRIBUTION.
+This field will be ignored for non-distribution metric kinds.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
+<section>
+<p>Describes buckets for DISTRIBUTION valued metrics.
+TODO: look into using google.api.distribution.proto instead - we would pull it in but it has a ton of
+dependencies it doesn&rsquo;t actually use.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.linear_buckets" class="oneof oneof-start">
+<td><code>linearBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
+<td>
+<p>The linear buckets.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.exponential_buckets" class="oneof">
+<td><code>exponentialBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
+<td>
+<p>The exponential buckets.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.explicit_buckets" class="oneof">
+<td><code>explicitBuckets</code></td>
+<td><code><a href="#Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
+<td>
+<p>The explicit buckets.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
+<section>
+<p>Specifies a set of buckets with arbitrary widths.</p>
+
+<p>There are <code>size(bounds) + 1</code> (= <code>N</code>) buckets. Bucket <code>i</code> has the following
+boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>bounds[i]</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>bounds[i - 1]</code></li>
+</ul>
+
+<p>The <code>bounds</code> field must contain at least one element. If <code>bounds</code> has
+only one element, then there are no finite buckets, and that single
+element is the common boundary of the overflow and underflow buckets.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Explicit.bounds">
+<td><code>bounds</code></td>
+<td><code>double[]</code></td>
+<td>
+<p>The values must be monotonically increasing.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
+<section>
+<p>Specifies an exponential sequence of buckets that have a width that is
+proportional to the value of the lower bound. Each bucket represents a
+constant relative uncertainty on a specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (0 &lt;= i &lt; N-1): <code>scale * (growth_factor ^ i)</code></li>
+<li>Lower bound (1 &lt;= i &lt; N): <code>scale * (growth_factor ^ (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.growth_factor">
+<td><code>growthFactor</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 1.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Exponential.scale">
+<td><code>scale</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
+<section>
+<p>Specifies a linear sequence of buckets that all have the same width
+(except overflow and underflow). Each bucket represents a constant
+absolute uncertainty on the specific value in the bucket.</p>
+
+<p>There are <code>num_finite_buckets + 2</code> (= <code>N</code>) buckets. The two additional
+buckets are the underflow and overflow buckets.</p>
+
+<p>Bucket <code>i</code> has the following boundaries:</p>
+
+<ul>
+<li>Upper bound (<code>0 &lt;= i &lt; N-1</code>): <code>offset + (width * i)</code></li>
+<li>Lower bound (<code>1 &lt;= i &lt; N</code>): <code>offset + (width * (i - 1))</code></li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.num_finite_buckets">
+<td><code>numFiniteBuckets</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.width">
+<td><code>width</code></td>
+<td><code>double</code></td>
+<td>
+<p>Must be greater than 0.</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.BucketsDefinition.Linear.offset">
+<td><code>offset</code></td>
+<td><code>double</code></td>
+<td>
+<p>Lower bound of the first bucket.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google.api.MetricDescriptor.MetricKind">google.api.MetricDescriptor.MetricKind</h2>
+<section>
+<p>The kind of measurement. It describes how the data is reported.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google.api.MetricDescriptor.MetricKind.METRIC_KIND_UNSPECIFIED">
+<td><code>METRIC_KIND_UNSPECIFIED</code></td>
+<td>
+<p>Do not use this default value.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.MetricKind.GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+<p>An instantaneous measurement of a value.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.MetricKind.DELTA">
+<td><code>DELTA</code></td>
+<td>
+<p>The change in a value during a time interval.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.MetricKind.CUMULATIVE">
+<td><code>CUMULATIVE</code></td>
+<td>
+<p>A value accumulated over a time interval.  Cumulative
+measurements in a time series should have the same start time
+and increasing end times, until an event resets the cumulative
+value to zero and sets a new start time for the following
+points.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google.api.MetricDescriptor.ValueType">google.api.MetricDescriptor.ValueType</h2>
+<section>
+<p>The value type of a metric.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google.api.MetricDescriptor.ValueType.VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Do not use this default value.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>The value is a boolean.
+This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.INT64">
+<td><code>INT64</code></td>
+<td>
+<p>The value is a signed 64-bit integer.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>The value is a double precision floating point number.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.STRING">
+<td><code>STRING</code></td>
+<td>
+<p>The value is a text string.
+This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+<p>The value is a <em><code>Distribution</code></em>.</p>
+
+</td>
+</tr>
+<tr id="google.api.MetricDescriptor.ValueType.MONEY">
+<td><code>MONEY</code></td>
+<td>
+<p>The value is money.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

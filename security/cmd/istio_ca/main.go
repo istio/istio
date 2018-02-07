@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -42,9 +42,9 @@ import (
 const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
+	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
 
-	maxWorkloadCertTTL = 7 * 24 * time.Hour
+	defaultWorkloadCertTTL = time.Hour
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -133,7 +133,7 @@ func init() {
 	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
 		"The TTL of self-signed CA root certificate")
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL, "The max TTL of issued workload certificates")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+

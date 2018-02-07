@@ -14,6 +14,16 @@
 
 syntax = "proto3";
 
+// $title: Stdio
+// $overview: Adapter for outputting logs and metrics locally.
+// $location: https://istio.io/docs/reference/config/adapters/stdio.html
+
+// The `stdio` adapter enables Istio to output logs and metrics to
+// the local machine. Logs and metrics can be directed to Mixer's
+// standard output stream, standard error stream, or to any locally
+// reachable file. When outputting to files, you can enable file rotation
+// such that the adapter will automatically manage a set of file backups
+// as data is generated.
 package adapter.stdio.config;
 
 import "gogoproto/gogo.proto";
@@ -23,8 +33,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// The stdio adapter makes it possible to capture log and metrics and output them to the Mixer process'
-// standard output or standard error stream, or to a specific file.
+// Configuration format for the `stdio` adapter
 message Params {
     // Stream is used to select between different log output sinks.
     enum Stream {
@@ -43,9 +52,9 @@ message Params {
 
     // Importance level for individual items output by this adapter.
     enum Level {
-        INFO = 0;
-        WARNING = 1;
-        ERROR = 2;
+        INFO = 0;       // informational, warning, and error log messages are included
+        WARNING = 1;    // warning and error log messges are included
+        ERROR = 2;      // only error log messages are included
     }
 
     // Selects which standard stream to write to for log entries.
@@ -54,20 +63,23 @@ message Params {
 
     // Maps from severity strings as specified in LogEntry instances to
     // the set of levels supported by this adapter. This defaults to a map of
-    //    "INFORMATIONAL" : INFO,
-    //    "informational" : INFO,
-    //    "INFO" : INFO,
-    //    "info" : INFO,
-    //    "WARNING" : WARNING,
-    //    "warning" : WARNING,
-    //    "WARN": WARNING,
-    //    "warning": WARNING,
-    //    "ERROR": ERROR,
-    //    "error": ERROR,
-    //    "ERR": ERROR,
-    //    "err": ERROR,
-    //    "FATAL": ERROR,
-    //    "fatal": ERROR,
+    //
+    // ```
+    // "INFORMATIONAL" : INFO,
+    // "informational" : INFO,
+    // "INFO" : INFO,
+    // "info" : INFO,
+    // "WARNING" : WARNING,
+    // "warning" : WARNING,
+    // "WARN": WARNING,
+    // "warning": WARNING,
+    // "ERROR": ERROR,
+    // "error": ERROR,
+    // "ERR": ERROR,
+    // "err": ERROR,
+    // "FATAL": ERROR,
+    // "fatal": ERROR,
+    // ```
     map<string, Level> severity_levels = 2;
 
     // The level to assign to metrics being output. Defaults to INFO.

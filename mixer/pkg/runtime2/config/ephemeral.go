@@ -15,8 +15,8 @@
 package config
 
 import (
+	"istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	config "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"

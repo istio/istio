@@ -187,6 +187,15 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, sidecar model.Node,
 
 	out := make([]*HTTPRoute, 0)
 	for _, route := range routes {
+		// See https://github.com/istio/istio/issues/3067. When a route has a catchAll route in addition to
+		// others, combining with ingress results in ome non deterministic rendering of routes inside Envoy
+		// route block, wherein a prefix match occurs first before another route with same
+		// prefix match+prefix rewrite. A quick fix is to disable combining with the catchAll route if there
+		// are other routes. A long term fix is to stop combining routes from two different configuration sources.
+		if route.CatchAll() && len(routes) > 1 {
+			continue
+		}
+
 		// enable mixer check on the route
 		if mesh.MixerAddress != "" {
 			route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, true, service.Hostname)

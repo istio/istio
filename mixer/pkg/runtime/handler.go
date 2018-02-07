@@ -22,9 +22,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbd "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
-	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
