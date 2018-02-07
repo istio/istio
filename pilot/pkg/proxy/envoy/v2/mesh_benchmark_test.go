@@ -23,6 +23,9 @@ import (
 	route "istio.io/api/routing/v1alpha2"
 )
 
+// samplePoint stores the index to the rule, index to the subset and the count of endpoints in that subset.
+// It's returned by buildTestEndpoints() for data sets > 1000 and provides samples for median and the first 2 standard deviations that can
+// be used for performance tests. The provided sample points are stable across multiple test runs to allow for meaningful performance regressions.
 type samplePoint struct {
 	name      string
 	rule      int
@@ -30,6 +33,7 @@ type samplePoint struct {
 	endpoints int
 }
 
+// dataSet holds the benchmark profile.
 type dataSet struct {
 	cntEps           int
 	cntSvcs          int

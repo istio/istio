@@ -341,7 +341,7 @@ func (m *Mesh) Reconcile(endpoints []*Endpoint) error {
 		epsToAdd[epUID] = ep
 	}
 	if errs != nil {
-		errs := multierror.Prefix(errs, "errors reconciling endpoints with mesh")
+		errs = multierror.Prefix(errs, "errors reconciling endpoints with mesh")
 		log.Error(errs.Error())
 		return errs
 	}
@@ -777,7 +777,7 @@ func (se subsetEndpoints) mergeSubsetEndpoints(other subsetEndpoints) {
 	}
 }
 
-// NewEndpoint is a boiler plate function intended for environment specific registries to create a new Endpoint.
+// NewEndpoint is a boiler-plate function intended for environment specific registries to create a new Endpoint.
 // This method ensures all the necessary data required for creating subsets are correctly setup. It
 // also performs sorting of arrays etc, to allow stable results for reflect.DeepEquals() for quick
 // comparisons. The network address	of the endpoint must be accessible from Pilot. If the registry creating the

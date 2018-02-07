@@ -207,7 +207,7 @@ func TestMesh_SubsetEndpoints(t *testing.T) {
 	}
 	err := tm.Reconcile(expectedEps)
 	if err != nil {
-		t.Fatalf("test setup precondition failure: %v", err)
+		t.Fatalf("test setup precondition failued: %v", err)
 	}
 	t.Run("EndpointsAdded", func(t *testing.T) {
 		t.Run("SingleSubset", func(t *testing.T) {
@@ -233,7 +233,7 @@ func TestMesh_SubsetEndpoints(t *testing.T) {
 			Type: ConfigAdd,
 		}})
 		if err != nil {
-			t.Fatalf("test setup precondition failure: %v", err)
+			t.Fatalf("test setup precondition failued: %v", err)
 		}
 		t.Run("LabeledSubset", func(t *testing.T) {
 			t.Parallel()
@@ -264,7 +264,7 @@ func TestMesh_SubsetEndpoints(t *testing.T) {
 			Type: ConfigDelete,
 		}})
 		if err != nil {
-			t.Fatalf("test setup precondition failure: %v", err)
+			t.Fatalf("test setup precondition failued: %v", err)
 		}
 		t.Run("LabeledSubset", func(t *testing.T) {
 			t.Parallel()
@@ -309,7 +309,7 @@ func TestMesh_SubsetNames(t *testing.T) {
 	}
 	err := tm.Reconcile(expectedEps)
 	if err != nil {
-		t.Fatalf("test setup precondition failure: %v", err)
+		t.Fatalf("test setup precondition failued: %v", err)
 	}
 	t.Run("EndpointsAdded", func(t *testing.T) {
 		t.Run("ServiceNameSubsets", func(t *testing.T) {
@@ -321,7 +321,7 @@ func TestMesh_SubsetNames(t *testing.T) {
 
 	err = tm.Reconcile(expectedEps[countEps/2:])
 	if err != nil {
-		t.Fatalf("test setup precondition failure: %v", err)
+		t.Fatalf("test setup precondition failed: %v", err)
 	}
 	t.Run("EndpointsDeleted", func(t *testing.T) {
 		t.Run("ServiceNameSubsets", func(t *testing.T) {
@@ -346,11 +346,11 @@ func TestMesh_SubsetNames(t *testing.T) {
 	}}
 	err = tm.Reconcile(expectedEps)
 	if err != nil {
-		t.Fatalf("test setup precondition failure: %v", err)
+		t.Fatalf("test setup precondition failed: %v", err)
 	}
 	err = tm.UpdateRules(ruleChanges)
 	if err != nil {
-		t.Fatalf("test setup precondition failure: %v", err)
+		t.Fatalf("test setup precondition failed: %v", err)
 	}
 	t.Run("SubsetsAdded", func(t *testing.T) {
 		actualSubsets := tm.SubsetNames()
@@ -363,7 +363,7 @@ func TestMesh_SubsetNames(t *testing.T) {
 			Type: ConfigDelete,
 		}})
 		if err != nil {
-			t.Fatalf("test setup precondition failure: %v", err)
+			t.Fatalf("test setup precondition failed: %v", err)
 		}
 		actualSubsets := tm.SubsetNames()
 		assertEqualsSubsetNames(t, append(subsetsToVerify, ruleSubsets[countSubsetsPerSvc:]...), actualSubsets)
