@@ -135,12 +135,12 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
-		log.Error(err.Error())
+		return err
 	}
 
 	certPEM, err := c.ca.Sign(csrPEM, c.interval, false)
 	if err != nil {
-		log.Error(err.Error())
+		return err
 	}
 
 	testCert, err := ioutil.TempFile("/tmp", "cert")
