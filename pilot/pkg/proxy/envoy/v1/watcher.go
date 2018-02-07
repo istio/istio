@@ -66,7 +66,7 @@ type watcher struct {
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
-	internalCerts []CertSource, externalCerts []CertSource, pilotSAN []string) Watcher {
+	internalCerts, externalCerts []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:         agent,
 		role:          role,
@@ -218,7 +218,7 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 
 func certsExist(certs []CertSource, interval time.Duration) {
 	for _, cert := range certs {
-		for true {
+		for {
 			if err := checkCerts(cert); err != nil {
 				log.Warnf("%v. Will retry in %v", err, interval)
 				time.Sleep(interval)
