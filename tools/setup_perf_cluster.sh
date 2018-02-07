@@ -248,7 +248,6 @@ function get_ips() {
 
 function run_tests() {
   update_gcp_opts
-  setup_vm_firewall
   get_ips
   run_fortio_test1
   run_fortio_test2
