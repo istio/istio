@@ -131,7 +131,7 @@ function install_istio() {
 # assumes run from istio/ (or release) directory
 function delete_istio() {
   # Use the non debug ingress and remove the -v "2"
-  Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl delete -f -'
+  Execute sh -c 'kubectl delete -f install/kubernetes/istio-auth.yaml'
 }
 
 function kubectl_setup() {
@@ -261,7 +261,8 @@ function setup_all() {
 
 function delete_all() {
   echo "Deleting Istio mesh, cluster $CLUSTER_NAME, Instance $VM_NAME and firewall rules for project $PROJECT in zone $ZONE"
-  sleep 3
+  echo "Interrupt now if you don't want to delete..."
+  sleep 5
   delete_istio
   delete_cluster
   delete_vm
