@@ -62,7 +62,6 @@ type NodeAgentInputs struct {
 const (
 	nodeAgentMgmtAPI string = "/tmp/udsuspver/mgmt.sock"
 	nodeAgentUdsHome string = "/tmp/nodeagent"
-	volumeName       string = "tmpfs"
 )
 
 var (
@@ -80,66 +79,6 @@ func Init(version string) error {
 		return nil
 	}
 	return genericSucc("init", "", "Init ok.")
-}
-
-// Attach attach the driver
-func Attach(opts, nodeName string) error {
-	resp, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(resp))
-	inp := opts + "|" + nodeName
-	logToSys("attach", inp, string(resp))
-	return nil
-}
-
-// Detach detach the driver
-func Detach(devID string) error {
-	resp, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	fmt.Println(string(resp))
-	logToSys("detach", devID, string(resp))
-	return nil
-}
-
-// WaitAttach wait the driver to be attached.
-func WaitAttach(dev, opts string) error {
-	resp, err := json.Marshal(&Resp{Device: dev, Status: "Success", Message: "Wait ok"})
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(resp))
-	inp := dev + "|" + opts
-	logToSys("waitattach", inp, string(resp))
-	return nil
-}
-
-// IsAttached checks whether the driver is attached.
-func IsAttached(opts, node string) error {
-	resp, err := json.Marshal(&Resp{Attached: true, Status: "Success", Message: "Is attached"})
-	if err != nil {
-		return err
-	}
-	sResp := string(resp)
-	fmt.Println(sResp)
-	inp := opts + "|" + node
-	logToSys("isattached", inp, sResp)
-	return nil
-}
-
-// MountDev mounts the device
-func MountDev(dir, dev, opts string) error {
-	inp := dir + "|" + dev + "|" + opts
-	return genericSucc("mountdev", inp, "Mount dev ok.")
-}
-
-// UnmountDev unmounts the device
-func UnmountDev(dev string) error {
-	return genericSucc("unmountdev", dev, "Unmount dev ok.")
 }
 
 // checkValidMountOpts checks if there are sufficient inputs to
@@ -297,11 +236,6 @@ func Unmount(dir string) error {
 	return genericSucc("unmount", dir, "Unmount ok.")
 }
 
-// GetVolName get the volume name
-func GetVolName(opts string) error {
-	return genericUnsupported("getvolname", opts, "not supported")
-}
-
 func printAndLog(caller, inp, s string) {
 	fmt.Println(s)
 	logToSys(caller, inp, s)
@@ -320,16 +254,6 @@ func genericSucc(caller, inp, msg string) error {
 // Failure report failure case
 func Failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
-	if err != nil {
-		return err
-	}
-
-	printAndLog(caller, inp, string(resp))
-	return nil
-}
-
-func genericUnsupported(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Resp{Status: "Not supported", Message: msg})
 	if err != nil {
 		return err
 	}
