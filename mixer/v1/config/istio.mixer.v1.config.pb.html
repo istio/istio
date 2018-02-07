@@ -6,7 +6,6 @@ layout: protoc-gen-docs
 redirect_from: /docs/reference/config/mixer/policy-and-telemetry-rules.html
 number_of_entries: 7
 ---
-{% raw %}
 <h2 id="Action">Action</h2>
 <section>
 <p>Action describes which <a href="#Handler">Handler</a> to invoke and what data to pass to it for processing.</p>
@@ -91,7 +90,7 @@ the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
 We map from attribute name to the attribute&rsquo;s specification. The name of an attribute,
 which is how attributes are referred to in aspect configuration, must conform to:</p>
 
-<pre><code>Name = IDENT { SEPARATOR IDENT };
+<pre><code>Name = IDENT &lbrace; SEPARATOR IDENT };
 </code></pre>
 
 <p>Where <code>IDENT</code> must match the regular expression <code>*a-z*+</code> and <code>SEPARATOR</code> must
@@ -380,4 +379,3 @@ with the proto support for the language.</p>
 </tbody>
 </table>
 </section>
-{% endraw %}

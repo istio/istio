@@ -5,7 +5,6 @@ location: https://istio.io/docs/reference/config/istio.mixer.v1.config.client.ht
 layout: protoc-gen-docs
 number_of_entries: 24
 ---
-{% raw %}
 <h2 id="APIKey">APIKey</h2>
 <section>
 <p>APIKey defines the explicit configuration for generating the
@@ -261,11 +260,11 @@ spec:
   - attributes:
       api.operation: findPetById
     httpMethod: GET
-    uriTemplate: /api/pets/{id}
+    uriTemplate: /api/pets/&lbrace;id}
   - attributes:
       api.operation: deletePet
     httpMethod: DELETE
-    uriTemplate: /api/pets/{id}
+    uriTemplate: /api/pets/&lbrace;id}
   api_keys:
   - query: api-key
 </code></pre>
@@ -419,9 +418,9 @@ example: GET, HEAD, POST, PUT, DELETE.</p>
 following are valid URI templates:</p>
 
 <pre><code>/pets
-/pets/{id}
-/dictionary/{term:1}/{term}
-/search{?q*,lang}
+/pets/&lbrace;id}
+/dictionary/&lbrace;term:1}/&lbrace;term}
+/search&lbrace;?q*,lang}
 </code></pre>
 
 </td>
@@ -1280,4 +1279,3 @@ Following places may use this message:
 </tbody>
 </table>
 </section>
-{% endraw %}
