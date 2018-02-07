@@ -105,7 +105,7 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	// Wait until the required certificate files present. Otherwise Envoy will fail.
+	// Wait until the required certificate files present. This prevents Envoy failing caused by non-existing cert files.
 	// Note: this function is blocking.
 	log.Info("Check required cert files are present...")
 	certsExist(w.requiredCerts, requiredCertsCheckInterval)
@@ -236,10 +236,6 @@ func checkCerts(certs CertSource) error {
 
 	for _, file := range certs.Files {
 		filename := path.Join(certs.Directory, file)
-		//_, err := ioutil.ReadFile(filename)
-		//if err != nil {
-		//	return fmt.Errorf("file %s is empty", filename)
-		//}
 		fi, err := os.Stat(filename)
 		if err != nil {
 			return fmt.Errorf("failed to read file: %v", err)

@@ -248,21 +248,21 @@ func TestCheckCerts(t *testing.T) {
 		t.Errorf("failed to create a temp dir: %v", err)
 	}
 	defer func() {
-		if err := os.RemoveAll(tempdir); err != nil {
+		if err = os.RemoveAll(tempdir); err != nil {
 			t.Errorf("failed to remove temp dir: %v", err)
 		}
 	}()
 
 	content := []byte("Certificate content")
-	if err := ioutil.WriteFile(path.Join(tempdir, "file1.pem"), content, 0644); err != nil {
+	if err = ioutil.WriteFile(path.Join(tempdir, "file1.pem"), content, 0644); err != nil {
 		t.Errorf("failed to write file: %v", err)
 	}
 
-	if err := ioutil.WriteFile(path.Join(tempdir, "file2.pem"), content, 0644); err != nil {
+	if err = ioutil.WriteFile(path.Join(tempdir, "file2.pem"), content, 0644); err != nil {
 		t.Errorf("failed to write file: %v", err)
 	}
 
-	if err := ioutil.WriteFile(path.Join(tempdir, "emptyfile.pem"), []byte{}, 0644); err != nil {
+	if err = ioutil.WriteFile(path.Join(tempdir, "emptyfile.pem"), []byte{}, 0644); err != nil {
 		t.Errorf("failed to write file: %v", err)
 	}
 
