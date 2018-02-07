@@ -85,10 +85,10 @@ var (
 		Short: "Check the liveness or readiness of a locally-running server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !flags.probeOptions.IsValid() {
-				return errors.New("Some options are not valid")
+				return errors.New("some options are not valid")
 			}
 			if err := probe.NewFileClient(&flags.probeOptions).GetStatus(); err != nil {
-				return fmt.Errorf("Fail on inspecting path %s: %v", flags.probeOptions.Path, err)
+				return fmt.Errorf("fail on inspecting path %s: %v", flags.probeOptions.Path, err)
 			}
 			fmt.Println("OK")
 			return nil
