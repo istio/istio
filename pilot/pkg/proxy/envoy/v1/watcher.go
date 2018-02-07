@@ -55,27 +55,30 @@ type CertSource struct {
 }
 
 type watcher struct {
-	agent    proxy.Agent
-	role     model.Node
-	config   meshconfig.ProxyConfig
-	certs    []CertSource
-	pilotSAN []string
+	agent         proxy.Agent
+	role          model.Node
+	config        meshconfig.ProxyConfig
+	requiredCerts []CertSource // These certs must present for Envoy to start
+	certs         []CertSource
+	pilotSAN      []string
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
-	certs []CertSource, pilotSAN []string) Watcher {
+	internalCerts []CertSource, externalCerts []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
-		agent:    agent,
-		role:     role,
-		config:   config,
-		certs:    certs,
-		pilotSAN: pilotSAN,
+		agent:         agent,
+		role:          role,
+		config:        config,
+		requiredCerts: internalCerts,
+		certs:         append(internalCerts, externalCerts...),
+		pilotSAN:      pilotSAN,
 	}
 }
 
 const (
+	requiredCertsCheckInterval = 4 * time.Second
 	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
 	defaultMinDelay = 10 * time.Second
 	azRetryInterval = time.Second * 30
@@ -102,6 +105,11 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
+	// Wait until the required certificate files present. Otherwise Envoy will fail.
+	// Note: this function is blocking.
+	log.Info("Check required cert files are present...")
+	certsExist(w.requiredCerts, requiredCertsCheckInterval)
+	log.Info("All required cert files are present!")
 	config := BuildConfig(w.config, w.pilotSAN)
 
 	// compute hash of dependent certificates
@@ -206,6 +214,41 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 		}
 	}
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
+}
+
+func certsExist(certs []CertSource, interval time.Duration) {
+	for _, cert := range certs {
+		for true {
+			if err := checkCerts(cert); err != nil {
+				log.Warnf("%v. Will retry in %v", err, interval)
+				time.Sleep(interval)
+			} else {
+				break
+			}
+		}
+	}
+}
+
+func checkCerts(certs CertSource) error {
+	if _, err := os.Stat(certs.Directory); err != nil {
+		return fmt.Errorf("certificate directory reading error: %v", err)
+	}
+
+	for _, file := range certs.Files {
+		filename := path.Join(certs.Directory, file)
+		//_, err := ioutil.ReadFile(filename)
+		//if err != nil {
+		//	return fmt.Errorf("file %s is empty", filename)
+		//}
+		fi, err := os.Stat(filename)
+		if err != nil {
+			return fmt.Errorf("failed to read file: %v", err)
+		}
+		if fi.Size() == 0 {
+			return fmt.Errorf("file %s is empty", filename)
+		}
+	}
+	return nil
 }
 
 func generateCertHash(h hash.Hash, certsDir string, files []string) {

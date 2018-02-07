@@ -180,23 +180,24 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := make([]envoy.CertSource, 0, 3)
+			internalCerts := make([]envoy.CertSource, 0, 3)
+			externalCerts := make([]envoy.CertSource, 0, 3)
 			// Only when auth is enabled, watch the internal certificate path.
 			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				certs = append(certs, envoy.CertSource{
+				internalCerts = append(internalCerts, envoy.CertSource{
 					Directory: model.AuthCertsPath,
 					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
 				})
+				log.Infof("Monitored internal certs: %#v", internalCerts)
 			}
 
 			if role.Type == model.Ingress {
-				certs = append(certs, envoy.CertSource{
+				externalCerts = append(externalCerts, envoy.CertSource{
 					Directory: model.IngressCertsPath,
 					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
 				})
+				log.Infof("Monitored external certs: %#v", externalCerts)
 			}
-
-			log.Infof("Monitored certs: %#v", certs)
 
 			var envoyProxy proxy.Proxy
 			if bootstrapv2 {
@@ -206,8 +207,9 @@ var (
 			} else {
 				envoyProxy = envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			}
+
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
+			watcher := envoy.NewWatcher(proxyConfig, agent, role, internalCerts, externalCerts, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
