@@ -21,9 +21,8 @@ package stackdriver
 import (
 	"context"
 
-	multierror "github.com/hashicorp/go-multierror"
-
 	md "cloud.google.com/go/compute/metadata"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
