@@ -150,6 +150,31 @@ func setupRBACStore() *configStore {
 
 	rn["role4"] = newRoleInfo(role4Spec)
 	rn["role4"].setBinding("binding4", binding4Spec)
+
+	role5Spec := &rbacproto.ServiceRole{
+		Rules: []*rbacproto.AccessRule{
+			{
+				Services: []string{"abc"},
+				Methods:  []string{"GET"},
+			},
+		},
+	}
+
+	binding5Spec := &rbacproto.ServiceRoleBinding{
+		Subjects: []*rbacproto.Subject{
+			{
+				User: "*",
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role5",
+		},
+	}
+
+	rn["role5"] = newRoleInfo(role5Spec)
+	rn["role5"].setBinding("binding5", binding5Spec)
+
 	return s
 }
 
@@ -177,6 +202,7 @@ func TestRBACStore_CheckPermission(t *testing.T) {
 		{"ns1", "fishpond", "/pond/a", "GET", "v1", "abcfish", "serv", "svc@gserviceaccount.com", true},
 		{"ns1", "fishpond", "/pond/review", "GET", "v1", "mynamespace", "xyz", "alice@yahoo.com", true},
 		{"ns1", "fishpond", "/pond/review", "GET", "v1", "mynamespace", "xyz", "bob@yahoo.com", false},
+		{"ns1", "abc", "/index", "GET", "", "mynamespace", "xyz", "anyuser", true},
 	}
 
 	for _, c := range cases {
