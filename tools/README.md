@@ -16,7 +16,21 @@ $ git clone https://github.com/istio/istio.git && cd istio
 ```
 
 ### Prepare the Istio Deployment Manifest and Istio Client
-__Option A:__ Build the deployment manifest and `istioctl` binary:
+
+__Option A:__ (From release) Make sure `istioctl` is in your path is the one matching the downloaded release.
+
+For instance, in `~/tmp/istio-0.5.0/` run:
+```
+export PATH=`pwd`/bin:$PATH
+# check 'which istioctl' and 'istioctl version' returns the correct version
+```
+For versions before 0.5.0 (the tools/ directory is now part of the release)
+```
+$ ln -s $GOPATH/src/istio.io/istio/tools
+```
+If you want to get newer version of the tools, you can `rm -rf tools/` and do the symlink above to use your updated/newer script.
+
+__Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
 ```
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
@@ -31,12 +45,6 @@ Move the binary in to your PATH.
 $ mv ./istioctl /usr/local/bin/istioctl
 ```
 
-__Option B:__ Follow the [quickstart guide](https://istio.io/docs/setup/kubernetes/quick-start.html) to install the
-manifests and `istioctl` binary. Make sure `istioctl` in your path is the one matching the downloaded release.
-For instance, in `~/tmp/istio-0.4.0/` run:
-```
-$ ln -s $GOPATH/src/istio.io/istio/tools # This isn't necessary since 0.5.0, the tools/ directory is now part of the release
-```
 
 ### Set Your Google Cloud Credentials.
 ```
@@ -50,6 +58,7 @@ For example, to update the default gcloud zone (us-east4-b):
 ```
 $ ZONE=us-west1-a
 ```
+If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
 
 ### Source the Script
 ```
@@ -134,3 +143,7 @@ to one of the Fortio echo servers:
 
 Fortio provides additional load testing capabilities not covered by this document. For more information, refer to the
 [Fortio documentation](https://github.com/istio/fortio/blob/master/README.md)
+
+### See also
+
+[Perf setup FAQ wiki](https://github.com/istio/istio/wiki/Istio-Performance-oriented-setup-FAQ)
