@@ -337,6 +337,23 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: solarwindses.config.istio.io
+  labels:
+    package: solarwinds
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: solarwinds
+    plural: solarwindses
+    singular: solarwinds
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: stackdrivers.config.istio.io
   labels:
     package: stackdriver
