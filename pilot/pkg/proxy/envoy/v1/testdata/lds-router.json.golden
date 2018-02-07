@@ -104,7 +104,11 @@
              }
             }
            },
-           "serviceConfigs": {}
+           "serviceConfigs": {},
+           "transport": {
+            "checkCluster": "mixer_server",
+            "reportCluster": "telemetry_mixer_server"
+           }
           }
          }
         },
@@ -184,7 +188,11 @@
              }
             }
            },
-           "serviceConfigs": {}
+           "serviceConfigs": {},
+           "transport": {
+            "checkCluster": "mixer_server",
+            "reportCluster": "telemetry_mixer_server"
+           }
           }
          }
         },
@@ -264,7 +272,11 @@
              }
             }
            },
-           "serviceConfigs": {}
+           "serviceConfigs": {},
+           "transport": {
+            "checkCluster": "mixer_server",
+            "reportCluster": "telemetry_mixer_server"
+           }
           }
          }
         },
