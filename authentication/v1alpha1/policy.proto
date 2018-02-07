@@ -1,0 +1,192 @@
+// Copyright 2018 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "routing/v1alpha2/route_rule.proto";
+
+// $title: Authentication Policy
+// $overview: Authentication policy for Istio services.
+
+// This package defines user-facing authentication policy as well as configs that
+// the sidecar proxy uses to perform authentication.
+package istio.authentication.v1alpha1;
+
+option go_package = "istio.io/api/authentication/v1alpha1";
+
+// Placeholder for None authentication params
+message None {
+}
+
+// Placeholder for mTLS authentication params.
+message MutualTls {
+}
+
+// JSON Web Token (JWT) token format for authentication as defined by
+// https://tools.ietf.org/html/rfc7519. See [OAuth
+// 2.0](https://tools.ietf.org/html/rfc6749) and [OIDC
+// 1.0](http://openid.net/connect) for how this is used in the whole
+// authentication flow.
+//
+// Example,
+//
+// ```yaml
+// issuer: https://example.com
+// audiences:
+// - bookstore_android.apps.googleusercontent.com
+//   bookstore_web.apps.googleusercontent.com
+// jwksUri: https://example.com/.well-known/jwks.json
+// ```
+message Jwt {
+  // Identifies the issuer that issued the JWT. See
+  // [issuer](https://tools.ietf.org/html/rfc7519#section-4.1.1)
+  // Usually a URL or an email address.
+  //
+  // Example: https://securetoken.google.com
+  // Example: 1234567-compute@developer.gserviceaccount.com
+  string issuer = 1;
+
+  // The list of JWT
+  // [audiences](https://tools.ietf.org/html/rfc7519#section-4.1.3).
+  // that are allowed to access. A JWT containing any of these
+  // audiences will be accepted.
+  //
+  // The service name will be accepted if audiences is empty.
+  //
+  // Example:
+  //
+  // ```yaml
+  // audiences:
+  // - bookstore_android.apps.googleusercontent.com
+  //   bookstore_web.apps.googleusercontent.com
+  // ```
+  repeated string audiences = 2;
+
+  // URL of the provider's public key set to validate signature of the
+  // JWT. See [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+  //
+  // Optional if the key set document can either (a) be retrieved from
+  // [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) of
+  // the issuer or (b) inferred from the email domain of the issuer (e.g. a
+  // Google service account).
+  //
+  // Example: https://www.googleapis.com/oauth2/v1/certs
+  string jwks_uri = 3;
+
+  // Two fields below define where to extract the JWT from an HTTP request.
+  //
+  // If no explicit location is specified the following default
+  // locations are tried in order:
+  //
+  //     1) The Authorization header using the Bearer schema,
+  //        e.g. Authorization: Bearer <token>. (see
+  //        [Authorization Request Header Field](https://tools.ietf.org/html/rfc6750#section-2.1))
+  //
+  //     2) `access_token` query parameter (see
+  //     [URI Query Parameter](https://tools.ietf.org/html/rfc6750#section-2.3))
+
+  // JWT is sent in a request header. `header` represents the
+  // header name.
+  //
+  // For example, if `header=x-goog-iap-jwt-assertion`, the header
+  // format will be x-goog-iap-jwt-assertion: <JWT>.
+  repeated string jwt_headers = 6;
+
+  // JWT is sent in a query parameter. `query` represents the
+  // query parameter name.
+  //
+  // For example, `query=jwt_token`.
+  repeated string jwt_params = 7;
+}
+
+// Mechanism defines one particular type of authentication, e.g
+// mutual TLS, JWT etc, (no authentication is one type by itsefl).
+// The type can be progammatically determine by checking the type of the
+// "params" field.
+message Mechanism {
+  oneof params {
+    // Set if authentication is not required.
+    None none = 1;
+
+    // Set if mTLS is used.
+    MutualTls mtls = 2;
+
+    // Set if JWT is used.
+    Jwt jwt = 3;
+  }
+}
+
+// Policy binds credentials to workload(s).
+// Authentication policy is composed of 2-part authentication:
+// - peer: verify caller service credentials.
+// - end_user: verify end-user credentials.
+// For each part, if it's not empty, at least one of those listed credential
+// must be provided and  (successfully) verified for the authentication to pass.
+//
+// Examples:
+// Policy to enable mTLS for all services in namespace frod
+//
+// ```yaml
+// apiVersion: authentication.istio.io/v1alpha1
+// kind: Policy
+// metadata:
+//   name: mTLS-enable
+//   namespace: frod
+// spec:
+//   match:
+//   peers:
+//   - mtls: {}
+// ```
+// Policy to enable mTLS, and use JWT for productpage:9000
+//
+// ```yaml
+// apiVersion: authentication.istio.io/v1alpha1
+// kind: Policy
+// metadata:
+//   name: mTLS-enable
+//   namespace: frod
+// spec:
+//   match:
+//   - name: productpage
+//     port:
+//       number: 9000
+//   peers:
+//   - mtls:
+//   endUsers:
+//   - jwt:
+//       issuer: "https://securetoken.google.com"
+//       audiences:
+//       - "productpage"
+//       jwksUri: "https://www.googleapis.com/oauth2/v1/certs"
+//       locations:
+//       - header: x-goog-iap-jwt-assertion
+// ```
+message Policy {
+  // List of destinations (workloads) that the policy should be applied on.
+  // If empty, policy will be used on all destinations in the same namespace.
+  repeated istio.routing.v1alpha2.Destination destinations = 1;
+
+  // List of credential that should be checked by peer authentication. They
+  // will be validated in sequence, until the first one satisfied. If none of
+  // the specified mechanism valid, the whole authentication should fail.
+  // On the other hand, the first valid credential will be used to extract
+  // peer identity (i.e the source.user attribute in the request to Mixer).
+  repeated Mechanism peers = 2;
+
+  // Similar to above, but for end_user authentication, which will extract
+  // request.auth.principal/audiences/presenter if authentication succeed.
+  repeated Mechanism end_users = 3;
+}

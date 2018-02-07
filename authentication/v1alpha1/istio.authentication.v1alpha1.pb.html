@@ -1,0 +1,428 @@
+---
+title: Authentication Policy
+overview: Authentication policy for Istio services.
+layout: protoc-gen-docs
+number_of_entries: 6
+---
+{% raw %}
+<p>This package defines user-facing authentication policy as well as configs that
+the sidecar proxy uses to perform authentication.</p>
+
+<h2 id="Jwt">Jwt</h2>
+<section>
+<p>JSON Web Token (JWT) token format for authentication as defined by
+https://tools.ietf.org/html/rfc7519. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
+2.0</a> and <a href="http://openid.net/connect">OIDC
+1.0</a> for how this is used in the whole
+authentication flow.</p>
+
+<p>Example,</p>
+
+<pre><code class="language-yaml">issuer: https://example.com
+audiences:
+- bookstore_android.apps.googleusercontent.com
+  bookstore_web.apps.googleusercontent.com
+jwksUri: https://example.com/.well-known/jwks.json
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Jwt.issuer">
+<td><code>issuer</code></td>
+<td><code>string</code></td>
+<td>
+<p>Identifies the issuer that issued the JWT. See
+<a href="https://tools.ietf.org/html/rfc7519#section-4.1.1">issuer</a>
+Usually a URL or an email address.</p>
+
+<p>Example: https://securetoken.google.com
+Example: 1234567-compute@developer.gserviceaccount.com</p>
+
+</td>
+</tr>
+<tr id="Jwt.audiences">
+<td><code>audiences</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>The list of JWT
+<a href="https://tools.ietf.org/html/rfc7519#section-4.1.3">audiences</a>.
+that are allowed to access. A JWT containing any of these
+audiences will be accepted.</p>
+
+<p>The service name will be accepted if audiences is empty.</p>
+
+<p>Example:</p>
+
+<pre><code class="language-yaml">audiences:
+- bookstore_android.apps.googleusercontent.com
+  bookstore_web.apps.googleusercontent.com
+</code></pre>
+
+</td>
+</tr>
+<tr id="Jwt.jwks_uri">
+<td><code>jwksUri</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL of the provider&rsquo;s public key set to validate signature of the
+JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID
+Discovery</a>.</p>
+
+<p>Optional if the key set document can either (a) be retrieved from
+<a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
+Discovery</a> of
+the issuer or (b) inferred from the email domain of the issuer (e.g. a
+Google service account).</p>
+
+<p>Example: https://www.googleapis.com/oauth2/v1/certs</p>
+
+</td>
+</tr>
+<tr id="Jwt.jwt_headers">
+<td><code>jwtHeaders</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>JWT is sent in a request header. <code>header</code> represents the
+header name.</p>
+
+<p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
+format will be x-goog-iap-jwt-assertion: <JWT>.</p>
+
+</td>
+</tr>
+<tr id="Jwt.jwt_params">
+<td><code>jwtParams</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>JWT is sent in a query parameter. <code>query</code> represents the
+query parameter name.</p>
+
+<p>For example, <code>query=jwt_token</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Mechanism">Mechanism</h2>
+<section>
+<p>Mechanism defines one particular type of authentication, e.g
+mutual TLS, JWT etc, (no authentication is one type by itsefl).
+The type can be progammatically determine by checking the type of the
+&ldquo;params&rdquo; field.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Mechanism.none" class="oneof oneof-start">
+<td><code>none</code></td>
+<td><code><a href="#None">None (oneof)</a></code></td>
+<td>
+<p>Set if authentication is not required.</p>
+
+</td>
+</tr>
+<tr id="Mechanism.mtls" class="oneof">
+<td><code>mtls</code></td>
+<td><code><a href="#MutualTls">MutualTls (oneof)</a></code></td>
+<td>
+<p>Set if mTLS is used.</p>
+
+</td>
+</tr>
+<tr id="Mechanism.jwt" class="oneof">
+<td><code>jwt</code></td>
+<td><code><a href="#Jwt">Jwt (oneof)</a></code></td>
+<td>
+<p>Set if JWT is used.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MutualTls">MutualTls</h2>
+<section>
+<p>Placeholder for mTLS authentication params.</p>
+
+</section>
+<h2 id="None">None</h2>
+<section>
+<p>Placeholder for None authentication params</p>
+
+</section>
+<h2 id="Policy">Policy</h2>
+<section>
+<p>Policy binds credentials to workload(s).
+Authentication policy is composed of 2-part authentication:
+- peer: verify caller service credentials.
+- end_user: verify end-user credentials.
+For each part, if it&rsquo;s not empty, at least one of those listed credential
+must be provided and  (successfully) verified for the authentication to pass.</p>
+
+<p>Examples:
+Policy to enable mTLS for all services in namespace frod</p>
+
+<pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: mTLS-enable
+  namespace: frod
+spec:
+  match:
+  peers:
+  - mtls: {}
+</code></pre>
+
+<p>Policy to enable mTLS, and use JWT for productpage:9000</p>
+
+<pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: mTLS-enable
+  namespace: frod
+spec:
+  match:
+  - name: productpage
+    port:
+      number: 9000
+  peers:
+  - mtls:
+  endUsers:
+  - jwt:
+      issuer: &quot;https://securetoken.google.com&quot;
+      audiences:
+      - &quot;productpage&quot;
+      jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
+      locations:
+      - header: x-goog-iap-jwt-assertion
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Policy.destinations">
+<td><code>destinations</code></td>
+<td><code><a href="#istio.routing.v1alpha2.Destination">istio.routing.v1alpha2.Destination[]</a></code></td>
+<td>
+<p>List of destinations (workloads) that the policy should be applied on.
+If empty, policy will be used on all destinations in the same namespace.</p>
+
+</td>
+</tr>
+<tr id="Policy.peers">
+<td><code>peers</code></td>
+<td><code><a href="#Mechanism">Mechanism[]</a></code></td>
+<td>
+<p>List of credential that should be checked by peer authentication. They
+will be validated in sequence, until the first one satisfied. If none of
+the specified mechanism valid, the whole authentication should fail.
+On the other hand, the first valid credential will be used to extract
+peer identity (i.e the source.user attribute in the request to Mixer).</p>
+
+</td>
+</tr>
+<tr id="Policy.end_users">
+<td><code>endUsers</code></td>
+<td><code><a href="#Mechanism">Mechanism[]</a></code></td>
+<td>
+<p>Similar to above, but for end_user authentication, which will extract
+request.auth.principal/audiences/presenter if authentication succeed.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="istio.routing.v1alpha2.Destination">istio.routing.v1alpha2.Destination</h2>
+<section>
+<p>Destination indicates the network addressable service to which the
+request/connection will be sent after processing a routing rule. The
+destination.name should unambiguously refer to a service in the service
+registry. It can be a short name or a fully qualified domain name from
+the service registry, a resolvable DNS name, an IP address or a service
+name from the service registry and a subset name. The order of inference
+is as follows:</p>
+
+<ol>
+<li><p>Service registry lookup. The entire name is looked up in the service
+registry. If the lookup succeeds, the search terminates. The requests
+will be routed to any instance of the service in the mesh. When the
+service name consists of a single word, the FQDN will be constructed in
+a platform specific manner. For example, in Kubernetes, the namespace
+associated with the routing rule will be used to identify the service as
+<servicename>.<rulenamespace>. However, if the service name contains
+multiple words separated by a dot (e.g., reviews.prod), the name in its
+entirety would be looked up in the service registry.</p></li>
+
+<li><p>Runtime DNS lookup by the proxy. If step 1 fails, and the name is not
+an IP address, it will be considered as a DNS name that is not in the
+service registry (e.g., wikipedia.org). The sidecar/gateway will resolve
+the DNS and load balance requests appropriately. See Envoy&rsquo;s strict_dns
+for details.</p></li>
+</ol>
+
+<p>For example, the following rule routes all traffic by default to pods of
+reviews service with label &ldquo;version: v1&rdquo; on a subset named v1, and some
+to subset v2, in a kubernetes environment.</p>
+
+<pre><code>apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: my-rule
+spec:
+  hosts:
+  - reviews # namespace is same as the client/caller's namespace
+  http:
+  - match:
+    - uri:
+        prefix: &quot;/wpcatalog&quot;
+    - uri:
+        prefix: &quot;/consumercatalog&quot;
+    rewrite:
+      uri: &quot;/newcatalog&quot;
+    route:
+    - destination:
+        name: reviews
+        subset: v2
+  - route:
+    - destination:
+        name: reviews
+        subset: v1
+</code></pre>
+
+<p>And the associated DestinationRule</p>
+
+<pre><code>apiVersion: config.istio.io/v1alpha2
+kind: DestinationRule
+metadata:
+  name: my-destination-rule
+spec:
+  name: reviews
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+</code></pre>
+
+<p>The following rule sets a timeout of 5s for all calls to
+productpage.prod service.  Notice that there are no subsets defined in
+this rule. Istio will fetch all instances of productpage.prod service
+from the service registry and populate the sidecar&rsquo;s load balancing
+pool.</p>
+
+<pre><code>apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: my-productpage-rule
+spec:
+  hosts:
+  - productpage.prod # in kubernetes, this applies only to prod namespace
+  http:
+  - timeout: 5s
+    route:
+    - destination:
+        name: productpage.prod
+</code></pre>
+
+<p>The following rule sets a timeout of 5s for all calls to the external
+service wikipedia.org, as there is no internal service of that name.</p>
+
+<pre><code>apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: my-wiki-rule
+spec:
+  hosts:
+  - wikipedia.org
+  http:
+  - timeout: 5s
+    route:
+    - destination:
+        name: wikipedia.org
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.routing.v1alpha2.Destination.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The name can be a short name or a fully qualified domain
+name from the service registry, a resolvable DNS name, or an IP
+address.</p>
+
+<p>If short names are used, the FQDN of the service will be resolved in a
+platform specific manner.  For example in Kubernetes, when a rule with
+a short name &ldquo;reviews&rdquo; in the destination is applied to a client in
+the &ldquo;bookinfo&rdquo; namespace, the final destination is resolved to
+reviews.bookinfo.svc.cluster.local. If the rule refers to the
+destination as &ldquo;reviews.sales&rdquo;, the resolution process first looks for
+a &ldquo;reviews&rdquo; service in the &ldquo;sales&rdquo; namespace. In both cases, the
+sidecar will route to the IP addresses of the pods constituting the
+service. However, if the lookup fails, &ldquo;reviews.sales&rdquo; is treated as
+an external service, such that the sidecar will dynamically resolve
+the DNS of the service name and route the request to the IP addresses
+returned by the DNS.</p>
+
+</td>
+</tr>
+<tr id="istio.routing.v1alpha2.Destination.subset">
+<td><code>subset</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of a subset within the service. Applicable only to services
+within the mesh. The subset must be defined in the corresponding
+DestinationRule.</p>
+
+</td>
+</tr>
+<tr id="istio.routing.v1alpha2.Destination.port">
+<td><code>port</code></td>
+<td><code><a href="#istio.routing.v1alpha2.PortSelector">istio.routing.v1alpha2.PortSelector</a></code></td>
+<td>
+<p>Specifies the port on the destination. Many services only expose a
+single port or label ports with the protocols they support, in these
+cases it is not required to explicitly select the port. Note that
+selection priority is to first match by name and then match by number.</p>
+
+<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
+collide with numbers. If there are multiple ports on a service with
+the same protocol the names should be of the form <protocol-name>-<DNS
+label>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

@@ -145,7 +145,7 @@ depend: vendor binaries
 # Generation Rules
 #####################
 
-generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing-go generate-rbac-go
+generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing-go generate-rbac-go generate-authn-go
 
 #####################
 # broker/...
@@ -301,6 +301,27 @@ clean-rbac-generated:
 	rm -f $(rbac_v1alpha1_pb_gos)
 	rm -f $(rbac_v1alpha1_pb_doc)
 
+
+#####################
+# authentication/...
+#####################
+
+authn_v1alpha1_path := authentication/v1alpha1
+authn_v1alpha1_protos := $(shell find $(authn_v1alpha1_path) -type f -name '*.proto' | sort)
+authn_v1alpha1_pb_gos := $(authn_v1alpha1_protos:.proto=.pb.go)
+authn_v1alpha1_pb_doc := $(authn_v1alpha1_path)/istio.authentication.v1alpha1.pb.html
+
+generate-authn-go: $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc)
+
+$(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc): $(authn_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
+	## Generate authentication/v1alpha1/*.pb.go
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(authn_v1alpha1_path) $^
+
+clean-authn-generated:
+	rm -f $(authn_v1alpha1_pb_gos)
+	rm -f $(authn_v1alpha1_pb_doc)
+
+
 #####################
 # Cleanup
 #####################
@@ -309,4 +330,4 @@ clean:
 	rm -rf genbin
 	rm -rf vendor
 
-clean-generated: clean-broker-generated clean-mesh-generated clean-mixer-generated clean-routing-generated clean-rbac-generated
+clean-generated: clean-broker-generated clean-mesh-generated clean-mixer-generated clean-routing-generated clean-rbac-generated clean-authn-generated
