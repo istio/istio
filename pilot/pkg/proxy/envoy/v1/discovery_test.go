@@ -1076,7 +1076,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	}
 }
 
-func TestMixerclientServiceConfig(t *testing.T) {
+func TestMixerFilterServiceConfig(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
 	addConfig(registry, mixerclientAPISpec, t)
@@ -1093,4 +1093,20 @@ func TestMixerclientServiceConfig(t *testing.T) {
 	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-mixerclient-filter.json", t)
+}
+
+func TestSeparateCheckReportClusters(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.PolicyCheckServer = "istio-mixer-policy-check.istio-system:9090"
+	mesh.TelemetryServer = "istio-mixer-telemetry.istio-system:9090"
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-mixer-check-report-config.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-mixer-check-report-config.json", t)
 }

@@ -71,7 +71,7 @@
            },
            "transport": {
             "checkCluster": "mixer_server",
-            "reportCluster": "telemetry_mixer_server"
+            "reportCluster": "mixer_server"
            }
           }
          }
