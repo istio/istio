@@ -167,8 +167,10 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc := controller.NewSecretController(ca, opts.workloadCertTTL, time.Duration(opts.workloadCertGracePeriodRatio)*opts.workloadCertTTL,
-		cs.CoreV1(), opts.namespace)
+	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, cs.CoreV1(), opts.namespace)
+	if err != nil {
+		fatalf("failed to create secret controller: %v", err)
+	}
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
@@ -288,5 +290,9 @@ func verifyCommandLineOptions() {
 		fatalf(
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
+	}
+
+	if opts.workloadCertGracePeriodRatio < 0 || opts.workloadCertGracePeriodRatio > 1 {
+		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]", opts.workloadCertGracePeriodRatio)
 	}
 }

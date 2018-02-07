@@ -60,8 +60,8 @@ const (
 type SecretController struct {
 	ca      ca.CertificateAuthority
 	certTTL time.Duration
-	// Length of the grace period for the certificate rotation.
-	gracePeriod time.Duration
+	// Length of the grace period for the certificate rotation, as the ratio of the certificate life time.
+	gracePeriodRatio float32
 
 	core corev1.CoreV1Interface
 
@@ -75,14 +75,18 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriod time.Duration, core corev1.CoreV1Interface,
-	namespace string) *SecretController {
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, core corev1.CoreV1Interface,
+	namespace string) (*SecretController, error) {
+
+	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
+		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
+	}
 
 	c := &SecretController{
-		ca:          ca,
-		certTTL:     certTTL,
-		core:        core,
-		gracePeriod: gracePeriod,
+		ca:               ca,
+		certTTL:          certTTL,
+		core:             core,
+		gracePeriodRatio: gracePeriodRatio,
 	}
 
 	saLW := &cache.ListWatch{
@@ -117,7 +121,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 			UpdateFunc: c.scrtUpdated,
 		})
 
-	return c
+	return c, nil
 }
 
 // Run starts the SecretController until a value is sent to stopCh.
@@ -266,14 +270,15 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	ttl := time.Until(cert.NotAfter)
+	certLifeTimeLeft := time.Until(cert.NotAfter)
+	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
 	rootCertificate := sc.ca.GetRootCertificate()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if ttl < sc.gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if certLifeTimeLeft < time.Duration(sc.gracePeriodRatio)*certLifeTime || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
