@@ -12,7 +12,7 @@ data:
         image: {{ .Values.istioHub }}/proxy_init:{{ .Values.istioTag }}
         args:
         - "-p"
-        - {{"{{ .MeshConfig.ProxyListenPort }}"}}
+        - {{"{{"}} .MeshConfig.ProxyListenPort {{"}}"}}
         - "-u"
         - 1337
         imagePullPolicy: IfNotPresent
@@ -20,37 +20,62 @@ data:
           capabilities:
             add:
             - NET_ADMIN
+          {{- if .Values.sidecarDebug }}
+          privileged: true
+          {{ end -}}
         restartPolicy: Always
+        {{- if .Values.sidecarCoreDump }}
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
+          unlimited
+        command:
+        - /bin/sh
+        image: alpine
+        imagePullPolicy: IfNotPresent
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          privileged: true
+        {{ end -}}
       containers:
       - name: istio-proxy
+        {{- if .Values.sidecarDebug }}
         image: {{ .Values.istioHub }}/{{ .Values.proxyImage}}:{{ .Values.istioTag }}
+        {{ else }} 
+        image: {{ .Values.istioHub }}/proxy_debug:{{ .Values.istioTag }}
+        {{ end -}}
         args:
         - proxy
         - sidecar
         - --configPath
-        - {{"{{ .ProxyConfig.ConfigPath }}"}}
+        - {{"{{"}} .ProxyConfig.ConfigPath {{"}}"}}
         - --binaryPath
-        - {{"{{ .ProxyConfig.BinaryPath }}"}}
+        - {{"{{"}} .ProxyConfig.BinaryPath {{"}}"}}
         - --serviceCluster
-        {{"{{"}} if ne "" (index .ObjectMeta.Labels "app") -{{"}}"}}
+        {{"{{"}} if ne "" (index .ObjectMeta.Labels "app") -}}
         - {{"{{"}} index .ObjectMeta.Labels "app" {{"}}"}}
-        {{"{{ else -}}"}}
+        {{"{{"}} else -}}
         - "istio-proxy"
-        {{"{{ end -}}"}}
+        {{"{{"}} end -}}
         - --drainDuration
         - 2s
         - --parentShutdownDuration
         - 3s
         - --discoveryAddress
-        - {{"{{ .ProxyConfig.DiscoveryAddress }}"}}
+        - {{"{{"}} .ProxyConfig.DiscoveryAddress {{"}}"}}
         - --discoveryRefreshDelay
-        - 1s
+        - {{ .Values.discoveryRefreshDelay }}
+        {{ if .Values.enableTracing }}
         - --zipkinAddress
         - {{"{{ .ProxyConfig.ZipkinAddress }}"}}
+        {{ end }}
         - --connectTimeout
         - 1s
+        {{ if .Values.enableEnvoyStatsd }}
         - --statsdUdpAddress
         - {{"{{ .ProxyConfig.StatsdUdpAddress }}"}}
+        {{ end }}
         - --proxyAdminPort
         - {{"{{ .ProxyConfig.ProxyAdminPort }}"}}
         - --controlPlaneAuthPolicy
@@ -70,8 +95,13 @@ data:
               fieldPath: status.podIP
         imagePullPolicy: IfNotPresent
         securityContext:
+            {{- if .Values.sidecarDebug }}
+            privileged: true
+            readOnlyRootFilesystem: false
+            {{ else }}
             privileged: false
             readOnlyRootFilesystem: true
+            {{ end -}}
             runAsUser: 1337
         restartPolicy: Always
         volumeMounts:
