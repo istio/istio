@@ -21,8 +21,6 @@ import (
 	"encoding/base64"
 	"net"
 	"net/url"
-	"sort"
-	"strings"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
@@ -67,19 +65,20 @@ const (
 	// AttrDestinationService is name of the target service
 	AttrDestinationService = "destination.service"
 
-	// AttrIP represents IP address
-	AttrIP = "ip"
+	// AttrIPSuffix represents IP address suffix.
+	AttrIPSuffix = "ip"
 
-	// AttrUID is the uid of with source or destination.
-	AttrUID = "uid"
+	// AttrUIDSuffix is the uid suffix of with source or destination.
+	AttrUIDSuffix = "uid"
 
-	// AttrLabels are lables associated with source or destination.
-	AttrLabels = "labels"
+	// AttrLabelsSuffix is the suffix for labels associated with source or destination.
+	AttrLabelsSuffix = "labels"
 
 	// keyConfigMixer is a key in the opaque_config. It is base64(json.Marshal(ServiceConfig)).
 	keyConfigMixer = "mixer"
 
-	// keyConfigMixerSha is the sha of config_mixer. It is used for equality check.
+	// keyConfigMixerSha is the sha of keyConfigMixer. It is used for equality check.
+	// MixerClient uses it to avoid decoding and processing keyConfigMixer on every request.
 	keyConfigMixerSha = "mixer_sha"
 
 	// MixerRequestCount is the quota bucket name
@@ -175,21 +174,22 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
 
 // buildMixerConfig build per route mixer config to be deployed at the `model.Node` workload
 // with destination of Service `dest` and `destName` as the service name
-func buildMixerConfig(source model.Node, destName string, dest *model.Service, config model.IstioConfigStore) map[string]string {
-	var err error
-	var cfg string
-
-	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, false, false)
+func buildMixerConfig(source model.Node, destName string, dest *model.Service, config model.IstioConfigStore,
+	disableCheck bool, disableReport bool) map[string]string {
+	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
 	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source, nil)
-	oc := map[string]string{}
-	oc[AttrDestinationService] = destName
+	oc := map[string]string{
+		AttrDestinationService: destName,
+	}
 
-	if cfg, err = model.ToJSON(sc); err == nil {
+	if cfg, err := model.ToJSON(sc); err == nil {
 		ba := []byte(cfg)
 		oc[keyConfigMixer] = base64.StdEncoding.EncodeToString(ba)
 		h := sha256.New()
-		_, _ = h.Write(ba)
+		h.Write(ba) //nolint: errcheck
 		oc[keyConfigMixerSha] = base64.StdEncoding.EncodeToString(h.Sum(nil))
+	} else {
+		log.Warnf("Unable to convert %#v to json: %v", sc, err)
 	}
 	return oc
 }
@@ -255,26 +255,6 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role, labels)
 	}
 
-	if len(instances) > 0 {
-		// legacy mixerclient behavior is a comma separated list of
-		// services. When can this be removed?
-		var services []string
-		if instances != nil {
-			serviceSet := make(map[string]bool, len(instances))
-			for _, instance := range instances {
-				serviceSet[instance.Service.Hostname] = true
-			}
-			for service := range serviceSet {
-				services = append(services, service)
-			}
-			sort.Strings(services)
-		}
-		filter.MixerAttributes[AttrDestinationService] = strings.Join(services, ",")
-
-		// first service in the sorted list is the default
-		v2.DefaultDestinationService = services[0]
-	}
-
 	for _, instance := range instances {
 		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
@@ -290,16 +270,16 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 
 // addStandardNodeAttributes add standard node attributes with the given prefix
 func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, node model.Node, labels map[string]string) {
-	attr[prefix+"."+AttrIP] = &mpb.Attributes_AttributeValue{
+	attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(node.IPAddress)},
 	}
 
-	attr[prefix+"."+AttrUID] = &mpb.Attributes_AttributeValue{
+	attr[prefix+"."+AttrUIDSuffix] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + node.ID},
 	}
 
 	if len(labels) > 0 {
-		attr[prefix+"."+AttrLabels] = &mpb.Attributes_AttributeValue{
+		attr[prefix+"."+AttrLabelsSuffix] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_StringMapValue{
 				StringMapValue: &mpb.Attributes_StringMap{Entries: labels},
 			},
@@ -327,12 +307,6 @@ func serviceConfig(serviceName string, dest *model.ServiceInstance, config model
 				StringMapValue: &mpb.Attributes_StringMap{Entries: dest.Labels},
 			},
 		}
-	}
-
-	// omit API, Quota, and Auth portion of service config when
-	// check is disabled.
-	if disableCheck {
-		return sc
 	}
 
 	apiSpecs := config.HTTPAPISpecByDestination(dest)

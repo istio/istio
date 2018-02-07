@@ -43,8 +43,7 @@ func RejectConflictingEgressRules(rules []Config) ([]Config, error) {
 func rejectConflictingOnDomainEgressRules(cfg []Config) ([]Config, error) {
 	var errs error
 
-	// for in-place filter
-	filteredEgressRules := cfg[:0]
+	filteredEgressRules := make([]Config, 0, len(cfg))
 
 	// domains - a map where keys are of the form domain:port and values are the keys of
 	// egress-rule configuration objects
@@ -56,15 +55,12 @@ func rejectConflictingOnDomainEgressRules(cfg []Config) ([]Config, error) {
 	})
 
 	for _, c := range cfg {
-		var oldKey string
-		var collision bool
-
 		rule, ok := c.Spec.(*routing.EgressRule)
 		if !ok {
 			continue
 		}
 
-		if oldKey, collision = domains[rule.Destination.Service]; collision {
+		if oldKey, collision := domains[rule.Destination.Service]; collision {
 			errs = multierror.Append(errs,
 				fmt.Errorf("rule %s conflicts with rule %s on domain "+
 					"%s, is rejected",
@@ -152,7 +148,7 @@ func egressRulesSupportedProtocols() string {
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
 func rejectConflictingOnPortTCPEgressRules(cfg []Config) ([]Config, error) {
-	filteredEgressRules := cfg[:0]
+	filteredEgressRules := make([]Config, 0, len(cfg))
 	var errs error
 
 	protocolsPerPort := make(map[int]Protocol)

@@ -954,8 +954,8 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
-	if mesh.MixerAddress != "" && !mesh.DisablePolicyChecks {
-		oc := buildMixerConfig(sidecar, serviceName, dest, config)
+	if mesh.MixerAddress != "" {
+		oc := buildMixerConfig(sidecar, serviceName, dest, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
 		}
