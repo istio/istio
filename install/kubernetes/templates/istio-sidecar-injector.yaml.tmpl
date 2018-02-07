@@ -62,17 +62,17 @@ spec:
                 - probe
                 - --probe-path=/health
                 - --interval=2s
-                initialDelaySeconds: 4
-                periodSeconds: 4
-          readinessProbeProbe:
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          readinessProbe:
             exec:
               command:
                 - /usr/local/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
                 - --interval=2s
-                initialDelaySeconds: 4
-                periodSeconds: 4
+            initialDelaySeconds: 4
+            periodSeconds: 4
       volumes:
       - name: config-volume
         configMap:
