@@ -222,52 +222,38 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
-// waitForCertsPresent is a blocking function that periodically checks the existance
-// of the certs, once every interval. It returns nil when all cert files are non-empty.
-// It returns error if the timeout is reached.
+// waitForCertsPresent is a blocking function that periodically checks the existence
+// of the certs, once every interval. It returns nil when all cert files are found
+// and non-empty, and returns error if the timeout is reached.
 func waitForCertsPresent(certs []CertSource, interval time.Duration, timeout time.Duration) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		for _, cert := range certs {
-			// Check the cert file directories one by one.
-			for {
-				err := checkCerts(cert)
-				if err == nil {
-					break
+	for _, cert := range certs {
+		for _, file := range cert.Files {
+			filename := path.Join(cert.Directory, file)
+			g.Go(func() error {
+				for {
+					fi, err := os.Stat(filename)
+					if err != nil {
+						log.Warnf("failed to read file: %v. Will retry in %v", err, interval)
+					} else if fi.Size() == 0 {
+						log.Warnf("file %s is empty. Will retry in %v", filename, interval)
+					} else {
+						break
+					}
+					select {
+					case <-time.After(interval):
+						// retry
+					case <-ctx.Done():
+						return fmt.Errorf("certs do not present after timeout %v", timeout)
+					}
 				}
-				log.Warnf("%v. Will retry in %v", err, interval)
-				select {
-				case <-time.After(interval):
-					// retry
-				case <-ctx.Done():
-					return fmt.Errorf("certs do not present after timeout %v", timeout)
-				}
-			}
-		}
-		return nil
-	})
-	err = g.Wait()
-	cancel()
-	return
-}
-
-func checkCerts(certs CertSource) error {
-	if _, err := os.Stat(certs.Directory); err != nil {
-		return fmt.Errorf("certificate directory reading error: %v", err)
-	}
-
-	for _, file := range certs.Files {
-		filename := path.Join(certs.Directory, file)
-		fi, err := os.Stat(filename)
-		if err != nil {
-			return fmt.Errorf("failed to read file: %v", err)
-		}
-		if fi.Size() == 0 {
-			return fmt.Errorf("file %s is empty", filename)
+				return nil
+			})
 		}
 	}
-	return nil
+	return g.Wait()
 }
 
 func generateCertHash(h hash.Hash, certsDir string, files []string) {
