@@ -29,6 +29,7 @@ import (
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
+	"golang.org/x/sync/errgroup"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -90,7 +91,7 @@ func (w *watcher) Run(ctx context.Context) {
 	// Wait until the required certificate files present. This prevents Envoy failing caused by non-existing cert files.
 	// Note: this function is blocking.
 	log.Infof("Check required cert files are present (up to %v)...", requiredCertsCheckTimeout)
-	if err := certsExist(w.requiredCerts, requiredCertsCheckInterval, requiredCertsCheckTimeout); err != nil {
+	if err := waitForCertsPresent(w.requiredCerts, requiredCertsCheckInterval, requiredCertsCheckTimeout); err != nil {
 		log.Errorf("Required cert file check failed: %v", err)
 		return
 	}
@@ -221,27 +222,34 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
-func certsExist(certs []CertSource, interval time.Duration, timeout time.Duration) error {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
+// waitForCertsPresent is a blocking function that periodically checks the existance
+// of the certs, once every interval. It returns nil when all cert files are non-empty.
+// It returns error if the timeout is reached.
+func waitForCertsPresent(certs []CertSource, interval time.Duration, timeout time.Duration) (err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
 		for _, cert := range certs {
+			// Check the cert file directories one by one.
 			for {
-				if err := checkCerts(cert); err != nil {
-					log.Warnf("%v. Will retry in %v", err, interval)
-					time.Sleep(interval)
-				} else {
+				err := checkCerts(cert)
+				if err == nil {
 					break
+				}
+				log.Warnf("%v. Will retry in %v", err, interval)
+				select {
+				case <-time.After(interval):
+					// retry
+				case <-ctx.Done():
+					return fmt.Errorf("certs do not present after timeout %v", timeout)
 				}
 			}
 		}
-	}()
-	select {
-	case <-c:
 		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("certs do not present after timeout %v", timeout)
-	}
+	})
+	err = g.Wait()
+	cancel()
+	return
 }
 
 func checkCerts(certs CertSource) error {

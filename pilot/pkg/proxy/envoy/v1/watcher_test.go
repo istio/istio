@@ -321,7 +321,7 @@ func TestCheckCerts(t *testing.T) {
 	}
 }
 
-func TestCertsExist(t *testing.T) {
+func TestWaitForCertsPresent(t *testing.T) {
 	tempdir, err := ioutil.TempDir("testdata", "certs")
 	if err != nil {
 		t.Errorf("failed to create a temp dir: %v", err)
@@ -351,7 +351,7 @@ func TestCertsExist(t *testing.T) {
 		{
 			name: "timeout due to cert file not exist",
 			certs: []CertSource{
-				CertSource{
+				{
 					Directory: tempdir,
 					Files:     []string{"file1.pem", "file2.pem", "file3.pem"},
 				},
@@ -361,7 +361,7 @@ func TestCertsExist(t *testing.T) {
 		{
 			name: "Success",
 			certs: []CertSource{
-				CertSource{
+				{
 					Directory: tempdir,
 					Files:     []string{"file1.pem", "file2.pem"},
 				},
@@ -371,7 +371,7 @@ func TestCertsExist(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		err = certsExist(tc.certs, interval, timeout)
+		err = waitForCertsPresent(tc.certs, interval, timeout)
 
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
