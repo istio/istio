@@ -26,8 +26,6 @@ import (
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
-	"github.com/gogo/protobuf/proto"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -68,6 +66,21 @@ const (
 
 	// AttrDestinationService is name of the target service
 	AttrDestinationService = "destination.service"
+
+	// AttrIP represents IP address
+	AttrIP = "ip"
+
+	// AttrUID is the uid of with source or destination.
+	AttrUID = "uid"
+
+	// AttrLabels are lables associated with source or destination.
+	AttrLabels = "labels"
+
+	// keyConfigMixer is a key in the opaque_config. It is base64(json.Marshal(ServiceConfig)).
+	keyConfigMixer = "mixer"
+
+	// keyConfigMixerSha is the sha of config_mixer. It is used for equality check.
+	keyConfigMixerSha = "mixer_sha"
 
 	// MixerRequestCount is the quota bucket name
 	MixerRequestCount = "RequestCount"
@@ -165,25 +178,18 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
 func buildMixerConfig(source model.Node, destName string, dest *model.Service, config model.IstioConfigStore) map[string]string {
 	var err error
 	var cfg string
-	var ba []byte
 
-	sc := serviceConfig(&model.ServiceInstance{Service: dest}, config, false, false)
+	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, false, false)
 	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source, nil)
 	oc := map[string]string{}
 	oc[AttrDestinationService] = destName
 
-	if ba, err = proto.Marshal(sc); err != nil {
-		log.Warnf("Unable to marshal service config: %v", err)
-		return oc
-	}
-
-	oc["mixer"] = base64.StdEncoding.EncodeToString(ba)
-	h := sha256.New()
-	_, _ = h.Write(ba)
-	oc["mixer_sha"] = base64.StdEncoding.EncodeToString(h.Sum(nil))
-
 	if cfg, err = model.ToJSON(sc); err == nil {
-		oc["mixer_debug"] = base64.StdEncoding.EncodeToString([]byte(cfg))
+		ba := []byte(cfg)
+		oc[keyConfigMixer] = base64.StdEncoding.EncodeToString(ba)
+		h := sha256.New()
+		_, _ = h.Write(ba)
+		oc[keyConfigMixerSha] = base64.StdEncoding.EncodeToString(h.Sum(nil))
 	}
 	return oc
 }
@@ -268,7 +274,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 	}
 
 	for _, instance := range instances {
-		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance, config,
+		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
@@ -282,16 +288,16 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 
 // addStandardNodeAttributes add standard node attributes with the given prefix
 func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, node model.Node, labels map[string]string) {
-	attr[prefix+".ip"] = &mpb.Attributes_AttributeValue{
+	attr[prefix+"."+AttrIP] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(node.IPAddress)},
 	}
 
-	attr[prefix+".uid"] = &mpb.Attributes_AttributeValue{
+	attr[prefix+"."+AttrUID] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + node.ID},
 	}
 
 	if len(labels) > 0 {
-		attr[prefix+".labels"] = &mpb.Attributes_AttributeValue{
+		attr[prefix+"."+AttrLabels] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_StringMapValue{
 				StringMapValue: &mpb.Attributes_StringMap{Entries: labels},
 			},
@@ -300,12 +306,12 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 }
 
 // generate serviceConfig for a given instance
-func serviceConfig(dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+func serviceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationService: {
-					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: dest.Service.Hostname},
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: serviceName},
 				},
 			},
 		},
