@@ -404,6 +404,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config := model.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
+	config.Concurrency = 8
 
 	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
 	testProxy := NewProxy(config, "my-node", "trace")
@@ -421,6 +422,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 		"-l", "trace",
+		"--concurrency", "8",
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {

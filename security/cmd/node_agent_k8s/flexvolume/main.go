@@ -52,84 +52,6 @@ var (
 		},
 	}
 
-	// AttachCmd defines the attach command for the driver.
-	AttachCmd = &cobra.Command{
-		Use:   "attach",
-		Short: "Flex volumen attach command.",
-		Long:  "Flex volumen attach command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 || len(args) > 2 {
-				return fmt.Errorf("attach takes at most 2 args")
-			}
-			return driver.Attach(args[0], args[1])
-		},
-	}
-
-	// DetachCmd defines the detach command for the driver.
-	DetachCmd = &cobra.Command{
-		Use:   "detach",
-		Short: "Flex volume detach command.",
-		Long:  "Flex volume detach command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("detach takes at least 1 arg")
-			}
-			return driver.Detach(args[0])
-		},
-	}
-
-	// WaitAttachCmd defines the waitattach command for the driver.
-	WaitAttachCmd = &cobra.Command{
-		Use:   "waitforattach",
-		Short: "Flex volume waitforattach command.",
-		Long:  "Flex volume waitforattach command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("waitforattach takes at least 2 arg")
-			}
-			return driver.WaitAttach(args[0], args[1])
-		},
-	}
-
-	// IsAttachedCmd defines the isattached command
-	IsAttachedCmd = &cobra.Command{
-		Use:   "isattached",
-		Short: "Flex volume isattached command.",
-		Long:  "Flex volume isattached command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("isattached takes at least 2 arg")
-			}
-			return driver.IsAttached(args[0], args[1])
-		},
-	}
-
-	// MountDevCmd defines the Mountdev command
-	MountDevCmd = &cobra.Command{
-		Use:   "mountdevice",
-		Short: "Flex volume unmount command.",
-		Long:  "Flex volume unmount command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 3 {
-				return fmt.Errorf("mountdevice takes 3 args")
-			}
-			return driver.MountDev(args[0], args[1], args[2])
-		},
-	}
-
-	// UnmountDevCmd defines the unmountdev command
-	UnmountDevCmd = &cobra.Command{
-		Use:   "unmountdevice",
-		Short: "Flex volume unmount command.",
-		Long:  "Flex volume unmount command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("unmountdevice takes 1 arg")
-			}
-			return driver.UnmountDev(args[0])
-		},
-	}
-
 	// MountCmd defines the mount command
 	MountCmd = &cobra.Command{
 		Use:   "mount",
@@ -155,32 +77,12 @@ var (
 			return driver.Unmount(args[0])
 		},
 	}
-
-	// GetVolNameCmd defines the getvolumename command
-	GetVolNameCmd = &cobra.Command{
-		Use:   "getvolumename",
-		Short: "Flex volume getvolumename command.",
-		Long:  "Flex volume getvolumename command.",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("mount takes 1 args")
-			}
-			return driver.GetVolName(args[0])
-		},
-	}
 )
 
 func init() {
 	RootCmd.AddCommand(InitCmd)
-	RootCmd.AddCommand(AttachCmd)
-	RootCmd.AddCommand(DetachCmd)
-	RootCmd.AddCommand(WaitAttachCmd)
-	RootCmd.AddCommand(IsAttachedCmd)
-	RootCmd.AddCommand(MountDevCmd)
-	RootCmd.AddCommand(UnmountDevCmd)
 	RootCmd.AddCommand(MountCmd)
 	RootCmd.AddCommand(UnmountCmd)
-	RootCmd.AddCommand(GetVolNameCmd)
 }
 
 func main() {
@@ -197,5 +99,4 @@ func main() {
 	if err = RootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
-
 }

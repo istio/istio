@@ -318,6 +318,10 @@ func (proxy envoy) args(fname string, epoch int) []string {
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)
 
+	if proxy.config.Concurrency > 0 {
+		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(proxy.config.Concurrency))
+	}
+
 	if len(proxy.config.AvailabilityZone) > 0 {
 		startupArgs = append(startupArgs, []string{"--service-zone", proxy.config.AvailabilityZone}...)
 	}
