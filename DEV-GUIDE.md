@@ -59,6 +59,15 @@ to install the Go tools.
 
 Istio currently builds with Go 1.9
 
+### Setting up Docker
+
+Istio has a Docker build system for creating and publishing Docker images.
+To leverage that you will need:
+
+- **Docker platform:** To download and install Docker follow [these instructions](https://docs.docker.com/install/).
+
+- **Docker Hub ID:** If you do not yet have a Docker ID account you can follow [these steps](https://docs.docker.com/docker-id/) to create one. This ID will be used in a later step when setting up the environment variables.
+
 ### Setting up dep
 
 Istio uses [dep](https://github.com/golang/dep) as the dependency
