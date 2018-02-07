@@ -50,6 +50,9 @@ const (
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
 
+	recommendedMinGracePeriodRatio = 0.5
+	recommendedMaxGracePeriodRatio = 0.8
+
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	// The size of a private key for a leaf certificate.
@@ -60,7 +63,10 @@ const (
 type SecretController struct {
 	ca      ca.CertificateAuthority
 	certTTL time.Duration
-	core    corev1.CoreV1Interface
+	// Length of the grace period for the certificate rotation, as the ratio of the certificate life time.
+	gracePeriodRatio float32
+
+	core corev1.CoreV1Interface
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -72,13 +78,22 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, core corev1.CoreV1Interface,
-	namespace string) *SecretController {
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, core corev1.CoreV1Interface,
+	namespace string) (*SecretController, error) {
+
+	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
+		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
+	}
+	if gracePeriodRatio < recommendedMinGracePeriodRatio || gracePeriodRatio > recommendedMaxGracePeriodRatio {
+		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
+			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
+	}
 
 	c := &SecretController{
-		ca:      ca,
-		certTTL: certTTL,
-		core:    core,
+		ca:               ca,
+		certTTL:          certTTL,
+		core:             core,
+		gracePeriodRatio: gracePeriodRatio,
 	}
 
 	saLW := &cache.ListWatch{
@@ -113,7 +128,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, core
 			UpdateFunc: c.scrtUpdated,
 		})
 
-	return c
+	return c, nil
 }
 
 // Run starts the SecretController until a value is sent to stopCh.
@@ -262,14 +277,17 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	ttl := time.Until(cert.NotAfter)
+	certLifeTimeLeft := time.Until(cert.NotAfter)
+	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
+	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
+	gracePeriod := time.Duration(sc.gracePeriodRatio) * certLifeTime
 	rootCertificate := sc.ca.GetRootCertificate()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
