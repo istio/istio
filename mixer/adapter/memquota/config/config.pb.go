@@ -4,6 +4,14 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `memquota` adapter can be used to support Istio's quota management
+	system. Although functional, this adapter is not intended for production
+	use and is suited for local testing only. The reason for this limitation
+	is that this adapter can only be used in meshes where there is a single
+	instance of Mixer running for the whole mesh (i.e. non-HA configuration)
+	and if that single instance crashes, all outstanding quota values will
+	be lost.
+
 	It is generated from these files:
 		mixer/adapter/memquota/config/config.proto
 
@@ -40,6 +48,7 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Configuration format for the `memquota` adapter.
 type Params struct {
 	// The set of known quotas.
 	Quotas []Params_Quota `protobuf:"bytes,1,rep,name=quotas" json:"quotas"`

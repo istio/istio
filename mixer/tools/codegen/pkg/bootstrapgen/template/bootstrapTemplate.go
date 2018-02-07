@@ -49,7 +49,7 @@ import (
     istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
     "istio.io/istio/mixer/pkg/template"
     adptTmpl "istio.io/api/mixer/v1/template"
-    "istio.io/istio/mixer/pkg/config/proto"
+    istio_mixer_v1_config "istio.io/api/mixer/v1/config"
     "errors"
     {{range .TemplateModels}}
         "{{.PackageImportPath}}"

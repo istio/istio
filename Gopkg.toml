@@ -30,6 +30,7 @@ required = [
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
+  "github.com/istio/tools/protoc-gen-docs",
 ]
 
 ### END Mixer codegen deps
@@ -101,7 +102,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
+  revision = "12edb320898356a89682507fb96bb49c86c96254"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -138,3 +139,11 @@ required = [
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/istio/tools"
+
+[[constraint]]
+  name = "github.com/openshift/api"
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"

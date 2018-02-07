@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Authorization
+// $overview: A template used to represent an access control query.
+// $location: https://istio.io/docs/reference/config/template/authorization.html
+
+// The `authorization` template defines parameters for performing policy
+// enforcement within Istio. It is primarily concerned with enabling Mixer
 package authorization;
 
 import "mixer/v1/template/standard_types.proto";
@@ -49,7 +55,7 @@ message Action {
   map<string, istio.mixer.v1.template.Value> properties = 5;
 }
 
-// The authorization template defines parameters for performing policy
+// The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
 // In this template, the "who" is defined in a Subject message. The "what" is
@@ -58,7 +64,8 @@ message Action {
 // passed to individual authorization adapters to adjudicate.
 //
 // Example config:
-// ```
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: authorization
 // metadata:
