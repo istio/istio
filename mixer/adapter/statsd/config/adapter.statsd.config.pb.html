@@ -5,7 +5,6 @@ location: https://istio.io/docs/reference/config/adapters/statsd.html
 layout: protoc-gen-docs
 number_of_entries: 3
 ---
-{% raw %}
 <p>The <code>statsd</code> adapter enables Istio to deliver metric data to a
 <a href="https://github.com/etsy/statsd">StatsD</a> monitoring backend.</p>
 
@@ -102,7 +101,7 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 the statsd metric name. This allows easier creation of statsd metrics like <code>action_name-response_code</code>.
 The template strings must conform to go&rsquo;s text/template syntax. For the example of <code>action_name-response_code</code>,
 we use the template:
-   <code>{{.apiMethod}}-{{.responseCode}}</code></p>
+   <code>&lbrace;&lbrace;.apiMethod}}-&lbrace;&lbrace;.responseCode}}</code></p>
 
 <p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
 
@@ -146,4 +145,3 @@ we use the template:
 </tbody>
 </table>
 </section>
-{% endraw %}
