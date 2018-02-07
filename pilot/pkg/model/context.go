@@ -178,8 +178,8 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		PolicyCheckServer:     "",
-		TelemetryServer:       "",
+		MixerCheckServer:     "",
+		MixerReportServer:       "",
 		DisablePolicyChecks:   true,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),

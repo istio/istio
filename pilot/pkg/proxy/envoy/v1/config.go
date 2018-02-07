@@ -200,7 +200,7 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	}
 
 	// append Mixer service definition if necessary
-	if env.Mesh.PolicyCheckServer != "" || env.Mesh.TelemetryServer != "" {
+	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
 		clusters = append(clusters, buildMixerClusters(env.Mesh, node, env.MixerSAN)...)
 		clusters = append(clusters, buildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, instances)...)
 	}
@@ -381,7 +381,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
 
-	if opts.mesh.PolicyCheckServer != "" || opts.mesh.TelemetryServer != "" {
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
@@ -793,7 +793,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			defaultRoute := buildDefaultRoute(cluster)
 
 			// set server-side mixer filter config for inbound HTTP routes
-			if mesh.PolicyCheckServer != "" || mesh.TelemetryServer != "" {
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 					instance.Service.Hostname)
 			}
@@ -822,7 +822,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.PolicyCheckServer != "" || mesh.TelemetryServer != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -838,7 +838,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.PolicyCheckServer != "" || mesh.TelemetryServer != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -874,7 +874,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			}, endpoint.Address, endpoint.Port, protocol)
 
 			// set server-side mixer filter config
-			if mesh.PolicyCheckServer != "" || mesh.TelemetryServer != "" {
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 				filter := &NetworkFilter{
 					Type:   both,
 					Name:   MixerFilter,
