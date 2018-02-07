@@ -16,9 +16,8 @@ package tcpFilter
 
 import (
 	"fmt"
-	"testing"
-
 	"os"
+	"testing"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/test/client/env"
@@ -79,7 +78,7 @@ const reportAttributesFailPost = `
 
 func TestTCPMixerFilter(t *testing.T) {
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing")
+		t.Skip("Test is broken for race testing, see issue #3211")
 	}
 
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t, env.BasicConfig)

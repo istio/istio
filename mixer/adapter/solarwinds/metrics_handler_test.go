@@ -16,10 +16,9 @@ package solarwinds
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
-
-	"os"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
@@ -29,7 +28,7 @@ import (
 func TestNewMetricsHandler(t *testing.T) {
 
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing")
+		t.Skip("Test is broken for race testing, see issue #3208")
 	}
 
 	ctx := context.Background()

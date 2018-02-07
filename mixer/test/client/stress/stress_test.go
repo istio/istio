@@ -17,11 +17,10 @@ package stress
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"os"
 
 	"istio.io/istio/mixer/test/client/env"
 )
@@ -34,7 +33,7 @@ const (
 func TestStressEnvoy(t *testing.T) {
 
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing")
+		t.Skip("Test is broken for race testing, see issue #3210")
 	}
 
 	s := env.NewTestSetupV2(env.StressEnvoyTest, t)

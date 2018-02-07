@@ -16,12 +16,11 @@ package appoptics
 
 import (
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"os"
 
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
@@ -29,7 +28,7 @@ import (
 func TestBatchMeasurements(t *testing.T) {
 
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing")
+		t.Skip("Test is broken for race testing, see issue #3207")
 	}
 	t.Run("All Good", func(t *testing.T) {
 		env := test2.NewEnv(t)
@@ -101,7 +100,7 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 
 func TestPersistBatches(t *testing.T) {
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing")
+		t.Skip("Test is broken for race testing, see issue #3209")
 	}
 
 	tests := []struct {
