@@ -56,6 +56,8 @@ var (
 	controlPlaneAuthPolicy string
 	customConfigFile       string
 	proxyLogLevel          string
+	concurrency            int
+	bootstrapv2            bool
 
 	loggingOptions = log.NewOptions()
 
@@ -131,6 +133,7 @@ var (
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
@@ -267,6 +270,10 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
+	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
+		"number of worker threads to run")
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
+		"Use bootstrap v2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
