@@ -156,6 +156,9 @@ function merge_files() {
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
+  echo "# Mixer CRD definitions are generated using" >> $ISTIO
+  echo "# mixs crd all" >> $ISTIO
+  ${GOPATH}/bin/mixs crd all >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
   cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
@@ -338,6 +341,9 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
   cp -R $ROOT/install $DEST_DIR/
   cp -R $ROOT/samples $DEST_DIR/
 fi
+
+# mixs binary is needed for creating CRD yaml file.
+(cd $ROOT; make mixs)
 
 mkdir -p $TEMP_DIR/templates
 cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
