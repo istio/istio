@@ -26,8 +26,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	pb "istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	pb "istio.io/istio/mixer/pkg/config/proto"
 	tmpl "istio.io/istio/mixer/pkg/template"
 )
 

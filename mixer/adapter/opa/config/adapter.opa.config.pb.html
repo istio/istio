@@ -1,0 +1,84 @@
+---
+title: OPA
+overview: Adapter that implements an Open Policy Agent engine
+location: https://istio.io/docs/reference/config/adapters/opa.html
+layout: protoc-gen-docs
+number_of_entries: 1
+---
+{% raw %}
+<p>The <code>opa</code> adapter exposes an <a href="http://www.openpolicyagent.org">Open Policy Agent</a> engine
+that provides sophisticated access control mechanisms.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>opa</code> adapter.</p>
+
+<p>Example configuration:</p>
+
+<pre><code>policy:
+  - |+
+    package mixerauthz
+    policy = [
+      {
+        &quot;rule&quot;: {
+          &quot;verbs&quot;: [
+            &quot;storage.buckets.get&quot;
+          ],
+          &quot;users&quot;: [
+            &quot;bucket-admins&quot;
+          ]
+        }
+      }
+    ]
+
+    default allow = false
+
+    allow = true {
+      rule = policy[_].rule
+      input.subject.user = rule.users[_]
+      input.action.method = rule.verbs[_]
+    }
+checkMethod: &quot;data.mixerauthz.allow&quot;
+failClose: true
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.policy">
+<td><code>policy</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List of OPA policies</p>
+
+</td>
+</tr>
+<tr id="Params.check_method">
+<td><code>checkMethod</code></td>
+<td><code>string</code></td>
+<td>
+<p>Query method to check.
+Format: data.<package name>.<method name></p>
+
+</td>
+</tr>
+<tr id="Params.fail_close">
+<td><code>failClose</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Close the client request when adapter has a issue.
+If failClose is set to true and there is a runtime error,
+instead of disabling the adapter, close the client request</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+{% endraw %}

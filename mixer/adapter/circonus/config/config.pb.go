@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `circonus` adapter enables Istio to deliver metric data to the
+	[Circonus](https://www.circonus.com) monitoring backend.
+
 	It is generated from these files:
 		mixer/adapter/circonus/config/config.proto
 
@@ -68,6 +71,7 @@ func (Params_MetricInfo_Type) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorConfig, []int{0, 0, 0}
 }
 
+// Cnofiguration format for the Circonus adapter.
 type Params struct {
 	// Circonus SubmissionURL to HTTPTrap check
 	SubmissionUrl      string               `protobuf:"bytes,1,opt,name=submission_url,json=submissionUrl,proto3" json:"submission_url,omitempty"`

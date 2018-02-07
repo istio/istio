@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentk8s
+package nodeagentmgmt
 
 import (
 	"testing"
@@ -20,12 +20,13 @@ import (
 	"golang.org/x/net/context"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 	pb "istio.io/istio/security/proto"
 )
 
 // TODO(wattli): add more tests.
 func TestWorkloadAddedService(t *testing.T) {
-	wlmgmts := map[string]WorkloadMgmtInterface{
+	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
 		"testid": nil,
 	}
 	server := &Server{wlmgmts, "path", make(chan bool), nil}
@@ -43,7 +44,7 @@ func TestWorkloadAddedService(t *testing.T) {
 }
 
 func TestWorkloadDeletedService(t *testing.T) {
-	wlmgmts := map[string]WorkloadMgmtInterface{
+	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
 		"testid": nil,
 	}
 	server := &Server{wlmgmts, "path", make(chan bool), nil}

@@ -78,6 +78,7 @@ func (conf *Config) Write(w io.Writer) error {
 
 // BuildConfig creates a proxy config with discovery services and admin port
 // it creates config for Ingress, Egress and Sidecar proxies
+// TODO: remove after new agent package is done
 func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 	listeners := Listeners{}
 
@@ -148,7 +149,22 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
 	case model.Ingress:
-		return buildIngressListeners(env.Mesh, nil, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		services, err := env.Services()
+		if err != nil {
+			return nil, err
+		}
+		var svc *model.Service
+		for _, s := range services {
+			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+				svc = s
+				break
+			}
+		}
+		insts := make([]*model.ServiceInstance, 0, 1)
+		if svc != nil {
+			insts = append(insts, &model.ServiceInstance{Service: svc})
+		}
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }
