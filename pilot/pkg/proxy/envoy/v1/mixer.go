@@ -112,10 +112,10 @@ func (*FilterMixerConfig) isNetworkFilterConfig() {}
 func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, clusterName string) *Cluster {
 	cluster := buildCluster(server, clusterName, mesh.ConnectTimeout)
 	cluster.CircuitBreaker = &CircuitBreaker{
-			Default: DefaultCBPriority{
-				MaxPendingRequests: 10000,
-				MaxRequests:        10000,
-			},
+		Default: DefaultCBPriority{
+			MaxPendingRequests: 10000,
+			MaxRequests:        10000,
+		},
 	}
 
 	cluster.Features = ClusterFeatureHTTP2
@@ -133,7 +133,7 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, c
 
 // buildMixerClusters builds an outbound mixer cluster with configured check/report clusters
 func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) []*Cluster {
-    mixerClusters := make([]*Cluster, 0)
+	mixerClusters := make([]*Cluster, 0)
 
 	if mesh.MixerCheckServer != "" {
 		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerCheckServer, MixerCheckClusterName))
@@ -179,7 +179,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 	}
 
 	transport := &mccpb.TransportConfig{
-		CheckCluster: MixerCheckClusterName,
+		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
 	}
 	if mesh.MixerCheckServer == mesh.MixerReportServer {
@@ -194,7 +194,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
-		Transport: transport,
+		Transport:      transport,
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -303,7 +303,7 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, ins
 	}
 
 	transport := &mccpb.TransportConfig{
-		CheckCluster: MixerCheckClusterName,
+		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
 	}
 	if mesh.MixerCheckServer == mesh.MixerReportServer {
