@@ -677,6 +677,11 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
+  name = "github.com/openshift/api"
+  packages = ["apps/v1"]
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"
+
+[[projects]]
   name = "github.com/opentracing/opentracing-go"
   packages = [
     ".",
@@ -1432,6 +1437,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e13e398df2cfdf68f0d0f65bd0d1bdfd0d491474ea1be63adfc757349b5a17e"
+  inputs-digest = "91ee849d35c467869abcb70ec42d3741294fa59e3fcf8220387b5d8b71c196a8"
   solver-name = "gps-cdcl"
   solver-version = 1
