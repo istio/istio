@@ -243,6 +243,9 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 	// So instance labels are the workload / Node labels.
 	if len(instances) > 0 {
 		labels = instances[0].Labels
+		v2.DefaultDestinationService = instances[0].Service.Hostname
+		//TODO remove this once listener config is removed.
+		filter.MixerAttributes[AttrDestinationService] = instances[0].Service.Hostname
 	}
 	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
 
