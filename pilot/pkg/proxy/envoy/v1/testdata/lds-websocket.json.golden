@@ -405,7 +405,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "on",
+             "mixer_check": "off",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -417,7 +417,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "on",
+             "mixer_check": "off",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -458,6 +458,7 @@
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
+             "disableCheckCalls": true,
              "mixerAttributes": {
               "attributes": {
                "destination.service": {
@@ -713,7 +714,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "on",
+             "mixer_check": "off",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -725,7 +726,7 @@
             "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
-             "mixer_check": "on",
+             "mixer_check": "off",
              "mixer_forward": "off",
              "mixer_report": "on"
             },
@@ -766,6 +767,7 @@
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
+             "disableCheckCalls": true,
              "mixerAttributes": {
               "attributes": {
                "destination.service": {
