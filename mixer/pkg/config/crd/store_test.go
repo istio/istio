@@ -63,6 +63,13 @@ type dummyListerWatcherBuilder struct {
 	mu       sync.RWMutex
 	data     map[store.Key]*unstructured.Unstructured
 	watchers map[string]*watch.RaceFreeFakeWatcher
+	errors   map[string]error
+}
+
+func (d *dummyListerWatcherBuilder) setErrors(kind string, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.errors[kind] = err
 }
 
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
@@ -75,15 +82,29 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
 			list := &unstructured.UnstructuredList{}
 			d.mu.RLock()
+			defer d.mu.RUnlock()
+			if err := d.errors[res.Kind]; err != nil {
+				return nil, err
+			}
 			for k, v := range d.data {
 				if k.Kind == res.Kind {
 					list.Items = append(list.Items, *v)
 				}
 			}
-			d.mu.RUnlock()
 			return list, nil
 		},
-		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
+		WatchFunc: func(opt metav1.ListOptions) (watch.Interface, error) {
+			if opt.TimeoutSeconds != nil && *opt.TimeoutSeconds > 0 {
+				go func() {
+					<-time.After(time.Duration(*opt.TimeoutSeconds) * time.Second)
+					oldW := w
+					w = watch.NewRaceFreeFake()
+					d.mu.Lock()
+					d.watchers[res.Kind] = w
+					d.mu.Unlock()
+					oldW.Stop()
+				}()
+			}
 			return w, nil
 		},
 	}
@@ -134,6 +155,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
 		watchers: map[string]*watch.RaceFreeFakeWatcher{},
+		errors:   map[string]error{},
 	}
 	client := &Store{
 		conf:             &rest.Config{},
@@ -316,6 +338,24 @@ func TestCrdsAreNotReady(t *testing.T) {
 	}
 }
 
+func TestStoreReadiness(t *testing.T) {
+	s, _, lw := getTempClient()
+	lw.setErrors("Handler", errors.New("dummy"))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.getReadiness(); err == nil {
+		t.Errorf("Got nil, want error")
+	}
+	lw.setErrors("Handler", nil)
+	time.Sleep(2 * time.Second)
+	if err := s.getReadiness(); err != nil {
+		t.Errorf("Got %v, want nil", err)
+	}
+}
+
 func TestCrdsRetryMakeSucceed(t *testing.T) {
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -397,7 +437,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.cacheMutex.Lock()
-	ncaches := len(s.caches)
+	ncaches := len(s.informers)
 	s.cacheMutex.Unlock()
 	if ncaches != 1 {
 		t.Errorf("Has %d caches, Want 1 caches", ncaches)
@@ -417,7 +457,7 @@ loop:
 			break loop
 		case <-tick:
 			s.cacheMutex.Lock()
-			ncaches = len(s.caches)
+			ncaches = len(s.informers)
 			s.cacheMutex.Unlock()
 			if ncaches > 1 {
 				break loop

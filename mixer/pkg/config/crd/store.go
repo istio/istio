@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
@@ -56,6 +57,10 @@ const (
 // to allow changing the value for unittests.
 var retryInterval = time.Second / 2
 
+// readinessCheckInterval is the interval to check its internal status and
+// update its readiness.
+var readinessCheckInterval = time.Second
+
 // When retrying happens on initializing caches, it shouldn't log the message for
 // every retry, it may flood the log messages if the initialization is never satisfied.
 // see also https://github.com/istio/istio/issues/3138
@@ -65,29 +70,6 @@ type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
 
-func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		tick := time.NewTicker(initWaiterInterval)
-	loop:
-		for len(informers) > 0 {
-			select {
-			case <-ctx.Done():
-				break loop
-			case <-tick.C:
-				for k, i := range informers {
-					if i.HasSynced() {
-						delete(informers, k)
-					}
-				}
-			}
-		}
-		tick.Stop()
-		close(out)
-	}()
-	return out
-}
-
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
 	conf         *rest.Config
@@ -95,7 +77,7 @@ type Store struct {
 	retryTimeout time.Duration
 
 	cacheMutex sync.Mutex
-	caches     map[string]cache.Store
+	informers  map[string]cache.SharedInformer
 
 	watchMutex sync.RWMutex
 	watchCtx   context.Context
@@ -111,6 +93,52 @@ type Store struct {
 var _ store.Backend = &Store{}
 var _ probe.SupportsProbe = &Store{}
 
+func (s *Store) getReadiness() error {
+	var errs error
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
+	if len(s.informers) == 0 {
+		return fmt.Errorf("no informers are prepared")
+	}
+	for k, i := range s.informers {
+		if !i.HasSynced() {
+			errs = multierror.Append(errs, fmt.Errorf("%s is not yet synced", k))
+		}
+	}
+	return errs
+}
+
+func (s *Store) checkReadiness(ctx context.Context) {
+	tick := time.NewTicker(readinessCheckInterval)
+	defer func() {
+		tick.Stop()
+		s.SetAvailable(fmt.Errorf("finished"))
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			s.SetAvailable(s.getReadiness())
+		}
+	}
+}
+
+func (s *Store) waitForSynced(ctx context.Context) {
+	tick := time.NewTicker(initWaiterInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			if s.getReadiness() == nil {
+				return
+			}
+		}
+	}
+}
+
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
 // If the timeout duration is 0, it waits forever (which should be done within a goroutine).
@@ -125,7 +153,6 @@ func (s *Store) checkAndCreateCaches(
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers := map[string]cache.SharedInformer{}
 	retryCount := 0
 	retryCtx := ctx
 	if timeout > 0 {
@@ -155,14 +182,13 @@ func (s *Store) checkAndCreateCaches(
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
-			if _, ok := s.caches[res.Kind]; ok {
+			if _, ok := s.informers[res.Kind]; ok {
 				continue
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
 				cl := lwBuilder.build(res)
 				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
+				s.informers[res.Kind] = informer
 				delete(kindsSet, res.Kind)
 				informer.AddEventHandler(s)
 				go informer.Run(ctx.Done())
@@ -171,16 +197,11 @@ func (s *Store) checkAndCreateCaches(
 		}
 		s.cacheMutex.Unlock()
 	}
-	<-waitForSynced(ctx, informers)
+	s.waitForSynced(retryCtx)
 	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	var err error
-	if len(remaining) > 0 {
-		err = fmt.Errorf("not yet ready: %+v", remaining)
-	}
-	s.SetAvailable(err)
 	return remaining
 }
 
@@ -194,7 +215,8 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	s.caches = make(map[string]cache.Store, len(kinds))
+	s.informers = make(map[string]cache.SharedInformer, len(kinds))
+	go s.checkReadiness(ctx)
 	remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
@@ -219,11 +241,12 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 		return nil, store.ErrNotFound
 	}
 	s.cacheMutex.Lock()
-	c, ok := s.caches[key.Kind]
+	i, ok := s.informers[key.Kind]
 	s.cacheMutex.Unlock()
 	if !ok {
 		return nil, store.ErrNotFound
 	}
+	c := i.GetStore()
 	req := &unstructured.Unstructured{}
 	req.SetName(key.Name)
 	req.SetNamespace(key.Namespace)
@@ -256,8 +279,8 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()
-	for kind, c := range s.caches {
-		for _, obj := range c.List() {
+	for kind, i := range s.informers {
+		for _, obj := range i.GetStore().List() {
 			uns := obj.(*unstructured.Unstructured)
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
 			if s.ns != nil && !s.ns[key.Namespace] {
