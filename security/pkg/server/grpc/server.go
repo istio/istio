@@ -142,7 +142,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port in
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(s.ca.GetCertificateChain())
+	cp.AppendCertsFromPEM(s.ca.GetRootCertificate())
 
 	config := &tls.Config{
 		ClientCAs:  cp,
