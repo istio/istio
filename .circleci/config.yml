@@ -405,6 +405,8 @@ jobs:
   docker-push:
     <<: *defaults
     resource_class: xlarge
+    environment:
+      TAG: circleci-nightly
     steps:
       - checkout
       - restore_cache:
