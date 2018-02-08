@@ -35,7 +35,7 @@ DEBUG_IMAGE_NAME="${REG}/${IMAGE}:${TAG}"
 TARGET_DIR="${ROOT}/bin/${IMAGE}"
 
 rm -rf ${TARGET_DIR}
-go build ../main.go
+go build cmd/node_agent_k8s/flexvolume/main.go
 
 OPFILE="main"
 hostdir=${ROOT}
@@ -47,9 +47,9 @@ fi
 
 mkdir -p ${TARGET_DIR}
 
-cp ${OPFILE} ${TARGET_DIR}/
-cp ${hostdir}/${IMAGE}.sh ${TARGET_DIR}/
-cp ${hostdir}/Dockerfile ${TARGET_DIR}/
-docker build -f ${TARGET_DIR}/Dockerfile -t "${DEBUG_IMAGE_NAME}" ${TARGET_DIR}
+cp ${OPFILE} ${TARGET_DIR}/${IMAGE}
+cp ${hostdir}/bin/${IMAGE}.sh ${TARGET_DIR}/
+cp docker/Dockerfile.node-agent-k8s ${TARGET_DIR}/
+docker build -f ${TARGET_DIR}/Dockerfile.node-agent-k8s -t "${DEBUG_IMAGE_NAME}" ${TARGET_DIR}
 echo "Push ${DEBUG_IMAGE_NAME} to a registry now"
 gcloud docker -- push "${DEBUG_IMAGE_NAME}"
