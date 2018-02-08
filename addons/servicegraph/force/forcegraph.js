@@ -97,11 +97,33 @@ d3cola.on("tick", function () {
 
 });
 
+var endpoint = "/d3graph";
+
+(function(){
+    var query={};
+    var i=0;
+    var tele;
+    var search_values=location.search.replace('\?','').split('&');
+    for(i=0;i<search_values.length;i++){
+        telem=search_values[i].split('=');
+        query[telem[0]]=telem[1];
+    }
+
+    if (query.time_horizon != undefined && query.filter_empty != undefined) {
+        endpoint = endpoint + "?time_horizon=" + query.time_horizon +
+            "&filter_empty=" + query.filter_empty;
+    } else if (query.time_horizon != undefined) {
+        endpoint = endpoint + "?time_horizon=" + query.time_horizon;
+    } else if (query.filter_empty != undefined) {
+        endpoint = endpoint + "?filter_empty=" + query.filter_empty;
+    }
+}());
+
 refresh()
 d3.interval(refresh, 5000)
 
 function refresh() {
-    d3.json("/d3graph?time_horizon=10s&filter_empty=true", updateData);
+    d3.json(endpoint, updateData);
     return true;
 }
 

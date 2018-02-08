@@ -11,8 +11,7 @@ deploying and using Servicegraph is
 ## Visualizations
 
 - `/force/forcegraph.html` is an interactive
-  [D3.js](https://d3js.org/) visualization. This graph only displays
-  services that are currently receiving traffic.
+  [D3.js](https://d3js.org/) visualization.
 
 - `/dotviz` is a static [Graphviz](https://www.graphviz.org/)
   visualization.
@@ -29,14 +28,15 @@ deploying and using Servicegraph is
 
 ## Query Parameters
 
-All endpoints except for `/force/forcegraph.html` take these query parameters:
+All endpoints take these query parameters:
 
 - `time_horizon` controls the timespan to consider for graph
-  generation.
+  generation. Format is a number plus a time unit. Example `15s` or
+  `1m`. Default is `5m`.
 
 - `filter_empty=true` will restrict the nodes and edges shown to only
   those that reflect non-zero traffic levels during the specified
-  `time_horizon`.
+  `time_horizon`. Deafult is `false`.
 
 # Demosvc service
 Defined in `servicegraph/cmd/demosvc`, this provides a simple HTTP
