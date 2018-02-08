@@ -29,6 +29,7 @@ import (
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
+	"golang.org/x/sync/errgroup"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -55,27 +56,31 @@ type CertSource struct {
 }
 
 type watcher struct {
-	agent    proxy.Agent
-	role     model.Node
-	config   meshconfig.ProxyConfig
-	certs    []CertSource
-	pilotSAN []string
+	agent         proxy.Agent
+	role          model.Node
+	config        meshconfig.ProxyConfig
+	requiredCerts []CertSource // These certs must present for Envoy to start
+	certs         []CertSource
+	pilotSAN      []string
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
-	certs []CertSource, pilotSAN []string) Watcher {
+	internalCerts, externalCerts []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
-		agent:    agent,
-		role:     role,
-		config:   config,
-		certs:    certs,
-		pilotSAN: pilotSAN,
+		agent:         agent,
+		role:          role,
+		config:        config,
+		requiredCerts: internalCerts,
+		certs:         append(internalCerts, externalCerts...),
+		pilotSAN:      pilotSAN,
 	}
 }
 
 const (
+	requiredCertsCheckInterval = 4 * time.Second
+	requiredCertsCheckTimeout  = 90 * time.Second
 	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
 	defaultMinDelay = 10 * time.Second
 	azRetryInterval = time.Second * 30
@@ -83,6 +88,14 @@ const (
 )
 
 func (w *watcher) Run(ctx context.Context) {
+	// Wait until the required certificate files present. This prevents Envoy failing caused by non-existing cert files.
+	// Note: this function is blocking.
+	log.Infof("Check required cert files are present (up to %v)...", requiredCertsCheckTimeout)
+	if err := waitForCertsPresent(w.requiredCerts, requiredCertsCheckInterval, requiredCertsCheckTimeout); err != nil {
+		log.Errorf("Required cert file check failed: %v", err)
+	}
+	log.Info("All required cert files are present!")
+
 	// agent consumes notifications from the controller
 	go w.agent.Run(ctx)
 
@@ -206,6 +219,44 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 		}
 	}
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
+}
+
+// waitForCertsPresent is a blocking function that periodically checks the existence
+// of the certs, once every interval. It returns nil when all cert files are found
+// and non-empty, and returns error if the timeout is reached.
+func waitForCertsPresent(certs []CertSource, interval time.Duration, timeout time.Duration) (err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	for _, cert := range certs {
+		for _, file := range cert.Files {
+			filename := path.Join(cert.Directory, file)
+			g.Go(func() error {
+				for {
+					fi, err := os.Stat(filename)
+					if err != nil {
+						if os.IsNotExist(err) {
+							log.Warnf("failed to read file: %v. Will retry in %v", err, interval)
+						} else {
+							return fmt.Errorf("cannot stat file due to error: %v", err)
+						}
+					} else if fi.Size() == 0 {
+						log.Warnf("file %s is empty. Will retry in %v", filename, interval)
+					} else {
+						break
+					}
+					select {
+					case <-time.After(interval):
+						// retry
+					case <-ctx.Done():
+						return fmt.Errorf("certs do not present after timeout %v", timeout)
+					}
+				}
+				return nil
+			})
+		}
+	}
+	return g.Wait()
 }
 
 func generateCertHash(h hash.Hash, certsDir string, files []string) {
