@@ -350,7 +350,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct {
+type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
 	node             model.Node
 	instances        []*model.ServiceInstance
