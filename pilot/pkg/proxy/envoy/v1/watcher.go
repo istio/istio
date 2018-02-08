@@ -300,7 +300,10 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if proxy.v2 {
+	if len(proxy.config.CustomConfigFile) > 0 {
+		// there is a custom configuration. Don't write our own config - but keep watching the certs.
+		fname = proxy.config.CustomConfigFile
+	} else if proxy.v2 {
 		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
@@ -308,9 +311,6 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 			return err
 		}
 		fname = out
-	} else if len(proxy.config.CustomConfigFile) > 0 {
-		// there is a custom configuration. Don't write our own config - but keep watching the certs.
-		fname = proxy.config.CustomConfigFile
 	} else {
 		// create parent directories if necessary
 		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
