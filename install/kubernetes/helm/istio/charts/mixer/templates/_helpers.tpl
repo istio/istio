@@ -22,6 +22,6 @@ Service account name.
 {{- if .Values.global.rbacEnabled -}}
 {{- template "mixer.fullname" . -}}
 {{- else }}
-{{- .Values.serviceAccountName -}}
+{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}
