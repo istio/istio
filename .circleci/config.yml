@@ -85,7 +85,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -120,7 +126,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -156,7 +168,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
@@ -186,7 +204,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
