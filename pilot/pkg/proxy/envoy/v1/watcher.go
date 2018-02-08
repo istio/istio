@@ -93,6 +93,7 @@ func (w *watcher) Run(ctx context.Context) {
 	log.Infof("Check required cert files are present (up to %v)...", requiredCertsCheckTimeout)
 	if err := waitForCertsPresent(w.requiredCerts, requiredCertsCheckInterval, requiredCertsCheckTimeout); err != nil {
 		log.Errorf("Required cert file check failed: %v", err)
+		<-ctx.Done()
 		return
 	}
 	log.Info("All required cert files are present!")
@@ -236,7 +237,11 @@ func waitForCertsPresent(certs []CertSource, interval time.Duration, timeout tim
 				for {
 					fi, err := os.Stat(filename)
 					if err != nil {
-						log.Warnf("failed to read file: %v. Will retry in %v", err, interval)
+						if os.IsNotExist(err) {
+							log.Warnf("failed to read file: %v. Will retry in %v", err, interval)
+						} else {
+							return fmt.Errorf("Can not stat file due to error: %v", err)
+						}
 					} else if fi.Size() == 0 {
 						log.Warnf("file %s is empty. Will retry in %v", filename, interval)
 					} else {
