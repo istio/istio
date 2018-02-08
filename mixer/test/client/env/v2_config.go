@@ -28,6 +28,7 @@ var (
 
 // V2Conf stores v2 config.
 type V2Conf struct {
+	PerRouteConf   *mccpb.ServiceConfig
 	HTTPServerConf *mccpb.HttpClientConfig
 	HTTPClientConf *mccpb.HttpClientConfig
 	TCPServerConf  *mccpb.TcpClientConfig
@@ -36,6 +37,7 @@ type V2Conf struct {
 // GetDefaultV2Conf get V2 config
 func GetDefaultV2Conf() *V2Conf {
 	return &V2Conf{
+		PerRouteConf:   GetDefaultServiceConfig(),
 		HTTPServerConf: GetDefaultHTTPServerConf(),
 		HTTPClientConf: GetDefaultHTTPClientConf(),
 		TCPServerConf:  GetDefaultTCPServerConf(),
@@ -44,15 +46,14 @@ func GetDefaultV2Conf() *V2Conf {
 
 // GetDefaultServiceConfig get default service config
 func GetDefaultServiceConfig() *mccpb.ServiceConfig {
-     return &mccpb.ServiceConfig{
-	  MixerAttributes: &mpb.Attributes{
+	return &mccpb.ServiceConfig{
+		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP2}},
 				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
 				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
 			},
 		},
-		// TODO per-service HTTPApiApsec, QuotaSpec
 	}
 }
 
@@ -66,11 +67,7 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
 			},
 		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 	}
-	service := ":default"
-	v2.DefaultDestinationService = service
-	v2.ServiceConfigs[service] = GetDefaultServiceConfig()
 	return v2
 }
 
@@ -84,7 +81,6 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ11"}},
 			},
 		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 	}
 	return v2
 }
@@ -126,15 +122,13 @@ func DisableClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, repo
 }
 
 // DisableHTTPCheckReport disable HTTP check report
-func DisableHTTPCheckReport(v2 *mccpb.HttpClientConfig, disableCheck, disableReport bool) {
-	for _, s := range v2.ServiceConfigs {
-		s.DisableCheckCalls = disableCheck
-		s.DisableReportCalls = disableReport
-	}
+func DisableHTTPCheckReport(v2 *V2Conf, disableCheck, disableReport bool) {
+	v2.PerRouteConf.DisableCheckCalls = disableCheck
+	v2.PerRouteConf.DisableReportCalls = disableReport
 }
 
 // AddHTTPQuota add HTTP quota config
-func AddHTTPQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
+func AddHTTPQuota(v2 *V2Conf, quota string, charge int64) {
 	q := &mccpb.QuotaSpec{
 		Rules: make([]*mccpb.QuotaRule, 1),
 	}
@@ -146,10 +140,8 @@ func AddHTTPQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
 		Charge: charge,
 	}
 
-	for _, s := range v2.ServiceConfigs {
-		s.QuotaSpec = make([]*mccpb.QuotaSpec, 1)
-		s.QuotaSpec[0] = q
-	}
+	v2.PerRouteConf.QuotaSpec = make([]*mccpb.QuotaSpec, 1)
+	v2.PerRouteConf.QuotaSpec[0] = q
 }
 
 // DisableTCPCheckReport disable TCP check report.
@@ -159,11 +151,19 @@ func DisableTCPCheckReport(v2 *mccpb.TcpClientConfig, disableCheck, disableRepor
 }
 
 // AddJwtAuth add JWT auth.
-func AddJwtAuth(v2 *mccpb.HttpClientConfig, jwt *mccpb.JWT) {
-	for _, s := range v2.ServiceConfigs {
-		if s.EndUserAuthnSpec == nil {
-			s.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
-		}
-		s.EndUserAuthnSpec.Jwts = append(s.EndUserAuthnSpec.Jwts, jwt)
-	}
+func AddJwtAuth(v2 *V2Conf, jwt *mccpb.JWT) {
+	v2.PerRouteConf.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
+	v2.PerRouteConf.EndUserAuthnSpec.Jwts = append(v2.PerRouteConf.EndUserAuthnSpec.Jwts, jwt)
+
+	// Auth spec needs to add to service_configs map.
+	SetDefaultServiceConfigMap(v2)
+}
+
+// SetDefaultServiceConfigMap set the default service config to the service config map
+func SetDefaultServiceConfigMap(v2 *V2Conf) {
+	service := ":default"
+	v2.HTTPServerConf.DefaultDestinationService = service
+
+	v2.HTTPServerConf.ServiceConfigs = map[string]*mccpb.ServiceConfig{}
+	v2.HTTPServerConf.ServiceConfigs[service] = v2.PerRouteConf
 }
