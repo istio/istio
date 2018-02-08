@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"os"
 
-	"istio.io/istio/mixer/example/servicegraph"
-	"istio.io/istio/mixer/example/servicegraph/dot"
-	"istio.io/istio/mixer/example/servicegraph/promgen"
+	"istio.io/istio/addons/servicegraph"
+	"istio.io/istio/addons/servicegraph/dot"
+	"istio.io/istio/addons/servicegraph/promgen"
 )
 
 func writeJSON(w io.Writer, g *servicegraph.Dynamic) error {

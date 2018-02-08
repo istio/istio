@@ -170,6 +170,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
+		Concurrency:            0,
 	}
 }
 

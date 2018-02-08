@@ -1,0 +1,14 @@
+apiVersion: v1
+name: istio
+version: 0.5.0
+description: Helm chart for istio integration test
+keywords:
+  - istio
+  - security
+  - sidecar-injector
+  - mixer
+  - pilot
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

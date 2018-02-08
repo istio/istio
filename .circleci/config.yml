@@ -1,8 +1,10 @@
 version: 2
+
+# Docker environment.
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.9-k8s1.7.4
+    - image: istio/ci:go1.9-k8s1.9-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
 
@@ -12,6 +14,7 @@ defaults: &defaults
 # DOCKER_PASS
 # HUB: ex istio, costinm (it is not the hub, but the dockerhub org or user)
 
+# VM environment. Includes docker.
 integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
@@ -44,11 +47,16 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
-      - run: echo $KUBECONFIG
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -77,7 +85,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -112,7 +126,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -148,7 +168,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
@@ -178,7 +204,13 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make build test-bins docker.tag
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
@@ -234,7 +266,7 @@ jobs:
       - run: mkdir -p /tmp/coverage
       - run:
           name: Running Kubernetes API Server standalone
-          command: /tmp/apiserver/start-test-server.sh
+          command: make localTestEnv
           background: true
       - restore_cache:
           keys:
@@ -274,11 +306,9 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
-            go get github.com/jstemmer/go-junit-report
-            free
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             make localTestEnv
-            make pilot-test mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
+            make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
 
@@ -296,8 +326,6 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/racetests
-            go get github.com/jstemmer/go-junit-report
-            free
             trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
             make localTestEnv
             make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
@@ -377,6 +405,8 @@ jobs:
   docker-push:
     <<: *defaults
     resource_class: xlarge
+    environment:
+      TAG: circleci-nightly
     steps:
       - checkout
       - restore_cache:

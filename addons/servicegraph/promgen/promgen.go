@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/istio/mixer/example/servicegraph"
+	"istio.io/istio/addons/servicegraph"
 )
 
 const reqsFmt = "sum(rate(istio_request_count[%s])) by (source_service, destination_service, source_version, destination_version)"
