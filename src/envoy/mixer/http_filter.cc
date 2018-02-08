@@ -22,6 +22,7 @@
 #include "envoy/registry/registry.h"
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
+#include "google/protobuf/util/json_util.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/auth/jwt.h"
 #include "src/envoy/auth/jwt_authenticator.h"
@@ -60,8 +61,12 @@ const std::string kJsonNameMixerReport("mixer_report");
 // a sub string map of mixer attributes passed to mixer for the route.
 const std::string kPrefixMixerAttributes("mixer_attributes.");
 
-// Per route attribute "destination.service".
-const std::string kJsonNameDestinationService("destination.service");
+// Per route opaque data for "destination.service".
+const std::string kPerRouteDestinationService("destination.service");
+// Per route opaque data name "mixer" is base64(JSON(ServiceConfig))
+const std::string kPerRouteMixer("mixer");
+// Per route opaque data name "mixer_sha" is SHA(JSON(ServiceConfig))
+const std::string kPerRouteMixerSha("mixer_sha");
 
 // The HTTP header to forward Istio attributes.
 const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
@@ -76,6 +81,17 @@ const std::set<std::string> RequestHeaderExclusives = {
 
 // Set of headers excluded from response.headers attribute.
 const std::set<std::string> ResponseHeaderExclusives = {};
+
+// Read a string value from a string map.
+bool ReadStringMap(const std::multimap<std::string, std::string>& string_map,
+                   const std::string& name, std::string* value) {
+  auto it = string_map.find(name);
+  if (it != string_map.end()) {
+    *value = it->second;
+    return true;
+  }
+  return false;
+}
 
 }  // namespace
 
@@ -399,20 +415,56 @@ class Instance : public Http::StreamDecoderFilter,
     return attrs;
   }
 
-  // Read a string attribute from per-route opaque data.
-  bool GetRouteStringAttribute(const std::string& name, std::string* value) {
+  void ReadPerRouteConfig(
+      ::istio::mixer_control::http::Controller::PerRouteConfig* config) {
     auto route = decoder_callbacks_->route();
-    if (route != nullptr) {
-      auto entry = route->routeEntry();
-      if (entry != nullptr) {
-        auto it = entry->opaqueConfig().find(name);
-        if (it != entry->opaqueConfig().end()) {
-          *value = it->second;
-          return true;
-        }
-      }
+    if (route == nullptr) {
+      return;
     }
-    return false;
+    auto entry = route->routeEntry();
+    if (entry == nullptr) {
+      return;
+    }
+
+    const auto& string_map = entry->opaqueConfig();
+    ReadStringMap(string_map, kPerRouteDestinationService,
+                  &config->destination_service);
+
+    std::string config_id;
+    if (!ReadStringMap(string_map, kPerRouteMixerSha, &config_id)) {
+      return;
+    }
+
+    if (mixer_control_.controller()->LookupServiceConfig(config_id)) {
+      return;
+    }
+
+    std::string config_base64;
+    if (!ReadStringMap(string_map, kPerRouteMixer, &config_base64)) {
+      ENVOY_LOG(warn, "Service {} missing [mixer] per-route attribute",
+                config->destination_service);
+      return;
+    }
+    std::string config_json = Base64::decode(config_base64);
+    if (config_json.empty()) {
+      ENVOY_LOG(warn, "Service {} invalid base64 config data",
+                config->destination_service);
+      return;
+    }
+    ServiceConfig config_pb;
+    auto status =
+        ::google::protobuf::util::JsonStringToMessage(config_json, &config_pb);
+    if (!status.ok()) {
+      ENVOY_LOG(
+          warn,
+          "Service {} failed to convert JSON config to protobuf, error: {}",
+          config->destination_service, status.ToString());
+      return;
+    }
+    mixer_control_.controller()->AddServiceConfig(config_id, config_pb);
+    config->service_config_id = config_id;
+    ENVOY_LOG(info, "Service {}, config_id {}, config: {}",
+              config->destination_service, config_id, config_pb.DebugString());
   }
 
  public:
@@ -429,8 +481,7 @@ class Instance : public Http::StreamDecoderFilter,
     ::istio::mixer_control::http::Controller::PerRouteConfig config;
     ServiceConfig legacy_config;
     if (mixer_control_.has_v2_config()) {
-      GetRouteStringAttribute(kJsonNameDestinationService,
-                              &config.destination_service);
+      ReadPerRouteConfig(&config);
     } else {
       bool check_disabled, report_disabled;
       check_mixer_route_flags(&check_disabled, &report_disabled);
