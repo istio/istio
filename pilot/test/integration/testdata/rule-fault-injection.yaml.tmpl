@@ -1,27 +1,26 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: fault-route
+  name: fault-route-v1alpha2
 spec:
-  destination:
-    name: c
-  precedence: 3
-  match:
-    source:
-      name: a
-      labels:
-        version: v1
-    request:
-      headers:
-        version:
-          exact: v2
-  route:
-    - labels:
-         version: v2
-  httpFault:
-    delay:
-      percent: 100
-      fixedDelay: 5s
-    abort:
-      percent: 100
-      httpStatus: 503
+  hosts:
+    - c.istio-test-app-dsd2m.svc.cluster.local
+  http:
+    - match:
+      - headers:
+          version:
+            exact: v2
+        source_labels:
+          version: v1
+      route:
+      - destination:
+          name: c
+          subset: v2
+        weight: 100
+      fault:
+        delay:
+          percent: 100
+          fixedDelay: 2.5s
+        abort:
+          percent: 100
+          httpStatus: 502

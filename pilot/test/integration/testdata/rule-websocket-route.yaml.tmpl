@@ -1,17 +1,17 @@
 apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+kind: V1alpha2RouteRule
 metadata:
   name: websocket-route
 spec:
-  destination:
-    name: c
-  precedence: 6
-  match:
-    request:
-      headers:
-        testwebsocket:
-          exact: enabled
-  route:
-    - labels:
-         version: v1
-  websocketUpgrade: true
+  hosts:
+    - c
+  http:
+    - match:
+      - headers:
+          testwebsocket:
+            exact: enabled
+      route:
+      - destination:
+          name: c
+          subset: v1
+      websocketUpgrade: true
