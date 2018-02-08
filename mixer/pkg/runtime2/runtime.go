@@ -165,7 +165,7 @@ func (c *Runtime) processNewConfig() {
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
-// before resolver ref count does to 0. It will return after this duration without
+// before resolver ref count goes to 0. It will return after this duration without
 // calling Close() on handlers.
 var maxCleanupDuration = 10 * time.Second
 
@@ -177,10 +177,10 @@ func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler
 		rc := oldContext.GetRefs()
 		if rc > 0 {
 			if time.Since(start) > timeout {
-				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
+				return fmt.Errorf("unable to cleanup handlers(config id:%d) in %v time: %d requests remain", oldContext.Routes.ID(), timeout, rc)
 			}
 
-			log.Warnf("Waiting for resolver %d to finish %d remaining requests", oldContext.Routes.ID(), rc)
+			log.Warnf("Waiting for dispatches using routes with config ID '%d' to finish: %d remaining requests", oldContext.Routes.ID(), rc)
 
 			time.Sleep(cleanupSleepTime)
 			continue
@@ -188,7 +188,7 @@ func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler
 		break
 	}
 
-	log.Infof("Cleaning up handler table, ID:%d", oldContext.Routes.ID())
+	log.Infof("Cleaning up handler table, with config ID:%d", oldContext.Routes.ID())
 
 	oldHandlers.Cleanup(currentHandlers)
 	return nil
