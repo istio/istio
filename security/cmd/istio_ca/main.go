@@ -143,21 +143,23 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	testCert, err := ioutil.TempFile("/tmp", "cert")
+	tempDir, err := ioutil.TempDir("/tmp", "caprobe")
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = os.Remove(testCert.Name())
+		_ = os.RemoveAll(tempDir)
 	}()
 
-	testKey, err := ioutil.TempFile("/tmp", "priv")
+	testCert, err := ioutil.TempFile(tempDir, "cert")
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = os.Remove(testKey.Name())
-	}()
+
+	testKey, err := ioutil.TempFile(tempDir, "priv")
+	if err != nil {
+		return err
+	}
 
 	err = ioutil.WriteFile(testCert.Name(), certPEM, 0644)
 	if err != nil {
