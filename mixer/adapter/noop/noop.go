@@ -108,11 +108,13 @@ func GetInfo() adapter.Info {
 type builder struct{}
 
 func (*builder) SetCheckNothingTypes(map[string]*checknothing.Type)   {}
+func (*builder) SetAuthorizationTypes(map[string]*authorization.Type) {}
 func (*builder) SetReportNothingTypes(map[string]*reportnothing.Type) {}
 func (*builder) SetListEntryTypes(map[string]*listentry.Type)         {}
 func (*builder) SetLogEntryTypes(map[string]*logentry.Type)           {}
 func (*builder) SetMetricTypes(map[string]*metric.Type)               {}
 func (*builder) SetQuotaTypes(map[string]*quota.Type)                 {}
+func (*builder) SetTraceSpanTypes(map[string]*tracespan.Type)         {}
 func (*builder) SetAdapterConfig(adapter.Config)                      {}
 func (*builder) Validate() (ce *adapter.ConfigErrors)                 { return }
 

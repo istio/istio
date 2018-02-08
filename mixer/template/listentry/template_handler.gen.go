@@ -23,7 +23,7 @@ import (
 )
 
 // The `listentry` template is designed to let you perform list check operations
-// with the [list](https://istio.io/docs/reference/adapters/list.html) adapter.
+// with the [list](https://istio.io/docs/reference/config/adapters/list.html) adapter.
 
 // Fully qualified name of the template
 const TemplateName = "listentry"

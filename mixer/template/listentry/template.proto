@@ -19,7 +19,7 @@ syntax = "proto3";
 // $location: https://istio.io/docs/reference/config/template/listentry.html
 
 // The `listentry` template is designed to let you perform list check operations
-// with the [list](https://istio.io/docs/reference/adapters/list.html) adapter.
+// with the [list](https://istio.io/docs/reference/config/adapters/list.html) adapter.
 package listEntry;
 
 import "mixer/v1/template/extensions.proto";

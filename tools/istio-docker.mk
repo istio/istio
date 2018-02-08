@@ -31,14 +31,14 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-GRAFANA_FILES:=mixer/deploy/kube/conf/start.sh \
-               mixer/deploy/kube/conf/grafana-dashboard.json \
-               mixer/deploy/kube/conf/mixer-dashboard.json \
-               mixer/deploy/kube/conf/pilot-dashboard.json \
-               mixer/deploy/kube/conf/import_dashboard.sh
+GRAFANA_FILES:=addons/grafana/start.sh \
+               addons/grafana/grafana-dashboard.json \
+               addons/grafana/mixer-dashboard.json \
+               addons/grafana/pilot-dashboard.json \
+               addons/grafana/import_dashboard.sh
 
 # note that "viz" is a directory rather than a file
-$(ISTIO_DOCKER)/viz: mixer/example/servicegraph/js/viz | $(ISTIO_DOCKER)
+$(ISTIO_DOCKER)/viz: addons/servicegraph/js/viz | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
 
 # generated content
@@ -97,7 +97,7 @@ $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 
 # Note that Dockerfile and Dockerfile.debug are too generic for parallel builds
 SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
-$(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+$(SERVICEGRAPH_DOCKER): addons/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/viz | $(ISTIO_DOCKER)
 	$(DOCKER_GENERIC_RULE)
 
@@ -127,7 +127,7 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 
 $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 # Note that Dockerfile is too generic for parallel builds
-docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+docker.grafana: addons/grafana/Dockerfile $(GRAFANA_FILES)
 	$(DOCKER_GENERIC_RULE)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana

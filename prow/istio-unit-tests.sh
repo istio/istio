@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 
 # Copyright 2018 Istio Authors
 #
@@ -28,7 +28,7 @@ source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
 echo 'Build'
-(cd ${ROOT}; make go-build)
+(cd ${ROOT}; make build)
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.

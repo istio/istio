@@ -280,8 +280,9 @@ $(MIXER_GO_BINS):
 
 servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
+
 ${ISTIO_OUT}/servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
 SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
 $(SECURITY_GO_BINS):
@@ -334,6 +335,12 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
                                  -P "$(ISTIO_URL)/deb" \
                                  -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
+
+# istioctl-install builds then installs istioctl into $GOPATH/BIN
+# Used for debugging istioctl during dev work
+.PHONY: istioctl-install
+istioctl-install:
+	go install istio.io/istio/pilot/cmd/istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test
