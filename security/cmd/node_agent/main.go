@@ -57,7 +57,7 @@ func init() {
 	flags := rootCmd.Flags()
 
 	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
-	flags.DurationVar(&naConfig.WorkloadCertTTL, "workload-cert-ttl", 12*time.Hour,
+	flags.DurationVar(&naConfig.WorkloadCertTTL, "workload-cert-ttl", 19*time.Hour,
 		"The requested TTL for the workload")
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
