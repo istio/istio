@@ -16,6 +16,7 @@
 package env
 
 import (
+        "encoding/base64"
 	"fmt"
 	"os"
 	"text/template"
@@ -350,6 +351,7 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2C
 		c.ServerConfig = getV2Config(v2.HTTPServerConf)
 		c.ClientConfig = getV2Config(v2.HTTPClientConf)
 		c.TCPServerConfig = getV2Config(v2.TCPServerConf)
+		c.MixerRouteFlags = getPerRouteConfig(GetDefaultServiceConfig())
 	}
 	return c.write(path)
 }
@@ -363,4 +365,14 @@ func getV2Config(v2 proto.Message) string {
 		return ""
 	}
 	return "\"v2\": " + str
+}
+
+func getPerRouteConfig(cfg proto.Message) string {
+	m := jsonpb.Marshaler{}
+	str, err := m.MarshalToString(cfg)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("\"mixer_sha\": \"id111\", \"mixer\": \"%v\",",
+	       base64.StdEncoding.EncodeToString([]byte(str)))
 }

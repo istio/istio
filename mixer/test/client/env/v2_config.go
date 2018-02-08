@@ -42,6 +42,20 @@ func GetDefaultV2Conf() *V2Conf {
 	}
 }
 
+// GetDefaultServiceConfig get default service config
+func GetDefaultServiceConfig() *mccpb.ServiceConfig {
+     return &mccpb.ServiceConfig{
+	  MixerAttributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP2}},
+				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
+				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
+			},
+		},
+		// TODO per-service HTTPApiApsec, QuotaSpec
+	}
+}
+
 // GetDefaultHTTPServerConf get default HTTP server config
 func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 	v2 := &mccpb.HttpClientConfig{
@@ -56,17 +70,7 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 	}
 	service := ":default"
 	v2.DefaultDestinationService = service
-	v2.ServiceConfigs[service] = &mccpb.ServiceConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP2}},
-				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
-				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
-			},
-		},
-		// TODO per-service HTTPApiApsec, QuotaSpec
-	}
-
+	v2.ServiceConfigs[service] = GetDefaultServiceConfig()
 	return v2
 }
 
