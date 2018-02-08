@@ -30,10 +30,7 @@ const queueAllocSize = 64
 
 // session represents a call session to the Dispatcher. It contains all the mutable state needed for handling the
 // call. It is used as temporary memory location to keep ephemeral state, thus avoiding garbage creation.
-type session struct { // nolint: maligned
-
-	// The variety of the operation that is being performed.
-	variety tpb.TemplateVariety
+type session struct {
 
 	// start time of the session.
 	start time.Time
@@ -49,13 +46,14 @@ type session struct { // nolint: maligned
 	quotaResult *adapter.QuotaResult
 	err         error
 
-	//  handler dispatching related parameters
-
 	// The current number of activeDispatches handler dispatches.
 	activeDispatches int
 
 	// channel for collecting states of completed dispatches.
 	completed chan *dispatchState
+
+	// The variety of the operation that is being performed.
+	variety tpb.TemplateVariety
 
 	// whether to trace spans or not
 	trace bool
