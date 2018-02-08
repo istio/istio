@@ -684,6 +684,8 @@ spec:
       valueType: INT64
     connection.duration:
       valueType: DURATION
+    connection.mtls:
+      valueType: BOOL
     context.protocol:
       valueType: STRING
     context.timestamp:
@@ -767,6 +769,7 @@ spec:
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
+    connectionMtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -794,6 +797,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -809,6 +813,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -824,6 +829,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -839,6 +845,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -855,6 +862,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -871,6 +879,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -889,6 +898,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
   - name: request_duration
     instance_name: requestduration.metric.{ISTIO_NAMESPACE}
     kind: DISTRIBUTION
@@ -898,6 +908,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
@@ -910,6 +921,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -924,6 +936,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -937,6 +950,7 @@ spec:
     - source_version
     - destination_service
     - destination_version
+    - connection_mtls
   - name: tcp_bytes_received
     instance_name: tcpbytereceived.metric.{ISTIO_NAMESPACE}
     kind: COUNTER
@@ -945,6 +959,7 @@ spec:
     - source_version
     - destination_service
     - destination_version
+    - connection_mtls
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
