@@ -255,7 +255,7 @@
     }
    },
    {
-    "name": "mixer_check_server",
+    "name": "mixer_server",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",
     "lb_type": "round_robin",

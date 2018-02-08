@@ -75,10 +75,6 @@
               }
              }
             }
-           },
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -172,10 +168,6 @@
               }
              }
             }
-           },
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -280,10 +272,6 @@
               }
              }
             }
-           },
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -476,10 +464,6 @@
               }
              }
             }
-           },
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -530,10 +514,6 @@
            "stringValue": "kubernetes://v1.default"
           }
          }
-        },
-        "transport": {
-         "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -583,10 +563,6 @@
            "stringValue": "kubernetes://v1.default"
           }
          }
-        },
-        "transport": {
-         "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -643,10 +619,6 @@
            "stringValue": "kubernetes://v1.default"
           }
          }
-        },
-        "transport": {
-         "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -772,10 +744,6 @@
               }
              }
             }
-           },
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
            }
           }
          }

@@ -55,11 +55,7 @@
              }
             }
            },
-           "serviceConfigs": {},
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
-           }
+           "serviceConfigs": {}
           }
          }
         },
@@ -139,11 +135,7 @@
              }
             }
            },
-           "serviceConfigs": {},
-           "transport": {
-            "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
-           }
+           "serviceConfigs": {}
           }
          }
         },
