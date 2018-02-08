@@ -78,7 +78,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -99,30 +99,6 @@
          "path": "/dev/stdout"
         }
        ]
-      }
-     }
-    ],
-    "bind_to_port": false
-   },
-   {
-    "address": "tcp://0.0.0.0:444",
-    "name": "tcp_0.0.0.0_444",
-    "filters": [
-     {
-      "type": "read",
-      "name": "tcp_proxy",
-      "config": {
-       "stat_prefix": "tcp",
-       "route_config": {
-        "routes": [
-         {
-          "cluster": "out.172.217.0.0/16|external-TCP-444",
-          "destination_ip_list": [
-           "172.217.0.0/16"
-          ]
-         }
-        ]
-       }
       }
      }
     ],
@@ -199,7 +175,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -296,7 +272,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -481,7 +457,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -505,12 +481,6 @@
       }
      }
     ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
     "bind_to_port": false
    },
    {
@@ -541,7 +511,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -564,12 +534,6 @@
       }
      }
     ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
     "bind_to_port": false
    },
    {
@@ -600,7 +564,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -630,12 +594,6 @@
       }
      }
     ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
     "bind_to_port": false
    },
    {
@@ -666,7 +624,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -689,12 +647,6 @@
       }
      }
     ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
     "bind_to_port": false
    },
    {
@@ -801,7 +753,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -825,12 +777,6 @@
       }
      }
     ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
     "bind_to_port": false
    },
    {
