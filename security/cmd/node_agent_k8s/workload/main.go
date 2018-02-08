@@ -21,10 +21,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"github.com/spf13/cobra"
 
 	pb "istio.io/istio/security/proto"
 )
