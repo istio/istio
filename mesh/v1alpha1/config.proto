@@ -117,15 +117,25 @@ message ProxyConfig {
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
 message MeshConfig {
-  // Address of the egress Envoy service (e.g. _istio-egress:80_).
-  string egress_proxy_address = 1;
+  // Address of the server that will be used by the proxies for policy
+  // check calls (e.g. _istio-mixer:15004_). By using different names for
+  // mixerCheckServer and mixerReportServer, it is possible to have one set
+  // of mixer servers handle policy check calls, while another set of mixer
+  // servers handle telemetry calls.
+  //
+  // NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
+  // equivalent to setting disablePolicyChecks to true.
+  string mixer_check_server = 1;
 
-  // Address of the mixer service (e.g. _istio-mixer:15004_).
-  // Empty value disables Mixer checks and telemetry.
-  string mixer_address = 2;
+  // Address of the server that will be used by the proxies as an Istio
+  // telemetry sink (access logs, API/connection metrics)
+  // (e.g. _istio-mixer:15004_). By using different names for
+  // mixerCheckServer and mixerReportServer, it is possible to have one set
+  // of mixer servers handle policy check calls, while another set of mixer
+  // servers handle telemetry calls.
+  string mixer_report_server = 2;
 
-  // Disable policy checks by the mixer service. Metrics will still be
-  // reported to the mixer for HTTP requests and TCP connections. Default
+  // Disable policy checks by the mixer service. Default
   // is false, i.e. mixer policy check is enabled by default.
   bool disable_policy_checks = 3;
 
@@ -208,4 +218,8 @@ message MeshConfig {
   // DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
   // Instead, use service-level annotations to overwrite the authentication policy.
   repeated string mtls_excluded_services = 15;
+
+  // DEPRECATED. Mixer address. This option will be removed soon. Please
+  // use mixer_check_server and mixer_report_server.
+  string mixer_address = 16;
 }
