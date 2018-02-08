@@ -550,3 +550,10 @@ workflows:
       - e2e-simple:
           requires:
             - build
+      ## Temporary addition to check e2e      
+      - e2e-bookinfo:
+          requires:
+            - build
+      - e2e-mixer:
+          requires:
+            - build
