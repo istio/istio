@@ -24,6 +24,7 @@ VERSION ?= 0.5.0
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
+export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_URL_ISTIOCTL ?= istioctl
@@ -250,8 +251,15 @@ lint: buildcache
 
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
                ${ISTIO_OUT}/istioctl ${ISTIO_OUT}/sidecar-injector
-$(PILOT_GO_BINS): depend
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent istioctl sidecar-injector
+define pilotbuild
+$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+
+${ISTIO_OUT}/$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+endef
+$(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
@@ -262,35 +270,47 @@ ${ISTIO_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
-$(MIXER_GO_BINS): depend
+mixc:
+	bin/gobuild.sh ${ISTIO_OUT}/mixc istio.io/istio/pkg/version ./mixer/cmd/mixc
+mixs:
+	bin/gobuild.sh ${ISTIO_OUT}/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
+
+$(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
-${ISTIO_OUT}/servicegraph: depend
+servicegraph:
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
+
+${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
 SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
-$(SECURITY_GO_BINS): depend
+$(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
-
-IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector multicluster_ca
-.PHONY: $(IDENTITY_ALIAS_LIST)
-$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_OUT}/$(ITEM)))
+#
+# This is intended for developer use - will rebuild the package.
 
 .PHONY: istio-ca
-istio-ca: ${ISTIO_OUT}/istio_ca
+istio-ca:
+	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
 
 .PHONY: node-agent
-node-agent: ${ISTIO_OUT}/node_agent
+node-agent:
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node-agent
 
 .PHONY: pilot
-pilot: ${ISTIO_OUT}/pilot-discovery
+pilot: pilot-discovery
+
+.PHONY: multicluster_ca
+multicluster_ca:
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -337,7 +357,7 @@ GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
 
-$(PILOT_TEST_BINS): depend
+$(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
