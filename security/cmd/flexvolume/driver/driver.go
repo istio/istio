@@ -29,6 +29,7 @@ import (
 	"log/syslog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	nagent "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
@@ -101,7 +102,6 @@ type FlexVolumeInputs struct {
 }
 
 const (
-	SYSLOGTAG      string = "FlexVolNodeAgent"
 	VER_K8S        string = "1.8"
 	CONFIG_FILE    string = "/etc/flexvolume/nodeagent.json"
 	NODEAGENT_HOME string = "/var/run/nodeagent"
@@ -120,13 +120,15 @@ var (
 	defaultConfiguration ConfigurationOptions = ConfigurationOptions{
 		K8sVersion:                  VER_K8S,
 		NodeAgentManagementHomeDir:  NODEAGENT_HOME,
-		NodeAgentWorkloadHomeDir:    NODEAGENT_HOME + MOUNT_DIR,
-		NodeAgentCredentialsHomeDir: NODEAGENT_HOME + CREDS_DIR,
+		NodeAgentWorkloadHomeDir:    MOUNT_DIR,
+		NodeAgentCredentialsHomeDir: CREDS_DIR,
 		UseGrpc:                     false,
-		NodeAgentManagementApi:      NODEAGENT_HOME + MGMT_SOCK,
+		NodeAgentManagementApi:      MGMT_SOCK,
 		LogLevel:                    LOG_LEVEL_WARN,
 	}
-
+	configFile string = CONFIG_FILE
+	// setup as var's so that we can test.
+	getExecCmd = exec.Command
 )
 
 // initCommand handles the init command for the driver.
@@ -168,7 +170,7 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 // * create a sub-directory ('nodeagent') there
 // * do a bind mount of the nodeagent's directory on the node to the destinationDir/nodeagent.
 func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
-	newDir := configuration.NodeAgentWorkloadHomeDir + "/" + ninputs.Workloadpath
+	newDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, ninputs.Workloadpath)
 	err := os.MkdirAll(newDir, 0777)
 	if err != nil {
 		return err
@@ -176,27 +178,27 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 
 	// Not really needed but attempt to workaround:
 	// https://github.com/kubernetes/kubernetes/blob/61ac9d46382884a8bd9e228da22bca5817f6d226/pkg/util/mount/mount_linux.go
-	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", destinationDir)
+	cmdMount := getExecCmd("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", destinationDir)
 	err = cmdMount.Run()
 	if err != nil {
 		os.RemoveAll(newDir)
 		return err
 	}
 
-	newDestianationDir := destinationDir + "/nodeagent"
-	err = os.MkdirAll(newDestianationDir, 0777)
+	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
+	err = os.MkdirAll(newDestinationDir, 0777)
 	if err != nil {
-		cmd := exec.Command("/bin/unmount", destinationDir)
+		cmd := getExecCmd("/bin/unmount", destinationDir)
 		cmd.Run()
 		os.RemoveAll(newDir)
 		return err
 	}
 
 	// Do a bind mount
-	cmd := exec.Command("/bin/mount", "--bind", newDir, newDestianationDir)
+	cmd := getExecCmd("/bin/mount", "--bind", newDir, newDestinationDir)
 	err = cmd.Run()
 	if err != nil {
-		cmd = exec.Command("/bin/umount", destinationDir)
+		cmd = getExecCmd("/bin/umount", destinationDir)
 		cmd.Run()
 		os.RemoveAll(newDir)
 		return err
@@ -207,7 +209,7 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 
 // doUnmount will unmount the directory
 func doUnmount(dir string) error {
-	cmd := exec.Command("/bin/umount", dir)
+	cmd := getExecCmd("/bin/umount", dir)
 	err := cmd.Run()
 	if err != nil {
 		return err
@@ -276,11 +278,11 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	doUnmount(dir + "/nodeagent")
+	doUnmount(filepath.Join(dir, "nodeagent"))
 	// unmount the tmpfs
 	doUnmount(dir)
 	// delete the directory that was created.
-	delDir := strings.Join([]string{configuration.NodeAgentWorkloadHomeDir, uid}, "/")
+	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, uid)
 	err := os.Remove(delDir)
 	if err != nil {
 		emsgs = append(emsgs, fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error()))
@@ -380,6 +382,10 @@ func sendWorkloadDeleted(ninputs *pb.WorkloadInfo) error {
 	return nil
 }
 
+func getCredFile(uid string) string {
+	return uid + ".json"
+}
+
 // addCredentialFile is used to create a credential file when a workload with the flex-volume volume mounted is created.
 func addCredentialFile(ninputs *pb.WorkloadInfo) error {
 	//Make the directory and then write the ninputs as json to it.
@@ -395,31 +401,42 @@ func addCredentialFile(ninputs *pb.WorkloadInfo) error {
 		return err
 	}
 
-	credsFileTmp := strings.Join([]string{configuration.NodeAgentManagementHomeDir, ninputs.Attrs.Uid + ".json"}, "/")
+	credsFileTmp := filepath.Join(configuration.NodeAgentManagementHomeDir, getCredFile(ninputs.Attrs.Uid))
 	err = ioutil.WriteFile(credsFileTmp, attrs, 0644)
 
 	// Move it to the right location now.
-	credsFile := strings.Join([]string{configuration.NodeAgentCredentialsHomeDir, ninputs.Attrs.Uid + ".json"}, "/")
+	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, getCredFile(ninputs.Attrs.Uid))
 	return os.Rename(credsFileTmp, credsFile)
 }
 
 // removeCredentialFile is used to delete a credential file when a workload with the flex-volume volume mounted is deleted.
 func removeCredentialFile(ninputs *pb.WorkloadInfo) error {
-	credsFile := strings.Join([]string{configuration.NodeAgentCredentialsHomeDir, ninputs.Attrs.Uid + ".json"}, "/")
+	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, getCredFile(ninputs.Attrs.Uid))
 	err := os.Remove(credsFile)
 	return err
+}
+
+//mkAbsolutePaths converts all the configuration paths to be absolute.
+func mkAbsolutePaths(config *ConfigurationOptions) {
+
+	config.NodeAgentWorkloadHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentWorkloadHomeDir)
+	config.NodeAgentCredentialsHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentCredentialsHomeDir)
+	config.NodeAgentManagementApi = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentManagementApi)
 }
 
 // If available read the configuration file and initialize the configuration options
 // of the driver.
 func InitConfiguration() {
 	configuration = &defaultConfiguration
-	if _, err := os.Stat(CONFIG_FILE); err != nil {
+
+	defer mkAbsolutePaths(configuration)
+
+	if _, err := os.Stat(configFile); err != nil {
 		// Return quietly
 		return
 	}
 
-	bytes, err := ioutil.ReadFile(CONFIG_FILE)
+	bytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		logWriter.Warning(fmt.Sprintf("Not able to read %s: %s\n", CONFIG_FILE, err.Error()))
 		return
@@ -428,7 +445,7 @@ func InitConfiguration() {
 	var config ConfigurationOptions
 	err = json.Unmarshal(bytes, &config)
 	if err != nil {
-		logWriter.Warning(fmt.Sprintf("Not able to parst %s: %s\n", CONFIG_FILE, err.Error()))
+		logWriter.Warning(fmt.Sprintf("Not able to parse %s: %s\n", CONFIG_FILE, err.Error()))
 		return
 	}
 
@@ -457,29 +474,10 @@ func InitConfiguration() {
 		config.K8sVersion = VER_K8S
 	}
 
-	// Convert to absolute paths.
-	var prefix string = ""
-	if !strings.HasPrefix(config.NodeAgentWorkloadHomeDir, "/") {
-		prefix = "/"
-	}
-	config.NodeAgentWorkloadHomeDir = strings.Join([]string{config.NodeAgentManagementHomeDir, config.NodeAgentWorkloadHomeDir}, prefix)
-
-	prefix = ""
-	if !strings.HasPrefix(config.NodeAgentCredentialsHomeDir, "/") {
-		prefix = "/"
-	}
-	config.NodeAgentCredentialsHomeDir = strings.Join([]string{config.NodeAgentManagementHomeDir, config.NodeAgentCredentialsHomeDir}, prefix)
-
-	prefix = ""
-	if !strings.HasPrefix(config.NodeAgentManagementApi, "/") {
-		prefix = "/"
-	}
-	config.NodeAgentManagementApi = strings.Join([]string{config.NodeAgentManagementHomeDir, config.NodeAgentManagementApi}, prefix)
-
 	configuration = &config
 }
 
-func logLevel(level string) (syslog.Priority) {
+func logLevel(level string) syslog.Priority {
 	switch level {
 	case LOG_LEVEL_WARN:
 		return syslog.LOG_WARNING
