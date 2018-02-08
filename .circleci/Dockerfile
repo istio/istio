@@ -1,4 +1,4 @@
-FROM    circleci/golang:1.10rc1
+FROM    circleci/golang:1.9
 
 # The base circleci image runs as user 'circleci'(3434), with sudo capabilities.
 # Based on Debian9. Go installed in /usr/local/go
@@ -49,7 +49,7 @@ RUN     go get -u github.com/golang/dep/cmd/dep
 RUN     go get github.com/jstemmer/go-junit-report
 
 # Install fpm tool
-RUN  sudo apt-get -qqy install ruby ruby-dev rubygems build-essential && \
+RUN  sudo apt-get -qqy install ruby ruby-dev rubygems build-essential autoconf libtool autotools-dev && \
      sudo gem install --no-ri --no-rdoc fpm
 
 # Include minikube and kubectl in the image

@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.10-k8s1.9
+    - image: istio/ci:go1.9-k8s1.9
   environment:
     GOPATH: /go
 

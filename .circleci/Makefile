@@ -1,5 +1,5 @@
 # Builder version
-CI_VERSION ?= go1.10-k8s1.9
+CI_VERSION ?= go1.9-k8s1.9
 CI_HUB ?= istio
 
 ci.image:
