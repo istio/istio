@@ -266,7 +266,7 @@ $(MIXER_GO_BINS): depend
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_OUT}/servicegraph: depend
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
 SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
 $(SECURITY_GO_BINS): depend
