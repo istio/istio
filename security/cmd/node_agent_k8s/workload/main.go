@@ -34,7 +34,8 @@ const (
 
 var (
 	cfgUdsFile string
-	RootCmd    = &cobra.Command{
+	// RootCmd define the root command
+	RootCmd = &cobra.Command{
 		Use:   "udsverRpc",
 		Short: "Test Grpc crediential verification over uds",
 		Long:  "Test Grpc crediential verification over uds",
