@@ -1,10 +1,10 @@
 apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+kind: V1alpha2RouteRule
 metadata:
-  name: fault-route-v1alpha2
+  name: route-rule-c
 spec:
   hosts:
-    - c.istio-test-app-dsd2m.svc.cluster.local
+    - c
   http:
     - match:
       - headers:
@@ -20,7 +20,7 @@ spec:
       fault:
         delay:
           percent: 100
-          fixedDelay: 2.5s
+          fixedDelay: 5s
         abort:
           percent: 100
-          httpStatus: 502
+          httpStatus: 503

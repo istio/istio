@@ -58,7 +58,7 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c") // FIXME: operation?
 			},
 		},
 		{
@@ -113,21 +113,21 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1 with appended headers",
 			config:      "rule-default-route-append-headers.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
 			description: "routing all traffic to c-v1 with CORS policy",
 			config:      "rule-default-route-cors-policy.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
 			description: "routing all traffic to c-v1 with shadow policy",
 			config:      "rule-default-route-mirrored.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 	}
@@ -184,7 +184,9 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 	}
 
 	if operation != "" {
-		errs = t.verifyDecorator(operation)
+		if err := t.verifyDecorator(operation); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
 	return errs
@@ -200,12 +202,12 @@ func (t *routing) verifyDecorator(operation string) error {
 	)
 
 	if len(response.code) == 0 || response.code[0] != httpOk {
-		return errAgain
+		return fmt.Errorf("unexpected response code from zipkin: %s", response.code)
 	}
 
 	text := fmt.Sprintf("\"name\":\"%s\"", operation)
-	if strings.Count(response.body, text) != 10 {
-		return errAgain
+	if strings.Count(response.body, text) != 10 { // FIXME: wtf, why is this exactly 10?
+		return fmt.Errorf("operation missing from traces: %s", operation)
 	}
 
 	return nil

@@ -1,16 +1,15 @@
 apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+kind: V1alpha2RouteRule
 metadata:
-  name: redirect-route
+  name: route-rule-c
 spec:
-  destination:
-    name: c
-  precedence: 5
-  match:
-    request:
-      headers:
-        testredirect:
-          exact: enabled
-  redirect:
-    uri: /new/path
-    authority: b
+  hosts:
+    - c
+  http:
+    - match:
+      - headers:
+          testredirect:
+            exact: enabled
+      redirect:
+        uri: /new/path
+        authority: b

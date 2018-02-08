@@ -1,7 +1,7 @@
 apiVersion: config.istio.io/v1alpha2
 kind: V1alpha2RouteRule
 metadata:
-  name: content-route
+  name: route-rule-c
 spec:
   hosts:
     - c
@@ -14,10 +14,11 @@ spec:
           version: v1
       route:
       - destination:
-          name: c
+          name: c # TODO: omit name?
           subset: v2
         weight: 100
     - route:
       - destination:
-          name: v1
+          name: c # TODO: omit name?
+          subset: v1
         weight: 100
