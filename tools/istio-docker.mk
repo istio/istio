@@ -57,10 +57,6 @@ DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eure
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
-# This generates rules like:
-#$(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
-# 	cp $$< $$(@D))
-
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
@@ -134,13 +130,13 @@ DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURIT
 
 # Rule used above for targets that use a Dockerfile name in the form Dockerfile.suffix
 DOCKER_SPECIFIC_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-                     docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
+                     docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
 # Rule used above for targets that use the name Dockerfile or Dockerfile.debug .
 # Note that these names overlap and thus aren't suitable for parallel builds.
 # This is also why Dockerfiles are always copied (to avoid using another image's file).
 DOCKER_GENERIC_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-                     docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
+                     docker build -t $(subst docker.,,$@) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
 docker.all: $(DOCKER_TARGETS)
 
@@ -158,15 +154,33 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
+# for each docker.XXX target create a tag.docker.XXX target that
+# places another tag on the local docker image
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tag.$(TGT): | $(TGT) ; \
+        docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
+
+# create a DOCKER_TAG_TARGETS that's each of DOCKER_TARGETS with a tag. prefix
+DOCKER_TAG_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAG_TARGETS+=tag.$(TGT)))
+
 # if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
         $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
+
+# potentailly insert this before docker tag: $(DOCKER_SETUP) &&
+#ifeq (${TEST_ENV},minikube)
+#DOCKER_SETUP:=eval $$(minikube docker-env)
+#else
+## find a better way to insert a dummy command
+#DOCKER_SETUP:=echo
+#endif
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time ($(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+        time (docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
+                    $(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
@@ -176,11 +190,19 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),
 # but I'm not sure this is worth the added complexity to support.
 
-# Deprecated - just use docker, no need to retag.
-docker.tag: docker
+# XXX consider whether to support:
+# if [[ "${TEST_ENV}" == "minikube" ]]; then
+#    eval $(minikube docker-env)
+# fi
 
-# Will build and push docker images.
+#ifeq (${TEST_ENV},minikube)
+#docker.minikube:
+#	eval $(minikube docker-env)
+#docker.push: docker.minikube $(DOCKER_PUSH_TARGETS)
+#else
+docker.tag: $(DOCKER_TAG_TARGETS)
 docker.push: $(DOCKER_PUSH_TARGETS)
+#endif
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all),)
