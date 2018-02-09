@@ -23,8 +23,9 @@ naming convention:
   are recommended to avoid mixture of plural and singular words in
   a package name. For example, `istio.network.config.v1`.
 
-* Message/enum/method names must use `CamelCase` with embedded
-  acronyms. For example, `HTTPRequest`.
+* Message/enum/method names must use `CamelCase` without any embedded
+  acronyms, see [#364](https://github.com/istio/api/issues/364) for
+  reasons. For example, `HttpRequest`.
 
 * Enum values must use `UPPERCASE_WITH_UNDERSCORE`. For example,
   `INT_TYPE`.
@@ -38,11 +39,13 @@ naming convention:
 ## Versioning
 
 When defining Kubernetes Custom Resource Definition (CRD) using
-`proto3`, follow the following guidelines:
+`proto3`, follow these guidelines:
+
 * The proto `package` name must match the Kubernetes `apiVersion`,
   excluding the `.io` DNS suffix and reversing the DNS segment
   ordering. The Kubernetes `apiVersion` has the format of
   `group/version`.
+
 * The proto message type must match the CRD `kind` name.
 
 #### Example
