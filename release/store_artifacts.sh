@@ -26,6 +26,9 @@ set -x
 DEFAULT_GCS_PREFIX="istio-testing/builds"
 DEFAULT_GCR_PREFIX="istio-testing"
 
+# hub that was baked into image name during build
+SRC_DOCKER_HUB=docker.io/istio
+
 GCS_PREFIX=""
 GCR_PREFIX=""
 
@@ -89,7 +92,7 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
       break
     fi
     docker load -i "${TAR_PATH}"
-    docker tag "${IMAGE_NAME}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    docker tag "${SRC_DOCKER_HUB}/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
