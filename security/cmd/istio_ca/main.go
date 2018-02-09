@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/spf13/cobra/doc"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -42,9 +42,16 @@ import (
 const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
+	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
 
-	maxWorkloadCertTTL = 7 * 24 * time.Hour
+	defaultWorkloadCertTTL = 19 * time.Hour
+
+	// The default length of certificate rotation grace period, configured as
+	// the ratio of the certificate TTL.
+	defaultWorkloadCertGracePeriodRatio = 0.5
+
+	// The default minimum grace period for workload cert rotation.
+	defaultWorkloadMinCertGracePeriod = 10 * time.Minute
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -71,6 +78,10 @@ type cliOptions struct {
 	caCertTTL          time.Duration
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
+	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
+	workloadCertGracePeriodRatio float32
+	// The minimum grace period for workload cert rotation.
+	workloadCertMinGracePeriod time.Duration
 
 	grpcHostname string
 	grpcPort     int
@@ -133,11 +144,20 @@ func init() {
 	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
 		"The TTL of self-signed CA root certificate")
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio", defaultWorkloadCertGracePeriodRatio,
+		"The workload certificate rotation grace period, as a ratio of the workload certificate TTL.")
+	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period", defaultWorkloadMinCertGracePeriod,
+		"The minimum workload certificate rotation grace period.")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
+
+	flags.StringVar(&opts.LivenessProbeOptions.Path, "livenessProbePath", "",
+		"Path to the file for the liveness probe.")
+	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
+		"Interval of updating file for the liveness probe.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -177,7 +197,11 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc := controller.NewSecretController(ca, opts.workloadCertTTL, cs.CoreV1(), opts.namespace)
+	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
+		cs.CoreV1(), opts.namespace)
+	if err != nil {
+		fatalf("failed to create secret controller: %v", err)
+	}
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
@@ -302,4 +326,9 @@ func verifyCommandLineOptions() {
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
 	}
+
+	if opts.workloadCertGracePeriodRatio < 0 || opts.workloadCertGracePeriodRatio > 1 {
+		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]", opts.workloadCertGracePeriodRatio)
+	}
+
 }

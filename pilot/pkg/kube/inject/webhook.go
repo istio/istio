@@ -28,11 +28,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pkg/log"
-
 	"k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +35,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/kubernetes/pkg/apis/core/v1"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -139,7 +138,10 @@ func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webh
 		meshFile:               meshFile,
 		watcher:                watcher,
 	}
-	http.HandleFunc("/inject", wh.serveInject)
+	h := http.NewServeMux()
+	h.HandleFunc("/inject", wh.serveInject)
+	wh.server.Handler = h
+
 	return wh, nil
 }
 
@@ -204,7 +206,7 @@ func applyDefaultsWorkaround(initContainers, containers []corev1.Container, volu
 type rfc6902PatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 // JSONPatch `remove` is applied sequentially. Remove items in reverse
@@ -398,6 +400,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	if err != nil {
 		return toAdmissionResponse(err)
 	}
+
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
 	annotations := map[string]string{istioSidecarAnnotationStatusKey: status}
 
@@ -426,18 +429,24 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 			body = data
 		}
 	}
+	if len(body) == 0 {
+		log.Errorf("no body found")
+		http.Error(w, "no body found", http.StatusBadRequest)
+		return
+	}
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		log.Errorf("contentType=%s, expect application/json", contentType)
+		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
 
 	var reviewResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
-		log.Errorf("Could not decode AdmissionReview: %v", err)
+		log.Errorf("Could not decode body: %v", err)
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		reviewResponse = wh.inject(&ar)
@@ -446,18 +455,18 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	response := v1beta1.AdmissionReview{}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
-		response.Response.UID = ar.Request.UID
+		if ar.Request != nil {
+			response.Response.UID = ar.Request.UID
+		}
 	}
-
-	// reset the Object and OldObject, they are not needed in a response.
-	ar.Request.Object = runtime.RawExtension{}
-	ar.Request.OldObject = runtime.RawExtension{}
 
 	resp, err := json.Marshal(response)
 	if err != nil {
-		log.Errorf("Could not encode AdmissionResponse: %v", err)
+		log.Errorf("Could not encode response: %v", err)
+		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(resp); err != nil {
-		log.Errorf("Could not write AdmissionResponse: %v", err)
+		log.Errorf("Could not write response: %v", err)
+		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
 }

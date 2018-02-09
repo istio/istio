@@ -62,8 +62,9 @@ const (
 	testDomainSuffix = "local.cluster"
 )
 
-// TODO use https://golang.org/pkg/testing/#T.Helper when default is golang1.9
 func makeConfig(t *testing.T, namespace string, i int, valid bool) []byte {
+	t.Helper()
+
 	var key string
 	if valid {
 		key = "key"
@@ -232,6 +233,7 @@ func TestAdmissionController(t *testing.T) {
 }
 
 func makeTestData(t *testing.T, valid bool) []byte {
+	t.Helper()
 	review := admissionv1beta1.AdmissionReview{
 		Request: &admissionv1beta1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
@@ -384,6 +386,7 @@ func TestServe(t *testing.T) {
 			t.Errorf("%v: AdmissionReview.Response.Allowed is wrong : got %v want %v",
 				c.name, gotReview.Response.Allowed, c.wantAllowed)
 		}
+		_ = res.Body.Close()
 	}
 }
 

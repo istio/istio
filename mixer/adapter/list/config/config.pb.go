@@ -4,6 +4,11 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `list` adapter makes it possible to perform simple whitelist or blacklist
+	checks. You can configure the adapter with the list to check, or you can point
+	it to a URL from where the list should be fetched. Lists can be simple strings,
+	IP addresses, or regex patterns.
+
 	It is generated from these files:
 		mixer/adapter/list/config/config.proto
 

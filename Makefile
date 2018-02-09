@@ -16,6 +16,7 @@
 # Global Variables
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
@@ -23,6 +24,7 @@ VERSION ?= 0.5.0
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
+export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_URL_ISTIOCTL ?= istioctl
@@ -64,23 +66,25 @@ else
    # export GOOS ?= windows
 endif
 
-ifeq ($(GOOS),linux)
-  OS_DIR:=lx
-else ifeq ($(GOOS),darwin)
-  OS_DIR:=mac
-else ifeq ($(GOOS),windows)
-  OS_DIR:=win
-else
-   $(error "Building for $(GOOS) isn't recognized/supported")
-endif
+#-----------------------------------------------------------------------------
+# Output control
+#-----------------------------------------------------------------------------
+# Invoke make VERBOSE=1 to enable echoing of the command being executed
+VERBOSE ?= 0
+# Place the variable Q in front of a command to control echoing of the command being executed.
+Q = $(if $(filter 1,$VERBOSE),,@)
+# Use the variable H to add a header (equivalent to =>) to informational output
+H = $(shell printf "\033[34;1m=>\033[0m")
 
-# Another person's PR is adding the debug support, so this is in prep for that
+# To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
 ifeq ($(origin DEBUG), undefined)
 BUILDTYPE_DIR:=release
 else ifeq ($(DEBUG),0)
 BUILDTYPE_DIR:=release
 else
 BUILDTYPE_DIR:=debug
+export GCFLAGS:=-N -l
+$(info $(H) Build with debugger information)
 endif
 
 # Optional file including user-specific settings (HUB, TAG, etc)
@@ -95,7 +99,8 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
 export ISTIO_BIN=$(GO_TOP)/bin
-export ISTIO_OUT:=$(GO_TOP)/out/$(OS_DIR)/$(GOARCH)/$(BUILDTYPE_DIR)
+# Using same package structure as pkg/
+export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -110,7 +115,7 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# If tag not explicitly set in users' .istiorc or command line, default to the git sha.
+# If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
@@ -122,14 +127,6 @@ GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
-
-#-----------------------------------------------------------------------------
-# Output control
-#-----------------------------------------------------------------------------
-VERBOSE ?= 0
-V ?= $(or $(VERBOSE),0)
-Q = $(if $(filter 1,$V),,@)
-H = $(shell printf "\033[34;1m=>\033[0m")
 
 .PHONY: default
 default: depend build test
@@ -254,8 +251,15 @@ lint: buildcache
 
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
                ${ISTIO_OUT}/istioctl ${ISTIO_OUT}/sidecar-injector
-$(PILOT_GO_BINS): depend
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/$(@F)
+PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent istioctl sidecar-injector
+define pilotbuild
+$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+
+${ISTIO_OUT}/$(1):
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+endef
+$(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
@@ -266,35 +270,47 @@ ${ISTIO_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
-$(MIXER_GO_BINS): depend
+mixc:
+	bin/gobuild.sh ${ISTIO_OUT}/mixc istio.io/istio/pkg/version ./mixer/cmd/mixc
+mixs:
+	bin/gobuild.sh ${ISTIO_OUT}/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
+
+$(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
-${ISTIO_OUT}/servicegraph: depend
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/$(@F)
+servicegraph:
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
-$(SECURITY_GO_BINS): depend
+${ISTIO_OUT}/servicegraph:
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
+
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+$(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
 # while the ones that follow need slight adjustments to their names.
-
-IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-injector
-.PHONY: $(IDENTITY_ALIAS_LIST)
-$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_OUT}/$(ITEM)))
+#
+# This is intended for developer use - will rebuild the package.
 
 .PHONY: istio-ca
-istio-ca: ${ISTIO_OUT}/istio_ca
+istio-ca:
+	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
 
 .PHONY: node-agent
-node-agent: ${ISTIO_OUT}/node_agent
+node-agent:
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node-agent
 
 .PHONY: pilot
-pilot: ${ISTIO_OUT}/pilot-discovery
+pilot: pilot-discovery
+
+.PHONY: multicluster_ca
+multicluster_ca:
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -312,12 +328,19 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
-	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" -A "$(ISTIO_URL)/deb" \
+	cp -r tools ${ISTIO_OUT}/archive
+	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
                                  -P "$(ISTIO_URL)/deb" \
-                                 -r "$(VERSION)" -E "$(ISTIO_URL)/deb" -d "${ISTIO_OUT}/archive"
+                                 -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
+
+# istioctl-install builds then installs istioctl into $GOPATH/BIN
+# Used for debugging istioctl during dev work
+.PHONY: istioctl-install
+istioctl-install:
+	go install istio.io/istio/pilot/cmd/istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test
@@ -334,7 +357,7 @@ GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
 
-$(PILOT_TEST_BINS): depend
+$(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
@@ -412,28 +435,28 @@ racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	go test ${GOTEST_P} ${T} -race ./pilot/...
+	RACE_TEST=true go test ${GOTEST_P} ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${T} -race ${GOTEST_PARALLEL} ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-racetest
 broker-racetest: depend
-	go test ${T} -race ./broker/...
+	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
 galley-racetest: depend
-	go test ${T} -race ./galley/...
+	RACE_TEST=true go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
 security-racetest:
-	go test ${T} -race ./security/...
+	RACE_TEST=true go test ${T} -race ./security/...
 
 .PHONY: common-racetest
 common-racetest:
-	go test ${T} -race ./pkg/...
+	RACE_TEST=true go test ${T} -race ./pkg/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

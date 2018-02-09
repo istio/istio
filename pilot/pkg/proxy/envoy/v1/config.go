@@ -78,6 +78,7 @@ func (conf *Config) Write(w io.Writer) error {
 
 // BuildConfig creates a proxy config with discovery services and admin port
 // it creates config for Ingress, Egress and Sidecar proxies
+// TODO: remove after new agent package is done
 func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 	listeners := Listeners{}
 
@@ -136,7 +137,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err := env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +149,22 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
 	case model.Ingress:
-		return buildIngressListeners(env.Mesh, nil, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		services, err := env.Services()
+		if err != nil {
+			return nil, err
+		}
+		var svc *model.Service
+		for _, s := range services {
+			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+				svc = s
+				break
+			}
+		}
+		insts := make([]*model.ServiceInstance, 0, 1)
+		if svc != nil {
+			insts = append(insts, &model.ServiceInstance{Service: svc})
+		}
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }
@@ -159,7 +175,7 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	var err error
 	switch node.Type {
 	case model.Sidecar, model.Router:
-		instances, err = env.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err = env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return clusters, err
 		}
@@ -184,8 +200,8 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	}
 
 	// append Mixer service definition if necessary
-	if env.Mesh.MixerAddress != "" {
-		clusters = append(clusters, buildMixerCluster(env.Mesh, node, env.MixerSAN))
+	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
+		clusters = append(clusters, buildMixerClusters(env.Mesh, node, env.MixerSAN)...)
 		clusters = append(clusters, buildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, instances)...)
 	}
 
@@ -303,7 +319,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 	case model.Ingress:
 		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config)
 	case model.Sidecar, model.Router:
-		instances, err := discovery.GetSidecarServiceInstances(map[string]*model.Node{node.IPAddress: &node})
+		instances, err := discovery.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}
@@ -334,7 +350,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct {
+type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
 	node             model.Node
 	instances        []*model.ServiceInstance
@@ -365,8 +381,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
 
-	if opts.mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -777,7 +793,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			defaultRoute := buildDefaultRoute(cluster)
 
 			// set server-side mixer filter config for inbound HTTP routes
-			if mesh.MixerAddress != "" {
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 					instance.Service.Hostname)
 			}
@@ -806,7 +822,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.MixerAddress != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -822,7 +838,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.MixerAddress != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -858,11 +874,11 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			}, endpoint.Address, endpoint.Port, protocol)
 
 			// set server-side mixer filter config
-			if mesh.MixerAddress != "" {
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 				filter := &NetworkFilter{
 					Type:   both,
 					Name:   MixerFilter,
-					Config: mixerTCPConfig(sidecar, !mesh.DisablePolicyChecks, instance),
+					Config: buildTCPMixerFilterConfig(mesh, sidecar, instance),
 				}
 				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
 			}

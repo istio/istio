@@ -4,7 +4,7 @@ ifeq (${TEST_ENV},minikube)
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
-export KUBECONFIG=${ISTIO_OUT}/../../../minikube.conf
+export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
@@ -22,7 +22,7 @@ else ifeq (${TEST_ENV},minikube-none)
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
 # but we need to use the minikube's docker env.
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
-export KUBECONFIG=${ISTIO_OUT}/../../../minikube.conf
+export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube-none
 MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
 .PHONY: minikube
@@ -43,23 +43,36 @@ e2e_docker: push
 
 endif
 
+# If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
-E2E_ARGS += ${MINIKUBE_FLAGS}
-E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
 
-EXTRA_E2E_ARGS = --mixer_tag ${TAG}
+EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
+EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
+EXTRA_E2E_ARGS += --mixer_tag ${TAG}
 EXTRA_E2E_ARGS += --pilot_tag ${TAG}
+EXTRA_E2E_ARGS += --proxy_tag ${TAG}
 EXTRA_E2E_ARGS += --ca_tag ${TAG}
 EXTRA_E2E_ARGS += --mixer_hub ${HUB}
 EXTRA_E2E_ARGS += --pilot_hub ${HUB}
+EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh >/dev/null 2>&1
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+
+# Generate the install files, using istioctl.
+# TODO: make sure they match, pass all tests.
+# TODO:
+generate_yaml_new:
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_simple_run:
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_mixer: istioctl generate_yaml
@@ -67,6 +80,9 @@ e2e_mixer: istioctl generate_yaml
 
 e2e_bookinfo: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_upgrade: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_all: e2e_simple e2e_mixer e2e_bookinfo
 

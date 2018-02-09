@@ -101,7 +101,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 }
 
 // GetSidecarServiceInstances implements a service catalog operation
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting host instances: %s", err)

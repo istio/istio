@@ -79,7 +79,7 @@ func init() {
 		"Namespace in which to install the applications (empty to create/delete temporary one)")
 	flag.StringVar(&params.Registry, "registry", string(serviceregistry.KubernetesRegistry), "Pilot registry")
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
-	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
+	flag.BoolVar(&params.checkLogs, "logs", false, "Validate pod logs (expensive in long-running tests)")
 
 	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"),
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")

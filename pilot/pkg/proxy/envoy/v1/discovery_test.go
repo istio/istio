@@ -412,7 +412,8 @@ func TestRouteDiscoveryError2(t *testing.T) {
 
 func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.MixerAddress = ""
+	mesh.MixerCheckServer = ""
+	mesh.MixerReportServer = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
 	addConfig(registry, egressRuleTCP, t)
@@ -808,7 +809,8 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 
 			// test with no mixer
 			mesh := makeMeshConfig()
-			mesh.MixerAddress = ""
+			mesh.MixerCheckServer = ""
+			mesh.MixerReportServer = ""
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response = makeDiscoveryRequest(ds, "GET", url, t)
@@ -1030,32 +1032,32 @@ func TestDiscoveryCache(t *testing.T) {
 
 func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	tests := []struct {
-		name          string
-		hostInstances []*model.ServiceInstance
-		err           error
-		want          string
+		name             string
+		sidecarInstances []*model.ServiceInstance
+		err              error
+		want             string
 	}{
 		{
 			name: "golden path returns region/zone",
-			hostInstances: []*model.ServiceInstance{
+			sidecarInstances: []*model.ServiceInstance{
 				{AvailabilityZone: "region/zone"},
 			},
 			want: "region/zone",
 		},
 		{
 			name: "when no AZ return blank",
-			hostInstances: []*model.ServiceInstance{
+			sidecarInstances: []*model.ServiceInstance{
 				{},
 			},
 			want: "",
 		},
 		{
-			name:          "when unable to find the given cluster node tell us",
-			hostInstances: []*model.ServiceInstance{},
-			want:          "AvailabilityZone couldn't find the given cluster node",
+			name:             "when unable to find the given cluster node tell us",
+			sidecarInstances: []*model.ServiceInstance{},
+			want:             "AvailabilityZone couldn't find the given cluster node",
 		},
 		{
-			name: "when HostInstaces errors return that error",
+			name: "when GetSidecarServiceInstances errors return that error",
 			err:  errors.New("bang"),
 			want: "AvailabilityZone bang",
 		},
@@ -1064,7 +1066,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, ds := commonSetup(t)
 			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-			mock.Discovery.WantGetSidecarServiceInstances = tt.hostInstances
+			mock.Discovery.WantGetSidecarServiceInstances = tt.sidecarInstances
 			mockDiscovery.GetSidecarServiceInstancesError = tt.err
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			if tt.want != string(response) {
@@ -1074,7 +1076,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	}
 }
 
-func TestMixerclientServiceConfig(t *testing.T) {
+func TestMixerFilterServiceConfig(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
 	addConfig(registry, mixerclientAPISpec, t)
@@ -1091,4 +1093,20 @@ func TestMixerclientServiceConfig(t *testing.T) {
 	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-mixerclient-filter.json", t)
+}
+
+func TestSeparateCheckReportClusters(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.MixerCheckServer = "istio-mixer-policy-check.istio-system:9090"
+	mesh.MixerReportServer = "istio-mixer-telemetry.istio-system:9090"
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-mixer-check-report-config.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-mixer-check-report-config.json", t)
 }

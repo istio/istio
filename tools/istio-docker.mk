@@ -31,14 +31,14 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-GRAFANA_FILES:=mixer/deploy/kube/conf/start.sh \
-               mixer/deploy/kube/conf/grafana-dashboard.json \
-               mixer/deploy/kube/conf/mixer-dashboard.json \
-               mixer/deploy/kube/conf/pilot-dashboard.json \
-               mixer/deploy/kube/conf/import_dashboard.sh
+GRAFANA_FILES:=addons/grafana/start.sh \
+               addons/grafana/grafana-dashboard.json \
+               addons/grafana/mixer-dashboard.json \
+               addons/grafana/pilot-dashboard.json \
+               addons/grafana/import_dashboard.sh
 
 # note that "viz" is a directory rather than a file
-$(ISTIO_DOCKER)/viz: mixer/example/servicegraph/js/viz | $(ISTIO_DOCKER)
+$(ISTIO_DOCKER)/viz: addons/servicegraph/js/viz | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
 
 # generated content
@@ -53,12 +53,16 @@ $(foreach TGT,$(GENERATED_CERT_FILES),$(eval $(ISTIO_DOCKER)/$(TGT): security/bi
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent
+                             istio_ca node_agent multicluster_ca
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
+# This generates rules like:
+#$(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
+# 	cp $$< $$(@D))
+
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz \
+DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -80,6 +84,7 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
 $(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
+docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
@@ -92,7 +97,7 @@ $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 
 # Note that Dockerfile and Dockerfile.debug are too generic for parallel builds
 SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
-$(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+$(SERVICEGRAPH_DOCKER): addons/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/viz | $(ISTIO_DOCKER)
 	$(DOCKER_GENERIC_RULE)
 
@@ -111,9 +116,10 @@ docker.istio-ca-test:   $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.ke
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
+docker.multicluster-ca: $(ISTIO_DOCKER)/multicluster_ca
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_SPECIFIC_RULE)
 
@@ -121,20 +127,20 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 
 $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 # Note that Dockerfile is too generic for parallel builds
-docker.grafana: mixer/deploy/kube/conf/Dockerfile $(GRAFANA_FILES)
+docker.grafana: addons/grafana/Dockerfile $(GRAFANA_FILES)
 	$(DOCKER_GENERIC_RULE)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 # Rule used above for targets that use a Dockerfile name in the form Dockerfile.suffix
 DOCKER_SPECIFIC_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-                     docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
+                     docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
 
 # Rule used above for targets that use the name Dockerfile or Dockerfile.debug .
 # Note that these names overlap and thus aren't suitable for parallel builds.
 # This is also why Dockerfiles are always copied (to avoid using another image's file).
 DOCKER_GENERIC_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-                     docker build -t $(subst docker.,,$@) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
+                     docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
 docker.all: $(DOCKER_TARGETS)
 
@@ -152,33 +158,15 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
-# for each docker.XXX target create a tag.docker.XXX target that
-# places another tag on the local docker image
-$(foreach TGT,$(DOCKER_TARGETS),$(eval tag.$(TGT): | $(TGT) ; \
-        docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
-
-# create a DOCKER_TAG_TARGETS that's each of DOCKER_TARGETS with a tag. prefix
-DOCKER_TAG_TARGETS:=
-$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAG_TARGETS+=tag.$(TGT)))
-
 # if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
         $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
-
-# potentailly insert this before docker tag: $(DOCKER_SETUP) &&
-#ifeq (${TEST_ENV},minikube)
-#DOCKER_SETUP:=eval $$(minikube docker-env)
-#else
-## find a better way to insert a dummy command
-#DOCKER_SETUP:=echo
-#endif
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time (docker tag $(subst docker.,,$(TGT)) $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
-                    $(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+        time ($(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
@@ -188,19 +176,11 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),
 # but I'm not sure this is worth the added complexity to support.
 
-# XXX consider whether to support:
-# if [[ "${TEST_ENV}" == "minikube" ]]; then
-#    eval $(minikube docker-env)
-# fi
+# Deprecated - just use docker, no need to retag.
+docker.tag: docker
 
-#ifeq (${TEST_ENV},minikube)
-#docker.minikube:
-#	eval $(minikube docker-env)
-#docker.push: docker.minikube $(DOCKER_PUSH_TARGETS)
-#else
-docker.tag: $(DOCKER_TAG_TARGETS)
+# Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
-#endif
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all),)

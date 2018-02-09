@@ -18,20 +18,31 @@ global:
   hyperkube:
     repository: {HYPERKUBE_HUB}
     tag: {HYPERKUBE_TAG}
+  # addons
+  grafana:
+    repository: {MIXER_HUB}/grafana
+    tag: {MIXER_TAG}
+  servicegraph:
+    repository: {MIXER_HUB}/servicegraph
+    tag: {MIXER_TAG}
 
   # create RBAC resources
   rbacEnabled: true
   # mutual TLS authentication
   securityEnabled: false
-  # mutating webhooks avail with automatic sidecar injection
-  sidecarInjectEnabled: false
 
 #
-# proxy side car and ingress configuration
+# ingress configuration
 #
 serviceAccountName: default
 imagePullPolicy: IfNotPresent
 resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
 nodeSelector: {}
 # istio ingress configuration
 service:
@@ -45,11 +56,17 @@ service:
 # sidecar-injector configuration
 #
 sidecarInjector:
-  enabled: true
+  enabled: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
   nodeSelector: {}
 
 #
@@ -57,10 +74,16 @@ sidecarInjector:
 #
 mixer:
   enabled: true
-  serviceAccountName: default # # used only if RBAC is not enabled
+  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
   nodeSelector: {}
 
   prometheusStatsdExporter:
@@ -74,18 +97,165 @@ mixer:
 #
 pilot:
   enabled: true
-  serviceAccountName: default # # used only if RBAC is not enabled
+  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
   nodeSelector: {}
 
 #
 # security configuration
 #
 security:
-  serviceAccountName: default # # used only if RBAC is not enabled
+  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  nodeSelector: {}
+
+#
+# addons configuration
+#
+grafana:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9000
+    internalPort: 9000
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - grafana.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: grafana-tls
+      #   hosts:
+      #     - grafana.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+
+prometheus:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/prom/prometheus
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: web
+    type: ClusterIP
+    externalPort: 9090
+    internalPort: 9090
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - prometheus.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: prometheus-tls
+      #   hosts:
+      #     - prometheus.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+
+servicegraph:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 8088
+    internalPort: 8088
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - servicegraph.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: servicegraph-tls
+      #   hosts:
+      #     - servicegraph.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+  # prometheus addres
+  prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/openzipkin/zipkin
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9411
+    internalPort: 9411
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - zipkin.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: zipkin-tls
+      #   hosts:
+      #     - zipkin.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
   nodeSelector: {}
