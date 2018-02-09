@@ -12,26 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/pkg/version"
-	"istio.io/istio/security/pkg/cmd"
 )
 
-var (
-	logOptions   = log.NewOptions()
-	probeOptions = &probe.Options{}
-
-	rootCmd = &cobra.Command{
-		Use:   "probe_check",
+// NewProbeCmd creates the cobra.Command for the probe command
+func NewProbeCmd() *cobra.Command {
+	logOptions := log.NewOptions()
+	probeOptions := &probe.Options{}
+	cmd := &cobra.Command{
+		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, args []string) {
 			if !probeOptions.IsValid() {
@@ -43,23 +39,8 @@ var (
 			shared.Printf("OK")
 		},
 	}
-)
-
-func init() {
-	flags := rootCmd.Flags()
-
-	flags.StringVar(&probeOptions.Path, "probe-path", "", "Path of the file for checking the availability.")
-	flags.DurationVar(&probeOptions.UpdateInterval, "interval", 0, "Duration used for checking the target file's last modified time.")
-
-	rootCmd.AddCommand(version.CobraCommand())
-	logOptions.AttachCobraFlags(rootCmd)
-
-	cmd.InitializeFlags(rootCmd)
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(-1)
-	}
+	logOptions.AttachCobraFlags(cmd)
+	cmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "", "Path of the file for checking the availability.")
+	cmd.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0, "Duration used for checking the target file's last modified time.")
+	return cmd
 }

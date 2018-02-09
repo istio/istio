@@ -1,0 +1,117 @@
+package probe
+
+import (
+	"fmt"
+	"io/ioutil"
+	"testing"
+	"time"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/probe"
+	caclient "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/platform"
+	pb "istio.io/istio/security/proto"
+)
+
+type FakeCAGrpcClientImpl struct {
+	resp *pb.CsrResponse
+	err  error
+}
+
+func (c *FakeCAGrpcClientImpl) SetResponse(resp *pb.CsrResponse, err error) {
+	c.resp = resp
+	c.err = err
+}
+
+// SendCSR
+func (c *FakeCAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
+	return c.resp, c.err
+}
+
+func readFile(filename string) []byte {
+	bs, err := ioutil.ReadFile(filename)
+	if err != nil {
+		shared.Fatalf("Failed to read file %s (error: %v)", filename, err)
+	}
+	return bs
+}
+
+func TestGcpGetServiceIdentity(t *testing.T) {
+	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
+		SigningCertBytes: readFile("./testdata/ca.crt"),
+		SigningKeyBytes:  readFile("./testdata/ca.key"),
+		RootCertBytes:    readFile("./testdata/root.crt"),
+		CertChainBytes:   []byte(""),
+		CertTTL:          time.Minute * time.Duration(2),
+		MaxCertTTL:       time.Minute * time.Duration(4),
+	})
+	if err != nil {
+		t.Fatalf("Failed to create a CA instances: %v", err)
+	}
+
+	testCases := map[string]struct {
+		resp     *pb.CsrResponse
+		err      error
+		expected string
+	}{
+		"Check success": {
+			resp: &pb.CsrResponse{
+				IsApproved:      true,
+				Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
+				SignedCertChain: nil,
+			},
+			err:      nil,
+			expected: "",
+		},
+		"SendCSR failed": {
+			resp:     nil,
+			err:      fmt.Errorf("SendCSR failed"),
+			expected: "SendCSR failed",
+		},
+	}
+
+	for id, c := range testCases {
+		// override mock client
+		mockClient := FakeCAGrpcClientImpl{
+			resp: c.resp,
+			err:  c.err,
+		}
+
+		var g interface{} = &mockClient
+		client, ok := g.(caclient.CAGrpcClient)
+		if !ok {
+			t.Fatalf("%v: Failed to create a client", id)
+		}
+
+		// test liveness probe check controller
+		controller, err := NewLivenessCheckController(
+			"./testdata/root.crt",
+			time.Minute,
+			"localhost",
+			1234,
+			istioCA,
+			time.Minute,
+			&probe.Options{
+				Path:           "/tmp/test.key",
+				UpdateInterval: time.Minute,
+			},
+			client,
+		)
+		if err != nil {
+			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
+		}
+
+		err = controller.checkGrpcServer()
+		if len(c.expected) == 0 {
+			if err != nil {
+				t.Errorf("%v: checkGrpcServer should return nil: %v", id, err)
+			}
+		} else {
+			if c.expected != err.Error() {
+				t.Errorf("%v: Unexpected error. expected: %v, got: %v", id, c.expected, err.Error())
+			}
+		}
+	}
+}

@@ -150,6 +150,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 
 		client := &CAGrpcClientImpl{}
 		_, err = client.SendCSR(req, c.pc, c.caAddress)
+		t.Logf("%v", err)
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
@@ -162,4 +163,5 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}
 		}
 	}
+	t.Error("")
 }

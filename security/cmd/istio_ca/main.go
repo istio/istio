@@ -31,16 +31,14 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
-	grpcclient "istio.io/istio/security/pkg/caclient/grpc"
+	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
+	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
-	pb "istio.io/istio/security/proto"
 )
 
 const (
@@ -54,9 +52,6 @@ const (
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
-
-	// The default identity for the liveness probe check
-	livenessProbeClientIdentity = "k8s.cluster.local"
 
 	// The key for the environment variable that specifies the namespace.
 	namespaceKey = "NAMESPACE"
@@ -107,115 +102,6 @@ var (
 		},
 	}
 )
-
-// LivenessCheckController updates the availability of the liveness probe of the CA instance
-type LivenessCheckController struct {
-	rootCertFile       string
-	interval           time.Duration
-	grpcHostname       string
-	grpcPort           int
-	serviceIdentityOrg string
-	rsaKeySize         int
-	ca                 *ca.IstioCA
-	caCertTTL          time.Duration
-	livenessProbe      *probe.Probe
-	client             *grpcclient.CAGrpcClientImpl
-}
-
-func (c *LivenessCheckController) checkGrpcServer() error {
-	if c.grpcPort <= 0 {
-		return nil
-	}
-
-	// generates certificate and private key for test
-	opts := util.CertOptions{
-		Host:       livenessProbeClientIdentity,
-		RSAKeySize: 2048,
-	}
-
-	csrPEM, privPEM, err := util.GenCSR(opts)
-	if err != nil {
-		return err
-	}
-
-	certPEM, err := c.ca.Sign(csrPEM, c.interval, false)
-	if err != nil {
-		return err
-	}
-
-	tempDir, err := ioutil.TempDir("/tmp", "caprobe")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
-	testCert, err := ioutil.TempFile(tempDir, "cert")
-	if err != nil {
-		return err
-	}
-
-	testKey, err := ioutil.TempFile(tempDir, "priv")
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(testCert.Name(), certPEM, 0644)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(testKey.Name(), privPEM, 0644)
-	if err != nil {
-		return err
-	}
-
-	pc := platform.NewOnPremClientImpl(platform.OnPremConfig{
-		RootCACertFile: c.rootCertFile,
-		KeyFile:        testKey.Name(),
-		CertChainFile:  testCert.Name(),
-	})
-
-	csr, _, err := util.GenCSR(util.CertOptions{
-		Host:       livenessProbeClientIdentity,
-		Org:        c.serviceIdentityOrg,
-		RSAKeySize: c.rsaKeySize,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	cred, err := pc.GetAgentCredential()
-	if err != nil {
-		return err
-	}
-
-	req := &pb.CsrRequest{
-		CsrPem:              csr,
-		NodeAgentCredential: cred,
-		CredentialType:      pc.GetCredentialType(),
-		RequestedTtlMinutes: 60,
-	}
-
-	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
-
-	return err
-}
-
-// Run starts the check routine
-func (c *LivenessCheckController) Run() {
-	go func() {
-		t := time.NewTicker(c.interval)
-		for {
-			select {
-			case <-t.C:
-				c.livenessProbe.SetAvailable(c.checkGrpcServer())
-			}
-		}
-	}()
-}
 
 func fatalf(template string, args ...interface{}) {
 	if len(args) > 0 {
@@ -275,6 +161,8 @@ func init() {
 		Manual:  "Istio CA",
 	}))
 
+	rootCmd.AddCommand(cmd.NewProbeCmd())
+
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
 }
@@ -315,7 +203,8 @@ func runCA() {
 		reg := registry.GetIdentityRegistry()
 
 		// add certificate identity to the identity registry for the liveness probe check
-		if err := reg.AddMapping(livenessProbeClientIdentity, livenessProbeClientIdentity); err != nil {
+		if err := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
+			probecontroller.LivenessProbeClientIdentity); err != nil {
 			log.Errorf("failed to add indentity mapping: %v", err)
 		}
 
@@ -389,28 +278,17 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	if opts.LivenessProbeOptions.IsValid() {
-		livenessProbe := probe.NewProbe()
-		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
-		livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-		livenessProbeController.Start()
-
-		// set initial status to good
-		livenessProbe.SetAvailable(nil)
-
-		livenessProbeChecker := &LivenessCheckController{
-			rootCertFile: opts.rootCertFile,
-			interval:     opts.probeCheckInterval,
-			grpcHostname: opts.grpcHostname,
-			grpcPort:     opts.grpcPort,
-			rsaKeySize:   2048,
-
-			livenessProbe: livenessProbe,
-
-			ca:        istioCA,
-			caCertTTL: opts.caCertTTL,
-			client:    &grpcclient.CAGrpcClientImpl{},
+		var g interface{} = &caclient.CAGrpcClientImpl{}
+		if client, ok := g.(caclient.CAGrpcClient); ok {
+			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(opts.rootCertFile,
+				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
+				opts.caCertTTL, opts.LivenessProbeOptions, client)
+			if err != nil {
+				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+			} else {
+				livenessProbeChecker.Run()
+			}
 		}
-		livenessProbeChecker.Run()
 	}
 
 	return istioCA
