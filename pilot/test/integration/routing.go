@@ -37,7 +37,7 @@ func (t *routing) String() string {
 }
 
 func (t *routing) setup() error {
-	return t.applyConfig("destination-c.yaml.tmpl", nil)
+	return t.applyConfig("destination-rule-c.yaml.tmpl", nil)
 }
 
 // TODO: test negatives
