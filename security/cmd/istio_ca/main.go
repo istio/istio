@@ -44,7 +44,7 @@ const (
 
 	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
+	defaultWorkloadCertTTL = 19 * time.Hour
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
