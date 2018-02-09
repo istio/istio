@@ -317,11 +317,11 @@ func genericSuccess(caller, inp, msg string) error {
 func failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Response{Status: "Failure", Message: msg})
 	if err != nil {
-		return err
+		return errors.New(msg)
 	}
 
 	printAndLog(caller, inp, string(resp))
-	return nil
+	return errors.New(msg)
 }
 
 // GenericUnsupported is to print a un-supported response to the kubelet.
@@ -418,7 +418,6 @@ func removeCredentialFile(ninputs *pb.WorkloadInfo) error {
 
 //mkAbsolutePaths converts all the configuration paths to be absolute.
 func mkAbsolutePaths(config *ConfigurationOptions) {
-
 	config.NodeAgentWorkloadHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentWorkloadHomeDir)
 	config.NodeAgentCredentialsHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentCredentialsHomeDir)
 	config.NodeAgentManagementApi = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentManagementApi)
@@ -428,8 +427,7 @@ func mkAbsolutePaths(config *ConfigurationOptions) {
 // of the driver.
 func InitConfiguration() {
 	configuration = &defaultConfiguration
-
-	defer mkAbsolutePaths(configuration)
+	mkAbsolutePaths(configuration)
 
 	if _, err := os.Stat(configFile); err != nil {
 		// Return quietly
@@ -475,6 +473,7 @@ func InitConfiguration() {
 	}
 
 	configuration = &config
+	mkAbsolutePaths(configuration)
 }
 
 func logLevel(level string) syslog.Priority {

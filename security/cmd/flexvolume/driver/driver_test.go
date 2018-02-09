@@ -58,6 +58,10 @@ func TestHelperExecProcess(t *testing.T) {
 		return
 	}
 
+	if os.Getenv("RETURN_ERROR") == "1" {
+		os.Exit(2)
+	}
+
 	args := os.Args
 	for len(args) > 0 {
 		if args[0] == "--" {
@@ -125,9 +129,7 @@ func testInitStdIo() {
 	go func() {
 		var buf bytes.Buffer
 		io.Copy(&buf, r)
-		data := buf.String()
-		oldOut.WriteString(data)
-		outC <- data
+		outC <- buf.String()
 	}()
 }
 
@@ -210,8 +212,18 @@ func TestGenericUnsupported(t *testing.T) {
 	}
 }
 
+func getMountInputs(opts *FlexVolumeInputs) (string, error) {
+	var opBytes []byte
+	opBytes, err := json.Marshal(&opts)
+	if err != nil {
+		return "", err
+	}
+	return string(opBytes), nil
+}
+
 func TestMountBasic(t *testing.T) {
 	var err error
+	var mountInputs string
 	opts := FlexVolumeInputs{
 		Uid:            "1111-1111-1111",
 		Name:           "foo",
@@ -219,8 +231,7 @@ func TestMountBasic(t *testing.T) {
 		ServiceAccount: "sa",
 	}
 
-	var opBytes []byte
-	opBytes, err = json.Marshal(&opts)
+	mountInputs, err = getMountInputs(&opts)
 	if err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
@@ -237,7 +248,7 @@ func TestMountBasic(t *testing.T) {
 	defer func() { envExec = []string{} }()
 
 	testInitStdIo()
-	if err := Mount(destinationDir, string(opBytes)); err != nil {
+	if err := Mount(destinationDir, mountInputs); err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
 
@@ -280,6 +291,42 @@ func TestMountBasic(t *testing.T) {
 	// Check the response output
 	var gotResp Response
 	expResp := getGenericResp("", "", "Mount ok.")
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+}
+
+func TestMountCmdMountFailure(t *testing.T) {
+	var err error
+	var mountInputs string
+	opts := FlexVolumeInputs{
+		Uid:            "1111-1111-1111",
+		Name:           "foo",
+		Namespace:      "default",
+		ServiceAccount: "sa",
+	}
+
+	mountInputs, err = getMountInputs(&opts)
+	if err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+	envExec = []string{"RETURN_ERROR=1"}
+	defer func() { envExec = []string{} }()
+
+	testInitStdIo()
+	err = Mount("/foo/bar", mountInputs)
+	if err == nil {
+		t.Errorf("Failed. Expected error and mount command to fail")
+	}
+
+	// Check this path is not there:
+	checkPath := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.Uid)
+	if _, err := os.Stat(checkPath); err == nil {
+		t.Errorf("Mount failed but path %s still there", checkPath)
+	}
+
+	var gotResp Response
+	expResp := getFailure("", "", "Failure to mount: exit status 2")
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
@@ -341,12 +388,95 @@ func TestUnmount(t *testing.T) {
 	}
 }
 
-func TestInitConfiguration(t *testing.T) {
-	// Write config to the configFile;
-	// create the expectedConfigFile struct
-	// change the pointer of configFile....
-	// call InitConfiguration
-	// cmp the expected with what was got.
+func TestUnmountInvalidDir(t *testing.T) {
+	unmountInputDir := filepath.Join(testDir, "1111-1111-1111")
+	testInitStdIo()
+	err := Unmount(unmountInputDir)
+	if err == nil {
+		t.Errorf("Failed. Expected error and un-mount command to fail")
+	}
+
+	var gotResp Response
+	expResp := getFailure("", "", fmt.Sprintf("Failure to notify nodeagent dir %s", unmountInputDir))
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+}
+
+func TestInitConfigurationDefault(t *testing.T) {
+	InitConfiguration()
+	if configuration != &defaultConfiguration {
+		t.Errorf("The configuration is not set to default.")
+	}
+}
+
+func writeConfigFile(fileName string, options *ConfigurationOptions) error {
+	var confBytes []byte
+	var err error
+	confBytes, err = json.Marshal(*options)
+	if err != nil {
+		return fmt.Errorf("Failed to setup the configuration file")
+	}
+
+	err = ioutil.WriteFile(configFile, confBytes, 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write the configuration file")
+	}
+
+	return nil
+}
+
+func TestInitConfigurationBasic(t *testing.T) {
+	configFile = filepath.Join(testDir, "nodeagent.json")
+	expectedConfiguration := &ConfigurationOptions{
+		K8sVersion:                  "1",
+		NodeAgentManagementHomeDir:  "/test",
+		NodeAgentWorkloadHomeDir:    "/workload",
+		NodeAgentCredentialsHomeDir: "/creds",
+		UseGrpc:                     true,
+		NodeAgentManagementApi:      "mgmt.sock",
+		LogLevel:                    "INFO",
+	}
+
+	if err := writeConfigFile(configFile, expectedConfiguration); err != nil {
+		t.Errorf("%s", err.Error())
+	}
+	defer os.Remove(configFile)
+
+	oldConfiguration := configuration
+	InitConfiguration()
+	defer func() { configuration = oldConfiguration }()
+
+	if configuration == oldConfiguration {
+		t.Errorf("Configuration not changed to given config")
+	}
+
+	mkAbsolutePaths(expectedConfiguration)
+	if !reflect.DeepEqual(expectedConfiguration, configuration) {
+		t.Errorf("Expected configuration %+v not same as got %+v", *expectedConfiguration, *configuration)
+	}
+}
+
+func TestInitConfigurationEmptyPaths(t *testing.T) {
+	configFile = filepath.Join(testDir, "nodeagent.json")
+	inputConfiguration := &ConfigurationOptions{
+		K8sVersion: "2",
+	}
+
+	if err := writeConfigFile(configFile, inputConfiguration); err != nil {
+		t.Errorf("%s", err.Error())
+	}
+	defer os.Remove(configFile)
+
+	oldConfiguration := configuration
+	InitConfiguration()
+	defer func() { configuration = oldConfiguration }()
+
+	if configuration.NodeAgentManagementHomeDir != NODEAGENT_HOME ||
+		configuration.NodeAgentCredentialsHomeDir != NODEAGENT_HOME+CREDS_DIR {
+		t.Errorf("Failed to fill up empty configurations (%+v)", configuration)
+	}
+
 }
 
 func TestMain(m *testing.M) {

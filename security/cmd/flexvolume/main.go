@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	VER            string = "0.1"
-	SYSLOGTAG      string = "FlexVolNodeAgent"
+	VER       string = "0.1"
+	SYSLOGTAG string = "FlexVolNodeAgent"
 )
 
 var (
@@ -43,7 +43,10 @@ var (
 			if len(args) != 0 {
 				return fmt.Errorf("init takes no arguments.")
 			}
-			return driver.InitCommand()
+
+			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
+			driver.InitCommand()
+			return nil
 		},
 	}
 
@@ -55,7 +58,10 @@ var (
 			if len(args) < 2 {
 				return fmt.Errorf("mount takes 2 args.")
 			}
-			return driver.Mount(args[0], args[1])
+
+			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
+			driver.Mount(args[0], args[1])
+			return nil
 		},
 	}
 
@@ -67,7 +73,10 @@ var (
 			if len(args) < 1 {
 				return fmt.Errorf("mount takes 1 args.")
 			}
-			return driver.Unmount(args[0])
+
+			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
+			driver.Unmount(args[0])
+			return nil
 		},
 	}
 
