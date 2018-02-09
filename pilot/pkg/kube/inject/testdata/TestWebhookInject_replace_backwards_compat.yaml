@@ -1,0 +1,12 @@
+metadata:
+  name: replace-backwards-compat
+  annotations:
+    sidecar.istio.io/status: version-test
+spec:
+  initContainers:
+    - name: istio-init
+  containers:
+    - name: istio-proxy
+  volumes:
+    - name: istio-envoy
+    - name: istio-certs

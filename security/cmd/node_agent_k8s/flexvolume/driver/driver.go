@@ -113,7 +113,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
 	err = cmdMount.Run()
 	if err != nil {
-		os.RemoveAll(newDir)
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -121,8 +121,8 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	err = os.MkdirAll(newDstDir, 0777)
 	if err != nil {
 		cmd := exec.Command("/bin/unmount", dstDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -131,8 +131,8 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	err = cmd.Run()
 	if err != nil {
 		cmd = exec.Command("/bin/umount", dstDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -142,12 +142,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 // doUnmount perform the actual unmount work
 func doUnmount(dir string) error {
 	cmd := exec.Command("/bin/umount", dir)
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cmd.Run()
 }
 
 // addListener add the listener for the workload
@@ -187,7 +182,7 @@ func Mount(dir, opts string) error {
 	inp := dir + "|" + opts
 
 	ninputs, s := checkValidMountOpts(opts)
-	if s == false {
+	if !s {
 		return Failure("mount", inp, "Incomplete inputs")
 	}
 
@@ -222,9 +217,9 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	doUnmount(dir + "/nodeagent")
+	_ = doUnmount(dir + "/nodeagent")
 	// unmount the tmpfs
-	doUnmount(dir)
+	_ = doUnmount(dir)
 	// delete the directory that was created.
 	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
@@ -270,5 +265,5 @@ func logToSys(caller, inp, opts string) {
 	op := caller + "|"
 	op = op + inp + "|"
 	op = op + opts
-	logWrt.Warning(op)
+	_ = logWrt.Warning(op)
 }

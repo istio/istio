@@ -196,7 +196,7 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 	status := annotations[istioSidecarAnnotationStatusKey]
 
-	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		metadata.Namespace, metadata.Name, namespacePolicy, useDefault, inject, status, required)
 
 	return required
@@ -354,7 +354,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
 		return out, nil
 	}
 

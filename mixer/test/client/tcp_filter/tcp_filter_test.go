@@ -16,6 +16,7 @@ package tcpFilter
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -31,7 +32,8 @@ const checkAttributesOkPost = `
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.uid": "POD222",
-  "target.namespace": "XYZ222"
+  "target.namespace": "XYZ222",
+  "connection.mtls": false
 }
 `
 
@@ -47,6 +49,7 @@ const reportAttributesOkPost = `
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "connection.mtls": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
@@ -65,6 +68,7 @@ const reportAttributesFailPost = `
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "connection.received.bytes": 0,
   "connection.received.bytes_total": 0,
   "connection.sent.bytes": 0,
@@ -76,6 +80,10 @@ const reportAttributesFailPost = `
 `
 
 func TestTCPMixerFilter(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing, see issue #3211")
+	}
+
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t, env.BasicConfig)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

@@ -237,12 +237,6 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/fullsailor/pkcs7"
-  packages = ["."]
-  revision = "a009d8d7de53d9503c797cb8ec66fa3b21eed209"
-
-[[projects]]
   name = "github.com/garyburd/redigo"
   packages = [
     "internal",
@@ -1136,7 +1130,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "12edb320898356a89682507fb96bb49c86c96254"
+  revision = "b5d35aad98bedc3757f3fa76d50ae0b0dacca426"
 
 [[projects]]
   name = "istio.io/fortio"

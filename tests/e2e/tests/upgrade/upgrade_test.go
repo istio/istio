@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -201,45 +200,6 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 	closeResponseBody(resp)
 	return duration, err
-}
-
-func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
-	if err != nil {
-		return -1, err
-	}
-
-	defer closeResponseBody(resp)
-	log.Infof("Get from page: %d", resp.StatusCode)
-	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Get response from product page failed!")
-		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return -1, err
-	}
-
-	if expr == "" {
-		return 1, nil
-	}
-
-	re, err := regexp.Compile(expr)
-	if err != nil {
-		return -1, err
-	}
-
-	ref := re.FindAll(body, -1)
-	if ref == nil {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v in response", expr)
-	}
-	if count > 0 && len(ref) < count {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
-	}
-	return 1, nil
 }
 
 func deleteRules(ruleKeys []string) error {

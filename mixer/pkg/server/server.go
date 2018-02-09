@@ -153,6 +153,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	st := a.ConfigStore
 	if st != nil && a.ConfigStoreURL != "" {
+		_ = s.Close()
 		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
 	if st == nil {
