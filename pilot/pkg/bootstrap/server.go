@@ -284,7 +284,8 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 		// Allow some overrides for testing purposes.
 		if args.Mesh.MixerAddress != "" {
-			mesh.MixerAddress = args.Mesh.MixerAddress
+			mesh.MixerCheckServer = args.Mesh.MixerAddress
+			mesh.MixerReportServer = args.Mesh.MixerAddress
 		}
 		if args.Mesh.RdsRefreshDelay != nil {
 			mesh.RdsRefreshDelay = args.Mesh.RdsRefreshDelay

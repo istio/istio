@@ -78,13 +78,13 @@ func (s *Server) Serve() {
 
 	go func(ln net.Listener, c chan bool) {
 		<-c
-		ln.Close()
+		_ = ln.Close()
 		log.Printf("Closed the listener.")
 		c <- true
 	}(lis, s.done)
 
 	log.Printf("workload [%v] listen", s)
-	grpcServer.Serve(lis)
+	_ = grpcServer.Serve(lis)
 }
 
 // Stop tell the server it should stop

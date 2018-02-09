@@ -28,8 +28,6 @@ import (
 )
 
 type FakeNodeAgentGrpcServer struct {
-	response *pb.CsrResponse
-	errorMsg string
 }
 
 func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
