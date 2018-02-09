@@ -112,7 +112,7 @@ cc_library(
         )
 
 
-ISTIO_API = "c68809c376c92b733f773da4c22e9ec3ff4fcf8b"
+ISTIO_API = "d9d1aa87e2f2c6b914b0bba026d36df55eebdce6"
 
 def mixerapi_repositories(bind=True):
     BUILD = """
