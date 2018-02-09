@@ -91,7 +91,8 @@ istio-system   istio-mixer-3192291716-psskv                           3/3       
 istio-system   istio-pilot-3663920167-4ns3g                           2/2       Running   0          7m
 <SNIP>
 ```
-You can now run the performance tests:
+You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
+
 ```
 $ run_tests
 ```
@@ -125,8 +126,9 @@ of the Istio service mesh:
 ```
 Compare the test results to understand the load differential between the 3 test cases.
 
-### Additional Testing
-Fortio provides a [Web UI](https://user-images.githubusercontent.com/3664595/34192808-1983be12-e505-11e7-9c16-2ee9f101f2ce.png) that
+### Interactive Testing / UI Graphing of results
+
+Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
