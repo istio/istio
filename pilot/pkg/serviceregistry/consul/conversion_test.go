@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 var (
@@ -200,4 +201,15 @@ func TestConvertService(t *testing.T) {
 		t.Errorf("convertService() incorrect # of ports => %v, want %v",
 			len(out.Ports), 1)
 	}
+}
+
+func TestExtractAuthenticationPolicy(t *testing.T) {
+	// TODO: https://github.com/istio/istio/issues/3338
+	// This test will change when 'consul label' is used in func extractAuthenticationPolicy to return authenticationPolicy
+	for _, tt := range protocols {
+                out := extractAuthenticationPolicy(tt.port, tt.name)
+                if out != meshconfig.AuthenticationPolicy_INHERIT {
+                        t.Errorf("extractAuthenticationPolicy(%v, %q) => %q, want %q", tt.port, tt.name, out, meshconfig.AuthenticationPolicy_INHERIT)
+                }
+        }
 }
