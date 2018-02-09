@@ -3,19 +3,15 @@ This Proxy will use Envoy and talk to Mixer server.
 
 ## Build Mixer server
 
-* Follow https://github.com/istio/mixer/blob/master/doc/dev/development.md to set up environment, and build via:
-
-```
-  cd $(ISTIO)/mixer
-  bazel build ...:all
-```
+* Follow https://github.com/istio/istio/blob/master/mixer/doc/running-local-mixer.md to run a Mixer server locally. 
+Follow https://github.com/istio/istio/blob/master/DEV-GUIDE.md to build Istio, which includes building Mixer server. 
   
 ## Build Envoy proxy
 
 * Follow https://github.com/lyft/envoy/blob/master/bazel/README.md to set up environment, and build target envoy:
 
 ```
-  bazel build //src/envoy/mixer:envoy
+  bazel build //src/envoy:envoy
 ```
 
 ## How to run it
