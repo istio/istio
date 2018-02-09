@@ -430,12 +430,14 @@ class Instance : public Http::StreamDecoderFilter,
     ReadStringMap(string_map, kPerRouteDestinationService,
                   &config->destination_service);
 
-    std::string config_id;
-    if (!ReadStringMap(string_map, kPerRouteMixerSha, &config_id)) {
+    if (!ReadStringMap(string_map, kPerRouteMixerSha,
+                       &config->service_config_id) ||
+        config->service_config_id.empty()) {
       return;
     }
 
-    if (mixer_control_.controller()->LookupServiceConfig(config_id)) {
+    if (mixer_control_.controller()->LookupServiceConfig(
+            config->service_config_id)) {
       return;
     }
 
@@ -461,10 +463,11 @@ class Instance : public Http::StreamDecoderFilter,
           config->destination_service, status.ToString());
       return;
     }
-    mixer_control_.controller()->AddServiceConfig(config_id, config_pb);
-    config->service_config_id = config_id;
+    mixer_control_.controller()->AddServiceConfig(config->service_config_id,
+                                                  config_pb);
     ENVOY_LOG(info, "Service {}, config_id {}, config: {}",
-              config->destination_service, config_id, config_pb.DebugString());
+              config->destination_service, config->service_config_id,
+              config_pb.DebugString());
   }
 
  public:
