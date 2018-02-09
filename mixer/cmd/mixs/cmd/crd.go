@@ -20,13 +20,13 @@ import (
 	gotemplate "text/template"
 
 	"github.com/spf13/cobra"
+	"k8s.io/gengo/namer"
+	"k8s.io/gengo/types"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
-	"k8s.io/gengo/namer"
-	"k8s.io/gengo/types"
 )
 
 // Group is the K8s API group.
