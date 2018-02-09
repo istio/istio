@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer logWrt.Close()
+	defer logWrt.Close() // nolint: errcheck
 
 	if logWrt == nil {
 		fmt.Println("am Logwrt is nil")
