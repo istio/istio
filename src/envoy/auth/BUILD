@@ -32,6 +32,7 @@ load(
 api_proto_library(
     name = "config_proto",
     srcs = [":config.proto"],
+    visibility = ["//visibility:public"],
     require_py = 0,
 )
 

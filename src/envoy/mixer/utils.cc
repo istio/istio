@@ -58,8 +58,8 @@ bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port) {
       return true;
     }
     if (ip->ipv6()) {
-      std::array<uint8_t, 16> ipv6 = ip->ipv6()->address();
-      *str_ip = std::string(reinterpret_cast<const char*>(ipv6.data()), 16);
+      absl::uint128 ipv6 = ip->ipv6()->address();
+      *str_ip = std::string(reinterpret_cast<const char*>(&ipv6), 16);
       return true;
     }
   }
