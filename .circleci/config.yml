@@ -308,7 +308,7 @@ jobs:
             mkdir -p /go/out/tests
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             make localTestEnv
-            make pilot-test mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
+            make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
 
@@ -405,6 +405,8 @@ jobs:
   docker-push:
     <<: *defaults
     resource_class: xlarge
+    environment:
+      TAG: circleci-nightly
     steps:
       - checkout
       - restore_cache:

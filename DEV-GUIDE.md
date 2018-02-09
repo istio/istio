@@ -313,7 +313,7 @@ You can automatically format the source code to follow our conventions by going 
 top of the repo and entering:
 
 ```shell
-make fmt
+make format
 ```
 
 ### Running the linters

@@ -121,7 +121,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 		if !found {
 			// default to the external service port
-			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(port.Port))
+			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, port.Port)
 			hosts = append(hosts, Host{URL: url})
 		}
 	}
