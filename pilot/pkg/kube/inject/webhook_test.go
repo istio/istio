@@ -341,7 +341,8 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
-	wh, err := NewWebhook(configFile, meshFile, certFile, keyFile, port)
+	wh, err := NewWebhook(WebhookParameters{
+		ConfigFile: configFile, MeshFile: meshFile, CertFile: certFile, KeyFile: keyFile, Port: port})
 	if err != nil {
 		cleanup()
 		t.Fatalf("NewWebhook() failed: %v", err)

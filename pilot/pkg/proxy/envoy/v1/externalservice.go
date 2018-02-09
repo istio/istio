@@ -40,6 +40,8 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 	externalServiceConfigs := config.ExternalServices()
 	for _, externalServiceConfig := range externalServiceConfigs {
 		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		meshName := externalServiceConfig.Name + "." + externalServiceConfig.Namespace +
+			"." + externalServiceConfig.Domain
 		for _, port := range externalService.Ports {
 			modelPort := buildExternalServicePort(port)
 			switch modelPort.Protocol {
@@ -47,7 +49,7 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				httpConfig := httpConfigs.EnsurePort(modelPort.Port)
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-						buildExternalServiceVirtualHost(externalService, port.Name, host, mesh,
+						buildExternalServiceVirtualHost(meshName, externalService, port.Name, host, mesh,
 							node, modelPort, instances, config))
 				}
 			default:
@@ -166,7 +168,8 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 	}
 }
 
-func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService, portName, destination string,
+// buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
+func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
@@ -179,6 +182,16 @@ func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService,
 	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
 	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
 	routes := buildDestinationHTTPRoutes(sidecar, service, port, instances, config, buildClusterFunc)
+
+	// inject Mixer calls per route.
+	// every route here belongs to the same destination.service, ie serviceName
+	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
+	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+		oc := buildMixerConfig(sidecar, serviceName, service, config, mesh.DisablePolicyChecks, false)
+		for _, route := range routes {
+			route.OpaqueConfig = oc
+		}
+	}
 
 	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)
 	return &VirtualHost{
