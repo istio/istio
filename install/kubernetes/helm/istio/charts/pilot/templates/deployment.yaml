@@ -68,7 +68,7 @@ spec:
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
           - --customConfigFile
-          - /etc//proxy/envoy_pilot_auth.json
+          - /etc/istio/proxy/envoy_pilot_auth.json
         {{- else }}
           - NONE #--controlPlaneAuthPolicy
           - --customConfigFile
