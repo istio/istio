@@ -33,6 +33,7 @@ const reportAttributesOkPost = `
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+	"connection.mtls": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,

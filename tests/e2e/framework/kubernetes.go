@@ -114,7 +114,9 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 		// Use istioctl from base version to inject the sidecar.
 		i.localPath = filepath.Join(releaseDir, "/bin/istioctl")
-		os.Chmod(i.localPath, 0755)
+		if err = os.Chmod(i.localPath, 0755); err != nil {
+			return nil, err
+		}
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}

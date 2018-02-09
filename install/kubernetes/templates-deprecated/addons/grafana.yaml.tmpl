@@ -26,6 +26,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      serviceAccountName: grafana
       containers:
       - name: grafana
         image: {MIXER_HUB}/grafana:{MIXER_TAG}
@@ -49,4 +50,9 @@ spec:
       volumes:
       - name: grafana-data
         emptyDir: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana
 ---

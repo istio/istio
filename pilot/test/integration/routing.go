@@ -178,7 +178,9 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 	}
 
 	if operation != "" {
-		errs = t.verifyDecorator(operation)
+		if err := t.verifyDecorator(operation); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
 	return errs
@@ -188,18 +190,17 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 func (t *routing) verifyDecorator(operation string) error {
 	response := t.infra.clientRequest(
 		"t",
-		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces",
-			t.IstioNamespace),
+		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),
 		1, "",
 	)
 
 	if len(response.code) == 0 || response.code[0] != httpOk {
-		return errAgain
+		return fmt.Errorf("could not retrieve traces from zipkin")
 	}
 
 	text := fmt.Sprintf("\"name\":\"%s\"", operation)
 	if strings.Count(response.body, text) != 10 {
-		return errAgain
+		return fmt.Errorf("could not find operation %q in zipkin traces", operation)
 	}
 
 	return nil
