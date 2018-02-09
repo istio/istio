@@ -38,8 +38,14 @@ naming convention:
 ## Versioning
 
 When defining Kubernetes Custom Resource Definition (CRD) using
-proto3, the proto versioning should match the Kubernetes versioning,
-see the following example.
+`proto3`, follow the following guidelines:
+* The proto `package` name must match the Kubernetes `apiVersion`,
+  excluding the `.io` DNS suffix and reversing the DNS segment
+  ordering. The Kubernetes `apiVersion` has the format of
+  `group/version`.
+* The proto message type must match the CRD `kind` name.
+
+#### Example
 
 The Kubernetes CRD:
 
