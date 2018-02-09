@@ -82,7 +82,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		"SendCSR failed": {
 			resp:     nil,
 			err:      fmt.Errorf("sendCSR failed"),
-			expected: "SendCSR failed",
+			expected: "sendCSR failed",
 		},
 	}
 
