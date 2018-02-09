@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
@@ -115,7 +115,7 @@ func (na *nodeAgentInternal) Start() error {
 }
 
 func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
-	csr, privKey, err := ca.GenCSR(ca.CertOptions{
+	csr, privKey, err := util.GenCSR(util.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,

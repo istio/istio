@@ -34,12 +34,14 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// The `checknothing` template represents an empty block of data, which can useful
+// in different testing scenarios.
 // CheckNothing represents an empty block of data that is used for Check-capable
 // adapters which don't require any parameters. This is primarily intended for testing
 // scenarios.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: checknothing
 // metadata:

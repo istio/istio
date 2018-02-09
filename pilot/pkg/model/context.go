@@ -137,18 +137,32 @@ const (
 
 	// IngressKeyFilename is the ingress private key file name
 	IngressKeyFilename = "tls.key"
+
+	// ConfigPathDir config directory for storing envoy json config files.
+	// It also stores core files as per
+	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
+	ConfigPathDir = "/etc/istio/proxy"
+
+	// BinaryPathFilename envoy binary location
+	BinaryPathFilename = "/usr/local/bin/envoy"
+
+	// ServiceClusterName service cluster name used in xDS calls
+	ServiceClusterName = "istio-proxy"
+
+	// DiscoveryServerAddress discovery IP address:port
+	DiscoveryServerAddress = "istio-pilot:15003"
 )
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:             "/etc/istio/proxy",
-		BinaryPath:             "/usr/local/bin/envoy",
-		ServiceCluster:         "istio-proxy",
+		ConfigPath:             ConfigPathDir,
+		BinaryPath:             BinaryPathFilename,
+		ServiceCluster:         ServiceClusterName,
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryAddress:       "istio-pilot:15003",
+		DiscoveryAddress:       DiscoveryServerAddress,
 		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
@@ -156,6 +170,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
+		Concurrency:            0,
 	}
 }
 

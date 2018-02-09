@@ -105,11 +105,17 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 	}
 }
 
-// CopyCoreFiles copies files from a pod to the machine
-func CopyCoreFiles(pod, ns, source, dest string) {
-	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar
-	cmd := fmt.Sprintf("kubectl cp %s/%s:%s %s",
-		ns, pod, source, dest)
+// CopyPodFiles copies files from a pod to the machine
+func CopyPodFiles(container, pod, ns, source, dest string) {
+	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar -c container
+	var cmd string
+	if container == "" {
+		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s",
+			ns, pod, source, dest)
+	} else {
+		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s  -c %s",
+			ns, pod, source, dest, container)
+	}
 	output, _ := Shell(cmd)
 	log.Errorf("%s\n%s", cmd, output)
 }

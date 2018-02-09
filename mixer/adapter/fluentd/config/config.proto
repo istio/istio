@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Fluentd
+// $overview: Adapter that delivers logs to a fluentd daemon.
+// $location: https://istio.io/docs/reference/config/adapters/fluentd.html
+
+// The `fluentd` adapter is designed to deliver Istio log entries to a
+// listening [fluentd](https://www.fluentd.org) daemon.
 package adapter.fluentd.config;
 
 import "gogoproto/gogo.proto";

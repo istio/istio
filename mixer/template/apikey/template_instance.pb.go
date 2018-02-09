@@ -34,7 +34,24 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Template to check if an API call should proceed.
+// The `apikey` template represents a single API key, which is used for authorization checks.
+// The `apikey` template represents a single API key, used to authorize API calls.
+//
+// Sample config:
+//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: apikey
+// metadata:
+//   name: validate-apikey
+//   namespace: istio-system
+// spec:
+//   api: api.service | ""
+//   api_version: api.version | ""
+//   api_operation: api.operation | ""
+//   api_key: api.key | ""
+//   timestamp: request.time
+// ```
 type Type struct {
 }
 

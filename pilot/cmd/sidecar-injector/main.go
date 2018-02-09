@@ -21,8 +21,11 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -78,6 +81,13 @@ func init() {
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
+
+	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Sidecar Injector",
+		Section: "sidecar-injector CLI",
+		Manual:  "Istio Sidecar Injector",
+	}))
 }
 
 func main() {

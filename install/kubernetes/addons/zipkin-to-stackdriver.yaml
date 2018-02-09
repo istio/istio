@@ -36,6 +36,7 @@ metadata:
 spec:
   ports:
   - name: zipkin
+    namespace: istio-system
     port: 9411
   selector:
     app: zipkin-to-stackdriver

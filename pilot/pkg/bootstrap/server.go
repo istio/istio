@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -31,14 +32,15 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/crd/file"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
@@ -92,21 +94,24 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	KubeConfig        string
-	CFConfig          string
-	ControllerOptions kube.ControllerOptions
-	FileDir           string
+	ClusterRegistriesDir string
+	KubeConfig           string
+	CFConfig             string
+	ControllerOptions    kube.ControllerOptions
+	FileDir              string
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
 type ConsulArgs struct {
 	Config    string
 	ServerURL string
+	Interval  time.Duration
 }
 
 // EurekaArgs provides configuration for the Eureka service registry
 type EurekaArgs struct {
 	ServerURL string
+	Interval  time.Duration
 }
 
 // ServiceArgs provides the composite configuration for all service registries in the system.
@@ -166,6 +171,7 @@ type Server struct {
 	kubeClient        kubernetes.Interface
 	startFuncs        []startFunc
 	listeningAddr     net.Addr
+	clusterStore      *clusterregistry.ClusterStore
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -182,6 +188,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
+		return nil, err
+	}
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initKubeClient(&args); err != nil {
@@ -241,6 +250,16 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
+func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
+	if args.Config.ClusterRegistriesDir != "" {
+		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterRegistriesDir)
+		if s.clusterStore != nil {
+			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+		}
+	}
+	return err
+}
+
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
@@ -278,10 +297,26 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
 func (s *Server) initMixerSan(args *PilotArgs) error {
+	if s.mesh == nil {
+		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
+	}
 	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
 	}
 	return nil
+}
+
+func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
+	// If the cluster store is configured, get pilot's kubeconfig from there
+	if s.clusterStore != nil {
+		if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
+			kubeCfgFile = path.Join(args.Config.ClusterRegistriesDir, kubeCfgFile)
+		}
+	}
+	if kubeCfgFile == "" {
+		kubeCfgFile = args.Config.KubeConfig
+	}
+	return
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -299,7 +334,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if needToCreateClient {
-		_, client, kuberr := kube.CreateInterface(args.Config.KubeConfig)
+		var client kubernetes.Interface
+		var kuberr error
+
+		kubeCfgFile := s.getKubeCfgFile(args)
+		_, client, kuberr = kube.CreateInterface(kubeCfgFile)
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
@@ -334,7 +373,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return nil
 		})
 	} else {
-		configClient, err := crd.NewClient(args.Config.KubeConfig, configDescriptor,
+		kubeCfgFile := s.getKubeCfgFile(args)
+		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
 			args.Config.ControllerOptions.DomainSuffix)
 		if err != nil {
 			return multierror.Prefix(err, "failed to open a config client.")
@@ -356,6 +396,43 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	return nil
 }
 
+// createK8sServiceControllers creates all the k8s service controllers under this pilot
+func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+			ServiceDiscovery: kubectl,
+			ServiceAccounts:  kubectl,
+			Controller:       kubectl,
+		})
+
+	// Add clusters under the same pilot
+	if s.clusterStore != nil {
+		clusters := s.clusterStore.GetPilotClusters()
+		for _, cluster := range clusters {
+			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
+			kubeCfgFile := path.Join(args.Config.ClusterRegistriesDir, kubeconfig)
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
+			_, client, kuberr := kube.CreateInterface(kubeCfgFile)
+			if kuberr != nil {
+				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile)))
+			}
+
+			kubectl := kube.NewController(client, args.Config.ControllerOptions)
+			serviceControllers.AddRegistry(
+				aggregate.Registry{
+					Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+					ClusterName:      clusterregistry.GetClusterName(cluster),
+					ServiceDiscovery: kubectl,
+					ServiceAccounts:  kubectl,
+					Controller:       kubectl,
+				})
+		}
+	}
+	return
+}
+
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := aggregate.NewController()
@@ -363,7 +440,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	for _, r := range args.Service.Registries {
 		serviceRegistry := ServiceRegistry(r)
 		if _, exists := registered[serviceRegistry]; exists {
-			return multierror.Prefix(nil, r+" registry specified multiple times.")
+			log.Warnf("%s registry specified multiple times.", r)
+			continue
 		}
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
@@ -395,14 +473,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			serviceControllers.AddRegistry(registry1)
 			serviceControllers.AddRegistry(registry2)
 		case KubernetesRegistry:
-			kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(serviceRegistry),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
+			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
 				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
@@ -429,7 +502,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
-				args.Service.Consul.ServerURL, 2*time.Second)
+				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
@@ -445,9 +518,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name: serviceregistry.ServiceRegistry(r),
-					// TODO: Remove sync time hardcoding!
-					Controller:       eureka.NewController(eurekaClient, 2*time.Second),
+					Name:             serviceregistry.ServiceRegistry(r),
+					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})

@@ -16,10 +16,13 @@
 #
 ################################################################################
 
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "Generate certificate and private key for Istio CA"
+if [[ -z "${OUTPUT_DIR}" ]]; then
+  OUTPUT_DIR=$ROOT
+fi
+
+echo "Generate certificate and private key for Istio CA in ${OUTPUT_DIR}"
 unset GOOS && \
 unset GOARCH && \
 
@@ -29,21 +32,21 @@ time go build -o ${GOPATH}/bin/generate_cert ./cmd/generate_cert
 
 time ${GOPATH}/bin/generate_cert \
 --key-size=2048 \
---out-cert=${ROOT}/docker/istio_ca.crt \
---out-priv=${ROOT}/docker/istio_ca.key \
+--out-cert=${OUTPUT_DIR}/istio_ca.crt \
+--out-priv=${OUTPUT_DIR}/istio_ca.key \
 --organization="k8s.cluster.local" \
 --self-signed=true \
 --ca=true
 
-echo "Generate certificate and private key for node agent"
+echo "Generate certificate and private key for node agent in ${OUTPUT_DIR}"
 
 time ${GOPATH}/bin/generate_cert \
 --key-size=2048 \
---out-cert=${ROOT}/docker/node_agent.crt \
---out-priv=${ROOT}/docker/node_agent.key \
+--out-cert=${OUTPUT_DIR}/node_agent.crt \
+--out-priv=${OUTPUT_DIR}/node_agent.key \
 --organization="NodeAgent" \
 --host="nodeagent.google.com" \
---signer-cert=${ROOT}/docker/istio_ca.crt \
---signer-priv=${ROOT}/docker/istio_ca.key
+--signer-cert=${OUTPUT_DIR}/istio_ca.crt \
+--signer-priv=${OUTPUT_DIR}/istio_ca.key
 
 popd

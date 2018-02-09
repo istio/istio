@@ -17,6 +17,7 @@ package interpreter
 import (
 	"fmt"
 	"math"
+	"net"
 	"time"
 
 	"istio.io/istio/mixer/pkg/il"
@@ -108,6 +109,14 @@ func (r Result) AsInterface() interface{} {
 	case il.Void:
 		return nil
 	case il.Interface:
+		// TODO: currently byte[] can only be net.IP address type, so we can
+		// safely do this. Ideally we want to have a better fix.
+		if r.vi != nil {
+			switch r.vi.(type) {
+			case []byte:
+				return net.IP(r.vi.([]uint8))
+			}
+		}
 		return r.vi
 	default:
 		log.Warnf("interpreter.Result: Unknown type encountered. Returning nil. type: '%v'", r.t)
