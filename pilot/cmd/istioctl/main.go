@@ -25,8 +25,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"

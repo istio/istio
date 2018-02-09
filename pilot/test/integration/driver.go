@@ -30,8 +30,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"

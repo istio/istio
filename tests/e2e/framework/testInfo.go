@@ -30,8 +30,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
 

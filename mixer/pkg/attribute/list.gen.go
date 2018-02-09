@@ -180,5 +180,5 @@ var (
 		"request.api_key",
 		"check.error_code",
 		"check.error_message",
-    }
+	}
 )

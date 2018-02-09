@@ -28,8 +28,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
 
