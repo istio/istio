@@ -200,7 +200,7 @@ func (t *routing) verifyDecorator(operation string) error {
 
 	text := fmt.Sprintf("\"name\":\"%s\"", operation)
 	if strings.Count(response.body, text) != 10 {
-		return fmt.Errorf("operation %q not present in zipkin traces", operation)
+		return fmt.Errorf("could not find operation %q in zipkin traces", operation)
 	}
 
 	return nil
