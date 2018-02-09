@@ -37,17 +37,11 @@ func (t *routing) String() string {
 }
 
 func (t *routing) setup() error {
-	return nil
+	return t.applyConfig("destination-c.yaml.tmpl", nil)
 }
 
 // TODO: test negatives
 func (t *routing) run() error {
-	// FIXME: move elsewhere
-	if err := t.applyConfig("destination-c.yaml.tmpl", nil); err != nil {
-		log.Warnf("Could not apply destination rule: %v", err)
-		return err
-	}
-
 	cases := []struct {
 		description string
 		config      string
