@@ -257,7 +257,7 @@ func CheckPodsRunning(n string) (ready bool) {
 		for _, p := range pods {
 			if status := GetPodStatus(n, p); status != podRunning {
 				log.Infof("%s in namespace %s is not running: %s", p, n, status)
-				if desc, err := Shell("kubectl describe pods -n %s %s", n, p); err != nil {
+				if desc, err := ShellMuteOutput("kubectl describe pods -n %s %s", n, p); err != nil {
 					log.Infof("Pod description: %s", desc)
 				}
 				ready = false
