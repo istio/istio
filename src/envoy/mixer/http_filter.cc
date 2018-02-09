@@ -323,14 +323,6 @@ class ReportData : public HttpReportData {
   ReportData(const HeaderMap* headers, const RequestInfo::RequestInfo& info)
       : headers_(headers), info_(info) {}
 
-  bool GetDestinationIpPort(std::string* str_ip, int* port) const override {
-    if (info_.upstreamHost() && info_.upstreamHost()->address()) {
-      return Utils::GetIpPort(info_.upstreamHost()->address()->ip(), str_ip,
-                              port);
-    }
-    return false;
-  }
-
   std::map<std::string, std::string> GetResponseHeaders() const override {
     if (headers_) {
       return Utils::ExtractHeaders(*headers_, ResponseHeaderExclusives);
