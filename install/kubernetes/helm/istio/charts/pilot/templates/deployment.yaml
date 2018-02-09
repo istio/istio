@@ -51,7 +51,7 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
           - name: config-volume
-            mountPath: /etc//config
+            mountPath: /etc/istio/config
         - name: {{ template "pilot.name" . }}-proxy
           image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
