@@ -11,20 +11,20 @@
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy",
-		"lastStableSHA": "d90831cee93346204dbcc7e8dc27ec84e6b85bc1"
+		"lastStableSHA": "aa674b48a0246be7b43e84efbae0c848b0d7dbb8"
 	},
 	{
 		"name": "/envoy-debug",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy_debug",
-		"lastStableSHA": "d90831cee93346204dbcc7e8dc27ec84e6b85bc1"
+		"lastStableSHA": "aa674b48a0246be7b43e84efbae0c848b0d7dbb8"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "d90831cee93346204dbcc7e8dc27ec84e6b85bc1"
+		"lastStableSHA": "aa674b48a0246be7b43e84efbae0c848b0d7dbb8"
 	}
 ]
