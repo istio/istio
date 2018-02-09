@@ -48,9 +48,9 @@
 BASELINE_FILENAME="bench.baseline"
 
 # Percent tolerance for run time per op
-# 50% is an unreasonable tolerance, but a good one start with, especially to not cause too many false positives initially.
+# 20% is an unreasonable tolerance, but a good one start with, especially to not cause too many false positives initially.
 # Once we establish a time-dilation calculation model, we can tighten the tolerance.
-TOLERANCE_PERCENT_TIME_PER_OP=50
+TOLERANCE_PERCENT_TIME_PER_OP=20
 
 # Percent tolerance for allocated bytes per op
 # There is generally some variance in this number, presumably because of upfront costs or timings.
@@ -138,6 +138,7 @@ function compareMetric() {
 function compareBenchResults() {
     local BASELINE="${1}"
     local RESULTS="${2}"
+    local DILATION_FACTOR="${3}"
 
     printf "${BASELINE}" | while read -r BASELINE_ENTRY; do
         local BENCH_NAME=$(getColumn "${BASELINE_ENTRY}" "0")
@@ -158,7 +159,14 @@ function compareBenchResults() {
             local RESULT_BYTES_PER_OP=$(getColumn "${RESULT_ENTRY}" "4")
             local RESULT_ALLOCS_PER_OP=$(getColumn "${RESULT_ENTRY}" "6")
 
-            local TIME_PER_OP_CMP=$(compareMetric "${BASELINE_TIME_PER_OP}" "${RESULT_TIME_PER_OP}" "${TOLERANCE_PERCENT_TIME_PER_OP}")
+            # Use time dilation to calculate a dilated time per op.
+            DILATED_BASELINE_TIME_PER_OP="${BASELINE_TIME_PER_OP}"
+            if [ "${BASELINE_TIME_PER_OP}" != "-" ]; then
+                DILATED_BASELINE_TIME_PER_OP=$(echo - | awk "{print (${DILATION_FACTOR} * ${BASELINE_TIME_PER_OP})}")
+            fi
+
+            #local TIME_PER_OP_CMP=$(compareMetric "${BASELINE_TIME_PER_OP}" "${RESULT_TIME_PER_OP}" "${TOLERANCE_PERCENT_TIME_PER_OP}")
+            local TIME_PER_OP_CMP=$(compareMetric "${DILATED_BASELINE_TIME_PER_OP}" "${RESULT_TIME_PER_OP}" "${TOLERANCE_PERCENT_TIME_PER_OP}")
             local BYTES_PER_OP_CMP=$(compareMetric "${BASELINE_BYTES_PER_OP}" "${RESULT_BYTES_PER_OP}" "${TOLERANCE_PERCENT_BYTES_PER_OP}")
             local ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
 
@@ -171,7 +179,7 @@ function compareBenchResults() {
                 echo "Details:"
 
                 if [ "${TIME_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
+                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}  (dilated: ${DILATED_BASELINE_TIME_PER_OP})  \t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]\t[dilf: ${DILATION_FACTOR}]"
                 fi
 
                 if [ "${BYTES_PER_OP_CMP}" != "0" ]; then
@@ -198,9 +206,43 @@ function cleanupBenchResult() {
     printf "%s" "${OUTPUT}" | sed -e "/^$/d"
 }
 
+# Run the baseline test and return a time/per/op for the main test.
+function runBaselineTest() {
+    pushd ${ROOT}/tests/perf/baseline > /dev/null 2>&1
+
+    local BENCH_RESULT=$(go test -bench=. -benchtime=10s -benchmem -run=^$)
+    local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
+    popd > /dev/null 2>&1
+
+    local RESULT_ENTRY=$(findEntry "${BENCH_RESULT}", "BenchmarkBaseline/B")
+
+    local TIME_PER_OP=$(getColumn "${RESULT_ENTRY}" "2")
+
+    echo "${TIME_PER_OP}"
+}
+
+function calculateDilationFactor() {
+    local BASELINE_TIME_PER_OP="${1}"
+    local CURRENT_TIME_PER_OP="${2}"
+
+    local DILATION_FACTOR=$(echo - | awk "{print ${CURRENT_TIME_PER_OP} / ${BASELINE_TIME_PER_OP}}")
+
+    echo "${DILATION_FACTOR}"
+}
+
+# TODO: Obtain time dilation from individual baseline files. They are likely to be tied to the baseline
+# content.
+BASELINE_OP_DURATION="1662467"
+
 # main entry point.
 function run() {
     local ERR="0"
+
+    local CURRENT_BASELINE_TIME_PER_OP=$(runBaselineTest)
+    local DILATION_FACTOR=$(calculateDilationFactor "${BASELINE_OP_DURATION}" "${CURRENT_BASELINE_TIME_PER_OP}")
+    echo "Current baseline benchmark runtime is ${CURRENT_BASELINE_TIME_PER_OP}"
+    echo "Recorded baseline benchmark value is ${BASELINE_OP_DURATION}"
+    echo "Dilation factor is: ${DILATION_FACTOR}"
 
     BASELINE_FILES=$(findBaselineFiles)
     echo "Found the following benchmark baseline files:"
@@ -226,7 +268,7 @@ function run() {
         printf "%s" "${BENCH_RESULT}"
         printf "\n\n"
 
-        local CMP_RESULT=$(compareBenchResults "${BASELINE}" "${BENCH_RESULT}")
+        local CMP_RESULT=$(compareBenchResults "${BASELINE}" "${BENCH_RESULT}" "${DILATION_FACTOR}")
 
         if [[ -n "${CMP_RESULT// }" ]]; then
             printf "%s" "${CMP_RESULT}"
@@ -285,57 +327,80 @@ function test_compareBenchResult() {
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[1]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       - ns/op	           0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[2]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[3]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[4]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       - B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       25 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[5]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[6]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
     local SUCCESS_CASES[7]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8            10000000           136 ns/op           0 B/op          0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32           10000000           136 ns/op           0 B/op          0 allocs/op
-")`
+" \
+"1")`
 
 
-    local SUCCESS_CASES[7]=`(compareBenchResults \
+    local SUCCESS_CASES[8]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
+
+    local SUCCESS_CASES[9]=`(compareBenchResults \
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
+" \
+"BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       272 ns/op	       0 B/op	       0 allocs/op
+" \
+"2")`
+
+    local SUCCESS_CASES[10]=`(compareBenchResults \
+"BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
+" \
+"BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       298 ns/op	       0 B/op	       0 allocs/op
+" \
+"2")`
 
 
     for i in "${SUCCESS_CASES[@]}"; do
@@ -349,43 +414,50 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       100 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
         local FAILURE_CASES[1]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       181 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
         local FAILURE_CASES[2]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
         local FAILURE_CASES[3]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+" \
+"1")`
 
         local FAILURE_CASES[4]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+" \
+"1")`
 
         local FAILURE_CASES[5]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
-")`
+" \
+"1")`
 
-        local FAILURE_CASES[5]=`(compareBenchResults \
+        local FAILURE_CASES[6]=`(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/some-other-8       	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+" \
+"1")`
 
     for i in "${FAILURE_CASES[@]}"; do
         if [[ -z "${i// }" ]]; then
