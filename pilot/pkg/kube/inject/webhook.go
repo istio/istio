@@ -74,6 +74,9 @@ type Webhook struct {
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
 
+	healthCheckInterval time.Duration
+	healthCheckFile     string
+
 	server     *http.Server
 	meshFile   string
 	configFile string
@@ -101,13 +104,41 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	return &c, meshConfig, nil
 }
 
+// WebhookParameters configures parameters for the sidecar injection
+// webhook.
+type WebhookParameters struct {
+	// ConfigFile is the path to the sidecar injection configuration file.
+	ConfigFile string
+
+	// MeshFile is the path to the mesh configuration file.
+	MeshFile string
+
+	// CertFile is the path to the x509 certificate for https.
+	CertFile string
+
+	// KeyFile is the path to the x509 private key matching `CertFile`.
+	KeyFile string
+
+	// Port is the webhook port, e.g. typically 443 for https.
+	Port int
+
+	// HealthCheckInterval configures how frequently the health check
+	// file is updated. Value of zero disables the health check
+	// update.
+	HealthCheckInterval time.Duration
+
+	// HealthCheckFile specifies the path to the health check file
+	// that is periodically updated.
+	HealthCheckFile string
+}
+
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
-func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webhook, error) {
-	sidecarConfig, meshConfig, err := loadConfig(configFile, meshFile)
+func NewWebhook(p WebhookParameters) (*Webhook, error) {
+	sidecarConfig, meshConfig, err := loadConfig(p.ConfigFile, p.MeshFile)
 	if err != nil {
 		return nil, err
 	}
-	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +149,7 @@ func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webh
 	}
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{configFile, meshFile} {
+	for _, file := range []string{p.ConfigFile, p.MeshFile} {
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -127,16 +158,18 @@ func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webh
 
 	wh := &Webhook{
 		server: &http.Server{
-			Addr:      fmt.Sprintf(":%v", port),
+			Addr:      fmt.Sprintf(":%v", p.Port),
 			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
 			// mtls disabled because apiserver webhook cert usage is still TBD.
 		},
 		sidecarConfig:          sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
-		configFile:             configFile,
-		meshFile:               meshFile,
+		configFile:             p.ConfigFile,
+		meshFile:               p.MeshFile,
 		watcher:                watcher,
+		healthCheckInterval:    p.HealthCheckInterval,
+		healthCheckFile:        p.HealthCheckFile,
 	}
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
@@ -155,7 +188,14 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	defer wh.watcher.Close() // nolint: errcheck
 	defer wh.server.Close()  // nolint: errcheck
 
+	var healthC <-chan time.Time
+	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
+		t := time.NewTicker(wh.healthCheckInterval)
+		healthC = t.C
+		defer t.Stop()
+	}
 	var timerC <-chan time.Time
+
 	for {
 		select {
 		case <-timerC:
@@ -179,6 +219,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 		case err := <-wh.watcher.Error:
 			log.Errorf("Watcher error: %v", err)
+		case <-healthC:
+			content := []byte(`ok`)
+			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
+				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
+			}
 		case <-stop:
 			return
 		}
