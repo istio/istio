@@ -39,7 +39,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: prometheus
+          name: {{ template "prometheus.fullname" . }}
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
