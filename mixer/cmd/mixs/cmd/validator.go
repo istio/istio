@@ -22,6 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/gengo/namer"
+	"k8s.io/gengo/types"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -38,8 +40,9 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	tmplRepo := template.NewRepository(info)
 	kinds := runtime.KindMap(config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate), info)
 	vc.ResourceNames = make([]string, 0, len(kinds))
+	namer := namer.NewPrivatePluralNamer(map[string]string{})
 	for name := range kinds {
-		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))
+		vc.ResourceNames = append(vc.ResourceNames, namer.Name(&types.Type{Name: types.Name{Name: name}}))
 	}
 	vc.Validator = store.NewValidator(nil, kinds)
 	validatorCmd := &cobra.Command{

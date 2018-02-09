@@ -20,6 +20,8 @@ import (
 	gotemplate "text/template"
 
 	"github.com/spf13/cobra"
+	"k8s.io/gengo/namer"
+	"k8s.io/gengo/types"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -104,21 +106,9 @@ type crdVar struct {
 	Version    string
 }
 
-// pluralize gives a plural the way k8s like it.
-// https://github.com/kubernetes/gengo/blob/master/namer/plural_namer.go
-func pluralize(singular string) string {
-	switch string(singular[len(singular)-1]) {
-	case "s", "x":
-		return singular + "es"
-	case "y":
-		return singular[:len(singular)-1] + "ies"
-	default:
-		return singular + "s"
-	}
-}
-
 func newCrdVar(shrtName, implName, label string) *crdVar {
-	plural := pluralize(shrtName)
+	namer := namer.NewPrivatePluralNamer(map[string]string{})
+	plural := namer.Name(&types.Type{Name: types.Name{Name: shrtName}})
 	return &crdVar{
 		ShrtName:   shrtName,
 		ImplName:   implName,

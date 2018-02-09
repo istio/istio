@@ -1375,6 +1375,15 @@
   version = "v0.0.3"
 
 [[projects]]
+  branch = "master"
+  name = "k8s.io/gengo"
+  packages = [
+    "namer",
+    "types"
+  ]
+  revision = "8394c995ab8fbe52216f38d0e1a37de36d820528"
+
+[[projects]]
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -1431,6 +1440,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "91ee849d35c467869abcb70ec42d3741294fa59e3fcf8220387b5d8b71c196a8"
+  inputs-digest = "84d09b05670f2e3972c636067fa940d1d86c0f518a877054cf9ea93974403409"
   solver-name = "gps-cdcl"
   solver-version = 1
