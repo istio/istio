@@ -209,7 +209,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)  ServiceInstances belong to the Node.
-func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,

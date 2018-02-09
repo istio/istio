@@ -794,8 +794,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-					instance.Service.Hostname)
+				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
 			}
 
 			host := &VirtualHost{
@@ -954,7 +953,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
-	if mesh.MixerAddress != "" {
+	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 		oc := buildMixerConfig(sidecar, serviceName, dest, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc

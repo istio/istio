@@ -186,7 +186,7 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *routin
 	// inject Mixer calls per route.
 	// every route here belongs to the same destination.service, ie serviceName
 	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
-	if mesh.MixerAddress != "" {
+	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 		oc := buildMixerConfig(sidecar, serviceName, service, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
