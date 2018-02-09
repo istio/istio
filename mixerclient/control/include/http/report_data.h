@@ -29,9 +29,6 @@ class ReportData {
  public:
   virtual ~ReportData() {}
 
-  // Get upstream tcp connection IP and port. IP is returned in format of bytes.
-  virtual bool GetDestinationIpPort(std::string* ip, int* port) const = 0;
-
   // Get response HTTP headers.
   virtual std::map<std::string, std::string> GetResponseHeaders() const = 0;
 

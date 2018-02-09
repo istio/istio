@@ -130,13 +130,6 @@ void AttributesBuilder::ForwardAttributes(const Attributes &forward_attributes,
 void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
   ::istio::mixer_client::AttributesBuilder builder(&request_->attributes);
 
-  std::string dest_ip;
-  int dest_port;
-  if (report_data->GetDestinationIpPort(&dest_ip, &dest_port)) {
-    builder.AddBytes(AttributeName::kDestinationIp, dest_ip);
-    builder.AddInt64(AttributeName::kDestinationPort, dest_port);
-  }
-
   std::map<std::string, std::string> headers =
       report_data->GetResponseHeaders();
   builder.AddStringMap(AttributeName::kResponseHeaders, headers);
