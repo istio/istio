@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Flexvolume driver that is invoked by kubelet when a pod installs a flexvolume drive
+// Package driver is invoked by kubelet when a pod installs a flexvolume drive
 // of type nodeagent/uds
 // This driver communicates to the nodeagent using either
 //   * (Default) writing credentials of workloads to a file or
@@ -48,7 +48,7 @@ type Response struct {
 	VolumeName string `json:"volumename,omitempty"`
 }
 
-// Response to the 'init' command.
+// InitResponse is the response to the 'init' command.
 // We want to explicitly set and send Attach: false
 // that is why it is separated from the Response struct.
 type InitResponse struct {
@@ -86,7 +86,7 @@ type ConfigurationOptions struct {
 	// This is relative to NodeAgentManagementHomeDir
 	// Default: mgmt.sock
 	// For example: /mgmt/mgmt.sock implies /var/run/nodeagement/mgmt/mgmt.sock
-	NodeAgentManagementApi string `json:"nodeagent_management_api,omitempty"`
+	NodeAgentManagementAPI string `json:"nodeagent_management_api,omitempty"`
 	// Log level for loggint to node syslog. Options: INFO|WARNING
 	// Default: WARNING
 	LogLevel string `json:"log_level,omitempty"`
@@ -95,20 +95,20 @@ type ConfigurationOptions struct {
 // FlexVolumeInputs is the structure used by kubelet to notify driver
 // volume mounts/unmounts.
 type FlexVolumeInputs struct {
-	Uid            string `json:"kubernetes.io/pod.uid"`
+	UID            string `json:"kubernetes.io/pod.uid"`
 	Name           string `json:"kubernetes.io/pod.name"`
 	Namespace      string `json:"kubernetes.io/pod.namespace"`
 	ServiceAccount string `json:"kubernetes.io/serviceAccount.name"`
 }
 
 const (
-	VER_K8S        string = "1.8"
-	CONFIG_FILE    string = "/etc/flexvolume/nodeagent.json"
-	NODEAGENT_HOME string = "/var/run/nodeagent"
-	MOUNT_DIR      string = "/mount"
-	CREDS_DIR      string = "/creds"
-	MGMT_SOCK      string = "/mgmt.sock"
-	LOG_LEVEL_WARN string = "WARNING"
+	versionK8s         string = "1.8"
+	configFileName     string = "/etc/flexvolume/nodeagent.json"
+	nodeAgentHome      string = "/var/run/nodeagent"
+	mountDir           string = "/mount"
+	credentialDirHome  string = "/creds"
+	managementSockHome string = "/mgmt.sock"
+	logLevelWarn       string = "WARNING"
 )
 
 var (
@@ -117,21 +117,21 @@ var (
 	// logWriter is used to notify syslog of the functionality of the driver.
 	logWriter *syslog.Writer
 	// defaultConfiguration is the default configuration for the driver.
-	defaultConfiguration ConfigurationOptions = ConfigurationOptions{
-		K8sVersion:                  VER_K8S,
-		NodeAgentManagementHomeDir:  NODEAGENT_HOME,
-		NodeAgentWorkloadHomeDir:    MOUNT_DIR,
-		NodeAgentCredentialsHomeDir: CREDS_DIR,
+	defaultConfiguration = ConfigurationOptions{
+		K8sVersion:                  versionK8s,
+		NodeAgentManagementHomeDir:  nodeAgentHome,
+		NodeAgentWorkloadHomeDir:    mountDir,
+		NodeAgentCredentialsHomeDir: credentialDirHome,
 		UseGrpc:                     false,
-		NodeAgentManagementApi:      MGMT_SOCK,
-		LogLevel:                    LOG_LEVEL_WARN,
+		NodeAgentManagementAPI:      managementSockHome,
+		LogLevel:                    logLevelWarn,
 	}
-	configFile string = CONFIG_FILE
+	configFile = configFileName
 	// setup as var's so that we can test.
 	getExecCmd = exec.Command
 )
 
-// initCommand handles the init command for the driver.
+// InitCommand handles the init command for the driver.
 func InitCommand() error {
 	if configuration.K8sVersion == "1.8" {
 		resp, err := json.Marshal(&InitResponse{Status: "Success", Message: "Init ok.", Attach: false})
@@ -155,12 +155,12 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 
 	wlInfo := pb.WorkloadInfo{
 		Attrs: &pb.WorkloadInfo_WorkloadAttributes{
-			Uid:            ninputs.Uid,
+			Uid:            ninputs.UID,
 			Workload:       ninputs.Name,
 			Namespace:      ninputs.Namespace,
 			Serviceaccount: ninputs.ServiceAccount,
 		},
-		Workloadpath: ninputs.Uid,
+		Workloadpath: ninputs.UID,
 	}
 	return &wlInfo, true
 }
@@ -181,7 +181,7 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 	cmdMount := getExecCmd("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", destinationDir)
 	err = cmdMount.Run()
 	if err != nil {
-		os.RemoveAll(newDir)
+		os.RemoveAll(newDir) //nolint: errcheck
 		return err
 	}
 
@@ -189,8 +189,8 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 	err = os.MkdirAll(newDestinationDir, 0777)
 	if err != nil {
 		cmd := getExecCmd("/bin/unmount", destinationDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		cmd.Run()            //nolint: errcheck
+		os.RemoveAll(newDir) //nolint: errcheck
 		return err
 	}
 
@@ -199,8 +199,8 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 	err = cmd.Run()
 	if err != nil {
 		cmd = getExecCmd("/bin/umount", destinationDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		cmd.Run()            //nolint: errcheck
+		os.RemoveAll(newDir) //nolint: errcheck
 		return err
 	}
 
@@ -219,6 +219,8 @@ func doUnmount(dir string) error {
 }
 
 // Rollback the operations done by doMount
+// rollback code is best effort attempts to clean up.
+// nolint: errcheck
 func handleErrMount(destinationDir string, ninputs *pb.WorkloadInfo) {
 	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
 	doUnmount(newDestinationDir)
@@ -259,7 +261,7 @@ func Mount(dir, opts string) error {
 	return genericSuccess("mount", inp, "Mount ok.")
 }
 
-// unmount handles the unmount command to the driver.
+// Unmount handles the unmount command to the driver.
 func Unmount(dir string) error {
 	var emsgs []string
 	// Stop the listener.
@@ -290,9 +292,15 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	doUnmount(filepath.Join(dir, "nodeagent"))
+	if err := doUnmount(filepath.Join(dir, "nodeagent")); err != nil {
+		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", filepath.Join(dir, "nodeagent")))
+	}
+
 	// unmount the tmpfs
-	doUnmount(dir)
+	if err := doUnmount(dir); err != nil {
+		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", dir))
+	}
+
 	// delete the directory that was created.
 	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, uid)
 	err := os.Remove(delDir)
@@ -354,18 +362,18 @@ func logToSys(caller, inp, opts string) {
 	}
 
 	opt := strings.Join([]string{caller, inp, opts}, "|")
-	if configuration.LogLevel == LOG_LEVEL_WARN {
-		logWriter.Warning(opt)
+	if configuration.LogLevel == logLevelWarn {
+		logWriter.Warning(opt) //nolint: errcheck
 	} else {
-		logWriter.Info(opt)
+		logWriter.Info(opt) //nolint: errcheck
 	}
 }
 
 // sendWorkloadAdded is used to notify node agent of a addition of a workload with the flex-volume volume mounted.
 func sendWorkloadAdded(ninputs *pb.WorkloadInfo) error {
-	client := nagent.ClientUds(configuration.NodeAgentManagementApi)
+	client := nagent.ClientUds(configuration.NodeAgentManagementAPI)
 	if client == nil {
-		return errors.New("Failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client")
 	}
 
 	_, err := client.WorkloadAdded(ninputs)
@@ -380,9 +388,9 @@ func sendWorkloadAdded(ninputs *pb.WorkloadInfo) error {
 
 // sendWorkloadDeleted is used to notify node agent of deletion of a workload with the flex-volume volume mounted.
 func sendWorkloadDeleted(ninputs *pb.WorkloadInfo) error {
-	client := nagent.ClientUds(configuration.NodeAgentManagementApi)
+	client := nagent.ClientUds(configuration.NodeAgentManagementAPI)
 	if client == nil {
-		return errors.New("Failed to create Nodeagent client.")
+		return errors.New("failed to create Nodeagent client")
 	}
 
 	_, err := client.WorkloadDeleted(ninputs)
@@ -435,10 +443,10 @@ func removeCredentialFile(ninputs *pb.WorkloadInfo) error {
 func mkAbsolutePaths(config *ConfigurationOptions) {
 	config.NodeAgentWorkloadHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentWorkloadHomeDir)
 	config.NodeAgentCredentialsHomeDir = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentCredentialsHomeDir)
-	config.NodeAgentManagementApi = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentManagementApi)
+	config.NodeAgentManagementAPI = filepath.Join(config.NodeAgentManagementHomeDir, config.NodeAgentManagementAPI)
 }
 
-// If available read the configuration file and initialize the configuration options
+// InitConfiguration reads the configuration file (if available) and initialize the configuration options
 // of the driver.
 func InitConfiguration() {
 	configuration = &defaultConfiguration
@@ -451,40 +459,40 @@ func InitConfiguration() {
 
 	bytes, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		logWriter.Warning(fmt.Sprintf("Not able to read %s: %s\n", CONFIG_FILE, err.Error()))
+		logWriter.Warning(fmt.Sprintf("Not able to read %s: %s\n", configFileName, err.Error())) //nolint: errcheck
 		return
 	}
 
 	var config ConfigurationOptions
 	err = json.Unmarshal(bytes, &config)
 	if err != nil {
-		logWriter.Warning(fmt.Sprintf("Not able to parse %s: %s\n", CONFIG_FILE, err.Error()))
+		logWriter.Warning(fmt.Sprintf("Not able to parse %s: %s\n", configFileName, err.Error())) //nolint: errcheck
 		return
 	}
 
 	//fill in if missing configurations
 	if len(config.NodeAgentManagementHomeDir) == 0 {
-		config.NodeAgentManagementHomeDir = NODEAGENT_HOME
+		config.NodeAgentManagementHomeDir = nodeAgentHome
 	}
 
 	if len(config.NodeAgentWorkloadHomeDir) == 0 {
-		config.NodeAgentWorkloadHomeDir = MOUNT_DIR
+		config.NodeAgentWorkloadHomeDir = mountDir
 	}
 
 	if len(config.NodeAgentCredentialsHomeDir) == 0 {
-		config.NodeAgentCredentialsHomeDir = CREDS_DIR
+		config.NodeAgentCredentialsHomeDir = credentialDirHome
 	}
 
-	if len(config.NodeAgentManagementApi) == 0 {
-		config.NodeAgentManagementApi = MGMT_SOCK
+	if len(config.NodeAgentManagementAPI) == 0 {
+		config.NodeAgentManagementAPI = managementSockHome
 	}
 
 	if len(config.LogLevel) == 0 {
-		config.LogLevel = LOG_LEVEL_WARN
+		config.LogLevel = logLevelWarn
 	}
 
 	if len(config.K8sVersion) == 0 {
-		config.K8sVersion = VER_K8S
+		config.K8sVersion = versionK8s
 	}
 
 	configuration = &config
@@ -493,13 +501,15 @@ func InitConfiguration() {
 
 func logLevel(level string) syslog.Priority {
 	switch level {
-	case LOG_LEVEL_WARN:
+	case logLevelWarn:
 		return syslog.LOG_WARNING
 	}
 	return syslog.LOG_INFO
 }
 
+// InitLog is used to created the syslog with a tag for the driver.
 func InitLog(tag string) (*syslog.Writer, error) {
-	logWriter, err := syslog.New(logLevel(configuration.LogLevel)|syslog.LOG_DAEMON, tag)
+	var err error
+	logWriter, err = syslog.New(logLevel(configuration.LogLevel)|syslog.LOG_DAEMON, tag)
 	return logWriter, err
 }

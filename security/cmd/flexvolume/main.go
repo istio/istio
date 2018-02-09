@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	VER       string = "0.1"
-	SYSLOGTAG string = "FlexVolNodeAgent"
+	version   string = "0.1"
+	syslogTag string = "FlexVolNodeAgent"
 )
 
 var (
@@ -41,11 +41,11 @@ var (
 		Long:  "Flex volume init command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("init takes no arguments.")
+				return fmt.Errorf("init takes no arguments")
 			}
 
 			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.InitCommand()
+			driver.InitCommand() //nolint: errcheck
 			return nil
 		},
 	}
@@ -56,11 +56,11 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
-				return fmt.Errorf("mount takes 2 args.")
+				return fmt.Errorf("mount takes 2 args")
 			}
 
 			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.Mount(args[0], args[1])
+			driver.Mount(args[0], args[1]) //nolint: errcheck
 			return nil
 		},
 	}
@@ -71,11 +71,11 @@ var (
 		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return fmt.Errorf("mount takes 1 args.")
+				return fmt.Errorf("mount takes 1 args")
 			}
 
 			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.Unmount(args[0])
+			driver.Unmount(args[0]) //nolint: errcheck
 			return nil
 		},
 	}
@@ -85,7 +85,7 @@ var (
 		Short: "Print version",
 		Long:  "Flex volume driver version",
 		RunE: func(c *cobra.Command, args []string) error {
-			fmt.Printf("Version is %s\n", VER)
+			fmt.Printf("Version is %s\n", version)
 			return nil
 		},
 	}
@@ -101,13 +101,13 @@ func init() {
 func main() {
 	driver.InitConfiguration()
 
-	logWriter, err := driver.InitLog(SYSLOGTAG)
+	logWriter, err := driver.InitLog(syslogTag)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer logWriter.Close()
+	defer logWriter.Close() //nolint: errcheck
 
 	if err = rootCmd.Execute(); err != nil {
-		driver.GenericUnsupported("not supported", "", err.Error())
+		driver.GenericUnsupported("not supported", "", err.Error()) //nolint: errcheck
 	}
 }

@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	pb "istio.io/istio/security/proto"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	pb "istio.io/istio/security/proto"
 )
 
 var (
@@ -72,7 +73,6 @@ func TestHelperExecProcess(t *testing.T) {
 	}
 	// We now have the original args.
 	if len(args) == 0 {
-		fmt.Printf("no commands")
 		os.Exit(2)
 	}
 
@@ -81,13 +81,11 @@ func TestHelperExecProcess(t *testing.T) {
 	case "/bin/mount":
 		if args[0] == "-t" {
 			if len(args) < 6 {
-				fmt.Printf("Not sufficient args %d", len(args))
 				os.Exit(2)
 			}
 
-			tmpmount := os.Getenv("MOUNT_DIR")
+			tmpmount := os.Getenv("mountDir")
 			if len(tmpmount) > 0 && tmpmount != args[5] {
-				fmt.Println("expected %s != got %s", tmpmount, args[5])
 				os.Exit(2)
 			}
 			os.Exit(0)
@@ -95,23 +93,20 @@ func TestHelperExecProcess(t *testing.T) {
 		//bind mount
 		if args[0] == "--bind" {
 			if len(args) < 3 {
-				fmt.Printf("Not sufficient args to bind mount %d", len(args))
+				os.Exit(2)
 			}
 
 			fromBindDir := os.Getenv("BIND_FROM_DIR")
 			if len(fromBindDir) > 0 && fromBindDir != args[1] {
-				fmt.Println("expected %s != got %s", fromBindDir, args[1])
 				os.Exit(2)
 			}
 			toBindDir := os.Getenv("BIND_TO_DIR")
 			if len(toBindDir) > 0 && toBindDir != args[2] {
-				fmt.Println("expected %s != got %s", toBindDir, args[2])
 				os.Exit(2)
 			}
 		}
 	case "/bin/unmount":
 		if len(args) < 1 {
-			fmt.Printf("unmount without a dir")
 			os.Exit(2)
 		}
 	}
@@ -157,7 +152,7 @@ func cmpStdOutput(expected, got interface{}) error {
 	output := readStdOut()
 	err := json.Unmarshal([]byte(output), got)
 	if err != nil {
-		return fmt.Errorf("For output %s error (%s)", output, err.Error())
+		return fmt.Errorf("for output %s error (%s)", output, err.Error())
 	}
 
 	if !reflect.DeepEqual(expected, got) {
@@ -225,7 +220,7 @@ func TestMountBasic(t *testing.T) {
 	var err error
 	var mountInputs string
 	opts := FlexVolumeInputs{
-		Uid:            "1111-1111-1111",
+		UID:            "1111-1111-1111",
 		Name:           "foo",
 		Namespace:      "default",
 		ServiceAccount: "sa",
@@ -238,10 +233,10 @@ func TestMountBasic(t *testing.T) {
 
 	destinationDir := filepath.Join(testDir, "testMounts", "dir")
 	expectedBindToDir := filepath.Join(destinationDir, "nodeagent")
-	expectedBindFromDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.Uid)
+	expectedBindFromDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.UID)
 
 	// Setup the environment variables.
-	envMountDir := strings.Join([]string{"MOUNT_DIR=", destinationDir}, "")
+	envMountDir := strings.Join([]string{"mountDir=", destinationDir}, "")
 	envBindFromDir := strings.Join([]string{"BIND_FROM_DIR=", expectedBindFromDir}, "")
 	envBindToDir := strings.Join([]string{"BIND_TO_DIR=", expectedBindToDir}, "")
 	envExec = []string{envMountDir, envBindFromDir, envBindToDir}
@@ -261,25 +256,25 @@ func TestMountBasic(t *testing.T) {
 	}
 
 	// Check if credential file created & has the correct content.
-	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, opts.Uid+".json")
+	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, opts.UID+".json")
 	if _, err := os.Stat(credsFile); err != nil {
 		t.Errorf("Credentail file %s not created", credsFile)
 	}
 
-	var bytes []byte
-	bytes, err = ioutil.ReadFile(credsFile)
+	var credBytes []byte
+	credBytes, err = ioutil.ReadFile(credsFile)
 	if err != nil {
 		t.Errorf("Failed to read credentials file %s", credsFile)
 	}
 
 	var wlInfo pb.WorkloadInfo
-	err = json.Unmarshal(bytes, &wlInfo.Attrs)
+	err = json.Unmarshal(credBytes, &wlInfo.Attrs)
 	if err != nil {
 		t.Errorf("Failed to read credentials from %s into attributes", credsFile)
 	}
 
 	gotAttrs := FlexVolumeInputs{
-		Uid:            wlInfo.Attrs.Uid,
+		UID:            wlInfo.Attrs.Uid,
 		Name:           wlInfo.Attrs.Workload,
 		Namespace:      wlInfo.Attrs.Namespace,
 		ServiceAccount: wlInfo.Attrs.Serviceaccount,
@@ -300,7 +295,7 @@ func TestMountCmdMountFailure(t *testing.T) {
 	var err error
 	var mountInputs string
 	opts := FlexVolumeInputs{
-		Uid:            "1111-1111-1111",
+		UID:            "1111-1111-1111",
 		Name:           "foo",
 		Namespace:      "default",
 		ServiceAccount: "sa",
@@ -320,7 +315,7 @@ func TestMountCmdMountFailure(t *testing.T) {
 	}
 
 	// Check this path is not there:
-	checkPath := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.Uid)
+	checkPath := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.UID)
 	if _, err := os.Stat(checkPath); err == nil {
 		t.Errorf("Mount failed but path %s still there", checkPath)
 	}
@@ -336,7 +331,7 @@ func TestMountCmdCredFailure(t *testing.T) {
 	var err error
 	var mountInputs string
 	opts := FlexVolumeInputs{
-		Uid:            "1111-1111-1111",
+		UID:            "1111-1111-1111",
 		Name:           "foo",
 		Namespace:      "default",
 		ServiceAccount: "sa",
@@ -360,7 +355,7 @@ func TestMountCmdCredFailure(t *testing.T) {
 	}
 
 	// check all the removals
-	checkWorkloadDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.Uid)
+	checkWorkloadDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.UID)
 	checkPaths := []string{destDir, checkWorkloadDir}
 	for _, path := range checkPaths {
 		if _, err := os.Stat(path); err == nil {
@@ -368,7 +363,7 @@ func TestMountCmdCredFailure(t *testing.T) {
 		}
 	}
 
-	errPath := fmt.Sprintf(filepath.Join(testDir, "fail", opts.Uid+".json"))
+	errPath := fmt.Sprintf(filepath.Join(testDir, "fail", opts.UID+".json"))
 	var gotResp Response
 	expResp := getFailure("", "", fmt.Sprintf("Failure to create credentials: open %s: no such file or directory", errPath))
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
@@ -377,11 +372,11 @@ func TestMountCmdCredFailure(t *testing.T) {
 }
 
 func getUnmountInputDir(uid string) (string, error) {
-	// Find out how many prefix to add s.t the testUid is correctly placed.
+	// Find out how many prefix to add s.t the testUID is correctly placed.
 	prefixCount := 5
 	prefixPath := strings.Split(testDir, "/")
 	if len(prefixPath) > 5 {
-		return "", fmt.Errorf("Cannot create the correct test dir path temp dir prefix %d too long.", len(prefixPath))
+		return "", fmt.Errorf("cannot create the correct test dir path temp dir prefix %d too long", len(prefixPath))
 	}
 
 	var prefix string
@@ -395,15 +390,15 @@ func getUnmountInputDir(uid string) (string, error) {
 }
 
 func TestUnmount(t *testing.T) {
-	testUid := "1111-1111-1111"
-	unmountInputDir, err := getUnmountInputDir(testUid)
+	testUID := "1111-1111-1111"
+	unmountInputDir, err := getUnmountInputDir(testUID)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUid)
+	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUID)
 	credsDir := configuration.NodeAgentCredentialsHomeDir
-	credsFile := filepath.Join(credsDir, testUid+".json")
+	credsFile := filepath.Join(credsDir, testUID+".json")
 
 	for _, dir := range []string{delDir, credsDir} {
 		if err := os.MkdirAll(dir, 0777); err != nil {
@@ -453,13 +448,13 @@ func TestUnmountInvalidDir(t *testing.T) {
 }
 
 func TestUnmountCmdCredFailure(t *testing.T) {
-	testUid := "1111-1111-1111"
-	unmountInputDir, err := getUnmountInputDir(testUid)
+	testUID := "1111-1111-1111"
+	unmountInputDir, err := getUnmountInputDir(testUID)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUid)
+	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUID)
 	credsDir := configuration.NodeAgentCredentialsHomeDir
 	for _, dir := range []string{delDir, credsDir} {
 		if err := os.MkdirAll(dir, 0777); err != nil {
@@ -474,7 +469,7 @@ func TestUnmountCmdCredFailure(t *testing.T) {
 	}
 
 	//"Failure to delete credentials file: remove /tmp/testFlexvolumeDriver410006374/creds/1111-1111-1111.json
-	expectedErrMessage := fmt.Sprintf("Failure to delete credentials file: remove %s: no such file or directory", filepath.Join(credsDir, testUid+".json"))
+	expectedErrMessage := fmt.Sprintf("Failure to delete credentials file: remove %s: no such file or directory", filepath.Join(credsDir, testUID+".json"))
 	var gotResp Response
 	expResp := getGenericResp("", "", expectedErrMessage)
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
@@ -494,12 +489,12 @@ func writeConfigFile(fileName string, options *ConfigurationOptions) error {
 	var err error
 	confBytes, err = json.Marshal(*options)
 	if err != nil {
-		return fmt.Errorf("Failed to setup the configuration file")
+		return fmt.Errorf("failed to setup the configuration file")
 	}
 
-	err = ioutil.WriteFile(configFile, confBytes, 0644)
+	err = ioutil.WriteFile(fileName, confBytes, 0644)
 	if err != nil {
-		return fmt.Errorf("Failed to write the configuration file")
+		return fmt.Errorf("failed to write the configuration file")
 	}
 
 	return nil
@@ -513,7 +508,7 @@ func TestInitConfigurationBasic(t *testing.T) {
 		NodeAgentWorkloadHomeDir:    "/workload",
 		NodeAgentCredentialsHomeDir: "/creds",
 		UseGrpc:                     true,
-		NodeAgentManagementApi:      "mgmt.sock",
+		NodeAgentManagementAPI:      "mgmt.sock",
 		LogLevel:                    "INFO",
 	}
 
@@ -551,8 +546,8 @@ func TestInitConfigurationEmptyPaths(t *testing.T) {
 	InitConfiguration()
 	defer func() { configuration = oldConfiguration }()
 
-	if configuration.NodeAgentManagementHomeDir != NODEAGENT_HOME ||
-		configuration.NodeAgentCredentialsHomeDir != NODEAGENT_HOME+CREDS_DIR {
+	if configuration.NodeAgentManagementHomeDir != nodeAgentHome ||
+		configuration.NodeAgentCredentialsHomeDir != nodeAgentHome+credentialDirHome {
 		t.Errorf("Failed to fill up empty configurations (%+v)", configuration)
 	}
 
