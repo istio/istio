@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -58,6 +60,7 @@ func TestIntoResourceFile(t *testing.T) {
 		imagePullPolicy string
 		enableCoreDump  bool
 		debugMode       bool
+		duration        time.Duration
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -167,12 +170,23 @@ func TestIntoResourceFile(t *testing.T) {
 			in:   "testdata/deploymentconfig-multi.yaml",
 			want: "testdata/deploymentconfig-multi.yaml.injected",
 		},
+		{
+			in:       "testdata/format-duration.yaml",
+			want:     "testdata/format-duration.yaml.injected",
+			duration: time.Duration(42 * time.Second),
+		},
 	}
 
 	for _, c := range cases {
 		mesh := model.DefaultMeshConfig()
 		if c.enableAuth {
 			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
+		}
+		if c.duration != 0 {
+			mesh.DefaultConfig.DrainDuration = ptypes.DurationProto(c.duration)
+			mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
+			mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
+			mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
 		}
 
 		params := &Params{
