@@ -15,6 +15,7 @@
 package inject
 
 import (
+	openshiftv1 "github.com/openshift/api/apps/v1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v2alpha1"
@@ -49,6 +50,9 @@ var (
 		{appsv1beta1.SchemeGroupVersion, &appsv1beta1.StatefulSet{}, "statefulsets", "/apis"},
 
 		{v1.SchemeGroupVersion, &v1.List{}, "lists", "/apis"},
+
+		{openshiftv1.SchemeGroupVersion, &openshiftv1.DeploymentConfig{}, "deploymentconfigs", "/apis"},
+		{openshiftv1.LegacySchemeGroupVersion, &openshiftv1.DeploymentConfig{}, "deploymentconfigs", "/apis"},
 	}
 	injectScheme = runtime.NewScheme()
 )

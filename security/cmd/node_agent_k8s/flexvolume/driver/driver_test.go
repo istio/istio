@@ -32,48 +32,6 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestAttach(t *testing.T) {
-	err := Attach("opt", "dummynode")
-	if err != nil {
-		t.Errorf("Failed to attach.")
-	}
-}
-
-func TestDetach(t *testing.T) {
-	err := Detach("device")
-	if err != nil {
-		t.Errorf("Failed to detach.")
-	}
-}
-
-func TestWaitAttach(t *testing.T) {
-	err := WaitAttach("device", "opts")
-	if err != nil {
-		t.Errorf("Failed to WaitAttach.")
-	}
-}
-
-func TestIsAttached(t *testing.T) {
-	err := IsAttached("device", "opts")
-	if err != nil {
-		t.Errorf("IsAttached function failed.")
-	}
-}
-
-func TestMountDev(t *testing.T) {
-	err := MountDev("device", "opts", "path")
-	if err != nil {
-		t.Errorf("MountDev function failed.")
-	}
-}
-
-func TestUnmountDev(t *testing.T) {
-	err := UnmountDev("device")
-	if err != nil {
-		t.Errorf("UnmountDev function failed.")
-	}
-}
-
 // TODO(wattli): improve the testing cases for Mount().
 func TestMount(t *testing.T) {
 	err := Mount("device", "opts")
@@ -92,12 +50,5 @@ func TestUnmount(t *testing.T) {
 	err := Unmount("/tmp")
 	if err != nil {
 		t.Errorf("Unmount function failed.")
-	}
-}
-
-func TestGetVolName(t *testing.T) {
-	err := GetVolName("/tmp")
-	if err != nil {
-		t.Errorf("GetVolName function failed.")
 	}
 }

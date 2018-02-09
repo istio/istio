@@ -518,7 +518,8 @@ func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 
 func makeMeshConfig() meshconfig.MeshConfig {
 	mesh := model.DefaultMeshConfig()
-	mesh.MixerAddress = "istio-mixer.istio-system:9091"
+	mesh.MixerCheckServer = "istio-mixer.istio-system:9091"
+	mesh.MixerReportServer = mesh.MixerCheckServer
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }

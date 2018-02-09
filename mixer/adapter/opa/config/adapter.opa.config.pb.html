@@ -5,7 +5,6 @@ location: https://istio.io/docs/reference/config/adapters/opa.html
 layout: protoc-gen-docs
 number_of_entries: 1
 ---
-{% raw %}
 <p>The <code>opa</code> adapter exposes an <a href="http://www.openpolicyagent.org">Open Policy Agent</a> engine
 that provides sophisticated access control mechanisms.</p>
 
@@ -19,8 +18,8 @@ that provides sophisticated access control mechanisms.</p>
   - |+
     package mixerauthz
     policy = [
-      {
-        &quot;rule&quot;: {
+      &lbrace;
+        &quot;rule&quot;: &lbrace;
           &quot;verbs&quot;: [
             &quot;storage.buckets.get&quot;
           ],
@@ -33,7 +32,7 @@ that provides sophisticated access control mechanisms.</p>
 
     default allow = false
 
-    allow = true {
+    allow = true &lbrace;
       rule = policy[_].rule
       input.subject.user = rule.users[_]
       input.action.method = rule.verbs[_]
@@ -81,4 +80,3 @@ instead of disabling the adapter, close the client request</p>
 </tbody>
 </table>
 </section>
-{% endraw %}

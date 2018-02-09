@@ -28,6 +28,12 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
+const (
+	defaultTTL              = time.Hour
+	defaultGracePeriodRatio = 0.5
+	defaultMinGracePeriod   = 10 * time.Minute
+)
+
 type fakeCa struct{}
 
 func (ca *fakeCa) Sign([]byte, time.Duration, bool) ([]byte, error) {
@@ -118,7 +124,11 @@ func TestSecretController(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
+		controller, err := NewSecretController(&fakeCa{}, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+			client.CoreV1(), metav1.NamespaceAll)
+		if err != nil {
+			t.Errorf("failed to create secret controller: %v", err)
+		}
 
 		if tc.existingSecret != nil {
 			err := controller.scrtStore.Add(tc.existingSecret)
@@ -145,7 +155,11 @@ func TestSecretController(t *testing.T) {
 
 func TestRecoverFromDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
+	controller, err := NewSecretController(&fakeCa{}, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+		client.CoreV1(), metav1.NamespaceAll)
+	if err != nil {
+		t.Errorf("failed to create secret controller: %v", err)
+	}
 	scrt := createSecret("test", "istio.test", "test-ns")
 	controller.scrtDeleted(scrt)
 
@@ -165,32 +179,60 @@ func TestUpdateSecret(t *testing.T) {
 		Version:  "v1",
 	}
 	testCases := map[string]struct {
-		expectedActions []ktesting.Action
-		ttl             time.Duration
-		rootCert        []byte
+		expectedActions  []ktesting.Action
+		ttl              time.Duration
+		gracePeriodRatio float32
+		minGracePeriod   time.Duration
+		rootCert         []byte
 	}{
 		"Does not update non-expiring secret": {
-			expectedActions: []ktesting.Action{},
-			ttl:             time.Hour,
+			expectedActions:  []ktesting.Action{},
+			ttl:              time.Hour,
+			gracePeriodRatio: defaultGracePeriodRatio,
+			minGracePeriod:   defaultMinGracePeriod,
 		},
-		"Update expiring secret": {
+		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl: -time.Second,
+			ttl:              defaultTTL,
+			gracePeriodRatio: 1, // Always in grace period
+			minGracePeriod:   defaultMinGracePeriod,
+		},
+		"Update secret in min grace period": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			ttl:              10 * time.Minute,
+			gracePeriodRatio: defaultGracePeriodRatio,
+			minGracePeriod:   time.Hour, // ttl is always in minGracePeriod
+		},
+		"Update expired secret": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			ttl:              -time.Second,
+			gracePeriodRatio: defaultGracePeriodRatio,
+			minGracePeriod:   defaultMinGracePeriod,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl:      time.Hour,
-			rootCert: []byte("Outdated root cert"),
+			ttl:              defaultTTL,
+			gracePeriodRatio: defaultGracePeriodRatio,
+			minGracePeriod:   defaultMinGracePeriod,
+			rootCert:         []byte("Outdated root cert"),
 		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(&fakeCa{}, time.Hour, client.CoreV1(), metav1.NamespaceAll)
+		controller, err := NewSecretController(&fakeCa{}, time.Hour, tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), metav1.NamespaceAll)
+		if err != nil {
+			t.Errorf("failed to create secret controller: %v", err)
+		}
 
 		scrt := createSecret("test", "istio.test", "test-ns")
 		if rc := tc.rootCert; rc != nil {

@@ -62,7 +62,6 @@ type NodeAgentInputs struct {
 const (
 	nodeAgentMgmtAPI string = "/tmp/udsuspver/mgmt.sock"
 	nodeAgentUdsHome string = "/tmp/nodeagent"
-	volumeName       string = "tmpfs"
 )
 
 var (
@@ -80,66 +79,6 @@ func Init(version string) error {
 		return nil
 	}
 	return genericSucc("init", "", "Init ok.")
-}
-
-// Attach attach the driver
-func Attach(opts, nodeName string) error {
-	resp, err := json.Marshal(&Resp{Device: volumeName, Status: "Success", Message: "Dir created"})
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(resp))
-	inp := opts + "|" + nodeName
-	logToSys("attach", inp, string(resp))
-	return nil
-}
-
-// Detach detach the driver
-func Detach(devID string) error {
-	resp, err := json.Marshal(&Resp{Status: "Success", Message: "Gone " + devID})
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	fmt.Println(string(resp))
-	logToSys("detach", devID, string(resp))
-	return nil
-}
-
-// WaitAttach wait the driver to be attached.
-func WaitAttach(dev, opts string) error {
-	resp, err := json.Marshal(&Resp{Device: dev, Status: "Success", Message: "Wait ok"})
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(resp))
-	inp := dev + "|" + opts
-	logToSys("waitattach", inp, string(resp))
-	return nil
-}
-
-// IsAttached checks whether the driver is attached.
-func IsAttached(opts, node string) error {
-	resp, err := json.Marshal(&Resp{Attached: true, Status: "Success", Message: "Is attached"})
-	if err != nil {
-		return err
-	}
-	sResp := string(resp)
-	fmt.Println(sResp)
-	inp := opts + "|" + node
-	logToSys("isattached", inp, sResp)
-	return nil
-}
-
-// MountDev mounts the device
-func MountDev(dir, dev, opts string) error {
-	inp := dir + "|" + dev + "|" + opts
-	return genericSucc("mountdev", inp, "Mount dev ok.")
-}
-
-// UnmountDev unmounts the device
-func UnmountDev(dev string) error {
-	return genericSucc("unmountdev", dev, "Unmount dev ok.")
 }
 
 // checkValidMountOpts checks if there are sufficient inputs to
@@ -174,7 +113,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
 	err = cmdMount.Run()
 	if err != nil {
-		os.RemoveAll(newDir)
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -182,8 +121,8 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	err = os.MkdirAll(newDstDir, 0777)
 	if err != nil {
 		cmd := exec.Command("/bin/unmount", dstDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -192,8 +131,8 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	err = cmd.Run()
 	if err != nil {
 		cmd = exec.Command("/bin/umount", dstDir)
-		cmd.Run()
-		os.RemoveAll(newDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -203,12 +142,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 // doUnmount perform the actual unmount work
 func doUnmount(dir string) error {
 	cmd := exec.Command("/bin/umount", dir)
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cmd.Run()
 }
 
 // addListener add the listener for the workload
@@ -248,7 +182,7 @@ func Mount(dir, opts string) error {
 	inp := dir + "|" + opts
 
 	ninputs, s := checkValidMountOpts(opts)
-	if s == false {
+	if !s {
 		return Failure("mount", inp, "Incomplete inputs")
 	}
 
@@ -283,9 +217,9 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	doUnmount(dir + "/nodeagent")
+	_ = doUnmount(dir + "/nodeagent")
 	// unmount the tmpfs
-	doUnmount(dir)
+	_ = doUnmount(dir)
 	// delete the directory that was created.
 	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
@@ -295,11 +229,6 @@ func Unmount(dir string) error {
 	}
 
 	return genericSucc("unmount", dir, "Unmount ok.")
-}
-
-// GetVolName get the volume name
-func GetVolName(opts string) error {
-	return genericUnsupported("getvolname", opts, "not supported")
 }
 
 func printAndLog(caller, inp, s string) {
@@ -328,16 +257,6 @@ func Failure(caller, inp, msg string) error {
 	return nil
 }
 
-func genericUnsupported(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Resp{Status: "Not supported", Message: msg})
-	if err != nil {
-		return err
-	}
-
-	printAndLog(caller, inp, string(resp))
-	return nil
-}
-
 func logToSys(caller, inp, opts string) {
 	if logWrt == nil {
 		return
@@ -346,5 +265,5 @@ func logToSys(caller, inp, opts string) {
 	op := caller + "|"
 	op = op + inp + "|"
 	op = op + opts
-	logWrt.Warning(op)
+	_ = logWrt.Warning(op)
 }

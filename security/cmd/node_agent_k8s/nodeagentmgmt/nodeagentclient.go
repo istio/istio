@@ -59,7 +59,7 @@ func (c *NodeAgentClient) client() (pb.NodeAgentServiceClient, error) {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure())
-	if c.isUds == false {
+	if !c.isUds {
 		conn, err = grpc.Dial(c.dest, opts...)
 		if err != nil {
 			return nil, err
@@ -76,7 +76,7 @@ func (c *NodeAgentClient) client() (pb.NodeAgentServiceClient, error) {
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 	go func(conn *grpc.ClientConn, c chan os.Signal) {
 		<-c
-		conn.Close()
+		_ = conn.Close()
 		os.Exit(0)
 	}(conn, sigc)
 
@@ -109,5 +109,5 @@ func (c *NodeAgentClient) Close() {
 	if c.conn == nil {
 		return
 	}
-	c.conn.Close()
+	_ = c.conn.Close()
 }
