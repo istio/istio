@@ -174,11 +174,7 @@ func (vm *GCPRawVM) Setup() error {
 func buildIstioVersion() error {
 	proxy := *proxyDebTag
 	if proxy == "" {
-		currentIstioCommit, err := u.Shell("git rev-parse HEAD")
-		if err != nil {
-			return err
-		}
-		proxy = strings.Trim(currentIstioCommit, "\n")
+		proxy = *pilotTag
 	}
 	proxyURL := fmt.Sprintf(debURL, "pilot", proxy)
 	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
