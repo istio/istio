@@ -14,7 +14,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.sidecarInjector.repository }}:{{ .Values.global.sidecarInjector.tag }}
+        image: {{ .Values.global.proxyInit.repository }}:{{ .Values.global.proxyInit.tag }}
         args:
         - "-p"
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
