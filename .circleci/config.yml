@@ -2,7 +2,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/api
   docker:
-    - image: istio/ci:go1.9-k8s1.7.4
+    - image: istio/ci:go1.9-k8s1.9-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
 
@@ -11,9 +11,9 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run: ./scripts/generate-protos.sh
       - run:
           command: |
+            ./scripts/generate-protos.sh || die "could not generate *.pb.go"
             if [[ -n $(git status --porcelain) ]]; then
               git status
               git --no-pager diff
