@@ -52,7 +52,7 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c") // FIXME: operation?
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
@@ -190,18 +190,17 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 func (t *routing) verifyDecorator(operation string) error {
 	response := t.infra.clientRequest(
 		"t",
-		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces",
-			t.IstioNamespace),
+		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),
 		1, "",
 	)
 
 	if len(response.code) == 0 || response.code[0] != httpOk {
-		return fmt.Errorf("unexpected response code from zipkin: %s", response.code)
+		return fmt.Errorf("could not retrieve traces from zipkin")
 	}
 
 	text := fmt.Sprintf("\"name\":\"%s\"", operation)
-	if strings.Count(response.body, text) != 10 { // FIXME: wtf, why is this exactly 10?
-		return fmt.Errorf("operation missing from traces: %s", operation)
+	if strings.Count(response.body, text) != 10 {
+		return fmt.Errorf("operation %q not present in zipkin traces", operation)
 	}
 
 	return nil
