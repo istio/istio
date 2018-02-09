@@ -4,7 +4,6 @@ overview: Authentication policy for Istio services.
 layout: protoc-gen-docs
 number_of_entries: 6
 ---
-{% raw %}
 <p>This package defines user-facing authentication policy as well as configs that
 the sidecar proxy uses to perform authentication.</p>
 
@@ -184,7 +183,7 @@ metadata:
 spec:
   match:
   peers:
-  - mtls: {}
+  - mtls: &lbrace;}
 </code></pre>
 
 <p>Policy to enable mTLS, and use JWT for productpage:9000</p>
@@ -425,4 +424,3 @@ label>.</p>
 </tbody>
 </table>
 </section>
-{% endraw %}

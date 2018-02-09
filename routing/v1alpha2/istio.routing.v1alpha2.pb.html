@@ -904,7 +904,7 @@ port ( IP or fully qualified domain name without wildcards).</p>
 </tr>
 <tr id="ExternalService.Endpoint.ports">
 <td><code>ports</code></td>
-<td><code>map&lt;string, uint32&gt;</code></td>
+<td><code>map&lt;string,uint32&gt;</code></td>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
@@ -914,7 +914,7 @@ service.</p>
 </tr>
 <tr id="ExternalService.Endpoint.labels">
 <td><code>labels</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>One or more labels associated with the endpoint.</p>
 
@@ -1067,7 +1067,7 @@ spec:
 </tr>
 <tr id="Gateway.selector">
 <td><code>selector</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
 on which this gateway configuration should be applied.</p>
@@ -1363,7 +1363,7 @@ values are case-sensitive and formatted as follows:</p>
 </tr>
 <tr id="HTTPMatchRequest.headers">
 <td><code>headers</code></td>
-<td><code>map&lt;string, <a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td><code>map&lt;string,<a href="#StringMatch">StringMatch</a>&gt;</code></td>
 <td>
 <p>The header keys must be lowercase and use hyphen as the separator,
 e.g. <em>x-request-id</em>.</p>
@@ -1397,7 +1397,7 @@ same protocol the names should be of the form <protocol-name>-<DNS label>.</p>
 </tr>
 <tr id="HTTPMatchRequest.source_labels">
 <td><code>sourceLabels</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>One or more labels that constrain the applicability of a rule to
 workloads with the given labels. If the route rule has a list of
@@ -1704,7 +1704,7 @@ for further details about cross origin resource sharing.</p>
 </tr>
 <tr id="HTTPRoute.append_headers">
 <td><code>appendHeaders</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>Additional HTTP headers to add before forwarding a request to the
 destination service.</p>
@@ -1765,7 +1765,7 @@ form or just a.b.c.d</p>
 </tr>
 <tr id="L4MatchAttributes.source_labels">
 <td><code>sourceLabels</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>One or more labels that constrain the applicability of a rule to
 workloads with the given labels. If the route rule has a list of
@@ -2573,7 +2573,7 @@ be used for traffic splitting in a route rule.</p>
 </tr>
 <tr id="Subset.labels">
 <td><code>labels</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,string&gt;</code></td>
 <td>
 <p>REQUIRED. Labels apply a filter over the endpoints of a service in the
 service registry. See route rules for examples of usage.</p>

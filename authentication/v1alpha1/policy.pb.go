@@ -173,7 +173,9 @@ func (m *Mechanism) String() string            { return proto.CompactTextString(
 func (*Mechanism) ProtoMessage()               {}
 func (*Mechanism) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-type isMechanism_Params interface{ isMechanism_Params() }
+type isMechanism_Params interface {
+	isMechanism_Params()
+}
 
 type Mechanism_None struct {
 	None *None `protobuf:"bytes,1,opt,name=none,oneof"`
