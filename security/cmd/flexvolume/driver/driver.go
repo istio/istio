@@ -166,7 +166,7 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 }
 
 // doMount handles a new workload mounting the flex volume drive. It will:
-// * mount a tmpfs at the destinationDir(ectory) of the workload created by the kubelet.
+// * mount a tmpfs at the destination directory of the workload created by the kubelet.
 // * create a sub-directory ('nodeagent') there
 // * do a bind mount of the nodeagent's directory on the node to the destinationDir/nodeagent.
 func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
@@ -218,6 +218,16 @@ func doUnmount(dir string) error {
 	return nil
 }
 
+// Rollback the operations done by doMount
+func handleErrMount(destinationDir string, ninputs *pb.WorkloadInfo) {
+	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
+	doUnmount(newDestinationDir)
+	doUnmount(destinationDir)
+	// Sufficient to just remove the underlying directory.
+	os.RemoveAll(destinationDir)
+	os.RemoveAll(filepath.Join(configuration.NodeAgentWorkloadHomeDir, ninputs.Workloadpath))
+}
+
 // Mount handles the mount command to the driver.
 func Mount(dir, opts string) error {
 	inp := strings.Join([]string{dir, opts}, "|")
@@ -234,11 +244,13 @@ func Mount(dir, opts string) error {
 
 	if configuration.UseGrpc == true {
 		if err := sendWorkloadAdded(ninputs); err != nil {
+			handleErrMount(dir, ninputs)
 			sErr := "Failure to notify nodeagent: " + err.Error()
 			return failure("mount", inp, sErr)
 		}
 	} else {
 		if err := addCredentialFile(ninputs); err != nil {
+			handleErrMount(dir, ninputs)
 			sErr := "Failure to create credentials: " + err.Error()
 			return failure("mount", inp, sErr)
 		}
@@ -403,6 +415,9 @@ func addCredentialFile(ninputs *pb.WorkloadInfo) error {
 
 	credsFileTmp := filepath.Join(configuration.NodeAgentManagementHomeDir, getCredFile(ninputs.Attrs.Uid))
 	err = ioutil.WriteFile(credsFileTmp, attrs, 0644)
+	if err != nil {
+		return err
+	}
 
 	// Move it to the right location now.
 	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, getCredFile(ninputs.Attrs.Uid))

@@ -332,15 +332,56 @@ func TestMountCmdMountFailure(t *testing.T) {
 	}
 }
 
-func TestUnmount(t *testing.T) {
+func TestMountCmdCredFailure(t *testing.T) {
+	var err error
+	var mountInputs string
+	opts := FlexVolumeInputs{
+		Uid:            "1111-1111-1111",
+		Name:           "foo",
+		Namespace:      "default",
+		ServiceAccount: "sa",
+	}
 
-	testUid := "1111-1111-1111"
+	mountInputs, err = getMountInputs(&opts)
+	if err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
 
+	// setup to a invalid file path
+	oldManagementHomeDir := configuration.NodeAgentManagementHomeDir
+	configuration.NodeAgentManagementHomeDir = filepath.Join(testDir, "fail")
+	defer func() { configuration.NodeAgentManagementHomeDir = oldManagementHomeDir }()
+
+	destDir := filepath.Join(testDir, "foo/bar")
+	testInitStdIo()
+	err = Mount(destDir, mountInputs)
+	if err == nil {
+		t.Errorf("Failed. Expected error and mount command to fail")
+	}
+
+	// check all the removals
+	checkWorkloadDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.Uid)
+	checkPaths := []string{destDir, checkWorkloadDir}
+	for _, path := range checkPaths {
+		if _, err := os.Stat(path); err == nil {
+			t.Errorf("Mount failed but path %s still there", path)
+		}
+	}
+
+	errPath := fmt.Sprintf(filepath.Join(testDir, "fail", opts.Uid+".json"))
+	var gotResp Response
+	expResp := getFailure("", "", fmt.Sprintf("Failure to create credentials: open %s: no such file or directory", errPath))
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+}
+
+func getUnmountInputDir(uid string) (string, error) {
 	// Find out how many prefix to add s.t the testUid is correctly placed.
 	prefixCount := 5
 	prefixPath := strings.Split(testDir, "/")
 	if len(prefixPath) > 5 {
-		t.Errorf("Cannot create the correct test dir path temp dir prefix %d too long.", len(prefixPath))
+		return "", fmt.Errorf("Cannot create the correct test dir path temp dir prefix %d too long.", len(prefixPath))
 	}
 
 	var prefix string
@@ -350,7 +391,16 @@ func TestUnmount(t *testing.T) {
 
 	// /tmp/testFlexvolumeDriver686209052/test0/test1/1111-1111-1111/volumes/nodeagent~uds/test-volume/nodeagent
 	// /var/lib/kubelet/pods/20154c76-bf4e-11e7-8a7e-080027631ab3/volumes/nodeagent~uds/test-volume/
-	unmountInputDir := filepath.Join(testDir, prefix, testUid, "volumes/nodeagent~uds/test-volume/nodeagent")
+	return filepath.Join(testDir, prefix, uid, "volumes/nodeagent~uds/test-volume/nodeagent"), nil
+}
+
+func TestUnmount(t *testing.T) {
+	testUid := "1111-1111-1111"
+	unmountInputDir, err := getUnmountInputDir(testUid)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
 	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUid)
 	credsDir := configuration.NodeAgentCredentialsHomeDir
 	credsFile := filepath.Join(credsDir, testUid+".json")
@@ -367,8 +417,7 @@ func TestUnmount(t *testing.T) {
 	}
 
 	testInitStdIo()
-	err := Unmount(unmountInputDir)
-	if err != nil {
+	if err := Unmount(unmountInputDir); err != nil {
 		t.Errorf("Unmount function failed.")
 	}
 
@@ -393,11 +442,41 @@ func TestUnmountInvalidDir(t *testing.T) {
 	testInitStdIo()
 	err := Unmount(unmountInputDir)
 	if err == nil {
-		t.Errorf("Failed. Expected error and un-mount command to fail")
+		t.Errorf("Failed. Expected error and un-mount command to fail.")
 	}
 
 	var gotResp Response
 	expResp := getFailure("", "", fmt.Sprintf("Failure to notify nodeagent dir %s", unmountInputDir))
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+}
+
+func TestUnmountCmdCredFailure(t *testing.T) {
+	testUid := "1111-1111-1111"
+	unmountInputDir, err := getUnmountInputDir(testUid)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUid)
+	credsDir := configuration.NodeAgentCredentialsHomeDir
+	for _, dir := range []string{delDir, credsDir} {
+		if err := os.MkdirAll(dir, 0777); err != nil {
+			t.Errorf("Failed to create dir %s: %s", dir, err.Error())
+		}
+	}
+	defer os.RemoveAll(credsDir)
+
+	testInitStdIo()
+	if err := Unmount(unmountInputDir); err != nil {
+		t.Errorf("Failed. Expected error and un-mount command to NOT fail.")
+	}
+
+	//"Failure to delete credentials file: remove /tmp/testFlexvolumeDriver410006374/creds/1111-1111-1111.json
+	expectedErrMessage := fmt.Sprintf("Failure to delete credentials file: remove %s: no such file or directory", filepath.Join(credsDir, testUid+".json"))
+	var gotResp Response
+	expResp := getGenericResp("", "", expectedErrMessage)
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
