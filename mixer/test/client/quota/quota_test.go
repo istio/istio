@@ -27,10 +27,10 @@ const (
 )
 
 func TestQuotaCall(t *testing.T) {
-	s := env.NewTestSetup(
-		env.QuotaCallTest,
-		t,
-		env.BasicConfig+","+env.QuotaConfig)
+	s := env.NewTestSetup(env.QuotaCallTest, t)
+
+	// Add v2 quota config for all requests.
+	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -39,14 +39,14 @@ func TestQuotaCall(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet v1"
+	tag := "OKGet"
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 
 	// Issues a failed POST request caused by Mixer Quota
-	tag = "QuotaFail v1"
+	tag = "QuotaFail"
 	s.SetMixerQuotaStatus(rpc.Status{
 		Code:    int32(rpc.RESOURCE_EXHAUSTED),
 		Message: mixerQuotaFailMessage,
@@ -62,22 +62,6 @@ func TestQuotaCall(t *testing.T) {
 	}
 	if respBody != "RESOURCE_EXHAUSTED:"+mixerQuotaFailMessage {
 		t.Errorf("Error response body is not expected.")
-	}
-	s.VerifyQuota(tag, "RequestCount", 5)
-
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Add v2 quota config for all requests.
-	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
-	s.ReStartEnvoy()
-
-	// Issues a GET echo request with 0 size body
-	tag = "OKGet"
-	if _, _, err := env.HTTPGet(url); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 }

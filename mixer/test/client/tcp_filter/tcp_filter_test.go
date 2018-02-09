@@ -84,7 +84,7 @@ func TestTCPMixerFilter(t *testing.T) {
 		t.Skip("Test is broken for race testing, see issue #3211")
 	}
 
-	s := env.NewTestSetup(env.TCPMixerFilterTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.TCPMixerFilterTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -93,34 +93,7 @@ func TestTCPMixerFilter(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.
-	tag := "OKPost v1"
-	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
-
-	tag = "MixerFail v1"
-	s.SetMixerCheckStatus(rpc.Status{
-		Code: int32(rpc.UNAUTHENTICATED),
-	})
-	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
-		t.Errorf("Expect request to fail %s: %v", tag, err)
-	}
-	// Reset to a positive one
-	s.SetMixerCheckStatus(rpc.Status{})
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesFailPost)
-
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	// Issues a POST request.
-	tag = "OKPost"
+	tag := "OKPost"
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -132,7 +105,7 @@ func TestTCPMixerFilter(t *testing.T) {
 		Code: int32(rpc.UNAUTHENTICATED),
 	})
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
-		t.Errorf("The request is expected to fail %s, but it did not.", tag)
+		t.Errorf("Expect request to fail %s: %v", tag, err)
 	}
 	// Reset to a positive one
 	s.SetMixerCheckStatus(rpc.Status{})

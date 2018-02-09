@@ -36,7 +36,7 @@ func TestStressEnvoy(t *testing.T) {
 		t.Skip("Test is broken for race testing, see issue #3210")
 	}
 
-	s := env.NewTestSetupV2(env.StressEnvoyTest, t)
+	s := env.NewTestSetup(env.StressEnvoyTest, t)
 	s.SetStress(true)
 
 	// Not cache, enable quota

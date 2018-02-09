@@ -25,8 +25,6 @@ import (
 // TestSetup store data for a test.
 type TestSetup struct {
 	t           *testing.T
-	conf        string
-	flags       string
 	stress      bool
 	faultInject bool
 	noMixer     bool
@@ -38,34 +36,13 @@ type TestSetup struct {
 	backend *HTTPServer
 }
 
-// NewTestSetup creates a TestSetup with legacy config.
 // "name" has to be defined in ports.go
-func NewTestSetup(name uint16, t *testing.T, conf string) *TestSetup {
-	return &TestSetup{
-		t:     t,
-		conf:  conf,
-		ports: NewPorts(name),
-	}
-}
-
-// NewTestSetupV2 created a TestSetup with v2 config.
-// "name" has to be defined in ports.go
-func NewTestSetupV2(name uint16, t *testing.T) *TestSetup {
+func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
 		t:     t,
 		v2:    GetDefaultV2Conf(),
 		ports: NewPorts(name),
 	}
-}
-
-// SetConf set legacy config
-func (s *TestSetup) SetConf(conf string) {
-	s.conf = conf
-}
-
-// SetV2Conf set v2 config
-func (s *TestSetup) SetV2Conf() {
-	s.v2 = GetDefaultV2Conf()
 }
 
 // V2 get v2 config
@@ -108,11 +85,6 @@ func (s *TestSetup) GetMixerQuotaCount() int {
 	return s.mixer.quota.count
 }
 
-// SetFlags set the per-route flags
-func (s *TestSetup) SetFlags(flags string) {
-	s.flags = flags
-}
-
 // SetStress set the stress flag
 func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
@@ -131,7 +103,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2, s.ports)
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -169,7 +141,7 @@ func (s *TestSetup) TearDown() {
 func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2, s.ports)
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
