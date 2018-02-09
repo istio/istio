@@ -44,7 +44,7 @@ const (
 
 	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
+	defaultWorkloadCertTTL = 19 * time.Hour
 
 	// The default length of certificate rotation grace period, configured as
 	// the ratio of the certificate TTL.

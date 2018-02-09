@@ -32,8 +32,11 @@ import (
 )
 
 const (
-	// MixerCluster is the name of the mixer cluster
-	MixerCluster = "mixer_server"
+	// MixerCheckClusterName is the name of the mixer cluster used for policy checks
+	MixerCheckClusterName = "mixer_check_server"
+
+	// MixerReportClusterName is the name of the mixer cluster used for telemetry
+	MixerReportClusterName = "mixer_report_server"
 
 	// MixerFilter name and its attributes
 	MixerFilter = "mixer"
@@ -105,27 +108,46 @@ type FilterMixerConfig struct {
 
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
-// buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) *Cluster {
-	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
-	mixerCluster.CircuitBreaker = &CircuitBreaker{
+// buildMixerCluster builds an outbound mixer cluster of a given name
+func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, clusterName string) *Cluster {
+	cluster := buildCluster(server, clusterName, mesh.ConnectTimeout)
+	cluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
 			MaxPendingRequests: 10000,
 			MaxRequests:        10000,
 		},
 	}
-	mixerCluster.Features = ClusterFeatureHTTP2
 
+	cluster.Features = ClusterFeatureHTTP2
 	// apply auth policies
 	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
 	case meshconfig.AuthenticationPolicy_NONE:
 		// do nothing
 	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
-		mixerCluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
+		cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, mixerSAN)
 	}
 
-	return mixerCluster
+	return cluster
+}
+
+// buildMixerClusters builds an outbound mixer cluster with configured check/report clusters
+func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) []*Cluster {
+	mixerClusters := make([]*Cluster, 0)
+
+	if mesh.MixerCheckServer != "" {
+		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerCheckServer, MixerCheckClusterName))
+	}
+
+	if mesh.MixerReportServer != "" {
+		// if both fields point to same server, reuse the cluster
+		if mesh.MixerReportServer == mesh.MixerCheckServer {
+			return mixerClusters
+		}
+		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerReportServer, MixerReportClusterName))
+	}
+
+	return mixerClusters
 }
 
 func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[string]string {
@@ -143,7 +165,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -155,6 +177,15 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 		},
 		QuotaName: MixerRequestCount,
 	}
+
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  MixerCheckClusterName,
+		ReportCluster: MixerReportClusterName,
+	}
+	if mesh.MixerCheckServer == mesh.MixerReportServer {
+		transport.ReportCluster = transport.CheckCluster
+	}
+
 	v2 := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
@@ -163,6 +194,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+		Transport:      transport,
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -262,14 +294,24 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role model.Node, instance
 }
 
 // Mixer TCP filter config for inbound requests.
-func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
+func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
 			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
 	}
+
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  MixerCheckClusterName,
+		ReportCluster: MixerReportClusterName,
+	}
+	if mesh.MixerCheckServer == mesh.MixerReportServer {
+		transport.ReportCluster = transport.CheckCluster
+	}
+
 	v2 := &mccpb.TcpClientConfig{
+
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationIP:      {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
@@ -277,7 +319,11 @@ func mixerTCPConfig(role model.Node, check bool, instance *model.ServiceInstance
 				AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}},
 			},
 		},
+		Transport: transport,
 	}
+
+	v2.DisableCheckCalls = mesh.DisablePolicyChecks
+
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
 		log.Warnf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
 	} else {

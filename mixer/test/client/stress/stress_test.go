@@ -17,6 +17,7 @@ package stress
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -30,6 +31,11 @@ const (
 )
 
 func TestStressEnvoy(t *testing.T) {
+
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing, see issue #3210")
+	}
+
 	s := env.NewTestSetupV2(env.StressEnvoyTest, t)
 	s.SetStress(true)
 

@@ -237,12 +237,6 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/fullsailor/pkcs7"
-  packages = ["."]
-  revision = "a009d8d7de53d9503c797cb8ec66fa3b21eed209"
-
-[[projects]]
   name = "github.com/garyburd/redigo"
   packages = [
     "internal",
@@ -675,6 +669,11 @@
   packages = ["."]
   revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
   version = "v1.0.0-rc1"
+
+[[projects]]
+  name = "github.com/openshift/api"
+  packages = ["apps/v1"]
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"
 
 [[projects]]
   name = "github.com/opentracing/opentracing-go"
@@ -1131,7 +1130,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "12edb320898356a89682507fb96bb49c86c96254"
+  revision = "b5d35aad98bedc3757f3fa76d50ae0b0dacca426"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1432,6 +1431,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e13e398df2cfdf68f0d0f65bd0d1bdfd0d491474ea1be63adfc757349b5a17e"
+  inputs-digest = "91ee849d35c467869abcb70ec42d3741294fa59e3fcf8220387b5d8b71c196a8"
   solver-name = "gps-cdcl"
   solver-version = 1
