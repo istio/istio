@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"k8s.io/gengo/namer"
+	"k8s.io/gengo/types"
 )
 
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -38,8 +40,9 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	tmplRepo := template.NewRepository(info)
 	kinds := runtime.KindMap(config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate), info)
 	vc.ResourceNames = make([]string, 0, len(kinds))
+	namer := namer.NewPrivatePluralNamer(map[string]string{})
 	for name := range kinds {
-		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))
+		vc.ResourceNames = append(vc.ResourceNames, namer.Name(&types.Type{Name: types.Name{Name: name}}))
 	}
 	vc.Validator = store.NewValidator(nil, kinds)
 	validatorCmd := &cobra.Command{

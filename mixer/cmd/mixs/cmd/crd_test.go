@@ -32,6 +32,7 @@ var empty = ``
 var exampleAdapters = []adptr.InfoFn{
 	func() adptr.Info { return adptr.Info{Name: "foo-bar"} },
 	func() adptr.Info { return adptr.Info{Name: "abcd"} },
+	func() adptr.Info { return adptr.Info{Name: "apikey"} },
 }
 var exampleAdaptersCrd = `
 kind: CustomResourceDefinition
@@ -63,6 +64,22 @@ spec:
     kind: abcd
     plural: abcds
     singular: abcd
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: apikeys.config.istio.io
+  labels:
+    package: apikey
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: apikey
+    plural: apikeys
+    singular: apikey
   scope: Namespaced
   version: v1alpha2
 ---`
