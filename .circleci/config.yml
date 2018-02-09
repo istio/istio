@@ -552,3 +552,6 @@ workflows:
       - e2e-simple:
           requires:
             - build
+      - benchcheck:
+          requires:
+            - build
