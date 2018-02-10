@@ -38,11 +38,8 @@ GRAFANA_FILES:=addons/grafana/start.sh \
                addons/grafana/import_dashboard.sh
 
 # note that "js" and "force" are directories rather than a file
-$(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$(not dir $$@) | $(ISTIO_DOCKER)
+$(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
-
-#$(ISTIO_DOCKER)/force: addons/servicegraph/force | $(ISTIO_DOCKER)
-#	cp -r $< $(@D)
 
 # generated content
 $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
