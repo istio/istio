@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,8 @@ func Stringify(v interface{}) string {
 	return ""
 }
 
-// StringEquals compares if string representations of a and b are equal.
+// StringEquals compares if string representations of two basic data types, supported by
+// `istio.mixer.v1.config.descriptor.ValueType`, are equal.
 // Note: string representation of nil object is an empty string, so StringEquals with
 // a nil object and a string of value empty "", will evaluate to true.
 func StringEquals(a interface{}, b interface{}) bool {
