@@ -43,15 +43,14 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - istio-proxy
+          - {{ .Release.Name }}-ingress
           - --zipkinAddress
-          - zipkin:9411
+          - {{ .Release.Name }}-zipkin:9411
           - --statsdUdpAddress
           - {{ .Release.Name }}-mixer:9125
           - --proxyAdminPort
           - "15000"
           - --controlPlaneAuthPolicy
-
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
         {{- else }}
@@ -59,6 +58,26 @@ spec:
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: "istio.{{ template "istio.serviceAccountName" . }}"
+          optional: true
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
