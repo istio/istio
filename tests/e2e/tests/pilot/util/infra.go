@@ -118,9 +118,6 @@ type Infra struct { // nolint: maligned
 	// A user-specified test to run. If not provided, all tests will be run.
 	SelectedTest string
 
-	// read cert files from this directory
-	certFilesDir string
-
 	namespaceCreated      bool
 	istioNamespaceCreated bool
 	DebugImagesAndMode    bool
@@ -330,18 +327,14 @@ func (infra *Infra) Setup() error {
 		if err = deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-		certDir := "pilot/docker/certs"
-		if len(infra.certFilesDir) > 0 {
-			certDir = infra.certFilesDir
-		}
 		// Create ingress key/cert in secret
 		var key []byte
-		key, err = ioutil.ReadFile(certDir + "/cert.key")
+		key, err = ioutil.ReadFile("pilot/docker/certs/cert.key")
 		if err != nil {
 			return err
 		}
 		var crt []byte
-		crt, err = ioutil.ReadFile(certDir + "/cert.crt")
+		crt, err = ioutil.ReadFile("pilot/docker/certs/cert.crt")
 		if err != nil {
 			return err
 		}

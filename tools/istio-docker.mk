@@ -51,11 +51,6 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
                     --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
                     --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
                     --signer-priv=${ISTIO_DOCKER}/istio_ca.key
-$(ISTIO_DOCKER)/cert.key: | $(ISTIO_DOCKER)
-	openssl genrsa -out ${ISTIO_DOCKER}/cert.key 2048
-$(ISTIO_DOCKER)/cert.crt: $(ISTIO_DOCKER)/cert.key
-	openssl req -new -x509 -sha256 -key ${ISTIO_DOCKER}/cert.key -out ${ISTIO_DOCKER}/cert.crt -days 3650 \
-               -subj "/C=AU/ST=Some-State/O=Internet Widgits Pty Ltd/CN=api.company.com"
 
 # directives to copy files to docker scratch directory
 
@@ -72,7 +67,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
+                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
+                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
