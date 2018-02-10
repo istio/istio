@@ -17,6 +17,7 @@ spec:
       labels:
         app: {{ template "sidecar-injector.name" . }}
         release: {{ .Release.Name }}
+        istio: sidecar-injector
     spec:
       containers:
         - name: {{ .Chart.Name }}-webhook
