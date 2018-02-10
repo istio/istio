@@ -57,10 +57,6 @@ EXTRA_E2E_ARGS += --pilot_hub ${HUB}
 EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.
 generate_yaml_new:

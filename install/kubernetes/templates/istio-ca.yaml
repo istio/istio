@@ -1,20 +1,20 @@
 # Make sure istio-ca is exposed as a service. This is an internal service pointing to CA,
 # used for mesh expansion.
+
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-ca
-  namespace: istio-system
+  namespace: {{ .Values.istioNamespace }}
   labels:
     istio: istio-ca
 spec:
-  type: LoadBalancer
   ports:
   - port: 8060
     name: grpc
-    protocol: TCP
   selector:
     istio: istio-ca
+
 ---
 # Service account CA
 apiVersion: v1
