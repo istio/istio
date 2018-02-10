@@ -42,6 +42,7 @@ const reportAttributesOkGet = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -85,6 +86,7 @@ const reportAttributesOkPost1 = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -129,6 +131,7 @@ const reportAttributesOkPost2 = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",

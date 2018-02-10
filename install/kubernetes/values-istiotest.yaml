@@ -27,8 +27,6 @@ zvpn:
   - externalPort: 8081
     portName: http-httpbin
 
-  - externalPort: 8080
-    portName: http-manual
 
 sni:
   domains:

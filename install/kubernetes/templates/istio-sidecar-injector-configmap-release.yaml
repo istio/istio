@@ -20,11 +20,11 @@ data:
           capabilities:
             add:
             - NET_ADMIN
-          {{- if .Values.sidecarDebug }}
+          {{ if .Values.sidecarDebug }}
           privileged: true
-          {{ end -}}
+          {{ end }}
         restartPolicy: Always
-        {{- if .Values.sidecarCoreDump }}
+        {{ if .Values.sidecarCoreDump }}
       - args:
         - -c
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
@@ -37,14 +37,14 @@ data:
         resources: {}
         securityContext:
           privileged: true
-        {{ end -}}
+        {{ end }}
       containers:
       - name: istio-proxy
-        {{- if .Values.sidecarDebug }}
+        {{ if .Values.sidecarDebug }}
         image: {{ .Values.istioHub }}/{{ .Values.proxyImage}}:{{ .Values.istioTag }}
         {{ else }} 
         image: {{ .Values.istioHub }}/proxy_debug:{{ .Values.istioTag }}
-        {{ end -}}
+        {{ end }}
         args:
         - proxy
         - sidecar
@@ -95,13 +95,13 @@ data:
               fieldPath: status.podIP
         imagePullPolicy: IfNotPresent
         securityContext:
-            {{- if .Values.sidecarDebug }}
+            {{ if .Values.sidecarDebug }}
             privileged: true
             readOnlyRootFilesystem: false
             {{ else }}
             privileged: false
             readOnlyRootFilesystem: true
-            {{ end -}}
+            {{ end }}
             runAsUser: 1337
         restartPolicy: Always
         volumeMounts:

@@ -43,8 +43,8 @@ var (
 Retrieves the static/bootstrap proxy configuration for the specified pod when running in Kubernetes.
 Support for other environments to follow.
 `,
-		Example: `  # Retrieve config for productpage-v1-bb8d5cbc7-k7qbm pod
-  istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm`,
+		Example: `# Retrieve config for productpage-v1-bb8d5cbc7-k7qbm pod
+istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm`,
 		Aliases: []string{"pc"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {

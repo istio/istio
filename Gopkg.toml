@@ -102,7 +102,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "12edb320898356a89682507fb96bb49c86c96254"
+  revision = "6ce328b48d94e90f3c8022e811b875453da05477"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -143,3 +143,7 @@ required = [
 [[constraint]]
   branch = "master"
   name = "github.com/istio/tools"
+
+[[constraint]]
+  name = "github.com/openshift/api"
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"

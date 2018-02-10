@@ -215,6 +215,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					return err
 				}
 				sidecarTemplate = config.Template
+				fmt.Println(string(sidecarTemplate))
 			}
 
 			if emitTemplate {

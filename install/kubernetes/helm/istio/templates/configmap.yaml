@@ -27,8 +27,9 @@ data:
     enableTracing: true
     #
     # To disable the mixer completely (including metrics), comment out
-    # the following line
-    mixerAddress: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
+    # the following lines
+    mixerCheckServer: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
+    mixerReportServer: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
     # This is the ingress service name, update if you used a different name
     ingressService: {{ .Release.Name }}-ingress
     #
@@ -71,7 +72,7 @@ data:
       discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15003
       #
       # Zipkin trace collector
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: {{ .Release.Name}}-zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.

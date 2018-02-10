@@ -4,10 +4,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: envoy-config
+  name: envoy-config-zvpn
   namespace: istio-system
 data:
-  envoy.yaml:
+  envoy.yaml: |
     stats_config:
       # Without this option it create a lot of regex, may run out of space.
       use_all_default_tags: false
@@ -191,7 +191,7 @@ spec:
         - containerPort: 8060
         - containerPort: 8080
 {{- range $app := .Values.zvpn.apps }}
-        - containerPort: app.externalPort
+        - containerPort: {{ $app.externalPort }}
 {{ end }}
         env:
         - name: POD_NAME
@@ -229,5 +229,5 @@ spec:
           optional: true
       - name: envoyconfig
         configMap:
-            name: envoy-config
+            name: envoy-config-zvpn
 ---

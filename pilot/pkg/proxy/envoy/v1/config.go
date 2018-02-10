@@ -200,8 +200,8 @@ func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
 	}
 
 	// append Mixer service definition if necessary
-	if env.Mesh.MixerAddress != "" {
-		clusters = append(clusters, buildMixerCluster(env.Mesh, node, env.MixerSAN))
+	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
+		clusters = append(clusters, buildMixerClusters(env.Mesh, node, env.MixerSAN)...)
 		clusters = append(clusters, buildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, instances)...)
 	}
 
@@ -350,7 +350,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct {
+type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
 	node             model.Node
 	instances        []*model.ServiceInstance
@@ -381,8 +381,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
 
-	if opts.mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.node, opts.instances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -651,7 +651,7 @@ func buildDestinationHTTPRoutes(sidecar model.Node, service *model.Service,
 
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
-func buildOutboundHTTPRoutes(mesh *meshconfig.MeshConfig, sidecar model.Node,
+func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, sidecar model.Node,
 	instances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(sidecar.Domain, ".")
@@ -793,9 +793,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			defaultRoute := buildDefaultRoute(cluster)
 
 			// set server-side mixer filter config for inbound HTTP routes
-			if mesh.MixerAddress != "" {
-				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-					instance.Service.Hostname)
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
 			}
 
 			host := &VirtualHost{
@@ -822,7 +821,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.MixerAddress != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -838,7 +837,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
-							if mesh.MixerAddress != "" {
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
 									instance.Service.Hostname)
 							}
@@ -874,11 +873,11 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar model.Node,
 			}, endpoint.Address, endpoint.Port, protocol)
 
 			// set server-side mixer filter config
-			if mesh.MixerAddress != "" {
+			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
 				filter := &NetworkFilter{
 					Type:   both,
 					Name:   MixerFilter,
-					Config: mixerTCPConfig(sidecar, !mesh.DisablePolicyChecks, instance),
+					Config: buildTCPMixerFilterConfig(mesh, sidecar, instance),
 				}
 				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
 			}
@@ -916,7 +915,7 @@ func truncateClusterName(name string) string {
 	return name
 }
 
-func buildEgressVirtualHost(destination string,
+func buildEgressVirtualHost(serviceName string, destination string,
 	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
@@ -949,9 +948,17 @@ func buildEgressVirtualHost(destination string,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config, buildOutboundCluster)
+	dest := &model.Service{Hostname: destination}
+	routes := buildDestinationHTTPRoutes(sidecar, dest, port, instances, config, buildOutboundCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
+
+	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+		oc := buildMixerConfig(sidecar, serviceName, dest, config, mesh.DisablePolicyChecks, false)
+		for _, route := range routes {
+			route.OpaqueConfig = oc
+		}
+	}
 
 	// Set the destination clusters to the cluster we computed above.
 	// Services defined via egress rules do not have labels and hence no weighted clusters
@@ -986,7 +993,10 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
 		log.Warnf("Rejected rules: %v", errs)
 	}
 
-	for _, rule := range egressRules {
+	for _, r := range egressRules {
+		rule, _ := r.Spec.(*routing.EgressRule)
+		meshName := r.Name + "." + r.Namespace + "." + r.Domain
+
 		for _, port := range rule.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
@@ -997,7 +1007,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule.Destination.Service, mesh, node, modelPort, instances, config))
+				buildEgressVirtualHost(meshName, rule.Destination.Service, mesh, node, modelPort, instances, config))
 		}
 	}
 
@@ -1025,7 +1035,8 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
 	tcpRulesByPort := make(map[int][]*routing.EgressRule)
 	tcpProtocolByPort := make(map[int]model.Protocol)
 
-	for _, rule := range egressRules {
+	for _, r := range egressRules {
+		rule, _ := r.Spec.(*routing.EgressRule)
 		for _, port := range rule.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {

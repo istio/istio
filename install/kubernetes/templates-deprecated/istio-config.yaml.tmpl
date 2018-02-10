@@ -23,8 +23,9 @@ data:
     enableTracing: true
     #
     # To disable the mixer completely (including metrics), comment out
-    # the following line
-    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:15004
+    # the following lines
+    mixerCheckServer: istio-mixer.{ISTIO_NAMESPACE}:15004
+    mixerReportServer: istio-mixer.{ISTIO_NAMESPACE}:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     #
