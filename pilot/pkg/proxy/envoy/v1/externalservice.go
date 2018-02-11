@@ -34,7 +34,7 @@ func buildExternalServicePort(port *routingv2.Port) *model.Port {
 }
 
 func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
-	instances []*model.ServiceInstance, config model.IstioConfigStore,
+	nodeInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	externalServiceConfigs := config.ExternalServices()
@@ -50,7 +50,7 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
 						buildExternalServiceVirtualHost(meshName, externalService, port.Name, host, mesh,
-							node, modelPort, instances, config))
+							node, modelPort, nodeInstances, config))
 				}
 			default:
 				// handled elsewhere
@@ -170,7 +170,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 // buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
 func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
-	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, node model.Node, port *model.Port, nodeInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}
@@ -181,13 +181,13 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *routin
 
 	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
 	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
-	routes := buildDestinationHTTPRoutes(sidecar, service, port, instances, config, buildClusterFunc)
+	routes := buildDestinationHTTPRoutes(node, service, port, nodeInstances, config, buildClusterFunc)
 
 	// inject Mixer calls per route.
 	// every route here belongs to the same destination.service, ie serviceName
 	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
 	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-		oc := buildMixerConfig(sidecar, serviceName, service, config, mesh.DisablePolicyChecks, false)
+		oc := buildMixerConfig(node, serviceName, service, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
 		}
