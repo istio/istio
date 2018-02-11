@@ -209,7 +209,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)  ServiceInstances belong to the Node.
-func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -241,11 +241,11 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 	var labels map[string]string
 	// Note: instances are all running on mode.Node named 'role'
 	// So instance labels are the workload / Node labels.
-	if len(instances) > 0 {
-		labels = instances[0].Labels
-		v2.DefaultDestinationService = instances[0].Service.Hostname
+	if len(nodeInstances) > 0 {
+		labels = nodeInstances[0].Labels
+		v2.DefaultDestinationService = nodeInstances[0].Service.Hostname
 		//TODO remove this once listener config is removed.
-		filter.MixerAttributes[AttrDestinationService] = instances[0].Service.Hostname
+		filter.MixerAttributes[AttrDestinationService] = nodeInstances[0].Service.Hostname
 	}
 	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
 
@@ -258,7 +258,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, in
 		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role, labels)
 	}
 
-	for _, instance := range instances {
+	for _, instance := range nodeInstances {
 		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
@@ -433,13 +433,13 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error)
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
 // JWT auth filter to fetch public keys from the specified jwks_uri.
-func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, instances []*model.ServiceInstance) Clusters {
+func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, nodeInstances []*model.ServiceInstance) Clusters {
 	type authCluster struct {
 		name   string
 		useSSL bool
 	}
 	authClusters := map[string]authCluster{}
-	for _, instance := range instances {
+	for _, instance := range nodeInstances {
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
 				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
