@@ -136,7 +136,16 @@ resources:
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
-             kubectl apply -f install/kubernetes/addons/servicegraph.yaml
+            {% if properties['installIstioRelease'] == "0.5.0" %}
+              # The 0.5.0-tagged version of service graph is broken. See
+              # https://github.com/istio/issues/issues/179 for more details.
+              #
+              # For now, we force using a 0.4.0 version
+              sed 's/docker.io\/istio\/servicegraph:0.5.0/docker.io\/istio\/servicegraph:0.4.0/g' install/kubernetes/addons/servicegraph.yaml | kubectl apply -f -
+            {% else %}
+              kubectl apply -f install/kubernetes/addons/servicegraph.yaml
+            {% endif %}
+
           {% endif %}
 
           {% if  properties['enableBookInfoSample'] %}
