@@ -108,7 +108,7 @@ function delete_vm_firewall() {
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get -u istio.io/fortio && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && make pull install && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
 }
 
 function run_fortio_on_vm() {
