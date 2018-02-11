@@ -100,7 +100,7 @@ resources:
             {% if properties['installIstioRelease'] == "0.5.0" %}
               # Setup automatic istio sidecar injection for the default namespace.
               # Note that the original 0.5.0-tagged version of this script had
-	      # a timing bug; here we pull one commit later.
+              # a timing bug; here we pull one commit later.
               curl -s https://raw.githubusercontent.com/istio/istio/41203341818c4dada2ea5385cfedc7859c01e957/install/kubernetes/webhook-create-signed-cert.sh -o ./install/kubernetes/webhook-create-signed-cert.sh && chmod +x ./install/kubernetes/webhook-create-signed-cert.sh
               curl -s https://raw.githubusercontent.com/istio/istio/0.5.0/install/kubernetes/webhook-patch-ca-bundle.sh -o ./install/kubernetes/webhook-patch-ca-bundle.sh && chmod +x ./install/kubernetes/webhook-patch-ca-bundle.sh
 
