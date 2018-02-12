@@ -44,9 +44,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -82,9 +79,6 @@ jobs:
           at:  /go
       - run: ls -R /go # Debug attach_workspace, pkg must be restored.
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -123,9 +117,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -165,9 +156,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -201,9 +189,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -223,10 +208,6 @@ jobs:
     steps:
       - checkout
       - run:  make depend.update init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
       - run: make build
       - run:
           name: Status and artifacts
@@ -261,9 +242,6 @@ jobs:
           name: Running Kubernetes API Server standalone
           command: make localTestEnv
           background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -293,9 +271,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -313,9 +288,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir -p /go/out/racetests
@@ -331,9 +303,6 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir -p /go/out/benchcheck
@@ -346,9 +315,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -371,9 +337,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make lint
 
   ## TODO DISBALE ME and use the container based lint
@@ -402,9 +365,6 @@ jobs:
       TAG: circleci-nightly
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -420,9 +380,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cp -a /usr/local/go /go
