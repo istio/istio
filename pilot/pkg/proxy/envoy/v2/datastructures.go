@@ -32,6 +32,7 @@ import (
 )
 
 // Endpoints (react to updates in registry endpoints) - EDS updates
+// stored in endpoints map[string]*EnvoyEndpoint
 // 1. Endpoints can be shared across multiple clusters.
 // 2. The membership of an endpoint in a envoy cluster is based on the set of labels
 //    associated with the endpoint and the set of label selectors associated with the envoy cluster.
@@ -46,6 +47,7 @@ import (
 //    of these envoy clusters.
 
 // EnvoyClusters (react to updates in services, dest rules, ext services) - CDS updates
+// stored in envoyClusters map[string]*EnvoyCluster
 // 1. Every service (registry defined, external) in the system has a corresponding cluster in envoy
 // 2. Every subset expressed in a DestinationRule will have an associated cluster in envoy.
 // 3. EnvoyClusters are added/removed when a service is added/removed or when subsets are
@@ -54,6 +56,7 @@ import (
 //    via DestinationRules.
 
 // Routes (react to updates in services, route rules) - RDS updates
+// stored in routeConfigs map[string]*RouteConfiguration
 // 1. Envoy RDS response is essentially an array of virtual hosts on a port or TCP routes on a port.
 // 2. Every HTTP service in the system will have a virtual host and atleast a default route (/)
 // 3. The HTTP service could have additional routes based on route rules.
@@ -68,6 +71,7 @@ import (
 // 9. Routes can also change when ports are added/removed from the service
 
 // Listeners (react to updates in services, gateways, ext services) - LDS updates
+// stored in listeners map[string]*xdsapi.Listeners
 // 1. Every unique port in the system will have an associated listener.
 // 2. A service can generate one or more listeners based on the number of ports it listens on
 // 3. New listeners are added when a service (incl gateway/external service) with unique
@@ -80,45 +84,50 @@ import (
 // The indices here are doubly linked. A pair of objects are dependent on each other if they have
 // to be updated when one changes.
 
-// BoxedVirtualHost holds the virtual host proto representation and pointers to
+// VirtualHost holds the virtual host proto representation and pointers to
 // owning route configurations.
-type BoxedVirtualHost struct {
+type VirtualHost struct {
 	// name associated with this virtual host
 	name string
 	// The proto representation of this virtual host
 	protoVirtualHost *xdsapi.VirtualHost
 	// list of route configurations (RDS responses) that hold this virtual host
-	routeConfigurations []*BoxedRouteConfiguration
+	// use: When a virtual host changes, we have to update the protos of *all* associated
+	// route configurations, and push these to envoys
+	routeConfigurations []*RouteConfiguration
 }
 
-// BoxedRouteConfiguration holds the route configuration proto representation and pointers to
+// RouteConfiguration holds the route configuration proto representation and pointers to
 // owning listeners
-type BoxedRouteConfiguration struct {
+type RouteConfiguration struct {
 	// Name associated with this route configuration (used in RDS)
 	name string
 	// The proto representation of this route configuration
 	protoRouteConfiguration *xdsapi.RouteConfiguration
 	// list of virtual hosts attached to this route configuration
-	virtualHosts []*BoxedVirtualHost
-	// list of listeners that use this route configuration
-	listeners []*xdsapi.Listener
+	// use: When a route configuration is deleted, we need to update all the
+	// constituent virtual hosts - wherein we update the backpointers to *not* point to
+	// this route configuration anymore (essentially removing references).
+	virtualHosts []*VirtualHost
 }
 
-// BoxedEndpoint holds the endpoint proto representation and pointers to
+// EnvoyEndpoint holds the endpoint proto representation and pointers to
 // owning clusters
-type BoxedEndpoint struct {
+type EnvoyEndpoint struct {
 	// Unique ID associated with this endpoint
 	name string
 	// The proto representation of this endpoint
 	protoEndpoint *xdsapi.LbEndpoint
 	// list of clusters that contain this endpoint
-	clusters []*BoxedCluster
-	// list of labels associated with this endpoint
-	labels []*model.Labels
+	// use: when an endpoint is removed or its labels change, we use this
+	// slice to update *all* clusters that contain this endpoint.
+	clusters []*EnvoyCluster
+	// map of labels associated with this endpoint
+	labels map[string]string
 }
 
-// BoxedClusterConfig holds the envoy cluster proto representations
-type BoxedCluster struct {
+// EnvoyCluster holds the envoy cluster proto representations
+type EnvoyCluster struct {
 	// name associated with this cluster
 	name string
 	// The proto representation of this envoy cluster
@@ -126,9 +135,14 @@ type BoxedCluster struct {
 	// The proto representation of the EDS data for this envoy cluster
 	protoEDSresp *xdsapi.ClusterLoadAssignment
 	// list of endpoints associated with this envoy cluster
-	endpoints []*BoxedEndpoint
-	// List of labels associated with this envoy cluster
-	labels []*model.Labels
+	// use: when a cluster is removed, use this list to update
+	// the back references of all associated endpoints. When a destination rule
+	// subset changes (e.g., label removed), iterate over all endpoints in this list
+	// to see if any need to be removed. Note that its more common to create/delete subsets
+	// than to add/remove labels from a subset.
+	endpoints []*EnvoyEndpoint
+	// map of labels associated with this envoy cluster
+	labels map[string]string
 }
 
 // Indices is a set of reverse indices to quickly locate endpoints, clusters, routes
@@ -152,28 +166,28 @@ type Indices struct {
 
 	// Map of virtual hosts indexed by name (not DNS). When a route rule has source based/gateway
 	// based match, the virtual host name has to be tweaked accordingly.
-	virtualHosts map[string]*BoxedVirtualHost
+	virtualHosts map[string]*VirtualHost
 
 	// Map of route configurations (used by RDS in each listener) indexed by name.
-	routeConfigs map[string]*BoxedRouteConfiguration
+	routeConfigs map[string]*RouteConfiguration
 
 	// A mutex to guard CDS
 	// Map of envoy clusters indexed by name
-	envoyClusters map[string]*BoxedCluster
+	envoyClusters map[string]*EnvoyCluster
 
 	// Map of UID to the network endpoint. The UID is expected to be unique across the Mesh.
-	endpoints map[string]*BoxedEndpoint
+	endpoints map[string]*EnvoyEndpoint
 
 	// Map of a "single" label string ("key=value") to the list of envoy clusters that use this label.
-	labelToEnvoyClusters map[string][]*BoxedCluster
+	labelToEnvoyClusters map[string][]*EnvoyCluster
 }
 
-// EnvoyInstance represents information associated with a single Envoy sidecar
-type EnvoyInstance struct{}
+// EnvoyNode represents information associated with a single Envoy sidecar
+type EnvoyNode struct{}
 
 // Hash returns a globally unique ID for a given Envoy node
 // This implements the interface needed by xds cache
-func (e EnvoyInstance) Hash(node *xdsapi.Node) (xdscache.Key, error) {
+func (e EnvoyNode) Hash(node *xdsapi.Node) (xdscache.Key, error) {
 	// DUMMY IMPLEMENTATION
 	return xdscache.Key(node.Id), nil
 }
@@ -232,7 +246,7 @@ func (ds *DiscoveryService) UpdateIndices(svc *model.Service, instance *model.Se
 	indices := ds.indices
 	// dummy values
 	indices.listeners[80] = &xdsapi.Listener{}
-	indices.envoyClusters["port-80-service-foo-cluster"] = &BoxedCluster{}
+	indices.envoyClusters["port-80-service-foo-cluster"] = &EnvoyCluster{}
 
 	// This is pretty bad (copy by value) but the snapshot interface requires values
 	// That interface needs to be tweaked
@@ -269,28 +283,28 @@ func (ds *DiscoveryService) UpdateIndices(svc *model.Service, instance *model.Se
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache model.ConfigStoreCache,
 	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
-	discoveryService := &DiscoveryService{
+	ds := &DiscoveryService{
 		Environment: environment,
 		indices: &Indices{
 			listeners:     make(map[int]*xdsapi.Listener),
-			virtualHosts:  make(map[string]*BoxedVirtualHost),
-			routeConfigs:  make(map[string]*BoxedRouteConfiguration),
-			envoyClusters: make(map[string]*BoxedCluster),
-			endpoints:     make(map[string]*BoxedEndpoint),
+			virtualHosts:  make(map[string]*VirtualHost),
+			routeConfigs:  make(map[string]*RouteConfiguration),
+			envoyClusters: make(map[string]*EnvoyCluster),
+			endpoints:     make(map[string]*EnvoyEndpoint),
 		},
-		envoyConfigCache: xdscache.NewSimpleCache(EnvoyInstance{}, nil),
+		envoyConfigCache: xdscache.NewSimpleCache(EnvoyNode{}, nil),
 	}
 
-	discoveryService.webhookEndpoint, discoveryService.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
+	ds.webhookEndpoint, ds.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	// set up the rest/grpc server
-	startADS(ctx, discoveryService.envoyConfigCache, o.Port)
+	startADS(ctx, ds.envoyConfigCache, o.Port)
 
 	// The service model provides two callbacks
 	// 1. the ServiceChange callback notifies us of updates to the service object (add/remove/new labels/ports)
 	// 2. the EndpointChange notifies us of updates to the instances of a service (add/remove or label changes)
-	serviceHandler := func(s *model.Service, e model.Event) { discoveryService.UpdateIndices(s, nil, nil, e) }
-	instanceHandler := func(i *model.ServiceInstance, e model.Event) { discoveryService.UpdateIndices(nil, i, nil, e) }
+	serviceHandler := func(s *model.Service, e model.Event) { ds.UpdateIndices(s, nil, nil, e) }
+	instanceHandler := func(i *model.ServiceInstance, e model.Event) { ds.UpdateIndices(nil, i, nil, e) }
 
 	if err := ctl.ServiceChange(serviceHandler); err != nil {
 		return nil, err
@@ -300,11 +314,11 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 	}
 
 	// Config handler callback is invoked when routing rules change
-	configHandler := func(rule model.Config, e model.Event) { discoveryService.UpdateIndices(nil, nil, rule, e) }
+	configHandler := func(rule model.Config, e model.Event) { ds.UpdateIndices(nil, nil, &rule, e) }
 	for _, descriptor := range model.IstioConfigTypes {
 		// register a callback for route rules, destination rules, external services, gateways, etc.
 		configCache.RegisterEventHandler(descriptor.Type, configHandler)
 	}
 
-	return discoveryService, nil
+	return ds, nil
 }
