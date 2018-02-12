@@ -31,9 +31,11 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
+	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
+	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
@@ -52,6 +54,8 @@ const (
 
 	// The default minimum grace period for workload cert rotation.
 	defaultWorkloadMinCertGracePeriod = 10 * time.Minute
+
+	defaultProbeCheckInterval = 30 * time.Second
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -91,6 +95,8 @@ type cliOptions struct {
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
 	LivenessProbeOptions *probe.Options
+
+	probeCheckInterval time.Duration
 }
 
 var (
@@ -159,6 +165,9 @@ func init() {
 	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
 		"Interval of updating file for the liveness probe.")
 
+	flags.DurationVar(&opts.probeCheckInterval, "probeCheckInterval", defaultProbeCheckInterval,
+		"Interval of checking the liveness of the CA.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -166,6 +175,8 @@ func init() {
 		Section: "istio_ca CLI",
 		Manual:  "Istio CA",
 	}))
+
+	rootCmd.AddCommand(cmd.NewProbeCmd())
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
@@ -209,6 +220,13 @@ func runCA() {
 	if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
 		reg := registry.GetIdentityRegistry()
+
+		// add certificate identity to the identity registry for the liveness probe check
+		if err := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
+			probecontroller.LivenessProbeClientIdentity); err != nil {
+			log.Errorf("failed to add indentity mapping: %v", err)
+		}
+
 		ch := make(chan struct{})
 
 		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
@@ -271,11 +289,27 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
+	caOpts.ProbeCheckInterval = opts.probeCheckInterval
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		log.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
+
+	if opts.LivenessProbeOptions.IsValid() {
+		var g interface{} = &caclient.CAGrpcClientImpl{}
+		if client, ok := g.(caclient.CAGrpcClient); ok {
+			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(opts.rootCertFile,
+				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
+				opts.LivenessProbeOptions, client)
+			if err != nil {
+				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+			} else {
+				livenessProbeChecker.Run()
+			}
+		}
+	}
+
 	return istioCA
 }
 
