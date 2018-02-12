@@ -198,6 +198,7 @@ type DiscoveryService struct {
 	webhookClient    *http.Client
 	webhookEndpoint  string
 	indices          *Indices
+	// protos per envoy
 	envoyConfigCache *xdscache.SimpleCache
 }
 
