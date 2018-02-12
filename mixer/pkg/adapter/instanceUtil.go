@@ -39,7 +39,7 @@ func Stringify(v interface{}) string {
 		case bool:
 			return strconv.FormatBool(vv)
 		case time.Time:
-			return vv.String()
+			return string(serializeTime(vv))
 		case time.Duration:
 			return vv.String()
 		case net.IP:
@@ -61,9 +61,100 @@ func Stringify(v interface{}) string {
 // `istio.mixer.v1.config.descriptor.ValueType`, are equal.
 // Note: string representation of nil object is an empty string, so StringEquals with
 // a nil object and a string of value empty "", will evaluate to true.
+// Note: This code is optimized for the case when one of the values is of string type.
+// For other cases, this code does Stringify first and compares the stringified results.
 func StringEquals(a interface{}, b interface{}) bool {
-	if a == b {
-		return true
+	switch vv := a.(type) {
+	case string:
+		return strEqualsObject(vv, b)
 	}
+
+	switch vv := b.(type) {
+	case string:
+		return strEqualsObject(vv, a)
+	}
+
 	return Stringify(a) == Stringify(b)
+}
+
+func strEqualsObject(str string, i interface{}) bool {
+	if i != nil {
+		switch vv := i.(type) {
+		case string:
+			return vv == str
+		case int64:
+			if d, err := strconv.ParseInt(str, 10, 64); err == nil {
+				return d == vv
+			}
+		case float64:
+			if d, err := strconv.ParseFloat(str, 64); err == nil {
+				return d == vv
+			}
+		case bool:
+			if d, err := strconv.ParseBool(str); err == nil {
+				return d == vv
+			}
+		case time.Time:
+			if d, err := time.Parse(time.RFC3339, str); err == nil {
+				return d == vv
+			}
+		case time.Duration:
+			if d, err := time.ParseDuration(str); err == nil {
+				return d == vv
+			}
+		case net.IP:
+			if d := net.ParseIP(str); d != nil {
+				return d.Equal(vv)
+			}
+		case EmailAddress:
+			return string(vv) == str
+		case URI:
+			return string(vv) == str
+		case DNSName:
+			return string(vv) == str
+		default:
+			return false
+		}
+	}
+
+	// if i == nil and str is empty, return true
+	return len(str) == 0
+}
+
+func serializeTime(t time.Time) []byte {
+	t = t.UTC()
+	year, month, day := t.Date()
+	hour, minute, second := t.Clock()
+	micros := t.Nanosecond() / 1000
+
+	buf := make([]byte, 27)
+
+	buf[0] = byte((year/1000)%10) + '0'
+	buf[1] = byte((year/100)%10) + '0'
+	buf[2] = byte((year/10)%10) + '0'
+	buf[3] = byte(year%10) + '0'
+	buf[4] = '-'
+	buf[5] = byte((month)/10) + '0'
+	buf[6] = byte((month)%10) + '0'
+	buf[7] = '-'
+	buf[8] = byte((day)/10) + '0'
+	buf[9] = byte((day)%10) + '0'
+	buf[10] = 'T'
+	buf[11] = byte((hour)/10) + '0'
+	buf[12] = byte((hour)%10) + '0'
+	buf[13] = ':'
+	buf[14] = byte((minute)/10) + '0'
+	buf[15] = byte((minute)%10) + '0'
+	buf[16] = ':'
+	buf[17] = byte((second)/10) + '0'
+	buf[18] = byte((second)%10) + '0'
+	buf[19] = '.'
+	buf[20] = byte((micros/100000)%10) + '0'
+	buf[21] = byte((micros/10000)%10) + '0'
+	buf[22] = byte((micros/1000)%10) + '0'
+	buf[23] = byte((micros/100)%10) + '0'
+	buf[24] = byte((micros/10)%10) + '0'
+	buf[25] = byte((micros)%10) + '0'
+	buf[26] = 'Z'
+	return buf
 }
