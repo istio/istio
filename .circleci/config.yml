@@ -41,6 +41,7 @@ jobs:
           mkdir -p /go/out
           mkdir /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
@@ -75,6 +76,7 @@ jobs:
           mkdir -p /go/out
           mkdir /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: ls -R /go # Debug attach_workspace, pkg must be restored.
@@ -114,6 +116,7 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
@@ -153,6 +156,7 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
@@ -186,6 +190,7 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
@@ -207,7 +212,8 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run:  make depend.update init
+      - run: make submodule-sync
+      - run: make depend.update init
       - run: make build
       - run:
           name: Status and artifacts
@@ -227,6 +233,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
+      - run: make submodule-sync
       - run: make init
 
   codecov:
@@ -237,6 +244,7 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - run: make submodule-sync
       - run: mkdir -p /tmp/coverage
       - run:
           name: Running Kubernetes API Server standalone
@@ -271,6 +279,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -288,6 +297,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/racetests
@@ -303,6 +313,7 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/benchcheck
@@ -315,6 +326,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - run: make submodule-sync
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -337,6 +349,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - run: make submodule-sync
       - run: make lint
 
   ## TODO DISBALE ME and use the container based lint
@@ -365,6 +378,7 @@ jobs:
       TAG: circleci-nightly
     steps:
       - checkout
+      - run: make submodule-sync
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -380,6 +394,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - run: make submodule-sync
       - run:
           command: |
             cp -a /usr/local/go /go

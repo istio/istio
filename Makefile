@@ -167,11 +167,26 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 # Will also check vendor, based on Gopkg.lock
 init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
 
-.PHONY: submodule
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
 
-submodule:
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
 	git submodule sync
 	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+.PHONY: submodule pull submodule-sync
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
