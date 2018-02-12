@@ -26,9 +26,10 @@ import (
 	xdsserver "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util"
 )
 
 // Endpoints (react to updates in registry endpoints) - EDS updates
@@ -195,9 +196,9 @@ func (e EnvoyNode) Hash(node *xdsapi.Node) (xdscache.Key, error) {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
-	webhookClient    *http.Client
-	webhookEndpoint  string
-	indices          *Indices
+	webhookClient   *http.Client
+	webhookEndpoint string
+	indices         *Indices
 	// protos per envoy
 	envoyConfigCache xdscache.Cache
 }
