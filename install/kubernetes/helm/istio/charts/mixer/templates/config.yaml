@@ -354,18 +354,25 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetesenv
 metadata:
   name: handler
   namespace: {{ .Release.Namespace }}
 spec:
+  # when running from mixer root, use the following config after adding a
+  # symbolic link to a kubernetes config file via:
+  #
+  # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+  #
+  # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: kubeattrgenrule
+  name: kubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
 spec:
   actions:

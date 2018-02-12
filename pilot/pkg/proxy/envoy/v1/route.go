@@ -90,14 +90,14 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRoutesV2(instances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRoutesV2(nodeInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
 			routes = append(routes, buildInboundRouteV2(config, cluster, http, nil))
 		}
 		for _, match := range http.Match {
-			for _, instance := range instances {
+			for _, instance := range nodeInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
 					routes = append(routes, buildInboundRouteV2(config, cluster, http, match))
 					break
@@ -177,13 +177,13 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 
 // buildHTTPRoutes translates a route rule to an Envoy route
 func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, instances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+	port *model.Port, nodeInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRoutesV2(store, config, service, port, instances, domain, buildCluster)
+		return buildHTTPRoutesV2(store, config, service, port, nodeInstances, domain, buildCluster)
 	default:
 		panic("unsupported rule")
 	}
@@ -266,10 +266,12 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 
 	if rule.Mirror != nil {
 		fqdnDest := model.ResolveHostname(config.ConfigMeta, rule.Mirror)
+		cluster := buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External())
+		route.clusters = append(route.clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{
 			//TODO support shadowing between internal and external kubernetes services
 			// currently only shadowing between internal kubernetes services is supported
-			Cluster: buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External()).Name,
+			Cluster: cluster.Name,
 		}
 	}
 
@@ -312,7 +314,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	instances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+	nodeInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
@@ -322,7 +324,7 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain, buildCluster))
 		}
 		for _, match := range http.Match {
-			for _, instance := range instances {
+			for _, instance := range nodeInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
 					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain, buildCluster))
 					break
@@ -394,7 +396,14 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		}
 	}
 
-	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror, buildCluster) // FIXME: add any new cluster
+	if http.Mirror != nil {
+		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
+		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
+		cluster := buildCluster(fqdn, port, labels, false)
+		route.clusters = append(route.clusters, cluster)
+		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
+	}
+
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
@@ -458,18 +467,6 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 		route.HostRewrite = rewrite.Authority
 		route.PrefixRewrite = rewrite.Uri
 	}
-}
-
-func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port,
-	mirror *routingv2.Destination, buildCluster buildClusterFunc) *ShadowCluster {
-
-	if mirror != nil {
-		fqdn := model.ResolveFQDN(mirror.Name, domain)
-		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)
-		// TODO support shadow cluster for external kubernetes service mirror
-		return &ShadowCluster{Cluster: buildCluster(fqdn, port, labels, false).Name}
-	}
-	return nil
 }
 
 func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
