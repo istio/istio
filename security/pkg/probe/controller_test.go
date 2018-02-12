@@ -106,7 +106,6 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			"localhost",
 			1234,
 			istioCA,
-			time.Minute,
 			&probe.Options{
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,

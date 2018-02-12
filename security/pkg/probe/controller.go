@@ -43,15 +43,13 @@ type LivenessCheckController struct {
 	serviceIdentityOrg string
 	rsaKeySize         int
 	ca                 *ca.IstioCA
-	caCertTTL          time.Duration
 	livenessProbe      *probe.Probe
 	client             grpc.CAGrpcClient
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
 func NewLivenessCheckController(rootCertFile string, probeCheckInterval time.Duration,
-	grpcHostname string, grpcPort int, ca *ca.IstioCA,
-	caCertTTL time.Duration, livenessProbeOptions *probe.Options,
+	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
 	client grpc.CAGrpcClient) (*LivenessCheckController, error) {
 
 	livenessProbe := probe.NewProbe()
@@ -70,7 +68,6 @@ func NewLivenessCheckController(rootCertFile string, probeCheckInterval time.Dur
 		rsaKeySize:    2048,
 		livenessProbe: livenessProbe,
 		ca:            ca,
-		caCertTTL:     caCertTTL,
 		client:        client,
 	}, nil
 }
@@ -96,6 +93,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
+	// Store certificate chain and private key to generate CSR
 	tempDir, err := ioutil.TempDir("/tmp", "caprobe")
 	if err != nil {
 		return err
@@ -124,6 +122,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
+	// Generate csr and credential
 	pc := platform.NewOnPremClientImpl(platform.OnPremConfig{
 		RootCACertFile: c.rootCertFile,
 		KeyFile:        testKey.Name(),
@@ -152,6 +151,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
 
+	// test server
 	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
 
 	return err
