@@ -200,7 +200,7 @@ type DiscoveryService struct {
 	webhookEndpoint string
 	indices         *Indices
 	// protos per envoy
-	envoyConfigCache xdscache.Cache
+	envoyConfigCache *xdscache.Cache
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -215,8 +215,8 @@ type DiscoveryServiceOptions struct {
 
 // Start ADS server on a given port
 // xdscache.Cache is a simple cache that holds the entire config for each envoy connected to pilot
-func startADS(ctx context.Context, envoyConfigCache xdscache.Cache, port int) {
-	server := xdsserver.NewServer(envoyConfigCache)
+func startADS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
+	server := xdsserver.NewServer(*envoyConfigCache)
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -278,13 +278,14 @@ func (ds *DiscoveryService) UpdateIndices(svc *model.Service, instance *model.Se
 		// OPTIMIZE..
 		snapshot := xdscache.NewSnapshot("unique-version-string",
 			clusterLoadAssignments, clusters, routes, listeners)
-		ds.envoyConfigCache.SetSnapshot(xdscache.Key(e.name), snapshot)
+		(*ds.envoyConfigCache).SetSnapshot(xdscache.Key(e.name), snapshot)
 	}
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache model.ConfigStoreCache,
 	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	envoyConfigCache := xdscache.NewSimpleCache(EnvoyNode{}, nil)
 	ds := &DiscoveryService{
 		Environment: environment,
 		indices: &Indices{
@@ -294,7 +295,7 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 			envoyClusters: make(map[string]*EnvoyCluster),
 			endpoints:     make(map[string]*EnvoyEndpoint),
 		},
-		envoyConfigCache: xdscache.NewSimpleCache(EnvoyNode{}, nil),
+		envoyConfigCache: &envoyConfigCache,
 	}
 
 	ds.webhookEndpoint, ds.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
