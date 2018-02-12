@@ -270,11 +270,11 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
     docker load -i "${TAR_PATH}"
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-      docker tag "${IMAGE_NAME}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
       docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
-      docker tag "${IMAGE_NAME}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
       gcloud docker -- push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done

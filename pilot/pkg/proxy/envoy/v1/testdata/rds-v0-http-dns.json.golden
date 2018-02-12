@@ -11,6 +11,11 @@
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP-80",
       "timeout_ms": 0,
+      "opaque_config": {
+       "destination.service": "google.default.cluster.local",
+       "mixer": "eyJtaXhlckF0dHJpYnV0ZXMiOnsiYXR0cmlidXRlcyI6eyJkZXN0aW5hdGlvbi5zZXJ2aWNlIjp7InN0cmluZ1ZhbHVlIjoiZ29vZ2xlLmRlZmF1bHQuY2x1c3Rlci5sb2NhbCJ9LCJzb3VyY2UuaXAiOnsiYnl0ZXNWYWx1ZSI6IkFBQUFBQUFBQUFBQUFQLy9DZ0VCQUE9PSJ9LCJzb3VyY2UudWlkIjp7InN0cmluZ1ZhbHVlIjoia3ViZXJuZXRlczovL3YwLmRlZmF1bHQifX19fQ==",
+       "mixer_sha": "HYpaQLJgKOY2fsXWuG8wN4tG7cMgcRf+e7jU8gFhe5I="
+      },
       "decorator": {
        "operation": "default-route"
       }

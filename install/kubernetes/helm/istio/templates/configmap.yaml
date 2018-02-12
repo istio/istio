@@ -72,7 +72,7 @@ data:
       discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15003
       #
       # Zipkin trace collector
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: {{ .Release.Name}}-zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.

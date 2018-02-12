@@ -6,10 +6,5 @@ spec:
   hosts:
     - c
   http:
-    - route:
-      - destination:
-          name: c
-          subset: v1
-        weight: 100
-      mirror:
+    - mirror:
         name: b

@@ -73,6 +73,7 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 //
 // Example configuration:
 //
+// ```yaml
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
@@ -89,6 +90,7 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 //       - dimensions:
 //           destination: reviews
 //         maxAmount: 5
+// ```
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
 	Quotas []Params_Quota `protobuf:"bytes,1,rep,name=quotas" json:"quotas"`
