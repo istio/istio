@@ -25,8 +25,8 @@ import (
 
 	"istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/component/proxy"
-	appOnlyEnv "istio.io/istio/tests/integration/example/environment/appOnlyEnv"
-	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
+	"istio.io/istio/tests/integration/example/environment/appOnlyEnv"
+	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
@@ -45,13 +45,13 @@ func TestSample1(t *testing.T) {
 
 	var url string
 	if testEM.GetEnv().GetName() == appOnlyEnvName {
-		fortioStatus, ok := testEM.GetComponents()[0].GetStatus().(fortioServer.LocalCompStatus)
+		fortioStatus, ok := testEM.GetEnv().GetComponents()[0].GetStatus().(fortioServer.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get fortio server status")
 		}
 		url = fortioStatus.EchoEndpoint
 	} else if testEM.GetEnv().GetName() == mixerEnvoyEnvName {
-		sideCarStatus, ok := testEM.GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
+		sideCarStatus, ok := testEM.GetEnv().GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get side car proxy status")
 		}

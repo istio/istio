@@ -42,18 +42,18 @@ cd proxy
 git pull
 
 PROXY_TAR="envoy-debug-${PROXY_TAG}.tar.gz"
-#rm -rf usr ${PROXY_TAR}
-#wget "https://storage.googleapis.com/istio-build/proxy/${PROXY_TAR}"
-#tar xvzf "${PROXY_TAR}"
+rm -rf usr ${PROXY_TAR}
+wget "https://storage.googleapis.com/istio-build/proxy/${PROXY_TAR}"
+tar xvzf "${PROXY_TAR}"
 
 ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
 START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
 # Install Fortio
-#cd vendor/istio.io/fortio
-#make install
-#cd ../../..
+cd vendor/istio.io/fortio
+make install
+cd ../../..
 
 # Run Tests
 TESTSPATH='tests/integration/example/tests'

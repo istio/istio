@@ -39,7 +39,7 @@ var (
 func TestSample2(t *testing.T) {
 	log.Printf("Running %s", testEM.GetID())
 
-	sideCarStatus, ok := testEM.GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
+	sideCarStatus, ok := testEM.GetEnv().GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
 	if !ok {
 		t.Fatalf("failed to get side car proxy status")
 	}
@@ -55,7 +55,7 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	mixerStatus, ok := testEM.GetComponents()[2].GetStatus().(mixer.LocalCompStatus)
+	mixerStatus, ok := testEM.GetEnv().GetComponents()[2].GetStatus().(mixer.LocalCompStatus)
 	if !ok {
 		t.Fatalf("failed to get status of mixer component")
 	}
@@ -68,7 +68,7 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	config := testEM.GetComponents()[2].GetConfig()
+	config := testEM.GetEnv().GetComponents()[2].GetConfig()
 	mixerConfig, ok := config.(mixer.LocalCompConfig)
 	if !ok {
 		t.Fatalf("failed to get config of mixer component")

@@ -34,7 +34,7 @@ type MixerEnvoyEnv struct {
 	envID     string
 	tmpDir    string
 	configDir string
-	comps   []framework.Component
+	comps     []framework.Component
 }
 
 // NewMixerEnvoyEnv create a MixerEnvoyEnv with a env ID
