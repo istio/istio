@@ -124,8 +124,3 @@ func (fortioServerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", fortioServerComp.GetName())
 	return fortioServerComp.testProcess.Stop()
 }
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (fortioServerComp *LocalComponent) Cleanup() error {
-	return nil
-}

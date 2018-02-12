@@ -126,8 +126,3 @@ func (proxyComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", proxyComp.GetName())
 	return proxyComp.testProcess.Stop()
 }
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (proxyComp *LocalComponent) Cleanup() error {
-	return nil
-}

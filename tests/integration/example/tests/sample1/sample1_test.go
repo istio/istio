@@ -41,17 +41,17 @@ var (
 )
 
 func TestSample1(t *testing.T) {
-	log.Printf("Running %s", testEM.TestID)
+	log.Printf("Running %s", testEM.GetID())
 
 	var url string
-	if testEM.TestEnv.GetName() == appOnlyEnvName {
-		fortioStatus, ok := testEM.Components[0].GetStatus().(fortioServer.LocalCompStatus)
+	if testEM.GetEnv().GetName() == appOnlyEnvName {
+		fortioStatus, ok := testEM.GetComponents()[0].GetStatus().(fortioServer.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get fortio server status")
 		}
 		url = fortioStatus.EchoEndpoint
-	} else if testEM.TestEnv.GetName() == mixerEnvoyEnvName {
-		sideCarStatus, ok := testEM.Components[1].GetStatus().(proxy.LocalCompStatus)
+	} else if testEM.GetEnv().GetName() == mixerEnvoyEnvName {
+		sideCarStatus, ok := testEM.GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get side car proxy status")
 		}
@@ -76,7 +76,7 @@ func TestSample1(t *testing.T) {
 	if bodyReceived != testID {
 		t.Fatalf("Echo server, [%s] sent, [%s] received", testID, bodyReceived)
 	} else {
-		log.Printf("%s succeeded!", testEM.TestID)
+		log.Printf("%s succeeded!", testEM.GetID())
 	}
 }
 

@@ -157,8 +157,3 @@ func (mixerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", mixerComp.GetName())
 	return mixerComp.testProcess.Stop()
 }
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (mixerComp *LocalComponent) Cleanup() error {
-	return nil
-}

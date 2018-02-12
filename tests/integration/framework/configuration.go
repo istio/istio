@@ -18,6 +18,5 @@ package framework
 // It is a interface to accumulate config fields into one structure
 // Any item (component, environment or even framework itself can has a Config)
 // Actual implement can take this interface with its configuration.
-// It's recommended to use sync.Mutex to lock data while read/write
 type Config interface {
 }

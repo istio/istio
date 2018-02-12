@@ -88,8 +88,3 @@ func (c *KubernetesPod) IsAlive() (bool, error) {
 
 	return true, nil
 }
-
-// Cleanup clean up tmp files and other resource created by this component
-func (c *KubernetesPod) Cleanup() error {
-	return nil
-}

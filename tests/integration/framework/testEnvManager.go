@@ -21,7 +21,6 @@ import (
 	"time"
 
 	u "istio.io/istio/tests/util"
-	"istio.io/istio/mixer/pkg/adapter"
 )
 
 var (
@@ -67,7 +66,7 @@ func (envManager *TestEnvManager) StartUp() (err error) {
 		log.Printf("Failed to bring up environment")
 		return
 	}
-	for _, comp := range envManager.components {
+	for _, comp := range envManager.GetComponents() {
 		if err := comp.Start(); err != nil {
 			log.Printf("Failed to setup component: %s", comp.GetName())
 			return err
@@ -90,16 +89,13 @@ func (envManager *TestEnvManager) TearDown() {
 		return
 	}
 
-	for _, comp := range envManager.components {
+	for _, comp := range envManager.GetComponents() {
 		if alive, err := comp.IsAlive(); err != nil {
 			log.Printf("Failed to check if componment %s is alive: %s", comp.GetName(), err)
 		} else if alive {
 			if err = comp.Stop(); err != nil {
 				log.Printf("Failed to stop componment %s: %s", comp.GetName(), err)
 			}
-		}
-		if err := comp.Cleanup(); err != nil {
-			log.Printf("Failed to cleanup %s: %s", comp.GetName(), err)
 		}
 	}
 	_ = envManager.testEnv.Cleanup()
@@ -116,7 +112,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 
 	ready := false
 	retryFn := func(i int) error {
-		for _, comp := range envManager.components {
+		for _, comp := range envManager.GetComponents() {
 			if alive, err := comp.IsAlive(); err != nil {
 				return fmt.Errorf("unable to comfirm compoment %s is alive %v", comp.GetName(), err)
 			} else if !alive {
