@@ -27,6 +27,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/pool"
@@ -108,16 +109,20 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 	return mixerpb.NewMixerClient(conn), nil
 }
 
-func TestBasic(t *testing.T) {
+func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigStoreURL = "memstore://" + t.Name()
-	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
-		t.Fatal(err)
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
+	var err error
+	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
+		return nil, err
 	}
+	return New(a)
+}
 
-	s, err := New(a)
+func TestBasic(t *testing.T) {
+	s, err := newTestServer(globalCfg, serviceCfg)
 	if err != nil {
 		t.Fatalf("Unable to create server: %v", err)
 	}
@@ -134,15 +139,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
-	a := NewArgs()
-	a.APIPort = 0
-	a.MonitoringPort = 0
-	a.ConfigStoreURL = "memstore://" + t.Name()
-	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
-		t.Fatal(err)
-	}
-
-	s, err := New(a)
+	s, err := newTestServer(globalCfg, serviceCfg)
 	if err != nil {
 		t.Fatalf("Unable to create server: %v", err)
 	}
@@ -170,10 +167,12 @@ func TestClient(t *testing.T) {
 func TestErrors(t *testing.T) {
 	a := NewArgs()
 	a.APIWorkerPoolSize = -1
-	a.ConfigStoreURL = "memstore://" + t.Name()
-	if err := store.SetupMemstore(a.ConfigStoreURL, globalCfg, serviceCfg); err != nil {
-		t.Fatal(err)
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
+	configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
+	if cerr != nil {
+		t.Fatal(cerr)
 	}
+	a.ConfigStore = configStore
 
 	s, err := New(a)
 	if s != nil || err == nil {
@@ -183,11 +182,12 @@ func TestErrors(t *testing.T) {
 	a = NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigStoreURL = "memstore://" + t.Name()
 	a.TracingOptions.LogTraceSpans = true
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			a.ConfigStore = configStore
 			pt := newPatchTable()
 			switch i {
 			case 0:
@@ -202,7 +202,8 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 2:
-				pt.newStore2 = func(r2 *store.Registry, configURL string) (store.Store, error) {
+				a.ConfigStore = nil
+				pt.newStore = func(reg *store.Registry, configURL string) (store.Store, error) {
 					return nil, errors.New("BAD")
 				}
 			case 3:

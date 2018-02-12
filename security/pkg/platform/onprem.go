@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // OnPremConfig ...
@@ -69,11 +69,11 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	cert, err := pki.ParsePemEncodedCertificate(certBytes)
+	cert, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
 		return "", err
 	}
-	serviceIDs, err := pki.ExtractIDs(cert.Extensions)
+	serviceIDs, err := util.ExtractIDs(cert.Extensions)
 	if err != nil {
 		return "", err
 	}

@@ -1,10 +1,25 @@
-{{- $istio_namespace := .Values.global.namespace }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mixer-custom-resources-configmap
-  namespace: {{$istio_namespace}}
+  name: {{ template "mixer.fullname" . }}
   labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: mixer
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "mixer.fullname" . }}-custom-resources
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
     istio: mixer
 data:
   custom-resources.yaml: |-

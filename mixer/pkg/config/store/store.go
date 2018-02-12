@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // ChangeType denotes the type of a change
@@ -67,8 +68,14 @@ type ResourceMeta struct {
 
 // BackEndResource represents a resources with a raw spec
 type BackEndResource struct {
+	Kind     string
 	Metadata ResourceMeta
 	Spec     map[string]interface{}
+}
+
+// Key returns the key of the resource in the store.
+func (ber *BackEndResource) Key() Key {
+	return Key{Kind: ber.Kind, Name: ber.Metadata.Name, Namespace: ber.Metadata.Namespace}
 }
 
 // Resource represents a resources with converted spec.
@@ -131,6 +138,8 @@ type Store interface {
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]*Resource
+
+	probe.SupportsProbe
 }
 
 // store is the implementation of Store interface.
@@ -140,6 +149,12 @@ type store struct {
 
 	mu    sync.Mutex
 	queue *eventQueue
+}
+
+func (s *store) RegisterProbe(c probe.Controller, name string) {
+	if e, ok := s.backend.(probe.SupportsProbe); ok {
+		e.RegisterProbe(c, name)
+	}
 }
 
 // Init initializes the connection with the storage backend. This uses "kinds"
@@ -211,6 +226,12 @@ func (s *store) List() map[Key]*Resource {
 	return result
 }
 
+// WithBackend creates a new Store with a certain backend. This should be used
+// only by tests.
+func WithBackend(b Backend) Store {
+	return &store{backend: b}
+}
+
 // Builder is the type of function to build a Backend.
 type Builder func(u *url.URL) (Backend, error)
 
@@ -250,8 +271,6 @@ func (r *Registry) NewStore(configURL string) (Store, error) {
 	switch u.Scheme {
 	case FSUrl:
 		b = newFsStore(u.Path)
-	case memstoreScheme:
-		b = createOrGetMemstore(u.String())
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
 			b, err = builder(u)

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-ingress
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: ingress
+spec:
+{{- if .Values.service.nodePort.enabled }}
+  type: NodePort
+{{- else }}
+  type: LoadBalancer
+{{- end }}
+  ports:
+  - port: 80
+{{- if .Values.service.nodePort.enabled }}
+    nodePort: {{ .Values.service.nodePort.port }}
+{{- end }}
+    name: http
+  - port: 443
+    name: https
+  selector:
+    app: {{ template "istio.name" . }}
+    release: {{ .Release.Name }}
+    istio: ingress

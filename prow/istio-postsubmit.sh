@@ -43,7 +43,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
   # Use volume mount from pilot-presubmit job's pod spec.
   # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
+  ln -sf "${HOME}/.kube/config" pilot/pkg/kube/config
 else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
@@ -54,9 +54,9 @@ cd $ROOT
 ${ROOT}/bin/init.sh
 
 echo 'Running Unit Tests'
-time make localTestEnv go-test
+time make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
-time make push HUB="${HUB}" TAG="${TAG}"
+time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"

@@ -17,15 +17,16 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
 var (
 	deregisterCmd = &cobra.Command{
-		Use:   "deregister <svcname> <ip>",
-		Short: "De-registers a service instance",
-		Args:  cobra.MinimumNArgs(2),
+		Use:              "deregister <svcname> <ip>",
+		Short:            "De-registers a service instance",
+		Args:             cobra.MinimumNArgs(2),
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]

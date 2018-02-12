@@ -16,11 +16,10 @@ package config
 
 import (
 	"fmt"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 
-	brokerconfig "istio.io/api/broker/v1/config"
+	brokerconfig "istio.io/api/broker/dev"
 	"istio.io/istio/pkg/log"
 )
 
@@ -105,10 +104,10 @@ type BrokerConfigStore interface {
 
 const (
 	// IstioAPIGroup defines API group name for Istio configuration resources
-	IstioAPIGroup = "config.istio.io"
+	IstioAPIGroup = "broker.istio.io"
 
 	// IstioAPIVersion defines API group version
-	IstioAPIVersion = "v1alpha2"
+	IstioAPIVersion = "dev"
 )
 
 var (
@@ -116,14 +115,14 @@ var (
 	ServiceClass = Schema{
 		Type:        "service-class",
 		Plural:      "service-classes",
-		MessageName: "istio.broker.v1.config.ServiceClass",
+		MessageName: "istio.broker.dev.ServiceClass",
 	}
 
 	// ServicePlan describes service plan
 	ServicePlan = Schema{
 		Type:        "service-plan",
 		Plural:      "service-plans",
-		MessageName: "istio.broker.v1.config.ServicePlan",
+		MessageName: "istio.broker.dev.ServicePlan",
 	}
 
 	// BrokerConfigTypes lists all types with schemas and validation

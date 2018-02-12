@@ -19,10 +19,12 @@ import (
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -50,7 +52,11 @@ type Args struct {
 	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
+	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -70,6 +76,13 @@ type Args struct {
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbeOptions *probe.Options
 
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
@@ -99,6 +112,8 @@ func NewArgs() *Args {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
 	}
 }
 

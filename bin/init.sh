@@ -33,7 +33,8 @@ export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
-$ROOT/bin/verify_go_version.sh
+# test scripts seem to like to run this script directly rather than use make
+export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # Ensure expected GOPATH setup
 if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
@@ -44,9 +45,11 @@ fi
 DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
 
 # Just in case init.sh is called directly, not from Makefile which has a dependency to dep
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
 if [ ! -f ${DEP} ]; then
     DEP=${ISTIO_BIN}/dep
-    unset GOOS && go get -u github.com/golang/dep/cmd/dep
+    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
 fi
 
 # Download dependencies if needed
@@ -62,9 +65,6 @@ else
               cp Gopkg.lock vendor/Gopkg.lock)
 fi
 
-# Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
-#ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' WORKSPACE))
-#PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
@@ -101,17 +101,18 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
 
     ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy/envoy
+    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
     popd
 fi
 
-if [ ! -f $GO_TOP/bin/envoy ] ; then
-    mkdir -p $GO_TOP/bin
+if [ ! -f ${ISTIO_OUT}/envoy ] ; then
+    mkdir -p ${ISTIO_OUT}
     # Make sure the envoy binary exists.
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
 fi
 
-# Deprecated, may still be used in some tests
-if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf ${ISTIO_BIN}/envoy ${ROOT}/pilot/proxy/envoy
+# circleCI expects this in the bin directory
+if [ ! -f ${ISTIO_BIN}/envoy ] ; then
+    mkdir -p ${ISTIO_BIN}
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi

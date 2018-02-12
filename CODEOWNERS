@@ -1,0 +1,19 @@
+# Global fallback
+*           @istio/reviewers-global
+
+/release/   @istio/reviewers-istio-release
+/prow/      @istio/reviewers-istio-prow
+/bin/       @istio/reviewers-istio-bin
+/pilot/     @istio/reviewers-istio-pilot
+/security/  @istio/reviewers-istio-security
+/mixer/     @istio/reviewers-istio-mixer
+/galley/    @istio/reviewers-istio-galley
+/broker/    @istio/reviewers-istio-broker
+/samples/   @istio/reviewers-istio-samples
+/install/   @istio/reviewers-istio-install
+/tools/     @costinm @ldemailly
+/pkg/       @istio/reviewers-istio-pkg
+/tests/     @istio/reviewers-istio-tests
+
+# Do not enable this. Seems to cause the parsers to fail and not trigger auto review requests
+#/.circleci/ @istio/reviewers-istio-circleci

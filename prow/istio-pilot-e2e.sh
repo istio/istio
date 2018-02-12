@@ -51,9 +51,8 @@ source "${ROOT}/prow/cluster_lib.sh"
 trap delete_cluster EXIT
 create_cluster 'e2e-pilot'
 
-ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
+ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/pkg/kube/config
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio
-./bin/init.sh
-make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false -use-initializer -use-admission-webhook=false"
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false"

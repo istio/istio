@@ -138,11 +138,13 @@ go_test target. The script has a number of options:
 * `--use_local_cluster`
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
-* `--use_initializer` - if you want to do transparent sidecar injection
+* `--use_automatic_injection` - if you want to do transparent sidecar injection
 * `--mixer_hub <mixer image hub>`
 * `--mixer_tag <mixer image tag>`
 * `--pilot_hub <pilot image hub>`
 * `--pilot_tag <pilot image tag>`
+* `--proxy_hub <proxy image hub>`
+* `--proxy_tag <proxy image tag>`
 * `--ca_hub <CA image hub>`
 * `--ca_tag <CA image tag>`
 

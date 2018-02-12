@@ -9,7 +9,7 @@ Istio Pilot controls the mesh of Istio Proxies by propagating service registry i
 
 To ensure that all traffic is trapped by Istio Proxy, Istio Pilot relies on iptables rules. The service instances communicate using regular HTTP headers, but all requests are captured by Istio Proxy and re-routed based on the request metadata and Istio routing rules.
 
-The details for proxy injection are [here](proxy-injection.md). Since all network traffic is captured, external services require special external service representation in the service model. 
+The details for proxy injection are [here](proxy-redirection-configuration.md). Since all network traffic is captured, external services require special external service representation in the service model.
 
 ## Proxy agent
 
@@ -17,7 +17,7 @@ Proxy agent is a simple agent whose primary duty is to subscribe to changes in t
 
 ## Discovery service
 
-Discovery service publishes service topology and routing information to all proxies in the mesh. Each proxy carries an identity (pod name and IP address, in case of Kubernetes sidecar deployment). Envoy uses this identity to construct a request to the discovery service. The discovery service computes the set of service instances running at the proxy address from the service registry, and creates Envoy configuration adapted to the proxy making the request. 
+Discovery service publishes service topology and routing information to all proxies in the mesh. Each proxy carries an identity (pod name and IP address, in case of Kubernetes sidecar deployment). Envoy uses this identity to construct a request to the discovery service. The discovery service computes the set of service instances running at the proxy address from the service registry, and creates Envoy configuration adapted to the proxy making the request.
 
 There are three types of discovery services exposed by Istio Pilot:
 

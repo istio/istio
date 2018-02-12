@@ -117,10 +117,7 @@ func (s *HTTPServer) Start() {
 	go func() {
 		http.HandleFunc("/", handler)
 		http.HandleFunc("/pubkey", pubkeyHandler)
-		err := http.Serve(s.lis, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
+		_ = http.Serve(s.lis, nil)
 	}()
 
 	url := fmt.Sprintf("http://localhost:%v/echo", s.port)

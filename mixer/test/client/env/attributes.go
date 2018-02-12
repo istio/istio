@@ -127,6 +127,16 @@ func Verify(b *attribute.MutableBag, expectedJSON string) error {
 			} else {
 				return fmt.Errorf("attribute %+v is expected", k)
 			}
+		case bool:
+			if val, ok := b.Get(k); ok {
+				vbool := vv
+				if val.(bool) != vbool {
+					return fmt.Errorf("attribute %+v value doesn't match. Actual %+v, expected %+v",
+						k, val.(bool), vbool)
+				}
+			} else {
+				return fmt.Errorf("attribute %+v is expected", k)
+			}
 		case map[string]interface{}:
 			if val, ok := b.Get(k); ok {
 				var err error

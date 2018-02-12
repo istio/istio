@@ -31,11 +31,12 @@ func TestSetFeatures(t *testing.T) {
 		{"routing", []string{"routing"}, &installation{Pilot: true}, ""},
 		{"mtls", []string{"mtls"}, &installation{CA: true, Pilot: true}, ""},
 		{"ingress", []string{"ingress"}, &installation{Ingress: true, Pilot: true}, ""},
-		{"initializer", []string{"initializer"}, &installation{Initializer: true}, ""},
+		{"sidecar-injector", []string{"sidecar-injector"}, &installation{SidecarInjector: true}, ""},
 		{"policy", []string{"policy"}, &installation{Mixer: true, Pilot: true}, ""},
 		{"telemetry", []string{"telemetry"}, &installation{Mixer: true, Pilot: true}, ""},
 		{"mtls + telemetry", []string{"mtls", "telemetry"}, &installation{Mixer: true, Pilot: true, CA: true}, ""},
-		{"mtls + policy + initializer", []string{"mtls", "policy", "initializer"}, &installation{Mixer: true, Pilot: true, CA: true, Initializer: true}, ""},
+		{"mtls + policy + sidecar-injector", []string{"mtls", "policy", "sidecar-injector"},
+			&installation{Mixer: true, Pilot: true, CA: true, SidecarInjector: true}, ""},
 		{"invalid", []string{"everything"}, nil, "everything"},
 	}
 	for _, tt := range tests {

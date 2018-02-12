@@ -33,7 +33,7 @@ func TestValuesFromInstallation(t *testing.T) {
 			contents := valuesFromInstallation(tt.in)
 			want := readGolden(t, tt.golden)
 			if contents != want {
-				t.Fatalf("valuesFromInstallation(%v) = %q wanted %q", tt.in, contents, want)
+				t.Fatalf("valuesFromInstallation(%v)\n got %q\nwant %q", tt.in, contents, want)
 			}
 		})
 	}

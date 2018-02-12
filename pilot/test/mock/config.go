@@ -30,8 +30,8 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/model/test"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 )

@@ -16,7 +16,6 @@ package util
 
 import (
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 

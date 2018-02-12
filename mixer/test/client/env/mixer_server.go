@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/mockapi"
 )

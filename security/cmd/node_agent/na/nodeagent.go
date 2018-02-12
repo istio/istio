@@ -18,53 +18,13 @@ import (
 	"fmt"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
-
-// CAGrpcClient is for implementing the GRPC client to talk to CA.
-type CAGrpcClient interface {
-	// Send CSR to the CA and gets the response or error.
-	SendCSR(*pb.Request, platform.Client, *Config) (*pb.Response, error)
-}
-
-// cAGrpcClientImpl is an implementation of GRPC client to talk to CA.
-type cAGrpcClientImpl struct {
-}
-
-// SendCSR sends CSR to CA through GRPC.
-func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Config) (*pb.Response, error) {
-	if cfg.IstioCAAddress == "" {
-		return nil, fmt.Errorf("istio CA address is empty")
-	}
-	dialOptions, err := pc.GetDialOptions()
-	if err != nil {
-		return nil, err
-	}
-	conn, err := grpc.Dial(cfg.IstioCAAddress, dialOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s: %s", cfg.IstioCAAddress, err)
-	}
-	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
-			log.Errorf("Failed to close connection")
-		}
-	}()
-	client := pb.NewIstioCAServiceClient(conn)
-	resp, err := client.HandleCSR(context.Background(), req)
-	if err != nil {
-		return nil, fmt.Errorf("CSR request failed %v", err)
-	}
-	return resp, nil
-}
 
 // The real node agent implementation. This implements the "Start" function
 // in the NodeAgent interface.
@@ -72,7 +32,7 @@ type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
 	config       *Config
 	pc           platform.Client
-	cAClient     CAGrpcClient
+	cAClient     grpc.CAGrpcClient
 	identity     string
 	secretServer workload.SecretServer
 	certUtil     CertUtil
@@ -106,7 +66,7 @@ func (na *nodeAgentInternal) Start() error {
 
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := na.cAClient.SendCSR(req, na.pc, na.config)
+		resp, err := na.cAClient.SendCSR(req, na.pc, na.config.IstioCAAddress)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(
 				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)
@@ -154,14 +114,14 @@ func (na *nodeAgentInternal) Start() error {
 	}
 }
 
-func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
-	csr, privKey, err := ca.GenCSR(ca.CertOptions{
+func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
+	csr, privKey, err := util.GenCSR(util.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
+		return nil, nil, err
 	}
 
 	cred, err := na.pc.GetAgentCredential()
@@ -169,9 +129,11 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
 	}
 
-	return privKey, &pb.Request{
+	return privKey, &pb.CsrRequest{
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),
+		RequestedTtlMinutes: int32(na.config.WorkloadCertTTL.Minutes()),
+		ForCA:               false,
 	}, nil
 }

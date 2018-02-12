@@ -26,7 +26,9 @@ import (
 	noop "istio.io/istio/mixer/adapter/noop"
 	opa "istio.io/istio/mixer/adapter/opa"
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
+	rbac "istio.io/istio/mixer/adapter/rbac"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
+	solarwinds "istio.io/istio/mixer/adapter/solarwinds"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
 	statsd "istio.io/istio/mixer/adapter/statsd"
 	stdio "istio.io/istio/mixer/adapter/stdio"
@@ -45,7 +47,9 @@ func Inventory() []adptr.InfoFn {
 		noop.GetInfo,
 		opa.GetInfo,
 		prometheus.GetInfo,
+		rbac.GetInfo,
 		servicecontrol.GetInfo,
+		solarwinds.GetInfo,
 		stackdriver.GetInfo,
 		statsd.GetInfo,
 		stdio.GetInfo,

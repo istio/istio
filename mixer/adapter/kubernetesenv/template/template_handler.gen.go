@@ -23,18 +23,21 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `kubernetes` template holds data that controls the production of Kubernetes-specific
+// attributes.
+
 // Fully qualified name of the template
 const TemplateName = "kubernetes"
 
 // Instance is constructed by Mixer for the 'kubernetes' template.
 //
-// kubernetes template represents data used to generate kubernetes attributes.
+// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
 //
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: kubernetes
 // metadata:

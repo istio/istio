@@ -35,12 +35,14 @@ fi
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
-ISTIO_CFG=${ISTIO_CFG:-/var/lib/istio}
 NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
-ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15003}
-CONTROL_PLANE_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
+
+# The default matches the default istio.yaml - use sidecar.env to override this if you
+# enable auth. This requires node-agent to be running.
+ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-8080}
+ISTIO_CP_AUTH=${ISTIO_CP_AUTH:-NONE}
 
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
@@ -62,10 +64,5 @@ fi
 # Update iptables, based on config file
 ${ISTIO_BIN_BASE}/istio-iptables.sh
 
-if [ -f ${ISTIO_BIN_BASE}/pilot-agent ]; then
-  exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" istio-proxy
-else
-  ENVOY_CFG=${ENVOY_CFG:-${ISTIO_CFG}/envoy/envoy.json}
-  # Run envoy directly - agent not installed. This should be used only for debugging/testing standalone envoy
-  exec su -s /bin/bash -c "exec ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-fi
+# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
+exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" istio-proxy

@@ -1,0 +1,39 @@
+- name: Set release tag to specific versioned
+  set_fact:
+    release_tag: "tags/{{ istio_version_to_use }}"
+
+- name: Get the tagged release
+  uri:
+    url: "{{ github_url }}/{{ istio_repo }}/releases/{{ release_tag }}"
+    headers: "{{ github_api_http_headers }}"
+  register: release
+
+- name: Set release
+  set_fact:
+    assets_url: "{{ release.json.assets_url }}"
+
+- name: Should have an assets_url
+  assert:
+    that: assets_url is defined
+
+# - name: debug
+#   debug:
+#     var: assets_url
+
+- name: Get the list of assets
+  uri:
+    url: "{{ assets_url }}"
+    headers: "{{ github_api_http_headers }}"
+  register: assets
+
+- name: Set file extension to lookup
+  set_fact:
+    ext_pattern: "{{'.*osx.*' if ansible_os_family == 'Darwin' else '.*linux.*'}}"
+
+- name: Extract the matching download url
+  set_fact:
+    asset_url: "{{assets.json | map(attribute='browser_download_url') | select('match', ext_pattern) | first}}"
+
+- name: Extract the name of the asset
+  set_fact:
+    asset_name: "{{ asset_url | basename }}"

@@ -17,8 +17,6 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/asn1"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -27,112 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/pki"
-	"istio.io/istio/security/pkg/pki/testutil"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
-func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
-	certTTL := 30 * time.Minute
-	caCertTTL := time.Hour
-	org := "test.ca.org"
-	caNamespace := "default"
-	client := fake.NewSimpleClientset()
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
-	if err != nil {
-		t.Errorf("Failed to create a self-signed CA: %v", err)
-	}
-
-	name := "foo"
-	namespace := "bar"
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
-	options := CertOptions{
-		Host:       id,
-		RSAKeySize: 2048,
-	}
-	csr, _, err := GenCSR(options)
-	if err != nil {
-		t.Error(err)
-	}
-	cb, err := ca.Sign(csr)
-	if err != nil {
-		t.Error(err)
-	}
-
-	rcb := ca.GetRootCertificate()
-
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(cb)
-
-	rootPool := x509.NewCertPool()
-	rootPool.AppendCertsFromPEM(rcb)
-
-	cert, err := pki.ParsePemEncodedCertificate(cb)
-	if err != nil {
-		t.Error(err)
-	}
-	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != certTTL {
-		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", certTTL, ttl)
-	}
-
-	rootCert, err := pki.ParsePemEncodedCertificate(rcb)
-	if err != nil {
-		t.Error(err)
-	}
-	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
-		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
-	}
-	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
-		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
-	}
-
-	chain, err := cert.Verify(x509.VerifyOptions{
-		Intermediates: certPool,
-		Roots:         rootPool,
-	})
-	if len(chain) == 0 || err != nil {
-		t.Error("Failed to verify generated cert")
-	}
-
-	san := pki.ExtractSANExtension(cert.Extensions)
-	if san == nil {
-		t.Errorf("Generated certificate does not contain a SAN field")
-	}
-
-	rv := asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(id)}
-	bs, err := asn1.Marshal([]asn1.RawValue{rv})
-	if err != nil {
-		t.Error(err)
-	}
-
-	if !bytes.Equal(bs, san.Value) {
-		t.Errorf("SAN field does not match: %s is expected but actual is %s", bs, san.Value)
-	}
-
-	caSecret, err := client.CoreV1().Secrets("default").Get(cASecret, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get secret (error: %s)", err)
-	}
-
-	signingCert, err := pki.ParsePemEncodedCertificate(caSecret.Data[cACertID])
-	if err != nil {
-		t.Errorf("Failed to parse cert (error: %s)", err)
-	}
-	if !signingCert.Equal(ca.signingCert) {
-		t.Error("Cert does not match")
-	}
-
-	if len(ca.certChainBytes) > 0 {
-		t.Error("CertChain should be empty")
-	}
-
-	rootCertBytes := copyBytes(caSecret.Data[cACertID])
-	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
-		t.Error("Root cert does not match")
-	}
-}
-
-func TestSelfSignedIstioCAWithSecret(t *testing.T) {
-	rootCert := `
+var (
+	cert1Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC5jCCAc6gAwIBAgIRAO1DMLWq99XL/B2kRlNpnikwDQYJKoZIhvcNAQELBQAw
 HDEaMBgGA1UEChMRazhzLmNsdXN0ZXIubG9jYWwwHhcNMTcwOTIwMjMxODQwWhcN
@@ -150,13 +47,9 @@ bAj7VfxIegZbE3tnkuky9BwVCoBD+d2zIqCZ5Xl17+ki6cttLAFWni85cg9gX8a6
 kLAXl8xEp48cvAxX4FslgAlBPagpJYbjVM0BjQbgmGLg1rjoH/jbkQJyIabX5dSq
 9fdQYxkTzYnvcvgHf4WSl/awopjsI1NhNv07+qE8ie86EoYJgXPrNtlytyqSvIXQ
 2ETBxlxOg3DdlBwhBz/Hg31tCLv8E8U8fqQ=
------END CERTIFICATE-----
-	`
+-----END CERTIFICATE-----`
 
-	// Use the same signing cert and root cert for self-signed CA.
-	signingCert := rootCert
-
-	signingKey := `
+	key1Pem = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAphLINuNGVi7LJgk65lAeIb3A6yczhHH/BZMlQ5C2FjPe4gGd
 HRZIx3InblV2mK0eoM5HiEmjfcPE2aScydeEC7JVmipimhLH9R2U4Fg1CK/Lo4JH
@@ -183,73 +76,9 @@ GU8vrfKNNgLbkPk7lYvtjeRNJw71lJhCT0U0Pptz8CKh+NZgTNyz9kXxfPIioNqd
 rnhhAoGANfiSkuFuw2+WpBvTNah+wcZDNiMbvkQVhUwRvqIM6sLhRJhVZzJkTrYu
 YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
 7lGXdUBnyY8tcLhla+Rbo7Y8yOsN6pp4grT1DP+8rG4G4vnJgbk=
------END RSA PRIVATE KEY-----
-	`
+-----END RSA PRIVATE KEY-----`
 
-	client := fake.NewSimpleClientset()
-	initSecret := createSecret("default", signingCert, signingKey, rootCert)
-	_, err := client.CoreV1().Secrets("default").Create(initSecret)
-	if err != nil {
-		t.Errorf("Failed to create secret (error: %s)", err)
-	}
-
-	certTTL := 30 * time.Minute
-	caCertTTL := time.Hour
-	org := "test.ca.org"
-	caNamespace := "default"
-
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
-	if ca == nil || err != nil {
-		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
-	}
-
-	cert, err := pki.ParsePemEncodedCertificate([]byte(signingCert))
-	if err != nil {
-		t.Errorf("Failed to parse cert (error: %s)", err)
-	}
-	if !cert.Equal(ca.signingCert) {
-		t.Error("Cert does not match")
-	}
-
-	if len(ca.certChainBytes) > 0 {
-		t.Error("CertChain should be empty")
-	}
-
-	rootCertBytes := copyBytes([]byte(rootCert))
-	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
-		t.Error("Root cert does not match")
-	}
-
-}
-
-// Pass in unmatched chain and cert to make sure the `verify` method yeilds an error.
-func TestInvalidIstioCAOptions(t *testing.T) {
-	rootCert := `
------BEGIN CERTIFICATE-----
-MIIDXTCCAkWgAwIBAgIJAPa8VTmVboq0MA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
-BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
-aWRnaXRzIFB0eSBMdGQwHhcNMTcwMzE4MDAxMDI5WhcNMjcwMzE2MDAxMDI5WjBF
-MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
-ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-CgKCAQEAsBOcKtPZMB32Un0r0Ew8X4n12xgoW+2Z5f7p8reY80U6JrMPIK6yuQWk
-juGQsIFhWma0ELRB7xCQJZghEc6MyDR0PfESsljDZebYL7ZHlE9xWcZ2+qw3YFca
-wtRLa2Mud0Rx7pXMj07JGiyJ5bM5t1KJP4Wz04ZXHUDOa0NYsoFl8hJwXV/AIY0D
-2+dcwa/XN0pWtgztoHL52XzliKpVPqHkgZNN7UAO6ym7pr1JRATW572YsnkLFwgg
-4GJ6Nyoh3ZUghS918aZVXHQNfyvF5yAMOn47b5Zbk82ZT6ZDB2KLFJE4/F0OeryZ
-ncbW6HA2j0GBQPICl9+NW+Ud4KCzuwIDAQABo1AwTjAdBgNVHQ4EFgQU2Cr6Z6wH
-hBBYnid52DEESkDX4J0wHwYDVR0jBBgwFoAU2Cr6Z6wHhBBYnid52DEESkDX4J0w
-DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAB8nNUdDZ0pNX8ZGzQbgj
-2wCjaX0Za0BNPvVoqpM3oR5BCXodS4HUgx2atpTjsSQlMJzR565OmoykboF5g+K3
-hRW6cy4n6LdhY+WvyiyOlbLl+Qj8ceCaBbNrLrg1KbsTI3F8fL1gUzOOr+NNkOJz
-MDYxmuy/5kMVUp2uIx7aTigCouKgMyciA0a/FJcy1aLnW06yUj4NK0yBHXwpRMjF
-xcOPOXOTlDZkt88KRTveX9zUiCI9o6/lpZEjdHqT8uhXy2v+TY/akM/cuge/PMBz
-pspEEzvnu1mW6XEEPgRc8iFZCdtGli6Yfaixxb9oFb/T/vQ4HXh/cb5SddTBPCDS
-5Q==
------END CERTIFICATE-----
-	`
-
-	// This signing cert is not signed by the root cert.
-	signingCert := `
+	cert2Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC5TCCAc2gAwIBAgIQbnMGpidD8PvetlXnYSkUHjANBgkqhkiG9w0BAQsFADAT
 MREwDwYDVQQKEwhKdWp1IG9yZzAeFw0xNzAzMTgwMDE5MDZaFw0yNzAzMDYwMDE5
@@ -267,10 +96,9 @@ MHF2h+S/2HmZaOtgG4RnXplCpHegFOhcLORBLbyQJ72DPLvQcCo2A9uyboqKbZhs
 0Gh5kSgZrvphvxIerbV5T/VWLO0llhFmU55BIalVpHD7YfMCOkjVL+Y/0fYKL5ij
 68/BQAVGtO+1W1AW52eSMoH1gbvYemf+RsxdE/yKCmcTcZer8HswkQzPH03XcMwu
 V611eTJ/uJO6FTt9/5IN8G1qBj2bdNj/uA==
------END CERTIFICATE-----
-	`
+-----END CERTIFICATE-----`
 
-	signingKey := `
+	key2Pem = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAoEf2+WIjOLOpVBdV6HpgdEgNklJWGNW5kpinW75F2U14/hzn
 SqY+JbtEPz7MXeWIagpC3gzSNM7Khtdm/jQjdnZuRhRzbBXILCrdRykewUhXsKdt
@@ -297,8 +125,124 @@ Tza7krk/+9Qs9dAS9A6AvzhGGNdeLx7IrkG/gBloq8l/jRikGEQk9MoNVN6uMnoR
 NFVw0QKBgH2RW41bzJOJcWnArZR/qp6RT23SQeujOMcRGfH25jpoXU8fKup1Npt8
 MnMxUAuP09HIovhn841Y7p+hlh4gSpsvYjLfgX0jyzJPhOmtBu0vEY7fLN6kQLiW
 RRoQIlr5T8PG4vXwsn2/hohILCJJyHAee/4gIq42jLu6hQsQxcoy
------END RSA PRIVATE KEY-----
-	`
+-----END RSA PRIVATE KEY-----`
+)
+
+// TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
+
+func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
+	caCertTTL := time.Hour
+	defaultCertTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.org"
+	caNamespace := "default"
+	client := fake.NewSimpleClientset()
+
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Failed to create a self-signed CA: %v", err)
+	}
+
+	// Check the generated CA cert.
+	rootCertBytes := ca.GetRootCertificate()
+
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
+		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+	}
+
+	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
+		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
+	}
+
+	// Root cert and siging cert are the same for self-signed CA.
+	if !rootCert.Equal(ca.signingCert) {
+		t.Error("CA root cert does not match signing cert")
+	}
+
+	// Check the signing cert stored in K8s secret.
+	caSecret, err := client.CoreV1().Secrets("default").Get(cASecret, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get secret (error: %s)", err)
+	}
+
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[cACertID])
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+
+	if !signingCertFromSecret.Equal(ca.signingCert) {
+		t.Error("CA signing cert does not the K8s secret")
+	}
+
+	if len(ca.certChainBytes) > 0 {
+		t.Error("CertChain should be empty")
+	}
+}
+
+func TestSelfSignedIstioCAWithSecret(t *testing.T) {
+	rootCertPem := cert1Pem
+	// Use the same signing cert and root cert for self-signed CA.
+	signingCertPem := rootCertPem
+	signingKeyPem := key1Pem
+
+	client := fake.NewSimpleClientset()
+	initSecret := createSecret("default", signingCertPem, signingKeyPem, rootCertPem)
+	_, err := client.CoreV1().Secrets("default").Create(initSecret)
+	if err != nil {
+		t.Errorf("Failed to create secret (error: %s)", err)
+	}
+
+	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.org"
+	caNamespace := "default"
+
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if ca == nil || err != nil {
+		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
+	}
+
+	signingCert, err := util.ParsePemEncodedCertificate([]byte(signingCertPem))
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+
+	if !signingCert.Equal(ca.signingCert) {
+		t.Error("Cert does not match")
+	}
+
+	if len(ca.certChainBytes) > 0 {
+		t.Error("CertChain should be empty")
+	}
+
+	rootCertBytes := copyBytes([]byte(rootCertPem))
+	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
+		t.Error("Root cert does not match")
+	}
+}
+
+// Pass in unmatched chain and cert to make sure the `verify` method yeilds an error.
+func TestInvalidIstioCAOptions(t *testing.T) {
+	rootCert := cert1Pem
+	// This signing cert is not signed by the root cert.
+	signingCert := cert2Pem
+	signingKey := key2Pem
 
 	opts := &IstioCAOptions{
 		SigningCertBytes: []byte(signingCert),
@@ -317,91 +261,184 @@ RRoQIlr5T8PG4vXwsn2/hohILCJJyHAee/4gIq42jLu6hQsQxcoy
 	}
 }
 
-func TestSignCSR(t *testing.T) {
+func TestSignCSRForWorkload(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/bar"
-	opts := CertOptions{
+	opts := util.CertOptions{
 		Host:       host,
 		Org:        "istio.io",
 		RSAKeySize: 2048,
+		IsCA:       false,
 	}
-	csrPEM, keyPEM, err := GenCSR(opts)
+	csrPEM, keyPEM, err := util.GenCSR(opts)
 	if err != nil {
 		t.Error(err)
 	}
 
-	ca, err := createCA()
+	ca, err := createCA(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
 
-	certPEM, err := ca.Sign(csrPEM)
+	requestedTTL := 30 * time.Minute
+	certPEM, err := ca.Sign(csrPEM, requestedTTL, false)
 	if err != nil {
 		t.Error(err)
 	}
 
-	fields := &testutil.VerifyFields{
+	fields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		IsCA:        false,
 	}
-	if err = testutil.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(certPEM)
+	cert, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		t.Error(err)
 	}
 
-	san := pki.ExtractSANExtension(cert.Extensions)
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+	}
+	san := util.ExtractSANExtension(cert.Extensions)
 	if san == nil {
 		t.Errorf("No SAN extension is found in the certificate")
 	}
-	expected := buildSubjectAltNameExtension(host)
+	expected, err := util.BuildSubjectAltNameExtension(host)
+	if err != nil {
+		t.Error(err)
+	}
 	if !reflect.DeepEqual(expected, san) {
 		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
 	}
 }
 
-func createCA() (CertificateAuthority, error) {
-	start := time.Now().Add(-5 * time.Minute)
-	end := start.Add(24 * time.Hour)
+func TestSignCSRForCA(t *testing.T) {
+	host := "spiffe://example.com/ns/foo/sa/baz"
+	opts := util.CertOptions{
+		Host:       host,
+		Org:        "istio.io",
+		RSAKeySize: 2048,
+		IsCA:       true,
+	}
+	csrPEM, keyPEM, err := util.GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
 
+	ca, err := createCA(365 * 24 * time.Hour)
+	if err != nil {
+		t.Error(err)
+	}
+
+	requestedTTL := 30 * 24 * time.Hour
+	certPEM, err := ca.Sign(csrPEM, requestedTTL, true)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fields := &util.VerifyFields{
+		KeyUsage: x509.KeyUsageCertSign,
+		IsCA:     true,
+	}
+	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+		t.Error(err)
+	}
+
+	cert, err := util.ParsePemEncodedCertificate(certPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != requestedTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", requestedTTL, ttl)
+	}
+	san := util.ExtractSANExtension(cert.Extensions)
+	if san == nil {
+		t.Errorf("No SAN extension is found in the certificate")
+	}
+	expected, err := util.BuildSubjectAltNameExtension(host)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(expected, san) {
+		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
+	}
+}
+
+func TestSignCSRTTLError(t *testing.T) {
+	host := "spiffe://example.com/ns/foo/sa/bar"
+	opts := util.CertOptions{
+		Host:       host,
+		Org:        "istio.io",
+		RSAKeySize: 2048,
+	}
+	csrPEM, _, err := util.GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ca, err := createCA(2 * time.Hour)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ttl := 3 * time.Hour
+
+	cert, err := ca.Sign(csrPEM, ttl, false)
+	if cert != nil {
+		t.Errorf("Expected null cert be obtained a non-null cert.")
+	}
+	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error: %s but got error: %s.", err.Error(), expectedErr)
+	}
+}
+
+func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
 	// Generate root CA key and cert.
-	rootCAOpts := CertOptions{
+	rootCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: true,
-		NotAfter:     end,
-		NotBefore:    start,
+		TTL:          time.Hour,
 		Org:          "Root CA",
 		RSAKeySize:   2048,
 	}
-	rootCertBytes, rootKeyBytes := GenCert(rootCAOpts)
-
-	rootCert, err := pki.ParsePemEncodedCertificate(rootCertBytes)
+	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	rootKey, err := pki.ParsePemEncodedKey(rootKeyBytes)
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	intermediateCAOpts := CertOptions{
+	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	intermediateCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: false,
-		NotAfter:     end,
-		NotBefore:    start,
+		TTL:          time.Hour,
 		Org:          "Intermediate CA",
 		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
 	}
-	intermediateCert, intermediateKey := GenCert(intermediateCAOpts)
+	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	caOpts := &IstioCAOptions{
 		CertChainBytes:   intermediateCert,
 		CertTTL:          time.Hour,
+		MaxCertTTL:       maxTTL,
 		SigningCertBytes: intermediateCert,
 		SigningKeyBytes:  intermediateKey,
 		RootCertBytes:    rootCertBytes,

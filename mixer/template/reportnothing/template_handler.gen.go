@@ -22,6 +22,9 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `reportnothing` template represents an empty block of data, which can useful
+// in different testing scenarios.
+
 // Fully qualified name of the template
 const TemplateName = "reportnothing"
 
@@ -32,7 +35,7 @@ const TemplateName = "reportnothing"
 // scenarios.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: reportnothing
 // metadata:

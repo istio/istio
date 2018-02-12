@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Prometheus
+// $overview: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
+// $location: https://istio.io/docs/reference/config/adapters/prometheus.html
+
+// The `prometheus` adapter collects Istio metrics and makes them available to
+// [Prometheus](https://prometheus.io).
 package adapter.prometheus.config;
 
 import "gogoproto/gogo.proto";
@@ -23,6 +29,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Configuration format for the `prometheus` adapter.
 message Params {
     // Describes how a metric should be represented in Prometheus.
     message MetricInfo {

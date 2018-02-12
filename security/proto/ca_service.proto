@@ -34,19 +34,23 @@ service IstioCAService {
   // is generated on the Node Agent. Additionaly credential can be attached
   // within the request object for a server to authenticate the originating
   // node agent.
-  rpc HandleCSR(Request) returns (Response);
+  rpc HandleCSR(CsrRequest) returns (CsrResponse);
 }
 
-message Request {
+message CsrRequest {
   // PEM-encoded certificate signing request
   bytes csr_pem = 1;
   // opaque credential for node agent
   bytes node_agent_credential = 2;
   // type of the node_agent_credential (aws/gcp/onprem/custom...)
   string credential_type = 3;
+  // the requested ttl of the certificate in minutes
+  int32 requested_ttl_minutes = 4;
+  // whether the certificate is for a CA
+  bool forCA = 5;
 }
 
-message Response {
+message CsrResponse {
   bool is_approved = 1;
   google.rpc.Status status = 2;
   bytes signed_cert_chain = 3;

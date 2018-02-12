@@ -46,13 +46,15 @@ elif [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-# used by pilot/istioctl/security version package
-echo buildAppVersion    "${VERSION}"
+DOCKER_HUB="docker.io/istio"
+if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
+  DOCKER_HUB="${ISTIO_DOCKER_HUB}"
+fi
+
+# used by pkg/version
+echo buildVersion       "${VERSION}"
 echo buildGitRevision   "${BUILD_GIT_REVISION}"
 echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
-
-# used by mixer/broker version package
-echo "buildVersion ${VERSION}"
-echo "buildStatus ${tree_status}"
-echo "buildID $(TZ=UTC git log --pretty="%cd-%h" --date=short-local  -n 1)"
+echo buildDockerHub     "${DOCKER_HUB}"
+echo buildStatus        "${tree_status}"

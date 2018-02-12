@@ -90,6 +90,11 @@ type Options struct {
 	// IncludeCallerSourceLocation determines whether log messages include the source location of the caller.
 	IncludeCallerSourceLocation bool
 
+	// LogGrpc indicates that Grpc logs should be captured. The default is true.
+	// This is not exposed through the command-line flags, as this flag is mainly useful for testing: Grpc
+	// stack will hold on to the logger even though it gets closed. This causes data races.
+	LogGrpc bool
+
 	stackTraceLevel string
 	outputLevel     string
 }
@@ -104,6 +109,7 @@ func NewOptions() *Options {
 		RotationMaxBackups: defaultRotationMaxBackups,
 		outputLevel:        string(defaultOutputLevel),
 		stackTraceLevel:    string(defaultStackTraceLevel),
+		LogGrpc:            true,
 	}
 }
 

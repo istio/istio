@@ -1,0 +1,10 @@
+hosts:
+  - "172.217.0.0/16"
+ports:
+- number: 444
+  name: tcp-444
+  protocol: tcp
+discovery: DNS
+endpoints:
+  - address: lon.google.com
+  - address: in.google.com

@@ -22,11 +22,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 var (
@@ -57,7 +54,7 @@ func saveCreds(csrPem []byte, privPem []byte) {
 func main() {
 	flag.Parse()
 
-	csrPem, privPem, err := ca.GenCSR(ca.CertOptions{
+	csrPem, privPem, err := util.GenCSR(util.CertOptions{
 		Host:       *host,
 		Org:        *org,
 		RSAKeySize: *keySize,

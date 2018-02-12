@@ -18,10 +18,11 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"istio.io/istio/tests/integration/framework"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/tests/integration/framework"
 )
 
 type (

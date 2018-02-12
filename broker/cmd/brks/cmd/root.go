@@ -19,15 +19,18 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/broker/cmd/shared"
+	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/version"
 )
 
 // GetRootCmd generates the root command for broker server.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "brks",
-		Short: "The Istio broker provides open service broker functionality to the Istio services and external marketplaces",
+		Short: "The Istio broker exposes the Open Service Broker functionality form a mesh",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
@@ -46,7 +49,13 @@ func GetRootCmd(args []string) *cobra.Command {
 	flag.CommandLine = fs
 
 	rootCmd.AddCommand(serverCmd(shared.Printf, shared.Fatalf))
-	rootCmd.AddCommand(shared.VersionCmd())
+	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Service Broker",
+		Section: "brks CLI",
+		Manual:  "Istio Service Broker",
+	}))
 
 	return rootCmd
 }

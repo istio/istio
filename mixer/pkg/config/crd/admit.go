@@ -14,7 +14,7 @@
 
 package crd
 
-// Note: this file is copied from pilot/platform/kube/admit.
+// Note: this file is copied from pilot/pkg/kube/admit.
 // TODO(https://github.com/istio/istio/issues/1812): make a common component for this
 // server side part, and let each istio component (mixer / pilot / etc?) attach
 // its own validation logic.

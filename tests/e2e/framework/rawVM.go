@@ -42,7 +42,7 @@ var (
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
-	proxyTag      = flag.String("proxy_tag", "", "proxy tag that identifies a debian pkg")
+	proxyDebTag   = flag.String("proxy_deb_tag", "", "proxy tag that identifies a debian pkg")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -172,34 +172,16 @@ func (vm *GCPRawVM) Setup() error {
 }
 
 func buildIstioVersion() error {
-	currentIstioCommit, err := u.Shell("git rev-parse HEAD")
-	if err != nil {
-		return err
-	}
-	currentIstioCommit = strings.Trim(currentIstioCommit, "\n")
-	auth := *caTag
-	pilot := *pilotTag
-	proxy := *proxyTag
-	if auth == "" {
-		auth = currentIstioCommit
-	}
-	if pilot == "" {
-		pilot = currentIstioCommit
-	}
+	proxy := *proxyDebTag
 	if proxy == "" {
-		// Use debian pkg built from proxy master
-		proxy, err = u.GetHeadCommitSHA("istio", "proxy", "master")
+		currentIstioCommit, err := u.Shell("git rev-parse HEAD")
 		if err != nil {
 			return err
 		}
+		proxy = strings.Trim(currentIstioCommit, "\n")
 	}
-	authURL := fmt.Sprintf(debURL, "auth", auth)
-	pilotURL := fmt.Sprintf(debURL, "pilot", pilot)
-	proxyURL := fmt.Sprintf(debURL, "proxy", proxy)
-	urls := fmt.Sprintf(`
-		export AUTH_DEBIAN_URL="%s";
-		export PILOT_DEBIAN_URL="%s";
-		export PROXY_DEBIAN_URL="%s";`, authURL, pilotURL, proxyURL)
+	proxyURL := fmt.Sprintf(debURL, "pilot", proxy)
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 

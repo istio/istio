@@ -14,8 +14,6 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    sidecar.istio.io/inject: "false"
   name: zipkin
 spec:
   replicas: 1
@@ -23,6 +21,8 @@ spec:
     metadata:
       labels:
         infra: zipkin
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
       - name: zipkin
