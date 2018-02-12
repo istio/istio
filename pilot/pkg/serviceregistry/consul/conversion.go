@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 
-        meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (
@@ -52,9 +52,9 @@ func convertPort(port int, name string) *model.Port {
 	}
 
 	return &model.Port{
-		Name:     name,
-		Port:     port,
-		Protocol: convertProtocol(name),
+		Name:                 name,
+		Port:                 port,
+		Protocol:             convertProtocol(name),
 		AuthenticationPolicy: extractAuthenticationPolicy(port, name),
 	}
 }
