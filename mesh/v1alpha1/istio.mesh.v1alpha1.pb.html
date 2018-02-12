@@ -4,7 +4,7 @@ overview: Configuration affecting the service mesh as a whole
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/config/service-mesh.html
-number_of_entries: 5
+number_of_entries: 6
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -64,14 +64,7 @@ Istio service mesh.</p>
 <td><code>mixerCheckServer</code></td>
 <td><code>string</code></td>
 <td>
-<p>Address of the server that will be used by the proxies for policy
-check calls (e.g. <em>istio-mixer:15004</em>). By using different names for
-mixerCheckServer and mixerReportServer, it is possible to have one set
-of mixer servers handle policy check calls, while another set of mixer
-servers handle telemetry calls.</p>
-
-<p>NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
-equivalent to setting disablePolicyChecks to true.</p>
+<p>Deprecated, use mixer_check instead.</p>
 
 </td>
 </tr>
@@ -79,12 +72,7 @@ equivalent to setting disablePolicyChecks to true.</p>
 <td><code>mixerReportServer</code></td>
 <td><code>string</code></td>
 <td>
-<p>Address of the server that will be used by the proxies as an Istio
-telemetry sink (access logs, API/connection metrics)
-(e.g. <em>istio-mixer:15004</em>). By using different names for
-mixerCheckServer and mixerReportServer, it is possible to have one set
-of mixer servers handle policy check calls, while another set of mixer
-servers handle telemetry calls.</p>
+<p>Deprecated, use mixer_report instead.</p>
 
 </td>
 </tr>
@@ -214,7 +202,30 @@ Instead, use service-level annotations to overwrite the authentication policy.</
 <td><code>string</code></td>
 <td>
 <p>DEPRECATED. Mixer address. This option will be removed soon. Please
-use mixer<em>check</em>server and mixer<em>report</em>server.</p>
+use mixer<em>check and mixer</em>report.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig.mixer_check">
+<td><code>mixerCheck</code></td>
+<td><code><a href="#ServerAddress">ServerAddress</a></code></td>
+<td>
+<p>Address of the server that will be used by the proxies for policy
+check calls. By using different names for mixerCheck and mixerReport, it
+is possible to have one set of mixer servers handle policy check calls,
+while another set of mixer servers handle telemetry calls.</p>
+
+<p>NOTE: Omitting mixerCheck while specifying mixerReport is
+equivalent to setting disablePolicyChecks to true.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig.mixer_report">
+<td><code>mixerReport</code></td>
+<td><code><a href="#ServerAddress">ServerAddress</a></code></td>
+<td>
+<p>Address of the server that will be used by the proxies for policy report
+calls.</p>
 
 </td>
 </tr>
@@ -365,7 +376,7 @@ MUST BE greater than <em>drain</em>duration_ parameter.</p>
 <td><code>discoveryAddress</code></td>
 <td><code>string</code></td>
 <td>
-<p>Address of the discovery service exposing xDS (e.g. <em>istio-pilot:8080</em>).</p>
+<p>Deprecated, use server_address instead.</p>
 
 </td>
 </tr>
@@ -454,6 +465,47 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 <td><code>int32</code></td>
 <td>
 <p>The number of worker threads to run. Default value is number of cores on the machine.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig.pilot">
+<td><code>pilot</code></td>
+<td><code><a href="#ServerAddress">ServerAddress</a></code></td>
+<td>
+<p>Address of the discovery service exposing xDS.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServerAddress">ServerAddress</h2>
+<section>
+<p>ServerAddress specifies the address of Istio components like mixer, pilot, etc.
+At least one of the field needs to be specified.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServerAddress.mutual_tls">
+<td><code>mutualTls</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address for mTLS server, e.g., (<em>istio-pilot:15003</em>)</p>
+
+</td>
+</tr>
+<tr id="ServerAddress.plain_text">
+<td><code>plainText</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address for plain text server, e.g., (<em>istio-pilot:15005</em>)</p>
 
 </td>
 </tr>
