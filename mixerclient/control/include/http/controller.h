@@ -55,9 +55,6 @@ class Controller {
     // If it is empty, destination_service is used to lookup
     // service_configs map in the HttpClientConfig.
     std::string service_config_id;
-
-    // if not NULL, legacy per-route config for 0.2 and before.
-    const ::istio::mixer::v1::config::client::ServiceConfig* legacy_config{};
   };
 
   // Creates a HTTP request handler.
@@ -72,15 +69,11 @@ class Controller {
   // * some functions provided by the environment (Envoy)
   // * optional service config cache size.
   struct Options {
-    Options(const ::istio::mixer::v1::config::client::HttpClientConfig& config,
-            const std::vector<::istio::quota::Requirement>& legacy_quotas)
-        : config(config), legacy_quotas(legacy_quotas) {}
+    Options(const ::istio::mixer::v1::config::client::HttpClientConfig& config)
+        : config(config) {}
 
     // Mixer filter config
     const ::istio::mixer::v1::config::client::HttpClientConfig& config;
-
-    // Legacy mixer config quota requirements.
-    const std::vector<::istio::quota::Requirement>& legacy_quotas;
 
     // Some plaform functions for mixer client library.
     ::istio::mixer_client::Environment env;

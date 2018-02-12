@@ -66,12 +66,6 @@ void ControllerImpl::GetStatistics(Statistics* stat) const {
 
 std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(
     const PerRouteConfig& config) {
-  // If use legacy config
-  if (config.legacy_config) {
-    return std::make_shared<ServiceContext>(client_context_,
-                                            config.legacy_config);
-  }
-
   if (!config.service_config_id.empty()) {
     LRUCache::ScopedLookup lookup(service_context_cache_.get(),
                                   config.service_config_id);

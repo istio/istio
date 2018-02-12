@@ -33,16 +33,12 @@ class ClientContext : public ClientContextBase {
   ClientContext(
       std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client,
       const ::istio::mixer::v1::config::client::HttpClientConfig& config,
-      const std::vector<::istio::quota::Requirement>& legacy_quotas,
       int service_config_cache_size);
 
   // Retrieve mixer client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config() const {
     return config_;
   }
-
-  // Append the legacy quotas.
-  void AddLegacyQuotas(std::vector<::istio::quota::Requirement>* quotas) const;
 
   // Get valid service name in the config map.
   // If input service name is in the map, use it, otherwise, use the default
@@ -59,9 +55,6 @@ class ClientContext : public ClientContextBase {
  private:
   // The http client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config_;
-
-  // Legacy mixer config quota requirements.
-  const std::vector<::istio::quota::Requirement>& legacy_quotas_;
 
   // The service config cache size
   int service_config_cache_size_;
