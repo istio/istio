@@ -32,7 +32,7 @@ export GOPATH
 
 # Build mixer binary
 make mixs
-MIXER_BINARY=${GOPATH}/bin/mixs
+MIXER_BINARY=$(make where-is-out)/mixs
 
 # Download Proxy
 source istio.VERSION
