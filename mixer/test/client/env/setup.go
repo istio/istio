@@ -36,6 +36,7 @@ type TestSetup struct {
 	backend *HTTPServer
 }
 
+// NewTestSetup creates a new test setup
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
