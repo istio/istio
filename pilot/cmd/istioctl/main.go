@@ -569,7 +569,7 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural), desc.ShortName:
 			return desc, nil
 		}
 	}
@@ -665,9 +665,15 @@ func newClient() (*crd.Client, error) {
 }
 
 func supportedTypes(configClient *crd.Client) []string {
-	types := configClient.ConfigDescriptor().Types()
-	for i := range types {
-		types[i] = crd.ResourceName(types[i])
+	cd := configClient.ConfigDescriptor()
+	types := make([]string, 0, len(cd))
+
+	for _, ps := range cd {
+		entry := crd.ResourceName(ps.Type)
+		if len(ps.ShortName) > 0 {
+			entry += fmt.Sprintf("(%s)", ps.ShortName)
+		}
+		types = append(types, entry)
 	}
 	return types
 }
