@@ -52,8 +52,8 @@ var (
 
 	mountCmd = &cobra.Command{
 		Use:   "mount",
-		Short: "Flex volume unmount command.",
-		Long:  "Flex volume unmount command.",
+		Short: "Flex volume mount command.",
+		Long:  "Flex volume mount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
 				return fmt.Errorf("mount takes 2 args")
