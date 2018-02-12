@@ -86,13 +86,11 @@ func buildPhysicalGatewayListener(
 	}
 
 	switch strings.ToUpper(server.Port.Protocol) {
-	case "HTTP":
-		return buildHTTPListener(opts)
 	case "HTTPS":
 		listener := buildHTTPListener(opts)
 		listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
 		return listener
-	case "GRPC", "HTTP2":
+	case "HTTP", "GRPC", "HTTP2":
 		listener := buildHTTPListener(opts)
 		if server.Tls != nil {
 			listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
@@ -177,21 +175,15 @@ func buildDestinationHTTPRoutesForGatewayVirtualHost(
 	buildCluster buildClusterFunc,
 	gatewayName string, externalHostname string) ([]*HTTPRoute, error) {
 
-	rules := filterRulesToGatewayAndExternalHostname(allRules, gatewayName, externalHostname)
-	log.Debug("gateway-virtual-hosts", zap.String("host", externalHostname), zap.Int("rules", len(rules)))
-	if len(rules) == 0 {
+	rule, found := filterRulesToGatewayAndExternalHostname(allRules, gatewayName, externalHostname)
+	if !found {
 		return nil, nil
 	}
-	// len(rules) <= 1 is guaranteed because v1alpha2 rules are unique per host.
-	if len(rules) > 1 {
-		return nil, fmt.Errorf("unexpectedly got %d route rules for %s", len(rules), externalHostname)
-	}
-	rule := rules[0]
 
 	pseudoServicePort := &model.Port{
 		Protocol: model.ProtocolHTTP, // TODO: support others
-		Port:     externalPort,       // TODO: is this right?
-		Name:     "http",
+		Port:     externalPort,
+		Name:     "http", // TODO: support other names?
 	}
 	pseudoService := &model.Service{
 		Hostname: externalHostname,
@@ -202,16 +194,14 @@ func buildDestinationHTTPRoutesForGatewayVirtualHost(
 	return buildHTTPRoutes(config, rule, pseudoService, pseudoServicePort, nil, node.Domain, buildCluster), nil
 }
 
-func filterRulesToGatewayAndExternalHostname(allRules []model.Config, gatewayName string, externalHostname string) []model.Config {
-	var rules []model.Config
-
+func filterRulesToGatewayAndExternalHostname(allRules []model.Config, gatewayName string, externalHostname string) (model.Config, bool) {
 	for _, untypedRule := range allRules {
 		rule := untypedRule.Spec.(*routing.RouteRule)
 		if stringSliceContains(rule.Hosts, externalHostname) && stringSliceContains(rule.Gateways, gatewayName) {
-			rules = append(rules, untypedRule)
+			return untypedRule, true
 		}
 	}
-	return rules
+	return model.Config{}, false
 }
 
 func stringSliceContains(things []string, match string) bool {

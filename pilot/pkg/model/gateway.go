@@ -37,6 +37,7 @@ import (
 // Missing features (TODO)
 //   - respect the 'selector' field
 //   - allow merging when ports exactly match but tls config differs (SNI)
+//   - allow merging h1, h2 and grpc protocols
 //
 // See also: Merging Gateways and RouteRules
 //  https://docs.google.com/document/d/1z9jOZ1f4MhC3Fvisduio8IoUqd1_Eqrd3kG65M6n854
@@ -70,11 +71,21 @@ func serversEqual(a, b *routing.Server) bool {
 	return portsEqual(a.Port, b.Port) && tlsEqual(a.Tls, b.Tls)
 }
 
+// Two ports are distinct if they have different names and different numbers
+// In this case, they can each have their own listener without any
+// ambiguity about which routing rules apply to which.
+//
+// Note it is possible for two ports to be neither distinct nor equal.
+// In that case, they conflict.
+//
+// TODO: once SNI and TLS-snooping work, we should be able to
+// avoid many of those conflicts.
 func portsAreDistinct(a, b *routing.Port) bool {
 	return a.Number != b.Number && a.Name != b.Name
 }
 
-// Two ports are equal if they expose the same protocol on the same port number.
+// Two ports are equal if they expose the same protocol on the same port number
+// with the same name.  They can only be merged if they are equal.
 func portsEqual(a, b *routing.Port) bool {
 	return a.Number == b.Number && a.Name == b.Name &&
 		strings.ToLower(a.Protocol) == strings.ToLower(b.Protocol)
