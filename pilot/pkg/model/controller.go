@@ -14,13 +14,9 @@
 
 package model
 
-// Controller defines an event controller loop. These are the events that a
-// platform registry is expected to generate in response to changes such as
-// addition or removal of pods/vms/cfapps, services, etc. Unlike the dataplane,
-// platform service registries can only emit two classes of
-// events: ServiceChange, EndpointChange
-//
-// The "change" could mean add/delete/update.
+// Controller defines an event controller loop.  Proxy agent registers itself
+// with the controller loop and receives notifications on changes to the
+// service topology or changes to the configuration artifacts.
 //
 // The controller guarantees the following consistency requirement: registry
 // view in the controller is as AT LEAST as fresh as the moment notification
@@ -33,11 +29,12 @@ package model
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be appended before starting the controller.
 type Controller interface {
-	// ServiceChange notifies about changes to the list of services
-	ServiceChange(f func(*Service, Event)) error
+	// AppendServiceHandler notifies about changes to the service catalog.
+	AppendServiceHandler(f func(*Service, Event)) error
 
-	// EndpointChange notifies about changes to the endpoints associated with a service.
-	EndpointChange(f func(*ServiceInstance, Event)) error
+	// AppendInstanceHandler notifies about changes to the service instances
+	// for a service.
+	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})

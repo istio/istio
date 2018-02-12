@@ -25,10 +25,10 @@ import (
 	xdscache "github.com/envoyproxy/go-control-plane/pkg/cache"
 	xdsserver "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/gogo/protobuf/proto"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/util"
+	"istio.io/istio/pkg/log"
 )
 
 // Endpoints (react to updates in registry endpoints) - EDS updates
@@ -199,7 +199,7 @@ type DiscoveryService struct {
 	webhookEndpoint  string
 	indices          *Indices
 	// protos per envoy
-	envoyConfigCache *xdscache.SimpleCache
+	envoyConfigCache xdscache.Cache
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -219,15 +219,15 @@ func startADS(ctx context.Context, envoyConfigCache xdscache.Cache, port int) {
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		zap.Logger{}.Fatal("failed to listen:", zap.Error(err))
+		log.Errorf("failed to listen %v", err)
 	}
 
 	xdsapi.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	zap.Logger{}.Info("ADS server listening on ", zap.Int("port", port))
+	log.Infof("ADS server listening on %d", port)
 
 	go func() {
 		if err = grpcServer.Serve(lis); err != nil {
-			zap.Logger{}.Error("ADS error:", zap.Error(err))
+			log.Errorf("Failed to start ADS gRPC server: %v", err)
 		}
 	}()
 	<-ctx.Done()
@@ -302,15 +302,15 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 	startADS(ctx, ds.envoyConfigCache, o.Port)
 
 	// The service model provides two callbacks
-	// 1. the ServiceChange callback notifies us of updates to the service object (add/remove/new labels/ports)
-	// 2. the EndpointChange notifies us of updates to the instances of a service (add/remove or label changes)
+	// 1. ServiceHandler callback notifies us of updates to the service object (add/remove/new labels/ports)
+	// 2. InstanceHandler notifies us of updates to the instances of a service (add/remove or label changes)
 	serviceHandler := func(s *model.Service, e model.Event) { ds.UpdateIndices(s, nil, nil, e) }
 	instanceHandler := func(i *model.ServiceInstance, e model.Event) { ds.UpdateIndices(nil, i, nil, e) }
 
-	if err := ctl.ServiceChange(serviceHandler); err != nil {
+	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil, err
 	}
-	if err := ctl.EndpointChange(instanceHandler); err != nil {
+	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		return nil, err
 	}
 
