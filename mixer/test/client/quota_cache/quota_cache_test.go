@@ -25,7 +25,7 @@ import (
 func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := env.NewTestSetupV2(env.QuotaCacheTest, t)
-	env.AddHTTPQuota(s.V2().HTTPServerConf, "RequestCount", 1)
+	env.AddHTTPQuota(s.V2(), "RequestCount", 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

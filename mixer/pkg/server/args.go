@@ -71,6 +71,9 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
+
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -110,6 +113,7 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
+		UseNewRuntime:                 false,
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
 		LivenessProbeOptions:          &probe.Options{},
@@ -149,6 +153,7 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
 	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()
