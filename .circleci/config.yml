@@ -246,14 +246,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
 
   codecov:
     <<: *defaults
