@@ -55,7 +55,7 @@ func (t *ingress) setup() error {
 	}
 
 	// send route rules for "c" only
-	return t.applyConfig("rule-default-route-v1alpha1.yaml.tmpl", nil)
+	return t.applyConfig("v1alpha1/rule-default-route.yaml.tmpl", nil)
 }
 
 func (t *ingress) run() error {
