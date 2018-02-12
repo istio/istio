@@ -165,7 +165,13 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+
+.PHONY: submodule
+
+submodule:
+	git submodule sync
+	git submodule update --init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
