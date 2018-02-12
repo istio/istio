@@ -37,8 +37,11 @@ GRAFANA_FILES:=addons/grafana/start.sh \
                addons/grafana/pilot-dashboard.json \
                addons/grafana/import_dashboard.sh
 
-# note that "viz" is a directory rather than a file
-$(ISTIO_DOCKER)/viz: addons/servicegraph/js/viz | $(ISTIO_DOCKER)
+# note that "js" and "force" are directories rather than a file
+$(ISTIO_DOCKER)/js: addons/servicegraph/js | $(ISTIO_DOCKER)
+	cp -r $< $(@D)
+
+$(ISTIO_DOCKER)/force: addons/servicegraph/force | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
 
 # generated content
@@ -98,7 +101,7 @@ $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 # Note that Dockerfile and Dockerfile.debug are too generic for parallel builds
 SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
 $(SERVICEGRAPH_DOCKER): addons/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
-		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/viz | $(ISTIO_DOCKER)
+		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force | $(ISTIO_DOCKER)
 	$(DOCKER_GENERIC_RULE)
 
 # mixer docker images
@@ -148,7 +151,7 @@ docker.all: $(DOCKER_TARGETS)
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
-   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
          gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix

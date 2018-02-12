@@ -32,9 +32,6 @@ const queueAllocSize = 64
 // call. It is used as temporary memory location to keep ephemeral state, thus avoiding garbage creation.
 type session struct {
 
-	// The variety of the operation that is being performed.
-	variety tpb.TemplateVariety
-
 	// start time of the session.
 	start time.Time
 
@@ -49,13 +46,14 @@ type session struct {
 	quotaResult *adapter.QuotaResult
 	err         error
 
-	//  handler dispatching related parameters
-
 	// The current number of activeDispatches handler dispatches.
 	activeDispatches int
 
 	// channel for collecting states of completed dispatches.
 	completed chan *dispatchState
+
+	// The variety of the operation that is being performed.
+	variety tpb.TemplateVariety
 
 	// whether to trace spans or not
 	trace bool

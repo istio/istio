@@ -71,7 +71,7 @@ func TestQuotaCall(t *testing.T) {
 
 	s.SetV2Conf()
 	// Add v2 quota config for all requests.
-	env.AddHTTPQuota(s.V2().HTTPServerConf, "RequestCount", 5)
+	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
 	s.ReStartEnvoy()
 
 	// Issues a GET echo request with 0 size body

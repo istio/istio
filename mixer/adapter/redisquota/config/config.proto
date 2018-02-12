@@ -35,6 +35,7 @@ option (gogoproto.gostring_all) = false;
 //
 // Example configuration:
 //
+// ```yaml
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
@@ -51,6 +52,7 @@ option (gogoproto.gostring_all) = false;
 //       - dimensions:
 //           destination: reviews
 //         maxAmount: 5
+// ```
 message Params {
   message Override {
     option (gogoproto.goproto_getters) = true;
