@@ -17,7 +17,7 @@ To play with this demo, you need to:
   $ kubectl apply -f workload/workload.yaml
 
 - Make sure the workload is up and running, and then check the log of node agent.
-  $ k logs nodeagent-fs8lt
+  $ kubectl logs nodeagent-fs8lt
 
   Node agent with both mgmt and workload api interfaces.
 
