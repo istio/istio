@@ -57,6 +57,15 @@ func Benchmark_Single_Metric(b *testing.B) {
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseSingleMetricSetup
+	perf.Run(b, &setup, settings)
+}
+
+func Benchmark_Single_Metric_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseSingleMetricSetup
+	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }
