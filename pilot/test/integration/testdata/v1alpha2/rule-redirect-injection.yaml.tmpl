@@ -1,17 +1,15 @@
 apiVersion: config.istio.io/v1alpha2
 kind: V1alpha2RouteRule
 metadata:
-  name: route-rule-c
+  name: default-route
 spec:
   hosts:
     - c
   http:
     - match:
       - headers:
-          testwebsocket:
+          testredirect:
             exact: enabled
-      route:
-      - destination:
-          name: c
-          subset: v1
-      websocketUpgrade: true
+      redirect:
+        uri: /new/path
+        authority: b

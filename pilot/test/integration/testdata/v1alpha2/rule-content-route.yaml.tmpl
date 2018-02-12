@@ -1,15 +1,15 @@
 apiVersion: config.istio.io/v1alpha2
 kind: V1alpha2RouteRule
 metadata:
-  name: route-rule-c
+  name: default-route
 spec:
   hosts:
     - c
   http:
     - match:
       - headers:
-          foo:
-            regex: "b.*"
+          version:
+            exact: v2
         source_labels:
           version: v1
       route:
@@ -19,5 +19,6 @@ spec:
         weight: 100
     - route:
       - destination:
-          name: v2
+          name: c
+          subset: v1
         weight: 100

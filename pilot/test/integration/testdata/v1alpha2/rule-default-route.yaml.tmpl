@@ -1,7 +1,7 @@
 apiVersion: config.istio.io/v1alpha2
 kind: V1alpha2RouteRule
 metadata:
-  name: route-rule-c
+  name: default-route
 spec:
   hosts:
     - c
@@ -10,8 +10,4 @@ spec:
       - destination:
           name: c
           subset: v1
-        weight: 75
-      - destination:
-          name: c
-          subset: v2
-        weight: 25
+        weight: 100
