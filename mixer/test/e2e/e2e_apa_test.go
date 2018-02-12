@@ -100,7 +100,7 @@ metadata:
   name: rule2
   namespace: istio-system
 spec:
-  selector: match(target.name, "*")
+  match: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
@@ -130,7 +130,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: match(target.name, "*")
+  match: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
