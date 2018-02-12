@@ -243,13 +243,13 @@ func TestMountBasic(t *testing.T) {
 	defer func() { envExec = []string{} }()
 
 	testInitStdIo()
-	if err := Mount(destinationDir, mountInputs); err != nil {
+	if err = Mount(destinationDir, mountInputs); err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
 
 	checkDirs := []string{expectedBindToDir, expectedBindFromDir}
 	for _, dir := range checkDirs {
-		if _, err := os.Stat(dir); err != nil {
+		if _, err = os.Stat(dir); err != nil {
 			t.Errorf("Failed directory %s not created", dir)
 		}
 		defer os.RemoveAll(dir)
@@ -257,7 +257,7 @@ func TestMountBasic(t *testing.T) {
 
 	// Check if credential file created & has the correct content.
 	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, opts.UID+".json")
-	if _, err := os.Stat(credsFile); err != nil {
+	if _, err = os.Stat(credsFile); err != nil {
 		t.Errorf("Credentail file %s not created", credsFile)
 	}
 
