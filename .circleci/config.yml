@@ -541,22 +541,13 @@ workflows:
       - build:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
       - test:
-          requires:
-            - dependencies
-      - racetest:
           requires:
             - dependencies
       - e2e-simple:
           requires:
             - build
       - e2e-bookinfo:
-          requires:
-            - build
-      - e2e-mixer:
           requires:
             - build
       - e2e-pilot-v1alpha1-and-v1alpha2:
@@ -568,6 +559,31 @@ workflows:
       - benchcheck:
           requires:
             - test
+
+  flaky:
+    triggers:
+       - schedule:
+           cron: "20 2,8,14,20 * * *"
+           filters:
+             branches:
+               only:
+                 - master
+    jobs:
+      - depupdate
+      - dependencies
+      - build:
+          requires:
+            - dependencies
+      - codecov:
+          requires:
+            - build
+      - racetest:
+          requires:
+            - dependencies
+      - e2e-mixer:
+          requires:
+            - build
+
 
   all:
     jobs:
