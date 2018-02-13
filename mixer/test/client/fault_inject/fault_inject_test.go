@@ -67,6 +67,10 @@ const reportAttributes = `
 func TestFaultInject(t *testing.T) {
 	s := env.NewTestSetupV2(env.FaultInjectTest, t)
 	s.SetFaultInject(true)
+	// fault injection filer is before mixer filter.
+	// If a request is rejected, per-route service config could not
+	// be used, has to use default service_configs map to send Report.
+	env.SetDefaultServiceConfigMap(s.V2())
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
