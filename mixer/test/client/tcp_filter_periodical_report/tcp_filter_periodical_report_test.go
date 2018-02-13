@@ -68,7 +68,7 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	// Sends a request to /slowresponse, so that client receives response after 3 seconds.
+	// Sends a request with parameter delay=3, so that server sleeps 3 seconds and sends response.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
 	// second.
 	url := fmt.Sprintf("http://localhost:%d/echo?delay=3", s.Ports().TCPProxyPort)
