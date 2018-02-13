@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -56,14 +57,18 @@ func Stringify(v interface{}) string {
 			return string(vv)
 		case map[string]string:
 			buffer := pool.GetBuffer()
-			for k, v := range vv {
+			keys := make([]string, 0, len(vv))
+			for k := range vv {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
 				if buffer.Len() != 0 {
 					buffer.WriteString("&")
 				}
 				buffer.WriteString(k)
 				buffer.WriteString("=")
-				buffer.WriteString(v)
-
+				buffer.WriteString(vv[k])
 			}
 			return buffer.String()
 		default:

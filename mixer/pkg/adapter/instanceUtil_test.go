@@ -39,6 +39,7 @@ func TestStringify(t *testing.T) {
 		{v: DNSName("dns"), want: "dns"},
 		{v: nil, want: ""},
 		{v: map[string]string{"a": "b"}, want: "a=b"},
+		{v: map[string]string{"c": "d", "e": "f", "a": "b"}, want: "a=b&c=d&e=f"},
 	}
 
 	for _, tt := range tests {
