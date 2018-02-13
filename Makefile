@@ -122,8 +122,8 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
+DEP    := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
