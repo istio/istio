@@ -48,49 +48,49 @@ func (t *egressRules) run() error {
 	}{
 		{
 			description: "allow external traffic to httbin.org",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org/headers", true)
 			},
 		},
 		{
 			description: "allow external traffic to *.httbin.org",
-			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://www.httpbin.org/headers", true)
 			},
 		},
 		{
 			description: "ensure traffic to httbin.org is prohibited when setting *.httbin.org",
-			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org/headers", false)
 			},
 		},
 		{
 			description: "allow external http2 traffic to nghttp2.org",
-			config:      "egress-rule-nghttp2.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-nghttp2.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://nghttp2.org", true)
 			},
 		},
 		{
 			description: "prohibit https to httbin.org",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org:443/headers", false)
 			},
 		},
 		{
 			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
-			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
 			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
-			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://cnn.com", false)
 			},

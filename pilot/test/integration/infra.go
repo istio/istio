@@ -76,6 +76,10 @@ type infra struct { // nolint: maligned
 	Zipkin    bool
 	DebugPort int
 
+	APIVersions []string
+	V1alpha1    bool
+	V1alpha2    bool
+
 	SkipCleanup          bool
 	SkipCleanupOnFailure bool
 

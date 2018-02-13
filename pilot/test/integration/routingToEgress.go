@@ -52,8 +52,8 @@ func (t *routingToEgress) run() error {
 		// Fault Injection
 		{
 			description:   "inject a http fault in traffic to httpbin.org",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service": "httpbin.org",
 			},
@@ -63,8 +63,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "inject a http fault in traffic to *.httpbin.org",
-			configEgress:  []string{"egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service": "*.httpbin.org",
 			},
@@ -74,8 +74,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "inject a http fault in traffic to nghttp2.org",
-			configEgress:  []string{"egress-rule-nghttp2.yaml.tmpl"},
-			configRouting: "rule-fault-injection-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-nghttp2.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service": "nghttp2.org",
 			},
@@ -86,8 +86,8 @@ func (t *routingToEgress) run() error {
 		// Append Headers
 		{
 			description:   "append http headers in traffic to httpbin.org",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-route-append-headers-httpbin.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-route-append-headers-httpbin.yaml.tmpl",
 			routingData:   nil,
 			check: func() error {
 				return t.verifyRequestHeaders("a", "http://httpbin.org/headers",
@@ -100,8 +100,8 @@ func (t *routingToEgress) run() error {
 		// Redirect
 		{
 			description:   "redirect traffic from httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-redirect-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
@@ -114,8 +114,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "redirect traffic from httpbin.org/post to *.httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "rule-redirect-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
@@ -128,8 +128,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "redirect traffic from *.httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "rule-redirect-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "*.httpbin.org",
 				"from":      "/post",
@@ -142,8 +142,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "redirect traffic from nghttp2.org/post to httpbin.org/get",
-			configEgress:  []string{"egress-rule-nghttp2.yaml.tmpl", "egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-redirect-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-nghttp2.yaml.tmpl", "v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "nghttp2.org",
 				"from":      "/post",
@@ -157,8 +157,8 @@ func (t *routingToEgress) run() error {
 		// Rewrite
 		{
 			description:   "rewrite traffic from httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "rule-rewrite-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
@@ -171,8 +171,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "rewrite traffic from httpbin.org/post to *.httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "rule-rewrite-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
@@ -185,8 +185,8 @@ func (t *routingToEgress) run() error {
 		},
 		{
 			description:   "rewrite traffic from *.httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"egress-rule-httpbin.yaml.tmpl", "egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "rule-rewrite-to-egress.yaml.tmpl",
+			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
+			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
 			routingData: map[string]string{
 				"service":   "*.httpbin.org",
 				"from":      "/post",
