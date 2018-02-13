@@ -34,7 +34,7 @@ func buildExternalServicePort(port *routingv2.Port) *model.Port {
 }
 
 func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
-	nodeInstances []*model.ServiceInstance, config model.IstioConfigStore,
+	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	externalServiceConfigs := config.ExternalServices()
@@ -50,7 +50,7 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Prox
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
 						buildExternalServiceVirtualHost(meshName, externalService, port.Name, host, mesh,
-							node, modelPort, nodeInstances, config))
+							node, modelPort, proxyInstances, config))
 				}
 			default:
 				// handled elsewhere

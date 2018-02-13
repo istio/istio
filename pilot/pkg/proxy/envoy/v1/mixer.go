@@ -209,7 +209,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)  ServiceInstances belong to the Proxy.
-func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, proxyInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -241,11 +241,11 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	var labels map[string]string
 	// Note: instances are all running on mode.Proxy named 'role'
 	// So instance labels are the workload / Proxy labels.
-	if len(nodeInstances) > 0 {
-		labels = nodeInstances[0].Labels
-		v2.DefaultDestinationService = nodeInstances[0].Service.Hostname
+	if len(proxyInstances) > 0 {
+		labels = proxyInstances[0].Labels
+		v2.DefaultDestinationService = proxyInstances[0].Service.Hostname
 		//TODO remove this once listener config is removed.
-		filter.MixerAttributes[AttrDestinationService] = nodeInstances[0].Service.Hostname
+		filter.MixerAttributes[AttrDestinationService] = proxyInstances[0].Service.Hostname
 	}
 	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
 
@@ -258,7 +258,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role, labels)
 	}
 
-	for _, instance := range nodeInstances {
+	for _, instance := range proxyInstances {
 		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
