@@ -86,7 +86,7 @@ func init() {
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
 	flag.BoolVar(&params.Mixer, "mixer", true, "Enable / disable mixer.")
-	flag.BoolVar(&params.V1alpha1, "v1alpha1", true, "Enable / disable v1alpha1 routing rules.")
+	flag.BoolVar(&params.V1alpha1, "v1alpha1", false, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&params.V1alpha2, "v1alpha2", true, "Enable / disable v1alpha2 routing rules.")
 	flag.StringVar(&params.errorLogsDir, "errorlogsdir", "", "Store per pod logs as individual files in specific directory instead of writing to stderr.")
 	flag.StringVar(&params.coreFilesDir, "core-files-dir", "", "Copy core files to this directory on the Kubernetes node machine.")

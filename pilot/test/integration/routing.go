@@ -143,14 +143,14 @@ func (t *routing) run() error {
 			}
 		}
 		for _, cs := range cases {
-			tlog("Checking " + version + " routing test", cs.description)
-			if err := t.applyConfig(version + "/" + cs.config, nil); err != nil {
+			tlog("Checking "+version+" routing test", cs.description)
+			if err := t.applyConfig(version+"/"+cs.config, nil); err != nil {
 				return err
 			}
 
 			if err := repeat(cs.check, 3, time.Second); err != nil {
 				log.Infof("Failed the test with %v", err)
-				errs = multierror.Append(errs, multierror.Prefix(err, version + " " + cs.description))
+				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
 			} else {
 				log.Info("Success!")
 			}
