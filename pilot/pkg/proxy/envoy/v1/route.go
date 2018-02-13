@@ -266,12 +266,10 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 
 	if rule.Mirror != nil {
 		fqdnDest := model.ResolveHostname(config.ConfigMeta, rule.Mirror)
-		cluster := buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External())
-		route.clusters = append(route.clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{
 			//TODO support shadowing between internal and external kubernetes services
 			// currently only shadowing between internal kubernetes services is supported
-			Cluster: cluster.Name,
+			Cluster: buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External()).Name,
 		}
 	}
 
@@ -396,14 +394,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		}
 	}
 
-	if http.Mirror != nil {
-		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
-		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
-		cluster := buildCluster(fqdn, port, labels, false)
-		route.clusters = append(route.clusters, cluster)
-		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
-	}
-
+	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror, buildCluster) // FIXME: add any new cluster
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
@@ -467,6 +458,18 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 		route.HostRewrite = rewrite.Authority
 		route.PrefixRewrite = rewrite.Uri
 	}
+}
+
+func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port,
+	mirror *routingv2.Destination, buildCluster buildClusterFunc) *ShadowCluster {
+
+	if mirror != nil {
+		fqdn := model.ResolveFQDN(mirror.Name, domain)
+		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)
+		// TODO support shadow cluster for external kubernetes service mirror
+		return &ShadowCluster{Cluster: buildCluster(fqdn, port, labels, false).Name}
+	}
+	return nil
 }
 
 func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
