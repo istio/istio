@@ -36,7 +36,6 @@ const (
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
-	rootCertFile       string
 	interval           time.Duration
 	grpcHostname       string
 	grpcPort           int
@@ -48,7 +47,7 @@ type LivenessCheckController struct {
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
-func NewLivenessCheckController(rootCertFile string, probeCheckInterval time.Duration,
+func NewLivenessCheckController(probeCheckInterval time.Duration,
 	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
 	client grpc.CAGrpcClient) (*LivenessCheckController, error) {
 
@@ -61,7 +60,6 @@ func NewLivenessCheckController(rootCertFile string, probeCheckInterval time.Dur
 	livenessProbe.SetAvailable(nil)
 
 	return &LivenessCheckController{
-		rootCertFile:  rootCertFile,
 		interval:      probeCheckInterval,
 		grpcHostname:  grpcHostname,
 		grpcPort:      grpcPort,
@@ -102,6 +100,11 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		_ = os.RemoveAll(tempDir)
 	}()
 
+	testRoot, err := ioutil.TempFile(tempDir, "root")
+	if err != nil {
+		return err
+	}
+
 	testCert, err := ioutil.TempFile(tempDir, "cert")
 	if err != nil {
 		return err
@@ -117,6 +120,11 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
+	err = ioutil.WriteFile(testRoot.Name(), c.ca.GetRootCertificate(), 0644)
+	if err != nil {
+		return err
+	}
+
 	err = ioutil.WriteFile(testKey.Name(), privPEM, 0644)
 	if err != nil {
 		return err
@@ -124,7 +132,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	// Generate csr and credential
 	pc := platform.NewOnPremClientImpl(platform.OnPremConfig{
-		RootCACertFile: c.rootCertFile,
+		RootCACertFile: testRoot.Name(),
 		KeyFile:        testKey.Name(),
 		CertChainFile:  testCert.Name(),
 	})

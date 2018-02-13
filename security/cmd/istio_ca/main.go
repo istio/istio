@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -267,25 +266,17 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
-
-		// TODO(wattli): Refactor this and combine it with NewIstioCA().
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 	} else {
-		var certChainBytes []byte
-		if opts.certChainFile != "" {
-			certChainBytes = readFile(opts.certChainFile)
-		}
-		caOpts = &ca.IstioCAOptions{
-			CertChainBytes:   certChainBytes,
-			CertTTL:          opts.workloadCertTTL,
-			MaxCertTTL:       opts.maxWorkloadCertTTL,
-			SigningCertBytes: readFile(opts.signingCertFile),
-			SigningKeyBytes:  readFile(opts.signingKeyFile),
-			RootCertBytes:    readFile(opts.rootCertFile),
+		log.Info("Use certificate from argument as the CA certificate")
+		caOpts, err = ca.NewIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
+			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+		if err != nil {
+			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
 	}
 
@@ -300,7 +291,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.LivenessProbeOptions.IsValid() {
 		var g interface{} = &caclient.CAGrpcClientImpl{}
 		if client, ok := g.(caclient.CAGrpcClient); ok {
-			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(opts.rootCertFile,
+			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
 				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
 				opts.LivenessProbeOptions, client)
 			if err != nil {
@@ -329,14 +320,6 @@ func generateConfig() *rest.Config {
 		fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
-}
-
-func readFile(filename string) []byte {
-	bs, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fatalf("Failed to read file %s (error: %v)", filename, err)
-	}
-	return bs
 }
 
 func verifyCommandLineOptions() {

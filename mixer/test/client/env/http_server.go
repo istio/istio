@@ -20,6 +20,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // If HTTP header has non empty FailHeader,
@@ -74,6 +76,8 @@ func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", publicKey)
 }
 
+// handler handles a request and sends response. If ?delay=n is in request URL, then sleeps for
+// n second and sends response.
 func handler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -94,6 +98,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(k, v)
 		}
 	}
+
+	if delay := r.URL.Query().Get("delay"); delay != "" {
+		delaySeconds, err := strconv.ParseInt(delay, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("Bad request parameter: delay"))
+			return
+		}
+		time.Sleep(time.Duration(delaySeconds) * time.Second)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)
 }
