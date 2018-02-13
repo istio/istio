@@ -300,7 +300,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.LivenessProbeOptions.IsValid() {
 		var g interface{} = &caclient.CAGrpcClientImpl{}
 		if client, ok := g.(caclient.CAGrpcClient); ok {
-			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(opts.rootCertFile,
+			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
 				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
 				opts.LivenessProbeOptions, client)
 			if err != nil {
