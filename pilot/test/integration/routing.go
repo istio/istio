@@ -118,10 +118,10 @@ func (t *routing) run() error {
 			},
 		},
 		{
-			description: "routing all traffic to c-v1 with shadow policy",
+			description: "routing all traffic to c with shadow policy",
 			config:      "rule-default-route-mirrored.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 50, "v2": 50}, "default-route")
 			},
 		},
 	}
