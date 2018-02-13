@@ -14,7 +14,7 @@
 
 // Tests of routing rules to outbound traffic defined by egress rules
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -26,22 +26,24 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+
 	"istio.io/istio/pkg/log"
 )
 
 type routingToEgress struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *routingToEgress) String() string {
 	return "routing-rules-to-egress"
 }
 
-func (t *routingToEgress) setup() error {
+func (t *routingToEgress) Setup() error {
 	return nil
 }
 
-func (t *routingToEgress) run() error {
+func (t *routingToEgress) Run() error {
 	cases := []struct {
 		description   string
 		configEgress  []string
@@ -201,28 +203,28 @@ func (t *routingToEgress) run() error {
 
 	var errs error
 	for _, cs := range cases {
-		tlog("Checking routing rule to egress rule test", cs.description)
+		tutil.Tlog("Checking routing rule to egress rule test", cs.description)
 		for _, configEgress := range cs.configEgress {
-			if err := t.applyConfig(configEgress, nil); err != nil {
+			if err := t.ApplyConfig(configEgress, nil); err != nil {
 				return err
 			}
 		}
-		if err := t.applyConfig(cs.configRouting, cs.routingData); err != nil {
+		if err := t.ApplyConfig(cs.configRouting, cs.routingData); err != nil {
 			return err
 		}
 
-		if err := repeat(cs.check, 3, time.Second); err != nil {
+		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
 			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
 			log.Info("Success!")
 		}
 
-		if err := t.deleteConfig(cs.configRouting, cs.routingData); err != nil {
+		if err := t.DeleteConfig(cs.configRouting, cs.routingData); err != nil {
 			return err
 		}
 		for _, configEgress := range cs.configEgress {
-			if err := t.deleteConfig(configEgress, nil); err != nil {
+			if err := t.DeleteConfig(configEgress, nil); err != nil {
 				return err
 			}
 		}
@@ -230,9 +232,9 @@ func (t *routingToEgress) run() error {
 	return errs
 }
 
-func (t *routingToEgress) teardown() {
+func (t *routingToEgress) Teardown() {
 	log.Info("Cleaning up route rules to egress rules...")
-	if err := t.deleteAllConfigs(); err != nil {
+	if err := t.DeleteAllConfigs(); err != nil {
 		log.Warna(err)
 	}
 }
@@ -240,11 +242,11 @@ func (t *routingToEgress) teardown() {
 func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, respCode int) error {
 	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
-	resp := t.clientRequest(src, url, 1, "")
+	resp := t.ClientRequest(src, url, 1, "")
 
 	statusCode := ""
-	if len(resp.code) > 0 {
-		statusCode = resp.code[0]
+	if len(resp.Code) > 0 {
+		statusCode = resp.Code[0]
 	}
 
 	if strconv.Itoa(respCode) != statusCode {
@@ -257,21 +259,21 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
 	log.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
 
-	resp := t.clientRequest(src, httpbinURL, 1, "")
+	resp := t.ClientRequest(src, httpbinURL, 1, "")
 
 	containsAllExpectedHeaders := true
 
 	headerFormat := "\"%s\": \"%s\""
 	for name, value := range expectedHeaders {
 		headerContent := fmt.Sprintf(headerFormat, name, value)
-		if !strings.Contains(strings.ToLower(resp.body), strings.ToLower(headerContent)) {
+		if !strings.Contains(strings.ToLower(resp.Body), strings.ToLower(headerContent)) {
 			containsAllExpectedHeaders = false
 		}
 	}
 
 	if !containsAllExpectedHeaders {
 		return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
-			resp.body, expectedHeaders)
+			resp.Body, expectedHeaders)
 	}
 	return nil
 }
@@ -280,14 +282,14 @@ func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedH
 func (t *routingToEgress) verifyEgressRedirectRewrite(src, dstURL, targetHost, targetPath string) error {
 	log.Infof("Making 1 request (%s) from %s...\n", dstURL, src)
 
-	resp := t.clientRequest(src, dstURL, 1, "")
-	if len(resp.code) == 0 || resp.code[0] != httpOk {
-		return fmt.Errorf("redirect verification failed: response status code: %v, expected %v",
-			resp.code, httpOk)
+	resp := t.ClientRequest(src, dstURL, 1, "")
+	if !resp.IsHTTPOk() {
+		return fmt.Errorf("redirect verification failed: response status code: %v, expected 200",
+			resp.Code)
 	}
 
 	var actualRedirection string
-	if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.body); len(matches) >= 2 {
+	if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
 		actualRedirection = matches[1]
 	}
 

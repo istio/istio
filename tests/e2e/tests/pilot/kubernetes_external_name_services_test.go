@@ -12,34 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
 
 	"istio.io/istio/pkg/log"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type kubernetesExternalNameServices struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *kubernetesExternalNameServices) String() string {
 	return "kubernetes-external-name-services"
 }
 
-func (t *kubernetesExternalNameServices) setup() error {
-	return t.applyConfig("v1alpha1/rule-rewrite-authority-externalbin.yaml.tmpl", nil)
+func (t *kubernetesExternalNameServices) Setup() error {
+	return t.ApplyConfig("v1alpha1/rule-rewrite-authority-externalbin.yaml.tmpl", nil)
 }
 
-func (t *kubernetesExternalNameServices) teardown() {
+func (t *kubernetesExternalNameServices) Teardown() {
 	log.Info("Cleaning up route rules...")
-	if err := t.deleteAllConfigs(); err != nil {
+	if err := t.DeleteAllConfigs(); err != nil {
 		log.Warna(err)
 	}
 }
 
-func (t *kubernetesExternalNameServices) run() error {
+func (t *kubernetesExternalNameServices) Run() error {
 
 	// map of source pods to test, to boolean that is true if the pod has Istio proxy
 	srcPods := map[string]bool{"a": true, "b": true, "t": false}
@@ -50,27 +51,27 @@ func (t *kubernetesExternalNameServices) run() error {
 		"externalbin":       "httpbin.org",
 	}
 
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for src, withIstioProxy := range srcPods {
 		for dst, externalHost := range dstServices {
 			for _, domain := range []string{"", "." + t.Namespace} {
 				name := fmt.Sprintf("HTTP connection from %s to %s%s", src, dst, domain)
-				funcs[name] = (func(src, dst, domain string) func() status {
+				funcs[name] = (func(src, dst, domain string) func() tutil.Status {
 					url := fmt.Sprintf("http://%s%s", dst, domain)
 					extra := ""
 					if !withIstioProxy {
 						extra = "-key Host -val " + externalHost
 					}
-					return func() status {
-						resp := t.clientRequest(src, url, 1, extra)
-						if len(resp.code) > 0 && resp.code[0] == httpOk {
+					return func() tutil.Status {
+						resp := t.ClientRequest(src, url, 1, extra)
+						if resp.IsHTTPOk() {
 							return nil
 						}
-						return errAgain
+						return tutil.ErrAgain
 					}
 				})(src, dst, domain)
 			}
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }
