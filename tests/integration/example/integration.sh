@@ -26,27 +26,20 @@ function process_result() {
     fi
 }
 
-# If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ../../..; pwd)
-export GOPATH
+echo ${GOPATH}
 
 # Build mixer binary
 make mixs
 MIXER_BINARY=$(make where-is-out)/mixs
+ENVOY_BINARY=$(make where-is-out)/envoy
 
-# Download Proxy
-source istio.VERSION
+# Download Proxy Repo
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
 git pull
 
-PROXY_TAR="envoy-debug-${PROXY_TAG}.tar.gz"
-rm -rf usr ${PROXY_TAR}
-wget "https://storage.googleapis.com/istio-build/proxy/${PROXY_TAR}"
-tar xvzf "${PROXY_TAR}"
-
-ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
+#ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
 START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
@@ -62,10 +55,10 @@ SUMMARY='Tests Summary'
 
 TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 
-go test -v ./tests/integration/example/tests/sample1 ${TESTARG[@]}
+go test -v ./tests/integration/example/tests/sample1 ${TESTARG[@]} $@
 process_result $? sample1
 
-go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]}
+go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
 process_result $? sample2
 
 printf "${SUMMARY}\n"

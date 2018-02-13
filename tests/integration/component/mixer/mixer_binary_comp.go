@@ -135,7 +135,7 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	lock.Lock()
 	mixerComp.status.MetricsEndpoint = metricsEndpoint
