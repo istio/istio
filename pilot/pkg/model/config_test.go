@@ -503,12 +503,15 @@ func TestEgressRules(t *testing.T) {
 		t.Error(err)
 	}
 
-	want := map[string]*routing.EgressRule{
-		"egress-rule/default/example": rule,
-	}
 	got := store.EgressRules()
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("EgressRules() => expected %#v, got %#v", want, got)
+	if len(got) != 1 {
+		t.Fatalf("EgressRules() => want 1 rule, got %d", len(got))
+	}
+
+	gotRule := got[0].Spec
+
+	if !reflect.DeepEqual(gotRule, rule) {
+		t.Errorf("EgressRules() => expected \n%#v, got \n%#v", rule, gotRule)
 	}
 
 	// erroring out list

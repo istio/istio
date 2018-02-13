@@ -280,7 +280,7 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
@@ -362,7 +362,6 @@ $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
-	go build -o ${ISTIO_OUT}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure

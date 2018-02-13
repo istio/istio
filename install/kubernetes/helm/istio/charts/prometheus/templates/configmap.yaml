@@ -24,7 +24,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;prometheus
+        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -38,7 +38,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;statsd-prom
+        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;statsd-prom
 
     - job_name: 'mixer'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -52,7 +52,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-mixer;http-monitoring
+        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -66,7 +66,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Namespace}}-pilot;http-monitoring
+        regex: {{ .Release.Namespace }};{{ .Release.Name }}-pilot;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'

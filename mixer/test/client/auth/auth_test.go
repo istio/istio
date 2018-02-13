@@ -107,8 +107,6 @@ const reportAttributes = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
-  "destination.ip": "[127 0 0 1]",
-  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -196,10 +194,10 @@ const FailedReportAttributes = `
 `
 
 func TestJWTAuth(t *testing.T) {
-	s := env.NewTestSetupV2(env.JWTAuthTest, t)
+	s := env.NewTestSetup(env.JWTAuthTest, t)
 	// pubkey server is the same as backend server.
 	// Empty audiences.
-	env.AddJwtAuth(s.V2().HTTPServerConf, &mccpb.JWT{
+	env.AddJwtAuth(s.V2(), &mccpb.JWT{
 		Issuer:              JwtIssuer,
 		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", s.Ports().BackendPort),
 		JwksUriEnvoyCluster: JwtCluster,

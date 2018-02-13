@@ -628,8 +628,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 
 func TestRouteDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	url := fmt.Sprintf("/v1/routes/invalidRDSName/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("unexpected error response from discovery: got %v, want %v",
@@ -637,18 +636,22 @@ func TestRouteDiscoveryRouterError(t *testing.T) {
 	}
 }
 
-func TestRouteDiscoveryRouterWeighted(t *testing.T) {
-	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
-		_, registry, ds := commonSetup(t)
-		addConfig(registry, weightConfig, t)
+func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
+	_, registry, ds := commonSetup(t)
 
-		// TODO: v1alpha2 only
-		addConfig(registry, destinationRuleWorld, t)
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayWeightedRouteRule, t)
+	addConfig(registry, gatewayConfig, t)
+	addConfig(registry, gatewayConfig2, t)
+	addConfig(registry, destinationRuleWorld, t)
 
-		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-		response := makeDiscoveryRequest(ds, "GET", url, t)
-		compareResponse(response, "testdata/rds-router-weighted.json", t)
-	}
+	url := fmt.Sprintf("/v1/routes/10080/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-weighted-server1.json", t)
+
+	url = fmt.Sprintf("/v1/routes/10088/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-weighted-server2.json", t)
 }
 
 func TestExternalServicesDiscoveryMode(t *testing.T) {
@@ -940,31 +943,27 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 	compareResponse(response, "testdata/rds-httpproxy.json", t)
 }
 
-func TestListenerDiscoveryRouterError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("mock Services() error")
-	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
-}
-
-func TestListenerDiscoveryRouter(t *testing.T) {
+func TestListenerDiscoveryRouterWithGateway(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
-	addConfig(registry, egressRule, t)
+
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayWeightedRouteRule, t)
+	addConfig(registry, gatewayConfig, t)
+	addConfig(registry, gatewayConfig2, t)
+	addConfig(registry, destinationRuleWorld, t)
 
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-router.json", t)
+	compareResponse(response, "testdata/lds-router-with-gateway.json", t)
 
 	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-router-auth.json", t)
+
+	// same response with or without auth
+	compareResponse(response, "testdata/lds-router-with-gateway.json", t)
 }
 
 func TestDiscoveryCache(t *testing.T) {

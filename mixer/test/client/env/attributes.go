@@ -129,7 +129,7 @@ func Verify(b *attribute.MutableBag, expectedJSON string) error {
 			}
 		case bool:
 			if val, ok := b.Get(k); ok {
-				vbool := bool(vv)
+				vbool := vv
 				if val.(bool) != vbool {
 					return fmt.Errorf("attribute %+v value doesn't match. Actual %+v, expected %+v",
 						k, val.(bool), vbool)

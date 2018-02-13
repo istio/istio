@@ -81,6 +81,5 @@ e2e_upgrade: istioctl generate_yaml
 
 e2e_all: e2e_simple e2e_mixer e2e_bookinfo
 
-e2e_pilot:
-	go install ./pilot/test/integration
-	${ISTIO_BIN}/integration --logtostderr ${TESTOPTS} -hub ${HUB} -tag ${TAG}
+e2e_pilot: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/pilot -hub ${HUB} -tag ${TAG}

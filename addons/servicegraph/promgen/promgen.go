@@ -96,7 +96,6 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 	query := fmt.Sprintf(reqsFmt, opts.timeHorizon)
 	if opts.filterEmpty {
 		query += emptyFilter
-		fmt.Println(query)
 	}
 	graph, err := extractGraph(api, query, "reqs/sec")
 	if err != nil {
@@ -105,7 +104,6 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 	query = fmt.Sprintf(tcpFmt, opts.timeHorizon)
 	if opts.filterEmpty {
 		query += emptyFilter
-		fmt.Println(query)
 	}
 	tcpGraph, err := extractGraph(api, query, "bytes/sec")
 	if err != nil {

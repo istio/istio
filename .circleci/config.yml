@@ -217,6 +217,42 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
+  e2e-pilot-v1alpha1-and-v1alpha2:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: bin/testEnvRootMinikube.sh start
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.tag generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - store_artifacts:
+          path: /home/circleci/logs
+
   # Run nightly, to verify 'dep update' works and prime the cache
   depupdate:
     <<: *defaults
@@ -524,7 +560,7 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-      - e2e-pilot:
+      - e2e-pilot-v1alpha1-and-v1alpha2:
           requires:
             - build
       - e2e-pilot-noauth:

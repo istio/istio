@@ -16,6 +16,8 @@ spec:
       labels:
         app: {{ template "grafana.name" . }}
         release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -23,17 +25,13 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
-          livenessProbe:
-            httpGet:
-              path: /logging
-              port: {{ .Values.service.internalPort }}
           readinessProbe:
             httpGet:
-              path: /logging
+              path: /login
               port: {{ .Values.service.internalPort }}
           env:
           - name: GRAFANA_PORT
-            value: {{ .Values.service.internalPort }}
+            value: {{ .Values.service.internalPort | quote }}
           - name: GF_AUTH_BASIC_ENABLED
             value: "false"
           - name: GF_AUTH_ANONYMOUS_ENABLED
@@ -44,7 +42,13 @@ spec:
             value: /data/grafana
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+          - name: data
+            mountPath: /data/grafana
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
     {{- end }}
+      volumes:
+      - name: data
+        emptyDir: {}
