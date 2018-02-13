@@ -100,34 +100,11 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 	return instances, nil
 }
 
-// GetSidecarServiceInstances implements a service catalog operation
+// GetSidecarServiceInstances returns all service instances running on a particular node
+// Cloud Foundry integration is currently ingress-only -- there is no sidecar support yet.
+// So this function always returns an empty slice.
 func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
-	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
-	if err != nil {
-		return nil, fmt.Errorf("getting host instances: %s", err)
-	}
-
-	var instances []*model.ServiceInstance
-
-	for hostname, backendSet := range resp.GetBackends() {
-		for _, backend := range backendSet.GetBackends() {
-			port := sd.servicePort()
-
-			instances = append(instances, &model.ServiceInstance{
-				Endpoint: model.NetworkEndpoint{
-					Address:     backend.Address,
-					Port:        int(backend.Port),
-					ServicePort: port,
-				},
-				Service: &model.Service{
-					Hostname: hostname,
-					Ports:    []*model.Port{port},
-				},
-			})
-		}
-	}
-
-	return instances, nil
+	return nil, nil
 }
 
 // ManagementPorts is not currently implemented for Cloud Foundry
