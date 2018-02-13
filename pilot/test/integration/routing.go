@@ -37,7 +37,7 @@ func (t *routing) String() string {
 }
 
 func (t *routing) setup() error {
-	return nil
+	return t.applyConfig("destination-rule-c.yaml.tmpl", nil)
 }
 
 // TODO: test negatives
@@ -52,7 +52,7 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
@@ -107,21 +107,21 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1 with appended headers",
 			config:      "rule-default-route-append-headers.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
 			description: "routing all traffic to c-v1 with CORS policy",
 			config:      "rule-default-route-cors-policy.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 		{
 			description: "routing all traffic to c-v1 with shadow policy",
 			config:      "rule-default-route-mirrored.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "route-rule-c")
 			},
 		},
 	}
