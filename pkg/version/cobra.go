@@ -27,9 +27,11 @@ func CobraCommand() *cobra.Command {
 		Short: "Prints out build version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			if short {
-				cmd.Printf("%s\n", Info)
+// 				cmd.Printf("%s\n", Info)
+				fmt.Println(Info)
 			} else {
-				cmd.Printf("%s", Info.LongForm())
+// 				cmd.Printf("%s", Info.LongForm())
+				fmt.Println(Info.LongForm())
 			}
 		},
 	}
