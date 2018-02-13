@@ -156,7 +156,7 @@ const reportAttributesOkPost2 = `
 `
 
 func TestReportBatch(t *testing.T) {
-	s := env.NewTestSetupV2(env.ReportBatchTest, t)
+	s := env.NewTestSetup(env.ReportBatchTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

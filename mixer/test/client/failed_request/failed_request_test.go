@@ -151,7 +151,7 @@ const reportAttributesBackendFail = `
 `
 
 func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetupV2(env.FailedRequestTest, t)
+	s := env.NewTestSetup(env.FailedRequestTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

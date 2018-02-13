@@ -14,7 +14,7 @@
 
 // Routing tests
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -26,22 +26,31 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type routing struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *routing) String() string {
 	return "routing-rules"
 }
 
-func (t *routing) setup() error {
+func (t *routing) Setup() error {
 	return nil
 }
 
 // TODO: test negatives
-func (t *routing) run() error {
+func (t *routing) Run() error {
+	versions := make([]string, 0)
+	if t.V1alpha1 {
+		versions = append(versions, "v1alpha1")
+	}
+	if t.V1alpha2 {
+		versions = append(versions, "v1alpha2")
+	}
+
 	cases := []struct {
 		description string
 		config      string
@@ -118,36 +127,44 @@ func (t *routing) run() error {
 			},
 		},
 		{
-			description: "routing all traffic to c-v1 with shadow policy",
+			description: "routing all traffic to c with shadow policy",
 			config:      "rule-default-route-mirrored.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 50, "v2": 50}, "default-route")
 			},
 		},
 	}
 
 	var errs error
-	for _, cs := range cases {
-		tlog("Checking routing test", cs.description)
-		if err := t.applyConfig(cs.config, nil); err != nil {
-			return err
+	for _, version := range versions {
+		if version == "v1alpha2" {
+			if err := t.ApplyConfig("v1alpha2/destination-rule-c.yaml.tmpl", nil); err != nil {
+				errs = multierror.Append(errs, err)
+				continue
+			}
 		}
+		for _, cs := range cases {
+			tutil.Tlog("Checking "+version+" routing test", cs.description)
+			if err := t.ApplyConfig(version+"/"+cs.config, nil); err != nil {
+				return err
+			}
 
-		if err := repeat(cs.check, 3, time.Second); err != nil {
-			log.Infof("Failed the test with %v", err)
-			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-		} else {
-			log.Info("Success!")
+			if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
+				log.Infof("Failed the test with %v", err)
+				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
+			} else {
+				log.Info("Success!")
+			}
+		}
+		log.Infof("Cleaning up %s route rules...", version)
+		if err := t.DeleteAllConfigs(); err != nil {
+			log.Warna(err)
 		}
 	}
 	return errs
 }
 
-func (t *routing) teardown() {
-	log.Info("Cleaning up route rules...")
-	if err := t.deleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
+func (t *routing) Teardown() {
 }
 
 func counts(elts []string) map[string]int {
@@ -164,8 +181,8 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 	url := fmt.Sprintf("%s://%s/%s", scheme, dst, src)
 	log.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
-	resp := t.clientRequest(src, url, samples, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
-	count := counts(resp.version)
+	resp := t.ClientRequest(src, url, samples, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
+	count := counts(resp.Version)
 	log.Infof("request counts %v", count)
 	epsilon := 5
 
@@ -188,18 +205,22 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 
 // verify that the traces were picked up by Zipkin and decorator has been applied
 func (t *routing) verifyDecorator(operation string) error {
-	response := t.infra.clientRequest(
+	if !t.Zipkin {
+		return nil
+	}
+
+	response := t.Infra.ClientRequest(
 		"t",
 		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),
 		1, "",
 	)
 
-	if len(response.code) == 0 || response.code[0] != httpOk {
+	if !response.IsHTTPOk() {
 		return fmt.Errorf("could not retrieve traces from zipkin")
 	}
 
 	text := fmt.Sprintf("\"name\":\"%s\"", operation)
-	if strings.Count(response.body, text) != 10 {
+	if strings.Count(response.Body, text) != 10 {
 		return fmt.Errorf("could not find operation %q in zipkin traces", operation)
 	}
 
@@ -213,12 +234,12 @@ func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	start := time.Now()
-	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
+	resp := t.ClientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	elapsed := time.Since(start)
 
 	statusCode := ""
-	if len(resp.code) > 0 {
-		statusCode = resp.code[0]
+	if len(resp.Code) > 0 {
+		statusCode = resp.Code[0]
 	}
 
 	// +/- 2s variance
@@ -237,13 +258,13 @@ func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, he
 	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	failureMsg := "redirect verification failed"
-	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
-	if len(resp.code) == 0 || resp.code[0] != fmt.Sprint(respCode) {
-		return fmt.Errorf("%s: response status code: %v, expected %v", failureMsg, resp.code, respCode)
+	resp := t.ClientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
+	if len(resp.Code) == 0 || resp.Code[0] != fmt.Sprint(respCode) {
+		return fmt.Errorf("%s: response status code: %v, expected %v", failureMsg, resp.Code, respCode)
 	}
 
 	var host string
-	if matches := regexp.MustCompile("(?i)Host=(.*)").FindStringSubmatch(resp.body); len(matches) >= 2 {
+	if matches := regexp.MustCompile("(?i)Host=(.*)").FindStringSubmatch(resp.Body); len(matches) >= 2 {
 		host = matches[1]
 	}
 	if host != targetHost {
@@ -251,7 +272,7 @@ func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, he
 	}
 
 	exp := regexp.MustCompile("(?i)URL=(.*)")
-	paths := exp.FindAllStringSubmatch(resp.body, -1)
+	paths := exp.FindAllStringSubmatch(resp.Body, -1)
 	var path string
 	if len(paths) > 1 {
 		path = paths[1][1]

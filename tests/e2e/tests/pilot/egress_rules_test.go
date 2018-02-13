@@ -14,7 +14,7 @@
 
 // Routing tests
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -25,22 +25,23 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type egressRules struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *egressRules) String() string {
 	return "egress-rules"
 }
 
-func (t *egressRules) setup() error {
+func (t *egressRules) Setup() error {
 	return nil
 }
 
 // TODO: test negatives
-func (t *egressRules) run() error {
+func (t *egressRules) Run() error {
 	cases := []struct {
 		description string
 		config      string
@@ -48,49 +49,49 @@ func (t *egressRules) run() error {
 	}{
 		{
 			description: "allow external traffic to httbin.org",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org/headers", true)
 			},
 		},
 		{
 			description: "allow external traffic to *.httbin.org",
-			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://www.httpbin.org/headers", true)
 			},
 		},
 		{
 			description: "ensure traffic to httbin.org is prohibited when setting *.httbin.org",
-			config:      "egress-rule-wildcard-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org/headers", false)
 			},
 		},
 		{
 			description: "allow external http2 traffic to nghttp2.org",
-			config:      "egress-rule-nghttp2.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-nghttp2.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://nghttp2.org", true)
 			},
 		},
 		{
 			description: "prohibit https to httbin.org",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://httpbin.org:443/headers", false)
 			},
 		},
 		{
 			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
-			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
 			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
-			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://cnn.com", false)
 			},
@@ -98,47 +99,47 @@ func (t *egressRules) run() error {
 	}
 	var errs error
 	for _, cs := range cases {
-		tlog("Checking egressRules test", cs.description)
-		if err := t.applyConfig(cs.config, nil); err != nil {
+		tutil.Tlog("Checking egressRules test", cs.description)
+		if err := t.ApplyConfig(cs.config, nil); err != nil {
 			return err
 		}
 
-		if err := repeat(cs.check, 3, time.Second); err != nil {
+		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
 			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
 			log.Info("Success!")
 		}
 
-		if err := t.deleteConfig(cs.config, nil); err != nil {
+		if err := t.DeleteConfig(cs.config, nil); err != nil {
 			return err
 		}
 	}
 	return errs
 }
 
-func (t *egressRules) teardown() {
+func (t *egressRules) Teardown() {
 	log.Info("Cleaning up egress rules...")
-	if err := t.deleteAllConfigs(); err != nil {
+	if err := t.DeleteAllConfigs(); err != nil {
 		log.Warna(err)
 	}
 }
 
 // verifyReachable verifies that the url is reachable
 func (t *egressRules) verifyReachable(url string, shouldBeReachable bool) error {
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for _, src := range []string{"a", "b"} {
 		name := fmt.Sprintf("Request from %s to %s", src, url)
-		funcs[name] = (func(src string) func() status {
+		funcs[name] = (func(src string) func() tutil.Status {
 			trace := fmt.Sprint(time.Now().UnixNano())
-			return func() status {
-				resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-				reachable := len(resp.code) > 0 && resp.code[0] == httpOk && strings.Contains(resp.body, trace)
+			return func() tutil.Status {
+				resp := t.ClientRequest(src, url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
+				reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
 				if reachable && !shouldBeReachable {
 					return fmt.Errorf("%s is reachable from %s (should be unreachable)", url, src)
 				}
 				if !reachable && shouldBeReachable {
-					return errAgain
+					return tutil.ErrAgain
 				}
 
 				return nil
@@ -146,5 +147,5 @@ func (t *egressRules) verifyReachable(url string, shouldBeReachable bool) error 
 		})(src)
 	}
 
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }

@@ -42,8 +42,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
-	"istio.io/istio/pilot/test/integration/cloudfoundry/mock"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/tests/pilot/cloudfoundry/mock"
 )
 
 const (

@@ -14,27 +14,29 @@
 
 // Routing tests
 
-package main
+package pilot
 
 import (
 	"fmt"
+
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type authExclusion struct {
-	*infra
+	*tutil.Infra
 }
 
 func (r *authExclusion) String() string {
 	return "auth-exclusion"
 }
 
-func (r *authExclusion) setup() error {
+func (r *authExclusion) Setup() error {
 	return nil
 }
 
-func (r *authExclusion) teardown() {}
+func (r *authExclusion) Teardown() {}
 
-func (r *authExclusion) run() error {
+func (r *authExclusion) Run() error {
 	return r.makeRequests()
 }
 
@@ -46,24 +48,24 @@ func (r *authExclusion) makeRequests() error {
 	srcPods := []string{"a", "b", "t"}
 	dst := "fake-control"
 
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for _, src := range srcPods {
 		for _, port := range []string{"", ":80", ":8080"} {
 			for _, domain := range []string{"", "." + r.Namespace} {
 				name := fmt.Sprintf("Request from %s to %s%s%s", src, dst, domain, port)
-				funcs[name] = (func(src, dst, port, domain string) func() status {
+				funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 					url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-					return func() status {
-						resp := r.clientRequest(src, url, 1, "")
+					return func() tutil.Status {
+						resp := r.ClientRequest(src, url, 1, "")
 						// Request should return successfully (status 200)
-						if len(resp.code) > 0 && resp.code[0] == "200" {
+						if resp.IsHTTPOk() {
 							return nil
 						}
-						return errAgain
+						return tutil.ErrAgain
 					}
 				})(src, dst, port, domain)
 			}
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }
