@@ -35,13 +35,9 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                    Runtime::RandomGenerator& random);
 
-  Upstream::ClusterManager& cm() { return cm_; }
-
   ::istio::mixer_control::http::Controller* controller() {
     return controller_.get();
   }
-
-  bool has_v2_config() const { return has_v2_config_; }
 
   CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
     return CheckTransport::GetFunc(cm_, config_.check_cluster(), headers);
@@ -54,8 +50,6 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
-  // has v2 config;
-  bool has_v2_config_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {

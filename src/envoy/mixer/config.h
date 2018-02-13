@@ -35,10 +35,6 @@ struct HttpMixerConfig {
 
   // The Http client config.
   ::istio::mixer::v1::config::client::HttpClientConfig http_config;
-  // legacy quota requirment
-  std::vector<::istio::quota::Requirement> legacy_quotas;
-  // If true, v2 config is valid.
-  bool has_v2_config;
 
   // check cluster
   const std::string& check_cluster() const {
@@ -48,12 +44,6 @@ struct HttpMixerConfig {
   const std::string& report_cluster() const {
     return http_config.transport().report_cluster();
   }
-
-  // Create per route legacy config.
-  static void CreateLegacyRouteConfig(
-      bool disable_check, bool disable_report,
-      const std::map<std::string, std::string>& attributes,
-      ::istio::mixer::v1::config::client::ServiceConfig* config);
 };
 
 // Config for tcp filter.

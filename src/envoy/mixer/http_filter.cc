@@ -47,20 +47,6 @@ namespace Http {
 namespace Mixer {
 namespace {
 
-// Switch to turn off mixer both check and report
-// They can be overrided by "mixer_check" and "mixer_report" flags.
-const std::string kJsonNameMixerControl("mixer_control");
-
-// Switch to turn on/off mixer check only.
-const std::string kJsonNameMixerCheck("mixer_check");
-
-// Switch to turn on/off mixer report only.
-const std::string kJsonNameMixerReport("mixer_report");
-
-// The prefix in route opaque data to define
-// a sub string map of mixer attributes passed to mixer for the route.
-const std::string kPrefixMixerAttributes("mixer_attributes.");
-
 // Per route opaque data for "destination.service".
 const std::string kPerRouteDestinationService("destination.service");
 // Per route opaque data name "mixer" is base64(JSON(ServiceConfig))
@@ -356,57 +342,6 @@ class Instance : public Http::StreamDecoderFilter,
 
   bool initiating_call_;
 
-  // check mixer on/off flags in route opaque data
-  void check_mixer_route_flags(bool* check_disabled, bool* report_disabled) {
-    // Both check and report are disabled by default.
-    *check_disabled = true;
-    *report_disabled = true;
-    auto route = decoder_callbacks_->route();
-    if (route != nullptr) {
-      auto entry = route->routeEntry();
-      if (entry != nullptr) {
-        auto control_key = entry->opaqueConfig().find(kJsonNameMixerControl);
-        if (control_key != entry->opaqueConfig().end() &&
-            control_key->second == "on") {
-          *check_disabled = false;
-          *report_disabled = false;
-        }
-        auto check_key = entry->opaqueConfig().find(kJsonNameMixerCheck);
-        if (check_key != entry->opaqueConfig().end() &&
-            check_key->second == "on") {
-          *check_disabled = false;
-        }
-        auto report_key = entry->opaqueConfig().find(kJsonNameMixerReport);
-        if (report_key != entry->opaqueConfig().end() &&
-            report_key->second == "on") {
-          *report_disabled = false;
-        }
-      }
-    }
-  }
-
-  // Extract a prefixed string map from route opaque config.
-  // Route opaque config only supports flat name value pair, have to use
-  // prefix to create a sub string map. such as:
-  //    prefix.key1 = value1
-  std::map<std::string, std::string> GetRouteStringMap(
-      const std::string& prefix) {
-    std::map<std::string, std::string> attrs;
-    auto route = decoder_callbacks_->route();
-    if (route != nullptr) {
-      auto entry = route->routeEntry();
-      if (entry != nullptr) {
-        for (const auto& it : entry->opaqueConfig()) {
-          if (it.first.substr(0, prefix.size()) == prefix) {
-            attrs[it.first.substr(prefix.size(), std::string::npos)] =
-                it.second;
-          }
-        }
-      }
-    }
-    return attrs;
-  }
-
   void ReadPerRouteConfig(
       ::istio::mixer_control::http::Controller::PerRouteConfig* config) {
     auto route = decoder_callbacks_->route();
@@ -474,18 +409,7 @@ class Instance : public Http::StreamDecoderFilter,
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
     ::istio::mixer_control::http::Controller::PerRouteConfig config;
-    ServiceConfig legacy_config;
-    if (mixer_control_.has_v2_config()) {
-      ReadPerRouteConfig(&config);
-    } else {
-      bool check_disabled, report_disabled;
-      check_mixer_route_flags(&check_disabled, &report_disabled);
-
-      HttpMixerConfig::CreateLegacyRouteConfig(
-          check_disabled, report_disabled,
-          GetRouteStringMap(kPrefixMixerAttributes), &legacy_config);
-      config.legacy_config = &legacy_config;
-    }
+    ReadPerRouteConfig(&config);
     handler_ = mixer_control_.controller()->CreateRequestHandler(config);
 
     state_ = Calling;

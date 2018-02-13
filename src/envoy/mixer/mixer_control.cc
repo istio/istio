@@ -69,13 +69,12 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                                    Runtime::RandomGenerator& random)
     : config_(mixer_config), cm_(cm) {
   ::istio::mixer_control::http::Controller::Options options(
-      mixer_config.http_config, mixer_config.legacy_quotas);
+      mixer_config.http_config);
 
   CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
                     config_.report_cluster(), &options.env);
 
   controller_ = ::istio::mixer_control::http::Controller::Create(options);
-  has_v2_config_ = mixer_config.has_v2_config;
 }
 
 TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
