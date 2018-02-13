@@ -29,10 +29,7 @@ func (t *kubernetesExternalNameServices) String() string {
 }
 
 func (t *kubernetesExternalNameServices) setup() error {
-	if err := t.applyConfig("rule-rewrite-authority-externalbin.yaml.tmpl", nil); err != nil {
-		return err
-	}
-	return nil
+	return t.applyConfig("rule-rewrite-authority-externalbin.yaml.tmpl", nil)
 }
 
 func (t *kubernetesExternalNameServices) teardown() {

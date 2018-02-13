@@ -16,6 +16,7 @@ package integration_test
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -24,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -34,50 +36,99 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"google.golang.org/grpc"
+
+	"net/url"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/test/integration/cloudfoundry/mock"
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	appPort           = 9000
-	pilotPort         = 5555
-	copilotAddr       = "127.0.0.1:5000"
-	pilotAddr         = "127.0.0.1:5555"
-	registrationRoute = "http://127.0.0.1:5555/v1/registration"
-	listenersRoute    = "http://127.0.0.1:5555/v1/listeners/x/router~x~x~x"
-	appEnvoyListener  = "http://127.0.0.1:6666"
+	pilotPort   = 5555
+	copilotPort = 5556
+
+	internalAppName = "example-app-guid.apps.cloudfoundry.internal"
+	publicRouteName = "public.example.com"
+	publicPort      = 10080
+	backendPort     = 61005
 )
+
+func pilotURL(path string) string {
+	return (&url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("127.0.0.1:%d", pilotPort),
+		Path:   path,
+	}).String()
+}
+
+var routeRule = fmt.Sprintf(`
+apiVersion: config.istio.io/v1alpha2
+kind: V1alpha2RouteRule
+metadata:
+  name: route-for-myapp
+spec:
+  hosts:
+  - %s
+  gateways:
+  - cloudfoundry-ingress
+  http:
+  - route:
+    - destination:
+        name: example-app-guid.apps.cloudfoundry.internal
+`, publicRouteName)
+
+var gatewayConfig = fmt.Sprintf(`
+apiVersion: config.istio.io/v1alpha2
+kind: Gateway
+metadata:
+  name: cloudfoundry-ingress
+spec:
+  servers:
+  - port:
+      number: %d  # load balancer will forward traffic here
+      protocol: http
+    hosts:
+    - %s
+`, publicPort, publicRouteName)
 
 func TestEdgeRouterWithMockCopilot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	fakeApp(appPort)
-	t.Logf("fake app is running on port %d", appPort)
+	runFakeApp(backendPort)
+	t.Logf("fake app is running on port %d", backendPort)
 
+	copilotAddr := fmt.Sprintf("127.0.0.1:%d", copilotPort)
 	testState := newTestState(copilotAddr)
 	defer testState.tearDown()
 	copilotTLSConfig := testState.creds.ServerTLSConfig()
 
 	quitCopilotServer := make(chan struct{})
-
 	testState.addCleanupTask(func() { close(quitCopilotServer) })
-
 	t.Log("starting mock copilot grpc server...")
-
 	mockCopilot, err := bootMockCopilotInBackground(copilotAddr, copilotTLSConfig, quitCopilotServer)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	mockCopilot.PopulateRoute("abc.com", "127.0.0.1", appPort)
+	mockCopilot.PopulateRoute(internalAppName, "127.0.0.1", backendPort)
 
-	err = testState.config.Save(testState.configFilePath)
+	err = testState.copilotConfig.Save(testState.copilotConfigFilePath)
 	g.Expect(err).To(gomega.BeNil())
+
+	t.Log("saving istio config...")
+
+	for name, config := range map[string][]byte{
+		"gateway.yml":    []byte(gatewayConfig),
+		"route-rule.yml": []byte(routeRule)} {
+
+		err = ioutil.WriteFile(filepath.Join(testState.istioConfigDir, name), config, 0600)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}
 
 	t.Log("building pilot...")
 
-	pilotSession, err := runPilot(testState.configFilePath, pilotPort)
+	pilotSession, err := runPilot(testState.copilotConfigFilePath, testState.istioConfigDir, pilotPort)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	testState.addCleanupTask(func() {
@@ -90,40 +141,44 @@ func TestEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("checking if pilot received routes from copilot")
 	g.Eventually(func() (string, error) {
-		return curlPilot(registrationRoute)
-	}).Should(gomega.ContainSubstring("abc.com"))
+		return curlPilot(pilotURL("/v1/registration"))
+	}).Should(gomega.ContainSubstring(internalAppName))
 
+	t.Log("checking if pilot is creating the correct listeners")
 	g.Eventually(func() (string, error) {
-		return curlPilot(listenersRoute)
+		return curlPilot(pilotURL("/v1/listeners/x/router~x~x~x"))
 	}).Should(gomega.ContainSubstring("http_connection_manager"))
 
 	t.Log("run envoy...")
 
-	err = testState.runEnvoy(pilotAddr)
+	err = testState.runEnvoy(fmt.Sprintf("127.0.0.1:%d", pilotPort))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Log("curling the app with expected host header")
 
 	g.Eventually(func() error {
-		respData, err := curlApp(appEnvoyListener, "abc.com")
+		respData, err := curlApp(fmt.Sprintf("http://127.0.0.1:%d", publicPort), publicRouteName)
 		if err != nil {
 			return err
 		}
-		if respData != "hello" {
+		if !strings.Contains(respData, "hello") {
 			return fmt.Errorf("unexpected response data: %s", respData)
 		}
 		return nil
-	}, "30s", "100ms").Should(gomega.Succeed())
+	}, "3000s", "1s").Should(gomega.Succeed())
 }
 
 type testState struct {
-	// generated credentials for server and client
+	// generated credentials for copilot server and client
 	creds testhelpers.MTLSCredentials
 
-	// path on disk to store the config.yaml
-	configFilePath string
+	// path on disk to store the copilot config.yaml
+	copilotConfigFilePath string
 
-	config *cloudfoundry.Config
+	// path to directory holding istio config
+	istioConfigDir string
+
+	copilotConfig *cloudfoundry.Config
 
 	cleanupTasks []func()
 	mutex        sync.Mutex
@@ -135,21 +190,22 @@ func (testState *testState) addCleanupTask(task func()) {
 	testState.cleanupTasks = append(testState.cleanupTasks, task)
 }
 
-func newTestState(mockServerAddress string) *testState {
+func newTestState(mockCopilotServerAddress string) *testState {
 	creds := testhelpers.GenerateMTLS()
 	clientTLSFiles := creds.CreateClientTLSFiles()
 	return &testState{
-		creds:          creds,
-		configFilePath: filepath.Join(creds.TempDir, "config.yaml"),
-		config: &cloudfoundry.Config{
+		creds: creds,
+		copilotConfigFilePath: filepath.Join(creds.TempDir, "config.yaml"),
+		istioConfigDir:        testhelpers.TempDir(),
+		copilotConfig: &cloudfoundry.Config{
 			Copilot: cloudfoundry.CopilotConfig{
 				ServerCACertPath: clientTLSFiles.ServerCA,
 				ClientCertPath:   clientTLSFiles.ClientCert,
 				ClientKeyPath:    clientTLSFiles.ClientKey,
-				Address:          mockServerAddress,
+				Address:          mockCopilotServerAddress,
 				PollInterval:     10 * time.Second,
 			},
-			ServicePort: 6666,
+			ServicePort: 8080, // does not matter right now, since CF only supports 1 port
 		},
 	}
 }
@@ -157,12 +213,11 @@ func newTestState(mockServerAddress string) *testState {
 func (testState *testState) runEnvoy(discoveryAddr string) error {
 	config := model.DefaultProxyConfig()
 	dir := os.Getenv("ISTIO_BIN")
-	var err error
-	if len(dir) == 0 {
-		dir, err = os.Getwd()
-		if err != nil {
-			return err
-		}
+	if dir == "" {
+		dir = os.Getenv("ISTIO_OUT")
+	}
+	if dir == "" {
+		return fmt.Errorf("envoy bin dir empty, set either ISTIO_BIN or ISTIO_OUT")
 	}
 
 	config.BinaryPath = path.Join(dir, "envoy")
@@ -224,24 +279,28 @@ func bootMockCopilotInBackground(listenAddress string, tlsConfig *tls.Config, qu
 	return handler, nil
 }
 
-func fakeApp(port int) {
+func runFakeApp(port int) {
 	fakeAppHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`hello`))
+		responseData := map[string]interface{}{
+			"hello":                "world",
+			"received-host-header": r.Host,
+			"received-headers":     r.Header,
+		}
+		json.NewEncoder(w).Encode(responseData)
 	})
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler)
-
 }
 
-func runPilot(cfConfig string, port int) (*gexec.Session, error) {
+func runPilot(copilotConfigFile, istioConfigDir string, port int) (*gexec.Session, error) {
 	path, err := gexec.Build("istio.io/istio/pilot/cmd/pilot-discovery")
 	if err != nil {
 		return nil, err
 	}
 
 	pilotCmd := exec.Command(path, "discovery",
-		"--configDir", "/dev/null",
+		"--configDir", istioConfigDir,
 		"--registries", "CloudFoundry",
-		"--cfConfig", cfConfig,
+		"--cfConfig", copilotConfigFile,
 		"--meshConfig", "/dev/null",
 		"--port", fmt.Sprintf("%d", port),
 	)

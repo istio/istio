@@ -47,6 +47,7 @@ The full list of configurable parameters is as follows:
 | Parameter | Description | Values |
 | --- | --- | --- |
 | `cluster_flavour` | Defines whether the target cluster is a Kubernetes or an Openshift cluster. | Valid values are `k8s` and `ocp` (default) |
+| `github_api_token` | The API token used for authentication when calling the GitHub API | Any valid GitHub API token or empty (default) |
 | `cmd_path` | Can be used when the user does not have the `oc` or `kubectl` binary on the PATH | Defaults to expecting the binary is on the path | 
 | `istio.release_tag_name` | Should be a valid Istio release version. If left empty, the latest Istio release will be installed | `0.2.12`, `0.3.0`, `0.4.0` (default) |
 | `istio.dest` | Destination folder you want to install on your machine istio distribution | `~/.istio` (default) |
@@ -54,9 +55,8 @@ The full list of configurable parameters is as follows:
 | `istio.namespace` | The namespace where istio will be installed | `istio-system` (default) |
 | `istio.addon` | Which Istio addons should be installed as well | This field is an array field, which by default contains `grafana`, `prometheus`, `zipkin` and `servicegraph` |
 | `istio.jaeger` | Whether or not Jaeger tracing should also be installed | `true` and `false` (default)|
-| `istio.bookinfo` | Whether or not to install Istio's Book Info showcase | `true` and `false` (default)|
-| `istio.bookinfo_namespace` | The namespace into which to install Book Info showcase | `bookinfo` (default) |
 | `istio.delete_resources` | Boolean value to delete resources created under the istio namespace | `true` and `false` (default)|
+| `istio.samples` | Array containing the names of the samples that should be installed | Valid names are: `bookinfo`, `helloworld`, `httpbin`, `sleep` 
 
 
 An example of an invocation where we want to deploy Jaeger instead of Zipkin would be:
@@ -103,6 +103,11 @@ ansible-playbook main.yml -e '{"istio": {"release_tag_name": "0.4.0", "auth": tr
 - User wants to install Istio on Openshift but with custom add-on settings
 ```bash
 ansible-playbook main.yml -e '{"istio": {"delete_resources": true, "addon": ["grafana", "prometheus"]}}'
+```
+
+- User wants to install Istio on Openshift and additionally wants to deploy some of the samples
+```bash
+ansible-playbook main.yml -e '{"istio": {"samples": ["helloworld", "bookinfo"]}}'
 ```
 
 The list of available addons can be found at `istio/vars.main.yml` under the name `istio_all_addons`.

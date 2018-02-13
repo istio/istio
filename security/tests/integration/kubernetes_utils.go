@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/pki/testutil"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 var (
@@ -348,13 +348,13 @@ func ExamineSecret(secret *v1.Secret) error {
 	}
 
 	expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", secret.GetNamespace())
-	verifyFields := &testutil.VerifyFields{
+	verifyFields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
 
-	if err := testutil.VerifyCertificate(secret.Data[controller.PrivateKeyID],
+	if err := util.VerifyCertificate(secret.Data[controller.PrivateKeyID],
 		secret.Data[controller.CertChainID], secret.Data[controller.RootCertID],
 		expectedID, verifyFields); err != nil {
 		return fmt.Errorf("certificate verification failed: %v", err)

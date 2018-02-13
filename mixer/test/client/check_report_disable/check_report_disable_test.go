@@ -104,7 +104,7 @@ func TestCheckReportDisable(t *testing.T) {
 
 	// stop and start a new envoy config
 	// Check enabled, Report disabled
-	env.DisableHTTPCheckReport(s.V2().HTTPServerConf, false, true)
+	env.DisableHTTPCheckReport(s.V2(), false, true)
 	s.ReStartEnvoy()
 
 	tag = "Check Only"
@@ -118,7 +118,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.VerifyReportCount(tag, 3)
 
 	// Check disabled, Report enabled
-	env.DisableHTTPCheckReport(s.V2().HTTPServerConf, true, false)
+	env.DisableHTTPCheckReport(s.V2(), true, false)
 	s.ReStartEnvoy()
 
 	tag = "Report Only"

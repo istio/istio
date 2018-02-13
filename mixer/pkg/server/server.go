@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -68,6 +69,9 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
+	newRuntime2 func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
+		handlerPool *pool.GoroutinePool, enableTracing bool) *mixerRuntime2.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16) (*monitor, error)
 	listen        func(network string, address string) (net.Listener, error)
@@ -83,6 +87,7 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore:       func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
 		newRuntime:     mixerRuntime.New,
+		newRuntime2:    mixerRuntime2.New,
 		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
@@ -153,6 +158,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	st := a.ConfigStore
 	if st != nil && a.ConfigStoreURL != "" {
+		_ = s.Close()
 		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
 	if st == nil {
@@ -169,10 +175,26 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
-	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
+	if a.UseNewRuntime {
+		templateMap := make(map[string]*template.Info, len(a.Templates))
+		for k, v := range a.Templates {
+			t := v // Make a local copy, otherwise we end up capturing the location of the last entry
+			templateMap[k] = &t
+		}
+
+		runtime := p.newRuntime2(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
+			s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
+		if err = runtime.StartListening(); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime2 dispatcherForTesting: %v", err)
+		}
+		dispatcher = runtime.Dispatcher()
+	} else {
+		if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
+			a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
+		}
 	}
 	s.dispatcher = dispatcher
 

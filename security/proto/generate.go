@@ -14,6 +14,6 @@
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f security/proto/ca_service.proto
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f security/proto/nodeagent_service.proto
-
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f security/proto/workload_service.proto
 // nolint
 package istio_v1_auth

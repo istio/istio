@@ -51,7 +51,7 @@ const (
 	podServiceLabel                    = "app"
 	istioPodServiceLabel               = "istio"
 	lookupIngressSourceAndOriginValues = false
-	istioIngressSvc                    = "ingress.istio-system.svc.cluster.local"
+	istioIngressSvc                    = "istio-ingress.istio-system.svc.cluster.local"
 
 	// cache invalidation
 	// TODO: determine a reasonable default
@@ -344,7 +344,7 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 			h.env.Logger().Warningf("DestinationService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.DestinationService = n
 		} else {
@@ -380,13 +380,22 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SourceService = n
 		} else {
 			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	}
+}
+
+// TODO: fix this hack by using a service + endpoint cache/index (instead of
+//       guessing at the service name
+func istioComponentName(name string) string {
+	if strings.HasPrefix(name, "istio-") {
+		return name
+	}
+	return "istio-" + name
 }
 
 func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface, error) {

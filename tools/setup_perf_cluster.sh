@@ -67,6 +67,11 @@ function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
 }
 
+function delete_cluster() {
+  echo "Deleting CLUSTER_NAME=$CLUSTER_NAME"
+  Execute gcloud container clusters delete $CLUSTER_NAME $GCP_OPTS -q
+}
+
 function create_vm() {
   echo "Obtaining latest ubuntu xenial image name... (takes a few seconds)..."
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
@@ -77,6 +82,11 @@ function create_vm() {
   sleep 45
 }
 
+function delete_vm() {
+  echo "Deleting VM_NAME=$VM_NAME"
+  Execute gcloud compute instances delete $VM_NAME $GCP_OPTS -q
+}
+
 function run_on_vm() {
   echo "*** Remote run: \"$1\""
   Execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
@@ -84,7 +94,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.8-go && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.8/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.8-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.8/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
@@ -92,8 +102,13 @@ function setup_vm_firewall() {
   Execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
 }
 
+function delete_vm_firewall() {
+  Execute gcloud compute --project=$PROJECT firewall-rules delete default-allow-http -q
+  Execute gcloud compute --project $PROJECT firewall-rules delete allow-8080 -q
+}
+
 function update_fortio_on_vm() {
-  run_on_vm 'go get -u istio.io/fortio && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && make pull install && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
 }
 
 function run_fortio_on_vm() {
@@ -111,6 +126,12 @@ function install_istio() {
   Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+}
+
+# assumes run from istio/ (or release) directory
+function delete_istio() {
+  # Use the non debug ingress and remove the -v "2"
+  Execute sh -c 'kubectl delete -f install/kubernetes/istio-auth.yaml'
 }
 
 function kubectl_setup() {
@@ -238,6 +259,16 @@ function setup_all() {
   setup_cluster_all
 }
 
+function delete_all() {
+  echo "Deleting Istio mesh, cluster $CLUSTER_NAME, Instance $VM_NAME and firewall rules for project $PROJECT in zone $ZONE"
+  echo "Interrupt now if you don't want to delete..."
+  sleep 5
+  delete_istio
+  delete_cluster
+  delete_vm
+  delete_vm_firewall
+}
+
 function get_ips() {
   #TODO: wait for ingresses/svcs to be ready
   get_vm_ip
@@ -248,7 +279,6 @@ function get_ips() {
 
 function run_tests() {
   update_gcp_opts
-  setup_vm_firewall
   get_ips
   run_fortio_test1
   run_fortio_test2
@@ -281,4 +311,5 @@ if [[ $SOURCED == 0 ]]; then
 #setup_vm_firewall
 #get_ips
 #install_istio_svc
+  delete_all
 fi

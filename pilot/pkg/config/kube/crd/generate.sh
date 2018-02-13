@@ -38,7 +38,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var knownTypes = map[string]struct {
@@ -47,7 +47,7 @@ var knownTypes = map[string]struct {
 }{
 EOF
 
-CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"
+CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule ExternalService DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"
 
 for crd in $CRDS; do
 cat << EOF

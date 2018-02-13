@@ -180,6 +180,7 @@ func TestErrors(t *testing.T) {
 	}
 
 	a = NewArgs()
+	a.UseNewRuntime = false
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.TracingOptions.LogTraceSpans = true
@@ -195,6 +196,7 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 1:
+				// TODO: Runtime2 does not return error on the new path. Once we switch over, we can remove this case.
 				pt.newRuntime = func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener, gp *pool.GoroutinePool,
 					handlerPool *pool.GoroutinePool,
 					identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,

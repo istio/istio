@@ -24,7 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
-	brokerconfig "istio.io/api/broker/v1/config"
+	brokerconfig "istio.io/api/broker/dev"
 	"istio.io/istio/broker/pkg/model/config"
 	testproto "istio.io/istio/broker/pkg/testing/mock/proto"
 )

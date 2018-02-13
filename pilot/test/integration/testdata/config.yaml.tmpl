@@ -19,7 +19,8 @@ data:
       zipkinAddress:          zipkin.{{.IstioNamespace}}:9411
 {{end}}
 {{if .Mixer}}
-    mixerAddress:             istio-mixer.{{.IstioNamespace}}:15004
+    mixerCheckServer:         istio-mixer.{{.IstioNamespace}}:15004
+    mixerReportServer:        istio-mixer.{{.IstioNamespace}}:15004
 {{end}}
     authPolicy:               {{ .Auth }}
     connectTimeout:           1s

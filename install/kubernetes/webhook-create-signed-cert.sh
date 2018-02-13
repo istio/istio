@@ -6,8 +6,7 @@ usage() {
     cat <<EOF
 Generate certificate suitable for use with an Istio webhook service.
 
-This script demonstrates how to use the CloudFlare's PKI toolkit
-(cfssl) and k8s' CertificateSigningRequest API to a generate a
+This script uses k8s' CertificateSigningRequest API to a generate a
 certificate signed by k8s CA suitable for use with Istio webhook
 services. This requires permissions to create and approve CSR. See
 https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster for
@@ -47,9 +46,9 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-[ -z ${service} ] && usage
-[ -z ${secret} ] && usage
-[ -z ${namespace} ] && usage
+[ -z ${service} ] && service=istio-sidecar-injector
+[ -z ${secret} ] && secret=sidecar-injector-certs
+[ -z ${namespace} ] && namespace=istio-system
 
 if [ ! -x "$(command -v openssl)" ]; then
     echo "openssl not found"
@@ -108,7 +107,20 @@ done
 
 # approve and fetch the signed certificate
 kubectl certificate approve ${csrName}
-kubectl get csr ${csrName} -o jsonpath='{.status.certificate}' | openssl base64 -d -A -out ${tmpdir}/server-cert.pem
+# verify certificate has been signed
+for x in $(seq 10); do
+    serverCert=$(kubectl get csr ${csrName} -o jsonpath='{.status.certificate}')
+    if [[ ${serverCert} != '' ]]; then
+        break
+    fi
+    sleep 1
+done
+if [[ ${serverCert} == '' ]]; then
+    echo "ERROR: After approving csr ${csrName}, the signed certificate did not appear on the resource. Giving up after 10 attempts." >&2
+    echo "See https://istio.io/docs/setup/kubernetes/sidecar-injection.html for more details on troubleshooting." >&2
+    exit 1
+fi
+echo ${serverCert} | openssl base64 -d -A -out ${tmpdir}/server-cert.pem
 
 
 # create the secret with CA cert and server cert/key

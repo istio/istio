@@ -951,13 +951,13 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		EgressProxyAddress: "10.0.0.100",
-		MixerAddress:       "10.0.0.100",
-		ProxyListenPort:    0,
-		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
-		AuthPolicy:         -1,
-		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
-		DefaultConfig:      &meshconfig.ProxyConfig{},
+		MixerCheckServer:  "10.0.0.100",
+		MixerReportServer: "10.0.0.100",
+		ProxyListenPort:   0,
+		ConnectTimeout:    ptypes.DurationProto(-1 * time.Second),
+		AuthPolicy:        -1,
+		RdsRefreshDelay:   ptypes.DurationProto(-1 * time.Second),
+		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -2761,8 +2761,232 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 	for _, c := range cases {
 		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
+			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func TestValidateExternalServices(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    routingv2.ExternalService
+		valid bool
+	}{
+		{name: "discovery type DNS", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: true},
+
+		{name: "discovery type DNS, IP in endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: true},
+
+		{name: "empty hosts", in: routingv2.ExternalService{
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "bad hosts", in: routingv2.ExternalService{
+			Hosts: []string{"-"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "undefined endpoint port", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 80, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "discovery type DNS, non-FQDN endpoint", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
+			},
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "discovery type DNS, non-FQDN host", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "discovery type DNS, no endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: true},
+
+		{name: "discovery type none", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Discovery: routingv2.ExternalService_NONE,
+		},
+			valid: true},
+
+		{name: "discovery type none, endpoints provided", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+			},
+			Discovery: routingv2.ExternalService_NONE,
+		},
+			valid: false},
+
+		{name: "discovery type DNS, non-FQDN host", in: routingv2.ExternalService{
+			Hosts: []string{"*.google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+
+			Discovery: routingv2.ExternalService_DNS,
+		},
+			valid: false},
+
+		{name: "discovery type static", in: routingv2.ExternalService{
+			Hosts: []string{"172.1.2.16/16"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_STATIC,
+		},
+			valid: true},
+
+		{name: "discovery type static, FQDN in endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"172.1.2.16/16"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Discovery: routingv2.ExternalService_STATIC,
+		},
+			valid: false},
+
+		{name: "discovery type static, missing endpoints", in: routingv2.ExternalService{
+			Hosts: []string{"172.1.2.16/16"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Discovery: routingv2.ExternalService_STATIC,
+		},
+			valid: false},
+
+		{name: "discovery type static, bad endpoint port name", in: routingv2.ExternalService{
+			Hosts: []string{"172.1.2.16/16"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*routingv2.ExternalService_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
+			},
+			Discovery: routingv2.ExternalService_STATIC,
+		},
+			valid: false},
+
+		{name: "discovery type none, conflicting port names", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-conflict"},
+				{Number: 8080, Protocol: "http", Name: "http-conflict"},
+			},
+			Discovery: routingv2.ExternalService_NONE,
+		},
+			valid: false},
+
+		{name: "discovery type none, conflicting port numbers", in: routingv2.ExternalService{
+			Hosts: []string{"google.com"},
+			Ports: []*routingv2.Port{
+				{Number: 80, Protocol: "http", Name: "http-conflict1"},
+				{Number: 80, Protocol: "http", Name: "http-conflict2"},
+			},
+			Discovery: routingv2.ExternalService_NONE,
+		},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateExternalService(&c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateExternalService got valid=%v but wanted valid=%v: %v",
+					got == nil, c.valid, got)
+			}
+		})
 	}
 }

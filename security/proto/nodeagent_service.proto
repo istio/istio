@@ -19,22 +19,13 @@ package istio.v1.auth;
 
 option go_package="istio_v1_auth";
 
+// Node agent related services
 service NodeAgentService {
-	rpc Check(CheckRequest) returns (CheckResponse);
-        // WorkloadAdded is used to notify Node Agent about a workload getting
-        // added on a node.
-        rpc WorkloadAdded(WorkloadInfo) returns (NodeAgentMgmtResponse);
-        // WorkloadDeleted is used to notify Node Agent about a workload getting
-        // added on a node.
-        rpc WorkloadDeleted(WorkloadInfo) returns (NodeAgentMgmtResponse);
-}
-
-message CheckRequest {
-	string name = 1;
-}
-
-message CheckResponse {
-	google.rpc.Status status = 1;
+	// WorkloadAdded is used to notify Node Agent about a workload getting
+  rpc WorkloadAdded(WorkloadInfo) returns (NodeAgentMgmtResponse);
+  // WorkloadDeleted is used to notify Node Agent about a workload getting
+  // added on a node.
+  rpc WorkloadDeleted(WorkloadInfo) returns (NodeAgentMgmtResponse);
 }
 
 message NodeAgentMgmtResponse {
@@ -42,25 +33,24 @@ message NodeAgentMgmtResponse {
 }
 
 message WorkloadInfo {
-        message WorkloadAttributes {
-          // uid: Unique Id of the Workload.
-          // During delete the uid is mandatory.
-          string uid = 1;
-          // workload identifier aka name.
-          string workload = 2;
-          // namespace of the workload.
-          string namespace = 3;
-          // service account of the workload.
-          string serviceaccount = 4;
-        }
+  message WorkloadAttributes {
+  	// uid: Unique Id of the Workload.
+  	// During delete the uid is mandatory.
+  	string uid = 1;
+  	// workload identifier aka name.
+  	string workload = 2;
+  	// namespace of the workload.
+  	string namespace = 3;
+  	// service account of the workload.
+  	string serviceaccount = 4;
+  }
 
-        // WorkloadAttributes are the properties of the workload that a caller,
-        // Flexvolume driver knows off.
-        // Node agent can use them to verify the credentials of the workload.
-        WorkloadAttributes attrs = 1;
-        // workloadpath is where the caller has hosted a volume specific for
-        // the workload. The node agent will use this directory to communicate with the 
-        // specific workload.
-        string workloadpath = 2;
+  // WorkloadAttributes are the properties of the workload that a caller,
+  // Flexvolume driver knows off.
+  // Node agent can use them to verify the credentials of the workload.
+  WorkloadAttributes attrs = 1;
+  // workloadpath is where the caller has hosted a volume specific for
+  // the workload. The node agent will use this directory to communicate with the
+  // specific workload.
+  string workloadpath = 2;
 }
-

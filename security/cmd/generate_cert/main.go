@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // Layout for parsing time
@@ -88,14 +88,14 @@ func main() {
 	var signerPriv crypto.PrivateKey
 	var err error
 	if !*isSelfSigned {
-		signerCert, signerPriv, err = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv, err = util.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 		if err != nil {
 			log.Errora(err)
 			os.Exit(-1)
 		}
 	}
 
-	certPem, privPem, err := ca.GenCertKeyFromOptions(ca.CertOptions{
+	certPem, privPem, err := util.GenCertKeyFromOptions(util.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
 		TTL:          *validFor,

@@ -21,17 +21,21 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
+	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
+	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
@@ -40,9 +44,18 @@ import (
 const (
 	defaultCACertTTL = 365 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = time.Hour
+	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
 
-	maxWorkloadCertTTL = 7 * 24 * time.Hour
+	defaultWorkloadCertTTL = 19 * time.Hour
+
+	// The default length of certificate rotation grace period, configured as
+	// the ratio of the certificate TTL.
+	defaultWorkloadCertGracePeriodRatio = 0.5
+
+	// The default minimum grace period for workload cert rotation.
+	defaultWorkloadMinCertGracePeriod = 10 * time.Minute
+
+	defaultProbeCheckInterval = 30 * time.Second
 
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
@@ -69,6 +82,10 @@ type cliOptions struct {
 	caCertTTL          time.Duration
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
+	// The length of certificate rotation grace period, configured as the ratio of the certificate TTL.
+	workloadCertGracePeriodRatio float32
+	// The minimum grace period for workload cert rotation.
+	workloadCertMinGracePeriod time.Duration
 
 	grpcHostname string
 	grpcPort     int
@@ -78,6 +95,8 @@ type cliOptions struct {
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
 	LivenessProbeOptions *probe.Options
+
+	probeCheckInterval time.Duration
 }
 
 var (
@@ -131,13 +150,33 @@ func init() {
 	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
 		"The TTL of self-signed CA root certificate")
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", maxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL, "The max TTL of issued workload certificates")
+	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio", defaultWorkloadCertGracePeriodRatio,
+		"The workload certificate rotation grace period, as a ratio of the workload certificate TTL.")
+	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period", defaultWorkloadMinCertGracePeriod,
+		"The minimum workload certificate rotation grace period.")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
+	flags.StringVar(&opts.LivenessProbeOptions.Path, "livenessProbePath", "",
+		"Path to the file for the liveness probe.")
+	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", 0,
+		"Interval of updating file for the liveness probe.")
+
+	flags.DurationVar(&opts.probeCheckInterval, "probeCheckInterval", defaultProbeCheckInterval,
+		"Interval of checking the liveness of the CA.")
+
 	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio CA",
+		Section: "istio_ca CLI",
+		Manual:  "Istio CA",
+	}))
+
+	rootCmd.AddCommand(cmd.NewProbeCmd())
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
@@ -169,7 +208,11 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc := controller.NewSecretController(ca, opts.workloadCertTTL, cs.CoreV1(), opts.namespace)
+	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
+		cs.CoreV1(), opts.namespace)
+	if err != nil {
+		fatalf("failed to create secret controller: %v", err)
+	}
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
@@ -177,6 +220,13 @@ func runCA() {
 	if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
 		reg := registry.GetIdentityRegistry()
+
+		// add certificate identity to the identity registry for the liveness probe check
+		if err := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
+			probecontroller.LivenessProbeClientIdentity); err != nil {
+			log.Errorf("failed to add indentity mapping: %v", err)
+		}
+
 		ch := make(chan struct{})
 
 		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
@@ -239,11 +289,27 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
+	caOpts.ProbeCheckInterval = opts.probeCheckInterval
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		log.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
+
+	if opts.LivenessProbeOptions.IsValid() {
+		var g interface{} = &caclient.CAGrpcClientImpl{}
+		if client, ok := g.(caclient.CAGrpcClient); ok {
+			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(opts.rootCertFile,
+				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
+				opts.LivenessProbeOptions, client)
+			if err != nil {
+				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+			} else {
+				livenessProbeChecker.Run()
+			}
+		}
+	}
+
 	return istioCA
 }
 
@@ -294,4 +360,9 @@ func verifyCommandLineOptions() {
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
 	}
+
+	if opts.workloadCertGracePeriodRatio < 0 || opts.workloadCertGracePeriodRatio > 1 {
+		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]", opts.workloadCertGracePeriodRatio)
+	}
+
 }
