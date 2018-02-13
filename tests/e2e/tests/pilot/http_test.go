@@ -14,16 +14,17 @@
 
 // Reachability tests
 
-package main
+package pilot
 
 import (
 	"fmt"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type http struct {
-	*infra
+	*tutil.Infra
 	logs *accessLogs
 }
 
@@ -31,19 +32,19 @@ func (r *http) String() string {
 	return "http-reachability"
 }
 
-func (r *http) setup() error {
+func (r *http) Setup() error {
 	r.logs = makeAccessLogs()
 	return nil
 }
 
-func (r *http) teardown() {
+func (r *http) Teardown() {
 }
 
-func (r *http) run() error {
+func (r *http) Run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
-	return r.logs.check(r.infra)
+	return r.logs.check(r.Infra)
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
@@ -59,7 +60,7 @@ func (r *http) makeRequests() error {
 		// mTLS is not supported for headless services
 		dstPods = append(dstPods, "headless")
 	}
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
 			if src == "t" && dst == "t" {
@@ -69,26 +70,26 @@ func (r *http) makeRequests() error {
 			for _, port := range []string{"", ":80", ":8080"} {
 				for _, domain := range []string{"", "." + r.Namespace} {
 					name := fmt.Sprintf("HTTP request from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() status {
+					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() status {
-							resp := r.clientRequest(src, url, 1, "")
+						return func() tutil.Status {
+							resp := r.ClientRequest(src, url, 1, "")
 							// Auth is enabled for d:80 and disable for d:8080 using per-service
 							// policy.
 							if src == "t" &&
 								((r.Auth == meshconfig.MeshConfig_MUTUAL_TLS && !(dst == "d" && port == ":8080")) ||
 									dst == "d" && (port == ":80" || port == "")) {
-								if len(resp.id) == 0 {
+								if len(resp.ID) == 0 {
 									// Expected no match for:
 									//   t->a (or b) when auth is on
 									//   t->d:80 (all the time)
 									// t->d:8000 should always be fine.
 									return nil
 								}
-								return errAgain
+								return tutil.ErrAgain
 							}
-							if len(resp.id) > 0 {
-								id := resp.id[0]
+							if len(resp.ID) > 0 {
+								id := resp.ID[0]
 								if src != "t" {
 									r.logs.add(src, id, name)
 								}
@@ -111,12 +112,12 @@ func (r *http) makeRequests() error {
 								// Expected no match for t->t
 								return nil
 							}
-							return errAgain
+							return tutil.ErrAgain
 						}
 					})(src, dst, port, domain)
 				}
 			}
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	uuid "github.com/satori/go.uuid"
+
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 )
 
 type zipkin struct {
-	*infra
+	*tutil.Infra
 	mutex  sync.Mutex
 	traces []string
 }
@@ -37,7 +39,7 @@ func (t *zipkin) String() string {
 	return "zipkin"
 }
 
-func (t *zipkin) setup() error {
+func (t *zipkin) Setup() error {
 	if !t.Zipkin {
 		return nil
 	}
@@ -47,7 +49,7 @@ func (t *zipkin) setup() error {
 }
 
 // ensure that requests are picked up by Zipkin
-func (t *zipkin) run() error {
+func (t *zipkin) Run() error {
 	if !t.Zipkin {
 		return nil
 	}
@@ -61,52 +63,52 @@ func (t *zipkin) run() error {
 
 // make requests for Zipkin to pick up
 func (t *zipkin) makeRequests() error {
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for i := 0; i < numTraces; i++ {
-		funcs[fmt.Sprintf("Zipkin trace request %d", i)] = func() status {
+		funcs[fmt.Sprintf("Zipkin trace request %d", i)] = func() tutil.Status {
 			id := uuid.NewV4()
-			response := t.infra.clientRequest("a", "http://b", 1,
+			response := t.Infra.ClientRequest("a", "http://b", 1,
 				fmt.Sprintf("-key %v -val %v", traceHeader, id))
-			if len(response.code) > 0 && response.code[0] == httpOk {
+			if response.IsHTTPOk() {
 				t.mutex.Lock()
 				t.traces = append(t.traces, id.String())
 				t.mutex.Unlock()
 				return nil
 			}
-			return errAgain
+			return tutil.ErrAgain
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }
 
 // verify that the traces were picked up by Zipkin
 func (t *zipkin) verifyTraces() error {
-	f := func() status {
+	f := func() tutil.Status {
 		for _, id := range t.traces {
-			response := t.infra.clientRequest(
+			response := t.Infra.ClientRequest(
 				"t",
 				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces",
 					t.IstioNamespace),
 				1, "",
 			)
 
-			if len(response.code) == 0 || response.code[0] != httpOk {
-				return errAgain
+			if !response.IsHTTPOk() {
+				return tutil.ErrAgain
 			}
 
 			// ensure that sent trace IDs are a subset of the trace IDs in Zipkin.
 			// this is inefficient, but the alternatives are ugly regexps or extensive JSON parsing.
-			if !strings.Contains(response.body, id) {
-				return errAgain
+			if !strings.Contains(response.Body, id) {
+				return tutil.ErrAgain
 			}
 		}
 		return nil
 	}
 
-	return parallel(map[string]func() status{
+	return tutil.Parallel(map[string]func() tutil.Status{
 		"Ensure traces are picked up by Zipkin": f,
 	})
 }
 
-func (t *zipkin) teardown() {
+func (t *zipkin) Teardown() {
 }

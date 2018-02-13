@@ -12,31 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type tcp struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *tcp) String() string {
 	return "tcp-reachability"
 }
 
-func (t *tcp) setup() error {
+func (t *tcp) Setup() error {
 	return nil
 }
 
-func (t *tcp) teardown() {
+func (t *tcp) Teardown() {
 }
 
-func (t *tcp) run() error {
+func (t *tcp) Run() error {
 	// TCP in Eureka is tested by the headless service test.
 	if serviceregistry.ServiceRegistry(t.Registry) == serviceregistry.EurekaRegistry {
 		return nil
@@ -49,7 +50,7 @@ func (t *tcp) run() error {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
 	}
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
 			if src == "t" && dst == "t" {
@@ -59,27 +60,27 @@ func (t *tcp) run() error {
 			for _, port := range []string{":90", ":9090"} {
 				for _, domain := range []string{"", "." + t.Namespace} {
 					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() status {
+					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() status {
-							resp := t.clientRequest(src, url, 1, "")
+						return func() tutil.Status {
+							resp := t.ClientRequest(src, url, 1, "")
 							if src == "t" &&
 								(t.Auth == meshconfig.MeshConfig_MUTUAL_TLS ||
 									(dst == "d" && port == ":9090")) {
 								// t cannot talk to envoy (a or b) when mTLS enabled,
 								// nor with d:9090 (which always has mTLS enabled).
-								if len(resp.code) == 0 || resp.code[0] != httpOk {
+								if !resp.IsHTTPOk() {
 									return nil
 								}
-							} else if len(resp.code) > 0 && resp.code[0] == httpOk {
+							} else if resp.IsHTTPOk() {
 								return nil
 							}
-							return errAgain
+							return tutil.ErrAgain
 						}
 					})(src, dst, port, domain)
 				}
 			}
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }

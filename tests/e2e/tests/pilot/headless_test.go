@@ -12,55 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pilot
 
 import (
 	"fmt"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type headless struct {
-	*infra
+	*tutil.Infra
 }
 
 func (t *headless) String() string {
 	return "tcp-headless-reachability"
 }
 
-func (t *headless) setup() error {
+func (t *headless) Setup() error {
 	return nil
 }
 
-func (t *headless) teardown() {
+func (t *headless) Teardown() {
 }
 
-func (t *headless) run() error {
+func (t *headless) Run() error {
 	if t.Auth == meshconfig.MeshConfig_MUTUAL_TLS {
 		return nil // TODO: mTLS
 	}
 
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"headless"}
-	funcs := make(map[string]func() status)
+	funcs := make(map[string]func() tutil.Status)
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
 			for _, port := range []string{":10090", ":19090"} {
 				for _, domain := range []string{"", "." + t.Namespace} {
 					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() status {
+					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() status {
-							resp := t.clientRequest(src, url, 1, "")
-							if len(resp.code) > 0 && resp.code[0] == httpOk {
+						return func() tutil.Status {
+							resp := t.ClientRequest(src, url, 1, "")
+							if resp.IsHTTPOk() {
 								return nil
 							}
-							return errAgain
+							return tutil.ErrAgain
 						}
 					})(src, dst, port, domain)
 				}
 			}
 		}
 	}
-	return parallel(funcs)
+	return tutil.Parallel(funcs)
 }
