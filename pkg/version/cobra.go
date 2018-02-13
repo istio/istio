@@ -15,8 +15,9 @@
 package version
 
 import (
-	"github.com/spf13/cobra"
 	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
 // CobraCommand returns a command used to print version information.
