@@ -9,7 +9,6 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/inject: "false"
         sidecar.istio.io/status: '{"version":"0fd4ba601a8387ce4a6317d83dd1d8af037d3a5f59512824113a5a0fce04e9b8","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
@@ -34,17 +33,17 @@ spec:
         - --serviceCluster
         - hello
         - --drainDuration
-        - 2s
+        - 42s
         - --parentShutdownDuration
-        - 3s
+        - 42s
         - --discoveryAddress
         - istio-pilot:15003
         - --discoveryRefreshDelay
-        - 1s
+        - 42s
         - --zipkinAddress
         - ""
         - --connectTimeout
-        - 1s
+        - 42s
         - --statsdUdpAddress
         - ""
         - --proxyAdminPort
