@@ -126,7 +126,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return nil
 		},
 		DispatchQuota: func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-			l.writeFormat(name, "DispatchQuota => instance: '%+v'", instance)
+			l.writeFormat(name, "DispatchQuota => instance: '%+v'm qArgs:{dedup:'%v', amount:'%v', best:'%v'}",
+				instance, args.DeduplicationID, args.QuotaAmount, args.BestEffort)
 
 			signalCallAndWait(s)
 
