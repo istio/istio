@@ -113,7 +113,7 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 false,
+		UseNewRuntime:                 true,
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
 		LivenessProbeOptions:          &probe.Options{},
