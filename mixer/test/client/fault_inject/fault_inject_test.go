@@ -65,7 +65,7 @@ const reportAttributes = `
 `
 
 func TestFaultInject(t *testing.T) {
-	s := env.NewTestSetupV2(env.FaultInjectTest, t)
+	s := env.NewTestSetup(env.FaultInjectTest, t)
 	s.SetFaultInject(true)
 	// fault injection filer is before mixer filter.
 	// If a request is rejected, per-route service config could not
