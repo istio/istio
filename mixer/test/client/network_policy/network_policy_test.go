@@ -23,7 +23,7 @@ import (
 
 // Mixer server not running.
 func TestNetworkFailure(t *testing.T) {
-	s := env.NewTestSetup(env.NetworkFailureTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.NetworkFailureTest, t)
 	s.SetNoMixer(true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -32,35 +32,9 @@ func TestNetworkFailure(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 
-	tag := "Fail-Open-V1"
+	tag := "Fail-Open"
 	// Default is fail open policy.
 	code, _, err := env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	if code != 200 {
-		t.Errorf("Status code 200 is expected, got %d.", code)
-	}
-
-	s.SetConf(env.BasicConfig + "," + env.NetworkFailClose)
-	s.ReStartEnvoy()
-
-	tag = "Fail-Close-V1"
-	// Use fail close policy.
-	code, _, err = env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	if code == 200 {
-		t.Errorf("Non-200 status code is expected, got %d.", code)
-	}
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	tag = "Fail-Open"
-	// Default is fail open policy.
-	code, _, err = env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
