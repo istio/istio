@@ -16,6 +16,8 @@
 package env
 
 import (
+	google_protobuf1 "github.com/gogo/protobuf/types"
+
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 )
@@ -157,6 +159,17 @@ func AddJwtAuth(v2 *V2Conf, jwt *mccpb.JWT) {
 
 	// Auth spec needs to add to service_configs map.
 	SetDefaultServiceConfigMap(v2)
+}
+
+// SetTCPReportInterval sets TCP filter report interval in seconds
+func SetTCPReportInterval(v2 *mccpb.TcpClientConfig, reportInterval int64) {
+	if v2.ReportInterval == nil {
+		v2.ReportInterval = &google_protobuf1.Duration{
+			Seconds: reportInterval,
+		}
+	} else {
+		v2.ReportInterval.Seconds = reportInterval
+	}
 }
 
 // SetDefaultServiceConfigMap set the default service config to the service config map

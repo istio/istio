@@ -20,6 +20,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 )
 
 // If HTTP header has non empty FailHeader,
@@ -74,7 +75,17 @@ func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", publicKey)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func regularResponseHandler(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, false)
+}
+
+func slowResponseHandler(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, true)
+}
+
+// handler handles a request and sends response. If slowResponse is true, then sleeps 2 second and
+// writes response
+func handler(w http.ResponseWriter, r *http.Request, slowResponse bool) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,7 +106,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(body)
+	if slowResponse {
+		time.Sleep(2 * time.Second)
+		_, _ = w.Write(body)
+	} else {
+		_, _ = w.Write(body)
+	}
 }
 
 // NewHTTPServer creates a new HTTP server.
@@ -115,7 +131,8 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 // Start starts the server
 func (s *HTTPServer) Start() {
 	go func() {
-		http.HandleFunc("/", handler)
+		http.HandleFunc("/", regularResponseHandler)
+		http.HandleFunc("/slowresponse", slowResponseHandler)
 		http.HandleFunc("/pubkey", pubkeyHandler)
 		_ = http.Serve(s.lis, nil)
 	}()
