@@ -2,7 +2,11 @@
 
 - [Istio Release](#istio-release)
   * [Overview](#overview)
-  * [Request Emergency Bug Fix and Patch Release](#request-emergency-bug-fix-and-patch-release) 
+  * [Daily Releases](#daily-releases)
+  * [Weekly Releases](#weekly-releases)
+  * [Monthly Releases](#monthly-releases)
+  * [Quarterly Releases](#quarterly-releases)
+  * [Patch Releases](#patch-releases)
 
 ## Overview
 
