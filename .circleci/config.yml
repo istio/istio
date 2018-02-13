@@ -300,17 +300,12 @@ jobs:
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
-      - run:
-          name: Running Kubernetes API Server standalone
-          command: make localTestEnv
-          background: true
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
-          command: |
-            cd /go/src/istio.io/istio
-            make init
+          name: Running Kubernetes API Server standalone
+          command: make localTestEnv
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
