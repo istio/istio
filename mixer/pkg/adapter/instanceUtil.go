@@ -15,13 +15,14 @@
 package adapter
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"istio.io/istio/mixer/pkg/pool"
 )
 
 // This file contains common utility functions that adapters need to process content
@@ -54,7 +55,7 @@ func Stringify(v interface{}) string {
 		case DNSName:
 			return string(vv)
 		case map[string]string:
-			var buffer bytes.Buffer
+			buffer := pool.GetBuffer()
 			for k, v := range vv {
 				if buffer.Len() != 0 {
 					buffer.WriteString("&")
