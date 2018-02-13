@@ -70,7 +70,9 @@ func Stringify(v interface{}) string {
 				buffer.WriteString("=")
 				buffer.WriteString(vv[k])
 			}
-			return buffer.String()
+			ret := buffer.String()
+			pool.PutBuffer(buffer)
+			return ret
 		default:
 			return fmt.Sprintf("%v", v)
 		}
