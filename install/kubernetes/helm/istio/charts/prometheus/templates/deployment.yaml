@@ -7,8 +7,6 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -16,6 +14,8 @@ spec:
       labels:
         app: {{ template "prometheus.name" . }}
         release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -39,7 +39,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: prometheus
+          name: {{ template "prometheus.fullname" . }}
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}

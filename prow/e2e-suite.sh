@@ -62,6 +62,7 @@ ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
+make init
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do

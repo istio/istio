@@ -28,7 +28,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
 - [Working with CircleCI](#working-with-circleci)
-- [Writing reference docs](#wiriting-reference-docs)
+- [Writing reference docs](#writing-reference-docs)
   - [About proto documentation](#about-proto-documentation)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
@@ -313,7 +313,7 @@ You can automatically format the source code to follow our conventions by going 
 top of the repo and entering:
 
 ```shell
-make fmt
+make format
 ```
 
 ### Running the linters

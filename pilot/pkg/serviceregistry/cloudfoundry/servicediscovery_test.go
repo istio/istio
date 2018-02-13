@@ -95,11 +95,11 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
 		{
 			Hostname: "process-guid-a.cfapps.internal",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
 			Hostname: "process-guid-b.cfapps.internal",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 	}))
 }
@@ -128,7 +128,7 @@ func TestServiceDiscovery_GetService_Success(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(serviceModel).To(gomega.Equal(&model.Service{
 		Hostname: "process-guid-b.cfapps.internal",
-		Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP}},
+		Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 	}))
 }
 
@@ -171,6 +171,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 	servicePort := &model.Port{
 		Port:     defaultServicePort,
 		Protocol: model.ProtocolHTTP,
+		Name:     "http",
 	}
 	service := &model.Service{
 		Hostname: "process-guid-a.cfapps.internal",
@@ -226,84 +227,7 @@ func TestServiceDiscovery_GetSidecarServiceInstances(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	state := newSDTestState()
 
-	state.mockClient.RoutesOutput.Ret0 <- makeSampleClientResponse()
-	state.mockClient.RoutesOutput.Ret1 <- nil
-
 	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
 	g.Expect(err).To(gomega.BeNil())
-
-	servicePort := &model.Port{
-		Port:     defaultServicePort,
-		Protocol: model.ProtocolHTTP,
-	}
-
-	serviceA := &model.Service{
-		Hostname: "process-guid-a.cfapps.internal",
-		Ports:    []*model.Port{servicePort},
-	}
-
-	serviceB := &model.Service{
-		Hostname: "process-guid-b.cfapps.internal",
-		Ports:    []*model.Port{servicePort},
-	}
-
-	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.10.1.5",
-				Port:        61005,
-				ServicePort: servicePort,
-			},
-			Service: serviceA,
-		},
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.0.40.2",
-				Port:        61008,
-				ServicePort: servicePort,
-			},
-			Service: serviceA,
-		},
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.0.50.4",
-				Port:        61009,
-				ServicePort: servicePort,
-			},
-			Service: serviceB,
-		},
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.0.60.2",
-				Port:        61001,
-				ServicePort: servicePort,
-			},
-			Service: serviceB,
-		},
-	}))
-}
-
-func TestServiceDiscovery_GetSidecarServiceInstances_ClientError(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	state := newSDTestState()
-
-	state.mockClient.RoutesOutput.Ret0 <- nil
-	state.mockClient.RoutesOutput.Ret1 <- errors.New("no instances")
-
-	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
-
-	g.Expect(err).To(gomega.MatchError("getting host instances: no instances"))
-	g.Expect(instances).To(gomega.BeNil())
-}
-
-func TestServiceDiscovery_GetSidecarServiceInstances_NotFound(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	state := newSDTestState()
-
-	state.mockClient.RoutesOutput.Ret0 <- nil
-	state.mockClient.RoutesOutput.Ret1 <- nil
-
-	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Node{IPAddress: "not-checked"})
-	g.Expect(err).To(gomega.BeNil())
-	g.Expect(instances).To(gomega.BeNil())
+	g.Expect(instances).To(gomega.BeEmpty())
 }

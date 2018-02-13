@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -64,6 +65,7 @@ type IstioCAOptions struct {
 	RootCertBytes    []byte
 
 	LivenessProbeOptions *probe.Options
+	ProbeCheckInterval   time.Duration
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -135,6 +137,38 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	return opts, nil
 }
 
+// NewIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+func NewIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+	certTTL, maxCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
+	}
+	if certChainFile != "" {
+		if certChainBytes, err := ioutil.ReadFile(certChainFile); err == nil {
+			caOpts.CertChainBytes = certChainBytes
+		} else {
+			return nil, err
+		}
+	}
+	if signingCertBytes, err := ioutil.ReadFile(signingCertFile); err == nil {
+		caOpts.SigningCertBytes = signingCertBytes
+	} else {
+		return nil, err
+	}
+	if signingKeyBytes, err := ioutil.ReadFile(signingKeyFile); err == nil {
+		caOpts.SigningKeyBytes = signingKeyBytes
+	} else {
+		return nil, err
+	}
+	if rootCertBytes, err := ioutil.ReadFile(rootCertFile); err == nil {
+		caOpts.RootCertBytes = rootCertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
@@ -160,13 +194,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 	if err := ca.verify(); err != nil {
 		return nil, err
-	}
-
-	if opts.LivenessProbeOptions.IsValid() {
-		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
-		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-		livenessProbeController.Start()
-		ca.livenessProbe.SetAvailable(nil)
 	}
 
 	return ca, nil

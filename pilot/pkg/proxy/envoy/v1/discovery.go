@@ -337,20 +337,12 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 
 	if configCache != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
-		configCache.RegisterEventHandler(model.RouteRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.IngressRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.EgressRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.DestinationPolicy.Type, configHandler)
-
-		// TODO: Changes to mixerclient HTTP and Quota should not
-		// trigger recompute of full LDS/RDS/CDS/EDS
-		configCache.RegisterEventHandler(model.HTTPAPISpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.HTTPAPISpecBinding.Type, configHandler)
-		configCache.RegisterEventHandler(model.QuotaSpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.QuotaSpecBinding.Type, configHandler)
-		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpecBinding.Type, configHandler)
+		for _, descriptor := range model.IstioConfigTypes {
+			configCache.RegisterEventHandler(descriptor.Type, configHandler)
+		}
 	}
 
 	return out, nil
@@ -608,17 +600,17 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	instances, err := ds.GetSidecarServiceInstances(svcNode)
+	nodeInstances, err := ds.GetSidecarServiceInstances(svcNode)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	if len(instances) <= 0 {
+	if len(nodeInstances) <= 0 {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
 		return
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(instances[0].AvailabilityZone))
+	writeResponse(response, []byte(nodeInstances[0].AvailabilityZone))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
@@ -771,7 +763,7 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint: errcheck
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

@@ -33,6 +33,7 @@ const reportAttributesOkPost = `
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+	"connection.mtls": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
@@ -42,10 +43,11 @@ const reportAttributesOkPost = `
 `
 
 func TestDisableTCPCheckCalls(t *testing.T) {
-	s := env.NewTestSetup(
-		env.DisableTCPCheckCallsTest,
-		t,
-		env.BasicConfig+","+env.DisableTCPCheckCalls)
+	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
+
+	// Disable Check
+	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -55,22 +57,6 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 
 	// Issues a POST request.
 	tag := "OKPost v1"
-	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheckCount(tag, 0)
-	s.VerifyReport(tag, reportAttributesOkPost)
-
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Disable Check
-	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
-	s.ReStartEnvoy()
-
-	tag = "OKPost"
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

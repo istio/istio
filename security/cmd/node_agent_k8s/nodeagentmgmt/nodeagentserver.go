@@ -62,7 +62,7 @@ func (s *Server) Serve(isUds bool, path string) {
 
 	var lis net.Listener
 	var err error
-	if isUds == false {
+	if !isUds {
 		lis, err = net.Listen("tcp", path)
 		if err != nil {
 			log.Errorf("failed to %v", err)
@@ -83,17 +83,17 @@ func (s *Server) Serve(isUds bool, path string) {
 
 	go func(ln net.Listener, s *Server) {
 		<-s.done
-		ln.Close()
+		_ = ln.Close()
 		s.CloseAllWlds()
 	}(lis, s)
 
-	grpcServer.Serve(lis)
+	_ = grpcServer.Serve(lis)
 }
 
 // WorkloadAdded define the server side action when a workload is added.
 func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	log.Infof("The request is %v", request)
-	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok == true {
+	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok {
 		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
 		return &pb.NodeAgentMgmtResponse{Status: status}, nil
 	}
@@ -107,7 +107,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 
 // WorkloadDeleted define the server side action when a workload is deleted.
 func (s *Server) WorkloadDeleted(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
-	if _, ok := s.wlmgmts[request.Attrs.Uid]; ok == false {
+	if _, ok := s.wlmgmts[request.Attrs.Uid]; !ok {
 		status := &rpc.Status{Code: int32(rpc.NOT_FOUND), Message: "Not found"}
 		return &pb.NodeAgentMgmtResponse{Status: status}, nil
 	}
