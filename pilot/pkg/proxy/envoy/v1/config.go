@@ -136,7 +136,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 // buildListeners produces a list of listeners and referenced clusters for all proxies
 func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 	switch node.Type {
-	case model.Sidecar, model.Router:
+	case model.Sidecar:
 		nodeInstances, err := env.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
@@ -148,6 +148,9 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 		listeners, _ := buildSidecarListenersClusters(env.Mesh, nodeInstances,
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
+	case model.Router:
+		// TODO: add listeners for other protocols too
+		return buildGatewayHTTPListeners(env.Mesh, env.IstioConfigStore, node)
 	case model.Ingress:
 		services, err := env.Services()
 		if err != nil {
@@ -318,7 +321,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 	switch node.Type {
 	case model.Ingress:
 		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config)
-	case model.Sidecar, model.Router:
+	case model.Sidecar:
 		nodeInstances, err := discovery.GetSidecarServiceInstances(node)
 		if err != nil {
 			return nil, err
@@ -330,6 +333,13 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 		httpConfigs = buildOutboundHTTPRoutes(mesh, node, nodeInstances, services, config)
 		httpConfigs = buildEgressHTTPRoutes(mesh, node, nodeInstances, config, httpConfigs)
 		httpConfigs = buildExternalServiceHTTPRoutes(mesh, node, nodeInstances, config, httpConfigs)
+	case model.Router:
+		listenerPort, err := strconv.Atoi(routeName)
+		if err != nil {
+			return nil, fmt.Errorf("parsing routeName %q as number: %s", routeName, err)
+		}
+
+		return buildGatewayVirtualHosts(config, node, listenerPort)
 	default:
 		return nil, errors.New("unrecognized node type")
 	}

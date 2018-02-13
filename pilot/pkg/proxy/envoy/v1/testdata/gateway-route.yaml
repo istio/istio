@@ -1,0 +1,8 @@
+hosts:
+- beta.world.example.com
+gateways:
+- some-gateway-2
+http:
+- route:
+  - destination:
+      name: world
