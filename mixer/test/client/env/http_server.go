@@ -20,6 +20,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -75,17 +76,9 @@ func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", publicKey)
 }
 
-func regularResponseHandler(w http.ResponseWriter, r *http.Request) {
-	handler(w, r, false)
-}
-
-func slowResponseHandler(w http.ResponseWriter, r *http.Request) {
-	handler(w, r, true)
-}
-
-// handler handles a request and sends response. If slowResponse is true, then sleeps 3 second and
-// sends response.
-func handler(w http.ResponseWriter, r *http.Request, slowResponse bool) {
+// handler handles a request and sends response. If ?delay=n is in request URL, then sleeps for
+// n second and sends response.
+func handler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -105,13 +98,19 @@ func handler(w http.ResponseWriter, r *http.Request, slowResponse bool) {
 			w.Header().Set(k, v)
 		}
 	}
-	w.WriteHeader(http.StatusOK)
-	if slowResponse {
-		time.Sleep(3 * time.Second)
-		_, _ = w.Write(body)
-	} else {
-		_, _ = w.Write(body)
+
+	if delay := r.URL.Query().Get("delay"); delay != "" {
+		delaySeconds, err := strconv.ParseInt(delay, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("Bad request parameter: delay"))
+			return
+		}
+		time.Sleep(time.Duration(delaySeconds) * time.Second)
 	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
 }
 
 // NewHTTPServer creates a new HTTP server.
@@ -131,8 +130,7 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 // Start starts the server
 func (s *HTTPServer) Start() {
 	go func() {
-		http.HandleFunc("/", regularResponseHandler)
-		http.HandleFunc("/slowresponse", slowResponseHandler)
+		http.HandleFunc("/", handler)
 		http.HandleFunc("/pubkey", pubkeyHandler)
 		_ = http.Serve(s.lis, nil)
 	}()

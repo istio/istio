@@ -71,7 +71,7 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	// Sends a request to /slowresponse, so that client receives response after 3 seconds.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
 	// second.
-	url := fmt.Sprintf("http://localhost:%d/slowresponse", s.Ports().TCPProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo?delay=3", s.Ports().TCPProxyPort)
 
 	tag := "OKPost"
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Get Slow Response"); err != nil {
