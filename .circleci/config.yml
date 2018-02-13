@@ -523,8 +523,7 @@ workflows:
       - docker-push:
           context: org-global
           requires:
-            - e2e-bookinfo
-            - e2e-mixer
+            - e2e-simple
             - e2e-pilot
             - e2e-pilot-noauth
 
