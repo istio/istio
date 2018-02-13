@@ -178,8 +178,8 @@ func (m *mockStore) Watch(ctx context.Context) (<-chan store.Event, error) {
 }
 
 // Get returns a resource's spec to the key.
-func (m *mockStore) Get(key store.Key, spec proto.Message) error {
-	return nil
+func (m *mockStore) Get(key store.Key) (*store.Resource, error) {
+	return nil, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.

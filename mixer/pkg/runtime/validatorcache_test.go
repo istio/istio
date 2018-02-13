@@ -23,7 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	cpb "istio.io/istio/mixer/pkg/config/proto"
+	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/pkg/cache"

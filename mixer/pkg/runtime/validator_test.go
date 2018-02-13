@@ -25,9 +25,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/template"
