@@ -95,6 +95,7 @@ func TestStringEquals(t *testing.T) {
 		{a: "badTimeFormat", b: tTime, want: false},
 		{a: t2Time, b: tTime, want: false},
 		{a: "a=b", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: false},
+		{a: "a=b&c=d&o=o", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: false},
 		{a: "***badmapstring***", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: false},
 	}
 
