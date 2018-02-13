@@ -337,7 +337,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // GetSidecarServiceInstances implements a service catalog operation
-func (c *Controller) GetSidecarServiceInstances(svcNode model.Node) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetSidecarServiceInstances(svcNode model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {

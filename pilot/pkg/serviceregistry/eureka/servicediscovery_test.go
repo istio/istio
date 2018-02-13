@@ -92,7 +92,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.GetSidecarServiceInstances(model.Node{})
+	hostInstances, err := sd.GetSidecarServiceInstances(model.Proxy{})
 	if err == nil {
 		t.Error("GetSidecarServiceInstances() should return error")
 	}
@@ -158,11 +158,11 @@ func TestServiceDiscoveryGetSidecarServiceInstances(t *testing.T) {
 	serviceB := makeService("b.default.svc.local", []int{7070}, nil)
 
 	instanceTests := []struct {
-		node      model.Node
+		node      model.Proxy
 		instances []*model.ServiceInstance
 	}{
 		{
-			node: model.Node{IPAddress: "10.0.0.1"},
+			node: model.Proxy{IPAddress: "10.0.0.1"},
 			instances: []*model.ServiceInstance{
 				makeServiceInstance(serviceA, "10.0.0.1", 9090, nil),
 				makeServiceInstance(serviceB, "10.0.0.1", 7070, nil),

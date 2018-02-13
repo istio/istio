@@ -33,7 +33,7 @@ func buildExternalServicePort(port *routingv2.Port) *model.Port {
 	}
 }
 
-func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
+func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
@@ -170,7 +170,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 // buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
 func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
-	mesh *meshconfig.MeshConfig, node model.Node, port *model.Port, nodeInstances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, nodeInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}

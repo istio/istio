@@ -134,7 +134,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 }
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
-func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
+func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar:
 		nodeInstances, err := env.GetSidecarServiceInstances(node)
@@ -172,7 +172,7 @@ func buildListeners(env model.Environment, node model.Node) (Listeners, error) {
 	return nil, nil
 }
 
-func buildClusters(env model.Environment, node model.Node) (Clusters, error) {
+func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 	var clusters Clusters
 	var nodeInstances []*model.ServiceInstance
 	var err error
@@ -220,7 +220,7 @@ func buildSidecarListenersClusters(
 	nodeInstances []*model.ServiceInstance,
 	services []*model.Service,
 	managementPorts model.PortList,
-	node model.Node,
+	node model.Proxy,
 	config model.IstioConfigStore) (Listeners, Clusters) {
 
 	// ensure services are ordered to simplify generation logic
@@ -314,7 +314,7 @@ func buildSidecarListenersClusters(
 // The route name is assumed to be the port number used by the route in the
 // listener, or the special value for _all routes_.
 // TODO: this can be optimized by querying for a specific HTTP port in the table
-func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName string,
+func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName string,
 	discovery model.ServiceDiscovery, config model.IstioConfigStore) (*HTTPRouteConfig, error) {
 	var httpConfigs HTTPRouteConfigs
 
@@ -362,7 +362,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Node, routeName strin
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
-	node             model.Node
+	node             model.Proxy
 	nodeInstances    []*model.ServiceInstance
 	routeConfig      *HTTPRouteConfig
 	ip               string
@@ -543,7 +543,7 @@ func buildTCPListener(tcpConfig *TCPRouteConfig, ip string, port int, protocol m
 }
 
 // buildOutboundListeners combines HTTP routes and TCP listeners
-func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Node, nodeInstances []*model.ServiceInstance,
+func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, nodeInstances []*model.ServiceInstance,
 	services []*model.Service, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners, clusters := buildOutboundTCPListeners(mesh, node, services)
 
@@ -592,7 +592,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Node, nodeIn
 type buildClusterFunc func(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster
 
 // buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
-func buildDestinationHTTPRoutes(node model.Node, service *model.Service,
+func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 	servicePort *model.Port,
 	nodeInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
@@ -661,7 +661,7 @@ func buildDestinationHTTPRoutes(node model.Node, service *model.Service,
 
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
-func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Node,
+func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(node.Domain, ".")
@@ -706,7 +706,7 @@ func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Node,
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
+func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	services []*model.Service) (Listeners, Clusters) {
 	tcpListeners := make(Listeners, 0)
 	tcpClusters := make(Clusters, 0)
@@ -773,7 +773,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
 // configuration for co-located service nodeInstances. The function also returns
 // all inbound clusters since they are statically declared in the proxy
 // configuration and do not utilize CDS.
-func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Node,
+func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners := make(Listeners, 0, len(nodeInstances))
 	clusters := make(Clusters, 0, len(nodeInstances))
@@ -926,7 +926,7 @@ func truncateClusterName(name string) string {
 }
 
 func buildEgressVirtualHost(serviceName string, destination string,
-	mesh *meshconfig.MeshConfig, node model.Node, port *model.Port, nodeInstances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, nodeInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
 
@@ -989,7 +989,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	}
 }
 
-func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
+func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
@@ -1026,7 +1026,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
 
 // buildEgressTCPListeners builds a listener on 0.0.0.0 per each distinct port of all TCP egress
 // rules and a cluster per each TCP egress rule
-func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Node,
+func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	config model.IstioConfigStore) (Listeners, Clusters) {
 
 	tcpListeners := make(Listeners, 0)

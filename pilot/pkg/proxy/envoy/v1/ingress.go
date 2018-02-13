@@ -31,7 +31,7 @@ import (
 
 func buildIngressListeners(mesh *meshconfig.MeshConfig, nodeInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
-	ingress model.Node) Listeners {
+	ingress model.Proxy) Listeners {
 
 	opts := buildHTTPListenerOpts{
 		mesh:             mesh,
@@ -67,7 +67,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, nodeInstances []*model.S
 	return listeners
 }
 
-func buildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Node,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
@@ -150,7 +150,7 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Node,
+func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	nodeInstances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {

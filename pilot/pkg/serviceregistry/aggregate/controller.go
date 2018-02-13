@@ -125,7 +125,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // GetSidecarServiceInstances lists service instances hosted on a given node
-func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetSidecarServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	for _, r := range c.registries {

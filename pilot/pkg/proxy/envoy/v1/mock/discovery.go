@@ -49,25 +49,25 @@ var (
 	}
 	HelloInstanceV0 = MakeIP(HelloService, 0)
 	HelloInstanceV1 = MakeIP(HelloService, 1)
-	HelloProxyV0    = model.Node{
+	HelloProxyV0    = model.Proxy{
 		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV0,
 		ID:        "v0.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	HelloProxyV1 = model.Node{
+	HelloProxyV1 = model.Proxy{
 		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV1,
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Ingress = model.Node{
+	Ingress = model.Proxy{
 		Type:      model.Ingress,
 		IPAddress: "10.3.3.3",
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Router = model.Node{
+	Router = model.Proxy{
 		Type:      model.Router,
 		IPAddress: "10.3.3.5",
 		ID:        "router.default",
@@ -248,7 +248,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 }
 
 // GetSidecarServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	if sd.GetSidecarServiceInstancesError != nil {
 		return nil, sd.GetSidecarServiceInstancesError
 	}

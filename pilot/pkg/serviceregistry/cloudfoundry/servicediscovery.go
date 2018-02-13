@@ -100,10 +100,10 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 	return instances, nil
 }
 
-// GetSidecarServiceInstances returns all service instances running on a particular node
+// GetSidecarServiceInstances returns all service instances running on a particular proxy
 // Cloud Foundry integration is currently ingress-only -- there is no sidecar support yet.
 // So this function always returns an empty slice.
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetSidecarServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 

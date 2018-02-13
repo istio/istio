@@ -581,7 +581,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	writeResponse(response, out)
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Node, error) {
+func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
 	nodeInfo := request.PathParameter(ServiceNode)
 	svcNode, err := model.ParseServiceNode(nodeInfo)
 	if err != nil {

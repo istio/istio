@@ -239,7 +239,7 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	portNames := []string{"test-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 
-	var svcNode model.Node
+	var svcNode model.Proxy
 	svcNode.Type = model.Ingress
 	svcNode.IPAddress = "128.0.0.1"
 	svcNode.ID = "pod1.nsA"

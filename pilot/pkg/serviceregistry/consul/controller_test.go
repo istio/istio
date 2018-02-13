@@ -357,7 +357,7 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.GetSidecarServiceInstances(model.Node{IPAddress: "172.19.0.11"})
+	services, err := controller.GetSidecarServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err != nil {
 		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
 	}
@@ -380,7 +380,7 @@ func TestGetSidecarServiceInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.GetSidecarServiceInstances(model.Node{IPAddress: "172.19.0.11"})
+	instances, err := controller.GetSidecarServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err == nil {
 		t.Error("GetSidecarServiceInstances() should return error when client experiences connection problem")
 	}

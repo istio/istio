@@ -93,7 +93,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 }
 
 // GetSidecarServiceInstances implements a service catalog operation
-func (sd *serviceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+func (sd *serviceDiscovery) GetSidecarServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
