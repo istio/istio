@@ -22,6 +22,46 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "http_mixer_filter.total_blocking_remote_check_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_check_calls",
+			"value": 10
+		},
+		{
+			"name": "http_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_check_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_report_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_report_calls",
+			"value": 10
+		}
+	]
+}
+`
+
 func TestCheckCache(t *testing.T) {
 	s := env.NewTestSetupV2(env.CheckCacheTest, t)
 	if err := s.SetUp(); err != nil {
@@ -51,5 +91,12 @@ func TestCheckCache(t *testing.T) {
 		}
 		// Only the first check is called.
 		s.VerifyCheckCount(tag, 1)
+	}
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
 }

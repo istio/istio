@@ -15,8 +15,11 @@
 package env
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -221,6 +224,65 @@ func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 	if s.mixer.qma.Amount != amount {
 		s.t.Fatalf("Failed to verify %s quota amount: %v, expected: %v\n",
 			tag, s.mixer.qma.Amount, amount)
+	}
+}
+
+// WaitForStatsUpdateAndGetStats waits for 10 seconds for Envoy to update stats and send request
+// to Envoy for stats. Returns stats response.
+func (s *TestSetup) WaitForStatsUpdateAndGetStats() (string, error) {
+	time.Sleep(10 * time.Second)
+	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", s.Ports().AdminPort)
+	code, respBody, err := HTTPGet(statsURL)
+	if err != nil {
+		return "", fmt.Errorf("sending stats request returns an error: %v", err)
+	}
+	if code != 200 {
+		return "", fmt.Errorf("sending stats request returns unexpected status code: %d", code)
+	}
+	return respBody, nil
+}
+
+type statEntry struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+type stats struct {
+	StatList []statEntry `json:"stats"`
+}
+
+// UnmarshalStats Unmarshals Envoy stats from JSON format into a map, where stats name is
+// key, and stats value is value.
+func (s *TestSetup) unmarshalStats(statsJSON string) map[string]int {
+	statsMap := make(map[string]int)
+
+	var statsArray stats
+	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
+		s.t.Fatalf("unable to unmarshal stats from json")
+	}
+
+	for _, v := range statsArray.StatList {
+		statsMap[v.Name] = v.Value
+	}
+	return statsMap
+}
+
+// VerifyStats verifies Envoy stats.
+func (s *TestSetup) VerifyStats(actualStats string, expectedStats string) {
+	expectedStatsMap := s.unmarshalStats(expectedStats)
+	actualStatsMap := s.unmarshalStats(actualStats)
+
+	for eStatsName, eStatsValue := range expectedStatsMap {
+		aStatsValue, ok := actualStatsMap[eStatsName]
+		if !ok {
+			s.t.Fatalf("Failed to find expected Stat %s\n", eStatsName)
+		}
+		if aStatsValue != eStatsValue {
+			s.t.Fatalf("Stats %s does not match. Expected vs Actual: %d vs %d",
+				eStatsName, eStatsValue, aStatsValue)
+		} else {
+			log.Printf("stat %s is matched. value is %d", eStatsName, eStatsValue)
+		}
 	}
 }
 

@@ -176,6 +176,46 @@ const reportAttributesOkPost = `
 }
 `
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "http_mixer_filter.total_blocking_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "http_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_check_calls",
+			"value": 2
+		},
+		{
+			"name": "http_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "http_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_report_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_report_calls",
+			"value": 2
+		}
+	]
+}
+`
+
 func TestCheckReportAttributes(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportAttributesTest, t, env.BasicConfig)
 	if err := s.SetUp(); err != nil {
@@ -218,4 +258,9 @@ func TestCheckReportAttributes(t *testing.T) {
 	}
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesOkPost)
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }

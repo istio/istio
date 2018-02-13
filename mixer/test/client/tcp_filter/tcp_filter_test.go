@@ -79,6 +79,46 @@ const reportAttributesFailPost = `
 }
 `
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "tcp_mixer_filter.total_blocking_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "tcp_mixer_filter.total_remote_report_calls",
+			"value": 2
+		},
+		{
+			"name": "tcp_mixer_filter.total_report_calls",
+			"value": 2
+		}
+	]
+}
+`
+
 func TestTCPMixerFilter(t *testing.T) {
 	if os.Getenv("RACE_TEST") == "true" {
 		t.Skip("Test is broken for race testing, see issue #3211")
@@ -138,4 +178,9 @@ func TestTCPMixerFilter(t *testing.T) {
 	s.SetMixerCheckStatus(rpc.Status{})
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesFailPost)
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }

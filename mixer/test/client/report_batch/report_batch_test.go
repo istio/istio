@@ -155,6 +155,46 @@ const reportAttributesOkPost2 = `
 }
 `
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "http_mixer_filter.total_blocking_remote_check_calls",
+			"value": 3
+		},
+		{
+			"name": "http_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_check_calls",
+			"value": 3
+		},
+		{
+			"name": "http_mixer_filter.total_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_check_calls",
+			"value": 3
+		},
+		{
+			"name": "http_mixer_filter.total_remote_quota_calls",
+			"value": 0
+		},
+		{
+			"name": "http_mixer_filter.total_remote_report_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_report_calls",
+			"value": 3
+		}
+	]
+}
+`
+
 func TestReportBatch(t *testing.T) {
 	s := env.NewTestSetupV2(env.ReportBatchTest, t)
 	if err := s.SetUp(); err != nil {
@@ -180,6 +220,14 @@ func TestReportBatch(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	tag = "Batch"
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
+
 	s.VerifyReport(tag, reportAttributesOkGet)
 	s.VerifyReport(tag, reportAttributesOkPost1)
 	s.VerifyReport(tag, reportAttributesOkPost2)

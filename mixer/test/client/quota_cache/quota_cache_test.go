@@ -22,6 +22,46 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// Stats in Envoy proxy.
+const expectedStats = `
+{
+	"stats": [
+		{
+			"name": "http_mixer_filter.total_blocking_remote_check_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_blocking_remote_quota_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_check_calls",
+			"value": 20
+		},
+		{
+			"name": "http_mixer_filter.total_quota_calls",
+			"value": 20
+		},
+		{
+			"name": "http_mixer_filter.total_remote_check_calls",
+			"value": 2
+		},
+		{
+			"name": "http_mixer_filter.total_remote_quota_calls",
+			"value": 2
+		},
+		{
+			"name": "http_mixer_filter.total_remote_report_calls",
+			"value": 1
+		},
+		{
+			"name": "http_mixer_filter.total_report_calls",
+			"value": 20
+		}
+	]
+}
+`
+
 func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := env.NewTestSetupV2(env.QuotaCacheTest, t)
@@ -73,5 +113,12 @@ func TestQuotaCache(t *testing.T) {
 	if s.GetMixerQuotaCount() >= 5 {
 		t.Fatalf("%s quota called count %v should not be more than 5",
 			tag, s.GetMixerQuotaCount())
+	}
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
 }

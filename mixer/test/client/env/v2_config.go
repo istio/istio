@@ -74,6 +74,7 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 // GetDefaultHTTPClientConf get default HTTP client config
 func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 	v2 := &mccpb.HttpClientConfig{
+		Transport: &mccpb.TransportConfig{},
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP3}},
@@ -82,12 +83,14 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 			},
 		},
 	}
+	//v2.Transport.StatsUpdateIntervalMs = 1000
 	return v2
 }
 
 // GetDefaultTCPServerConf get default TCP server config
 func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 	v2 := &mccpb.TcpClientConfig{
+		Transport: &mccpb.TransportConfig{},
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
@@ -96,6 +99,7 @@ func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 			},
 		},
 	}
+	//v2.Transport.StatsUpdateIntervalMs = 1000
 	return v2
 }
 
