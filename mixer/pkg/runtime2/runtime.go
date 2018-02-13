@@ -141,6 +141,9 @@ func (c *Runtime) StopListening() {
 	if c.shutdown != nil {
 		c.shutdown <- struct{}{}
 		c.shutdown = nil
+		if err := c.store.Close(); err != nil {
+			log.Errorf("Failed on close: %v", err)
+		}
 		c.waitQuiesceListening.Wait()
 
 		c.Probe.SetAvailable(errNotListening)

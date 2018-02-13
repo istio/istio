@@ -15,7 +15,6 @@
 package runtime2
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -143,13 +142,11 @@ func TestWatchChanges(t *testing.T) {
 type mockStore struct {
 	// Init method related fields
 	initCalled        bool
-	initContext       context.Context
 	initKinds         map[string]proto.Message
 	initErrorToReturn error
 
 	// Watch method related fields
 	watchCalled          bool
-	watchContext         context.Context
 	watchChannelToReturn chan store.Event
 	watchErrorToReturn   error
 
@@ -160,9 +157,12 @@ type mockStore struct {
 
 var _ store.Store = &mockStore{}
 
-func (m *mockStore) Init(ctx context.Context, kinds map[string]proto.Message) error {
+func (m *mockStore) Close() error {
+	return nil
+}
+
+func (m *mockStore) Init(kinds map[string]proto.Message) error {
 	m.initCalled = true
-	m.initContext = ctx
 	m.initKinds = kinds
 
 	return m.initErrorToReturn
@@ -170,9 +170,8 @@ func (m *mockStore) Init(ctx context.Context, kinds map[string]proto.Message) er
 
 // Watch creates a channel to receive the events. A store can conduct a single
 // watch channel at the same time. Multiple calls lead to an error.
-func (m *mockStore) Watch(ctx context.Context) (<-chan store.Event, error) {
+func (m *mockStore) Watch() (<-chan store.Event, error) {
 	m.watchCalled = true
-	m.watchContext = ctx
 
 	return m.watchChannelToReturn, m.watchErrorToReturn
 }
