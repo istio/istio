@@ -185,11 +185,11 @@ func MakeIP(service *model.Service, version int) string {
 type ServiceDiscovery struct {
 	services                        map[string]*model.Service
 	versions                        int
-	WantGetSidecarServiceInstances  []*model.ServiceInstance
+	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                   error
 	GetServiceError                 error
 	InstancesError                  error
-	GetSidecarServiceInstancesError error
+	GetProxyServiceInstancesError error
 }
 
 // ClearErrors clear errors used for mocking failures during model.ServiceDiscovery interface methods
@@ -197,7 +197,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.ServicesError = nil
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
-	sd.GetSidecarServiceInstancesError = nil
+	sd.GetProxyServiceInstancesError = nil
 }
 
 // Services implements discovery interface
@@ -247,13 +247,13 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	return out, sd.InstancesError
 }
 
-// GetSidecarServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
-	if sd.GetSidecarServiceInstancesError != nil {
-		return nil, sd.GetSidecarServiceInstancesError
+// GetProxyServiceInstances implements discovery interface
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+	if sd.GetProxyServiceInstancesError != nil {
+		return nil, sd.GetProxyServiceInstancesError
 	}
-	if sd.WantGetSidecarServiceInstances != nil {
-		return sd.WantGetSidecarServiceInstances, nil
+	if sd.WantGetProxyServiceInstances != nil {
+		return sd.WantGetProxyServiceInstances, nil
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
@@ -267,7 +267,7 @@ func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Proxy) ([]*mod
 			}
 		}
 	}
-	return out, sd.GetSidecarServiceInstancesError
+	return out, sd.GetProxyServiceInstancesError
 }
 
 // ManagementPorts implements discovery interface

@@ -151,8 +151,8 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 	return false
 }
 
-// GetSidecarServiceInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) GetSidecarServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+// GetProxyServiceInstances lists service instances co-located with a given proxy
+func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err

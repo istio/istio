@@ -349,7 +349,7 @@ func TestServicesError(t *testing.T) {
 	}
 }
 
-func TestGetSidecarServiceInstances(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
@@ -357,21 +357,21 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.GetSidecarServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	services, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err != nil {
-		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
+		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
 	if len(services) != 1 {
-		t.Errorf("GetSidecarServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
+		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
 
 	if services[0].Service.Hostname != serviceHostname("productpage") {
-		t.Errorf("GetSidecarServiceInstances() wrong service instance returned => hostname %q, want %q",
+		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, serviceHostname("productpage"))
 	}
 }
 
-func TestGetSidecarServiceInstancesError(t *testing.T) {
+func TestGetProxyServiceInstancesError(t *testing.T) {
 	ts := newServer()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
@@ -380,11 +380,11 @@ func TestGetSidecarServiceInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.GetSidecarServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	instances, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err == nil {
-		t.Error("GetSidecarServiceInstances() should return error when client experiences connection problem")
+		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
 	}
 	if len(instances) != 0 {
-		t.Errorf("GetSidecarServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
+		t.Errorf("GetProxyServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
 	}
 }

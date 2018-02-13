@@ -600,7 +600,7 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	proxyInstances, err := ds.GetSidecarServiceInstances(svcNode)
+	proxyInstances, err := ds.GetProxyServiceInstances(svcNode)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return

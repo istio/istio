@@ -247,7 +247,7 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// GetSidecarServiceInstances returns the service instances that co-located with a given Proxy
+	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
 	// Co-located generally means running in the same network namespace and security context.
 	//
@@ -264,7 +264,7 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intendend destination of a connection without a Host header on the request.
-	GetSidecarServiceInstances(Proxy) ([]*ServiceInstance, error)
+	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management

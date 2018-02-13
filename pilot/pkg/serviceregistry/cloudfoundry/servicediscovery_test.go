@@ -223,11 +223,11 @@ func TestServiceDiscovery_Instances_ClientError(t *testing.T) {
 	g.Expect(serviceModel).To(gomega.BeNil())
 }
 
-func TestServiceDiscovery_GetSidecarServiceInstances(t *testing.T) {
+func TestServiceDiscovery_GetProxyServiceInstances(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	state := newSDTestState()
 
-	instances, err := state.serviceDiscovery.GetSidecarServiceInstances(model.Proxy{IPAddress: "not-checked"})
+	instances, err := state.serviceDiscovery.GetProxyServiceInstances(model.Proxy{IPAddress: "not-checked"})
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(instances).To(gomega.BeEmpty())
 }
