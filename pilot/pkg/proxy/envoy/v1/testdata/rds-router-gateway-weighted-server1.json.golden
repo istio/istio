@@ -1,6 +1,23 @@
 {
   "virtual_hosts": [
    {
+    "name": "some-gateway-2|10080|beta.world.example.com",
+    "domains": [
+     "beta.world.example.com:10080",
+     "beta.world.example.com"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
+      "decorator": {
+       "operation": "gateway-simple"
+      }
+     }
+    ]
+   },
+   {
     "name": "some-gateway|10080|world.example.com",
     "domains": [
      "world.example.com:10080",
@@ -24,23 +41,6 @@
       "timeout_ms": 0,
       "decorator": {
        "operation": "gateway-weighted"
-      }
-     }
-    ]
-   },
-   {
-    "name": "some-gateway-2|10080|beta.world.example.com",
-    "domains": [
-     "beta.world.example.com:10080",
-     "beta.world.example.com"
-    ],
-    "routes": [
-     {
-      "prefix": "/",
-      "cluster": "out.world.default.svc.cluster.local|http",
-      "timeout_ms": 0,
-      "decorator": {
-       "operation": "gateway-simple"
       }
      }
     ]
