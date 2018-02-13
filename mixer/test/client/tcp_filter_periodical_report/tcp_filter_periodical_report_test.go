@@ -62,12 +62,15 @@ const finalReportAttributesOkPost = `
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
-	env.SetTCPReportInterval(s.V2().TCPServerConf, 1)
+	env.SetTCPReportInterval(s.V2().TCPServerConf, 2)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
+	// Sends a request to /slowresponse, so that client receives response after 3 seconds.
+	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
+	// second.
 	url := fmt.Sprintf("http://localhost:%d/slowresponse", s.Ports().TCPProxyPort)
 
 	tag := "OKPost"

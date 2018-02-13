@@ -83,8 +83,8 @@ func slowResponseHandler(w http.ResponseWriter, r *http.Request) {
 	handler(w, r, true)
 }
 
-// handler handles a request and sends response. If slowResponse is true, then sleeps 2 second and
-// writes response
+// handler handles a request and sends response. If slowResponse is true, then sleeps 3 second and
+// sends response.
 func handler(w http.ResponseWriter, r *http.Request, slowResponse bool) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -107,7 +107,7 @@ func handler(w http.ResponseWriter, r *http.Request, slowResponse bool) {
 	}
 	w.WriteHeader(http.StatusOK)
 	if slowResponse {
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second)
 		_, _ = w.Write(body)
 	} else {
 		_, _ = w.Write(body)
