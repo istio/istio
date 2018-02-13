@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import requests
 import json
 import subprocess
@@ -40,11 +41,14 @@ class XDS(object):
         return "{role}~{pod.ip}~{pod.name}.{pod.namespace}~{pod.namespace}.svc.cluster.local".format(
             role=role, pod=pod)
 
-    def query(self, path):
+    def query(self, path, post=False):
         url = self.url + path
         print url
         try:
-            return requests.get(url, headers=self.headers).json()
+            if post:
+                return requests.post(url, headers=self.headers).json()
+            else:
+                return requests.get(url, headers=self.headers).json()
         except Exception as ex:
             print ex
             print "Is pilot accessible at %s?" % url
@@ -116,6 +120,9 @@ class XDS(object):
 
     def cache_stats(self):
         return self.query("/cache_stats")
+
+    def clear_cache_stats(self):
+        return self.query("/clear_cache_stats", post=True)
 
 # Class XDS end
 
@@ -234,33 +241,45 @@ def main(args):
         pilot_url = find_pilot_url()
 
     if args.output is None:
-        args.output = pod.name + "_xds.yaml"
+        output_dir = "./" + pod.name
+    else:
+        output_dir = args.output + "/" + pod.name
 
-    op = open(args.output, "wt")
+    try:
+        os.makedirs(output_dir + "/" + pod.name)
+    except OSError:
+        if not os.path.isdir(output_dir):
+            raise
 
-    op.write("==== Fetching from Pilot for pod %s in %s namespace\n" % (pod.name, pod.namespace))
+    output_file = output_dir + "/" + "pilot_xds.yaml"
+    op = open(output_file, "wt")
     print "Fetching from Pilot for pod %s in %s namespace" % (pod.name, pod.namespace)
     xds = XDS(url=pilot_url)
     data = xds.lds(pod, True)
     yaml.safe_dump(data, op, default_flow_style=False,
                    allow_unicode=False, indent=2)
+    print "Wrote ", output_file
 
-    op.write("\n\n")
-    op.write("==== Fetching from sidecar Envoy for pod %s in %s namespace\n" % (pod.name, pod.namespace))
+    output_file = output_dir + "/" + "proxy_xds.yaml"
+    op = open(output_file, "wt")
     print("Fetching from Envoy for pod %s in %s namespace" % (pod.name, pod.namespace))
     pr = Proxy(pod)
     data = pr.routes()
     yaml.safe_dump(data, op, default_flow_style=False,
                    allow_unicode=False, indent=2)
+    print "Wrote ", output_file
 
     if args.cache_stats:
+        output_file = output_dir + "/" + "stats_xds.yaml"
+        op = open(output_file, "wt")
         data = xds.cache_stats()
-        op.write("\n\n")
-        op.write("==== Fetching Pilot cache stats\n")
+        print("Fetching Pilot cache stats")
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
+        print "Wrote ", output_file
 
-    print "Wrote ", args.output
+    if args.clear_cache_stats:
+        xds.clear_cache_stats()
 
     return 0
 
@@ -275,8 +294,10 @@ if __name__ == "__main__":
                         )
     parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
     parser.add_argument(
-        "--output", help="where to write output. default is podname.yaml")
+        "--output", help="A directory where output files are saved. default is the current directory")
     parser.add_argument(
         "--cache_stats", action='store_true', help="Fetch Pilot cache stats")
+    parser.add_argument(
+        "--clear_cache_stats", action='store_true', help="Clear Pilot cache stats")
     args = parser.parse_args()
     sys.exit(main(args))
