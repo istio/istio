@@ -22,10 +22,11 @@ import (
 )
 
 func TestDisableCheckCache(t *testing.T) {
-	s := env.NewTestSetup(
-		env.DisableCheckCacheTest,
-		t,
-		env.BasicConfig+","+env.DisableCheckCache)
+	s := env.NewTestSetup(env.DisableCheckCacheTest, t)
+
+	// Disable check cache.
+	env.DisableClientCache(s.V2().HTTPServerConf, true, false, false)
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestDisableCheckCache(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet v1"
+	tag := "OKGet"
 	for i := 0; i < 10; i++ {
 		if _, _, err := env.HTTPGet(url); err != nil {
 			t.Errorf("Failed in request %s: %v", tag, err)
@@ -42,22 +43,4 @@ func TestDisableCheckCache(t *testing.T) {
 	}
 	// Check is called 10 time.
 	s.VerifyCheckCount(tag, 10)
-
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Disable check cache.
-	env.DisableClientCache(s.V2().HTTPServerConf, true, false, false)
-	s.ReStartEnvoy()
-
-	tag = "OKGet"
-	for i := 0; i < 10; i++ {
-		if _, _, err := env.HTTPGet(url); err != nil {
-			t.Errorf("Failed in request %s: %v", tag, err)
-		}
-	}
-	// Check is called 10 time.
-	s.VerifyCheckCount(tag, 20)
 }

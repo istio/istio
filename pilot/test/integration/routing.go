@@ -42,6 +42,14 @@ func (t *routing) setup() error {
 
 // TODO: test negatives
 func (t *routing) run() error {
+	versions := make([]string, 0)
+	if t.V1alpha1 {
+		versions = append(versions, "v1alpha1")
+	}
+	if t.V1alpha2 {
+		versions = append(versions, "v1alpha2")
+	}
+
 	cases := []struct {
 		description string
 		config      string
@@ -118,36 +126,44 @@ func (t *routing) run() error {
 			},
 		},
 		{
-			description: "routing all traffic to c-v1 with shadow policy",
+			description: "routing all traffic to c with shadow policy",
 			config:      "rule-default-route-mirrored.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 50, "v2": 50}, "default-route")
 			},
 		},
 	}
 
 	var errs error
-	for _, cs := range cases {
-		tlog("Checking routing test", cs.description)
-		if err := t.applyConfig(cs.config, nil); err != nil {
-			return err
+	for _, version := range versions {
+		if version == "v1alpha2" {
+			if err := t.applyConfig("v1alpha2/destination-rule-c.yaml.tmpl", nil); err != nil {
+				errs = multierror.Append(errs, err)
+				continue
+			}
 		}
+		for _, cs := range cases {
+			tlog("Checking "+version+" routing test", cs.description)
+			if err := t.applyConfig(version+"/"+cs.config, nil); err != nil {
+				return err
+			}
 
-		if err := repeat(cs.check, 3, time.Second); err != nil {
-			log.Infof("Failed the test with %v", err)
-			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-		} else {
-			log.Info("Success!")
+			if err := repeat(cs.check, 3, time.Second); err != nil {
+				log.Infof("Failed the test with %v", err)
+				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
+			} else {
+				log.Info("Success!")
+			}
+		}
+		log.Infof("Cleaning up %s route rules...", version)
+		if err := t.deleteAllConfigs(); err != nil {
+			log.Warna(err)
 		}
 	}
 	return errs
 }
 
 func (t *routing) teardown() {
-	log.Info("Cleaning up route rules...")
-	if err := t.deleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
 }
 
 func counts(elts []string) map[string]int {
@@ -188,6 +204,10 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 
 // verify that the traces were picked up by Zipkin and decorator has been applied
 func (t *routing) verifyDecorator(operation string) error {
+	if !t.Zipkin {
+		return nil
+	}
+
 	response := t.infra.clientRequest(
 		"t",
 		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),

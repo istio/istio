@@ -177,7 +177,7 @@ const reportAttributesOkPost = `
 `
 
 func TestCheckReportAttributes(t *testing.T) {
-	s := env.NewTestSetup(env.CheckReportAttributesTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.CheckReportAttributesTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -186,25 +186,7 @@ func TestCheckReportAttributes(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGetV1"
-	if _, _, err := env.HTTPGet(url); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkGet)
-	s.VerifyReport(tag, reportAttributesOkGet)
-
-	// Issues a POST request.
-	tag = "OKPostV1"
-	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	tag = "OKGet"
+	tag := "OKGet"
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
