@@ -82,6 +82,8 @@ func TestStringEquals(t *testing.T) {
 		{a: tDuration, b: tDuration, want: true},
 		{a: "2013-02-03T00:00:00.000000Z", b: tTime, want: true},
 		{a: tTime, b: tTime, want: true},
+		{a: "a=b&c=d&e=f", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: true},
+		{a: "1234", b: int(1234), want: true},
 
 		{a: "foo", b: "bar", want: false},
 		{a: float64(123456789.123456), b: float64(99999.123), want: false},
@@ -91,6 +93,8 @@ func TestStringEquals(t *testing.T) {
 		{a: net.ParseIP("1.2.3.4"), b: net.ParseIP("0.0.0.0"), want: false},
 		{a: "badTimeFormat", b: tTime, want: false},
 		{a: t2Time, b: tTime, want: false},
+		{a: "a=b", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: false},
+		{a: "***badmapstring***", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: false},
 	}
 
 	for _, tt := range tests {

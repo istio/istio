@@ -17,7 +17,9 @@ package adapter
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -59,10 +61,13 @@ func Stringify(v interface{}) string {
 
 // StringEquals compares if string representations of two basic data types, supported by
 // `istio.mixer.v1.config.descriptor.ValueType`, are equal.
-// Note: string representation of nil object is an empty string, so StringEquals with
-// a nil object and a string of value empty "", will evaluate to true.
-// Note: This code is optimized for the case when one of the values is of string type.
-// For other cases, this code does Stringify first and compares the stringified results.
+// Note:
+//   * string representation of nil object is an empty string, so StringEquals with
+//     a nil object and a string of value empty "", will evaluate to true.
+//   * This code is optimized for the case when one of the values is of string type.
+//     For other cases, this code does reflect.DeepEquals which is not performant.
+//   * For comparing a map to string representation of map, the string must be of the format
+//     a=b&c=d, where a and c are keys in the map, and b and d are their corresponding values.
 func StringEquals(a interface{}, b interface{}) bool {
 	switch vv := a.(type) {
 	case string:
@@ -74,7 +79,7 @@ func StringEquals(a interface{}, b interface{}) bool {
 		return strEqualsObject(vv, a)
 	}
 
-	return Stringify(a) == Stringify(b)
+	return reflect.DeepEqual(a, b)
 }
 
 func strEqualsObject(str string, i interface{}) bool {
@@ -112,8 +117,26 @@ func strEqualsObject(str string, i interface{}) bool {
 			return string(vv) == str
 		case DNSName:
 			return string(vv) == str
-		default:
+		case map[string]string:
+			// parse str representation of map and then compare
+			m := make(map[string]string)
+			for _, entry := range strings.Split(str, "&") {
+				kvs := strings.Split(entry, "=")
+				if len(kvs) == 2 {
+					m[kvs[0]] = kvs[1]
+				}
+			}
+			if len(m) == len(vv) {
+				for k, v := range vv {
+					if m[k] != v {
+						return false
+					}
+				}
+				return true
+			}
 			return false
+		default:
+			return Stringify(vv) == str
 		}
 	}
 
