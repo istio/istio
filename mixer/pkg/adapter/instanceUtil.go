@@ -15,6 +15,7 @@
 package adapter
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"reflect"
@@ -52,6 +53,18 @@ func Stringify(v interface{}) string {
 			return string(vv)
 		case DNSName:
 			return string(vv)
+		case map[string]string:
+			var buffer bytes.Buffer
+			for k, v := range vv {
+				if buffer.Len() != 0 {
+					buffer.WriteString("&")
+				}
+				buffer.WriteString(k)
+				buffer.WriteString("=")
+				buffer.WriteString(v)
+
+			}
+			return buffer.String()
 		default:
 			return fmt.Sprintf("%v", v)
 		}

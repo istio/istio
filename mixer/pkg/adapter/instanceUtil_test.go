@@ -38,7 +38,7 @@ func TestStringify(t *testing.T) {
 		{v: URI("http://foo"), want: "http://foo"},
 		{v: DNSName("dns"), want: "dns"},
 		{v: nil, want: ""},
-		{v: map[string]string{"a": "b"}, want: "map[a:b]"},
+		{v: map[string]string{"a": "b"}, want: "a=b"},
 	}
 
 	for _, tt := range tests {
@@ -83,6 +83,7 @@ func TestStringEquals(t *testing.T) {
 		{a: "2013-02-03T00:00:00.000000Z", b: tTime, want: true},
 		{a: tTime, b: tTime, want: true},
 		{a: "a=b&c=d&e=f", b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: true},
+		{a: Stringify(map[string]string{"c": "d", "e": "f", "a": "b"}), b: map[string]string{"a": "b", "c": "d", "e": "f"}, want: true},
 		{a: "1234", b: int(1234), want: true},
 
 		{a: "foo", b: "bar", want: false},
