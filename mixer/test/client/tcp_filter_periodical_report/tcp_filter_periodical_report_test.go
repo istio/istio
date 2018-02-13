@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ const finalReportAttributesOkPost = `
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 138,
   "connection.sent.bytes_total": 138,
-	"connection.duration": "*"
+  "connection.duration": "*"
 }
 `
 
