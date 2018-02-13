@@ -170,7 +170,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 // buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
 func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
-	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, nodeInstances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}
@@ -181,7 +181,7 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *routin
 
 	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
 	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
-	routes := buildDestinationHTTPRoutes(node, service, port, nodeInstances, config, buildClusterFunc)
+	routes := buildDestinationHTTPRoutes(node, service, port, proxyInstances, config, buildClusterFunc)
 
 	// inject Mixer calls per route.
 	// every route here belongs to the same destination.service, ie serviceName

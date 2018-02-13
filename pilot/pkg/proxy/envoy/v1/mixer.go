@@ -433,13 +433,13 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error)
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
 // JWT auth filter to fetch public keys from the specified jwks_uri.
-func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, nodeInstances []*model.ServiceInstance) Clusters {
+func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance) Clusters {
 	type authCluster struct {
 		name   string
 		useSSL bool
 	}
 	authClusters := map[string]authCluster{}
-	for _, instance := range nodeInstances {
+	for _, instance := range proxyInstances {
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
 				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
