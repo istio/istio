@@ -137,5 +137,9 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 
 // all CF apps listen on the same port (for now)
 func (sd *ServiceDiscovery) servicePort() *model.Port {
-	return &model.Port{Port: sd.ServicePort, Protocol: model.ProtocolHTTP}
+	return &model.Port{
+		Port:     sd.ServicePort,
+		Protocol: model.ProtocolHTTP,
+		Name:     "http",
+	}
 }

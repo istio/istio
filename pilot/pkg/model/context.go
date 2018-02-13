@@ -78,6 +78,16 @@ const (
 	Router NodeType = "router"
 )
 
+// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
+func IsApplicationNodeType(nType NodeType) bool {
+	switch nType {
+	case Sidecar, Ingress, Router:
+		return true
+	default:
+		return false
+	}
+}
+
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
 func (node Node) ServiceNode() string {
 	return strings.Join([]string{

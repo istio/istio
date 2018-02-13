@@ -36,11 +36,11 @@ func TestStressEnvoy(t *testing.T) {
 		t.Skip("Test is broken for race testing, see issue #3210")
 	}
 
-	s := env.NewTestSetupV2(env.StressEnvoyTest, t)
+	s := env.NewTestSetup(env.StressEnvoyTest, t)
 	s.SetStress(true)
 
 	// Not cache, enable quota
-	env.AddHTTPQuota(s.V2().HTTPServerConf, "RequestCount", 1)
+	env.AddHTTPQuota(s.V2(), "RequestCount", 1)
 	env.DisableClientCache(s.V2().HTTPServerConf, true, true, true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
