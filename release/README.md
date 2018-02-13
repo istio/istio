@@ -82,6 +82,13 @@ At the discretion of TOC, a code freeze may be declared, and a SWAT team may be 
 
 **Exit criteria:** Code orange is over when a new monthly release is shipped.
 
+## Quarterly Releases
+Every quarter, a monthly release is deemed as the LTS (Long Term Support) release. These releases are typically more stable
+than regular monthly releases and are safe to deploy to production. Users are encouraged to upgrade to these releases ASAP.
+
+These releases are clearly marked as LTS on [github releases page](https://github.com/istio/istio/releases) as well as 
+[release notes](https://istio.io/about/notes/).
+
 ## Patch Releases
 When a [critical bugs](#critical-bug-definition) is found in a monthly release, developers can contact the
 [Istio release group leads](https://github.com/istio/community/blob/master/WORKING-GROUPS.md#test-and-release)
