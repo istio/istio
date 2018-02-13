@@ -36,7 +36,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, nodeInstances []*model.S
 	opts := buildHTTPListenerOpts{
 		mesh:             mesh,
 		proxy:            ingress,
-		nodeInstances:    nodeInstances,
+		proxyInstances:   nodeInstances,
 		routeConfig:      nil,
 		ip:               WildcardAddress,
 		port:             80,

@@ -294,7 +294,7 @@ func buildSidecarListenersClusters(
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
-			nodeInstances:    nodeInstances,
+			proxyInstances:   nodeInstances,
 			routeConfig:      nil,
 			ip:               listenAddress,
 			port:             int(mesh.ProxyHttpPort),
@@ -363,7 +363,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
 	proxy            model.Proxy
-	nodeInstances    []*model.ServiceInstance
+	proxyInstances   []*model.ServiceInstance
 	routeConfig      *HTTPRouteConfig
 	ip               string
 	port             int
@@ -392,7 +392,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
-		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.nodeInstances, opts.outboundListener, opts.store)
+		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -573,7 +573,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, nodeI
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
-			nodeInstances:    nodeInstances,
+			proxyInstances:   nodeInstances,
 			routeConfig:      routeConfig,
 			ip:               WildcardAddress,
 			port:             port,
@@ -770,7 +770,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 }
 
 // buildInboundListeners creates listeners for the server-side (inbound)
-// configuration for co-located service nodeInstances. The function also returns
+// configuration for co-located service proxyInstances. The function also returns
 // all inbound clusters since they are statically declared in the proxy
 // configuration and do not utilize CDS.
 func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
@@ -816,7 +816,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			// Websocket enabled routes need to have an explicit use_websocket : true
 			// This setting needs to be enabled on Envoys at both sender and receiver end
 			if protocol == model.ProtocolHTTP {
-				// get all the route rules applicable to the nodeInstances
+				// get all the route rules applicable to the proxyInstances
 				rules := config.RouteRulesByDestination(nodeInstances, node.Domain)
 
 				// sort for output uniqueness
@@ -866,7 +866,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				proxy:            node,
-				nodeInstances:    nodeInstances,
+				proxyInstances:   nodeInstances,
 				routeConfig:      routeConfig,
 				ip:               endpoint.Address,
 				port:             endpoint.Port,
