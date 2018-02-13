@@ -4,7 +4,7 @@ meshExpansion:
   enabled: true
 
 zvpn:
-  enable: true
+  enabled: true
 
   # "Simple" zvpn - one port per app, controlled via values.xml.
   # This is needed to modify the ingress Service - long term / more flexible solution will use
