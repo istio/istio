@@ -55,7 +55,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // For example, the following gateway spec sets up a proxy to act as a load
 // balancer exposing port 80 and 9080 (http), 443 (https), and port 2379
 // (TCP) for ingress.  The gateway will be applied to the proxy running on
-// a pod with labels "podRole: gateway-pod". While Istio will configure the
+// a pod with labels "app: my-gateway-controller". While Istio will configure the
 // proxy to listen on these ports, it is the responsibility of the user to
 // ensure that external traffic to these ports are allowed into the mesh.
 //
@@ -65,7 +65,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       name: my-gateway
 //     spec:
 //       selector:
-//       - podRole: gatweway-pod
+//       - app: my-gatweway-controller
 //       servers:
 //       - port:
 //           number: 80
@@ -170,8 +170,10 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
+	// One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
+	// If no selectors are provided, the gateway will be implemented by
+	// the default istio-ingress controller.
 	Selector map[string]string `protobuf:"bytes,2,rep,name=selector" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
@@ -203,7 +205,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       name: my-ingress
 //     spec:
 //       selector:
-//       - podRole: ingress-gateway
+//       - app: my-ingress-controller
 //       servers:
 //       - port:
 //           number: 80
@@ -217,7 +219,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       name: my-tcp-ingress
 //     spec:
 //       selector:
-//       - podRole: tcp-ingress-pod
+//       - app: my-tcp-ingress-controller
 //       servers:
 //       - port:
 //           number: 27018
@@ -228,10 +230,10 @@ func (m *Gateway) GetSelector() map[string]string {
 //     apiVersion: config.istio.io/v1alpha2
 //     kind: Gateway
 //     metadata:
-//       name: my-ingress
+//       name: my-tls-ingress
 //     spec:
 //       selector:
-//       - podRole: ingress-tls
+//       - app: my-tls-ingress-controller
 //       servers:
 //       - port:
 //           number: 443

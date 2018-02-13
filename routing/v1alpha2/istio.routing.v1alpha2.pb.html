@@ -933,7 +933,7 @@ use, SNI configuration for the load balancer, etc.</p>
 <p>For example, the following gateway spec sets up a proxy to act as a load
 balancer exposing port 80 and 9080 (http), 443 (https), and port 2379
 (TCP) for ingress.  The gateway will be applied to the proxy running on
-a pod with labels &ldquo;podRole: gateway-pod&rdquo;. While Istio will configure the
+a pod with labels &ldquo;app: my-gateway-controller&rdquo;. While Istio will configure the
 proxy to listen on these ports, it is the responsibility of the user to
 ensure that external traffic to these ports are allowed into the mesh.</p>
 
@@ -943,7 +943,7 @@ metadata:
   name: my-gateway
 spec:
   selector:
-  - podRole: gatweway-pod
+  - app: my-gatweway-controller
   servers:
   - port:
       number: 80
@@ -1069,8 +1069,10 @@ spec:
 <td><code>selector</code></td>
 <td><code>map&lt;string,string&gt;</code></td>
 <td>
-<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.</p>
+<p>One or more labels that indicate a specific set of pods/VMs
+on which this gateway configuration should be applied.
+If no selectors are provided, the gateway will be implemented by
+the default istio-ingress controller.</p>
 
 </td>
 </tr>
@@ -2281,7 +2283,7 @@ metadata:
   name: my-ingress
 spec:
   selector:
-  - podRole: ingress-gateway
+  - app: my-ingress-controller
   servers:
   - port:
       number: 80
@@ -2296,7 +2298,7 @@ metadata:
   name: my-tcp-ingress
 spec:
   selector:
-  - podRole: tcp-ingress-pod
+  - app: my-tcp-ingress-controller
   servers:
   - port:
       number: 27018
@@ -2308,10 +2310,10 @@ spec:
 <pre><code>apiVersion: config.istio.io/v1alpha2
 kind: Gateway
 metadata:
-  name: my-ingress
+  name: my-tls-ingress
 spec:
   selector:
-  - podRole: ingress-tls
+  - app: my-tls-ingress-controller
   servers:
   - port:
       number: 443
