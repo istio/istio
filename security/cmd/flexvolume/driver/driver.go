@@ -250,12 +250,10 @@ func Mount(dir, opts string) error {
 			sErr := "Failure to notify nodeagent: " + err.Error()
 			return failure("mount", inp, sErr)
 		}
-	} else {
-		if err := addCredentialFile(ninputs); err != nil {
+	} else if err := addCredentialFile(ninputs); err != nil {
 			handleErrMount(dir, ninputs)
 			sErr := "Failure to create credentials: " + err.Error()
 			return failure("mount", inp, sErr)
-		}
 	}
 
 	return genericSuccess("mount", inp, "Mount ok.")
@@ -284,11 +282,9 @@ func Unmount(dir string) error {
 			sErr := "Failure to notify nodeagent: " + err.Error()
 			return failure("unmount", dir, sErr)
 		}
-	} else {
-		if err := removeCredentialFile(naInp); err != nil {
+	} else if err := removeCredentialFile(naInp); err != nil {
 			// Go ahead and finish the unmount; no need to hold up kubelet.
 			emsgs = append(emsgs, "Failure to delete credentials file: "+err.Error())
-		}
 	}
 
 	// unmount the bind mount
