@@ -73,7 +73,7 @@ func buildPhysicalGatewayListener(
 
 	opts := buildHTTPListenerOpts{
 		mesh:             mesh,
-		node:             node,
+		proxy:            node,
 		nodeInstances:    nil, // only required to support deprecated mixerclient behavior
 		routeConfig:      nil,
 		ip:               WildcardAddress,

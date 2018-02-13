@@ -293,7 +293,7 @@ func buildSidecarListenersClusters(
 		clusters = append(clusters, httpOutbound.clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
-			node:             node,
+			proxy:            node,
 			nodeInstances:    nodeInstances,
 			routeConfig:      nil,
 			ip:               listenAddress,
@@ -362,7 +362,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
 	mesh             *meshconfig.MeshConfig
-	node             model.Proxy
+	proxy            model.Proxy
 	nodeInstances    []*model.ServiceInstance
 	routeConfig      *HTTPRouteConfig
 	ip               string
@@ -392,7 +392,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
-		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.node, opts.nodeInstances, opts.outboundListener, opts.store)
+		mixerConfig := buildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.nodeInstances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -572,7 +572,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, nodeI
 
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
-			node:             node,
+			proxy:            node,
 			nodeInstances:    nodeInstances,
 			routeConfig:      routeConfig,
 			ip:               WildcardAddress,
@@ -865,7 +865,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
-				node:             node,
+				proxy:            node,
 				nodeInstances:    nodeInstances,
 				routeConfig:      routeConfig,
 				ip:               endpoint.Address,
