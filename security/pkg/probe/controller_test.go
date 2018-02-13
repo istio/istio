@@ -101,7 +101,6 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
-			"./testdata/root.crt",
 			time.Minute,
 			"localhost",
 			1234,
