@@ -213,7 +213,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
