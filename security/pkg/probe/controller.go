@@ -169,11 +169,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 func (c *LivenessCheckController) Run() {
 	go func() {
 		t := time.NewTicker(c.interval)
-		for {
-			select {
-			case <-t.C:
-				c.livenessProbe.SetAvailable(c.checkGrpcServer())
-			}
+		for range t.C {
+			c.livenessProbe.SetAvailable(c.checkGrpcServer())
 		}
 	}()
 }
