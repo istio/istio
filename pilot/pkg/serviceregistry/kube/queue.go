@@ -21,10 +21,11 @@ import (
 	_ "github.com/golang/glog"
 	"k8s.io/client-go/util/flowcontrol"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"os"
 	"strconv"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -94,11 +95,11 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	rate := os.Getenv(enableQueueThrottleEnv)
 	rateLimit := 0
 	if len(rate) > 0 {
-		rateLimit, err := strconv.Atoi(rate)
+		r, err := strconv.Atoi(rate)
 		if err != nil {
 			rateLimit = 0
 		}
-		rateLimit = rateLimit
+		rateLimit = r
 	}
 	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
 	var rateLimiter flowcontrol.RateLimiter
