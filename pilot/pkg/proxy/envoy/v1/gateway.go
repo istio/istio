@@ -19,12 +19,12 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/zap"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-
-	"go.uber.org/zap"
 )
 
 func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,

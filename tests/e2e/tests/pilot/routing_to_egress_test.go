@@ -26,9 +26,8 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
-
 	"istio.io/istio/pkg/log"
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type routingToEgress struct {
