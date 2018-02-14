@@ -144,13 +144,12 @@ func InitCommand() error {
 	return genericSuccess("init", "", "Init ok.")
 }
 
-// checkValidMountOpts checks if there are sufficient inputs to
-// call node agent.
-func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
+// produceWorkloadInfo converts input from the kubelet to WorkloadInfo
+func produceWorkloadInfo(opts string) (*pb.WorkloadInfo, error) {
 	ninputs := FlexVolumeInputs{}
 	err := json.Unmarshal([]byte(opts), &ninputs)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 
 	wlInfo := pb.WorkloadInfo{
@@ -162,7 +161,7 @@ func checkValidMountOpts(opts string) (*pb.WorkloadInfo, bool) {
 		},
 		Workloadpath: ninputs.UID,
 	}
-	return &wlInfo, true
+	return &wlInfo, nil
 }
 
 // doMount handles a new workload mounting the flex volume drive. It will:
@@ -188,9 +187,8 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
 	err = os.MkdirAll(newDestinationDir, 0777)
 	if err != nil {
-		cmd := getExecCmd("/bin/unmount", destinationDir)
-		cmd.Run()            //nolint: errcheck
-		os.RemoveAll(newDir) //nolint: errcheck
+		getExecCmd("/bin/unmount", destinationDir).Run() //nolint: errcheck
+		os.RemoveAll(newDir)                             //nolint: errcheck
 		return err
 	}
 
@@ -198,20 +196,8 @@ func doMount(destinationDir string, ninputs *pb.WorkloadInfo) error {
 	cmd := getExecCmd("/bin/mount", "--bind", newDir, newDestinationDir)
 	err = cmd.Run()
 	if err != nil {
-		cmd = getExecCmd("/bin/umount", destinationDir)
-		cmd.Run()            //nolint: errcheck
-		os.RemoveAll(newDir) //nolint: errcheck
-		return err
-	}
-
-	return nil
-}
-
-// doUnmount will unmount the directory
-func doUnmount(dir string) error {
-	cmd := getExecCmd("/bin/umount", dir)
-	err := cmd.Run()
-	if err != nil {
+		getExecCmd("/bin/umount", destinationDir).Run() //nolint: errcheck
+		os.RemoveAll(newDir)                            //nolint: errcheck
 		return err
 	}
 
@@ -223,8 +209,8 @@ func doUnmount(dir string) error {
 // nolint: errcheck
 func handleErrMount(destinationDir string, ninputs *pb.WorkloadInfo) {
 	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
-	doUnmount(newDestinationDir)
-	doUnmount(destinationDir)
+	getExecCmd("/bin/umount", newDestinationDir).Run()
+	getExecCmd("/bin/umount", destinationDir).Run()
 	// Sufficient to just remove the underlying directory.
 	os.RemoveAll(destinationDir)
 	os.RemoveAll(filepath.Join(configuration.NodeAgentWorkloadHomeDir, ninputs.Workloadpath))
@@ -234,9 +220,9 @@ func handleErrMount(destinationDir string, ninputs *pb.WorkloadInfo) {
 func Mount(dir, opts string) error {
 	inp := strings.Join([]string{dir, opts}, "|")
 
-	ninputs, s := checkValidMountOpts(opts)
-	if s == false {
-		return failure("mount", inp, "Incomplete inputs")
+	ninputs, err := produceWorkloadInfo(opts)
+	if err != nil {
+		return failure("mount", inp, err.Error())
 	}
 
 	if err := doMount(dir, ninputs); err != nil {
@@ -263,8 +249,6 @@ func Mount(dir, opts string) error {
 func Unmount(dir string) error {
 	var emsgs []string
 	// Stop the listener.
-	// /var/lib/kubelet/pods/20154c76-bf4e-11e7-8a7e-080027631ab3/volumes/nodeagent~uds/test-volume/
-	// /var/lib/kubelet/pods/2dc75e9a-cbec-11e7-b158-0800270da466/volumes/nodeagent~uds/test-volume
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
 		sErr := fmt.Sprintf("Failure to notify nodeagent dir %v", dir)
@@ -288,12 +272,12 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	if err := doUnmount(filepath.Join(dir, "nodeagent")); err != nil {
+	if err := getExecCmd("/bin/umount", filepath.Join(dir, "nodeagent")).Run(); err != nil {
 		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", filepath.Join(dir, "nodeagent")))
 	}
 
 	// unmount the tmpfs
-	if err := doUnmount(dir); err != nil {
+	if err := getExecCmd("/bin/umount", dir).Run(); err != nil {
 		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", dir))
 	}
 
