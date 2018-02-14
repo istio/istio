@@ -40,6 +40,13 @@ required = [
   version = "^1.8.2" # match istio/api
 
 
+# Lock mergo against kubernetes/client-go's version to fix merging related kubeconfig bugs
+# related to CertificateAuthorityData/certificate-authority-data failures
+# https://github.com/kubernetes/client-go/blob/7cd1d3291b7d9b1e2d54d4b69eb65995eaf8888e/tools/clientcmd/client_config.go#L160-L162
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+
 # When necessary, override transitive contraints that might be pinned
 # to older versions (e.g. ingress-nginx pinned to 1.8).
 #
