@@ -33,6 +33,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: zipkin-to-stackdriver
+  namespace: istio-system
 spec:
   ports:
   - name: zipkin
