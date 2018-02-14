@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
+	routing "istio.io/api/routing/v1alpha2"
 )
 
 // Endpoints (react to updates in registry endpoints) - EDS updates
@@ -201,6 +202,7 @@ type DiscoveryService struct {
 	indices         *Indices
 	// protos per envoy
 	envoyConfigCache *xdscache.Cache
+	version         int // This is the version info we send to envoy per xds
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -209,13 +211,12 @@ type DiscoveryServiceOptions struct {
 	Port            int
 	MonitoringPort  int
 	EnableProfiling bool
-	EnableCaching   bool
 	WebhookEndpoint string
 }
 
-// Start ADS server on a given port
+// Start XDS servers on a given port
 // xdscache.Cache is a simple cache that holds the entire config for each envoy connected to pilot
-func startADS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
+func startXDS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
 	server := xdsserver.NewServer(*envoyConfigCache)
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -223,8 +224,11 @@ func startADS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
 		log.Errorf("failed to listen %v", err)
 	}
 
-	xdsapi.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	log.Infof("ADS server listening on %d", port)
+	xdsapi.RegisterClusterDiscoveryServiceServer(grpcServer, server)
+	xdsapi.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
+	xdsapi.RegisterListenerDiscoveryServiceServer(grpcServer, server)
+	xdsapi.RegisterRouteDiscoveryServiceServer(grpcServer, server)
+	log.Infof("XDS servers listening on %d", port)
 
 	go func() {
 		if err = grpcServer.Serve(lis); err != nil {
@@ -241,17 +245,25 @@ func startADS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
 // for a node will cause the ADS server to push the updated listeners, clusters, etc. to the respective envoy.
 // The ADS server implementation should take care of pushing the resources in the correct order (i.e. clusters,
 // then endpoints, then listeners
-func (ds *DiscoveryService) UpdateIndices(svc *model.Service, instance *model.ServiceInstance,
-	rule *model.Config, e model.Event) {
-	// Update listeners, associated clusters, etc.
-	// by calling all the buildXYZ functions
-	indices := ds.indices
-	// dummy values
-	indices.listeners[80] = &xdsapi.Listener{}
-	indices.envoyClusters["port-80-service-foo-cluster"] = &EnvoyCluster{}
+func (ds *DiscoveryService) UpdateIndices() {
+	// TODO: We need to batch calls to UpdateIndices
+	// and collapse them such that we update things every second at minimum.
+	services, instances, err := ds.GetAllServicesAndInstances()
+	if err != nil {
+		// If there is an error retrieving clusters/endpoints/routes/etc.,
+		// skip updating indices to keep them in consistent state
+		return
+	}
 
-	// This is pretty bad (copy by value) but the snapshot interface requires values
-	// That interface needs to be tweaked
+	indices := ds.indices
+	indices.indicesMutex.Lock()
+	defer indices.indicesMutex.Unlock()
+
+	// call buildOutboundListenersClusters... buildOutbound...
+
+	// Increment the global version number served from this pilot
+	// TODO
+	ds.version = ds.version + 1
 	clusterLoadAssignments := make([]proto.Message, len(indices.envoyClusters))
 	clusters := make([]proto.Message, len(indices.envoyClusters))
 	routes := make([]proto.Message, len(indices.routeConfigs))
@@ -259,6 +271,8 @@ func (ds *DiscoveryService) UpdateIndices(svc *model.Service, instance *model.Se
 
 	// The code below assumes that everyone has same set of clusters, listeners, etc.
 	// This would have to be tweaked to populate cluster array based on source match rules in route rules
+	// Even though we are copying the two arrays, its essentially just a copy of pointer array and not
+	// the entire proto. We still maintain the proto code. proto.Message is just an interface
 	for _, c := range indices.envoyClusters {
 		clusterLoadAssignments = append(clusterLoadAssignments, proto.Message(c.protoEDSresp))
 		clusters = append(clusters, proto.Message(c.protoEnvoyCluster))
@@ -296,18 +310,19 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 			endpoints:     make(map[string]*EnvoyEndpoint),
 		},
 		envoyConfigCache: &envoyConfigCache,
+		version: 0,
 	}
 
 	ds.webhookEndpoint, ds.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	// set up the rest/grpc server
-	startADS(ctx, ds.envoyConfigCache, o.Port)
+	startXDS(ctx, ds.envoyConfigCache, o.Port)
 
 	// The service model provides two callbacks
 	// 1. ServiceHandler callback notifies us of updates to the service object (add/remove/new labels/ports)
 	// 2. InstanceHandler notifies us of updates to the instances of a service (add/remove or label changes)
-	serviceHandler := func(s *model.Service, e model.Event) { ds.UpdateIndices(s, nil, nil, e) }
-	instanceHandler := func(i *model.ServiceInstance, e model.Event) { ds.UpdateIndices(nil, i, nil, e) }
+	serviceHandler := func(s *model.Service, e model.Event) { ds.UpdateIndices() }
+	instanceHandler := func(i *model.ServiceInstance, e model.Event) { ds.UpdateIndices() }
 
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil, err
@@ -317,11 +332,35 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 	}
 
 	// Config handler callback is invoked when routing rules change
-	configHandler := func(rule model.Config, e model.Event) { ds.UpdateIndices(nil, nil, &rule, e) }
+	configHandler := func(rule model.Config, e model.Event) { ds.UpdateIndices() }
 	for _, descriptor := range model.IstioConfigTypes {
 		// register a callback for route rules, destination rules, external services, gateways, etc.
 		configCache.RegisterEventHandler(descriptor.Type, configHandler)
 	}
 
 	return ds, nil
+}
+
+func (ds *DiscoveryService) GetAllServicesAndInstances() ([]*model.Service, []*model.ServiceInstance, error) {
+	services, err := ds.Services()
+	if err != nil {
+		log.Errorf("Failed to obtain all services: %v", err)
+		return nil, nil, err
+	}
+
+	var instances []*model.ServiceInstance
+	for _, service := range services {
+		if !service.External() {
+			for _, port := range service.Ports {
+				svcInstances, err := ds.Instances(service.Hostname, []string{port.Name}, nil)
+				if err != nil {
+					log.Errorf("Failed to obtain instances of service %s: %v", service.Hostname, err)
+					return nil, nil, err
+				}
+				instances = append(instances, svcInstances...)
+			}
+		}
+	}
+
+	return services, instances, nil
 }
