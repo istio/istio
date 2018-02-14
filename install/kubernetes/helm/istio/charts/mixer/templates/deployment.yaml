@@ -42,10 +42,12 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
           - containerPort: 9091
+          - containerPort: 9093
           - containerPort: 9094
           - containerPort: 42422
           args:
-            - --configStoreURL=k8s://
+            - --configStoreURL=fs:///etc/opt/mixer/configroot
+            - --configStore2URL=k8s://
             - --configDefaultNamespace={{ .Release.Namespace }}
             - --zipkinURL=http://zipkin:9411/api/v1/spans
             - --logtostderr
@@ -65,7 +67,7 @@ spec:
           - "2"
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
-          - MUTUAL_TLSN
+          - MUTUAL_TLS
           - --customConfigFile
           - /etc/istio/proxy/envoy_mixer_auth.json
         {{- else }}

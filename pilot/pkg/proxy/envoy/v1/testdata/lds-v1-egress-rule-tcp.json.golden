@@ -48,6 +48,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v1.default"
              }
@@ -57,6 +64,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v1.default"
@@ -69,6 +83,13 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v1"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
@@ -169,6 +190,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v1.default"
              }
@@ -178,6 +206,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v1.default"
@@ -190,6 +225,13 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v1"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
@@ -266,6 +308,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v1.default"
              }
@@ -275,6 +324,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v1.default"
@@ -287,6 +343,13 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v1"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
@@ -463,6 +526,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v1.default"
              }
@@ -472,6 +542,13 @@
             "hello.default.svc.cluster.local": {
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v1"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
@@ -759,6 +836,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v1"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v1.default"
              }
@@ -768,6 +852,13 @@
             "hello.default.svc.cluster.local": {
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v1"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }

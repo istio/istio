@@ -37,8 +37,11 @@ option (gogoproto.gostring_all) = false;
 
 // Configuration format for the `memquota` adapter.
 message Params {
+
+	// Defines a quota's limit and duration.
 	message Quota {
 		option (gogoproto.goproto_getters) = true;
+
 		// The name of the quota
 		string name = 1;
 
@@ -54,12 +57,15 @@ message Params {
 		// The first matching override is applied.
 		repeated Override overrides = 4 [(gogoproto.nullable) = false];
 	}
+
+	// Defines an override value for a quota. If no override matches
+	// a particular quota request, the default for the quota is used.
 	message Override {
 		option (gogoproto.goproto_getters) = true;
 
 		// The specific dimensions for which this override applies.
 		// String representation of instance dimensions is used to check against configured dimensions.
-		map <string, string> dimensions = 1;
+		map<string, string> dimensions = 1;
 
 		// The upper limit for this quota.
 		int64 max_amount = 2;

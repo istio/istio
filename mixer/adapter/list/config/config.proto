@@ -32,6 +32,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Configuration format for the `list` adapter.
 message Params {
     // Where to find the list to check against. This may be ommited for a completely local list.
     string provider_url = 1;
@@ -57,6 +58,7 @@ message Params {
     // List entries that are consulted first, before the list from the server
     repeated string overrides = 6;
 
+    // Determines the type of list that the adapter is consulting.
     enum ListEntryType {
         // List entries are treated as plain strings.
         STRINGS = 0;

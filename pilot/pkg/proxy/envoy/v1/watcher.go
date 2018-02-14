@@ -117,8 +117,9 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if w.config.AvailabilityZone == "" {
-		log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
+	if !model.IsApplicationNodeType(w.role.Type) {
+		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
+		return
 	}
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
@@ -141,6 +142,9 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 			_ = resp.Body.Close()
 		}
 		attempts++
+	}
+	if w.config.AvailabilityZone == "" {
+		log.Info("Availability zone not set, proxy will default to not using zone aware routing.")
 	}
 }
 

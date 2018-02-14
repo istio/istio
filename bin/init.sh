@@ -101,7 +101,7 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
 
     ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy
+    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
     popd
 fi
 
