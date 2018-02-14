@@ -272,11 +272,18 @@ and destination policies.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
+		Long: `
+Retrieve policies and rules.
+
+Some types allow usage of a short name, in order to ease the typing.
+For instance, you can use "istioctl get rr" instead of "istioctl get routerules".
+
+To see all valid types and their short aliases, type "istioctl get".`,
 		Example: `# List all route rules
-istioctl get routerules
+istioctl get routerules # or, using the short name: istioctl get rr
 
 # List all destination policies
-istioctl get destinationpolicies
+istioctl get destinationpolicies # or, using the short name: istioctl get dp
 
 # Get a specific rule named productpage-default
 istioctl get routerule productpage-default
