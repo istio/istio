@@ -21,6 +21,31 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+type shouldFillFn func(*config.Params) bool
+type projectIDFn func() (string, error)
+
+// ProjectIDFiller checks and fills project id for stack adapter config.
+type ProjectIDFiller struct {
+	shouldFill shouldFillFn
+	projectID  projectIDFn
+}
+
+// NewProjectIDFiller creates a project id filler for stackdriver adapter config with the given functions.
+func NewProjectIDFiller(s shouldFillFn, p projectIDFn) *ProjectIDFiller {
+	return &ProjectIDFiller{s, p}
+}
+
+// FillProjectID tries to fill project ID in adapter config if it is empty.
+func (p *ProjectIDFiller) FillProjectID(c adapter.Config) {
+	cfg := c.(*config.Params)
+	if !p.shouldFill(cfg) {
+		return
+	}
+	if pid, err := p.projectID(); err == nil {
+		cfg.ProjectId = pid
+	}
+}
+
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.
 func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
