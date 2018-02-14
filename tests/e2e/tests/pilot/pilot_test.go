@@ -16,12 +16,11 @@ package pilot
 
 import (
 	"flag"
+	"os"
 	"strconv"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-
-	"os"
 
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"

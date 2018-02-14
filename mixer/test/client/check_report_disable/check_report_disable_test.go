@@ -22,14 +22,6 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
-const checkOnlyFlags = `
-                   "mixer_check": "on",
-`
-
-const reportOnlyFlags = `
-                   "mixer_report": "on",
-`
-
 func TestCheckReportDisable(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportDisableTest, t)
 

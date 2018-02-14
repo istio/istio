@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
-
 	"github.com/golang/sync/errgroup"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 )
