@@ -24,6 +24,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -76,11 +77,21 @@ type Args struct {
 	// The tracing options to use
 	TracingOptions *tracing.Options
 
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbeOptions *probe.Options
+
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
 
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
 
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
@@ -102,8 +113,11 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
+		UseNewRuntime:                 false,
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
 	}
 }
 
@@ -139,6 +153,7 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
 	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()

@@ -17,8 +17,6 @@ package registry
 import (
 	"fmt"
 	"sync"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 )

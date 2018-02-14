@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `stackdriver` adapter enables Istio to deliver log and metric data to the
+	[Stackdriver](https://cloud.google.com/stackdriver/) logging and monitoring backend.
+
 	It is generated from these files:
 		mixer/adapter/stackdriver/config/config.proto
 
@@ -42,6 +45,7 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Configuration format for the `stackdriver` adapter.
 type Params struct {
 	// Endpoint URL to send stackdriver data - leave empty to use the
 	// StackDriver SDK's default value (monitoring.googleapis.com).

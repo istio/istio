@@ -27,52 +27,50 @@ import (
 // RejectConflictingEgressRules rejects conflicting egress rules.
 // The conflicts occur either than two egress rules share the same domain, or when they define
 // different protocols on the same port
-func RejectConflictingEgressRules(rules map[string]*routing.EgressRule) ( // long line split
-	map[string]*routing.EgressRule, error) {
+func RejectConflictingEgressRules(rules []Config) ([]Config, error) {
 	rulesWithoutConflictsOnDomain, conflictsOnDomain := rejectConflictingOnDomainEgressRules(rules)
 	rulesWithoutConflicts, conflictsOnPort := rejectConflictingOnPortTCPEgressRules(rulesWithoutConflictsOnDomain)
 	return rulesWithoutConflicts, multierror.Append(conflictsOnDomain, conflictsOnPort).ErrorOrNil()
 }
 
 // rejectConflictingOnDomainEgressRules rejects rules that have the destination which is equal to
-// the destionation of some other rule.
+// the destination of some other rule.
 // According to Envoy's virtual host specification, no virtual hosts can share the same domain.
 // The following code rejects conflicting rules deterministically, by a lexicographical order -
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func rejectConflictingOnDomainEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
-	map[string]*routing.EgressRule, error) {
-	filteredEgressRules := make(map[string]*routing.EgressRule)
-
+func rejectConflictingOnDomainEgressRules(cfg []Config) ([]Config, error) {
 	var errs error
 
-	var keys []string
-
-	// the key here is the key of the Istio configuration objects - see
-	// `func (meta *ConfigMeta) Key() string`
-	for key := range egressRules {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	filteredEgressRules := make([]Config, 0, len(cfg))
 
 	// domains - a map where keys are of the form domain:port and values are the keys of
 	// egress-rule configuration objects
-	domains := make(map[string]string)
-	for _, egressRuleKey := range keys {
-		egressRule := egressRules[egressRuleKey]
-		domain := egressRule.Destination.Service
-		keyOfAnEgressRuleWithTheSameDomain, conflictingRule := domains[domain]
-		if conflictingRule {
-			errs = multierror.Append(errs,
-				fmt.Errorf("rule %s conflicts with rule %s on domain "+
-					"%s, is rejected", egressRuleKey,
-					keyOfAnEgressRuleWithTheSameDomain, domain))
+	// host --> egressRuleKey for debugging
+	domains := make(map[string]string, len(cfg))
+
+	sort.SliceStable(cfg, func(i, j int) bool {
+		return cfg[i].Key() < cfg[j].Key()
+	})
+
+	for _, c := range cfg {
+		rule, ok := c.Spec.(*routing.EgressRule)
+		if !ok {
 			continue
 		}
 
-		domains[domain] = egressRuleKey
-		filteredEgressRules[egressRuleKey] = egressRule
+		if oldKey, collision := domains[rule.Destination.Service]; collision {
+			errs = multierror.Append(errs,
+				fmt.Errorf("rule %s conflicts with rule %s on domain "+
+					"%s, is rejected",
+					c.Key(), oldKey, rule.Destination.Service))
+			continue
+		}
+
+		domains[rule.Destination.Service] = c.Key()
+
+		filteredEgressRules = append(filteredEgressRules, c)
 	}
 
 	return filteredEgressRules, errs
@@ -149,25 +147,22 @@ func egressRulesSupportedProtocols() string {
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
-	map[string]*routing.EgressRule, error) {
-	filteredEgressRules := make(map[string]*routing.EgressRule)
+func rejectConflictingOnPortTCPEgressRules(cfg []Config) ([]Config, error) {
+	filteredEgressRules := make([]Config, 0, len(cfg))
 	var errs error
-
-	var keys []string
-
-	// the key here is the key of the Istio configuration objects - see
-	// `func (meta *ConfigMeta) Key() string`
-	for key := range egressRules {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
 
 	protocolsPerPort := make(map[int]Protocol)
 	rulesByPort := make(map[int][]string)
 
-	for _, egressRuleKey := range keys {
-		egressRule := egressRules[egressRuleKey]
+	for _, c := range cfg {
+		var ok bool
+		var egressRule *routing.EgressRule
+
+		if egressRule, ok = c.Spec.(*routing.EgressRule); !ok {
+			continue
+		}
+		egressRuleKey := c.Key()
+
 		isRuleConflicting := false
 		for _, port := range egressRule.Ports {
 			protocol := ConvertCaseInsensitiveStringToProtocol(port.Protocol)
@@ -187,8 +182,9 @@ func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*routing.Egres
 			protocolsPerPort[intPort] = protocol
 			rulesByPort[intPort] = append(rulesByPort[intPort], egressRuleKey)
 		}
+
 		if !isRuleConflicting {
-			filteredEgressRules[egressRuleKey] = egressRule
+			filteredEgressRules = append(filteredEgressRules, c)
 		}
 	}
 

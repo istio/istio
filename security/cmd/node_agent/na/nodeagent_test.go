@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
+
 	"istio.io/istio/pkg/log"
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/platform"
@@ -44,7 +44,13 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPe
 }
 
 func TestStartWithArgs(t *testing.T) {
-	generalPcConfig := platform.ClientConfig{OnPremConfig: platform.OnPremConfig{"ca_file", "pkey", "cert_file"}}
+	generalPcConfig := platform.ClientConfig{
+		OnPremConfig: platform.OnPremConfig{
+			RootCACertFile: "ca_file",
+			KeyFile:        "pkey",
+			CertChainFile:  "cert_file",
+		},
+	}
 	generalConfig := Config{
 		IstioCAAddress:     "ca_addr",
 		ServiceIdentityOrg: "Google Inc.",
@@ -101,11 +107,10 @@ func TestStartWithArgs(t *testing.T) {
 				PlatformConfig:            generalPcConfig,
 				LoggingOptions:            log.NewOptions(),
 			},
-			pc:       mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient: &mockclient.FakeCAClient{0, nil, nil},
-			expectedErr: "request creation fails on CSR generation (CSR generation fails at X509 cert request " +
-				"generation (crypto/rsa: message too long for RSA public key size))",
-			sendTimes: 0,
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
+			sendTimes:   0,
 		},
 		"Getting agent credential error": {
 			config:      &generalConfig,

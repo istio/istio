@@ -228,7 +228,10 @@ type IstioConfigStore interface {
 	ConfigStore
 
 	// EgressRules lists all egress rules
-	EgressRules() map[string]*routing.EgressRule
+	EgressRules() []Config
+
+	// ExternalServices lists all external services
+	ExternalServices() []Config
 
 	// RouteRules selects routing rules by source service instances and
 	// destination service.  A rule must match at least one of the input service
@@ -340,6 +343,14 @@ var (
 		Validate:    ValidateEgressRule,
 	}
 
+	// ExternalService describes external services
+	ExternalService = ProtoSchema{
+		Type:        "external-service",
+		Plural:      "external-services",
+		MessageName: "istio.routing.v1alpha2.ExternalService",
+		Validate:    ValidateExternalService,
+	}
+
 	// DestinationPolicy describes destination rules
 	DestinationPolicy = ProtoSchema{
 		Type:        "destination-policy",
@@ -411,6 +422,7 @@ var (
 		IngressRule,
 		Gateway,
 		EgressRule,
+		ExternalService,
 		DestinationPolicy,
 		DestinationRule,
 		HTTPAPISpec,
@@ -609,18 +621,20 @@ func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceIns
 	return nil
 }
 
-func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
-	out := make(map[string]*routing.EgressRule)
-	rs, err := store.List(EgressRule.Type, "")
+func (store *istioConfigStore) EgressRules() []Config {
+	configs, err := store.List(EgressRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	for _, r := range rs {
-		if rule, ok := r.Spec.(*routing.EgressRule); ok {
-			out[r.Key()] = rule
-		}
+	return configs
+}
+
+func (store *istioConfigStore) ExternalServices() []Config {
+	configs, err := store.List(ExternalService.Type, NamespaceAll)
+	if err != nil {
+		return nil
 	}
-	return out
+	return configs
 }
 
 func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
@@ -667,9 +681,10 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 		return nil
 	}
 
+	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.DestinationRule)
-		if ResolveFQDN(rule.Name, domain) == ResolveFQDN(name, domain) {
+		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
 		}
 	}

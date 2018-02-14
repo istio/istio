@@ -151,8 +151,8 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 	return false
 }
 
-// HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.ServiceInstance, error) {
+// GetSidecarServiceInstances lists service instances for a given set of IPv4 addresses.
+func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (c *Controller) HostInstances(addrs map[string]*model.Node) ([]*model.Servi
 			return nil, err
 		}
 		for _, endpoint := range endpoints {
-			if addrs[endpoint.ServiceAddress] != nil {
+			if node.IPAddress == endpoint.ServiceAddress {
 				out = append(out, convertInstance(endpoint))
 			}
 		}
@@ -198,5 +198,13 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
-	return nil
+	// Need to get service account of service registered with consul
+	// Currently Consul does not have service account or equivalent concept
+	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
+	// This will allow all the consul services to do mTLS
+	// Follow - https://goo.gl/Dt11Ct
+
+	return []string{
+		"spiffe://cluster.local/ns/default/sa/default",
+	}
 }

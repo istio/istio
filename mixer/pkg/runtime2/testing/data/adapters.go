@@ -17,30 +17,31 @@ package data
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // BuildAdapters builds a standard set of testing adapters. The supplied settings is used to override behavior.
-func BuildAdapters(settings ...FakeAdapterSettings) map[string]*adapter.Info {
+func BuildAdapters(l *Logger, settings ...FakeAdapterSettings) map[string]*adapter.Info {
 	m := make(map[string]FakeAdapterSettings)
 	for _, setting := range settings {
 		m[setting.Name] = setting
 	}
 
 	var a = map[string]*adapter.Info{
-		"acheck": createFakeAdapter("acheck", m["acheck"], "tcheck", "thalt"),
-		"apa":    createFakeAdapter("apa", m["apa"], "tapa"),
+		"acheck":  createFakeAdapter("acheck", m["acheck"], l, "tcheck", "thalt"),
+		"areport": createFakeAdapter("areport", m["areport"], l, "treport"),
+		"aquota":  createFakeAdapter("aquota", m["aquota"], l, "tquota"),
+		"apa":     createFakeAdapter("apa", m["apa"], l, "tapa"),
 	}
 
 	return a
 }
 
-func createFakeAdapter(name string, s FakeAdapterSettings, defaultTemplates ...string) *adapter.Info {
+func createFakeAdapter(name string, s FakeAdapterSettings, l *Logger, defaultTemplates ...string) *adapter.Info {
 	templates := defaultTemplates
 	if s.SupportedTemplates != nil {
 		templates = s.SupportedTemplates
@@ -52,12 +53,16 @@ func createFakeAdapter(name string, s FakeAdapterSettings, defaultTemplates ...s
 		DefaultConfig:      &types.Struct{},
 		SupportedTemplates: templates,
 		NewBuilder: func() adapter.HandlerBuilder {
+			l.write(name, "NewBuilder =>")
 			if s.NilBuilder {
+				l.writeFormat(name, "NewBuilder <= nil")
 				return nil
 			}
 
+			l.writeFormat(name, "NewBuilder <=")
 			return &FakeHandlerBuilder{
 				settings: s,
+				l:        l,
 			}
 		},
 	}
@@ -80,45 +85,60 @@ var _ adapter.Env = &FakeEnv{}
 
 // FakeHandlerBuilder is a fake of HandlerBuilder.
 type FakeHandlerBuilder struct {
+	l        *Logger
 	settings FakeAdapterSettings
 }
 
 // SetAdapterConfig is an implementation of HandlerBuilder.SetAdapterConfig.
 func (f *FakeHandlerBuilder) SetAdapterConfig(cfg adapter.Config) {
+	f.l.writeFormat(f.settings.Name, "HandlerBuilder.SetAdapterConfig => '%v'", cfg)
 	if f.settings.PanicAtSetAdapterConfig {
+		f.l.write(f.settings.Name, "HandlerBuilder.SetAdapterConfig <= (PANIC)")
 		panic(f.settings.PanicData)
 	}
+	f.l.write(f.settings.Name, "HandlerBuilder.SetAdapterConfig <=")
 }
 
 // Validate is an implementation of HandlerBuilder.Validate.
 func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
+	f.l.write(f.settings.Name, "HandlerBuilder.Validate =>")
 	if f.settings.PanicAtValidate {
+		f.l.write(f.settings.Name, "HandlerBuilder.Validate <= (PANIC)")
 		panic(f.settings.PanicData)
 	}
 
 	if f.settings.ErrorAtValidate {
+		f.l.write(f.settings.Name, "HandlerBuilder.Validate <= (ERROR)")
 		errs := &adapter.ConfigErrors{}
 		errs = errs.Append("field", fmt.Errorf("some validation error"))
 		return errs
 	}
+
+	f.l.write(f.settings.Name, "HandlerBuilder.Validate <= (SUCCESS)")
 	return nil
 }
 
 // Build is an implementation of HandlerBuilder.Build.
 func (f *FakeHandlerBuilder) Build(_ context.Context, env adapter.Env) (adapter.Handler, error) {
+	f.l.write(f.settings.Name, "HandlerBuilder.Build =>")
 	if f.settings.PanicAtBuild {
+		f.l.write(f.settings.Name, "HandlerBuilder.Build <= (PANIC)")
 		panic(f.settings.PanicData)
 	}
 
 	if f.settings.ErrorAtBuild {
+		f.l.write(f.settings.Name, "HandlerBuilder.Build <= (ERROR)")
 		return nil, fmt.Errorf("this adapter is not available at the moment, please come back later")
 	}
 
 	if f.settings.NilHandlerAtBuild {
+		f.l.write(f.settings.Name, "HandlerBuilder.Build <= (nil)")
 		return nil, nil
 	}
+
 	handler := &FakeHandler{
 		settings:      f.settings,
+		l:             f.l,
 		closingDaemon: make(chan bool),
 		closingWorker: make(chan bool),
 		done:          make(chan bool),
@@ -150,6 +170,7 @@ func (f *FakeHandlerBuilder) Build(_ context.Context, env adapter.Env) (adapter.
 		})
 	}
 
+	f.l.write(f.settings.Name, "HandlerBuilder.Build <= (SUCCESS)")
 	return handler, nil
 }
 
@@ -158,6 +179,7 @@ var _ adapter.HandlerBuilder = &FakeHandlerBuilder{}
 // FakeHandler is a fake implementation of adapter.Handler.
 type FakeHandler struct {
 	settings      FakeAdapterSettings
+	l             *Logger
 	refreshTicker *time.Ticker
 	closingDaemon chan bool
 	closingWorker chan bool
@@ -166,19 +188,19 @@ type FakeHandler struct {
 
 // Close is an implementation of adapter.Handler.Close.
 func (f *FakeHandler) Close() error {
-	if f.settings.CloseCalled != nil {
-		*f.settings.CloseCalled = true
-	}
+	f.l.write(f.settings.Name, "Handler.Close =>")
 
 	if f.settings.PanicAtHandlerClose {
+		f.l.write(f.settings.Name, "Handler.Close <= (PANIC)")
 		panic(f.settings.PanicData)
 	}
 
 	if f.settings.ErrorAtHandlerClose {
+		f.l.write(f.settings.Name, "Handler.Close <= (ERROR)")
 		return fmt.Errorf("error on close")
 	}
 
-	if f.settings.CloseGoRoutines == true {
+	if f.settings.CloseGoRoutines {
 		f.closingDaemon <- true
 		f.closingWorker <- true
 		close(f.closingDaemon)
@@ -186,13 +208,14 @@ func (f *FakeHandler) Close() error {
 		f.refreshTicker.Stop()
 	}
 
+	f.l.write(f.settings.Name, "Handler.Close <= (SUCCESS)")
 	return nil
 }
 
 var _ adapter.Handler = &FakeHandler{}
 
 // FakeAdapterSettings describes the behavior of a fake adapter.
-type FakeAdapterSettings struct {
+type FakeAdapterSettings struct { // nolint: maligned
 	Name                    string
 	PanicAtSetAdapterConfig bool
 	PanicData               interface{}
@@ -209,6 +232,4 @@ type FakeAdapterSettings struct {
 	CloseGoRoutines         bool
 
 	SupportedTemplates []string
-
-	CloseCalled *bool
 }

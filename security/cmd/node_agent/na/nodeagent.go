@@ -17,12 +17,10 @@ package na
 import (
 	"fmt"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
@@ -117,13 +115,13 @@ func (na *nodeAgentInternal) Start() error {
 }
 
 func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
-	csr, privKey, err := ca.GenCSR(ca.CertOptions{
+	csr, privKey, err := util.GenCSR(util.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
+		return nil, nil, err
 	}
 
 	cred, err := na.pc.GetAgentCredential()
@@ -136,5 +134,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 		NodeAgentCredential: cred,
 		CredentialType:      na.pc.GetCredentialType(),
 		RequestedTtlMinutes: int32(na.config.WorkloadCertTTL.Minutes()),
+		ForCA:               false,
 	}, nil
 }

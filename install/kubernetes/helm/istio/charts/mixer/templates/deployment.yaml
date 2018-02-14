@@ -8,8 +8,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: mixer
-  annotations:
-    sidecar.istio.io/inject: "false"
+  annotations:    
     checksum/config-volume: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -19,6 +18,8 @@ spec:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
         istio: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: {{ template "mixer.serviceAccountName" . }}
       containers:
@@ -41,10 +42,12 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
           - containerPort: 9091
+          - containerPort: 9093
           - containerPort: 9094
           - containerPort: 42422
           args:
-            - --configStoreURL=k8s://
+            - --configStoreURL=fs:///etc/opt/mixer/configroot
+            - --configStore2URL=k8s://
             - --configDefaultNamespace={{ .Release.Namespace }}
             - --zipkinURL=http://zipkin:9411/api/v1/spans
             - --logtostderr
@@ -64,7 +67,7 @@ spec:
           - "2"
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
-          - MUTUAL_TLSN
+          - MUTUAL_TLS
           - --customConfigFile
           - /etc/istio/proxy/envoy_mixer_auth.json
         {{- else }}
@@ -74,10 +77,6 @@ spec:
   {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -90,3 +89,7 @@ spec:
       - name: config-volume
         configMap:
           name: {{ template "mixer.fullname" . }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

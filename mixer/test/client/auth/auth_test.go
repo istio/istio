@@ -69,6 +69,7 @@ const checkAttributes = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -110,6 +111,7 @@ const reportAttributes = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -166,6 +168,7 @@ const FailedReportAttributes = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -191,10 +194,10 @@ const FailedReportAttributes = `
 `
 
 func TestJWTAuth(t *testing.T) {
-	s := env.NewTestSetupV2(env.JWTAuthTest, t)
+	s := env.NewTestSetup(env.JWTAuthTest, t)
 	// pubkey server is the same as backend server.
 	// Empty audiences.
-	env.AddJwtAuth(s.V2().HTTPServerConf, &mccpb.JWT{
+	env.AddJwtAuth(s.V2(), &mccpb.JWT{
 		Issuer:              JwtIssuer,
 		JwksUri:             fmt.Sprintf("http://localhost:%d/pubkey", s.Ports().BackendPort),
 		JwksUriEnvoyCluster: JwtCluster,

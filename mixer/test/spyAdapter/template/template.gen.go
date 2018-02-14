@@ -25,17 +25,19 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
 	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/apa"
+
+	"istio.io/istio/mixer/test/spyAdapter/template/check"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -348,7 +350,6 @@ var (
 								default:
 									return nil, false
 								}
-
 							}
 							return attrs.Get(name)
 						},
@@ -516,6 +517,168 @@ var (
 			},
 		},
 
+		samplecheck.TemplateName: {
+			Name:               samplecheck.TemplateName,
+			Impl:               "samplecheck",
+			CtrCfg:             &samplecheck.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  samplecheck.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: samplecheck.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(samplecheck.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(samplecheck.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+
+				var BuildTemplate func(param *samplecheck.InstanceParam,
+					path string) (*samplecheck.Type, error)
+
+				_ = BuildTemplate
+
+				BuildTemplate = func(param *samplecheck.InstanceParam,
+					path string) (*samplecheck.Type, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &samplecheck.Type{}
+
+					var err error = nil
+
+					if param.StringPrimitive != "" {
+						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"StringPrimitive", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_mixer_v1_config_descriptor.STRING)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				instParam := cp.(*samplecheck.InstanceParam)
+
+				return BuildTemplate(instParam, "")
+			},
+
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(samplecheck.HandlerBuilder)
+				castedTypes := make(map[string]*samplecheck.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*samplecheck.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetSampleCheckTypes(castedTypes)
+			},
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+
+				var BuildTemplate func(instName string,
+					param *samplecheck.InstanceParam, path string) (
+					*samplecheck.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *samplecheck.InstanceParam, path string) (
+					*samplecheck.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					var StringPrimitiveInterface interface{}
+					var StringPrimitive string
+					if param.StringPrimitive != "" {
+						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
+							StringPrimitive = StringPrimitiveInterface.(string)
+						}
+					}
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &samplecheck.Instance{
+
+						Name: instName,
+
+						StringPrimitive: StringPrimitive,
+					}, nil
+				}
+
+				instParam := inst.(*samplecheck.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+
+					return adapter.CheckResult{}, err
+
+				}
+				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
+
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*samplecheck.Instance)
+
+				// Invoke the handler.
+				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_samplecheck_Template(expb, param.(*samplecheck.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
+		},
+
 		samplereport.TemplateName: {
 			Name:               samplereport.TemplateName,
 			Impl:               "samplereport",
@@ -561,7 +724,7 @@ var (
 
 						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+fmt.Sprintf("%s[%s]", "Dimensions", k), err)
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
 						}
 					}
 
@@ -863,6 +1026,91 @@ func (b *builder_sampleapa_Template) build(
 		r.DoublePrimitive = vDouble
 
 	}
+
+	if b.bldStringPrimitive != nil {
+
+		vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
+		r.StringPrimitive = vString
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_samplecheck_Template struct {
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+} // builder_samplecheck_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_samplecheck_Template(
+	expb *compiled.ExpressionBuilder,
+	param *samplecheck.InstanceParam) (*builder_samplecheck_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_samplecheck_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	if param.StringPrimitive == "" {
+		b.bldStringPrimitive = nil
+	} else {
+		b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+		if err != nil {
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+			return nil, template.NewErrorPath("StringPrimitive", err)
+		}
+
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_samplecheck_Template) build(
+	attrs attribute.Bag) (*samplecheck.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &samplecheck.Instance{}
 
 	if b.bldStringPrimitive != nil {
 

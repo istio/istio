@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `statsd` adapter enables Istio to deliver metric data to a
+	[StatsD](https://github.com/etsy/statsd) monitoring backend.
+
 	It is generated from these files:
 		mixer/adapter/statsd/config/config.proto
 
@@ -70,6 +73,7 @@ func (Params_MetricInfo_Type) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorConfig, []int{0, 0, 0}
 }
 
+// Configuration format for the `statsd` adapter.
 type Params struct {
 	// Address of the statsd server, e.g. localhost:8125
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`

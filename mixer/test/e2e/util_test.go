@@ -111,12 +111,13 @@ func interfaceMap(m interface{}) map[interface{}]interface{} {
 }
 
 type testData struct {
-	name      string
-	cfg       string
-	behaviors []spyAdapter.AdapterBehavior
-	templates map[string]template.Info
-	attrs     map[string]interface{}
-	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
+	name                  string
+	cfg                   string
+	behaviors             []spyAdapter.AdapterBehavior
+	templates             map[string]template.Info
+	attrs                 map[string]interface{}
+	validate              func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
+	validateCheckResponse func(t *testing.T, response *istio_mixer_v1.CheckResponse, err error)
 }
 
 func closeHelper(c io.Closer) {

@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"e756760ea38065cfe42a7865c7e780f1060cab0a8b7a8448b57392172581f6ff","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"e30df2d2e39539e99b157bccd4b26fd5c62a4e290e36480b56af53d71a3507bf","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: hello
@@ -91,7 +91,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

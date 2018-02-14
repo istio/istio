@@ -4,6 +4,13 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `stdio` adapter enables Istio to output logs and metrics to
+	the local machine. Logs and metrics can be directed to Mixer's
+	standard output stream, standard error stream, or to any locally
+	reachable file. When outputting to files, you can enable file rotation
+	such that the adapter will automatically manage a set of file backups
+	as data is generated.
+
 	It is generated from these files:
 		mixer/adapter/stdio/config/config.proto
 
@@ -87,28 +94,30 @@ var Params_Level_value = map[string]int32{
 
 func (Params_Level) EnumDescriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 1} }
 
-// The stdio adapter makes it possible to capture log and metrics and output them to the Mixer process'
-// standard output or standard error stream, or to a specific file.
+// Configuration format for the `stdio` adapter
 type Params struct {
 	// Selects which standard stream to write to for log entries.
 	// STDERR is the default Stream.
 	LogStream Params_Stream `protobuf:"varint,1,opt,name=log_stream,json=logStream,proto3,enum=adapter.stdio.config.Params_Stream" json:"log_stream,omitempty"`
 	// Maps from severity strings as specified in LogEntry instances to
 	// the set of levels supported by this adapter. This defaults to a map of
-	//    "INFORMATIONAL" : INFO,
-	//    "informational" : INFO,
-	//    "INFO" : INFO,
-	//    "info" : INFO,
-	//    "WARNING" : WARNING,
-	//    "warning" : WARNING,
-	//    "WARN": WARNING,
-	//    "warning": WARNING,
-	//    "ERROR": ERROR,
-	//    "error": ERROR,
-	//    "ERR": ERROR,
-	//    "err": ERROR,
-	//    "FATAL": ERROR,
-	//    "fatal": ERROR,
+	//
+	// ```
+	// "INFORMATIONAL" : INFO,
+	// "informational" : INFO,
+	// "INFO" : INFO,
+	// "info" : INFO,
+	// "WARNING" : WARNING,
+	// "warning" : WARNING,
+	// "WARN": WARNING,
+	// "warning": WARNING,
+	// "ERROR": ERROR,
+	// "error": ERROR,
+	// "ERR": ERROR,
+	// "err": ERROR,
+	// "FATAL": ERROR,
+	// "fatal": ERROR,
+	// ```
 	SeverityLevels map[string]Params_Level `protobuf:"bytes,2,rep,name=severity_levels,json=severityLevels" json:"severity_levels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=adapter.stdio.config.Params_Level"`
 	// The level to assign to metrics being output. Defaults to INFO.
 	MetricLevel Params_Level `protobuf:"varint,3,opt,name=metric_level,json=metricLevel,proto3,enum=adapter.stdio.config.Params_Level" json:"metric_level,omitempty"`

@@ -21,12 +21,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
+	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
@@ -123,6 +124,9 @@ var defaultAttributeInfos = map[string]*istio_mixer_v1_config.AttributeManifest_
 	"adr": {
 		ValueType: pb.DURATION,
 	},
+	"ap1": {
+		ValueType: pb.IP_ADDRESS,
+	},
 	"generated.ai": {
 		ValueType: pb.INT64,
 	},
@@ -201,7 +205,7 @@ func TestCreateInstanceBuilder(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(actual, tst.expect) {
-				tt.Fatalf("Instance mismatch,\ngot =%+v\nwant=%+v", actual, tst.expect)
+				tt.Fatalf("Instance mismatch,\ngot =%+v\nwant=%+v", spew.Sdump(actual), spew.Sdump(tst.expect))
 			}
 		})
 	}
@@ -556,13 +560,14 @@ func generateCheckTests() []createInstanceTest {
 var defaultReportAttributes = map[string]interface{}{
 	"ats": time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
 	"adr": 10 * time.Second,
+	"ap1": []byte(net.ParseIP("2.3.4.5")),
 }
 
 // a default Report Instance Parameter. All of the fields can be calculated, given the values in the
 // default bag.
 var defaultReportInstanceParam = sample_report.InstanceParam{
 	Value:           "1",
-	Dimensions:      map[string]string{"s": "2"},
+	Dimensions:      map[string]string{"s": "2", "p": "ap1"},
 	BoolPrimitive:   "true",
 	DoublePrimitive: "1.2",
 	Int64Primitive:  "54362",
@@ -612,7 +617,7 @@ var defaultReportInstanceParam = sample_report.InstanceParam{
 var defaultReportInstance = &sample_report.Instance{
 	Name:            "instance1",
 	Value:           int64(1),
-	Dimensions:      map[string]interface{}{"s": int64(2)},
+	Dimensions:      map[string]interface{}{"s": int64(2), "p": net.ParseIP("2.3.4.5")},
 	BoolPrimitive:   true,
 	DoublePrimitive: 1.2,
 	Int64Primitive:  54362,
@@ -682,7 +687,7 @@ func generateReportTests() []createInstanceTest {
 	emptyFieldsParam := sample_report.InstanceParam{
 		// missing all fields
 		Res1: &sample_report.Res1InstanceParam{
-		// missing all fields
+			// missing all fields
 		},
 	}
 	t = createInstanceTest{

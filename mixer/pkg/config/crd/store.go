@@ -18,6 +18,7 @@ package crd
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const (
@@ -53,6 +55,11 @@ const (
 // The interval to wait between the attempt to initialize caches. This is not const
 // to allow changing the value for unittests.
 var retryInterval = time.Second / 2
+
+// When retrying happens on initializing caches, it shouldn't log the message for
+// every retry, it may flood the log messages if the initialization is never satisfied.
+// see also https://github.com/istio/istio/issues/3138
+const logPerRetries = 100
 
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
@@ -97,9 +104,12 @@ type Store struct {
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
+
+	*probe.Probe
 }
 
 var _ store.Backend = &Store{}
+var _ probe.SupportsProbe = &Store{}
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
 // and then create caches through lwBUilder which is in kinds. It retries within the timeout duration.
@@ -110,13 +120,13 @@ func (s *Store) checkAndCreateCaches(
 	timeout time.Duration,
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) (informers map[string]cache.SharedInformer, remaining []string) {
+	kinds []string) []string {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers = map[string]cache.SharedInformer{}
-	retry := false
+	informers := map[string]cache.SharedInformer{}
+	retryCount := 0
 	retryCtx := ctx
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -127,10 +137,17 @@ func (s *Store) checkAndCreateCaches(
 		if retryCtx.Err() != nil {
 			break
 		}
-		if retry {
-			log.Debug("Retrying to fetch config...")
+		if retryCount > 0 {
+			if retryCount%logPerRetries == 1 {
+				remainingKeys := make([]string, 0, len(kinds))
+				for k := range kindsSet {
+					remainingKeys = append(remainingKeys, k)
+				}
+				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
+			}
 			time.Sleep(retryInterval)
 		}
+		retryCount++
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
 			log.Debugf("Failed to obtain resources for CRD: %v", err)
@@ -153,13 +170,18 @@ func (s *Store) checkAndCreateCaches(
 			}
 		}
 		s.cacheMutex.Unlock()
-		retry = true
 	}
-	remaining = make([]string, 0, len(kindsSet))
+	<-waitForSynced(ctx, informers)
+	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	return informers, remaining
+	var err error
+	if len(remaining) > 0 {
+		err = fmt.Errorf("not yet ready: %+v", remaining)
+	}
+	s.SetAvailable(err)
+	return remaining
 }
 
 // Init implements store.StoreBackend interface.
@@ -173,12 +195,11 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	informers, remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
+	remainingKinds := s.checkAndCreateCaches(ctx, s.retryTimeout, d, lwBuilder, kinds)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
 		go s.checkAndCreateCaches(ctx, 0, d, lwBuilder, remainingKinds)
 	}
-	<-waitForSynced(ctx, informers)
 	return nil
 }
 

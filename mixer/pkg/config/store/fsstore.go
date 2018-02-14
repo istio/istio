@@ -30,6 +30,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const defaultDuration = time.Second / 2
@@ -64,6 +65,8 @@ type fsStore struct {
 	watchMutex sync.RWMutex
 	watchCtx   context.Context
 	watchCh    chan BackendEvent
+
+	*probe.Probe
 }
 
 var _ Backend = &fsStore{}
@@ -143,6 +146,7 @@ func (s *fsStore) readFiles() map[Key]*resource {
 	if err != nil {
 		log.Errorf("failure during filepath.Walk: %v", err)
 	}
+	s.SetAvailable(err)
 	return result
 }
 
@@ -194,6 +198,7 @@ func newFsStore(root string) Backend {
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
 		data:          map[Key]*resource{},
+		Probe:         probe.NewProbe(),
 	}
 }
 

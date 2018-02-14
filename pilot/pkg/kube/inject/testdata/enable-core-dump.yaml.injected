@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"584bd5b45df79592194900b189319226d5aaa9dcc549846859844b35ff19d718","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"25deea1217623062e710353911374f1ffeb8da83b918662b426fe87016d57dcd","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: hello
@@ -91,7 +91,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       - args:
         - -c
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c

@@ -78,6 +78,16 @@ const (
 	Router NodeType = "router"
 )
 
+// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
+func IsApplicationNodeType(nType NodeType) bool {
+	switch nType {
+	case Sidecar, Ingress, Router:
+		return true
+	default:
+		return false
+	}
+}
+
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
 func (node Node) ServiceNode() string {
 	return strings.Join([]string{
@@ -137,18 +147,32 @@ const (
 
 	// IngressKeyFilename is the ingress private key file name
 	IngressKeyFilename = "tls.key"
+
+	// ConfigPathDir config directory for storing envoy json config files.
+	// It also stores core files as per
+	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
+	ConfigPathDir = "/etc/istio/proxy"
+
+	// BinaryPathFilename envoy binary location
+	BinaryPathFilename = "/usr/local/bin/envoy"
+
+	// ServiceClusterName service cluster name used in xDS calls
+	ServiceClusterName = "istio-proxy"
+
+	// DiscoveryServerAddress discovery IP address:port
+	DiscoveryServerAddress = "istio-pilot:15003"
 )
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	return meshconfig.ProxyConfig{
-		ConfigPath:             "/etc/istio/proxy",
-		BinaryPath:             "/usr/local/bin/envoy",
-		ServiceCluster:         "istio-proxy",
+		ConfigPath:             ConfigPathDir,
+		BinaryPath:             BinaryPathFilename,
+		ServiceCluster:         ServiceClusterName,
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryAddress:       "istio-pilot:15003",
+		DiscoveryAddress:       DiscoveryServerAddress,
 		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
@@ -156,6 +180,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
+		Concurrency:            0,
 	}
 }
 
@@ -163,8 +188,10 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		EgressProxyAddress:    "",
+		// TODO(mixeraddress is deprecated. Remove)
 		MixerAddress:          "",
+		MixerCheckServer:      "",
+		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
@@ -203,6 +230,15 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
+
+	// Backward compat option: if mixer address is set but
+	// mixer_check_server and mixer_report_server are unset, copy the value
+	// into these two config vars.
+	if out.MixerAddress != "" && out.MixerCheckServer == "" && out.MixerReportServer == "" {
+		out.MixerCheckServer = out.MixerAddress
+		out.MixerReportServer = out.MixerAddress
+	}
+
 	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}

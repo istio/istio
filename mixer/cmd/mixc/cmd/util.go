@@ -65,10 +65,6 @@ func createAPIClient(port string, tracingOptions *tracing.Options) (*clientState
 }
 
 func deleteAPIClient(cs *clientState) {
-	// TODO: This is to compensate for this bug: https://github.com/grpc/grpc-go/issues/1059
-	//       Remove this delay once that bug is fixed.
-	time.Sleep(50 * time.Millisecond)
-
 	_ = cs.connection.Close()
 	cs.client = nil
 	cs.connection = nil

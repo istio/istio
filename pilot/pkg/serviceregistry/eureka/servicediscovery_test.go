@@ -92,12 +92,12 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.HostInstances(make(map[string]*model.Node))
+	hostInstances, err := sd.GetSidecarServiceInstances(model.Node{})
 	if err == nil {
-		t.Error("HostInstances() should return error")
+		t.Error("GetSidecarServiceInstances() should return error")
 	}
 	if hostInstances != nil {
-		t.Error("HostInstances() should return nil on error")
+		t.Error("GetSidecarServiceInstances() should return nil on error")
 	}
 }
 
@@ -139,7 +139,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 }
 
-func TestServiceDiscoveryHostInstances(t *testing.T) {
+func TestServiceDiscoveryGetSidecarServiceInstances(t *testing.T) {
 	cl := &mockClient{
 		apps: []*application{
 			{
@@ -157,15 +157,12 @@ func TestServiceDiscoveryHostInstances(t *testing.T) {
 	serviceA := makeService("a.default.svc.local", []int{9090, 8080}, nil)
 	serviceB := makeService("b.default.svc.local", []int{7070}, nil)
 
-	var svcNode model.Node
 	instanceTests := []struct {
-		addrs     map[string]*model.Node
+		node      model.Node
 		instances []*model.ServiceInstance
 	}{
 		{
-			addrs: map[string]*model.Node{
-				"10.0.0.1": &svcNode,
-			},
+			node: model.Node{IPAddress: "10.0.0.1"},
 			instances: []*model.ServiceInstance{
 				makeServiceInstance(serviceA, "10.0.0.1", 9090, nil),
 				makeServiceInstance(serviceB, "10.0.0.1", 7070, nil),
@@ -174,9 +171,9 @@ func TestServiceDiscoveryHostInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		instances, err := sd.HostInstances(tt.addrs)
+		instances, err := sd.GetSidecarServiceInstances(tt.node)
 		if err != nil {
-			t.Errorf("HostInstances() encountered unexpected error: %v", err)
+			t.Errorf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
 		}
 		sortServiceInstances(instances)
 		if err := compare(t, instances, tt.instances); err != nil {

@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/probe"
 )
 
 // The "retryTimeout" used by the test.
@@ -141,6 +142,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
 		},
+		Probe: probe.NewProbe(),
 	}
 	return client, ns, lw
 }

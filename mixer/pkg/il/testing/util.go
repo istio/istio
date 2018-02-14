@@ -15,14 +15,14 @@
 package ilt
 
 import (
-	"bytes"
+	"net"
 )
 
 // AreEqual checks for equality of given values. It handles comparison of []byte as a special case.
 func AreEqual(e interface{}, a interface{}) bool {
-	if eb, ok := e.([]byte); ok {
-		if ab, ok := a.([]byte); ok {
-			return bytes.Equal(ab, eb)
+	if eb, ok := e.(net.IP); ok {
+		if ab, ok := a.(net.IP); ok {
+			return ab.Equal(eb)
 		}
 
 		return false
