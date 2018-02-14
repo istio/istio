@@ -498,12 +498,19 @@ installgen:
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/eureka/istio.yaml \
+                install/kubernetes/addons/grafana.yaml \
+                install/kubernetes/addons/prometheus.yaml \
+                install/kubernetes/addons/servicegraph.yaml \
+                install/kubernetes/addons/zipkin-to-stackdriver.yaml \
+                install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-initializer.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml
