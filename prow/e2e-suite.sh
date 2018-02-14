@@ -19,6 +19,10 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables

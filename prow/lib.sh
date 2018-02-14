@@ -24,7 +24,7 @@ function setup_and_export_git_sha() {
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
     if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
       mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-      ROOT=${GOPATH}/src/istio.io/istio
+      export ROOT=${GOPATH}/src/istio.io/istio
       cd ${GOPATH}/src/istio.io/istio
     fi
 
