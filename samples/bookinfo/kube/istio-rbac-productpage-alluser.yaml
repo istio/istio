@@ -15,8 +15,7 @@ metadata:
   namespace: default
 spec:
   subjects:
-  - properties:
-      namespace: "istio-system"
+  - user: "*"
   roleRef:
     kind: ServiceRole
     name: "productpage-viewer"
