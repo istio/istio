@@ -15,11 +15,10 @@
 package helper
 
 import (
-	"fmt"
-
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.
@@ -38,11 +37,11 @@ func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 	return
 }
 
-// ToStringMap converts a map[string]interface{} to a map[string]string using fmt.Sprintf(%v)
+// ToStringMap converts a map[string]interface{} to a map[string]string
 func ToStringMap(in map[string]interface{}) map[string]string {
 	out := make(map[string]string, len(in))
 	for key, val := range in {
-		out[key] = fmt.Sprintf("%v", val)
+		out[key] = adapter.Stringify(val)
 	}
 	return out
 }

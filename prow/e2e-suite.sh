@@ -19,6 +19,10 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -30,31 +34,13 @@ TESTS_TARGETS="e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade"
 SINGLE_MODE=false
 E2E_ARGS=()
 
+source ${ROOT}/prow/lib.sh
+setup_and_export_git_sha
+
 if [ "${CI:-}" == 'bootstrap' ]; then
-  export USER=Prow
-
-  # Make sure we are in the right directory
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-    # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-    # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-    mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-    cd ${GOPATH}/src/istio.io/istio
-  fi
-
-  if [ -z "${PULL_PULL_SHA:-}" ]; then
-    GIT_SHA="${PULL_BASE_SHA}"
-  else
-    GIT_SHA="${PULL_PULL_SHA}"
-  fi
-
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
-else
-  # Use the current commit.
-  GIT_SHA=${GIT_SHA:-"$(git rev-parse --verify HEAD)"}
 fi
 
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)

@@ -337,7 +337,7 @@ func promValue(val interface{}) (float64, error) {
 func promLabels(l map[string]interface{}) prometheus.Labels {
 	labels := make(prometheus.Labels, len(l))
 	for i, label := range l {
-		labels[i] = fmt.Sprintf("%v", label)
+		labels[i] = adapter.Stringify(label)
 	}
 	return labels
 }

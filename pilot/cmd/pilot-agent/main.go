@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	role     model.Node
+	role     model.Proxy
 	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)

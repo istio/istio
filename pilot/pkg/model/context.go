@@ -47,8 +47,8 @@ type Environment struct {
 	MixerSAN []string
 }
 
-// Node defines the proxy attributes used by xDS identification
-type Node struct {
+// Proxy defines the proxy attributes used by xDS identification
+type Proxy struct {
 	// Type specifies the node type
 	Type NodeType
 
@@ -89,7 +89,7 @@ func IsApplicationNodeType(nType NodeType) bool {
 }
 
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
-func (node Node) ServiceNode() string {
+func (node Proxy) ServiceNode() string {
 	return strings.Join([]string{
 		string(node.Type), node.IPAddress, node.ID, node.Domain,
 	}, serviceNodeSeparator)
@@ -97,9 +97,9 @@ func (node Node) ServiceNode() string {
 }
 
 // ParseServiceNode is the inverse of service node function
-func ParseServiceNode(s string) (Node, error) {
+func ParseServiceNode(s string) (Proxy, error) {
 	parts := strings.Split(s, serviceNodeSeparator)
-	out := Node{}
+	out := Proxy{}
 
 	if len(parts) != 4 {
 		return out, fmt.Errorf("missing parts in the service node %q", s)

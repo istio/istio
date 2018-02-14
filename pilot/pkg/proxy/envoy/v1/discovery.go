@@ -581,7 +581,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	writeResponse(response, out)
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Node, error) {
+func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
 	nodeInfo := request.PathParameter(ServiceNode)
 	svcNode, err := model.ParseServiceNode(nodeInfo)
 	if err != nil {
@@ -600,17 +600,17 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	nodeInstances, err := ds.GetSidecarServiceInstances(svcNode)
+	proxyInstances, err := ds.GetProxyServiceInstances(svcNode)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	if len(nodeInstances) <= 0 {
+	if len(proxyInstances) <= 0 {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
 		return
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(nodeInstances[0].AvailabilityZone))
+	writeResponse(response, []byte(proxyInstances[0].AvailabilityZone))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
