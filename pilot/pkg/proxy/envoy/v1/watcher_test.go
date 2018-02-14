@@ -57,7 +57,7 @@ func TestRunReload(t *testing.T) {
 		},
 	}
 	config := model.DefaultProxyConfig()
-	node := model.Node{
+	node := model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}
@@ -176,7 +176,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 					called <- true
 				},
 			}
-			node := model.Node{
+			node := model.Proxy{
 				Type:      tt.nodeType,
 				ID:        "id",
 				Domain:    "domain",
