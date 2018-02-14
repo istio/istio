@@ -19,12 +19,12 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/zap"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-
-	"go.uber.org/zap"
 )
 
 func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
@@ -123,7 +123,6 @@ func tlsToSSLContext(tls *routing.Server_TLSOptions, protocol string) *SSLContex
 
 // buildGatewayHTTPRoutes creates HTTP route configs for a single external port on a gateway
 func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Node, listenerPort int) (*HTTPRouteConfig, error) {
-
 	gateways, err := configStore.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, err
@@ -163,9 +162,8 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Nod
 		}
 	}
 
-	return &HTTPRouteConfig{
-		VirtualHosts: virtualHosts,
-	}, nil
+	configs := (&HTTPRouteConfig{VirtualHosts: virtualHosts}).normalize()
+	return configs, nil
 }
 
 func buildDestinationHTTPRoutesForGatewayVirtualHost(

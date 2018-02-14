@@ -22,7 +22,6 @@ import (
 	tpb "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/pkg/log"
 )
 
@@ -36,10 +35,10 @@ type session struct {
 	start time.Time
 
 	// input parameters that was collected as part of the call.
-	ctx             context.Context
-	bag             attribute.Bag
-	quotaMethodArgs runtime.QuotaMethodArgs
-	responseBag     *attribute.MutableBag
+	ctx         context.Context
+	bag         attribute.Bag
+	quotaArgs   adapter.QuotaArgs
+	responseBag *attribute.MutableBag
 
 	// output parameters that gets collected / accumulated as result.
 	checkResult *adapter.CheckResult
@@ -76,7 +75,7 @@ func (s *session) clear() {
 	s.variety = 0
 	s.ctx = nil
 	s.bag = nil
-	s.quotaMethodArgs = runtime.QuotaMethodArgs{}
+	s.quotaArgs = adapter.QuotaArgs{}
 	s.responseBag = nil
 
 	s.start = time.Time{}
