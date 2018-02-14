@@ -101,7 +101,10 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		rateLimit = rateLimit
 	}
 	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
-	rateLimiter := flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10 * rateLimit)
+	var rateLimiter flowcontrol.RateLimiter
+	if rateLimit > 0 {
+		rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
+	}
 
 	var item Task
 	for {
