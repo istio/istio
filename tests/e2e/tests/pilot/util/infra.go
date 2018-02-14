@@ -329,12 +329,12 @@ func (infra *Infra) Setup() error {
 		}
 		// Create ingress key/cert in secret
 		var key []byte
-		key, err = ioutil.ReadFile("pilot/docker/certs/cert.key")
+		key, err = ioutil.ReadFile(infra.certDir + "cert.key")
 		if err != nil {
 			return err
 		}
 		var crt []byte
-		crt, err = ioutil.ReadFile("pilot/docker/certs/cert.crt")
+		crt, err = ioutil.ReadFile(infra.certDir + "cert.crt")
 		if err != nil {
 			return err
 		}
