@@ -41,4 +41,20 @@ On-call duty starts on Tuesday at noon PST, ends the following week on Tuesday a
 53 baseline / 22 current
 ```
 
+## Instructions for temporarily disabling required tests in github
+
+Note: You need admin permissions in Github to do this.
+
+If Prow/CircleCI is impacted by test failures affecting multiple PRs, or there are some test/infrastructure issues,
+you can disable that tests temporarily, but only after filing a kind/test-failure issue.
+This would make these tests as "not mandatory" to pass before a PR is merged.
+
+In istio/istio repo:
+* Go to Settings
+* Click branches (see settings-branches-master.png)
+* Click on the Edit button next to master
+* Scroll down to the section "Require status checks to pass before merging"
+* Uncheck the affected tests.
+
+
 
