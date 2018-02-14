@@ -172,6 +172,22 @@ func SetTCPReportInterval(v2 *mccpb.TcpClientConfig, reportInterval int64) {
 	}
 }
 
+// SetStatsUpdateInterval sets stats update interval for Mixer client filters in seconds.
+func SetStatsUpdateInterval(v2 *V2Conf, updateInterval int64) {
+	if v2.HTTPServerConf.Transport == nil {
+		v2.HTTPServerConf.Transport = &mccpb.TransportConfig{}
+	}
+	v2.HTTPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+		Seconds: updateInterval,
+	}
+	if v2.TCPServerConf.Transport == nil {
+		v2.TCPServerConf.Transport = &mccpb.TransportConfig{}
+	}
+	v2.TCPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+		Seconds: updateInterval,
+	}
+}
+
 // SetDefaultServiceConfigMap set the default service config to the service config map
 func SetDefaultServiceConfigMap(v2 *V2Conf) {
 	service := ":default"

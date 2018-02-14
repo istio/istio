@@ -60,9 +60,22 @@ const finalReportAttributesOkPost = `
 }
 `
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"tcp_mixer_filter.total_blocking_remote_check_calls": 1,
+	"tcp_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"tcp_mixer_filter.total_check_calls":                 1,
+	"tcp_mixer_filter.total_quota_calls":                 0,
+	"tcp_mixer_filter.total_remote_check_calls":          1,
+	"tcp_mixer_filter.total_remote_quota_calls":          0,
+	"tcp_mixer_filter.total_remote_report_calls":         1,
+	"tcp_mixer_filter.total_report_calls":                2,
+}
+
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
 	env.SetTCPReportInterval(s.V2().TCPServerConf, 2)
+	env.SetStatsUpdateInterval(s.V2(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -80,4 +93,11 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 
 	s.VerifyReport("deltaReport", deltaReportAttributesOkPost)
 	s.VerifyReport("finalReport", finalReportAttributesOkPost)
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }
