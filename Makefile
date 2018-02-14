@@ -70,7 +70,7 @@ endif
 # Output control
 #-----------------------------------------------------------------------------
 # Invoke make VERBOSE=1 to enable echoing of the command being executed
-VERBOSE ?= 0
+export VERBOSE ?= 0
 # Place the variable Q in front of a command to control echoing of the command being executed.
 Q = $(if $(filter 1,$VERBOSE),,@)
 # Use the variable H to add a header (equivalent to =>) to informational output
