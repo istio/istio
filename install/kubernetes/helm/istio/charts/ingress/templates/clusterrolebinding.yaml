@@ -14,6 +14,6 @@ roleRef:
   name: {{ template "istio.fullname" . }}
 subjects:
   - kind: ServiceAccount
-    name: {{ template "istio.fullname" . }}
+    name: {{ template "istio.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
