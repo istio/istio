@@ -38,7 +38,7 @@ func TestDisableCheckCache(t *testing.T) {
 	env.SetStatsUpdateInterval(s.V2(), 1)
 
 	// Disable check cache.
-	env.DisableClientCache(s.V2().HTTPServerConf, true, false, false)
+	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, false, false)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

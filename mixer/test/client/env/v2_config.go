@@ -113,8 +113,18 @@ func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
 	}
 }
 
-// DisableClientCache disable client cache
-func DisableClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+// DisableHTTPClientCache disable HTTP client cache
+func DisableHTTPClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+	if v2.Transport == nil {
+		v2.Transport = &mccpb.TransportConfig{}
+	}
+	v2.Transport.DisableCheckCache = checkCache
+	v2.Transport.DisableQuotaCache = quotaCache
+	v2.Transport.DisableReportBatch = reportBatch
+}
+
+// DisableTCPClientCache disable TCP client cache
+func DisableTCPClientCache(v2 *mccpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
 	if v2.Transport == nil {
 		v2.Transport = &mccpb.TransportConfig{}
 	}

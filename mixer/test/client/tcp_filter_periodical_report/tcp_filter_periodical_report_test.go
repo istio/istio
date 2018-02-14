@@ -68,7 +68,7 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_quota_calls":                 0,
 	"tcp_mixer_filter.total_remote_check_calls":          1,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
-	"tcp_mixer_filter.total_remote_report_calls":         1,
+	"tcp_mixer_filter.total_remote_report_calls":         2,
 	"tcp_mixer_filter.total_report_calls":                2,
 }
 
@@ -76,6 +76,8 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
 	env.SetTCPReportInterval(s.V2().TCPServerConf, 2)
 	env.SetStatsUpdateInterval(s.V2(), 1)
+	// Disable check cache.
+	env.DisableTCPClientCache(s.V2().TCPServerConf, true, true, true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
