@@ -17,6 +17,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
+  - [Building and pushing a specific container](#building-and-pushing-a-container)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
@@ -234,6 +235,38 @@ Push the containers to your registry:
 
 ```shell
 make push
+```
+
+### Building and pushing a specific container.
+
+If you want to make a local change and test some component, say istio-ca, you
+could do:
+
+Under istio/istio repo
+
+```shell
+pwd
+```
+The path should be
+
+```shell
+.../istio.io/istio
+```
+
+Set up environment variables HUB and TAG by
+```shell
+export HUB=gcr.io/testing
+export TAG=istio-ca
+```
+
+Make some local change of CA code, then build istio-ca
+```shell
+make docker.istio-ca
+```
+
+Push docker image
+```shell
+make push.docker.istio-ca
 ```
 
 ### Building the Istio manifests
