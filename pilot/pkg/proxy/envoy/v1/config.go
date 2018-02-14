@@ -354,7 +354,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 	}
 
 	if httpConfigs[port] == nil {
-		httpConfigs[port] = &HTTPRouteConfig{VirtualHosts: []*VirtualHost{}}
+		httpConfigs[port] = &HTTPRouteConfig{ValidateClusters: true, VirtualHosts: []*VirtualHost{}}
 	}
 	return httpConfigs[port], nil
 }
@@ -862,7 +862,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 			host.Routes = append(host.Routes, defaultRoute)
 
-			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
+			routeConfig := &HTTPRouteConfig{ValidateClusters: true, VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				proxy:            node,
