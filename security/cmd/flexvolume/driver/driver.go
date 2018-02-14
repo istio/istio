@@ -390,7 +390,7 @@ func getCredFile(uid string) string {
 func addCredentialFile(ninputs *pb.WorkloadInfo) error {
 	//Make the directory and then write the ninputs as json to it.
 	var err error
-	err = os.MkdirAll(configuration.NodeAgentCredentialsHomeDir, 755)
+	err = os.MkdirAll(configuration.NodeAgentCredentialsHomeDir, 0755)
 	if err != nil {
 		return err
 	}
