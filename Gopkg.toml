@@ -24,6 +24,10 @@
 # This repo includes only istio-generated files.
 
 ### BEGIN Mixer codegen deps
+[prune]
+  unused-packages = true
+  go-tests = true
+  non-go = true
 
 required = [
   "github.com/gogo/protobuf/proto",
@@ -143,10 +147,6 @@ required = [
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/istio/tools"
 
 [[constraint]]
   name = "github.com/openshift/api"
