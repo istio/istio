@@ -19,14 +19,20 @@ function setup_and_export_git_sha() {
     # Handle prow environment and checkout
     export USER=Prow
 
+    # Make sure we are in the right directory
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-    mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-    ROOT=${GOPATH}/src/istio.io/istio
-    cd ${GOPATH}/src/istio.io/istio
+    if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
+      mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+      ROOT=${GOPATH}/src/istio.io/istio
+      cd ${GOPATH}/src/istio.io/istio
+    fi
 
-    # Use the provided pull head sha, from prow.
-    export GIT_SHA="${PULL_PULL_SHA}"
+    if [ -z "${PULL_PULL_SHA:-}" ]; then
+      export GIT_SHA="${PULL_BASE_SHA}"
+    else
+      export GIT_SHA="${PULL_PULL_SHA}"
+    fi
 
     # Use volume mount from pilot-presubmit job's pod spec.
     export KUBECONFIG="${HOME}/.kube/config"
