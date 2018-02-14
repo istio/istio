@@ -96,10 +96,9 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	rateLimit := 0
 	if len(rate) > 0 {
 		r, err := strconv.Atoi(rate)
-		if err != nil {
-			rateLimit = 0
+		if err == nil {
+			rateLimit = r
 		}
-		rateLimit = r
 	}
 	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
 	var rateLimiter flowcontrol.RateLimiter
