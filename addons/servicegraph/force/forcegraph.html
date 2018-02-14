@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<head>
+  <title>Istio Service Graph</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="forcegraph.css">
+</head>
+<body>
+  <div id="title" class="float">
+    <h2>Istio Service Graph</h2>
+    Click on a service for traffic information
+  </div>
+  <div id="total">
+    <div id="graph"></div>
+    <div id="info"></div>
+  </div>
+  <script id="info-template" type="text/x-handlebars-template">
+    <a onclick="hideInfo()">Close</a>
+
+    <h2>{{name}}</h2>
+    <div id="incoming" class="conn-table"><table>
+      <tr>
+        <th>Incoming Connections</th>
+        <th>Reqs/sec</th>
+      </tr>
+      {{#each incoming}}
+      <tr>
+        <td>{{this.source}}</td>
+        <td>{{this.ops}}</td>
+      </tr>
+      {{/each}}
+    </table></div>
+
+    <div id="outgoing" class="conn-table"><table>
+      <tr>
+        <th>Outgoing Connections</th>
+        <th>Reqs/sec</th>
+      </tr>
+      {{#each outgoing}}
+      <tr>
+        <td>{{this.destination}}</td>
+        <td>{{this.ops}}</td>
+      </tr>
+      {{/each}}
+    </table></div>
+  </script>
+  <script src="/js/d3/d3.v4.min.js"></script>
+  <script src="/js/cola/cola.min.js"></script>
+  <script src="/js/handlebars/handlebars.min.js"></script>
+  <script src="forcegraph.js"></script>
+</body>
