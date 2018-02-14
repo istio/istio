@@ -65,16 +65,10 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
-	requestedIDs, err := util.ExtractIDs(csr.Extensions)
+	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
-	}
-
-	err = s.authorizer.authorize(caller, requestedIDs)
-	if err != nil {
-		log.Warnf("request is not authorized (%v)", err)
-		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
 	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, request.ForCA)

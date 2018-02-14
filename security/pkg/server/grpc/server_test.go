@@ -105,15 +105,6 @@ func TestSign(t *testing.T) {
 			authorizer: &mockAuthorizer{},
 			ca:         &mockCA{errMsg: "cannot sign"},
 		},
-		"Unauthorized request": {
-			authenticators: []authenticator{&mockAuthenticator{}},
-			authorizer: &mockAuthorizer{
-				errMsg: "not authorized",
-			},
-			csr:  csr,
-			code: codes.PermissionDenied,
-			ca:   &mockCA{errMsg: "cannot sign"},
-		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
