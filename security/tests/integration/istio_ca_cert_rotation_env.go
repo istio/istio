@@ -28,6 +28,7 @@ type (
 	CertRotationTestEnv struct {
 		framework.TestEnv
 		name      string
+		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
 		NameSpace string
 		Hub       string
@@ -71,21 +72,24 @@ func (env *CertRotationTestEnv) GetName() string {
 // It defines what components a environment contains.
 // Components will be stored in framework for start and stop
 func (env *CertRotationTestEnv) GetComponents() []framework.Component {
-	return []framework.Component{
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			istioCaSelfSignedShortTTL,
-			fmt.Sprintf("%s/istio-ca:%s", env.Hub, env.Tag),
-			[]string{
-				"/usr/local/bin/istio_ca",
-			},
-			[]string{
-				"--self-signed-ca",
-				"--workload-cert-ttl", "60s",
-			},
-		),
+	if env.comps == nil {
+		env.comps = []framework.Component{
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				istioCaSelfSignedShortTTL,
+				fmt.Sprintf("%s/istio-ca:%s", env.Hub, env.Tag),
+				[]string{
+					"/usr/local/bin/istio_ca",
+				},
+				[]string{
+					"--self-signed-ca",
+					"--workload-cert-ttl", "60s",
+				},
+			),
+		}
 	}
+	return env.comps
 }
 
 // Bringup doing general setup for environment level, not components.
