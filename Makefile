@@ -122,8 +122,8 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
+DEP    := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -303,7 +303,7 @@ istio-ca:
 
 .PHONY: node-agent
 node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node-agent
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -361,7 +361,6 @@ $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
-	go build -o ${ISTIO_OUT}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure

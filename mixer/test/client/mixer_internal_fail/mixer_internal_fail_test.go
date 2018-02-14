@@ -24,7 +24,7 @@ import (
 
 // Mixer server returns INTERNAL failure.
 func TestMixerInternalFail(t *testing.T) {
-	s := env.NewTestSetup(env.MixerInternalFailTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.MixerInternalFailTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -37,39 +37,12 @@ func TestMixerInternalFail(t *testing.T) {
 		Code: int32(rpc.INTERNAL),
 	})
 
-	tag := "Fail-Open-v1"
+	tag := "Fail-Open"
 	code, _, err := env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	// Since fail_open policy by default, expect 200.
-	if code != 200 {
-		t.Errorf("Status code 200 is expected, got %d.", code)
-	}
-
-	s.SetConf(env.BasicConfig + "," + env.NetworkFailClose)
-	s.ReStartEnvoy()
-
-	tag = "Fail-Close-V1"
-	// Use fail close policy.
-	code, _, err = env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	// Since fail_close policy, expect 500.
-	if code != 500 {
-		t.Errorf("Status code 500 is expected, got %d.", code)
-	}
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	tag = "Fail-Open"
-	// Default is fail open policy.
-	code, _, err = env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
 	if code != 200 {
 		t.Errorf("Status code 200 is expected, got %d.", code)
 	}
