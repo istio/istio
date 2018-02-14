@@ -63,6 +63,10 @@ required = [
   name = "k8s.io/api"
   branch = "release-1.9"
 
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  version = "v9.10.0"
+
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
   branch = "release-1.9"

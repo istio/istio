@@ -205,14 +205,15 @@ ${GOLINT}:
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
 
-depend.status: Gopkg.lock
+# Generates the current status of the dependencies. Does not update the deps.
+depend.status:
 	$(Q) ${DEP} status > vendor/dep.txt
 	$(Q) ${DEP} status -dot > vendor/dep.dot
 
-# Requires 'graphviz' package. Run as user
-depend.view: depend.status
+# Visualize the dep status, using 'graphviz' package. Run as user
+depend.view:
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.pkg
+	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -289,7 +290,7 @@ $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -308,8 +309,8 @@ node-agent:
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca
-multicluster_ca:
+.PHONY: multicluster_ca node_agent istio_ca
+multicluster_ca node_agent istio_ca:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
