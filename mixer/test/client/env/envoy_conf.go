@@ -40,64 +40,6 @@ type confParam struct {
 	FaultFilter     string
 }
 
-// BasicConfig is a config with basic mixer filter config.
-const BasicConfig = `
-                  "mixer_attributes": {
-		      "mesh1.ip": "1.1.1.1",
-                      "target.uid": "POD222",
-                      "target.namespace": "XYZ222"
-                  }
-`
-
-// QuotaConfig is a quota config without cache
-const QuotaConfig = `
-                  "quota_name": "RequestCount",
-                  "quota_amount": "5"
-`
-
-// QuotaCacheConfig is a quota cache is on by default
-const QuotaCacheConfig = `
-                  "quota_name": "RequestCount"
-`
-
-// DisableTCPCheckCalls is a config to disable all check calls for TCP proxy
-const DisableTCPCheckCalls = `
-                  "disable_tcp_check_calls": true
-`
-
-// DisableCheckCache is a config to disable check cache
-const DisableCheckCache = `
-                  "disable_check_cache": true
-`
-
-// DisableQuotaCache is a config to disable quota cache
-const DisableQuotaCache = `
-                  "disable_quota_cache": true
-`
-
-// DisableReportBatch is a config to disable report batch
-const DisableReportBatch = `
-                  "disable_report_batch": true
-`
-
-// NetworkFailClose is a config with network fail close policy
-const NetworkFailClose = `
-                  "network_fail_policy": "close"
-`
-
-// The default client proxy mixer config
-const defaultClientMixerConfig = `
-                   "forward_attributes": {
-		      "mesh3.ip": "1::8",
-                      "source.uid": "POD11",
-                      "source.namespace": "XYZ11"
-                   }
-`
-
-const defaultMixerRouteFlags = `
-                   "mixer_control": "on",
-`
-
 const allAbortFaultFilter = `
                {
                    "type": "decoder",
@@ -137,10 +79,6 @@ const envoyConfTempl = `
                       "cluster": "service1",
                       "opaque_config": {
 {{.MixerRouteFlags}}
-                        "mixer_forward": "off",
-			"mixer_attributes.mesh2.ip": "::ffff:204.152.189.116",
-                        "mixer_attributes.target.user": "target-user",
-                        "mixer_attributes.target.name": "target-name"
                       }
                     }
                   ]
@@ -192,8 +130,6 @@ const envoyConfTempl = `
                       "prefix": "/",
                       "cluster": "service2",
                       "opaque_config": {
-                        "mixer_forward_attributes.source.user": "source-user",
-                        "mixer_forward_attributes.source.name": "source-name"
                       }
                     }
                   ]
@@ -318,28 +254,22 @@ func (c *confParam) write(path string) error {
 	return tmpl.Execute(f, *c)
 }
 
-func getConf(ports *Ports) confParam {
-	return confParam{
-		ClientPort:   ports.ClientProxyPort,
-		ServerPort:   ports.ServerProxyPort,
-		TCPProxyPort: ports.TCPProxyPort,
-		AdminPort:    ports.AdminPort,
-		MixerServer:  fmt.Sprintf("localhost:%d", ports.MixerPort),
-		Backend:      fmt.Sprintf("localhost:%d", ports.BackendPort),
-		ClientConfig: defaultClientMixerConfig,
-		AccessLog:    "/dev/stdout",
-	}
-}
-
 // CreateEnvoyConf create envoy config.
-func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
-	c := getConf(ports)
-	c.ServerConfig = conf
-	c.TCPServerConfig = conf
-	c.MixerRouteFlags = defaultMixerRouteFlags
-	if flags != "" {
-		c.MixerRouteFlags = flags
+func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
+	c := &confParam{
+		ClientPort:      ports.ClientProxyPort,
+		ServerPort:      ports.ServerProxyPort,
+		TCPProxyPort:    ports.TCPProxyPort,
+		AdminPort:       ports.AdminPort,
+		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
+		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
+		AccessLog:       "/dev/stdout",
+		ServerConfig:    getV2Config(v2.HTTPServerConf),
+		ClientConfig:    getV2Config(v2.HTTPClientConf),
+		TCPServerConfig: getV2Config(v2.TCPServerConf),
+		MixerRouteFlags: getPerRouteConfig(v2.PerRouteConf),
 	}
+
 	if stress {
 		c.AccessLog = "/dev/null"
 	}
@@ -347,12 +277,6 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2C
 		c.FaultFilter = allAbortFaultFilter
 	}
 
-	if v2 != nil {
-		c.ServerConfig = getV2Config(v2.HTTPServerConf)
-		c.ClientConfig = getV2Config(v2.HTTPClientConf)
-		c.TCPServerConfig = getV2Config(v2.TCPServerConf)
-		c.MixerRouteFlags = getPerRouteConfig(v2.PerRouteConf)
-	}
 	return c.write(path)
 }
 
@@ -373,6 +297,6 @@ func getPerRouteConfig(cfg proto.Message) string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("\"mixer_sha\": \"id111\", \"mixer\": \"%v\",",
+	return fmt.Sprintf("\"mixer_sha\": \"id111\", \"mixer\": \"%v\"",
 		base64.StdEncoding.EncodeToString([]byte(str)))
 }

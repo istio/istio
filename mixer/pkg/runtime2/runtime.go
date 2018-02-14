@@ -31,7 +31,10 @@ import (
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
+
+var errNotListening = errors.New("runtime is not listening to the store")
 
 // Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler
 // instances, creates the dispatch machinery and handles incoming requests.
@@ -54,6 +57,8 @@ type Runtime struct {
 
 	handlerPool *pool.GoroutinePool
 
+	*probe.Probe
+
 	stateLock            sync.Mutex
 	shutdown             chan struct{}
 	waitQuiesceListening sync.WaitGroup
@@ -70,7 +75,7 @@ func New(
 	handlerPool *pool.GoroutinePool,
 	enableTracing bool) *Runtime {
 
-	runtime := &Runtime{
+	rt := &Runtime{
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
 		ephemeral:              config.NewEphemeral(templates, adapters),
@@ -78,14 +83,16 @@ func New(
 		handlers:               handler.Empty(),
 		dispatcher:             dispatcher.New(identityAttribute, executorPool, enableTracing),
 		handlerPool:            handlerPool,
-
-		store: s,
+		Probe:                  probe.NewProbe(),
+		store:                  s,
 	}
 
 	// Make sure we have a stable state.
-	runtime.processNewConfig()
+	rt.processNewConfig()
 
-	return runtime
+	rt.Probe.SetAvailable(errNotListening)
+
+	return rt
 }
 
 // Dispatcher returns the runtime.Dispatcher that is implemented by this runtime package.
@@ -120,6 +127,8 @@ func (c *Runtime) StartListening() error {
 		c.waitQuiesceListening.Done()
 	}()
 
+	c.Probe.SetAvailable(nil)
+
 	return nil
 }
 
@@ -133,6 +142,8 @@ func (c *Runtime) StopListening() {
 		c.shutdown <- struct{}{}
 		c.shutdown = nil
 		c.waitQuiesceListening.Wait()
+
+		c.Probe.SetAvailable(errNotListening)
 	}
 }
 

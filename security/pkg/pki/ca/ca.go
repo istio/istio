@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -134,6 +135,38 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	}
 
 	return opts, nil
+}
+
+// NewIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+func NewIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+	certTTL, maxCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
+	}
+	if certChainFile != "" {
+		if certChainBytes, err := ioutil.ReadFile(certChainFile); err == nil {
+			caOpts.CertChainBytes = certChainBytes
+		} else {
+			return nil, err
+		}
+	}
+	if signingCertBytes, err := ioutil.ReadFile(signingCertFile); err == nil {
+		caOpts.SigningCertBytes = signingCertBytes
+	} else {
+		return nil, err
+	}
+	if signingKeyBytes, err := ioutil.ReadFile(signingKeyFile); err == nil {
+		caOpts.SigningKeyBytes = signingKeyBytes
+	} else {
+		return nil, err
+	}
+	if rootCertBytes, err := ioutil.ReadFile(rootCertFile); err == nil {
+		caOpts.RootCertBytes = rootCertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
 }
 
 // NewIstioCA returns a new IstioCA instance.

@@ -23,7 +23,7 @@ import (
 )
 
 func TestCheckCache(t *testing.T) {
-	s := env.NewTestSetupV2(env.CheckCacheTest, t)
+	s := env.NewTestSetup(env.CheckCacheTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
