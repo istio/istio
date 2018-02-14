@@ -89,7 +89,7 @@ spec:
       containers:
       - name: discovery
         image: {{ .Values.istioHub }}/pilot:{{ .Values.istioTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
         ports:
         - containerPort: 8080
@@ -105,12 +105,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_THROTTLE
+          value: "-2"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
       - name: istio-proxy
         image: {{ .Values.istioHub }}/{{ .Values.proxyImage }}:{{ .Values.istioTag }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 15003
         args:
