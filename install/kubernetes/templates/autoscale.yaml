@@ -1,0 +1,59 @@
+{{- if .Values.autoscale }}
+{{/*
+# Istio CA not tested yet with multiple replicas, may need code for master election.
+
+ */}}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-mixer
+    namespace: istio-system
+spec:
+    maxReplicas: 8
+    minReplicas: 2
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-mixer
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 60
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-pilot
+    namespace: istio-system
+spec:
+    maxReplicas: 4
+    minReplicas: 2
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-pilot
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 60
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-ingress
+    namespace: istio-system
+spec:
+    maxReplicas: 4
+    minReplicas: 2
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-ingress
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 60
+{{ end }}

@@ -33,7 +33,7 @@ spec:
   - port: 8080
     name: http-pilot-insecure
   # TODO: add http mixer once it has 2 ports
-{{  end -}}
+{{  end }}
   # Additional manually/custom configured ports for services exposed using zero vpn.
   # For each service add a port here.
 {{- range $app := .Values.zvpn.apps }}

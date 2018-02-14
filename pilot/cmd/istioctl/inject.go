@@ -244,6 +244,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 				sidecarTemplate = config.Template
+				fmt.Println(string(sidecarTemplate))
 			}
 
 			if emitTemplate {
