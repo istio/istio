@@ -19,11 +19,6 @@
       }
      }
     ],
-    "access_log": [
-       {
-         "path": "/dev/stdout"
-       }
-     ],
     "bind_to_port": true
    }
   ],

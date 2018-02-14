@@ -19,11 +19,6 @@
       }
      }
     ],
-    "access_log": [
-       {
-         "path": "/dev/stdout"
-       }
-    ],
     "ssl_context": {
      "cert_chain_file": "/etc/certs/cert-chain.pem",
      "private_key_file": "/etc/certs/key.pem",
