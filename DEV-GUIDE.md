@@ -250,12 +250,12 @@ pwd
 The path should be
 
 ```shell
-.../istio.io/istio
+.../src/istio.io/istio
 ```
 
 Set up environment variables HUB and TAG by
 ```shell
-export HUB=gcr.io/testing
+export HUB=docker.io/yourrepo
 export TAG=istio-ca
 ```
 
