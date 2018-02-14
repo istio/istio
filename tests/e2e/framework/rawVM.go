@@ -168,6 +168,9 @@ func (vm *GCPRawVM) Setup() error {
 	if _, err := u.Shell("cat istio.VERSION"); err != nil {
 		return err
 	}
+	if err := setFirewallRuleToAllowAccessToVM(); err != nil {
+		return err
+	}
 	return vm.setupMeshEx("machineSetup", vm.Name)
 }
 
@@ -205,13 +208,8 @@ func (vm *GCPRawVM) provision() error {
 	if _, err := u.Shell(createVMcmd); err != nil {
 		return err
 	}
-	// create firewall rule that allow access to VM
-	if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
-		if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
-		 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
-		 	--source-ranges 0.0.0.0/0`); err != nil {
-			return err
-		}
+	if err := setFirewallRuleToAllowAccessToVM(); err != nil {
+		return err
 	}
 	// wait until VM is up and ready
 	isVMLive := func() (bool, error) {
@@ -246,6 +244,17 @@ func (vm *GCPRawVM) prepareCluster() error {
 		"istio-system": vm.Namespace,
 	}
 	return replaceKVInYamlThenKubectlApply(mashExpansionYaml, kv)
+}
+
+func setFirewallRuleToAllowAccessToVM() error {
+	if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
+		if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
+		 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
+		 	--source-ranges 0.0.0.0/0`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func replaceKVInYamlThenKubectlApply(yamlPath string, kv map[string]string) error {
