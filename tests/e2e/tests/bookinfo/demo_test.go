@@ -36,24 +36,25 @@ import (
 )
 
 const (
-	u1                                 = "normal-user"
-	u2                                 = "test-user"
-	bookinfoYaml                       = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml              = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml           = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml                     = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml                  = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	bookinfoDetailsExternalServiceYaml = "samples/bookinfo/kube/bookinfo-details-v2.yaml"
-	modelDir                           = "tests/apps/bookinfo/output"
-	rulesDir                           = "samples/bookinfo/kube"
-	allRule                            = "route-rule-all-v1.yaml"
-	delayRule                          = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
-	testRule                           = "route-rule-reviews-test-v2.yaml"
-	testDbRule                         = "route-rule-ratings-db.yaml"
-	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
+	u1 = "normal-user"
+	u2 = "test-user"
+
+	modelDir                         = "tests/apps/bookinfo/output"
+	allRule                          = "route-rule-all-v1.yaml"
+	delayRule                        = "route-rule-ratings-test-delay.yaml"
+	fiftyRule                        = "route-rule-reviews-50-v3.yaml"
+	testRule                         = "route-rule-reviews-test-v2.yaml"
+	testDbRule                       = "route-rule-ratings-db.yaml"
+	testMysqlRule                    = "route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule  = "route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule = "egress-rule-google-apis.yaml"
+
+	bookinfoYaml                       = "bookinfo.yaml"
+	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml                     = "bookinfo-db.yaml"
+	bookinfoMysqlYaml                  = "bookinfo-mysql.yaml"
+	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2.yaml"
 )
 
 var (
@@ -91,28 +92,18 @@ func closeResponseBody(r *http.Response) {
 }
 
 func (t *testConfig) Setup() error {
-	t.gateway = "http://" + tc.Kube.Ingress
+	//t.gateway = "http://" + tc.Kube.Ingress
+	t.gateway = "http://" + t.CommonConfig.Env.GetGateway()
+
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
-		ori, err := ioutil.ReadFile(src)
-		if err != nil {
-			log.Errorf("Failed to read original rule file %s", src)
+		if err := t.CommonConfig.Env.GenerateRule(rule, t.rulesDir, u2); err != nil {
 			return err
 		}
-		content := string(ori)
-		content = strings.Replace(content, "jason", u2, -1)
-		err = ioutil.WriteFile(dest, []byte(content), 0600)
-		if err != nil {
-			log.Errorf("Failed to write into new rule file %s", dest)
-			return err
-		}
-
 	}
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !t.CommonConfig.Env.CheckRunning() {
 		return fmt.Errorf("can't get all pods running")
 	}
 
@@ -247,23 +238,23 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 }
 
 func deleteRules(ruleKeys []string) error {
-	var err error
+	var errs error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
-			err = multierror.Append(err, e)
+		if e := tc.CommonConfig.Env.AddRule(rule); e != nil {
+			errs = multierror.Append(errs, e)
 		}
 	}
 	log.Info("Waiting for rule to be cleaned up...")
 	time.Sleep(time.Duration(30) * time.Second)
-	return err
+	return errs
 }
 
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
+
+		if err := tc.CommonConfig.Env.AddRule(rule); err != nil {
 			return err
 		}
 	}
@@ -398,28 +389,13 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
-		KubeInject: true,
-	},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoDetailsExternalServiceYaml),
-			KubeInject: true,
-		},
-	}
-	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
-	}
+
+	tc.CommonConfig.Env.AddApp(bookinfoYaml)
+	tc.CommonConfig.Env.AddApp(bookinfoRatingsv2Yaml)
+	tc.CommonConfig.Env.AddApp(bookinfoRatingsMysqlYaml)
+	tc.CommonConfig.Env.AddApp(bookinfoDbYaml)
+	tc.CommonConfig.Env.AddApp(bookinfoMysqlYaml)
+	tc.CommonConfig.Env.AddApp(bookinfoDetailsExternalServiceYaml)
 	return nil
 }
 
