@@ -26,6 +26,7 @@ import (
 var (
 	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	PortHTTPName   = "http"
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -84,7 +85,7 @@ func MakeService(hostname, address string) *model.Service {
 		Address:  address,
 		Ports: []*model.Port{
 			{
-				Name:                 "http",
+				Name:                 PortHTTPName,
 				Port:                 80, // target port 80
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
@@ -165,6 +166,18 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 		Labels:           map[string]string{"version": fmt.Sprintf("v%d", version)},
 		AvailabilityZone: az,
 	}
+}
+
+// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
+// a port does not exist (should not happenen if service is create via
+// mock MakeSericve)
+func GetPortHTTP(service *model.Service) *model.Port {
+	for _, port := range service.Ports {
+		if port.Name == PortHTTPName {
+			return port
+		}
+	}
+	return nil
 }
 
 // MakeIP creates a fake IP address for a service and instance version

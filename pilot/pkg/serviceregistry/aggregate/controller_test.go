@@ -241,7 +241,7 @@ func TestInstances(t *testing.T) {
 
 	// Get Instances from mockAdapter1
 	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHttpName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -253,14 +253,14 @@ func TestInstances(t *testing.T) {
 		if instance.Service.Hostname != mock.HelloService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHttpName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
 
 	// Get Instances from mockAdapter2
 	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHttpName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -272,7 +272,7 @@ func TestInstances(t *testing.T) {
 		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHttpName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
@@ -285,7 +285,7 @@ func TestInstancesError(t *testing.T) {
 
 	// Get Instances from client with error
 	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHttpName},
 		model.LabelsCollection{})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
@@ -297,7 +297,7 @@ func TestInstancesError(t *testing.T) {
 
 	// Get Instances from client without error
 	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHttpName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() should not return error is instances are found: %v", err)
@@ -309,7 +309,7 @@ func TestInstancesError(t *testing.T) {
 		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHttpName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
