@@ -177,7 +177,11 @@ func buildIstioVersion() error {
 		if *remotePath == "" {
 			return fmt.Errorf("istioctl_url cannot be empty")
 		}
-		proxyURL = strings.Replace(*remotePath, "istioctl", "deb", 1)
+		// remove trailing slash
+		base := strings.Trim(*remotePath, "/")
+		// replace either `/istioctl` or `/istioctl-stage` with `/deb`
+		base = base[0:strings.LastIndex(base, "/")]
+		proxyURL = base + "/deb"
 	}
 	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
 	return u.WriteTextFile("istio.VERSION", urls)
