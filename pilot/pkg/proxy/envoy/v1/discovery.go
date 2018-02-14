@@ -478,6 +478,8 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.ldsCache.resetStats()
 }
 
+// clearCache will clear all envoy caches. Called by service, instance and config handlers.
+// This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
 	log.Infof("Cleared discovery service cache")
 	ds.sdsCache.clear()
