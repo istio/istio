@@ -14,7 +14,7 @@ metadata:
   # Mesh expansion only enabled via VPN, setup the ingress as 'internal'.
   annotations:
     cloud.google.com/load-balancer-type: "internal"
-{{ end -}}
+{{ end }}
   labels:
     istio: ingress-zvpn
 spec:
@@ -41,7 +41,7 @@ spec:
     name: {{ $app.portName }}
 {{- end }}
   selector:
-    istio: inress-zvpn
+    istio: ingress-zvpn
 ---
 {{- end }}
 
