@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
@@ -79,7 +80,8 @@ func (f *fakeAspect) HandleLogEntry(context.Context, []*logentry.Instance) error
 func TestDispatchConfigureAndBuild(t *testing.T) {
 	m := &fakeBuilder{}
 	l := &fakeBuilder{}
-	b := &builder{m, l}
+	pf := helper.NewProjectIDFiller(func(*config.Params) bool { return false }, func() (string, error) { return "", nil })
+	b := &builder{m, l, pf}
 	b.SetMetricTypes(make(map[string]*metric.Type))
 
 	if !m.calledConfigure {
@@ -125,7 +127,8 @@ func TestDispatchHandleAndClose(t *testing.T) {
 	lb := &fakeBuilder{instance: la}
 	ma := &fakeAspect{}
 	mb := &fakeBuilder{instance: ma}
-	b := &builder{mb, lb}
+	pf := helper.NewProjectIDFiller(func(*config.Params) bool { return false }, func() (string, error) { return "", nil })
+	b := &builder{mb, lb, pf}
 
 	superHandler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
