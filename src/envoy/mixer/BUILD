@@ -30,6 +30,8 @@ envoy_cc_library(
         "http_filter.cc",
         "mixer_control.cc",
         "mixer_control.h",
+        "stats.cc",
+        "stats.h",
         "tcp_filter.cc",
         "utils.cc",
         "utils.h",

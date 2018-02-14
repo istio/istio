@@ -23,6 +23,7 @@
 #include "envoy/upstream/cluster_manager.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
+#include "src/envoy/mixer/stats.h"
 
 namespace Envoy {
 namespace Http {
@@ -33,7 +34,7 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   HttpMixerControl(const HttpMixerConfig& mixer_config,
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                   Runtime::RandomGenerator& random);
+                   Runtime::RandomGenerator& random, MixerFilterStats& stats);
 
   ::istio::mixer_control::http::Controller* controller() {
     return controller_.get();
@@ -50,6 +51,8 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
+
+  MixerStatsObject stats_obj_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
@@ -57,7 +60,7 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   TcpMixerControl(const TcpMixerConfig& mixer_config,
                   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                  Runtime::RandomGenerator& random);
+                  Runtime::RandomGenerator& random, MixerFilterStats& stats);
 
   ::istio::mixer_control::tcp::Controller* controller() {
     return controller_.get();
@@ -79,6 +82,8 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   std::chrono::milliseconds report_interval_ms_;
 
   Event::Dispatcher& dispatcher_;
+
+  MixerStatsObject stats_obj_;
 };
 
 }  // namespace Mixer

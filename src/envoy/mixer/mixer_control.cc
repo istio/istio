@@ -15,6 +15,8 @@
 
 #include "src/envoy/mixer/mixer_control.h"
 
+using ::istio::mixer_client::Statistics;
+
 namespace Envoy {
 namespace Http {
 namespace Mixer {
@@ -66,8 +68,19 @@ void CreateEnvironment(Upstream::ClusterManager& cm,
 HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                                    Upstream::ClusterManager& cm,
                                    Event::Dispatcher& dispatcher,
-                                   Runtime::RandomGenerator& random)
-    : config_(mixer_config), cm_(cm) {
+                                   Runtime::RandomGenerator& random,
+                                   MixerFilterStats& stats)
+    : config_(mixer_config),
+      cm_(cm),
+      stats_obj_(dispatcher, stats,
+                 mixer_config.http_config.transport().stats_update_interval(),
+                 [this](Statistics* stat) -> bool {
+                   if (!controller_) {
+                     return false;
+                   }
+                   controller_->GetStatistics(stat);
+                   return true;
+                 }) {
   ::istio::mixer_control::http::Controller::Options options(
       mixer_config.http_config);
 
@@ -80,8 +93,19 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
 TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
-                                 Runtime::RandomGenerator& random)
-    : config_(mixer_config), dispatcher_(dispatcher) {
+                                 Runtime::RandomGenerator& random,
+                                 MixerFilterStats& stats)
+    : config_(mixer_config),
+      dispatcher_(dispatcher),
+      stats_obj_(dispatcher, stats,
+                 mixer_config.tcp_config.transport().stats_update_interval(),
+                 [this](Statistics* stat) -> bool {
+                   if (!controller_) {
+                     return false;
+                   }
+                   controller_->GetStatistics(stat);
+                   return true;
+                 }) {
   ::istio::mixer_control::tcp::Controller::Options options(
       mixer_config.tcp_config);
 

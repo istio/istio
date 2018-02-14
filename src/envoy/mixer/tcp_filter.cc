@@ -22,34 +22,45 @@
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/mixer_control.h"
+#include "src/envoy/mixer/stats.h"
 #include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
+using ::istio::mixer_client::Statistics;
 
 namespace Envoy {
 namespace Http {
 namespace Mixer {
+namespace {
+
+// Envoy stats perfix for TCP filter stats.
+const std::string kTcpStatsPrefix("tcp_mixer_filter.");
+
+}  // namespace
 
 class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
   Upstream::ClusterManager& cm_;
   TcpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
+  MixerFilterStats stats_;
 
  public:
   TcpConfig(const Json::Object& config,
             Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
-        tls_(context.threadLocal().allocateSlot()) {
+        tls_(context.threadLocal().allocateSlot()),
+        stats_{ALL_MIXER_FILTER_STATS(
+            POOL_COUNTER_PREFIX(context.scope(), kTcpStatsPrefix))} {
     mixer_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
-    tls_->set(
-        [this, &random](Event::Dispatcher& dispatcher)
-            -> ThreadLocal::ThreadLocalObjectSharedPtr {
-              return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new TcpMixerControl(mixer_config_, cm_, dispatcher, random));
-            });
+    tls_->set([this, &random](Event::Dispatcher& dispatcher)
+                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
+                    return ThreadLocal::ThreadLocalObjectSharedPtr(
+                        new TcpMixerControl(mixer_config_, cm_, dispatcher,
+                                            random, stats_));
+                  });
   }
 
   TcpMixerControl& mixer_control() { return tls_->getTyped<TcpMixerControl>(); }

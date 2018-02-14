@@ -29,6 +29,7 @@
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/mixer_control.h"
+#include "src/envoy/mixer/stats.h"
 #include "src/envoy/mixer/utils.h"
 
 #include <map>
@@ -36,6 +37,7 @@
 #include <thread>
 
 using ::google::protobuf::util::Status;
+using ::istio::mixer_client::Statistics;
 using HttpCheckData = ::istio::mixer_control::http::CheckData;
 using HttpHeaderUpdate = ::istio::mixer_control::http::HeaderUpdate;
 using HttpReportData = ::istio::mixer_control::http::ReportData;
@@ -59,6 +61,9 @@ const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
 // Referer header
 const LowerCaseString kRefererHeaderKey("referer");
+
+// Envoy stats perfix for HTTP filter stats.
+const std::string kHttpStatsPrefix("http_mixer_filter.");
 
 // Set of headers excluded from request.headers attribute.
 const std::set<std::string> RequestHeaderExclusives = {
@@ -86,20 +91,23 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Upstream::ClusterManager& cm_;
   HttpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
+  MixerFilterStats stats_;
 
  public:
   Config(const Json::Object& config,
          Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
-        tls_(context.threadLocal().allocateSlot()) {
+        tls_(context.threadLocal().allocateSlot()),
+        stats_{ALL_MIXER_FILTER_STATS(
+            POOL_COUNTER_PREFIX(context.scope(), kHttpStatsPrefix))} {
     mixer_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
-    tls_->set(
-        [this, &random](Event::Dispatcher& dispatcher)
-            -> ThreadLocal::ThreadLocalObjectSharedPtr {
-              return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new HttpMixerControl(mixer_config_, cm_, dispatcher, random));
-            });
+    tls_->set([this, &random](Event::Dispatcher& dispatcher)
+                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
+                    return ThreadLocal::ThreadLocalObjectSharedPtr(
+                        new HttpMixerControl(mixer_config_, cm_, dispatcher,
+                                             random, stats_));
+                  });
   }
 
   HttpMixerControl& mixer_control() {
