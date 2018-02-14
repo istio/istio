@@ -263,7 +263,7 @@ func TestClusterDiscoveryError(t *testing.T) {
 
 func TestClusterDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -401,7 +401,7 @@ func TestRouteDiscoveryError(t *testing.T) {
 
 func TestRouteDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -878,7 +878,7 @@ func TestRouteDiscoverySidecarError(t *testing.T) {
 
 func TestRouteDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -918,7 +918,7 @@ func TestListenerDiscoverySidecarError(t *testing.T) {
 
 func TestListenerDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -1056,7 +1056,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 			want:             "AvailabilityZone couldn't find the given cluster node",
 		},
 		{
-			name: "when GetSidecarServiceInstances errors return that error",
+			name: "when GetProxyServiceInstances errors return that error",
 			err:  errors.New("bang"),
 			want: "AvailabilityZone bang",
 		},
@@ -1065,8 +1065,8 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, ds := commonSetup(t)
 			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-			mock.Discovery.WantGetSidecarServiceInstances = tt.sidecarInstances
-			mockDiscovery.GetSidecarServiceInstancesError = tt.err
+			mock.Discovery.WantGetProxyServiceInstances = tt.sidecarInstances
+			mockDiscovery.GetProxyServiceInstancesError = tt.err
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			if tt.want != string(response) {
 				t.Errorf("wanted %v but received %v", tt.want, string(response))
