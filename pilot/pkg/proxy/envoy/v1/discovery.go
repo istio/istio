@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
@@ -117,7 +118,7 @@ var (
 	lastClearCache     time.Time
 	clearCacheTimerSet bool
 	clearCacheMutex    sync.Mutex
-	clearCacheTime     = 1 * time.Second
+	clearCacheTime     = 1
 )
 
 func init() {
@@ -127,6 +128,14 @@ func init() {
 	prometheus.MustRegister(callCounter)
 	prometheus.MustRegister(errorCounter)
 	prometheus.MustRegister(resourceCounter)
+
+	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
+	if len(cacheSquash) > 0 {
+		t, err := strconv.Atoi(cacheSquash)
+		if err == nil {
+			clearCacheTime = t
+		}
+	}
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
@@ -492,10 +501,11 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
-	if time.Since(lastClearCache) < clearCacheTime {
+
+	if time.Since(lastClearCache) < time.Duration(clearCacheTime) * time.Second {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
-			time.AfterFunc(clearCacheTime, func() {
+			time.AfterFunc(time.Duration(clearCacheTime) * time.Second, func() {
 				clearCacheTimerSet = false
 				ds.clearCache() // it's after time - so will clear the cache
 			})
