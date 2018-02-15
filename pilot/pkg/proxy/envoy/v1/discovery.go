@@ -499,6 +499,7 @@ func (ds *DiscoveryService) clearCache() {
 				ds.clearCache() // it's after time - so will clear the cache
 			})
 		}
+		return
 	}
 	// TODO: clear the RDS few seconds after CDS !!
 	lastClearCache = time.Now()
