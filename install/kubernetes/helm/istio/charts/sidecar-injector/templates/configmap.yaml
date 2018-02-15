@@ -20,9 +20,9 @@ data:
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
         - "-u"
         - 1337
-        {{ if .Values.includeIpRanges -}}
+        {{ if .Values.includeIPRanges -}}
         - "-i"
-        - {{ .Values.includeIpRanges | quote }}
+        - {{ .Values.includeIPRanges | quote }}
         {{ end -}}
         imagePullPolicy: IfNotPresent
         securityContext:
