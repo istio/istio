@@ -45,23 +45,39 @@ type Service struct {
 	// Hostname of the service, e.g. "catalog.mystore.com"
 	Hostname string `json:"hostname"`
 
-	// Address specifies the service IPv4 address of the load balancer
+	// Address specifies the virtual IP address associated with the service.
+	// If empty
 	Address string `json:"address,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	ExternalName string `json:"external"`
-
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	LoadBalancingDisabled bool `json:"-"`
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ExternalService spec.
+	MeshExternal bool
+
+	// Virtual (if true) indicates that the service is not discoverable or directly
+	// routable using its hostname. These are typically used to indicate subsets of
+	// a given service (e.g., v1.reviews.bookinfo.com, where v1 is the name of a subset that
+	// indicates the set of instances associated with version v1 of the reviews service.
+	VirtualService bool
+
+	// Labels is a set of key-value pair metadata associated with each service instance
+	// associated with this service. For virtual services, the set of labels will be a super set
+	// of the set of labels associated with the respective parent service.
+	Labels Labels
+
+	// LoadBalancingMode indicates how the service instances need to be resolved before routing
+	// traffic. Most services in the service registry will use static load balancing wherein
+	// the proxy will decide the service instance that will receive the traffic. External services
+	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
+	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
+	// by the caller)
+	LoadBalancingMode LoadBalancingMode
 }
 
 // Port represents a network port where a service is listening for
@@ -80,7 +96,7 @@ type Port struct {
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
 
-	// In combine with the mesh's AuthPolicy, controls authentication for
+	// In combination with the mesh's AuthPolicy, controls authentication for
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
 	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
@@ -114,6 +130,13 @@ const (
 	ProtocolRedis Protocol = "Redis"
 	// ProtocolUnsupported - value to signify that the protocol is unsupported
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
+)
+
+type LoadBalancingMode int
+const (
+	StaticMode LoadBalancingMode = 0
+	DNSMode LoadBalancingMode = 1
+	PassthroughMode LoadBalancingMode = 2
 )
 
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
