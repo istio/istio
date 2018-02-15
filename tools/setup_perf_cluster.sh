@@ -211,7 +211,7 @@ function delete_non_istio_ingress2() {
 
 function get_non_istio_ingress_ip() {
   K8S_INGRESS_IP1=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-#  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
+#  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP1/fortio1/fortio/ and fortio2"
   echo "+++ In k8s fortio1 non-istio ingress: http://$K8S_INGRESS_IP1/fortio/"
 }
 
@@ -227,11 +227,13 @@ function get_istio_ingress_ip() {
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO1_K8S_IP:8080/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO2_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP1/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP2/echo"
 }
 function run_fortio_test3() {
   echo "Using istio ingress:"
