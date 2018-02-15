@@ -128,7 +128,7 @@ class TcpInstance : public Network::Filter,
   }
 
   // Network::ReadFilter
-  Network::FilterStatus onData(Buffer::Instance& data) override {
+  Network::FilterStatus onData(Buffer::Instance& data, bool) override {
     ENVOY_CONN_LOG(debug, "Called TcpInstance onRead bytes: {}",
                    filter_callbacks_->connection(), data.length());
     received_bytes_ += data.length();
@@ -136,7 +136,7 @@ class TcpInstance : public Network::Filter,
   }
 
   // Network::WriteFilter
-  Network::FilterStatus onWrite(Buffer::Instance& data) override {
+  Network::FilterStatus onWrite(Buffer::Instance& data, bool) override {
     ENVOY_CONN_LOG(debug, "Called TcpInstance onWrite bytes: {}",
                    filter_callbacks_->connection(), data.length());
     send_bytes_ += data.length();
