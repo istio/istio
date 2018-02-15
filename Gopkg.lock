@@ -556,8 +556,7 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "163f41321a19dd09362d4c63cc2489db2015f1f4"
-  version = "0.3.2"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -1130,7 +1129,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "6ce328b48d94e90f3c8022e811b875453da05477"
+  revision = "145be4868f169e496d90e258b45b34a1755dabe1"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1432,6 +1431,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7f29290fe3a84c7338dce54e5b4e945d14b13f4d502822992ddf2c54f3bee827"
+  inputs-digest = "7aaf154c968d1682989350af2bd5d9ca3d2f56a5a06ee7a5b9545d84bf2cf7e9"
   solver-name = "gps-cdcl"
   solver-version = 1
