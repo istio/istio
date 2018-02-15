@@ -224,7 +224,7 @@ func Test503sWithBadClusters(t *testing.T) {
 	num200s := res.RetCodes[http.StatusOK]
 	numErrors := numRequests - num200s
 	// 1 or a handful of 503s (1 per connection) is maybe ok, but not much more
-	if numErrors > opts.NumThreads*2 {
+	if numErrors > int64(opts.NumThreads)*2 {
 		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}
 }
