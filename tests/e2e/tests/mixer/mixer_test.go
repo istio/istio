@@ -312,7 +312,7 @@ func TestIngressReport(t *testing.T) {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	// establish baseline
+	// establish baseline by querying request count metric with istio-ingress as destination.
 	t.Log("Establishing metrics baseline for test...")
 	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("istio-ingress"))
 	t.Logf("prometheus query: %s", query)
@@ -330,6 +330,7 @@ func TestIngressReport(t *testing.T) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
+	// visit production page as well as ingress.
 	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
