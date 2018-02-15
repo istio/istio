@@ -114,9 +114,9 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	lastClearCache time.Time
+	lastClearCache     time.Time
 	clearCacheTimerSet bool
-	clearCacheMutex sync.Mutex
+	clearCacheMutex    sync.Mutex
 )
 
 func init() {
@@ -491,7 +491,7 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
-	if time.Since(lastClearCache) < 60 * time.Second {
+	if time.Since(lastClearCache) < 60*time.Second {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
 			time.AfterFunc(61*time.Second, func() {
