@@ -62,6 +62,16 @@ func TestExternTimestamp(t *testing.T) {
 	}
 }
 
+func TestExternTimestampNow(t *testing.T) {
+	ti, err := externTimestampNow()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if time.Now().Unix() - ti.Unix() > 2 {
+		t.Fatalf("Unexpected time: %v", ti)
+	}
+}
+
 func TestExternTimestamp_Error(t *testing.T) {
 	_, err := externTimestamp("AAA")
 	if err == nil {
