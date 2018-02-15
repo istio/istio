@@ -45,3 +45,4 @@ install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
+*.orig
