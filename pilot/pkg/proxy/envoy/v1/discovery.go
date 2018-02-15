@@ -117,7 +117,7 @@ var (
 	lastClearCache     time.Time
 	clearCacheTimerSet bool
 	clearCacheMutex    sync.Mutex
-	clearCacheTime  = 1 * time.Second
+	clearCacheTime     = 1 * time.Second
 )
 
 func init() {
