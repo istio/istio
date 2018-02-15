@@ -305,6 +305,62 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 }
 
+func TestIngressReport(t *testing.T) {
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// establish baseline
+	t.Log("Establishing metrics baseline for test...")
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("istio-ingress"))
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
+		prior200s = 0
+	}
+
+	t.Logf("Baseline established: prior200s = %f", prior200s)
+	t.Log("Visiting product page...")
+
+	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
+		t.Fatalf("Test app setup failure: %v", errNew)
+	}
+	allowPrometheusSync()
+
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("istio-ingress"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+	log.Infof("promvalue := %s", value.String())
+
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		fatalf(t, "Could not find metric value: %v", err)
+	}
+	t.Logf("Got request_count (200s) of: %f", got)
+	t.Logf("Actual new requests observed: %f", got-prior200s)
+
+	want := float64(1)
+	if (got - prior200s) < want {
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		errorf(t, "Bad metric value: got %f, want at least %f", got-prior200s, want)
+	}
+}
+
+
 func TestTcpMetrics(t *testing.T) {
 	if err := replaceRouteRule(tcpDbRule); err != nil {
 		t.Fatalf("Could not update reviews routing rule: %v", err)
