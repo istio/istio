@@ -502,10 +502,10 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	if time.Since(lastClearCache) < time.Duration(clearCacheTime) * time.Second {
+	if time.Since(lastClearCache) < time.Duration(clearCacheTime)*time.Second {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
-			time.AfterFunc(time.Duration(clearCacheTime) * time.Second, func() {
+			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
 				clearCacheTimerSet = false
 				ds.clearCache() // it's after time - so will clear the cache
 			})
