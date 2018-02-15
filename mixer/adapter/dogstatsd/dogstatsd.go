@@ -13,6 +13,7 @@
 // limitations under the License.
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/dogstatsd/config/config.proto
+
 package dogstatsd
 
 import (
@@ -48,7 +49,7 @@ func (b *builder) Build(_ context.Context, env adapter.Env) (adapter.Handler, er
 	ac := b.adapterConfig
 
 	client := &statsd.Client{}
-	err := error(nil)
+	var err error
 	if ac.BufferLength > 0 {
 		client, err = statsd.NewBuffered(ac.Address, int(ac.BufferLength))
 	} else {
@@ -191,6 +192,7 @@ func flattenTags(tagMap map[string]string) []string {
 func (h *handler) Close() error { return h.client.Close() }
 
 ////////////////// Bootstrap //////////////////////////
+
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{

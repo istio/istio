@@ -124,7 +124,7 @@ func TestBadStatsdClient(t *testing.T) {
 			b.SetAdapterConfig(c.conf)
 			env := test.NewEnv(t)
 			if _, err := b.Build(context.Background(), env); err == nil {
-				t.Error("b.NewMetrics(test.NewEnv(t), conf) = %s, wanted an err, got none")
+				t.Errorf("b.NewMetrics(test.NewEnv(t), conf) = %s, wanted an err, got none", err)
 			}
 			logs := env.GetLogs()
 			if len(logs) < 1 {
