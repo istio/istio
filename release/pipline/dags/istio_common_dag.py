@@ -89,7 +89,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
     if conf is None:
       conf = dict()
 
-    date = kwargs['execution_date']
+#    date = kwargs['execution_date']
+    date = datetime.datetime.now()
 
     timestamp = time.mktime(date.timetuple())
 
