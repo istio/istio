@@ -163,13 +163,12 @@ function install_istio_cache_busting_rule() {
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
-function get_fortio1_k8s_ip() {
-  FORTIO1_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+function get_fortio_k8s_ip() {
+  arg1=$1
+  arg2=$2
+  FORTIO1_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath="{.items[${arg1}].status.loadBalancer.ingress[0].ip}")
   echo "+++ In k8s fortio1 non-istio external service: http://$FORTIO1_K8S_IP:8080/fortio/"
-}
-
-function get_fortio2_k8s_ip() {
-  FORTIO2_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[1].status.loadBalancer.ingress[0].ip}')
+  FORTIO2_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath="{.items[${arg2}].status.loadBalancer.ingress[0].ip}")
   echo "+++ In k8s fortio2 non-istio external service: http://$FORTIO2_K8S_IP:8080/fortio/"
 }
 
@@ -287,8 +286,7 @@ function delete_all() {
 function get_ips() {
   #TODO: wait for ingresses/svcs to be ready
   get_vm_ip
-  get_fortio1_k8s_ip
-  get_fortio2_k8s_ip
+  get_fortio_k8s_ip 0 1
   get_non_istio_ingress_ip
   get_non_istio_ingress_ip2
   get_istio_ingress_ip
