@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	restful "github.com/emicklei/go-restful"
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
@@ -109,6 +110,13 @@ var (
 			Help:      "Histogram of returned resource counts per method by Pilot",
 			Buckets:   resourceBuckets,
 		}, []string{metricLabelMethod, metricBuildVersion})
+)
+
+var (
+	// Variables associated with clear cache squashing.
+	lastClearCache     time.Time
+	clearCacheTimerSet bool
+	clearCacheMutex    sync.Mutex
 )
 
 func init() {
@@ -481,6 +489,19 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	clearCacheMutex.Lock()
+	defer clearCacheMutex.Unlock()
+	if time.Since(lastClearCache) < 60*time.Second {
+		if !clearCacheTimerSet {
+			clearCacheTimerSet = true
+			time.AfterFunc(61*time.Second, func() {
+				clearCacheTimerSet = false
+				ds.clearCache() // it's after time - so will clear the cache
+			})
+		}
+	}
+	// TODO: clear the RDS few seconds after CDS !!
+	lastClearCache = time.Now()
 	log.Infof("Cleared discovery service cache")
 	ds.sdsCache.clear()
 	ds.cdsCache.clear()
