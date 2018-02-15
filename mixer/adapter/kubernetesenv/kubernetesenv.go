@@ -29,6 +29,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -53,7 +54,7 @@ const (
 	lookupIngressSourceAndOriginValues = false
 	istioIngressSvc                    = "istio-ingress.istio-system.svc.cluster.local"
 
-	// cache invalidation
+	// k8s cache invalidation
 	// TODO: determine a reasonable default
 	defaultRefreshPeriod = 5 * time.Minute
 )
@@ -74,6 +75,9 @@ type (
 	builder struct {
 		adapterConfig *config.Params
 		newClientFn   clientFactoryFn
+
+		sync.Mutex
+		controllers map[string]cacheController
 	}
 
 	handler struct {
@@ -138,20 +142,32 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
-	clientset, err := b.newClientFn(path, env)
-	if err != nil {
-		return nil, err
+
+	// only ever build a controller for a config once. this potential blocks
+	// the Build() for multiple handlers using the same config until the first
+	// one has synced. This should be OK, as the WaitForCacheSync was meant to
+	// provide this basic functionality before.
+	b.Lock()
+	defer b.Unlock()
+	controller, found := b.controllers[path]
+	if !found {
+		clientset, err := b.newClientFn(path, env)
+		if err != nil {
+			return nil, fmt.Errorf("could not build kubernetes client: %v", err)
+		}
+		controller = newCacheController(clientset, refresh)
+		env.ScheduleDaemon(func() { controller.Run(stopChan) })
+		// ensure that any request is only handled after
+		// a sync has occurred
+		env.Logger().Infof("Waiting for kubernetes cache sync...")
+		if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
+			stopChan <- struct{}{}
+			return nil, errors.New("cache sync failure")
+		}
+		env.Logger().Infof("Cache sync successful.")
+		b.controllers[path] = controller
 	}
-	controller := newCacheController(clientset, refresh)
-	env.ScheduleDaemon(func() { controller.Run(stopChan) })
-	// ensure that any request is only handled after
-	// a sync has occurred
-	env.Logger().Infof("Waiting for kubernetes cache sync...")
-	if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
-		stopChan <- struct{}{}
-		return nil, errors.New("cache sync failure")
-	}
-	env.Logger().Infof("Cache sync successful.")
+
 	return &handler{
 		env:    env,
 		pods:   controller,
@@ -162,6 +178,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 func newBuilder(clientFactory clientFactoryFn) *builder {
 	return &builder{
 		newClientFn:   clientFactory,
+		controllers:   make(map[string]cacheController),
 		adapterConfig: conf,
 	}
 }
@@ -404,6 +421,5 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	env.Logger().Infof("getting k8s client from config")
 	return k8s.NewForConfig(config)
 }

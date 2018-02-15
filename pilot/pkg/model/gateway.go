@@ -15,10 +15,9 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
-
-	"fmt"
 
 	routing "istio.io/api/routing/v1alpha2"
 )

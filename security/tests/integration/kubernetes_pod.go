@@ -68,7 +68,6 @@ func (c *KubernetesPod) Start() (err error) {
 	if _, err = createPod(c.clientset, c.namespace, c.image, c.name, labels, c.cmds, c.args); err != nil {
 		glog.Errorf("failed to create a pod: %v", c.name)
 	}
-
 	return err
 }
 
@@ -87,9 +86,4 @@ func (c *KubernetesPod) IsAlive() (bool, error) {
 	}
 
 	return true, nil
-}
-
-// Cleanup clean up tmp files and other resource created by this component
-func (c *KubernetesPod) Cleanup() error {
-	return nil
 }

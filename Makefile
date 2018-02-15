@@ -70,7 +70,7 @@ endif
 # Output control
 #-----------------------------------------------------------------------------
 # Invoke make VERBOSE=1 to enable echoing of the command being executed
-VERBOSE ?= 0
+export VERBOSE ?= 0
 # Place the variable Q in front of a command to control echoing of the command being executed.
 Q = $(if $(filter 1,$VERBOSE),,@)
 # Use the variable H to add a header (equivalent to =>) to informational output
@@ -123,8 +123,9 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -203,17 +204,21 @@ ${DEP}:
 ${GOLINT}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
 
+${GEN_CERT}:
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
 
-depend.status: Gopkg.lock
+# Generates the current status of the dependencies. Does not update the deps.
+depend.status:
 	$(Q) ${DEP} status > vendor/dep.txt
 	$(Q) ${DEP} status -dot > vendor/dep.dot
 
-# Requires 'graphviz' package. Run as user
-depend.view: depend.status
+# Visualize the dep status, using 'graphviz' package. Run as user
+depend.view:
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.pkg
+	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -290,7 +295,7 @@ $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -309,8 +314,8 @@ node-agent:
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca
-multicluster_ca:
+.PHONY: multicluster_ca node_agent istio_ca
+multicluster_ca node_agent istio_ca:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS

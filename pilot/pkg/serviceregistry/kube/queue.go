@@ -21,10 +21,21 @@ import (
 	_ "github.com/golang/glog"
 	"k8s.io/client-go/util/flowcontrol"
 
+	"os"
+	"strconv"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"os"
 	"strconv"
+)
+
+const (
+	// enableQueueThrottleEnv is an environment variable that can be set to re-enable the
+	// throttling, in case problems are discovered. This is not a flag - it would cause too
+	// many changes, and it is only intended as a short term fail-safe and A/B testing.
+	// TODO: remove in 0.7 after more testing without the throttle.
+	enableQueueThrottleEnv = "PILOT_THROTTLE"
 )
 
 const (
@@ -94,14 +105,16 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	rate := os.Getenv(enableQueueThrottleEnv)
 	rateLimit := 0
 	if len(rate) > 0 {
-		rateLimit, err := strconv.Atoi(rate)
-		if err != nil {
-			rateLimit = 0
+		r, err := strconv.Atoi(rate)
+		if err == nil {
+			rateLimit = r
 		}
-		rateLimit = rateLimit
 	}
 	// Throttle processing up to smoothed 10 qps with bursts up to 100 qps
-	rateLimiter := flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10 * rateLimit)
+	var rateLimiter flowcontrol.RateLimiter
+	if rateLimit > 0 {
+		rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(rateLimit), 10*rateLimit)
+	}
 
 	var item Task
 	for {

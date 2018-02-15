@@ -63,7 +63,7 @@ const (
 	listenedNamespaceKey = "NAMESPACE"
 )
 
-type cliOptions struct {
+type cliOptions struct { // nolint: maligned
 	listenedNamespace       string
 	istioCaStorageNamespace string
 	kubeConfigFile          string
