@@ -17,6 +17,7 @@ package probe
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"time"
 
@@ -30,8 +31,9 @@ import (
 
 const (
 	// LivenessProbeClientIdentity is the default identity for the liveness probe check
-	LivenessProbeClientIdentity   = "k8s.cluster.local"
-	probeCheckRequestedTTLMinutes = 60
+	LivenessProbeClientIdentity      = "k8s.cluster.local"
+	probeCheckRequestedTTLMinutes    = 60
+	grpcServerPortTestTimeoutSeconds = 10
 )
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
@@ -159,10 +161,15 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
 
-	// test server
-	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+	if conn, err := net.DialTimeout("tcp",
+		fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort),
+		time.Duration(time.Duration(grpcServerPortTestTimeoutSeconds)*time.Second)); err == nil {
+		conn.Close()
+		_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+		return err
+	}
 
-	return err
+	return nil
 }
 
 // Run starts the check routine

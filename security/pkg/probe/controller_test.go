@@ -17,6 +17,7 @@ package probe
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"testing"
 	"time"
 
@@ -53,6 +54,11 @@ func readFile(filename string) []byte {
 }
 
 func TestGcpGetServiceIdentity(t *testing.T) {
+	server, err := net.Listen("tcp", "localhost:0")
+	defer func() {
+		_ = server.Close()
+	}()
+
 	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
 		SigningCertBytes: readFile("./testdata/ca.crt"),
 		SigningKeyBytes:  readFile("./testdata/ca.key"),
@@ -103,7 +109,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		controller, err := NewLivenessCheckController(
 			time.Minute,
 			"localhost",
-			1234,
+			server.Addr().(*net.TCPAddr).Port,
 			istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
