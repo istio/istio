@@ -113,8 +113,18 @@ func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
 	}
 }
 
-// DisableClientCache disable client cache
-func DisableClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+// DisableHTTPClientCache disable HTTP client cache
+func DisableHTTPClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+	if v2.Transport == nil {
+		v2.Transport = &mccpb.TransportConfig{}
+	}
+	v2.Transport.DisableCheckCache = checkCache
+	v2.Transport.DisableQuotaCache = quotaCache
+	v2.Transport.DisableReportBatch = reportBatch
+}
+
+// DisableTCPClientCache disable TCP client cache
+func DisableTCPClientCache(v2 *mccpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
 	if v2.Transport == nil {
 		v2.Transport = &mccpb.TransportConfig{}
 	}
@@ -169,6 +179,22 @@ func SetTCPReportInterval(v2 *mccpb.TcpClientConfig, reportInterval int64) {
 		}
 	} else {
 		v2.ReportInterval.Seconds = reportInterval
+	}
+}
+
+// SetStatsUpdateInterval sets stats update interval for Mixer client filters in seconds.
+func SetStatsUpdateInterval(v2 *V2Conf, updateInterval int64) {
+	if v2.HTTPServerConf.Transport == nil {
+		v2.HTTPServerConf.Transport = &mccpb.TransportConfig{}
+	}
+	v2.HTTPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+		Seconds: updateInterval,
+	}
+	if v2.TCPServerConf.Transport == nil {
+		v2.TCPServerConf.Transport = &mccpb.TransportConfig{}
+	}
+	v2.TCPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+		Seconds: updateInterval,
 	}
 }
 
