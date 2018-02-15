@@ -35,6 +35,17 @@ required = [
 
 ### END Mixer codegen deps
 
+[prune]
+  unused-packages = true
+  go-tests = true
+  non-go = true
+
+  [[prune.project]]
+    name = "istio.io/fortio"
+    unused-packages = false
+    go-tests = false
+    non-go = false
+
 [[constraint]]
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api

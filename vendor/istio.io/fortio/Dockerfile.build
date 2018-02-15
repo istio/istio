@@ -1,0 +1,19 @@
+# Dependencies and linters for build:
+FROM ubuntu:xenial
+# Need gcc for -race test (and some linters though those work with CGO_ENABLED=0)
+RUN apt-get -y update && \
+  apt-get --no-install-recommends -y upgrade && \
+  apt-get --no-install-recommends -y install ca-certificates curl make git gcc \
+  libc6-dev apt-transport-https ssh
+RUN curl https://storage.googleapis.com/golang/go1.8.5.linux-amd64.tar.gz | tar xfz - -C /usr/local
+ENV GOPATH /go
+ENV PATH /usr/local/go/bin:$PATH:$GOPATH/bin
+RUN go get -u google.golang.org/grpc
+RUN go get -u github.com/alecthomas/gometalinter
+RUN gometalinter -i -u
+WORKDIR /go/src/istio.io
+# Docker:
+RUN curl -fsSL "https://download.docker.com/linux/ubuntu/gpg" | apt-key add
+RUN echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable" > /etc/apt/sources.list.d/docker.list
+RUN apt-get -y update
+RUN apt-get install --no-install-recommends -y docker-ce

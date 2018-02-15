@@ -15,9 +15,9 @@ deb/build-in-docker:
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
+sidecar.deb: init ${ISTIO_OUT}/istio-sidecar.deb
 
-deb: ${ISTIO_OUT}/istio-sidecar.deb
+deb: init ${ISTIO_OUT}/istio-sidecar.deb
 
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin

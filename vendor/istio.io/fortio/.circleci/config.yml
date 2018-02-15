@@ -1,0 +1,19 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version
+      - image: fortio/fortio.build:v4
+    working_directory: /go/src/istio.io/fortio
+    steps:
+      - setup_remote_docker:
+          version: 17.10.0-ce
+      - checkout
+      - run: make test
+      # If ran with default we get random errors because OOM killer kills some linters
+      - run: make install local-lint  DEBUG_LINTERS="--concurrency=2"
+      - run: make webtest
+      - run: make coverage

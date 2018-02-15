@@ -130,7 +130,7 @@ GEN_CERT := ${ISTIO_BIN}/generate_cert
 GS_BUCKET ?= istio-artifacts
 
 .PHONY: default
-default: depend build test
+default: build test
 
 # The point of these is to allow scripts to query where artifacts
 # are stored so that tests and other consumers of the build don't
@@ -165,7 +165,6 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-# Will also check vendor, based on Gopkg.lock
 init: check-go-version $(ISTIO_OUT)/istio_is_init
 
 # I tried to make this dependent on what I thought was the appropriate
@@ -193,7 +192,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -267,11 +265,11 @@ endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 # Non-static istioctls. These are typically a build artifact.
-${ISTIO_OUT}/istioctl-linux: depend
+${ISTIO_OUT}/istioctl-linux:
 	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
-${ISTIO_OUT}/istioctl-osx: depend
+${ISTIO_OUT}/istioctl-osx:
 	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
-${ISTIO_OUT}/istioctl-win.exe: depend
+${ISTIO_OUT}/istioctl-win.exe:
 	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
@@ -294,7 +292,7 @@ $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
+build: $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -385,11 +383,11 @@ mixer-test: mixs
 	(cd mixer; go test ${T} ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-test
-broker-test: depend
+broker-test:
 	go test ${T} ./broker/...
 
 .PHONY: galley-test
-galley-test: depend
+galley-test:
 	go test ${T} ./galley/...
 
 .PHONY: security-test
@@ -450,11 +448,11 @@ mixer-racetest: mixs
 	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-racetest
-broker-racetest: depend
+broker-racetest:
 	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
-galley-racetest: depend
+galley-racetest:
 	RACE_TEST=true go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
