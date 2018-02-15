@@ -20,6 +20,7 @@
 
 #include "envoy/http/header_map.h"
 #include "envoy/network/connection.h"
+#include "google/protobuf/util/json_util.h"
 
 namespace Envoy {
 namespace Http {
@@ -37,6 +38,10 @@ bool GetSourceUser(const Network::Connection* connection, std::string* user);
 
 // Returns true if connection is mutual TLS enabled.
 bool IsMutualTLS(const Network::Connection* connection);
+
+// Parse JSON string into message.
+::google::protobuf::util::Status ParseJsonMessage(
+    const std::string& json, ::google::protobuf::Message* output);
 
 }  // namespace Utils
 }  // namespace Http

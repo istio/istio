@@ -16,6 +16,9 @@
 #include "src/envoy/mixer/utils.h"
 #include "mixer/v1/attributes.pb.h"
 
+using ::google::protobuf::Message;
+using ::google::protobuf::util::Status;
+
 namespace Envoy {
 namespace Http {
 namespace Utils {
@@ -87,6 +90,12 @@ bool GetSourceUser(const Network::Connection* connection, std::string* user) {
 bool IsMutualTLS(const Network::Connection* connection) {
   return connection != nullptr && connection->ssl() != nullptr &&
          connection->ssl()->peerCertificatePresented();
+}
+
+Status ParseJsonMessage(const std::string& json, Message* output) {
+  ::google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = true;
+  return ::google::protobuf::util::JsonStringToMessage(json, output, options);
 }
 
 }  // namespace Utils

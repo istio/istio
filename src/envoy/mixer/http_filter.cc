@@ -389,8 +389,7 @@ class Instance : public Http::StreamDecoderFilter,
       return;
     }
     ServiceConfig config_pb;
-    auto status =
-        ::google::protobuf::util::JsonStringToMessage(config_json, &config_pb);
+    auto status = Utils::ParseJsonMessage(config_json, &config_pb);
     if (!status.ok()) {
       ENVOY_LOG(
           warn,

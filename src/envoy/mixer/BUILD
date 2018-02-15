@@ -18,6 +18,7 @@
 load(
     "@envoy//bazel:envoy_build_system.bzl",
     "envoy_cc_library",
+    "envoy_cc_test",
 )
 
 envoy_cc_library(
@@ -44,4 +45,16 @@ envoy_cc_library(
         "//src/envoy/auth:http_filter_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
+)
+
+envoy_cc_test(
+    name = "utils_test",
+    srcs = [
+        "utils_test.cc",
+    ],
+    deps = [
+        ":filter_lib",
+        "@envoy//test/test_common:utility_lib",
+    ],
+    repository = "@envoy",
 )
