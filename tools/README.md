@@ -35,7 +35,7 @@ __Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
 Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
-Make the kubectl binary executable.
+Make the istioctl binary executable.
 ```
 $ chmod +x ./istioctl
 ```
@@ -85,6 +85,8 @@ $ kubectl get po --all-namespaces
 NAMESPACE      NAME                                                   READY     STATUS    RESTARTS   AGE
 fortio         fortio1-1966733334-xj5f6                               1/1       Running   0          8m
 fortio         fortio2-3044850348-v5f74                               1/1       Running   0          8m
+istio          echo-svc-deployment1-548647f7bf-f99qk                  2/2       Running   0          6m
+istio          echo-svc-deployment2-58f5447b75-q2x8c                  2/2       Running   0          6m
 istio-system   istio-ca-1363003450-gvtmn                              1/1       Running   0          7m
 istio-system   istio-ingress-1732553340-gv41r                         1/1       Running   0          7m
 istio-system   istio-mixer-3192291716-psskv                           3/3       Running   0          8m
@@ -133,9 +135,11 @@ can be used to perform load testing. You can call the `get_ips` function to obta
 ```
 $ get_ips
 +++ VM Ip is $VM_IP - visit http://$VM_IP/fortio/
-+++ In k8s fortio external ip: http://$EXTERNAL_IP:8080/fortio/
-+++ In k8s non istio ingress: http://$NON_ISTIO_INGRESS_IP/fortio/
-+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2
++++ In k8s fortio1 external service ip: http://$FORTIO1_EXTERNAL_SVC_IP:8080/fortio/
++++ In k8s fortio2 external service ip: http://$FORTIO2_EXTERNAL_SVC_IP:8080/fortio/
++++ In k8s fortio1 non-istio ingress: http://$FORTIO1_NONISTIO_INGRESS_IP/fortio/
++++ In k8s fortio2 non-istio ingress: http://$FORTIO1_NONISTIO_INGRESS_IP/fortio/
++++ In k8s fortio1 and fortio2 istio ingress: http://$FORTIO_ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2
 ```
 
 Then visit http://$ISTIO_INGRESS_IP/fortio1/fortio/ or http://$ISTIO_INGRESS_IP/fortio2/fortio/ to generate a load

@@ -143,7 +143,7 @@ function install_non_istio_svc() {
  Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
  Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
  Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
- Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080 --type=LoadBalancer
 }
 
 function install_istio_svc() {
@@ -163,35 +163,18 @@ function install_istio_cache_busting_rule() {
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
-function get_fortio_k8s_ip() {
-  FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
+function get_fortio1_k8s_ip() {
+  FORTIO1_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  echo "+++ In k8s fortio1 non-istio external service: http://$FORTIO1_K8S_IP:8080/fortio/"
 }
 
-# Doesn't work somehow...
-function setup_non_istio_ingress2() {
-  cat <<_EOF_ | kubectl apply -n fortio -f -
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: fortio-ingress2
-spec:
-  rules:
-  - http:
-      paths:
-       - path: /fortio1
-         backend:
-           serviceName: fortio1
-           servicePort: 8080
-       - path: /fortio2
-         backend:
-           serviceName: fortio2
-           servicePort: 8080
-_EOF_
+function get_fortio2_k8s_ip() {
+  FORTIO2_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[1].status.loadBalancer.ingress[0].ip}')
+  echo "+++ In k8s fortio2 non-istio external service: http://$FORTIO2_K8S_IP:8080/fortio/"
 }
 
 function setup_non_istio_ingress() {
-  cat <<_EOF_ | kubectl apply -n fortio -f -
+  cat <<_EOF_ | kubectl apply -n "$FORTIO_NAMESPACE" -f -
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -203,16 +186,43 @@ spec:
 _EOF_
 }
 
+function setup_non_istio_ingress2() {
+  cat <<_EOF_ | kubectl apply -n "$FORTIO_NAMESPACE" -f -
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: fortio-ingress2
+spec:
+  backend:
+    serviceName: fortio2
+    servicePort: 8080
+_EOF_
+}
+
+function delete_non_istio_ingress() {
+  echo "Deleting fortio-ingress in namespace $FORTIO_NAMESPACE"
+  Execute kubectl delete ing fortio-ingress -n $FORTIO_NAMESPACE
+}
+
+function delete_non_istio_ingress2() {
+  echo "Deleting fortio-ingress2 in namespace $FORTIO_NAMESPACE"
+  Execute kubectl delete ing fortio-ingress2 -n $FORTIO_NAMESPACE
+}
 
 function get_non_istio_ingress_ip() {
-  K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  K8S_INGRESS_IP1=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
 #  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
-  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
+  echo "+++ In k8s fortio1 non-istio ingress: http://$K8S_INGRESS_IP1/fortio/"
+}
+
+function get_non_istio_ingress_ip2() {
+  K8S_INGRESS_IP2=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[1].status.loadBalancer.ingress[0].ip}')
+  echo "+++ In k8s fortio2 non-istio ingress: http://$K8S_INGRESS_IP2/fortio/"
 }
 
 function get_istio_ingress_ip() {
   ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
+  echo "+++ In k8s fortio1 and fortio2 istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
 }
 
 function run_fortio_test1() {
@@ -251,6 +261,7 @@ function setup_cluster_all() {
   kubectl_setup
   install_non_istio_svc
   setup_non_istio_ingress
+  setup_non_istio_ingress2
   setup_istio_all
 }
 
@@ -263,6 +274,8 @@ function delete_all() {
   echo "Deleting Istio mesh, cluster $CLUSTER_NAME, Instance $VM_NAME and firewall rules for project $PROJECT in zone $ZONE"
   echo "Interrupt now if you don't want to delete..."
   sleep 5
+  delete_non_istio_ingress
+  delete_non_istio_ingress2
   delete_istio
   delete_cluster
   delete_vm
@@ -272,8 +285,10 @@ function delete_all() {
 function get_ips() {
   #TODO: wait for ingresses/svcs to be ready
   get_vm_ip
-  get_fortio_k8s_ip
+  get_fortio1_k8s_ip
+  get_fortio2_k8s_ip
   get_non_istio_ingress_ip
+  get_non_istio_ingress_ip2
   get_istio_ingress_ip
 }
 
@@ -298,7 +313,9 @@ if [[ $SOURCED == 0 ]]; then
 # test/retry one step at a time, eg.
 #install_non_istio_svc
 #setup_non_istio_ingress
+#setup_non_istio_ingress2
 #get_non_istio_ingress_ip
+#get_non_istio_ingress_ip2
 #setup_istio_all
 #install_istio_svc
 #install_istio_ingress
