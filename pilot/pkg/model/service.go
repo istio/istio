@@ -275,19 +275,22 @@ type ServiceDiscovery interface {
 	// any of the supplied labels. All instances match an empty tag list.
 	//
 	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
+	// Instances(catalog.myservice.com, ["80"]) ->
 	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 	//
 	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
+	// e.g., Instances(catalog.myservice.com, ["80"], ["foo=bar"]) ->
 	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
+	//
+	// Calling Instances with empty values for all parameters returns every service instances in the
+	// service registry. e.g., Instances("", nil, nil)
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
