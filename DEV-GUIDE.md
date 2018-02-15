@@ -260,8 +260,16 @@ export TAG=istio-ca
 ```
 
 Make some local change of CA code, then build istio-ca
+
 ```shell
-make docker.istio-ca
+bin/gobuild.sh istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+```
+
+Note: for other images, check Makefile for more info.
+
+And move this file to docker_temp repo
+```shell
+cp istio_ca /usr/local/google/home/lita/Desktop/out/linux_amd64/release/docker_temp
 ```
 
 Push docker image
