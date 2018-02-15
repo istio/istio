@@ -44,9 +44,7 @@ START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
 # Install Fortio
-cd vendor/istio.io/fortio
-make install
-cd ../../..
+( cd vendor/istio.io/fortio ; go install . )
 
 # Run Tests
 TESTSPATH='tests/integration/example/tests'

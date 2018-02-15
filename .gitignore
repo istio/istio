@@ -10,7 +10,6 @@ tools/vagrant/.vagrant/
 .vscode/
 # Bazel
 /bazel-*
-vendor
 # vi backups
 *.bak
 # python artifacts
