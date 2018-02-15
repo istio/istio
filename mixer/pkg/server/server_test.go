@@ -213,7 +213,7 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 4:
-				pt.startMonitor = func(port uint16) (*monitor, error) {
+				pt.startMonitor = func(port uint16, enableProfiling bool) (*monitor, error) {
 					return nil, errors.New("BAD")
 				}
 			case 5:
