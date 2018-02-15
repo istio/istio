@@ -93,7 +93,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	}()
 
 	rate := os.Getenv(enableQueueThrottleEnv)
-	rateLimit := 0
+	rateLimit := 100
 	if len(rate) > 0 {
 		r, err := strconv.Atoi(rate)
 		if err == nil {
