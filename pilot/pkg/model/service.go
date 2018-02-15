@@ -71,13 +71,21 @@ type Service struct {
 	// of the set of labels associated with the respective parent service.
 	Labels Labels
 
-	// LoadBalancingMode indicates how the service instances need to be resolved before routing
+	// SelectionMode indicates how the proxy will identify the destination service for a given
+	// connection or request using the information available. HTTP based services will typically
+	// use VirtualHost based selection. TCP based services can be delineated using IP/CIDR blocks
+	// and some services can be identified solely using the port on which the connection arrives
+	// (typically used to proxy HTTPS traffic to external services, or by TCP services on platforms
+	// that do not have virtual IPs for services).
+	SelectionMode SelectionMode
+
+	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
 	// the proxy will decide the service instance that will receive the traffic. External services
 	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
-	LoadBalancingMode LoadBalancingMode
+	Resolution Resolution
 }
 
 // Port represents a network port where a service is listening for
@@ -132,11 +140,24 @@ const (
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
-type LoadBalancingMode int
+type Resolution int
 const (
-	StaticMode LoadBalancingMode = 0
-	DNSMode LoadBalancingMode = 1
-	PassthroughMode LoadBalancingMode = 2
+	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
+	ClientSideLB Resolution = 0
+	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSLB Resolution = 1
+	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
+	Passthrough Resolution= 2
+)
+
+type SelectionMode int
+const (
+	// VirtualHost based selection is typically used for HTTP services
+	VirtualHost SelectionMode = 0
+	// IPPort based selection is typically used for TCP services on platforms that assign virtual IPs to services
+	IPPort SelectionMode = 1
+	// PortOnly based selection is typically used for TCP services on platforms that do not assign virtual IPs to services
+	PortOnly SelectionMode = 2
 )
 
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
