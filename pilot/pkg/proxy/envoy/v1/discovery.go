@@ -117,6 +117,7 @@ var (
 	lastClearCache     time.Time
 	clearCacheTimerSet bool
 	clearCacheMutex    sync.Mutex
+	clearCacheTime  = 1 * time.Second
 )
 
 func init() {
@@ -491,10 +492,10 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
-	if time.Since(lastClearCache) < 60*time.Second {
+	if time.Since(lastClearCache) < clearCacheTime {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
-			time.AfterFunc(61*time.Second, func() {
+			time.AfterFunc(clearCacheTime, func() {
 				clearCacheTimerSet = false
 				ds.clearCache() // it's after time - so will clear the cache
 			})
