@@ -152,7 +152,7 @@ func TestAuth(t *testing.T) {
 	}
 }
 
-func Test404sDuringChanges(t *testing.T) {
+func Test503sDuringChanges(t *testing.T) {
 	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	rulePath1 := util.GetResourcePath(routingR1Yaml)
 	rulePath2 := util.GetResourcePath(routingR2Yaml)
@@ -194,7 +194,7 @@ func Test404sDuringChanges(t *testing.T) {
 	}
 }
 
-func Test503sWithPartialRules(t *testing.T) {
+func Test503sWithBadClusters(t *testing.T) {
 	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	rulePath := util.GetResourcePath(routingRNPYaml)
 	go func() {
@@ -222,8 +222,9 @@ func Test503sWithPartialRules(t *testing.T) {
 	}
 	numRequests := res.DurationHistogram.Count
 	num200s := res.RetCodes[http.StatusOK]
-	// 1 or a handful of 503s is maybe ok, but not 1/2
-	if num200s != numRequests {
+	numErrors := numRequests - num200s
+	// 1 or a handful of 503s (1 per connection) is maybe ok, but not much more
+	if numErrors > opts.NumThreads*2 {
 		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}
 }
