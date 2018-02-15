@@ -1,5 +1,4 @@
 {
-  "validate_clusters": true,
   "virtual_hosts": [
    {
     "name": "some-gateway-2|10080|beta.world.example.com",

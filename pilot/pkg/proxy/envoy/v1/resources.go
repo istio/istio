@@ -399,8 +399,7 @@ func (host *VirtualHost) clusters() Clusters {
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	ValidateClusters bool           `json:"validate_clusters"`
-	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
+	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -410,7 +409,7 @@ type HTTPRouteConfigs map[int]*HTTPRouteConfig
 func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := routes[port]
 	if !ok {
-		config = &HTTPRouteConfig{ValidateClusters: true}
+		config = &HTTPRouteConfig{}
 		routes[port] = config
 	}
 	return config
@@ -439,7 +438,7 @@ func (routes HTTPRouteConfigs) normalize() HTTPRouteConfigs {
 // note that the virtual hosts without an explicit port suffix (IP:PORT) are stripped
 // for all routes except the route for port 80.
 func (routes HTTPRouteConfigs) combine() *HTTPRouteConfig {
-	out := &HTTPRouteConfig{ValidateClusters: true}
+	out := &HTTPRouteConfig{}
 	for port, config := range routes {
 		for _, host := range config.VirtualHosts {
 			vhost := &VirtualHost{
@@ -483,7 +482,7 @@ func (rc *HTTPRouteConfig) normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{ValidateClusters: true, VirtualHosts: hosts}
+	return &HTTPRouteConfig{VirtualHosts: hosts}
 }
 
 // AccessLog definition.

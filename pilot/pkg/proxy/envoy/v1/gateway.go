@@ -162,7 +162,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 		}
 	}
 
-	configs := (&HTTPRouteConfig{ValidateClusters: true, VirtualHosts: virtualHosts}).normalize()
+	configs := (&HTTPRouteConfig{VirtualHosts: virtualHosts}).normalize()
 	return configs, nil
 }
 

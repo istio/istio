@@ -1,5 +1,4 @@
 {
-  "validate_clusters": true,
   "virtual_hosts": [
    {
     "name": "hello.default.svc.cluster.local|http",
