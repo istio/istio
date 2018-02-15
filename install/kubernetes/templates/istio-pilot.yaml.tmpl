@@ -147,6 +147,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_THROTTLE
+          value: 200
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
