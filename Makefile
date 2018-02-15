@@ -122,8 +122,9 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -221,6 +222,9 @@ ${DEP}:
 
 ${GOLINT}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
+
+${GEN_CERT}:
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update

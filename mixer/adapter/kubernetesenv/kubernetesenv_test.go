@@ -49,12 +49,17 @@ func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, err
 	return nil, errors.New("can't build k8s client")
 }
 
+func newFakeBuilder() *builder {
+	fb := &fakeK8sBuilder{}
+	return newBuilder(fb.build)
+}
+
 // note: not using TestAdapterInvariants here because of kubernetes dependency.
 // we are aiming for simple unit testing. a larger, more involved integration
 // test / e2e test must be written to validate the builder in relation to a
 // real kubernetes cluster.
 func TestBuilder(t *testing.T) {
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	if err := b.Validate(); err != nil {
 		t.Errorf("ValidateConfig() => builder can't validate its default configuration: %v", err)
@@ -71,7 +76,7 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly", PodLabelForService: "app"}, 3},
 	}
 
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	for _, v := range tests {
 		b.SetAdapterConfig(v.conf)
@@ -88,10 +93,10 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 
 func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 	tests := []struct {
-		name    string
-		testFn  clientFactoryFn
-		conf    adapter.Config
-		wantErr bool
+		name     string
+		clientFn clientFactoryFn
+		conf     adapter.Config
+		wantErr  bool
 	}{
 		{"success", (&fakeK8sBuilder{}).build, conf, false},
 		{"builder error", errorClientBuilder, conf, true},
@@ -99,7 +104,7 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			b := newBuilder(v.testFn)
+			b := newBuilder(v.clientFn)
 			b.SetAdapterConfig(v.conf)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
 			if err == nil && v.wantErr {
@@ -109,6 +114,20 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 				t.Fatalf("Got error, wanted none: %v", err)
 			}
 		})
+	}
+}
+
+func TestBuilder_ControllerCache(t *testing.T) {
+	b := newFakeBuilder()
+
+	for i := 0; i < 10; i++ {
+		if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
+			t.Errorf("error in builder: %v", err)
+		}
+	}
+
+	if len(b.controllers) != 1 {
+		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
 }
 
@@ -136,19 +155,6 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 			b.SetAdapterConfig(v.conf)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			{
-				_, err := b.Build(ctx, test.NewEnv(t))
-				gotOK := err == nil
-				if gotOK != v.wantOK {
-					t.Fatalf("Got %v, Want %v", err, v.wantOK)
-				}
-				if v.clientFactory.calledPath != wantPath {
-					t.Errorf("Bad kubeconfig path; got %s, want %s", v.clientFactory.calledPath, wantPath)
-				}
-			}
-			v.clientFactory.calledPath = ""
-
-			// try this another time. create a new handler from the same builder
 			{
 				_, err := b.Build(ctx, test.NewEnv(t))
 				gotOK := err == nil
