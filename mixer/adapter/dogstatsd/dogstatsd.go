@@ -154,7 +154,7 @@ func (h *handler) record(value *metric.Instance) error {
 	}
 	// Add dimensions to tags
 	for k, v := range value.Dimensions {
-		tagMap[k] = fmt.Sprintf("%v", v)
+		tagMap[k] = adapter.Stringify(v)
 	}
 
 	// Take the tag map and return a tag string that dogstatsd expects
