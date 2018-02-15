@@ -27,7 +27,7 @@ kubectl apply -f workload/workload.yaml
 
 - Make sure the workload is up and running, and then check the log of node agent.
 ```shell
-k logs nodeagent-fs8lt
+kubectl logs nodeagent-fs8lt
 ```
 
 ```shell
