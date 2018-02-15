@@ -361,7 +361,6 @@ func TestIngressReport(t *testing.T) {
 	}
 }
 
-
 func TestTcpMetrics(t *testing.T) {
 	if err := replaceRouteRule(tcpDbRule); err != nil {
 		t.Fatalf("Could not update reviews routing rule: %v", err)
