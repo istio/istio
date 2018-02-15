@@ -26,16 +26,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"os"
-	"strconv"
-)
-
-const (
-	// enableQueueThrottleEnv is an environment variable that can be set to re-enable the
-	// throttling, in case problems are discovered. This is not a flag - it would cause too
-	// many changes, and it is only intended as a short term fail-safe and A/B testing.
-	// TODO: remove in 0.7 after more testing without the throttle.
-	enableQueueThrottleEnv = "PILOT_THROTTLE"
 )
 
 const (
