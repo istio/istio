@@ -313,32 +313,10 @@
   packages = [
     "gogoproto",
     "jsonpb",
-    "plugin/compare",
-    "plugin/defaultcheck",
-    "plugin/description",
-    "plugin/embedcheck",
-    "plugin/enumstringer",
-    "plugin/equal",
-    "plugin/face",
-    "plugin/gostring",
-    "plugin/marshalto",
-    "plugin/oneofcheck",
-    "plugin/populate",
-    "plugin/size",
-    "plugin/stringer",
-    "plugin/testgen",
-    "plugin/union",
-    "plugin/unmarshal",
     "proto",
     "protoc-gen-gogo/descriptor",
-    "protoc-gen-gogo/generator",
-    "protoc-gen-gogo/grpc",
-    "protoc-gen-gogo/plugin",
-    "protoc-gen-gogoslick",
     "sortkeys",
-    "types",
-    "vanity",
-    "vanity/command"
+    "types"
   ]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
   version = "v0.5"
@@ -362,7 +340,6 @@
     "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
-    "protoc-gen-go/plugin",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -437,7 +414,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "6da026c32e2d622cc242d32984259c77237aefe1"
+  revision = "fcbd26878ebed8c18cd1aca798e1a9b145d6a30b"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -551,7 +528,7 @@
   branch = "master"
   name = "github.com/huandu/xstrings"
   packages = ["."]
-  revision = "37469d0c81a7910b49d64a0d308ded4823e90937"
+  revision = "2bf18b218c51864a87384c06996e40ff9dcff8e1"
 
 [[projects]]
   name = "github.com/imdario/mergo"
@@ -564,12 +541,6 @@
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/istio/tools"
-  packages = ["protoc-gen-docs"]
-  revision = "c1ea7d6432304074075e2d4011a024e0d73f01d3"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -781,12 +752,6 @@
   version = "v1.2.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/shurcooL/sanitized_anchor_name"
-  packages = ["."]
-  revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
-
-[[projects]]
   name = "github.com/spf13/cobra"
   packages = [
     ".",
@@ -896,7 +861,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "3a6c3ce65c4f0844ac396b02aebda1496fd2ac9d"
+  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
 
 [[projects]]
   branch = "master"
@@ -990,7 +955,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "90b807ada4cc7ab5d1409d637b1f3beb5a776be7"
+  revision = "a4ae70923768403983fdab4e1d612d79c08ba465"
 
 [[projects]]
   branch = "master"
@@ -1010,7 +975,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "644c193aa4421c00a67106abb92f5d942c09d558"
+  revision = "b0284fdf28b5e4d7c9aa5c26e67035437f711304"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1089,12 +1054,6 @@
   version = "v0.9.0"
 
 [[projects]]
-  name = "gopkg.in/russross/blackfriday.v2"
-  packages = ["."]
-  revision = "cadec560ec52d93835bf2f15bd794700d3a2473b"
-  version = "v2.0.0"
-
-[[projects]]
   name = "gopkg.in/square/go-jose.v2"
   packages = [
     ".",
@@ -1130,7 +1089,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "6ce328b48d94e90f3c8022e811b875453da05477"
+  revision = "145be4868f169e496d90e258b45b34a1755dabe1"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1200,7 +1159,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "e30829566af6c087be3c38280705184ebecb321a"
+  revision = "ad6ca8e94ec6b6d0a9f22147f98cfbf47b932700"
 
 [[projects]]
   branch = "release-1.9"
@@ -1262,7 +1221,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "66da060b9e5e1f415bbaff2c0956518656534ce8"
+  revision = "707f6913393c9f415f26a7f4d1c3755fbe35530b"
 
 [[projects]]
   branch = "release-6.0"
@@ -1432,6 +1391,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7f29290fe3a84c7338dce54e5b4e945d14b13f4d502822992ddf2c54f3bee827"
+  inputs-digest = "b758f70c3b802ebd1828798009de98c4e7cdddf4e8ace11fb847178b753da981"
   solver-name = "gps-cdcl"
   solver-version = 1
