@@ -225,18 +225,19 @@ function get_istio_ingress_ip() {
 }
 
 function run_fortio_test1() {
-  echo "Using default loadbalancer, no istio:"
+  echo "Testing VM -> fortio1 and fortio 2 external service ip's, no istio:"
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO1_K8S_IP:8080/echo"
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO2_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
-  echo "Using default ingress, no istio:"
+  echo "Testing VM -> fortio1 and fortio 2 ingresses, no istio:"
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP1/echo"
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP2/echo"
 }
 function run_fortio_test3() {
-  echo "Using istio ingress:"
+  echo "Testing VM -> fortio1 and fortio 2 ingresses, with istio:"
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio2/echo"
 }
 
 function setup_vm_all() {
