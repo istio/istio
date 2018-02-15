@@ -48,7 +48,7 @@ spec:
                 apiVersion: v1
                 fieldPath: metadata.namespace
           - name: PILOT_THROTTLE
-            value: 200
+            value: "200"
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
