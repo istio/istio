@@ -290,7 +290,7 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -310,6 +310,9 @@ istio-ca:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -505,12 +508,19 @@ generate_yaml:
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/eureka/istio.yaml \
+                install/kubernetes/addons/grafana.yaml \
+                install/kubernetes/addons/prometheus.yaml \
+                install/kubernetes/addons/servicegraph.yaml \
+                install/kubernetes/addons/zipkin-to-stackdriver.yaml \
+                install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-initializer.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml
