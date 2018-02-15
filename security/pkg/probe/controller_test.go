@@ -55,6 +55,9 @@ func readFile(filename string) []byte {
 
 func TestGcpGetServiceIdentity(t *testing.T) {
 	server, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Unable to start local test server instance")
+	}
 	defer func() {
 		_ = server.Close()
 	}()
