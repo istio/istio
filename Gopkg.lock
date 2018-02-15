@@ -1064,6 +1064,8 @@
     "encoding/gzip",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
+    "health",
+    "health/grpc_health_v1",
     "internal",
     "keepalive",
     "metadata",
@@ -1135,11 +1137,14 @@
 [[projects]]
   name = "istio.io/fortio"
   packages = [
+    ".",
+    "fgrpc",
     "fhttp",
     "fnet",
     "log",
     "periodic",
-    "stats"
+    "stats",
+    "ui"
   ]
   revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
   version = "v0.6.8"
@@ -1432,6 +1437,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "562fd78a5631bcce7049e74caf8ba055506af0b7199f00b1b57334fe10fc48bc"
+  inputs-digest = "d8b884665078f1c63b29abea3339d4ca9e4007c61dbba2850687f4c0e04a812e"
   solver-name = "gps-cdcl"
   solver-version = 1
