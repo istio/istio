@@ -14,9 +14,9 @@
 
 package framework
 
-// Config is interface to extend the ability of the framework.
-// It is a interface to accumulate config fields into one structure
-// Any item (component, environment or even framework itself can has a Config)
-// Actual implement can take this interface with its configuration.
-type Config interface {
+// Status is interface to extend the ability of the framework.
+// It includes anything needed to be exposed outside to other components, environment or testcases.
+// Any item (component, environment can has a Status)
+// Actual implement can take this interface with its status field.
+type Status interface {
 }

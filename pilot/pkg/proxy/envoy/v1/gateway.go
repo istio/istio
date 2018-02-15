@@ -28,7 +28,7 @@ import (
 )
 
 func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
-	configStore model.IstioConfigStore, node model.Node) (Listeners, error) {
+	configStore model.IstioConfigStore, node model.Proxy) (Listeners, error) {
 
 	gateways, err := configStore.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
@@ -66,15 +66,15 @@ func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
 
 func buildPhysicalGatewayListener(
 	mesh *meshconfig.MeshConfig,
-	node model.Node,
+	node model.Proxy,
 	config model.IstioConfigStore,
 	server *routing.Server,
 ) *Listener {
 
 	opts := buildHTTPListenerOpts{
 		mesh:             mesh,
-		node:             node,
-		nodeInstances:    nil, // only required to support deprecated mixerclient behavior
+		proxy:            node,
+		proxyInstances:   nil, // only required to support deprecated mixerclient behavior
 		routeConfig:      nil,
 		ip:               WildcardAddress,
 		port:             int(server.Port.Number),
@@ -122,7 +122,7 @@ func tlsToSSLContext(tls *routing.Server_TLSOptions, protocol string) *SSLContex
 }
 
 // buildGatewayHTTPRoutes creates HTTP route configs for a single external port on a gateway
-func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Node, listenerPort int) (*HTTPRouteConfig, error) {
+func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Proxy, listenerPort int) (*HTTPRouteConfig, error) {
 	gateways, err := configStore.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Nod
 
 func buildDestinationHTTPRoutesForGatewayVirtualHost(
 	allRules []model.Config,
-	node model.Node, config model.IstioConfigStore,
+	node model.Proxy, config model.IstioConfigStore,
 	externalPort int,
 	buildCluster buildClusterFunc,
 	gatewayName string, externalHostname string) ([]*HTTPRoute, error) {

@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -91,7 +89,7 @@ func setup(config *tutil.Infra, t *testing.T) {
 		t.Skip("TAG not specified. Skipping integration tests")
 	}
 
-	tutil.Tlog("Deploying infrastructure", spew.Sdump(config))
+	// TODO(nmittler): Restore this tutil.Tlog("Deploying infrastructure", spew.Sdump(config))
 	if config.Err = config.Setup(); config.Err != nil {
 		t.Fatal(config.Err)
 	}
