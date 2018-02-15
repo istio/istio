@@ -46,7 +46,6 @@ type Service struct {
 	Hostname string `json:"hostname"`
 
 	// Address specifies the virtual IP address associated with the service.
-	// If empty
 	Address string `json:"address,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
@@ -143,7 +142,7 @@ const (
 type Resolution int
 const (
 	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
-	ClientSideLB Resolution = 0
+	ClientSideLB Resolution = iota
 	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
 	DNSLB Resolution = 1
 	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
@@ -153,7 +152,7 @@ const (
 type SelectionMode int
 const (
 	// VirtualHost based selection is typically used for HTTP services
-	VirtualHost SelectionMode = 0
+	VirtualHost SelectionMode = iota
 	// IPPort based selection is typically used for TCP services on platforms that assign virtual IPs to services
 	IPPort SelectionMode = 1
 	// PortOnly based selection is typically used for TCP services on platforms that do not assign virtual IPs to services
