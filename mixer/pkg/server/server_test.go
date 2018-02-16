@@ -114,6 +114,7 @@ func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
+	a.EnableProfiling = true
 	var err error
 	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
 		return nil, err
