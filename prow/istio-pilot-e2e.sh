@@ -29,29 +29,14 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI:-}" == 'bootstrap' ]; then
-  export USER=Prow
-
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio
-
-  # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_PULL_SHA}"
-
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
-fi
+source ${ROOT}/prow/lib.sh
+setup_and_export_git_sha
 
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT
 create_cluster 'e2e-pilot'
 
-ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/pkg/kube/config
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio

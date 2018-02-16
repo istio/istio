@@ -41,12 +41,10 @@ jobs:
           mkdir -p /go/out
           mkdir /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -78,13 +76,11 @@ jobs:
           mkdir -p /go/out
           mkdir /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: ls -R /go # Debug attach_workspace, pkg must be restored.
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -120,12 +116,10 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -162,12 +156,10 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -198,12 +190,10 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
+      - run: make submodule-sync
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -258,11 +248,8 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run:  make depend.update init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
+      - run: make submodule-sync
+      - run: make depend.update init
       - run: make build
       - run:
           name: Status and artifacts
@@ -282,14 +269,8 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run: make init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
 
   codecov:
     <<: *defaults
@@ -299,18 +280,11 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - run: make submodule-sync
       - run: mkdir -p /tmp/coverage
       - run:
           name: Running Kubernetes API Server standalone
           command: make localTestEnv
-          background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            make init
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
@@ -336,9 +310,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -356,9 +328,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/racetests
@@ -374,9 +344,7 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/benchcheck
@@ -389,9 +357,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -414,9 +380,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run: make lint
 
   ## TODO DISBALE ME and use the container based lint
@@ -445,9 +409,7 @@ jobs:
       TAG: circleci-nightly
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -463,9 +425,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             cp -a /usr/local/go /go
@@ -523,8 +483,7 @@ workflows:
       - docker-push:
           context: org-global
           requires:
-            - e2e-bookinfo
-            - e2e-mixer
+            - e2e-simple
             - e2e-pilot
             - e2e-pilot-noauth
 
@@ -542,22 +501,13 @@ workflows:
       - build:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
       - test:
-          requires:
-            - dependencies
-      - racetest:
           requires:
             - dependencies
       - e2e-simple:
           requires:
             - build
       - e2e-bookinfo:
-          requires:
-            - build
-      - e2e-mixer:
           requires:
             - build
       - e2e-pilot-v1alpha1-and-v1alpha2:
@@ -569,6 +519,31 @@ workflows:
       - benchcheck:
           requires:
             - test
+
+  flaky:
+    triggers:
+       - schedule:
+           cron: "20 2,8,14,20 * * *"
+           filters:
+             branches:
+               only:
+                 - master
+    jobs:
+      - depupdate
+      - dependencies
+      - build:
+          requires:
+            - dependencies
+      - codecov:
+          requires:
+            - build
+      - racetest:
+          requires:
+            - dependencies
+      - e2e-mixer:
+          requires:
+            - build
+
 
   all:
     jobs:

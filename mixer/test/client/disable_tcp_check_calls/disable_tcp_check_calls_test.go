@@ -42,9 +42,21 @@ const reportAttributesOkPost = `
 }
 `
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"tcp_mixer_filter.total_blocking_remote_check_calls": 0,
+	"tcp_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"tcp_mixer_filter.total_check_calls":                 0,
+	"tcp_mixer_filter.total_quota_calls":                 0,
+	"tcp_mixer_filter.total_remote_check_calls":          0,
+	"tcp_mixer_filter.total_remote_quota_calls":          0,
+	"tcp_mixer_filter.total_remote_report_calls":         1,
+	"tcp_mixer_filter.total_report_calls":                1,
+}
+
 func TestDisableTCPCheckCalls(t *testing.T) {
 	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
-
+	env.SetStatsUpdateInterval(s.V2(), 1)
 	// Disable Check
 	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
 
@@ -62,4 +74,10 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 	}
 	s.VerifyCheckCount(tag, 0)
 	s.VerifyReport(tag, reportAttributesOkPost)
+
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }
