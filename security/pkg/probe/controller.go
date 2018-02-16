@@ -33,9 +33,8 @@ import (
 
 const (
 	// LivenessProbeClientIdentity is the default identity for the liveness probe check
-	LivenessProbeClientIdentity      = "k8s.cluster.local"
-	probeCheckRequestedTTLMinutes    = 60
-	grpcServerPortTestTimeoutSeconds = 10
+	LivenessProbeClientIdentity   = "k8s.cluster.local"
+	probeCheckRequestedTTLMinutes = 60
 )
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
