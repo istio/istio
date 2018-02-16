@@ -16,7 +16,6 @@ package api
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -80,37 +79,31 @@ func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerp
 	}
 }
 
-// compatBag implements compatibility between destination.* and target.* attributes.
-type compatBag struct {
+// contextBag implements a bag with context attributes.
+type contextBag struct {
+	time time.Time
 	parent attribute.Bag
 }
 
-func (c *compatBag) DebugString() string {
+func (c *contextBag) DebugString() string {
 	return c.parent.DebugString()
 }
 
 // if a destination.* attribute is missing, check the corresponding target.* attribute.
-func (c *compatBag) Get(name string) (v interface{}, found bool) {
-	v, found = c.parent.Get(name)
-	if found {
-		return
+func (c *contextBag) Get(name string) (v interface{}, found bool) {
+	if name == "context.time" {
+		return c.time, true
 	}
-	if !strings.HasPrefix(name, "destination.") {
-		return
-	}
-	compatAttr := strings.Replace(name, "destination.", "target.", 1)
-	v, found = c.parent.Get(compatAttr)
-	if found {
-		log.Warna("Deprecated attribute found: ", compatAttr)
-	}
-	return
+	return c.parent.Get(name)
 }
 
-func (c *compatBag) Names() []string {
-	return c.parent.Names()
+func (c *contextBag) Names() []string {
+	names := c.parent.Names()
+	names = append(names, "context.time")
+	return names
 }
 
-func (c *compatBag) Done() {
+func (c *contextBag) Done() {
 	c.parent.Done()
 }
 
@@ -126,22 +119,23 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	globalWordCount := int(req.GlobalWordCount)
 
-	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
-	compatReqBag := &compatBag{requestBag}
+	contextTime := time.Now()
+	contextReqBag := &contextBag{parent: requestBag, time: contextTime}
+
 	preprocResponseBag := attribute.GetMutableBag(nil)
 
 	log.Debuga("Dispatching Preprocess Check")
 
 	mutableBag := attribute.GetMutableBag(requestBag)
 	var out rpc.Status
-	if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
+	if err := s.dispatcher.Preprocess(legacyCtx, contextReqBag, preprocResponseBag); err != nil {
 		out = status.WithError(err)
 	}
 	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
 		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 	}
 
-	compatRespBag := &compatBag{mutableBag}
+	contextRespBag := &contextBag{parent: mutableBag, time: contextTime}
 
 	if !status.IsOK(out) {
 		log.Errora("Preprocess Check returned with: ", status.String(out))
@@ -157,7 +151,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		log.Debug("Dispatching Check")
 	}
 
-	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
+	cr, err := s.dispatcher.Check(legacyCtx, contextRespBag)
 	if err != nil {
 		out = status.WithError(err)
 	}
@@ -202,7 +196,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			}
 			var err error
 
-			qr, err = quota(legacyCtx, s.dispatcher, compatRespBag, qma)
+			qr, err = quota(legacyCtx, s.dispatcher, contextRespBag, qma)
 			// if quota check fails, set status for the entire request and stop processing.
 			if err != nil {
 				resp.Precondition.Status = status.WithError(err)
@@ -274,7 +268,10 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
 	requestBag := attribute.GetMutableBag(protoBag)
-	compatReqBag := &compatBag{requestBag}
+
+	contextTime := time.Now()
+	compatReqBag := &contextBag{parent:requestBag, time: contextTime}
+
 	mutableBag := attribute.GetMutableBag(requestBag)
 	preprocResponseBag := attribute.GetMutableBag(nil)
 	var err error
@@ -303,7 +300,8 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 		}
 
-		compatRespBag := &compatBag{mutableBag}
+		contextRespBag := &contextBag{parent: mutableBag, time: contextTime}
+
 		if !status.IsOK(out) {
 			log.Errora("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
@@ -318,7 +316,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
 			log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
 		}
-		err = s.dispatcher.Report(legacyCtx, compatRespBag)
+		err = s.dispatcher.Report(legacyCtx, contextRespBag)
 		if err != nil {
 			out = status.WithError(err)
 			log.Warnf("Report returned %v", err)
