@@ -329,6 +329,9 @@ class ReportData : public HttpReportData {
     data->send_bytes = info_.bytesSent();
     data->duration =
         std::chrono::duration_cast<std::chrono::nanoseconds>(info_.duration());
+    // responseCode is for the backend response. If it is not valid, the request
+    // is rejected by Envoy. Set the response code for such requests as 500.
+    data->response_code = 500;
     if (info_.responseCode().valid()) {
       data->response_code = info_.responseCode().value();
     }
