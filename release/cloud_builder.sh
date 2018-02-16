@@ -79,9 +79,6 @@ ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-apt-get -qqy install ruby ruby-dev rubygems build-essential
-gem install --no-ri --no-rdoc fpm
-
 MAKE_TARGETS=istio-archive
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
