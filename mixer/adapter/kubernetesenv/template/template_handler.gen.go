@@ -162,107 +162,107 @@ func NewOutput() *Output {
 }
 
 func (o *Output) SetSourcePodIp(val net.IP) {
-	o.fieldsSet["SourcePodIp"] = true
+	o.fieldsSet["source_pod_ip"] = true
 	o.SourcePodIp = val
 }
 
 func (o *Output) SetSourcePodName(val string) {
-	o.fieldsSet["SourcePodName"] = true
+	o.fieldsSet["source_pod_name"] = true
 	o.SourcePodName = val
 }
 
 func (o *Output) SetSourceLabels(val map[string]string) {
-	o.fieldsSet["SourceLabels"] = true
+	o.fieldsSet["source_labels"] = true
 	o.SourceLabels = val
 }
 
 func (o *Output) SetSourceNamespace(val string) {
-	o.fieldsSet["SourceNamespace"] = true
+	o.fieldsSet["source_namespace"] = true
 	o.SourceNamespace = val
 }
 
 func (o *Output) SetSourceService(val string) {
-	o.fieldsSet["SourceService"] = true
+	o.fieldsSet["source_service"] = true
 	o.SourceService = val
 }
 
 func (o *Output) SetSourceServiceAccountName(val string) {
-	o.fieldsSet["SourceServiceAccountName"] = true
+	o.fieldsSet["source_service_account_name"] = true
 	o.SourceServiceAccountName = val
 }
 
 func (o *Output) SetSourceHostIp(val net.IP) {
-	o.fieldsSet["SourceHostIp"] = true
+	o.fieldsSet["source_host_ip"] = true
 	o.SourceHostIp = val
 }
 
 func (o *Output) SetDestinationPodIp(val net.IP) {
-	o.fieldsSet["DestinationPodIp"] = true
+	o.fieldsSet["destination_pod_ip"] = true
 	o.DestinationPodIp = val
 }
 
 func (o *Output) SetDestinationPodName(val string) {
-	o.fieldsSet["DestinationPodName"] = true
+	o.fieldsSet["destination_pod_name"] = true
 	o.DestinationPodName = val
 }
 
 func (o *Output) SetDestinationLabels(val map[string]string) {
-	o.fieldsSet["DestinationLabels"] = true
+	o.fieldsSet["destination_labels"] = true
 	o.DestinationLabels = val
 }
 
 func (o *Output) SetDestinationNamespace(val string) {
-	o.fieldsSet["DestinationNamespace"] = true
+	o.fieldsSet["destination_namespace"] = true
 	o.DestinationNamespace = val
 }
 
 func (o *Output) SetDestinationService(val string) {
-	o.fieldsSet["DestinationService"] = true
+	o.fieldsSet["destination_service"] = true
 	o.DestinationService = val
 }
 
 func (o *Output) SetDestinationServiceAccountName(val string) {
-	o.fieldsSet["DestinationServiceAccountName"] = true
+	o.fieldsSet["destination_service_account_name"] = true
 	o.DestinationServiceAccountName = val
 }
 
 func (o *Output) SetDestinationHostIp(val net.IP) {
-	o.fieldsSet["DestinationHostIp"] = true
+	o.fieldsSet["destination_host_ip"] = true
 	o.DestinationHostIp = val
 }
 
 func (o *Output) SetOriginPodIp(val net.IP) {
-	o.fieldsSet["OriginPodIp"] = true
+	o.fieldsSet["origin_pod_ip"] = true
 	o.OriginPodIp = val
 }
 
 func (o *Output) SetOriginPodName(val string) {
-	o.fieldsSet["OriginPodName"] = true
+	o.fieldsSet["origin_pod_name"] = true
 	o.OriginPodName = val
 }
 
 func (o *Output) SetOriginLabels(val map[string]string) {
-	o.fieldsSet["OriginLabels"] = true
+	o.fieldsSet["origin_labels"] = true
 	o.OriginLabels = val
 }
 
 func (o *Output) SetOriginNamespace(val string) {
-	o.fieldsSet["OriginNamespace"] = true
+	o.fieldsSet["origin_namespace"] = true
 	o.OriginNamespace = val
 }
 
 func (o *Output) SetOriginService(val string) {
-	o.fieldsSet["OriginService"] = true
+	o.fieldsSet["origin_service"] = true
 	o.OriginService = val
 }
 
 func (o *Output) SetOriginServiceAccountName(val string) {
-	o.fieldsSet["OriginServiceAccountName"] = true
+	o.fieldsSet["origin_service_account_name"] = true
 	o.OriginServiceAccountName = val
 }
 
 func (o *Output) SetOriginHostIp(val net.IP) {
-	o.fieldsSet["OriginHostIp"] = true
+	o.fieldsSet["origin_host_ip"] = true
 	o.OriginHostIp = val
 }
 

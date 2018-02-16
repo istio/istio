@@ -141,6 +141,14 @@ spec:
 )
 
 func TestApa(t *testing.T) {
+
+	out := apaTmpl.NewOutput()
+	out.SetStringPrimitive("gen-str")
+	out.SetInt64Primitive(int64(1000))
+	out.SetDoublePrimitive(float64(1000.1000))
+	out.SetBoolPrimitive(true)
+	out.SetStringMap(map[string]string{"k1": "v1"})
+
 	tests := []testData{
 		{
 			name: "Apa",
@@ -149,15 +157,7 @@ func TestApa(t *testing.T) {
 				{
 					Name: "fakeHandler",
 					Handler: spyAdapter.HandlerBehavior{
-						GenerateSampleApaOutput: &apaTmpl.Output{
-							StringPrimitive: "gen-str",
-							Int64Primitive:  int64(1000),
-							DoublePrimitive: float64(1000.1000),
-							BoolPrimitive:   true,
-							StringMap: map[string]string{
-								"k1": "v1",
-							},
-						},
+						GenerateSampleApaOutput: out,
 					},
 				},
 			},
