@@ -28,5 +28,5 @@ set -u
 # Print commands
 set -x
 
-echo 'Running smoke test with rbac, auth Tests'
+echo 'Running bookinfo test with rbac, auth Tests'
 ./prow/e2e-suite.sh --auth_enable --single_test e2e_bookinfo "$@"
