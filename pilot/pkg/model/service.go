@@ -68,15 +68,19 @@ type Service struct {
 	// Labels is a set of key-value pair metadata associated with each service instance
 	// associated with this service. For virtual services, the set of labels will be a super set
 	// of the set of labels associated with the respective parent service.
+	// For example, if a service named "catalog" is composed of all instances with the label "foo:bar",
+	// and a new version of the catalog service (say "dev") has labels "env: dev", then the virtual
+	// service called dev.catalog will have labels "env: dev", and "foo : bar". The virtual service
+	// will be composed of instances that have these two labels.
 	Labels Labels
 
-	// SelectionMode indicates how the proxy will identify the destination service for a given
+	// IdentificationMode indicates how the proxy will identify the destination service for a given
 	// connection or request using the information available. HTTP based services will typically
 	// use VirtualHost based selection. TCP based services can be delineated using IP/CIDR blocks
 	// and some services can be identified solely using the port on which the connection arrives
 	// (typically used to proxy HTTPS traffic to external services, or by TCP services on platforms
 	// that do not have virtual IPs for services).
-	SelectionMode SelectionMode
+	IdentificationMode IdentificationMode
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -144,19 +148,19 @@ const (
 	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
 	ClientSideLB Resolution = iota
 	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
-	DNSLB Resolution = 1
+	DNSLB
 	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
-	Passthrough Resolution= 2
+	Passthrough
 )
 
-type SelectionMode int
+type IdentificationMode int
 const (
 	// VirtualHost based selection is typically used for HTTP services
-	VirtualHost SelectionMode = iota
+	VirtualHost IdentificationMode = iota
 	// IPPort based selection is typically used for TCP services on platforms that assign virtual IPs to services
-	IPPort SelectionMode = 1
+	IPPort
 	// PortOnly based selection is typically used for TCP services on platforms that do not assign virtual IPs to services
-	PortOnly SelectionMode = 2
+	PortOnly
 )
 
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
