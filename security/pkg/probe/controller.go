@@ -162,7 +162,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
 
-	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort+1))
+	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
 		return nil
 	}
