@@ -16,11 +16,11 @@
 #ifndef MIXERCONTROL_HTTP_SERVICE_CONTEXT_H
 #define MIXERCONTROL_HTTP_SERVICE_CONTEXT_H
 
-#include "api_spec/include/http_api_spec_parser.h"
 #include "client_context.h"
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/attributes.pb.h"
-#include "quota/include/config_parser.h"
+#include "mixerclient/api_spec/include/http_api_spec_parser.h"
+#include "mixerclient/quota/include/config_parser.h"
 
 namespace istio {
 namespace mixer_control {

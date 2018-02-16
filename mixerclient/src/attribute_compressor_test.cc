@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/attribute_compressor.h"
-#include "include/attributes_builder.h"
+#include "attribute_compressor.h"
+#include "mixerclient/include/attributes_builder.h"
 
 #include <time.h>
 #include "google/protobuf/text_format.h"

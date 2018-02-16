@@ -14,7 +14,7 @@
  */
 
 #include "service_context.h"
-#include "control/src/attribute_names.h"
+#include "mixerclient/control/src/attribute_names.h"
 
 using ::istio::mixer::v1::config::client::ServiceConfig;
 

@@ -16,11 +16,11 @@
 #ifndef MIXERCLIENT_CLIENT_IMPL_H
 #define MIXERCLIENT_CLIENT_IMPL_H
 
-#include "include/client.h"
-#include "src/attribute_compressor.h"
-#include "src/check_cache.h"
-#include "src/quota_cache.h"
-#include "src/report_batch.h"
+#include "mixerclient/include/client.h"
+#include "mixerclient/src/attribute_compressor.h"
+#include "mixerclient/src/check_cache.h"
+#include "mixerclient/src/quota_cache.h"
+#include "mixerclient/src/report_batch.h"
 
 #include <atomic>
 

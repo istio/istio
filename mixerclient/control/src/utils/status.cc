@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "control/include/utils/status.h"
+#include "mixerclient/control/include/utils/status.h"
 #include "google/protobuf/stubs/status.h"
 
 using StatusCode = ::google::protobuf::util::error::Code;

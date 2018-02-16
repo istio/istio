@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/report_batch.h"
+#include "report_batch.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/attributes_builder.h"
+#include "mixerclient/include/attributes_builder.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;

@@ -23,7 +23,7 @@
 #include "envoy/grpc/async_client.h"
 
 #include "envoy/upstream/cluster_manager.h"
-#include "include/client.h"
+#include "mixerclient/include/client.h"
 
 namespace Envoy {
 namespace Http {

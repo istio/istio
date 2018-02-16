@@ -16,8 +16,8 @@
 #ifndef MIXERCONTROL_HTTP_CONTROLLER_H
 #define MIXERCONTROL_HTTP_CONTROLLER_H
 
-#include "include/client.h"
 #include "mixer/v1/config/client/client_config.pb.h"
+#include "mixerclient/include/client.h"
 #include "request_handler.h"
 
 namespace istio {

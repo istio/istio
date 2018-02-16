@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/delta_update.h"
+#include "delta_update.h"
 
 #include "google/protobuf/util/message_differencer.h"
 

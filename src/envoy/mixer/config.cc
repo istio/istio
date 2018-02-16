@@ -16,14 +16,10 @@
 #include "src/envoy/mixer/config.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/json_util.h"
-#include "include/attributes_builder.h"
 #include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::Message;
 using ::google::protobuf::util::Status;
-using ::istio::mixer::v1::Attributes;
-using ::istio::mixer_client::AttributesBuilder;
-using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixer::v1::config::client::TransportConfig;
 
 namespace Envoy {

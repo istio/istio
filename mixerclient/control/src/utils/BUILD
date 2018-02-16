@@ -20,10 +20,10 @@ cc_library(
         "status.cc",
     ],
     visibility = [
-        "//control/src:__subpackages__",
+        "//mixerclient/control/src:__subpackages__",
     ],
     deps = [
-        "//control/include/utils:headers_only",
-        "//:mixer_client_lib",
+        "//mixerclient/control/include/utils:headers_only",
+        "//mixerclient:mixer_client_lib",
     ],
 )

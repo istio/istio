@@ -15,8 +15,8 @@
 
 #include "attributes_builder.h"
 
-#include "control/src/attribute_names.h"
-#include "include/attributes_builder.h"
+#include "mixerclient/control/src/attribute_names.h"
+#include "mixerclient/include/attributes_builder.h"
 
 namespace istio {
 namespace mixer_control {

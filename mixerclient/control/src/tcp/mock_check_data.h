@@ -16,8 +16,8 @@
 #ifndef MIXERCONTROL_TCP_MOCK_CHECK_DATA_H
 #define MIXERCONTROL_TCP_MOCK_CHECK_DATA_H
 
-#include "control/include/tcp/check_data.h"
 #include "gmock/gmock.h"
+#include "mixerclient/control/include/tcp/check_data.h"
 
 namespace istio {
 namespace mixer_control {

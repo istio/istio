@@ -16,7 +16,7 @@
 #include "attribute_compressor.h"
 #include "delta_update.h"
 #include "global_dictionary.h"
-#include "utils/protobuf.h"
+#include "mixerclient/utils/protobuf.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;

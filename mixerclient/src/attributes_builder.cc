@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "include/attributes_builder.h"
+#include "mixerclient/include/attributes_builder.h"
 
 #include <arpa/inet.h>
 

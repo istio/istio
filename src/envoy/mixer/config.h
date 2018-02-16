@@ -22,7 +22,6 @@
 #include "common/common/logger.h"
 #include "envoy/json/json_object.h"
 #include "mixer/v1/config/client/client_config.pb.h"
-#include "quota/include/requirement.h"
 
 namespace Envoy {
 namespace Http {

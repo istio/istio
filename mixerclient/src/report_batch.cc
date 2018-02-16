@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/report_batch.h"
-#include "utils/protobuf.h"
+#include "report_batch.h"
+#include "mixerclient/utils/protobuf.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;

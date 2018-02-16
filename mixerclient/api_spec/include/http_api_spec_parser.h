@@ -18,9 +18,9 @@
 
 #include <string>
 
-#include "control/include/http/check_data.h"
 #include "mixer/v1/attributes.pb.h"
 #include "mixer/v1/config/client/api_spec.pb.h"
+#include "mixerclient/control/include/http/check_data.h"
 
 namespace istio {
 namespace api_spec {

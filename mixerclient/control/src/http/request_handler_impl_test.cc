@@ -14,11 +14,11 @@
  */
 
 #include "client_context.h"
-#include "control/src/attribute_names.h"
-#include "control/src/mock_mixer_client.h"
 #include "controller_impl.h"
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
+#include "mixerclient/control/src/attribute_names.h"
+#include "mixerclient/control/src/mock_mixer_client.h"
 #include "mock_check_data.h"
 #include "mock_report_data.h"
 

@@ -16,8 +16,8 @@
 #ifndef MIXERCONTROL_HTTP_MOCK_REPORT_DATA_H
 #define MIXERCONTROL_HTTP_MOCK_REPORT_DATA_H
 
-#include "control/include/http/report_data.h"
 #include "gmock/gmock.h"
+#include "mixerclient/control/include/http/report_data.h"
 
 namespace istio {
 namespace mixer_control {

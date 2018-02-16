@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/delta_update.h"
+#include "delta_update.h"
 #include "gtest/gtest.h"
 
 using ::istio::mixer::v1::Attributes_AttributeValue;

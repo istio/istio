@@ -16,7 +16,7 @@
 #ifndef API_SPEC_HTTP_API_SPEC_PARSER_IMPL_H_
 #define API_SPEC_HTTP_API_SPEC_PARSER_IMPL_H_
 
-#include "api_spec/include/http_api_spec_parser.h"
+#include "mixerclient/api_spec/include/http_api_spec_parser.h"
 #include "path_matcher.h"
 
 #include <regex>

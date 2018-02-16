@@ -15,9 +15,9 @@
 
 #include "attributes_builder.h"
 
-#include "control/include/utils/status.h"
-#include "control/src/attribute_names.h"
-#include "include/attributes_builder.h"
+#include "mixerclient/control/include/utils/status.h"
+#include "mixerclient/control/src/attribute_names.h"
+#include "mixerclient/include/attributes_builder.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_StringMap;

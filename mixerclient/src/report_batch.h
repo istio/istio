@@ -16,8 +16,8 @@
 #ifndef MIXERCLIENT_REPORT_BATCH_H
 #define MIXERCLIENT_REPORT_BATCH_H
 
-#include "include/client.h"
-#include "src/attribute_compressor.h"
+#include "attribute_compressor.h"
+#include "mixerclient/include/client.h"
 
 #include <atomic>
 #include <mutex>

@@ -15,12 +15,12 @@
 
 #pragma once
 
-#include "control/include/http/controller.h"
-#include "control/include/tcp/controller.h"
 #include "envoy/event/dispatcher.h"
 #include "envoy/runtime/runtime.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "mixerclient/control/include/http/controller.h"
+#include "mixerclient/control/include/tcp/controller.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/stats.h"

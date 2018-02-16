@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "src/check_cache.h"
+#include "check_cache.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/attributes_builder.h"
-#include "utils/protobuf.h"
-#include "utils/status_test_util.h"
+#include "mixerclient/include/attributes_builder.h"
+#include "mixerclient/utils/protobuf.h"
+#include "mixerclient/utils/status_test_util.h"
 
 using namespace std::chrono;
 using ::istio::mixer::v1::Attributes;

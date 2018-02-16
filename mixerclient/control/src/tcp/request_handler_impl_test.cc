@@ -14,9 +14,9 @@
  */
 
 #include "client_context.h"
-#include "control/src/mock_mixer_client.h"
 #include "controller_impl.h"
 #include "gtest/gtest.h"
+#include "mixerclient/control/src/mock_mixer_client.h"
 #include "mock_check_data.h"
 #include "mock_report_data.h"
 

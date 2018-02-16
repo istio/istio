@@ -22,11 +22,11 @@
 #include <string>
 #include <unordered_map>
 
-#include "include/client.h"
-#include "prefetch/quota_prefetch.h"
-#include "src/referenced.h"
-#include "utils/simple_lru_cache.h"
-#include "utils/simple_lru_cache_inl.h"
+#include "mixerclient/include/client.h"
+#include "mixerclient/prefetch/quota_prefetch.h"
+#include "mixerclient/src/referenced.h"
+#include "mixerclient/utils/simple_lru_cache.h"
+#include "mixerclient/utils/simple_lru_cache_inl.h"
 
 namespace istio {
 namespace mixer_client {

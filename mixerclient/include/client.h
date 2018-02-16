@@ -17,8 +17,8 @@
 #define MIXERCLIENT_CLIENT_H
 
 #include "environment.h"
+#include "mixerclient/quota/include/requirement.h"
 #include "options.h"
-#include "quota/include/requirement.h"
 
 #include <vector>
 

@@ -17,7 +17,7 @@
 #define MIXERCONTROL_MOCK_MIXER_CLIENT_H
 
 #include "gmock/gmock.h"
-#include "include/client.h"
+#include "mixerclient/include/client.h"
 
 namespace istio {
 namespace mixer_control {

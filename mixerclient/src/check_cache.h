@@ -25,11 +25,11 @@
 #include <utility>
 
 #include "google/protobuf/stubs/status.h"
-#include "include/client.h"
-#include "include/options.h"
-#include "src/referenced.h"
-#include "utils/simple_lru_cache.h"
-#include "utils/simple_lru_cache_inl.h"
+#include "mixerclient/include/client.h"
+#include "mixerclient/include/options.h"
+#include "mixerclient/src/referenced.h"
+#include "mixerclient/utils/simple_lru_cache.h"
+#include "mixerclient/utils/simple_lru_cache_inl.h"
 
 namespace istio {
 namespace mixer_client {

@@ -16,9 +16,9 @@
 #ifndef MIXERCONTROL_TCP_ATTRIBUTES_BUILDER_H
 #define MIXERCONTROL_TCP_ATTRIBUTES_BUILDER_H
 
-#include "control/include/tcp/check_data.h"
-#include "control/include/tcp/report_data.h"
-#include "control/src/request_context.h"
+#include "mixerclient/control/include/tcp/check_data.h"
+#include "mixerclient/control/include/tcp/report_data.h"
+#include "mixerclient/control/src/request_context.h"
 
 namespace istio {
 namespace mixer_control {

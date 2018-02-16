@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "mixer/v1/check.pb.h"
-#include "utils/md5.h"
+#include "mixerclient/utils/md5.h"
 
 namespace istio {
 namespace mixer_client {

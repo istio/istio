@@ -29,9 +29,9 @@ genrule(
    outs = [
        "src/global_dictionary.cc",
    ],
-   cmd = "$(location //:create_global_dictionary) $(location @mixerapi_git//:global_dictionary_file) > $@",
+   cmd = "$(location :create_global_dictionary) $(location @mixerapi_git//:global_dictionary_file) > $@",
    tools = [
-        "//:create_global_dictionary",
+        ":create_global_dictionary",
    ],
 )
 
@@ -73,8 +73,8 @@ cc_library(
         ":simple_lru_cache",
         "//external:boringssl_crypto",
         "//external:mixer_api_cc_proto",
-        "//prefetch:quota_prefetch_lib",
-        "//quota:requirement_header",
+        "//mixerclient/prefetch:quota_prefetch_lib",
+        "//mixerclient/quota:requirement_header",
     ],
 )
 
@@ -188,7 +188,6 @@ cc_test(
         "-lm",
         "-lpthread",
         "-lrt",
-        "-luuid",
     ],
     linkstatic = 1,
     deps = [

@@ -15,11 +15,11 @@
 
 #include "attributes_builder.h"
 
-#include "control/src/attribute_names.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
-#include "include/attributes_builder.h"
+#include "mixerclient/control/src/attribute_names.h"
+#include "mixerclient/include/attributes_builder.h"
 #include "mock_check_data.h"
 #include "mock_report_data.h"
 

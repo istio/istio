@@ -18,7 +18,7 @@
 
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/attributes.pb.h"
-#include "quota/include/requirement.h"
+#include "mixerclient/quota/include/requirement.h"
 
 #include <vector>
 

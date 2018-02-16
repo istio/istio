@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/referenced.h"
+#include "referenced.h"
 
-#include "include/attributes_builder.h"
-#include "utils/md5.h"
+#include "mixerclient/include/attributes_builder.h"
+#include "mixerclient/utils/md5.h"
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"

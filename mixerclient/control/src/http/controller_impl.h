@@ -20,10 +20,10 @@
 #include <unordered_map>
 
 #include "client_context.h"
-#include "control/include/http/controller.h"
+#include "mixerclient/control/include/http/controller.h"
+#include "mixerclient/utils/simple_lru_cache.h"
+#include "mixerclient/utils/simple_lru_cache_inl.h"
 #include "service_context.h"
-#include "utils/simple_lru_cache.h"
-#include "utils/simple_lru_cache_inl.h"
 
 namespace istio {
 namespace mixer_control {

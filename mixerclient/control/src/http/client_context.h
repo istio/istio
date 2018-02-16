@@ -16,8 +16,8 @@
 #ifndef MIXERCONTROL_HTTP_CLIENT_CONTEXT_H
 #define MIXERCONTROL_HTTP_CLIENT_CONTEXT_H
 
-#include "control/include/http/controller.h"
-#include "control/src/client_context_base.h"
+#include "mixerclient/control/include/http/controller.h"
+#include "mixerclient/control/src/client_context_base.h"
 
 namespace istio {
 namespace mixer_control {

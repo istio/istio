@@ -27,8 +27,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//control/include/tcp:headers_only",
-        "//control/src:common_lib",
+        "//mixerclient/control/include/tcp:headers_only",
+        "//mixerclient/control/src:common_lib",
     ],
 )
 
@@ -58,7 +58,7 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":control_lib",
-        "//control/src:mock_mixer_client",
+        "//mixerclient/control/src:mock_mixer_client",
         "//external:googletest_main",
     ],
 )

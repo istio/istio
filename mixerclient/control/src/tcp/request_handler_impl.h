@@ -17,8 +17,8 @@
 #define MIXERCONTROL_TCP_REQUEST_HANDLER_IMPL_H
 
 #include "client_context.h"
-#include "control/include/tcp/request_handler.h"
-#include "control/src/request_context.h"
+#include "mixerclient/control/include/tcp/request_handler.h"
+#include "mixerclient/control/src/request_context.h"
 
 namespace istio {
 namespace mixer_control {

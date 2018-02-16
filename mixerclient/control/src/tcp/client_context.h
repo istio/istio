@@ -16,10 +16,10 @@
 #ifndef MIXERCONTROL_TCP_CLIENT_CONTEXT_H
 #define MIXERCONTROL_TCP_CLIENT_CONTEXT_H
 
-#include "control/include/tcp/controller.h"
-#include "control/src/client_context_base.h"
-#include "control/src/request_context.h"
-#include "quota/include/config_parser.h"
+#include "mixerclient/control/include/tcp/controller.h"
+#include "mixerclient/control/src/client_context_base.h"
+#include "mixerclient/control/src/request_context.h"
+#include "mixerclient/quota/include/config_parser.h"
 
 namespace istio {
 namespace mixer_control {

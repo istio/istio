@@ -49,7 +49,7 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":config_parser_lib",
-        "//:mixer_client_lib",
+        "//mixerclient:mixer_client_lib",
         "//external:googletest_main",
     ],
 )

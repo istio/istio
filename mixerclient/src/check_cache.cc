@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/check_cache.h"
-#include "utils/protobuf.h"
+#include "check_cache.h"
+#include "mixerclient/utils/protobuf.h"
 
 using namespace std::chrono;
 using ::istio::mixer::v1::Attributes;

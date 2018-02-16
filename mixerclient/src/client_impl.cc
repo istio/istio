@@ -12,8 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/client_impl.h"
-#include "utils/protobuf.h"
+#include "client_impl.h"
+#include "mixerclient/utils/protobuf.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;

@@ -30,10 +30,10 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//api_spec:api_spec_lib",
-        "//control/include/http:headers_only",
-        "//control/src:common_lib",
-        "//control/src/utils:utils_lib",
+        "//mixerclient/api_spec:api_spec_lib",
+        "//mixerclient/control/include/http:headers_only",
+        "//mixerclient/control/src:common_lib",
+        "//mixerclient/control/src/utils:utils_lib",
     ],
 )
 
@@ -70,7 +70,7 @@ cc_test(
     deps = [
         ":control_lib",
         ":mock_headers",
-        "//control/src:mock_mixer_client",
+        "//mixerclient/control/src:mock_mixer_client",
         "//external:googletest_main",
     ],
 )

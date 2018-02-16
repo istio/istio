@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "client_context.h"
-#include "control/include/tcp/controller.h"
+#include "mixerclient/control/include/tcp/controller.h"
 
 namespace istio {
 namespace mixer_control {

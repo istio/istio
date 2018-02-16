@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/quota_cache.h"
-#include "utils/protobuf.h"
+#include "quota_cache.h"
+#include "mixerclient/utils/protobuf.h"
 
 using namespace std::chrono;
 using ::istio::mixer::v1::Attributes;

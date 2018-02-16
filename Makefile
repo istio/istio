@@ -40,9 +40,6 @@ test:
 clang-test:
 	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //...
 
-test_envoy:
-	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //src/envoy/mixer/...
-
 check:
 	@script/check-license-headers
 	@script/check-style

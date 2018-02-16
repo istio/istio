@@ -16,7 +16,7 @@
 #ifndef QUOTA_CONFIG_PARSER_IMPL_H_
 #define QUOTA_CONFIG_PARSER_IMPL_H_
 
-#include "quota/include/config_parser.h"
+#include "mixerclient/quota/include/config_parser.h"
 
 #include <regex>
 #include <unordered_map>

@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "src/quota_cache.h"
+#include "quota_cache.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/attributes_builder.h"
-#include "utils/status_test_util.h"
+#include "mixerclient/include/attributes_builder.h"
+#include "mixerclient/utils/status_test_util.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;

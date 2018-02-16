@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "quota/include/config_parser.h"
+#include "mixerclient/quota/include/config_parser.h"
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
-#include "include/attributes_builder.h"
+#include "mixerclient/include/attributes_builder.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer_client::AttributesBuilder;
