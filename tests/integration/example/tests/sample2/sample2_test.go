@@ -21,14 +21,14 @@ import (
 	"os"
 	"testing"
 
+	"istio.io/istio/tests/integration/component/mixer"
+	"istio.io/istio/tests/integration/component/proxy"
 	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
 	mixerEnvoyEnvName = "mixer_envoy_env"
-	sidecarEndpoint   = "http://localhost:9090/echo"
-	metricsEndpoint   = "http://localhost:42422/metrics"
 	testID            = "sample2_test"
 )
 
@@ -37,9 +37,16 @@ var (
 )
 
 func TestSample2(t *testing.T) {
-	log.Printf("Running %s", testEM.TestID)
+	log.Printf("Running %s", testEM.GetID())
+
+	sideCarStatus, ok := testEM.GetEnv().GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
+	if !ok {
+		t.Fatalf("failed to get side car proxy status")
+	}
+	url := sideCarStatus.SideCarEndpoint
+
 	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodGet, sidecarEndpoint, nil)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("error when do request: %s", err)
@@ -48,7 +55,11 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	req, _ = http.NewRequest(http.MethodGet, metricsEndpoint, nil)
+	mixerStatus, ok := testEM.GetEnv().GetComponents()[2].GetStatus().(mixer.LocalCompStatus)
+	if !ok {
+		t.Fatalf("failed to get status of mixer component")
+	}
+	req, _ = http.NewRequest(http.MethodGet, mixerStatus.MetricsEndpoint, nil)
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatalf("error when do request: %s", err)
@@ -57,7 +68,14 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	log.Printf("%s succeeded!", testEM.TestID)
+	config := testEM.GetEnv().GetComponents()[2].GetConfig()
+	mixerConfig, ok := config.(mixer.LocalCompConfig)
+	if !ok {
+		t.Fatalf("failed to get config of mixer component")
+	}
+	log.Printf("mixer configfile Dir is: %s", mixerConfig.ConfigFileDir)
+
+	log.Printf("%s succeeded!", testEM.GetID())
 }
 
 func TestMain(m *testing.M) {

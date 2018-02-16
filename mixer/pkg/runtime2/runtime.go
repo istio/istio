@@ -51,8 +51,6 @@ type Runtime struct {
 
 	dispatcher *dispatcher.Dispatcher
 
-	env adapter.Env
-
 	store store.Store
 
 	handlerPool *pool.GoroutinePool
@@ -175,7 +173,9 @@ func (c *Runtime) processNewConfig() {
 
 	log.Debugf("New routes in effect:\n%s", newRoutes)
 
-	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
+	if err := cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration); err != nil {
+		log.Errorf("Failed to cleanup handlers: %v", err)
+	}
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait

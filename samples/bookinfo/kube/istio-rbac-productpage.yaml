@@ -11,7 +11,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
 metadata:
-  name: bind-productpager-viewer
+  name: bind-productpage-viewer
   namespace: default
 spec:
   subjects:

@@ -595,17 +595,6 @@ func (le labelEndpoints) getEndpointsMatching(labels map[string]string) endpoint
 	return out
 }
 
-// addLabelValue adds mapping to ep for attribute with labelName and value.
-func (le labelEndpoints) addLabelValue(labelName, value string, ep *Endpoint) {
-	labelKey := labelName + nameValueSeparator + value
-	epSet, found := le[labelKey]
-	if !found {
-		epSet = make(endpointSet)
-		le[labelKey] = epSet
-	}
-	epSet[ep] = true
-}
-
 // addLabelValues adds mappings to ep for each of the multi-valued attribute with name labelName.
 func (le labelEndpoints) addLabelValues(labelName string, values []string, ep *Endpoint) {
 	for _, value := range values {
@@ -1003,24 +992,6 @@ func getDestinationRuleType(ruleName string) (DestinationRuleType, string, *net.
 		return DestinationRuleName, ruleName, nil
 	}
 	return DestinationRuleService, ruleName, nil
-}
-
-// getUpdatedLabels returns a new map with appropriate attr name value appended to labels or the supplied labels depending on drt.
-// For rule names that correspond to destination service, destination ip or the destination short service name, the attrValue and respective attrName
-// are appended to labels. For CIDRs or wildcard domains that cannot be directly looked up and needs to be matched with each individual endpoint, labels
-// is returned as-is.
-func (drt DestinationRuleType) getUpdatedLabels(labels map[string]string, attrValue string) map[string]string {
-	switch drt {
-	case DestinationRuleService:
-		return newMapWithLabelValue(labels, DestinationService.AttrName(), attrValue)
-	case DestinationRuleIP:
-		return newMapWithLabelValue(labels, DestinationIP.AttrName(), attrValue)
-	case DestinationRuleName:
-		return newMapWithLabelValue(labels, DestinationName.AttrName(), attrValue)
-	default:
-		// Direct matches will not work. Scoping is done later.
-		return labels
-	}
 }
 
 // AttrName returns the string value of attr.

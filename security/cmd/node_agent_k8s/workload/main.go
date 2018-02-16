@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -64,7 +63,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("failed to connect with server %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() // nolint: errcheck
 
 	client := pb.NewWorkloadServiceClient(conn)
 	for i := 0; i < 100; i++ {

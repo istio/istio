@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
@@ -26,9 +27,11 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -36,11 +39,6 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"bufio"
-	"text/template"
-
-	"os"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
