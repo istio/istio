@@ -166,7 +166,28 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
+
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
+	git submodule sync
+	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+.PHONY: submodule pull submodule-sync
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -193,7 +214,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -289,7 +309,7 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -309,6 +329,9 @@ istio-ca:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -502,12 +525,19 @@ installgen:
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/eureka/istio.yaml \
+                install/kubernetes/addons/grafana.yaml \
+                install/kubernetes/addons/prometheus.yaml \
+                install/kubernetes/addons/servicegraph.yaml \
+                install/kubernetes/addons/zipkin-to-stackdriver.yaml \
+                install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-initializer.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml

@@ -128,7 +128,8 @@ type FilterMixerConfig struct {
 	V2 map[string]interface{} `json:"v2,omitempty"`
 }
 
-func (*FilterMixerConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks FilterMixerConfig as an implementation of NetworkFilterConfig
+func (*FilterMixerConfig) IsNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster of a given name
 func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, clusterName string) *Cluster {

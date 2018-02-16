@@ -87,6 +87,10 @@ type cliOptions struct { // nolint: maligned
 	grpcHostname string
 	grpcPort     int
 
+	upstreamCAAddress  string
+	upstreamCACertFile string
+	upstreamAuth       string
+
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
 	LivenessProbeOptions *probe.Options
@@ -132,10 +136,10 @@ func init() {
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
 	// Istio CA accepts key/cert configured through arguments.
-	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Speicifies path to the certificate chain file")
-	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Specifies path to the CA signing certificate file")
-	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Specifies path to the CA signing key file")
-	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Specifies path to the root certificate file")
+	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
+	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file")
+	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file")
+	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file")
 
 	// Istio CA acts as a self signed CA.
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
@@ -156,9 +160,15 @@ func init() {
 		"The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
-	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "The hostname for GRPC server.")
+	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
+
+	// Upstream CA configuration
+	flags.StringVar(&opts.upstreamCAAddress, "upstream-ca-address", "", "The IP:port address of the upstream CA. "+
+		"When set, the CA will rely on the upstream Istio CA to provision its own certificate.")
+	flags.StringVar(&opts.upstreamCACertFile, "upstream-ca-cert-file", "", "Path to the certificate for authenticating upstream CA.")
+	flags.StringVar(&opts.upstreamAuth, "upstream-auth", "mtls", "Specifies how the Istio CA is authenticated to the upstream CA.")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -264,7 +274,14 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
-	if opts.selfSignedCA {
+	if opts.upstreamCAAddress != "" {
+		log.Info("Rely on upstream CA to provision CA certificate")
+		caOpts, err = ca.NewIntegratedIstioCAOptions(opts.upstreamCAAddress, opts.upstreamCACertFile, opts.upstreamAuth,
+			opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+		if err != nil {
+			fatalf("Failed to create a integrated Istio CA (error: %v)", err)
+		}
+	} else if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
