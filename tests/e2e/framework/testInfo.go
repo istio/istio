@@ -16,7 +16,6 @@ package framework
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -25,11 +24,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
-	"cloud.google.com/go/storage"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/google/uuid"
