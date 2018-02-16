@@ -1,0 +1,51 @@
+# Address sanitizer
+build:asan --strip=never
+build:asan --copt -fsanitize=address
+build:asan --copt -O1
+build:asan --copt -fno-omit-frame-pointer
+build:asan --copt -Wno-error=maybe-uninitialized
+build:asan --linkopt -fsanitize=address
+
+# Thread sanitizer
+build:tsan --strip=never
+build:tsan --copt -fsanitize=thread
+build:tsan --copt -fPIE
+build:tsan --copt -O2
+build:tsan --copt -g
+build:tsan --copt -fno-omit-frame-pointer
+build:tsan --copt -DGRPC_TSAN
+build:tsan --linkopt -fsanitize=thread
+build:tsan --linkopt -pie
+# Use -Wl,-ltsan instead of -ltsan to make Bazel link libtsan before all other
+# libs in particularly before -lpthread. This allows TSAN to pull in it's own
+# version of -lpthread.
+build:tsan --linkopt -Wl,-ltsan
+
+
+# Our default TSAN setup with -pie does not work with some linux versions (e.g.,
+# on Travis's trusty). See https://github.com/google/sanitizers/issues/503
+# So for TSAN on Travis we use gcc-5, which supports TSAN for non-pie binaries.
+build:tsan_nopie --strip=never
+build:tsan_nopie --copt -fsanitize=thread
+build:tsan_nopie --copt -O2
+build:tsan_nopie --copt -g
+build:tsan_nopie --copt -fno-omit-frame-pointer
+build:tsan_nopie --copt -DGRPC_TSAN
+build:tsan_nopie --linkopt -fsanitize=thread
+build:tsan_nopie --linkopt -Wl,-ltsan
+
+# Explicitly instruct the compiler to use the gold linker. TSAN uses linker
+# options (e.g., --push-state) that are only available in gold linker. On some
+# linux versions (e.g., Travis's latest trusty), specifying -fsanitize=thread
+# doesn't automatically use the gold linker.
+build:tsan_nopie --linkopt -fuse-ld=gold
+
+
+# Release builds
+build:release -c opt
+
+# Add compile option for all C++ files
+build --cxxopt -Wnon-virtual-dtor
+build --cxxopt -Wformat
+build --cxxopt -Wformat-security
+

@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# Copyright 2017 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Install required clang version to a folder and cache it.
+CLANG_VERSION_REQUIRED="3.8.0"
+CLANG_DIRECTORY="${HOME}/clang"
+CLANG_FORMAT="${CLANG_DIRECTORY}/bin/clang-format"
+
+CLANG_VERSION="$(${CLANG_FORMAT} -version | cut -d ' ' -f 3)"
+if [[ "${CLANG_VERSION}" != "${CLANG_VERSION_REQUIRED}" ]]; then
+  echo "Installing required clang-format ${CLANG_VERSION_REQUIRED} to ${CLANG_DIRECTORY}"
+  mkdir -p ${CLANG_DIRECTORY}
+  curl --silent --show-error --retry 10 \
+    "http://releases.llvm.org/${CLANG_VERSION_REQUIRED}/clang+llvm-${CLANG_VERSION_REQUIRED}-x86_64-linux-gnu-ubuntu-14.04.tar.xz" \
+    | tar Jx -C "${CLANG_DIRECTORY}" --strip=1 \
+  || { echo "Could not install required clang-format. Skip formating." ; exit 0 ; }
+fi
+
+echo "Checking file format ..."
+
+pushd ${ROOT} > /dev/null
+
+SOURCE_FILES=($(git ls-tree -r HEAD --name-only | grep -E '\.(h|c|cc|proto)$'))
+"${CLANG_FORMAT}" -style=Google -i "${SOURCE_FILES[@]}" \
+  || { echo "Could not run clang-format." ; exit 1 ; }
+
+CHANGED_FILES=($(git diff HEAD --name-only | grep -E '\.(h|c|cc|proto)$'))
+
+if [[ "${#CHANGED_FILES}" -ne 0 ]]; then
+  echo "Files not formatted: ${CHANGED_FILES[@]}"
+  exit 1
+fi
+echo "All files are properly formatted."
+
+popd
