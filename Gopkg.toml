@@ -166,3 +166,7 @@ required = [
 [[constraint]]
   name = "github.com/openshift/api"
   revision = "0d921e363e951d89f583292c60d013c318df64dc"
+
+[[constraint]]
+  name = "github.com/jstemmer/go-junit-report"
+  revision = "d9db44172dfb1d1ba6d68749e38ea73f64525e93"

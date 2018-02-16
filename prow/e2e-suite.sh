@@ -82,5 +82,5 @@ if ${SINGLE_MODE}; then
 
 else
     echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all
+    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all >&1 | go-junit-report > junit.xml
 fi
