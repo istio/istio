@@ -33,7 +33,7 @@ CLUSTER_VERSION="${VERSIONS[0]}"
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
 CLUSTER_CREATED=false
 
-delete_cluster () {
+function delete_cluster () {
   if [ "${CLUSTER_CREATED}" = true ]; then
     gcloud container clusters delete ${CLUSTER_NAME}\
       --zone ${ZONE}\
@@ -41,6 +41,12 @@ delete_cluster () {
       --quiet\
       || echo "Failed to delete cluster ${CLUSTER_NAME}"
   fi
+}
+
+function setup_cluster() {
+  kubectl create clusterrolebinding prow-cluster-admin-binding\
+    --clusterrole=cluster-admin\
+    --user="${KUBE_USER}"
 }
 
 function create_cluster() {
@@ -70,7 +76,6 @@ function create_cluster() {
     sleep 5
   done
 
-  kubectl create clusterrolebinding prow-cluster-admin-binding\
-    --clusterrole=cluster-admin\
-    --user="${KUBE_USER}"
+  setup_cluster
 }
+
