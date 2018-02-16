@@ -17,9 +17,10 @@ package probe
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/balancer"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
@@ -54,14 +55,6 @@ func readFile(filename string) []byte {
 }
 
 func TestGcpGetServiceIdentity(t *testing.T) {
-	server, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Unable to start local test server instance")
-	}
-	defer func() {
-		_ = server.Close()
-	}()
-
 	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
 		SigningCertBytes: readFile("./testdata/ca.crt"),
 		SigningKeyBytes:  readFile("./testdata/ca.key"),
@@ -93,6 +86,11 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			err:      fmt.Errorf("sendCSR failed"),
 			expected: "sendCSR failed",
 		},
+		"gRPC server is not available": {
+			resp:     nil,
+			err:      fmt.Errorf("%v", balancer.ErrTransientFailure.Error()),
+			expected: "",
+		},
 	}
 
 	for id, c := range testCases {
@@ -112,7 +110,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		controller, err := NewLivenessCheckController(
 			time.Minute,
 			"localhost",
-			server.Addr().(*net.TCPAddr).Port,
+			1234,
 			istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
@@ -130,8 +128,8 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				t.Errorf("%v: checkGrpcServer should return nil: %v", id, err)
 			}
 		} else {
-			if c.expected != err.Error() {
-				t.Errorf("%v: Unexpected error. expected: %v, got: %v", id, c.expected, err.Error())
+			if err == nil || c.expected != err.Error() {
+				t.Errorf("%v: Unexpected error. expected: %v, got: %v", id, c.expected, err)
 			}
 		}
 	}

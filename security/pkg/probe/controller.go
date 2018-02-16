@@ -17,9 +17,10 @@ package probe
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"time"
+
+	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/grpc"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"strings"
 )
 
 const (
@@ -161,15 +163,12 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
 
-	if conn, err := net.DialTimeout("tcp",
-		fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort),
-		time.Duration(time.Duration(grpcServerPortTestTimeoutSeconds)*time.Second)); err == nil {
-		conn.Close()
-		_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
-		return err
+	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort+1))
+	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
+		return nil
 	}
 
-	return nil
+	return err
 }
 
 // Run starts the check routine
