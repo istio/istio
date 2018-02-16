@@ -485,18 +485,18 @@ func (infra *Infra) Teardown() {
 		}
 	}
 
-	if infra.KubeClient != nil && infra.namespaceCreated {
-		util.DeleteNamespace(infra.KubeClient, infra.Namespace)
-		infra.Namespace = ""
-	}
-	if infra.KubeClient != nil && infra.istioNamespaceCreated {
-		util.DeleteNamespace(infra.KubeClient, infra.IstioNamespace)
-		infra.IstioNamespace = ""
-	}
-
 	// automatic injection webhook is not namespaced.
 	if infra.UseAutomaticInjection {
 		infra.deleteSidecarInjector()
+	}
+
+	if infra.namespaceCreated {
+		util.DeleteNamespace(infra.KubeClient, infra.Namespace)
+		infra.Namespace = ""
+	}
+	if infra.istioNamespaceCreated {
+		util.DeleteNamespace(infra.KubeClient, infra.IstioNamespace)
+		infra.IstioNamespace = ""
 	}
 }
 
