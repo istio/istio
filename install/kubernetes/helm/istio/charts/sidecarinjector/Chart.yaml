@@ -1,4 +1,4 @@
-name: sidecar-injector
+name: sidecarinjector
 version: 0.5.0
 description: Helm chart for sidecar injector deployment
 keywords:
