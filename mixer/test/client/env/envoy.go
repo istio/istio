@@ -29,12 +29,12 @@ type Envoy struct {
 }
 
 // NewEnvoy creates a new Envoy struct.
-func NewEnvoy(conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) (*Envoy, error) {
+func NewEnvoy(stress, faultInject bool, v2 *V2Conf, ports *Ports) (*Envoy, error) {
 	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
 	envoyPath := "envoy"
 	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
-	log.Printf("Envoy config: in %v\n%v\n", confPath, conf)
-	if err := CreateEnvoyConf(confPath, conf, flags, stress, faultInject, v2, ports); err != nil {
+	log.Printf("Envoy config: in %v\n", confPath)
+	if err := CreateEnvoyConf(confPath, stress, faultInject, v2, ports); err != nil {
 		return nil, err
 	}
 

@@ -20,8 +20,8 @@ Service account name.
 */}}
 {{- define "pilot.serviceAccountName" -}}
 {{- if .Values.global.rbacEnabled -}}
-{{- template "pilot.fullname" . -}}
+{{- template "pilot.fullname" . -}}-service-account
 {{- else }}
-{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}
+{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}-service-account
 {{- end -}}
 {{- end -}}

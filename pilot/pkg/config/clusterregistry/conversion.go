@@ -27,7 +27,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"go.uber.org/multierr"
-
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 

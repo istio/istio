@@ -48,6 +48,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -58,6 +65,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -67,13 +81,93 @@
             "hello.default.svc.cluster.local": {
              "disableCheckCalls": true,
              "disableReportCalls": true,
+             "endUserAuthnSpec": {
+              "jwts": [
+               {
+                "audiences": [
+                 "bookstore_android.apps.googleusercontent.com",
+                 "bookstore_web.apps.googleusercontent.com"
+                ],
+                "issuer": "1234567-compute@developer.gserviceaccount.com",
+                "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
+                "jwksUriEnvoyCluster": "jwt.www.googleapis.com|443",
+                "locations": [
+                 {
+                  "header": "x-goog-iap-jwt-assertion"
+                 }
+                ]
+               }
+              ]
+             },
+             "httpApiSpec": [
+              {
+               "apiKeys": [
+                {
+                 "query": "key"
+                }
+               ],
+               "attributes": {
+                "attributes": {
+                 "api.service": {
+                  "stringValue": "hello.default"
+                 },
+                 "api.version": {
+                  "stringValue": "1.0.0"
+                 }
+                }
+               },
+               "patterns": [
+                {
+                 "attributes": {
+                  "attributes": {
+                   "api.operation": {
+                    "stringValue": "echo"
+                   }
+                  }
+                 },
+                 "httpMethod": "POST",
+                 "uriTemplate": "/echo"
+                }
+               ]
+              }
+             ],
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
-             }
+             },
+             "quotaSpec": [
+              {
+               "rules": [
+                {
+                 "match": [
+                  {
+                   "clause": {
+                    "api.operation": {
+                     "exact": "echo"
+                    }
+                   }
+                  }
+                 ],
+                 "quotas": [
+                  {
+                   "charge": "1",
+                   "quota": "read-requests"
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
             }
            },
            "transport": {
@@ -145,6 +239,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -155,6 +256,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -164,13 +272,93 @@
             "hello.default.svc.cluster.local": {
              "disableCheckCalls": true,
              "disableReportCalls": true,
+             "endUserAuthnSpec": {
+              "jwts": [
+               {
+                "audiences": [
+                 "bookstore_android.apps.googleusercontent.com",
+                 "bookstore_web.apps.googleusercontent.com"
+                ],
+                "issuer": "1234567-compute@developer.gserviceaccount.com",
+                "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
+                "jwksUriEnvoyCluster": "jwt.www.googleapis.com|443",
+                "locations": [
+                 {
+                  "header": "x-goog-iap-jwt-assertion"
+                 }
+                ]
+               }
+              ]
+             },
+             "httpApiSpec": [
+              {
+               "apiKeys": [
+                {
+                 "query": "key"
+                }
+               ],
+               "attributes": {
+                "attributes": {
+                 "api.service": {
+                  "stringValue": "hello.default"
+                 },
+                 "api.version": {
+                  "stringValue": "1.0.0"
+                 }
+                }
+               },
+               "patterns": [
+                {
+                 "attributes": {
+                  "attributes": {
+                   "api.operation": {
+                    "stringValue": "echo"
+                   }
+                  }
+                 },
+                 "httpMethod": "POST",
+                 "uriTemplate": "/echo"
+                }
+               ]
+              }
+             ],
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
-             }
+             },
+             "quotaSpec": [
+              {
+               "rules": [
+                {
+                 "match": [
+                  {
+                   "clause": {
+                    "api.operation": {
+                     "exact": "echo"
+                    }
+                   }
+                  }
+                 ],
+                 "quotas": [
+                  {
+                   "charge": "1",
+                   "quota": "read-requests"
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
             }
            },
            "transport": {
@@ -242,6 +430,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -252,6 +447,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -261,13 +463,93 @@
             "hello.default.svc.cluster.local": {
              "disableCheckCalls": true,
              "disableReportCalls": true,
+             "endUserAuthnSpec": {
+              "jwts": [
+               {
+                "audiences": [
+                 "bookstore_android.apps.googleusercontent.com",
+                 "bookstore_web.apps.googleusercontent.com"
+                ],
+                "issuer": "1234567-compute@developer.gserviceaccount.com",
+                "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
+                "jwksUriEnvoyCluster": "jwt.www.googleapis.com|443",
+                "locations": [
+                 {
+                  "header": "x-goog-iap-jwt-assertion"
+                 }
+                ]
+               }
+              ]
+             },
+             "httpApiSpec": [
+              {
+               "apiKeys": [
+                {
+                 "query": "key"
+                }
+               ],
+               "attributes": {
+                "attributes": {
+                 "api.service": {
+                  "stringValue": "hello.default"
+                 },
+                 "api.version": {
+                  "stringValue": "1.0.0"
+                 }
+                }
+               },
+               "patterns": [
+                {
+                 "attributes": {
+                  "attributes": {
+                   "api.operation": {
+                    "stringValue": "echo"
+                   }
+                  }
+                 },
+                 "httpMethod": "POST",
+                 "uriTemplate": "/echo"
+                }
+               ]
+              }
+             ],
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
-             }
+             },
+             "quotaSpec": [
+              {
+               "rules": [
+                {
+                 "match": [
+                  {
+                   "clause": {
+                    "api.operation": {
+                     "exact": "echo"
+                    }
+                   }
+                  }
+                 ],
+                 "quotas": [
+                  {
+                   "charge": "1",
+                   "quota": "read-requests"
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
             }
            },
            "transport": {
@@ -439,6 +721,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -498,6 +787,13 @@
              ],
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
@@ -808,6 +1104,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -867,6 +1170,13 @@
              ],
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }

@@ -32,6 +32,7 @@ type (
 	SecretTestEnv struct {
 		framework.TestEnv
 		name      string
+		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
 		NameSpace string
 		Hub       string
@@ -71,20 +72,23 @@ func (env *SecretTestEnv) GetName() string {
 // It defines what components a environment contains.
 // Components will be stored in framework for start and stop
 func (env *SecretTestEnv) GetComponents() []framework.Component {
-	return []framework.Component{
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			istioCaSelfSigned,
-			fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
-			[]string{
-				"/usr/local/bin/istio_ca",
-			},
-			[]string{
-				"--self-signed-ca",
-			},
-		),
+	if env.comps == nil {
+		env.comps = []framework.Component{
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				istioCaSelfSigned,
+				fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
+				[]string{
+					"/usr/local/bin/istio_ca",
+				},
+				[]string{
+					"--self-signed-ca",
+				},
+			),
+		}
 	}
+	return env.comps
 }
 
 // Bringup doing general setup for environment level, not components.

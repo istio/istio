@@ -33,13 +33,15 @@ func buildExternalServicePort(port *routingv2.Port) *model.Port {
 	}
 }
 
-func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node,
-	instances []*model.ServiceInstance, config model.IstioConfigStore,
+func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	externalServiceConfigs := config.ExternalServices()
 	for _, externalServiceConfig := range externalServiceConfigs {
 		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		meshName := externalServiceConfig.Name + "." + externalServiceConfig.Namespace +
+			"." + externalServiceConfig.Domain
 		for _, port := range externalService.Ports {
 			modelPort := buildExternalServicePort(port)
 			switch modelPort.Protocol {
@@ -47,8 +49,8 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Node
 				httpConfig := httpConfigs.EnsurePort(modelPort.Port)
 				for _, host := range externalService.Hosts {
 					httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-						buildExternalServiceVirtualHost(externalService, port.Name, host, mesh,
-							node, modelPort, instances, config))
+						buildExternalServiceVirtualHost(meshName, externalService, port.Name, host, mesh,
+							node, modelPort, proxyInstances, config))
 				}
 			default:
 				// handled elsewhere
@@ -121,7 +123,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 		if !found {
 			// default to the external service port
-			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, int(port.Port))
+			url := fmt.Sprintf("tcp://%s:%d", endpoint.Address, port.Port)
 			hosts = append(hosts, Host{URL: url})
 		}
 	}
@@ -166,8 +168,9 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 	}
 }
 
-func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService, portName, destination string,
-	mesh *meshconfig.MeshConfig, sidecar model.Node, port *model.Port, instances []*model.ServiceInstance,
+// buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
+func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
+	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}
@@ -178,7 +181,17 @@ func buildExternalServiceVirtualHost(externalService *routingv2.ExternalService,
 
 	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
 	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
-	routes := buildDestinationHTTPRoutes(sidecar, service, port, instances, config, buildClusterFunc)
+	routes := buildDestinationHTTPRoutes(node, service, port, proxyInstances, config, buildClusterFunc)
+
+	// inject Mixer calls per route.
+	// every route here belongs to the same destination.service, ie serviceName
+	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
+	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+		oc := buildMixerConfig(node, serviceName, service, config, mesh.DisablePolicyChecks, false)
+		for _, route := range routes {
+			route.OpaqueConfig = oc
+		}
+	}
 
 	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)
 	return &VirtualHost{

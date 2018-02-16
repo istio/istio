@@ -18,6 +18,8 @@ spec:
         app: {{ template "pilot.name" . }}
         release: {{ .Release.Name }}
         istio: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: {{ template "pilot.serviceAccountName" . }}
       containers:
@@ -49,7 +51,7 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
           - name: config-volume
-            mountPath: /etc//config
+            mountPath: /etc/istio/config
         - name: {{ template "pilot.name" . }}-proxy
           image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
@@ -66,7 +68,7 @@ spec:
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
           - --customConfigFile
-          - /etc//proxy/envoy_pilot_auth.json
+          - /etc/istio/proxy/envoy_pilot_auth.json
         {{- else }}
           - NONE #--controlPlaneAuthPolicy
           - --customConfigFile
