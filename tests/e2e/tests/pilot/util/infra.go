@@ -461,24 +461,6 @@ func (infra *Infra) Teardown() {
 		return
 	}
 
-	if infra.Ingress {
-		if err := infra.KubeClient.ExtensionsV1beta1().Ingresses(infra.Namespace).
-			DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{}); err != nil {
-			log.Warna(err)
-		}
-		if err := infra.KubeClient.CoreV1().Secrets(infra.Namespace).
-			Delete(ingressSecretName, &meta_v1.DeleteOptions{}); err != nil {
-			log.Warna(err)
-		}
-	}
-
-	if filledYaml, err := infra.Fill("rbac-beta.yaml.tmpl", infra); err != nil {
-		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
-			err)
-	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
-		log.Infof("RBAC config could could not be deleted: %v", err)
-	}
-
 	if infra.UseAdmissionWebhook {
 		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
 			log.Infof("Could not delete admission webhook secret: %v", err)
@@ -488,6 +470,24 @@ func (infra *Infra) Teardown() {
 	// automatic injection webhook is not namespaced.
 	if infra.UseAutomaticInjection {
 		infra.deleteSidecarInjector()
+	}
+
+	if filledYaml, err := infra.Fill("rbac-beta.yaml.tmpl", infra); err != nil {
+		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
+			err)
+	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
+		log.Infof("RBAC config could could not be deleted: %v", err)
+	}
+
+	if infra.Ingress {
+		if err := infra.KubeClient.ExtensionsV1beta1().Ingresses(infra.Namespace).
+			DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{}); err != nil {
+			log.Warna(err)
+		}
+		if err := infra.KubeClient.CoreV1().Secrets(infra.Namespace).
+			Delete(ingressSecretName, &meta_v1.DeleteOptions{}); err != nil {
+			log.Warna(err)
+		}
 	}
 
 	if infra.namespaceCreated {
