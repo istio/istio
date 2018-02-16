@@ -2255,6 +2255,16 @@ end`,
 		},
 		R: false,
 	},
+	{
+		E:    `emptyStringMap()`,
+		Type: descriptor.STRING_MAP,
+		IL: `
+ fn eval() interface
+  call emptyStringMap
+  ret
+end`,
+		R: map[string]string{},
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
