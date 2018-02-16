@@ -30,9 +30,8 @@ type memstore struct {
 	donec chan struct{}
 }
 
-func (m *memstore) Close() error {
+func (m *memstore) Stop() {
 	close(m.donec)
-	return nil
 }
 
 func (m *memstore) Init(kinds []string) error {

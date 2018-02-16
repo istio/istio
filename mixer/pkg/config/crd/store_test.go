@@ -167,7 +167,7 @@ func TestStore(t *testing.T) {
 	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	wch, err := s.Watch()
 	if err != nil {
@@ -220,7 +220,7 @@ func TestStoreWrongKind(t *testing.T) {
 	if err := s.Init([]string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
@@ -240,7 +240,7 @@ func TestStoreNamespaces(t *testing.T) {
 	if err := s.Init([]string{"Action", "Handler"}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	wch, err := s.Watch()
 	if err != nil {
@@ -291,7 +291,7 @@ func TestStoreFailToInit(t *testing.T) {
 	if err := s.Init([]string{"Handler", "Action"}); err.Error() != "dummy2" {
 		t.Errorf("Got %v, Want dummy2 error", err)
 	}
-	_ = s.Close()
+	s.Stop()
 }
 
 func TestCrdsAreNotReady(t *testing.T) {
@@ -309,7 +309,7 @@ func TestCrdsAreNotReady(t *testing.T) {
 	if d < testingRetryTimeout {
 		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
 	}
-	_ = s.Close()
+	s.Stop()
 }
 
 func TestCrdsRetryMakeSucceed(t *testing.T) {
@@ -351,7 +351,7 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	if callCount != 3 {
 		t.Errorf("Got %d, Want 3", callCount)
 	}
-	_ = s.Close()
+	s.Stop()
 }
 
 func TestCrdsRetryAsynchronously(t *testing.T) {
@@ -389,7 +389,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 	s.cacheMutex.Lock()
 	ncaches := len(s.caches)
 	s.cacheMutex.Unlock()

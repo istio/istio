@@ -72,7 +72,7 @@ func TestFSStore2(t *testing.T) {
 	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	wch, err := s.Watch()
 	if err != nil {
@@ -125,7 +125,7 @@ func TestFSStore2WrongKind(t *testing.T) {
 	if err := s.Init([]string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	k := Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
@@ -158,7 +158,7 @@ spec:
 			if err := s.Init([]string{"Kind"}); err != nil {
 				tt.Fatal(err.Error())
 			}
-			defer s.Close() // nolint: errcheck
+			defer s.Stop()
 			if lst := s.List(); len(lst) != 1 {
 				tt.Errorf("Got %d elements, Want 1", len(lst))
 			}
@@ -291,7 +291,7 @@ func TestFSStore2MissingRoot(t *testing.T) {
 	if err := s.Init([]string{"Kind"}); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %+v, Want empty", lst)
 	}
@@ -356,7 +356,7 @@ spec:
 			if err := s.Init([]string{"Handler"}); err != nil {
 				tt.Fatalf("Init failed: %v", err)
 			}
-			defer s.Close() // nolint: errcheck
+			defer s.Stop()
 			want := map[Key]*BackEndResource{k: {Spec: data}}
 			got := s.List()
 			if len(got) != len(want) {

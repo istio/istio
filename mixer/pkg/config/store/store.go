@@ -17,7 +17,6 @@ package store
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"sync"
 
@@ -113,9 +112,9 @@ type Validator interface {
 
 // Backend defines the typeless storage backend for mixer.
 type Backend interface {
-	io.Closer
-
 	Init(kinds []string) error
+
+	Stop()
 
 	// Watch creates a channel to receive the events.
 	Watch() (<-chan BackendEvent, error)
@@ -129,9 +128,9 @@ type Backend interface {
 
 // Store defines the access to the storage for mixer.
 type Store interface {
-	io.Closer
-
 	Init(kinds map[string]proto.Message) error
+
+	Stop()
 
 	// Watch creates a channel to receive the events. A store can conduct a single
 	// watch channel at the same time. Multiple calls lead to an error.
@@ -161,14 +160,14 @@ func (s *store) RegisterProbe(c probe.Controller, name string) {
 	}
 }
 
-func (s *store) Close() error {
+func (s *store) Stop() {
 	s.mu.Lock()
 	if s.queue != nil {
 		close(s.queue.closec)
 	}
 	s.queue = nil
 	s.mu.Unlock()
-	return s.backend.Close()
+	s.backend.Stop()
 }
 
 // Init initializes the connection with the storage backend. This uses "kinds"

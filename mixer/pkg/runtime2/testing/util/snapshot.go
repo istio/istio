@@ -38,9 +38,7 @@ func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapt
 	e := config.NewEphemeral(templates, adapters)
 	e.SetState(data)
 
-	if err = store.Close(); err != nil {
-		panic(fmt.Sprintf("Failed to close the store: %v", err))
-	}
+	store.Stop()
 
 	return e.BuildSnapshot()
 }

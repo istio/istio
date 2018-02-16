@@ -99,7 +99,7 @@ func TestSetupStore(t *testing.T) {
 			if d := s.List(); len(d) != c.count {
 				t.Errorf("Got %d (%+v), Want %d", len(d), d, c.count)
 			}
-			_ = s.Close()
+			s.Stop()
 		})
 	}
 }

@@ -140,9 +140,7 @@ func (c *Runtime) StopListening() {
 		c.shutdown <- struct{}{}
 		c.shutdown = nil
 		c.waitQuiesceListening.Wait()
-		if err := c.store.Close(); err != nil {
-			log.Errorf("store.Close failed during runtime shutdown: %v", err)
-		}
+		c.store.Stop()
 
 		c.Probe.SetAvailable(errNotListening)
 	}

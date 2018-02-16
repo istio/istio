@@ -202,9 +202,8 @@ func newFsStore(root string) Backend {
 	}
 }
 
-func (s *fsStore) Close() error {
+func (s *fsStore) Stop() {
 	close(s.donec)
-	return nil
 }
 
 // Init implements StoreBackend interface.

@@ -37,11 +37,10 @@ type testStore struct {
 	listCount    int
 }
 
-func (t *testStore) Close() error {
+func (t *testStore) Stop() {
 	if t.watchCh != nil {
 		close(t.watchCh)
 	}
-	return nil
 }
 
 func (t *testStore) Init(kinds []string) error {
@@ -85,7 +84,7 @@ func TestStore(t *testing.T) {
 	if err := s.Init(kinds); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 
 	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
 	b.getError = ErrNotFound
@@ -158,7 +157,7 @@ func TestStoreWatchMultiple(t *testing.T) {
 	if err := s.Init(map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 	if b.watchCount != 0 {
 		t.Errorf("Watch is called %d times already", b.watchCount)
 	}
@@ -184,7 +183,7 @@ func TestStoreFail(t *testing.T) {
 	if err := s.Init(kinds); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
-	defer s.Close() // nolint: errcheck
+	defer s.Stop()
 	b.initErr = nil
 	if err := s.Init(kinds); err != nil {
 		t.Errorf("Got %v, Want nil", err)

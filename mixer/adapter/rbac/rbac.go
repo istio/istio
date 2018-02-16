@@ -197,7 +197,8 @@ func (h *handler) Close() error {
 	close(h.closing)
 
 	<-h.done
-	return h.store.Close()
+	h.store.Stop()
+	return nil
 }
 
 ////////////////// Bootstrap //////////////////////////

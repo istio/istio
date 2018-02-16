@@ -157,8 +157,7 @@ type mockStore struct {
 
 var _ store.Store = &mockStore{}
 
-func (m *mockStore) Close() error {
-	return nil
+func (m *mockStore) Stop() {
 }
 
 func (m *mockStore) Init(kinds map[string]proto.Message) error {
