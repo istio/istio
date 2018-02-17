@@ -25,11 +25,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
 	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
@@ -588,7 +588,7 @@ var (
 					var IpAddr net.IP
 					if param.IpAddr != "" {
 						if IpAddrInterface, err = mapper.Eval(param.IpAddr, attrs); err == nil {
-							IpAddr = net.IP(IpAddrInterface.([]uint8))
+							IpAddr = IpAddrInterface.(net.IP)
 						}
 					}
 
@@ -931,7 +931,7 @@ var (
 					abag = newWrapperAttrBag(
 						func(name string) (value interface{}, found bool) {
 							field := strings.TrimPrefix(name, fullOutName)
-							if len(field) != len(name) {
+							if len(field) != len(name) && out.WasSet(field) {
 								switch field {
 
 								case "int64Primitive":
@@ -981,7 +981,6 @@ var (
 								default:
 									return nil, false
 								}
-
 							}
 							return attrs.Get(name)
 						},
@@ -1955,7 +1954,7 @@ var (
 					var IpAddr net.IP
 					if param.IpAddr != "" {
 						if IpAddrInterface, err = mapper.Eval(param.IpAddr, attrs); err == nil {
-							IpAddr = net.IP(IpAddrInterface.([]uint8))
+							IpAddr = IpAddrInterface.(net.IP)
 						}
 					}
 
@@ -3877,7 +3876,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = net.IP(vIface.([]uint8))
+		r.IpAddr = vIface.(net.IP)
 
 	}
 
@@ -5304,7 +5303,7 @@ func (b *builder_istio_mixer_template_list_Res2) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = net.IP(vIface.([]uint8))
+		r.IpAddr = vIface.(net.IP)
 
 	}
 

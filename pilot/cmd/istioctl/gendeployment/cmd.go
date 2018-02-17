@@ -85,9 +85,8 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", install.NodePort,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
 			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too.")
-	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
-					"helm": produces contents of values.yaml
-					"yaml": produces Kubernetes deployments`)
+	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", "Output format. Acceptable values are"+
+		"'helm' to produce contents of values.yaml or 'helm' to produces Kubernetes deployments")
 
 	// TODO: figure out how we want to package up the charts with the binary to make this easy
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
@@ -165,6 +164,8 @@ func defaultInstall() *installation {
 func (i *installation) setFeatures(features []string) error {
 	if len(features) == 0 {
 		return nil
+	} else if len(features) == 1 {
+		features = strings.Split(features[0], ",")
 	}
 
 	i.Mixer = false

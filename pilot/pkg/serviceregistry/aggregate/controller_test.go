@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/mock"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -174,17 +174,16 @@ func TestGetServiceError(t *testing.T) {
 	}
 }
 
-func TestHostInstances(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	var svcNode model.Node
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
+	instances, err := aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.HelloInstanceV0})
 	if err != nil {
-		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
+		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.HelloService.Hostname {
@@ -193,12 +192,12 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
+	instances, err = aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
-		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
+		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.WorldService.Hostname {
@@ -207,29 +206,28 @@ func TestHostInstances(t *testing.T) {
 	}
 }
 
-func TestHostInstancesError(t *testing.T) {
+func TestGetProxyServiceInstancesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.HostInstancesError = errors.New("mock HostInstances() error")
+	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
-	var svcNode model.Node
 	// Get Instances from client with error
-	instances, err := aggregateCtl.HostInstances(map[string]*model.Node{mock.HelloInstanceV0: &svcNode})
+	instances, err := aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.HelloInstanceV0})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
 	}
 	if len(instances) != 0 {
-		t.Fatal("HostInstances() should return no instances is client experiences error")
+		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.HostInstances(map[string]*model.Node{mock.MakeIP(mock.WorldService, 1): &svcNode})
+	instances, err = aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.WorldService.Hostname {

@@ -23,9 +23,10 @@ import (
 
 var (
 	deregisterCmd = &cobra.Command{
-		Use:   "deregister <svcname> <ip>",
-		Short: "De-registers a service instance",
-		Args:  cobra.MinimumNArgs(2),
+		Use:              "deregister <svcname> <ip>",
+		Short:            "De-registers a service instance",
+		Args:             cobra.MinimumNArgs(2),
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]

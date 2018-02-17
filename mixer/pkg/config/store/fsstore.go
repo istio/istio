@@ -16,7 +16,6 @@ package store
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -30,6 +29,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const defaultDuration = time.Second / 2
@@ -57,13 +57,15 @@ type fsStore struct {
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
+	donec         chan struct{}
 
 	mu   sync.RWMutex
 	data map[Key]*resource
 
 	watchMutex sync.RWMutex
-	watchCtx   context.Context
 	watchCh    chan BackendEvent
+
+	*probe.Probe
 }
 
 var _ Backend = &fsStore{}
@@ -143,6 +145,7 @@ func (s *fsStore) readFiles() map[Key]*resource {
 	if err != nil {
 		log.Errorf("failure during filepath.Walk: %v", err)
 	}
+	s.SetAvailable(err)
 	return result
 }
 
@@ -181,7 +184,7 @@ func (s *fsStore) checkAndUpdate() {
 	}
 	for _, ev := range evs {
 		select {
-		case <-s.watchCtx.Done():
+		case <-s.donec:
 		case s.watchCh <- ev:
 		}
 	}
@@ -194,11 +197,17 @@ func newFsStore(root string) Backend {
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
 		data:          map[Key]*resource{},
+		donec:         make(chan struct{}),
+		Probe:         probe.NewProbe(),
 	}
 }
 
+func (s *fsStore) Stop() {
+	close(s.donec)
+}
+
 // Init implements StoreBackend interface.
-func (s *fsStore) Init(ctx context.Context, kinds []string) error {
+func (s *fsStore) Init(kinds []string) error {
 	for _, k := range kinds {
 		s.kinds[k] = true
 	}
@@ -207,7 +216,7 @@ func (s *fsStore) Init(ctx context.Context, kinds []string) error {
 		tick := time.NewTicker(s.checkDuration)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-s.donec:
 				tick.Stop()
 				return
 			case <-tick.C:
@@ -219,10 +228,9 @@ func (s *fsStore) Init(ctx context.Context, kinds []string) error {
 }
 
 // Watch implements StoreBackend interface.
-func (s *fsStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+func (s *fsStore) Watch() (<-chan BackendEvent, error) {
 	ch := make(chan BackendEvent)
 	s.watchMutex.Lock()
-	s.watchCtx = ctx
 	s.watchCh = ch
 	s.watchMutex.Unlock()
 	return ch, nil

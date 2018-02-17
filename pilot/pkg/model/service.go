@@ -199,6 +199,10 @@ type LabelsCollection []Labels
 // description (which is oblivious to various versions) and a set of labels
 // that describe the service version associated with this instance.
 //
+// Since a ServiceInstance has a single NetworkEndpoint, which has a single port,
+// multiple ServiceInstances are required to represent a workload that listens
+// on multiple ports.
+//
 // The labels associated with a service instance are unique per a network endpoint.
 // There is one well defined set of labels for each service instance network endpoint.
 //
@@ -243,8 +247,24 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]*Node) ([]*ServiceInstance, error)
+	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+	//
+	// Co-located generally means running in the same network namespace and security context.
+	//
+	// A Proxy operating as a Sidecar will return a non-empty slice.  A stand-alone Proxy
+	// will return an empty slice.
+	//
+	// There are two reasons why this returns multiple ServiceInstances instead of one:
+	// - A ServiceInstance has a single NetworkEndpoint which has a single Port.  But a Service
+	//   may have many ports.  So a workload implementing such a Service would need
+	//   multiple ServiceInstances, one for each port.
+	// - A single workload may implement multiple logical Services.
+	//
+	// In the second case, multiple services may be implemented by the same physical port number,
+	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
+	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
+	// determine the intendend destination of a connection without a Host header on the request.
+	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -263,8 +283,8 @@ type ServiceAccounts interface {
 }
 
 // SubsetOf is true if the tag has identical values for the keys
-func (t Labels) SubsetOf(that Labels) bool {
-	for k, v := range t {
+func (l Labels) SubsetOf(that Labels) bool {
+	for k, v := range l {
 		if that[k] != v {
 			return false
 		}
@@ -273,14 +293,14 @@ func (t Labels) SubsetOf(that Labels) bool {
 }
 
 // Equals returns true if the labels are identical
-func (t Labels) Equals(that Labels) bool {
-	if t == nil {
+func (l Labels) Equals(that Labels) bool {
+	if l == nil {
 		return that == nil
 	}
 	if that == nil {
-		return t == nil
+		return l == nil
 	}
-	return t.SubsetOf(that) && that.SubsetOf(t)
+	return l.SubsetOf(that) && that.SubsetOf(l)
 }
 
 // HasSubsetOf returns true if the input labels are a super set of one labels in a
@@ -334,9 +354,9 @@ func (s *Service) External() bool {
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
-func (s *Service) Key(port *Port, tag Labels) string {
+func (s *Service) Key(port *Port, labels Labels) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{tag})
+	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
@@ -414,9 +434,9 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 	return
 }
 
-func (t Labels) String() string {
-	labels := make([]string, 0, len(t))
-	for k, v := range t {
+func (l Labels) String() string {
+	labels := make([]string, 0, len(l))
+	for k, v := range l {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {

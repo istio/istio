@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `denier` adapter is designed to always return a denial to precondition
+	checks. You can specify the exact error to return for these denials.
+
 	It is generated from these files:
 		mixer/adapter/denier/config/config.proto
 
@@ -40,6 +43,7 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Cnofiguration format for the Denier adapter.
 type Params struct {
 	// The error to return when denying a request.
 	Status google_rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status"`

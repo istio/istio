@@ -18,43 +18,93 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"istio.io/istio/tests/integration/framework"
 )
 
+const (
+	serverEndpoint = "http://localhost:8080/"
+)
+
 var (
 	fortioBinary = flag.String("fortio_binary", "", "Fortio binary path.")
+	lock         sync.Mutex
 )
+
+// LocalCompConfig contains configs for LocalComponent
+type LocalCompConfig struct {
+	framework.Config
+	LogFile string
+}
+
+// LocalCompStatus contains status for LocalComponent
+type LocalCompStatus struct {
+	framework.Status
+	EchoEndpoint string
+}
 
 // LocalComponent is a local fortio server componment
 type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
-	Name        string
-	LogFile     string
+	name        string
+	config      LocalCompConfig
+	status      LocalCompStatus
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, logDir string) *LocalComponent {
-	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
+func NewLocalComponent(n string, config LocalCompConfig) *LocalComponent {
 	return &LocalComponent{
-		Name:    n,
-		LogFile: logFile,
+		name:   n,
+		config: config,
 	}
 }
 
 // GetName implement the function in component interface
 func (fortioServerComp *LocalComponent) GetName() string {
-	return fortioServerComp.Name
+	return fortioServerComp.name
+}
+
+// GetConfig return the config for outside use
+func (fortioServerComp *LocalComponent) GetConfig() framework.Config {
+	lock.Lock()
+	config := fortioServerComp.config
+	lock.Unlock()
+	return config
+}
+
+// SetConfig set a config into this component
+func (fortioServerComp *LocalComponent) SetConfig(config framework.Config) error {
+	fortioConfig, ok := config.(LocalCompConfig)
+	if !ok {
+		return fmt.Errorf("cannot cast config into fortio local config")
+	}
+	lock.Lock()
+	fortioServerComp.config = fortioConfig
+	lock.Unlock()
+	return nil
+}
+
+// GetStatus return the status for outside use
+func (fortioServerComp *LocalComponent) GetStatus() framework.Status {
+	lock.Lock()
+	status := fortioServerComp.status
+	lock.Unlock()
+	return status
 }
 
 // Start brings up a local fortio echo server
 func (fortioServerComp *LocalComponent) Start() (err error) {
 	if err = fortioServerComp.testProcess.Start(fmt.Sprintf("%s server > %s 2>&1",
-		*fortioBinary, fortioServerComp.LogFile)); err != nil {
+		*fortioBinary, fortioServerComp.config.LogFile)); err != nil {
 		return
 	}
+
+	lock.Lock()
+	fortioServerComp.status.EchoEndpoint = serverEndpoint
+	lock.Unlock()
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(2 * time.Second)
@@ -73,9 +123,4 @@ func (fortioServerComp *LocalComponent) IsAlive() (bool, error) {
 func (fortioServerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", fortioServerComp.GetName())
 	return fortioServerComp.testProcess.Stop()
-}
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (fortioServerComp *LocalComponent) Cleanup() error {
-	return nil
 }

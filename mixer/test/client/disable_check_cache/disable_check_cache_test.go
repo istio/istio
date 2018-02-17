@@ -21,11 +21,25 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 10,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"http_mixer_filter.total_check_calls":                 10,
+	"http_mixer_filter.total_quota_calls":                 0,
+	"http_mixer_filter.total_remote_check_calls":          10,
+	"http_mixer_filter.total_remote_quota_calls":          0,
+	"http_mixer_filter.total_remote_report_calls":         1,
+	"http_mixer_filter.total_report_calls":                10,
+}
+
 func TestDisableCheckCache(t *testing.T) {
-	s := env.NewTestSetup(
-		env.DisableCheckCacheTest,
-		t,
-		env.BasicConfig+","+env.DisableCheckCache)
+	s := env.NewTestSetup(env.DisableCheckCacheTest, t)
+	env.SetStatsUpdateInterval(s.V2(), 1)
+
+	// Disable check cache.
+	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, false, false)
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -34,7 +48,7 @@ func TestDisableCheckCache(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet v1"
+	tag := "OKGet"
 	for i := 0; i < 10; i++ {
 		if _, _, err := env.HTTPGet(url); err != nil {
 			t.Errorf("Failed in request %s: %v", tag, err)
@@ -43,21 +57,10 @@ func TestDisableCheckCache(t *testing.T) {
 	// Check is called 10 time.
 	s.VerifyCheckCount(tag, 10)
 
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Disable check cache.
-	env.DisableClientCache(s.V2().HTTPServerConf, true, false, false)
-	s.ReStartEnvoy()
-
-	tag = "OKGet"
-	for i := 0; i < 10; i++ {
-		if _, _, err := env.HTTPGet(url); err != nil {
-			t.Errorf("Failed in request %s: %v", tag, err)
-		}
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-	// Check is called 10 time.
-	s.VerifyCheckCount(tag, 20)
 }

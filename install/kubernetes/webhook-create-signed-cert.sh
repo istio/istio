@@ -6,8 +6,7 @@ usage() {
     cat <<EOF
 Generate certificate suitable for use with an Istio webhook service.
 
-This script demonstrates how to use the CloudFlare's PKI toolkit
-(cfssl) and k8s' CertificateSigningRequest API to a generate a
+This script uses k8s' CertificateSigningRequest API to a generate a
 certificate signed by k8s CA suitable for use with Istio webhook
 services. This requires permissions to create and approve CSR. See
 https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster for
@@ -47,18 +46,12 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-[ -z ${service} ] && usage
-[ -z ${secret} ] && usage
-[ -z ${namespace} ] && usage
+[ -z ${service} ] && service=istio-sidecar-injector
+[ -z ${secret} ] && secret=sidecar-injector-certs
+[ -z ${namespace} ] && namespace=istio-system
 
-# verify cfssl toolkit is installed
-if [ ! -x "$(command -v cfssl)" ]; then
-    echo "cfssl not found. See https://kubernetes.io/docs/concepts/cluster-administration/certificates/#cfssl for install instructions."
-    exit 1
-fi
-
-if [ ! -x "$(command -v cfssljson)" ]; then
-    echo "cfssljson not found. See https://kubernetes.io/docs/concepts/cluster-administration/certificates/#cfssl for install instructions."
+if [ ! -x "$(command -v openssl)" ]; then
+    echo "openssl not found"
     exit 1
 fi
 
@@ -66,17 +59,24 @@ csrName=${service}.${namespace}
 tmpdir=$(mktemp -d)
 echo "creating certs in tmpdir ${tmpdir} "
 
-# generate server key
-cat <<EOF | cfssl genkey - | cfssljson -bare ${tmpdir}/server
-{
-  "hosts": [ "${service}.${namespace}.svc"  ],
-  "CN": "${service}.${namespace}.svc",
-  "key": {
-    "algo": "ecdsa",
-    "size": 256
-  }
-}
+cat <<EOF >> ${tmpdir}/csr.conf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ${service}
+DNS.2 = ${service}.${namespace}
+DNS.3 = ${service}.${namespace}.svc
 EOF
+
+openssl genrsa -out ${tmpdir}/server-key.pem 2048
+openssl req -new -key ${tmpdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf
 
 # clean-up any previously created CSR for our service. Ignore errors if not present.
 kubectl delete csr ${csrName} 2>/dev/null || true
@@ -107,7 +107,21 @@ done
 
 # approve and fetch the signed certificate
 kubectl certificate approve ${csrName}
-kubectl get csr ${csrName} -o jsonpath='{.status.certificate}' | base64 -d > ${tmpdir}/server-cert.pem
+# verify certificate has been signed
+for x in $(seq 10); do
+    serverCert=$(kubectl get csr ${csrName} -o jsonpath='{.status.certificate}')
+    if [[ ${serverCert} != '' ]]; then
+        break
+    fi
+    sleep 1
+done
+if [[ ${serverCert} == '' ]]; then
+    echo "ERROR: After approving csr ${csrName}, the signed certificate did not appear on the resource. Giving up after 10 attempts." >&2
+    echo "See https://istio.io/docs/setup/kubernetes/sidecar-injection.html for more details on troubleshooting." >&2
+    exit 1
+fi
+echo ${serverCert} | openssl base64 -d -A -out ${tmpdir}/server-cert.pem
+
 
 # create the secret with CA cert and server cert/key
 kubectl create secret generic ${secret} \

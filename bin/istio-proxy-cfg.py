@@ -34,7 +34,7 @@ class XDS(object):
         elif "egress" in pod.name:
             role = "egress"
 
-        return "{role}~{pod.ip}~{pod.namespace}~{pod.name}.svc.cluster.local".format(
+        return "{role}~{pod.ip}~{pod.name}.{pod.namespace}~{pod.namespace}.svc.cluster.local".format(
             role=role, pod=pod)
 
     def query(self, path):
@@ -80,10 +80,13 @@ class XDS(object):
         # check if we should hydrate cds
         for vh in data['virtual_hosts']:
             for route in vh['routes']:
-                if 'cluster' not in route:
-                    continue
-                cn = route['cluster']
-                route['cluster'] = self.cds(pod, cn, hydrate)
+                if 'cluster' in route:
+                    cn = route['cluster']
+                    route['cluster'] = self.cds(pod, cn, hydrate)
+                elif 'weighted_clusters' in route:
+                    for cls in route['weighted_clusters']['clusters']:
+                        cn = cls['name']
+                        cls['cluster'] = self.cds(pod, cn, hydrate)
         return data
 
     def cds(self, pod, cn, hydrate=False):

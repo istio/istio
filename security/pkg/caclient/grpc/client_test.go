@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
@@ -86,7 +86,6 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	testCases := map[string]struct {
 		caAddress   string
 		pc          platform.Client
-		respErr     string
 		expectedErr string
 	}{
 		"IstioCAAddress is empty": {
@@ -126,7 +125,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		csr, _, err := ca.GenCSR(ca.CertOptions{
+		csr, _, err := util.GenCSR(util.CertOptions{
 			Host:       "service1",
 			Org:        "orgA",
 			RSAKeySize: 512,

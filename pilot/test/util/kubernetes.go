@@ -105,6 +105,21 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 	}
 }
 
+// CopyPodFiles copies files from a pod to the machine
+func CopyPodFiles(container, pod, ns, source, dest string) {
+	// kubectl cp <some-namespace>/<some-pod>:/tmp/foo /tmp/bar -c container
+	var cmd string
+	if container == "" {
+		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s",
+			ns, pod, source, dest)
+	} else {
+		cmd = fmt.Sprintf("kubectl cp %s/%s:%s %s  -c %s",
+			ns, pod, source, dest, container)
+	}
+	output, _ := Shell(cmd)
+	log.Errorf("%s\n%s", cmd, output)
+}
+
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
 // from "app" label value to the pod names.
 func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (map[string][]string, error) {
@@ -170,7 +185,13 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		Do().Raw()
 	if err != nil {
 		log.Infof("Request error %v", err)
-		return ""
+
+		raw, err = cl.CoreV1().Pods(namespace).
+			GetLogs(name, &v1.PodLogOptions{Container: container, Previous: true}).
+			Do().Raw()
+		if err != nil {
+			return ""
+		}
 	}
 	return string(raw)
 }

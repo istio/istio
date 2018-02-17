@@ -101,7 +101,7 @@ function create_windows_archive() {
   local istioctl_path="${BIN_DIR}/istioctl.exe"
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
-  
+
   zip -r "${OUTPUT_PATH}/istio_${VER_STRING}_win.zip" "istio-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
   rm "${istioctl_path}"
@@ -115,9 +115,12 @@ find samples install -type f \( \
   -o -name "*.md" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
+  -o -name "webhook-create-signed-cert.sh" \
+  -o -name "webhook-patch-ca-bundle.sh" \
   \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
+find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
 # Changing dir such that tar and zip files are

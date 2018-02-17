@@ -15,7 +15,6 @@
 package store
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -24,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // ChangeType denotes the type of a change
@@ -112,10 +112,12 @@ type Validator interface {
 
 // Backend defines the typeless storage backend for mixer.
 type Backend interface {
-	Init(ctx context.Context, kinds []string) error
+	Init(kinds []string) error
+
+	Stop()
 
 	// Watch creates a channel to receive the events.
-	Watch(ctx context.Context) (<-chan BackendEvent, error)
+	Watch() (<-chan BackendEvent, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key) (*BackEndResource, error)
@@ -126,17 +128,21 @@ type Backend interface {
 
 // Store defines the access to the storage for mixer.
 type Store interface {
-	Init(ctx context.Context, kinds map[string]proto.Message) error
+	Init(kinds map[string]proto.Message) error
+
+	Stop()
 
 	// Watch creates a channel to receive the events. A store can conduct a single
 	// watch channel at the same time. Multiple calls lead to an error.
-	Watch(ctx context.Context) (<-chan Event, error)
+	Watch() (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key, spec proto.Message) error
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]*Resource
+
+	probe.SupportsProbe
 }
 
 // store is the implementation of Store interface.
@@ -148,15 +154,30 @@ type store struct {
 	queue *eventQueue
 }
 
+func (s *store) RegisterProbe(c probe.Controller, name string) {
+	if e, ok := s.backend.(probe.SupportsProbe); ok {
+		e.RegisterProbe(c, name)
+	}
+}
+
+func (s *store) Stop() {
+	s.mu.Lock()
+	if s.queue != nil {
+		close(s.queue.closec)
+	}
+	s.queue = nil
+	s.mu.Unlock()
+	s.backend.Stop()
+}
+
 // Init initializes the connection with the storage backend. This uses "kinds"
 // for the mapping from the kind's name and its structure in protobuf.
-// The connection will be closed after ctx is done.
-func (s *store) Init(ctx context.Context, kinds map[string]proto.Message) error {
+func (s *store) Init(kinds map[string]proto.Message) error {
 	kindNames := make([]string, 0, len(kinds))
 	for k := range kinds {
 		kindNames = append(kindNames, k)
 	}
-	if err := s.backend.Init(ctx, kindNames); err != nil {
+	if err := s.backend.Init(kindNames); err != nil {
 		return err
 	}
 	s.kinds = kinds
@@ -164,24 +185,18 @@ func (s *store) Init(ctx context.Context, kinds map[string]proto.Message) error 
 }
 
 // Watch creates a channel to receive the events.
-func (s *store) Watch(ctx context.Context) (<-chan Event, error) {
+func (s *store) Watch() (<-chan Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.queue != nil {
 		return nil, ErrWatchAlreadyExists
 	}
-	ch, err := s.backend.Watch(ctx)
+	ch, err := s.backend.Watch()
 	if err != nil {
 		return nil, err
 	}
-	q := newQueue(ctx, ch, s.kinds)
+	q := newQueue(ch, s.kinds)
 	s.queue = q
-	go func() {
-		<-ctx.Done()
-		s.mu.Lock()
-		s.queue = nil
-		s.mu.Unlock()
-	}()
 	return q.chout, nil
 }
 

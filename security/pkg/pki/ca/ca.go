@@ -16,20 +16,20 @@ package ca
 
 import (
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/pkg/probe"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -47,20 +47,44 @@ const (
 	caKeySize = 2048
 )
 
+// cATypes is the enum for the CA type.
+type cATypes int
+
+const (
+	// IntegratedCA means the Istio CA automatically interacts with upstream CA.
+	integratedCA cATypes = iota
+	// SelfSignedCA means the Istio CA uses a self signed certificate.
+	selfSignedCA
+	// PluggedCertCA means the Istio CA uses a operator-specified key/cert.
+	pluggedCertCA
+)
+
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
-	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
+	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
+	// GetRootCertificate retrieves the root certificate from CA.
 	GetRootCertificate() []byte
 }
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
 type IstioCAOptions struct {
+	CAType cATypes
+
+	CertTTL    time.Duration
+	MaxCertTTL time.Duration
+
 	CertChainBytes   []byte
-	CertTTL          time.Duration
-	MaxCertTTL       time.Duration
 	SigningCertBytes []byte
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
+
+	UpstreamCAAddress   string
+	UpstreamCACertBytes []byte
+	UpstreamAuth        string
+
+	LivenessProbeOptions *probe.Options
+	ProbeCheckInterval   time.Duration
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -72,30 +96,35 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
+
+	livenessProbe *probe.Probe
 }
 
-// NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
-	core corev1.SecretsGetter) (*IstioCA, error) {
-
+// NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
+	core corev1.SecretsGetter) (*IstioCAOptions, error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
 	caSecret, err := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
 	opts := &IstioCAOptions{
+		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 	}
 	if err != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", err)
 
-		options := CertOptions{
+		options := util.CertOptions{
 			TTL:          caCertTTL,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
 		}
-		pemCert, pemKey := GenCert(options)
+		pemCert, pemKey, err := util.GenCertKeyFromOptions(options)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", err)
+		}
 
 		opts.SigningCertBytes = pemCert
 		opts.SigningKeyBytes = pemKey
@@ -113,7 +142,7 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 			},
 			Type: istioCASecretType,
 		}
-		_, err := core.Secrets(namespace).Create(secret)
+		_, err = core.Secrets(namespace).Create(secret)
 		if err != nil {
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
@@ -125,7 +154,58 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL, maxCertTTL time.Duration, org stri
 		opts.RootCertBytes = caSecret.Data[cACertID]
 	}
 
-	return NewIstioCA(opts)
+	return opts, nil
+}
+
+// NewIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+func NewIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+	certTTL, maxCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CAType:     pluggedCertCA,
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
+	}
+	if certChainFile != "" {
+		if certChainBytes, err := ioutil.ReadFile(certChainFile); err == nil {
+			caOpts.CertChainBytes = certChainBytes
+		} else {
+			return nil, err
+		}
+	}
+	if signingCertBytes, err := ioutil.ReadFile(signingCertFile); err == nil {
+		caOpts.SigningCertBytes = signingCertBytes
+	} else {
+		return nil, err
+	}
+	if signingKeyBytes, err := ioutil.ReadFile(signingKeyFile); err == nil {
+		caOpts.SigningKeyBytes = signingKeyBytes
+	} else {
+		return nil, err
+	}
+	if rootCertBytes, err := ioutil.ReadFile(rootCertFile); err == nil {
+		caOpts.RootCertBytes = rootCertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
+// NewIntegratedIstioCAOptions returns a new IstioCAOptions instance with upstream CA configuration.
+func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstreamAuth string,
+	workloadCertTTL, maxWorkloadCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CAType:            integratedCA,
+		CertTTL:           workloadCertTTL,
+		MaxCertTTL:        maxWorkloadCertTTL,
+		UpstreamCAAddress: upstreamCAAddress,
+		UpstreamAuth:      upstreamAuth,
+	}
+	if upstreamCACertBytes, err := ioutil.ReadFile(upstreamCACertFile); err == nil {
+		caOpts.UpstreamCACertBytes = upstreamCACertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
 }
 
 // NewIstioCA returns a new IstioCA instance.
@@ -133,18 +213,20 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
+
+		livenessProbe: probe.NewProbe(),
 	}
 
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
 
 	var err error
-	ca.signingCert, err = pki.ParsePemEncodedCertificate(opts.SigningCertBytes)
+	ca.signingCert, err = util.ParsePemEncodedCertificate(opts.SigningCertBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	ca.signingKey, err = pki.ParsePemEncodedKey(opts.SigningKeyBytes)
+	ca.signingKey, err = util.ParsePemEncodedKey(opts.SigningKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +245,12 @@ func (ca *IstioCA) GetRootCertificate() []byte {
 
 // Sign takes a PEM-encoded certificate signing request and returns a signed
 // certificate.
-func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
-	csr, err := pki.ParsePemEncodedCSR(csrPEM)
+func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
+	if ca.signingCert == nil {
+		return nil, fmt.Errorf("Istio CA is not ready") // nolint
+	}
+
+	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -175,16 +261,14 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
 	}
 
-	tmpl := ca.generateCertificateTemplate(csr, ttl)
-
-	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)
+	certBytes, err := util.GenCertFromCSR(csr, ca.signingCert, csr.PublicKey, ca.signingKey, ttl, forCA)
 	if err != nil {
 		return nil, err
 	}
 
 	block := &pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: bytes,
+		Bytes: certBytes,
 	}
 	cert := pem.EncodeToMemory(block)
 
@@ -192,28 +276,6 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	chain := append(cert, ca.certChainBytes...)
 
 	return chain, nil
-}
-
-func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest, ttl time.Duration) *x509.Certificate {
-	exts := append(request.Extensions, request.ExtraExtensions...)
-
-	now := time.Now()
-
-	return &x509.Certificate{
-		SerialNumber: genSerialNum(),
-		Subject:      request.Subject,
-		NotAfter:     now.Add(ttl),
-		NotBefore:    now,
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		IsCA:         false,
-		BasicConstraintsValid: true,
-		ExtraExtensions:       exts,
-		DNSNames:              request.DNSNames,
-		EmailAddresses:        request.EmailAddresses,
-		IPAddresses:           request.IPAddresses,
-		SignatureAlgorithm:    request.SignatureAlgorithm,
-	}
 }
 
 // verify that the cert chain, root cert and signing key/cert match.

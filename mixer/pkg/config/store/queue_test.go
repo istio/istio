@@ -15,22 +15,20 @@
 package store
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/istio/mixer/pkg/config/proto"
+	cfg "istio.io/api/mixer/v1/config"
 )
 
 func TestQueue(t *testing.T) {
 	count := 10
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	chin := make(chan BackendEvent)
-	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	defer cancel()
+	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	defer close(q.closec)
 	donec := make(chan struct{})
 	evs := []Event{}
 	go func() {
@@ -65,10 +63,9 @@ func TestQueue(t *testing.T) {
 }
 
 func TestQueueFail(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	chin := make(chan BackendEvent)
-	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	defer cancel()
+	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	defer close(q.closec)
 	chin <- BackendEvent{
 		Type:  Update,
 		Key:   Key{Kind: "Unknown", Namespace: "ns", Name: "unknown"},
@@ -95,10 +92,9 @@ func TestQueueFail(t *testing.T) {
 
 func TestQueueSync(t *testing.T) {
 	count := 10
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	chin := make(chan BackendEvent)
-	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	defer cancel()
+	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	defer close(q.closec)
 	for i := 0; i < count; i++ {
 		chin <- BackendEvent{
 			Type:  Update,
@@ -115,23 +111,21 @@ func TestQueueSync(t *testing.T) {
 }
 
 func TestQueueCancelClosesOutputChannel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
 	chin := make(chan BackendEvent)
-	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
 	donec := make(chan struct{})
 	go func() {
 		for range q.chout {
 		}
 		close(donec)
 	}()
-	cancel()
+	close(q.closec)
 	<-donec
 }
 
 func TestQueueCancelSync(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	chin := make(chan BackendEvent)
-	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
+	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
 	for i := 0; i < choutBufSize+5; i++ {
 		chin <- BackendEvent{
 			Type:  Update,
@@ -139,7 +133,7 @@ func TestQueueCancelSync(t *testing.T) {
 			Value: &BackEndResource{},
 		}
 	}
-	cancel()
+	close(q.closec)
 	// Wait for the queue's run loop to end.
 	time.Sleep(time.Millisecond)
 	// Read the bufferred events.

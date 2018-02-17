@@ -1,4 +1,3 @@
-
 # Gopkg.toml example
 #
 # Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
@@ -23,25 +22,38 @@
 # TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
 # This repo includes only istio-generated files.
 
-### BEGIN Mixer codegen deps
 
 required = [
+  ### BEGIN Mixer codegen deps
   "github.com/gogo/protobuf/proto",
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
+  "github.com/istio/tools/protoc-gen-docs",
+  ### END Mixer codegen deps
+  # fortio binary (main) is used by the testing framework and should not be
+  # pruned
+  "istio.io/fortio",
 ]
 
-### END Mixer codegen deps
-
-[[constraint]]
-  name = "github.com/googleapis/googleapis"
-  source = "https://github.com/costinm/googleapis.git"
+### Pruning settings
+[prune]
+  unused-packages = true
+  go-tests = true
+  non-go = true
+###
 
 [[constraint]]
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
+
+# Lock mergo against kubernetes/client-go's version to fix merging related kubeconfig bugs
+# related to CertificateAuthorityData/certificate-authority-data failures
+# https://github.com/kubernetes/client-go/blob/7cd1d3291b7d9b1e2d54d4b69eb65995eaf8888e/tools/clientcmd/client_config.go#L160-L162
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 # When necessary, override transitive contraints that might be pinned
 # to older versions (e.g. ingress-nginx pinned to 1.8).
@@ -66,12 +78,12 @@ required = [
   name = "k8s.io/api"
   branch = "release-1.9"
 
-[[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  branch = "release-1.9"
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  version = "v9.10.0"
 
 [[constraint]]
-  name = "k8s.io/apiserver"
+  name = "k8s.io/apiextensions-apiserver"
   branch = "release-1.9"
 
 [[override]]
@@ -89,13 +101,9 @@ required = [
 #     "k8s.io/ingress-nginx/core/pkg/ingress/status"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/store"
 #     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
-[[constraint]]
-  name = "k8s.io/ingress-nginx"
-  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
-
-[[constraint]]
-  name = "github.com/russross/blackfriday"
-  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
+#[[constraint]]
+#  name = "k8s.io/ingress-nginx"
+#  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -113,7 +121,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "58de5731b5401268263924fae9df7d091813c19e"
+  revision = "145be4868f169e496d90e258b45b34a1755dabe1"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -124,6 +132,12 @@ required = [
 [[override]]
   name = "github.com/gogo/protobuf"
   version = "=0.5"
+
+# Api is pinning this to a version, needs to be fixed. Protobuf is supposed to have stable master.
+# The api constraint prevents dep update
+[[override]]
+  name = "github.com/golang/protobuf"
+  branch = "master"
 
 ### End Mixer codegen dep pinning
 
@@ -144,3 +158,11 @@ required = [
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/istio/tools"
+
+[[constraint]]
+  name = "github.com/openshift/api"
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"

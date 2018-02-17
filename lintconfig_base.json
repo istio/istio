@@ -7,6 +7,10 @@
     "minConfidence": 0.0,
     "lineLength": 160,
     "tests": true,
+    "sort": ["path"],
+    "Linters": {
+        "goimports": {"Command": "goimports -l --local istio.io"}
+    },
     "enable": [
         "deadcode",
         "errcheck",
@@ -45,18 +49,21 @@
         "vet": "error",
         "vetshadow": "error"
     },
+    "skip": [
+        "mixer/tools/adapterlinter/testdata"
+    ],
     "exclude": [
         ".pb.go",
         "mock_*",
         "mixer/adapter/doc.go",
-        "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
+        ".*.gen_test.go",
         "mixer/template/doc.go",
-        "mixer/template/sample/doc.go",
+        "mixer/template/sample/.*.go",
         "mixer/test/spyAdapter/template/doc.go",
         "mixer/template/doc.go",
-        "mixer/tools/adapterlinter/testdata/.*",
         "should have a package comment",
+        "composite literal uses unkeyed fields",
         "genfiles"
     ]
 }

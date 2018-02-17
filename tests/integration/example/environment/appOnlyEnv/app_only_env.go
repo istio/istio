@@ -15,6 +15,7 @@
 package appOnlyEnv
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -26,43 +27,51 @@ import (
 // AppOnlyEnv is a test environment with only fortio echo server
 type AppOnlyEnv struct {
 	framework.TestEnv
-	EnvID  string
-	TmpDir string
+	envID  string
+	tmpDir string
+	comps  []framework.Component
 }
 
 // NewAppOnlyEnv create an AppOnlyEnv with a env ID
 func NewAppOnlyEnv(id string) *AppOnlyEnv {
 	return &AppOnlyEnv{
-		EnvID: id,
+		envID: id,
 	}
 }
 
 // GetName implement the function in TestEnv return environment ID
 func (appOnlyEnv *AppOnlyEnv) GetName() string {
-	return appOnlyEnv.EnvID
+	return appOnlyEnv.envID
 }
 
 // Bringup implement the function in TestEnv
 // Create local temp dir. Can be manually overrided if necessary.
 func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
-	log.Printf("Bringing up %s", appOnlyEnv.EnvID)
-	appOnlyEnv.TmpDir, err = ioutil.TempDir("", appOnlyEnv.GetName())
+	log.Printf("Bringing up %s", appOnlyEnv.envID)
+	appOnlyEnv.tmpDir, err = ioutil.TempDir("", appOnlyEnv.GetName())
+	log.Println(appOnlyEnv.tmpDir)
 	return
 }
 
 // GetComponents returns a list with a fortio server component
 func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
-	// Define what components this environment has
-	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", appOnlyEnv.TmpDir))
+	// If it's the first time GetComponents being called, i.e. comps hasn't been defined yet
+	if appOnlyEnv.comps == nil {
+		// Define what components this environment has
+		appOnlyEnv.comps = []framework.Component{}
+		appOnlyEnv.comps = append(appOnlyEnv.comps, fortioServer.NewLocalComponent("my_fortio_server",
+			fortioServer.LocalCompConfig{
+				LogFile: fmt.Sprintf("%s/%s.log", appOnlyEnv.tmpDir, "my_local_fortio"),
+			}))
+	}
 
-	return comps
+	return appOnlyEnv.comps
 }
 
 // Cleanup implement the function in TestEnv
 // Remove the local temp dir. Can be manually overrided if necessary.
 func (appOnlyEnv *AppOnlyEnv) Cleanup() (err error) {
-	log.Printf("Cleaning up %s", appOnlyEnv.EnvID)
-	_ = os.RemoveAll(appOnlyEnv.TmpDir)
+	log.Printf("Cleaning up %s", appOnlyEnv.envID)
+	_ = os.RemoveAll(appOnlyEnv.tmpDir)
 	return
 }

@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.
@@ -81,8 +82,10 @@ func NewStore(u *url.URL) (store.Backend, error) {
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,
+		donec:                make(chan struct{}),
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
+		Probe:                probe.NewProbe(),
 	}
 	if len(namespaces) > 0 {
 		s.ns = map[string]bool{}

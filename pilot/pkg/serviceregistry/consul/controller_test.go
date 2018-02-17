@@ -349,7 +349,7 @@ func TestServicesError(t *testing.T) {
 	}
 }
 
-func TestHostInstances(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
@@ -357,22 +357,21 @@ func TestHostInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	var svcNode model.Node
-	services, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
+	services, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err != nil {
-		t.Errorf("client encountered error during HostInstances(): %v", err)
+		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
 	if len(services) != 1 {
-		t.Errorf("HostInstances() returned wrong # of endpoints => %q, want 1", len(services))
+		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
 
 	if services[0].Service.Hostname != serviceHostname("productpage") {
-		t.Errorf("HostInstances() wrong service instance returned => hostname %q, want %q",
+		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, serviceHostname("productpage"))
 	}
 }
 
-func TestHostInstancesError(t *testing.T) {
+func TestGetProxyServiceInstancesError(t *testing.T) {
 	ts := newServer()
 	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
@@ -380,13 +379,12 @@ func TestHostInstancesError(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	var svcNode model.Node
 	ts.Server.Close()
-	instances, err := controller.HostInstances(map[string]*model.Node{"172.19.0.11": &svcNode})
+	instances, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
 	if err == nil {
-		t.Error("HostInstances() should return error when client experiences connection problem")
+		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
 	}
 	if len(instances) != 0 {
-		t.Errorf("HostInstances() returned wrong # of instances: %q, want 0", len(instances))
+		t.Errorf("GetProxyServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
 	}
 }

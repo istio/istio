@@ -1,6 +1,8 @@
 ---
 github_url: https://api.github.com/repos
 istio_repo: istio/istio
+default_github_api_headers: {}
+minimum_cluster_version: 1.7.0
 addons_needing_sa:
   - "grafana"
   - "prometheus"
@@ -10,5 +12,13 @@ istio_all_addons:
   - "prometheus"
   - "servicegraph"
   - "zipkin"
+
+istio_simple_samples:
+  - name: helloworld
+    path: helloworld/helloworld.yaml
+  - name: httpbin
+    path: httpbin/httpbin.yaml
+  - name: sleep
+    path: sleep/sleep.yaml
 
 istio_k8s_install_path: "install/kubernetes"

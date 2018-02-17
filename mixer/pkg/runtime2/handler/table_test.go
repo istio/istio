@@ -15,14 +15,13 @@
 package handler
 
 import (
-	"testing"
-
 	"fmt"
+	"strings"
+	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-
-	"time"
 
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
@@ -52,8 +51,8 @@ func TestNew_EmptyConfig(t *testing.T) {
 }
 
 func TestNew_EmptyOldTable(t *testing.T) {
-	adapters := data.BuildAdapters()
-	templates := data.BuildTemplates()
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
@@ -69,15 +68,15 @@ func TestNew_EmptyOldTable(t *testing.T) {
 }
 
 func TestNew_Reuse(t *testing.T) {
-	adapters := data.BuildAdapters()
-	templates := data.BuildTemplates()
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
 	table := NewTable(Empty(), s, nil)
 
 	// NewTable again using the same config, but add fault to the adapter to detect change.
-	adapters = data.BuildAdapters(data.FakeAdapterSettings{Name: "tcheck", ErrorAtBuild: true})
+	adapters = data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "tcheck", ErrorAtBuild: true})
 	s = util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
 	table2 := NewTable(table, s, nil)
@@ -92,8 +91,8 @@ func TestNew_Reuse(t *testing.T) {
 }
 
 func TestNew_NoReuse_DifferentConfig(t *testing.T) {
-	adapters := data.BuildAdapters()
-	templates := data.BuildTemplates()
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
@@ -153,9 +152,9 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestCleanup_Basic(t *testing.T) {
-	closeCalled := false
-	adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", CloseCalled: &closeCalled})
-	templates := data.BuildTemplates()
+	l := &data.Logger{}
+	adapters := data.BuildAdapters(l, data.FakeAdapterSettings{Name: "acheck"})
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
@@ -167,8 +166,20 @@ func TestCleanup_Basic(t *testing.T) {
 
 	table.Cleanup(table2)
 
-	if !closeCalled {
-		t.Fail()
+	expected := `
+[acheck] NewBuilder =>
+[acheck] NewBuilder <=
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig <=
+[acheck] HandlerBuilder.Validate =>
+[acheck] HandlerBuilder.Validate <= (SUCCESS)
+[acheck] HandlerBuilder.Build =>
+[acheck] HandlerBuilder.Build <= (SUCCESS)
+[acheck] Handler.Close =>
+[acheck] Handler.Close <= (SUCCESS)
+`
+	if strings.TrimSpace(l.String()) != strings.TrimSpace(expected) {
+		t.Fatalf("Adapter log mismatch: '%v' != '%v'", l.String(), expected)
 	}
 }
 
@@ -212,9 +223,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d]", idx), func(t *testing.T) {
-			adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker,
+			adapters := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", SpawnWorker: tt.SpawnWorker,
 				SpawnDaemon: tt.SpawnDaemon, CloseGoRoutines: tt.CloseGoRoutines})
-			templates := data.BuildTemplates()
+			templates := data.BuildTemplates(nil)
 
 			s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 			s.ID = int64(idx * 2)
@@ -252,9 +263,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 }
 
 func TestCleanup_NoChange(t *testing.T) {
-	closeCalled := false
-	adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", CloseCalled: &closeCalled})
-	templates := data.BuildTemplates()
+	l := &data.Logger{}
+	adapters := data.BuildAdapters(l, data.FakeAdapterSettings{Name: "acheck"})
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
@@ -265,14 +276,25 @@ func TestCleanup_NoChange(t *testing.T) {
 
 	table.Cleanup(table2)
 
-	if closeCalled {
-		t.Fail()
+	// Close is not called
+	expected := `
+[acheck] NewBuilder =>
+[acheck] NewBuilder <=
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig <=
+[acheck] HandlerBuilder.Validate =>
+[acheck] HandlerBuilder.Validate <= (SUCCESS)
+[acheck] HandlerBuilder.Build =>
+[acheck] HandlerBuilder.Build <= (SUCCESS)
+`
+	if strings.TrimSpace(l.String()) != strings.TrimSpace(expected) {
+		t.Fatalf("Adapter log mismatch: '%v' != '%v'", l.String(), expected)
 	}
 }
 
 func TestCleanup_EmptyNewTable(t *testing.T) {
-	adapters := data.BuildAdapters()
-	templates := data.BuildTemplates()
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
@@ -283,9 +305,9 @@ func TestCleanup_EmptyNewTable(t *testing.T) {
 }
 
 func TestCleanup_WithStartupError(t *testing.T) {
-	adapters := data.BuildAdapters()
+	adapters := data.BuildAdapters(nil)
 
-	templates := data.BuildTemplates(data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
+	templates := data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true})
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 	table := NewTable(Empty(), s, nil)
@@ -306,9 +328,9 @@ func TestCleanup_WithStartupError(t *testing.T) {
 }
 
 func TestCleanup_CloseError(t *testing.T) {
-	closeCalled := false
-	adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true, CloseCalled: &closeCalled})
-	templates := data.BuildTemplates()
+	l := &data.Logger{}
+	adapters := data.BuildAdapters(l, data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true})
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 	table := NewTable(Empty(), s, nil)
@@ -322,15 +344,28 @@ func TestCleanup_CloseError(t *testing.T) {
 		t.Fail()
 	}
 
-	if !closeCalled {
-		t.Fail()
+	// Close is called, error is returned.
+	expected := `
+[acheck] NewBuilder =>
+[acheck] NewBuilder <=
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig <=
+[acheck] HandlerBuilder.Validate =>
+[acheck] HandlerBuilder.Validate <= (SUCCESS)
+[acheck] HandlerBuilder.Build =>
+[acheck] HandlerBuilder.Build <= (SUCCESS)
+[acheck] Handler.Close =>
+[acheck] Handler.Close <= (ERROR)
+`
+	if strings.TrimSpace(l.String()) != strings.TrimSpace(expected) {
+		t.Fatalf("Adapter log mismatch: '%v' != '%v'", l.String(), expected)
 	}
 }
 
 func TestCleanup_ClosePanic(t *testing.T) {
-	closeCalled := false
-	adapters := data.BuildAdapters(data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true, CloseCalled: &closeCalled})
-	templates := data.BuildTemplates()
+	l := &data.Logger{}
+	adapters := data.BuildAdapters(l, data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true})
+	templates := data.BuildTemplates(nil)
 
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 	table := NewTable(Empty(), s, nil)
@@ -344,7 +379,20 @@ func TestCleanup_ClosePanic(t *testing.T) {
 		t.Fail()
 	}
 
-	if !closeCalled {
-		t.Fail()
+	// Close is called, error is returned.
+	expected := `
+[acheck] NewBuilder =>
+[acheck] NewBuilder <=
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig <=
+[acheck] HandlerBuilder.Validate =>
+[acheck] HandlerBuilder.Validate <= (SUCCESS)
+[acheck] HandlerBuilder.Build =>
+[acheck] HandlerBuilder.Build <= (SUCCESS)
+[acheck] Handler.Close =>
+[acheck] Handler.Close <= (PANIC)
+`
+	if strings.TrimSpace(l.String()) != strings.TrimSpace(expected) {
+		t.Fatalf("Adapter log mismatch: '%v' != '%v'", l.String(), expected)
 	}
 }

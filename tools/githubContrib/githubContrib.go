@@ -71,6 +71,7 @@ func getBodyForURL(url string) []byte {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	checkOrDie(err, "Unable to send request")
+	defer resp.Body.Close() // nolint: errcheck
 	body, err := ioutil.ReadAll(resp.Body)
 	checkOrDie(err, "Unable to read response")
 	succ := resp.StatusCode

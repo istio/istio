@@ -24,8 +24,8 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
-
 	"google.golang.org/grpc/status"
+
 	"istio.io/istio/security/pkg/pki/ca"
 	pb "istio.io/istio/security/proto"
 )
@@ -49,7 +49,7 @@ type mockCA struct {
 	errMsg string
 }
 
-func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
+func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	if ca.errMsg != "" {
 		return nil, fmt.Errorf(ca.errMsg)
 	}
@@ -104,15 +104,6 @@ func TestSign(t *testing.T) {
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
 			ca:         &mockCA{errMsg: "cannot sign"},
-		},
-		"Unauthorized request": {
-			authenticators: []authenticator{&mockAuthenticator{}},
-			authorizer: &mockAuthorizer{
-				errMsg: "not authorized",
-			},
-			csr:  csr,
-			code: codes.PermissionDenied,
-			ca:   &mockCA{errMsg: "cannot sign"},
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},

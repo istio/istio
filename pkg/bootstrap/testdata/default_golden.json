@@ -1,0 +1,65 @@
+{
+  "stats_config": {
+    "use_all_default_tags": false
+  },
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": {
+      "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": 15000
+      }
+    }
+  },
+  "dynamic_resources": {
+    "lds_config": {
+      "api_config_source": {
+        "api_type": "REST_LEGACY",
+        "refresh_delay": {"seconds": 1, "nanos": 0},
+        "cluster_names": [
+          "rds"
+        ]
+      }
+    },
+    "cds_config": {
+      "api_config_source": {
+        "api_type": "REST_LEGACY",
+        "refresh_delay": {"seconds": 1, "nanos": 0},
+        "cluster_names": [
+          "rds"
+        ]
+      }
+    },
+    "deprecated_v1": {
+      "sds_config": {
+        "api_config_source": {
+          "api_type": "REST_LEGACY",
+          "refresh_delay": {"seconds": 1, "nanos": 0},
+          "cluster_names": [
+            "rds"
+          ]
+        }
+      }
+    }
+  },
+  "static_resources": {
+    "clusters": [
+      {
+        "name": "rds",
+        "type": "STRICT_DNS",
+        "connect_timeout": {"seconds": 1, "nanos": 0},
+        "lb_policy": "ROUND_ROBIN",
+
+      "hosts": [
+          {
+            "socket_address": {"address": "istio-pilot", "port_value": 15003}
+          }
+        ]
+
+    }
+    
+    ]
+  },
+  
+  
+}

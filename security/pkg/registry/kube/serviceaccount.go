@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 )
 
@@ -76,7 +76,7 @@ func (c *ServiceAccountController) Run(stopCh chan struct{}) {
 
 func getSpiffeID(sa *v1.ServiceAccount) string {
 	// borrowed from security/pkg/pki/ca/controller/secret.go:generateKeyAndCert()
-	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", ca.URIScheme, sa.GetNamespace(), sa.GetName())
+	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, sa.GetNamespace(), sa.GetName())
 }
 
 func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {
