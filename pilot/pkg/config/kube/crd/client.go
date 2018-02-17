@@ -45,6 +45,15 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
+// IstioAPIGroupVersion defines schema.GroupVersion for Istio configuration
+// resources.
+// TODO(xiaolanz) Client can only write to one apiVersion until https://github.com/istio/istio/issues/3586
+// is fully completed.
+var IstioAPIGroupVersion = schema.GroupVersion{
+	Group:   "config.istio.io",
+	Version: "v1alpha2",
+}
+
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
 	runtime.Object
@@ -86,21 +95,17 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 		return
 	}
 
+	config.GroupVersion = &IstioAPIGroupVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
 	types := runtime.NewScheme()
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
-			for c, kind := range knownTypes {
-				gvk := schema.GroupVersionKind{
-					Group:   ResourceGroup(&kind.schema),
-					Version: kind.schema.Version,
-					Kind:    c,
-				}
-				scheme.AddKnownTypeWithName(gvk, kind.object)
-				meta_v1.AddToGroupVersion(scheme, gvk.GroupVersion())
+			for _, kind := range knownTypes {
+				scheme.AddKnownTypes(IstioAPIGroupVersion, kind.object, kind.collection)
 			}
+			meta_v1.AddToGroupVersion(scheme, IstioAPIGroupVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
@@ -152,14 +157,14 @@ func (cl *Client) RegisterResources() error {
 	}
 
 	for _, schema := range cl.descriptor {
-		group := ResourceGroup(&schema)
-		name := ResourceName(schema.Plural) + "." + group
+		g := ResourceGroup(&schema)
+		name := ResourceName(schema.Plural) + "." + g
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
 			},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Group:   group,
+				Group:   g,
 				Version: schema.Version,
 				Scope:   apiextensionsv1beta1.NamespaceScoped,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
