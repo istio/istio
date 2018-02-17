@@ -22,7 +22,7 @@
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "google/protobuf/util/json_util.h"
-#include "mixerclient/control/include/utils/status.h"
+#include "include/utils/status.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/auth/jwt.h"
 #include "src/envoy/auth/jwt_authenticator.h"
@@ -37,10 +37,10 @@
 #include <thread>
 
 using ::google::protobuf::util::Status;
-using ::istio::mixer_client::Statistics;
-using HttpCheckData = ::istio::mixer_control::http::CheckData;
-using HttpHeaderUpdate = ::istio::mixer_control::http::HeaderUpdate;
-using HttpReportData = ::istio::mixer_control::http::ReportData;
+using ::istio::mixerclient::Statistics;
+using HttpCheckData = ::istio::control::http::CheckData;
+using HttpHeaderUpdate = ::istio::control::http::HeaderUpdate;
+using HttpReportData = ::istio::control::http::ReportData;
 using ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 
@@ -343,8 +343,8 @@ class Instance : public Http::StreamDecoderFilter,
                  public Logger::Loggable<Logger::Id::http> {
  private:
   HttpMixerControl& mixer_control_;
-  std::unique_ptr<::istio::mixer_control::http::RequestHandler> handler_;
-  istio::mixer_client::CancelFunc cancel_check_;
+  std::unique_ptr<::istio::control::http::RequestHandler> handler_;
+  istio::mixerclient::CancelFunc cancel_check_;
 
   enum State { NotStarted, Calling, Complete, Responded };
   State state_;
@@ -354,7 +354,7 @@ class Instance : public Http::StreamDecoderFilter,
   bool initiating_call_;
 
   void ReadPerRouteConfig(
-      ::istio::mixer_control::http::Controller::PerRouteConfig* config) {
+      ::istio::control::http::Controller::PerRouteConfig* config) {
     auto route = decoder_callbacks_->route();
     if (route == nullptr) {
       return;
@@ -418,7 +418,7 @@ class Instance : public Http::StreamDecoderFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
-    ::istio::mixer_control::http::Controller::PerRouteConfig config;
+    ::istio::control::http::Controller::PerRouteConfig config;
     ReadPerRouteConfig(&config);
     handler_ = mixer_control_.controller()->CreateRequestHandler(config);
 
@@ -471,8 +471,7 @@ class Instance : public Http::StreamDecoderFilter,
     }
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
-      int status_code =
-          ::istio::mixer_control::utils::StatusHttpCode(status.error_code());
+      int status_code = ::istio::utils::StatusHttpCode(status.error_code());
       Utility::sendLocalReply(*decoder_callbacks_, false, Code(status_code),
                               status.ToString());
       return;
@@ -511,7 +510,7 @@ class Instance : public Http::StreamDecoderFilter,
       // But at this stage, not sure if callback_->connection is safe to call.
       // Similarly, it is better to get per-route attributes, but not sure if
       // it is safe to call callback_->route().
-      ::istio::mixer_control::http::Controller::PerRouteConfig config;
+      ::istio::control::http::Controller::PerRouteConfig config;
       handler_ = mixer_control_.controller()->CreateRequestHandler(config);
 
       CheckData check_data(*request_headers, nullptr);

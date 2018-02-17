@@ -50,7 +50,7 @@ template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
     Grpc::AsyncClientPtr async_client, const RequestType& request,
     const HeaderMap* headers, ResponseType* response,
-    istio::mixer_client::DoneFunc on_done)
+    istio::mixerclient::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       headers_(headers),
       response_(response),
@@ -111,8 +111,8 @@ GrpcTransport<RequestType, ResponseType>::GetFunc(
     const HeaderMap* headers) {
   return [&cm, cluster_name, headers](const RequestType& request,
                                       ResponseType* response,
-                                      istio::mixer_client::DoneFunc on_done)
-             -> istio::mixer_client::CancelFunc {
+                                      istio::mixerclient::DoneFunc on_done)
+             -> istio::mixerclient::CancelFunc {
                auto transport = new GrpcTransport<RequestType, ResponseType>(
                    Grpc::AsyncClientPtr(
                        new Grpc::AsyncClientImpl(cm, cluster_name.c_str())),

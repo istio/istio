@@ -27,7 +27,7 @@
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
-using ::istio::mixer_client::Statistics;
+using ::istio::mixerclient::Statistics;
 
 namespace Envoy {
 namespace Http {
@@ -70,8 +70,8 @@ typedef std::shared_ptr<TcpConfig> TcpConfigPtr;
 
 class TcpInstance : public Network::Filter,
                     public Network::ConnectionCallbacks,
-                    public ::istio::mixer_control::tcp::CheckData,
-                    public ::istio::mixer_control::tcp::ReportData,
+                    public ::istio::control::tcp::CheckData,
+                    public ::istio::control::tcp::ReportData,
                     public Logger::Loggable<Logger::Id::filter> {
  private:
   enum class State { NotStarted, Calling, Completed, Closed };
@@ -83,9 +83,9 @@ class TcpInstance : public Network::Filter,
     report_timer_->enableTimer(mixer_control_.report_interval_ms());
   }
 
-  istio::mixer_client::CancelFunc cancel_check_;
+  istio::mixerclient::CancelFunc cancel_check_;
   TcpMixerControl& mixer_control_;
-  std::unique_ptr<::istio::mixer_control::tcp::RequestHandler> handler_;
+  std::unique_ptr<::istio::control::tcp::RequestHandler> handler_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
   State state_{State::NotStarted};
   bool calling_check_{};
@@ -231,8 +231,8 @@ class TcpInstance : public Network::Filter,
     }
     return false;
   }
-  void GetReportInfo(::istio::mixer_control::tcp::ReportData::ReportInfo* data)
-      const override {
+  void GetReportInfo(
+      ::istio::control::tcp::ReportData::ReportInfo* data) const override {
     data->received_bytes = received_bytes_;
     data->send_bytes = send_bytes_;
     data->duration = std::chrono::duration_cast<std::chrono::nanoseconds>(

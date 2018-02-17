@@ -19,8 +19,8 @@
 #include "envoy/runtime/runtime.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "mixerclient/control/include/http/controller.h"
-#include "mixerclient/control/include/tcp/controller.h"
+#include "include/control/http/controller.h"
+#include "include/control/tcp/controller.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/stats.h"
@@ -36,9 +36,7 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                    Runtime::RandomGenerator& random, MixerFilterStats& stats);
 
-  ::istio::mixer_control::http::Controller* controller() {
-    return controller_.get();
-  }
+  ::istio::control::http::Controller* controller() { return controller_.get(); }
 
   CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
     return CheckTransport::GetFunc(cm_, config_.check_cluster(), headers);
@@ -50,7 +48,7 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer control
-  std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
+  std::unique_ptr<::istio::control::http::Controller> controller_;
 
   MixerStatsObject stats_obj_;
 };
@@ -62,9 +60,7 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
                   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                   Runtime::RandomGenerator& random, MixerFilterStats& stats);
 
-  ::istio::mixer_control::tcp::Controller* controller() {
-    return controller_.get();
-  }
+  ::istio::control::tcp::Controller* controller() { return controller_.get(); }
 
   std::chrono::milliseconds report_interval_ms() const {
     return report_interval_ms_;
@@ -76,7 +72,7 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The mixer config.
   const TcpMixerConfig& config_;
   // The mixer control
-  std::unique_ptr<::istio::mixer_control::tcp::Controller> controller_;
+  std::unique_ptr<::istio::control::tcp::Controller> controller_;
 
   // Time interval in milliseconds for sending periodical delta reports.
   std::chrono::milliseconds report_interval_ms_;

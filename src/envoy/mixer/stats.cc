@@ -46,7 +46,7 @@ MixerStatsObject::MixerStatsObject(Event::Dispatcher& dispatcher,
 }
 
 void MixerStatsObject::OnTimer() {
-  ::istio::mixer_client::Statistics new_stats;
+  ::istio::mixerclient::Statistics new_stats;
   bool get_stats = get_stats_func_(&new_stats);
   if (get_stats) {
     CheckAndUpdateStats(new_stats);
@@ -55,7 +55,7 @@ void MixerStatsObject::OnTimer() {
 }
 
 void MixerStatsObject::CheckAndUpdateStats(
-    const ::istio::mixer_client::Statistics& new_stats) {
+    const ::istio::mixerclient::Statistics& new_stats) {
   if (new_stats.total_check_calls > old_stats_.total_check_calls) {
     stats_.total_check_calls_.add(new_stats.total_check_calls -
                                   old_stats_.total_check_calls);

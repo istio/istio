@@ -23,7 +23,7 @@
 #include "envoy/grpc/async_client.h"
 
 #include "envoy/upstream/cluster_manager.h"
-#include "mixerclient/include/client.h"
+#include "include/mixerclient/client.h"
 
 namespace Envoy {
 namespace Http {
@@ -34,9 +34,9 @@ template <class RequestType, class ResponseType>
 class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
                       public Logger::Loggable<Logger::Id::http> {
  public:
-  using Func = std::function<istio::mixer_client::CancelFunc(
+  using Func = std::function<istio::mixerclient::CancelFunc(
       const RequestType& request, ResponseType* response,
-      istio::mixer_client::DoneFunc on_done)>;
+      istio::mixerclient::DoneFunc on_done)>;
 
   static Func GetFunc(Upstream::ClusterManager& cm,
                       const std::string& cluster_name,
@@ -44,7 +44,7 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
 
   GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
                 const HeaderMap* headers, ResponseType* response,
-                istio::mixer_client::DoneFunc on_done);
+                istio::mixerclient::DoneFunc on_done);
 
   // Grpc::AsyncRequestCallbacks<ResponseType>
   void onCreateInitialMetadata(Http::HeaderMap& metadata) override;
@@ -63,7 +63,7 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
   Grpc::AsyncClientPtr async_client_;
   const HeaderMap* headers_;
   ResponseType* response_;
-  ::istio::mixer_client::DoneFunc on_done_;
+  ::istio::mixerclient::DoneFunc on_done_;
   Grpc::AsyncRequest* request_{};
 };
 

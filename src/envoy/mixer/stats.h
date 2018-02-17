@@ -18,7 +18,7 @@
 #include "envoy/event/dispatcher.h"
 #include "envoy/event/timer.h"
 #include "envoy/stats/stats_macros.h"
-#include "mixerclient/include/client.h"
+#include "include/mixerclient/client.h"
 
 namespace Envoy {
 namespace Http {
@@ -46,7 +46,7 @@ struct MixerFilterStats {
   ALL_MIXER_FILTER_STATS(GENERATE_COUNTER_STRUCT)
 };
 
-typedef std::function<bool(::istio::mixer_client::Statistics* s)> GetStatsFunc;
+typedef std::function<bool(::istio::mixerclient::Statistics* s)> GetStatsFunc;
 
 // MixerStatsObject maintains statistics for number of check, quota and report
 // calls issued by a mixer filter.
@@ -61,7 +61,7 @@ class MixerStatsObject {
   void OnTimer();
 
   // Compares old stats with new stats and updates envoy stats.
-  void CheckAndUpdateStats(const ::istio::mixer_client::Statistics& new_stats);
+  void CheckAndUpdateStats(const ::istio::mixerclient::Statistics& new_stats);
 
   // A set of Envoy stats for the number of check, quota and report calls.
   MixerFilterStats& stats_;
@@ -70,7 +70,7 @@ class MixerStatsObject {
 
   // stats from last call to get_stats_func_. This is needed to calculate the
   // variances of stats and update envoy stats.
-  ::istio::mixer_client::Statistics old_stats_;
+  ::istio::mixerclient::Statistics old_stats_;
 
   // These members are used for creating a timer which update Envoy stats
   // periodically.

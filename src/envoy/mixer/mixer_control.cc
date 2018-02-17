@@ -15,7 +15,7 @@
 
 #include "src/envoy/mixer/mixer_control.h"
 
-using ::istio::mixer_client::Statistics;
+using ::istio::mixerclient::Statistics;
 
 namespace Envoy {
 namespace Http {
@@ -29,7 +29,7 @@ const std::chrono::milliseconds kDefaultReportIntervalMs(10000);
 const std::chrono::milliseconds kMinReportIntervalMs(1000);
 
 // A class to wrap envoy timer for mixer client timer.
-class EnvoyTimer : public ::istio::mixer_client::Timer {
+class EnvoyTimer : public ::istio::mixerclient::Timer {
  public:
   EnvoyTimer(Event::TimerPtr timer) : timer_(std::move(timer)) {}
 
@@ -48,13 +48,13 @@ void CreateEnvironment(Upstream::ClusterManager& cm,
                        Runtime::RandomGenerator& random,
                        const std::string& check_cluster,
                        const std::string& report_cluster,
-                       ::istio::mixer_client::Environment* env) {
+                       ::istio::mixerclient::Environment* env) {
   env->check_transport = CheckTransport::GetFunc(cm, check_cluster, nullptr);
   env->report_transport = ReportTransport::GetFunc(cm, report_cluster);
 
   env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
-      -> std::unique_ptr<::istio::mixer_client::Timer> {
-        return std::unique_ptr<::istio::mixer_client::Timer>(
+      -> std::unique_ptr<::istio::mixerclient::Timer> {
+        return std::unique_ptr<::istio::mixerclient::Timer>(
             new EnvoyTimer(dispatcher.createTimer(timer_cb)));
       };
 
@@ -81,13 +81,12 @@ HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                    controller_->GetStatistics(stat);
                    return true;
                  }) {
-  ::istio::mixer_control::http::Controller::Options options(
-      mixer_config.http_config);
+  ::istio::control::http::Controller::Options options(mixer_config.http_config);
 
   CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
                     config_.report_cluster(), &options.env);
 
-  controller_ = ::istio::mixer_control::http::Controller::Create(options);
+  controller_ = ::istio::control::http::Controller::Create(options);
 }
 
 TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
@@ -106,13 +105,12 @@ TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                    controller_->GetStatistics(stat);
                    return true;
                  }) {
-  ::istio::mixer_control::tcp::Controller::Options options(
-      mixer_config.tcp_config);
+  ::istio::control::tcp::Controller::Options options(mixer_config.tcp_config);
 
   CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
                     config_.report_cluster(), &options.env);
 
-  controller_ = ::istio::mixer_control::tcp::Controller::Create(options);
+  controller_ = ::istio::control::tcp::Controller::Create(options);
 
   if (mixer_config.tcp_config.has_report_interval() &&
       mixer_config.tcp_config.report_interval().seconds() >= 0 &&

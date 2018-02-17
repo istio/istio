@@ -40,8 +40,8 @@ envoy_cc_library(
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//mixerclient/control/src/http:control_lib",
-        "//mixerclient/control/src/tcp:control_lib",
+        "//src/control/http:control_lib",
+        "//src/control/tcp:control_lib",
         "//src/envoy/auth:http_filter_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
