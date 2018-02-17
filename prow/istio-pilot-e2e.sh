@@ -40,4 +40,4 @@ create_cluster 'e2e-pilot'
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio
-make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false"
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth=enable"
