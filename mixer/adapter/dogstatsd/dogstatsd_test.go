@@ -222,7 +222,7 @@ func TestRecord(t *testing.T) {
 
 			var buf []byte
 			w := statsdTestWriter{bytes.NewBuffer(buf)}
-			client, err := statsd.NewWithWriter(w)
+			client, _ := statsd.NewWithWriter(w)
 			client.Namespace = b.adapterConfig.Prefix
 			client.Tags = flattenTags(b.adapterConfig.GlobalTags)
 			asp := h.(*handler)
