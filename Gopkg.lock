@@ -45,6 +45,12 @@
   version = "v0.3.0"
 
 [[projects]]
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  revision = "9487d3a9d3be5bf3cf60b86ae810b97926964515"
+  version = "2.0.0"
+
+[[projects]]
   name = "github.com/Masterminds/semver"
   packages = ["."]
   revision = "15d8430ab86497c5c0da827b748823945e1cf1e1"
@@ -1436,6 +1442,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cd647c7c25f1bc256ddae2bc979e21932360d6003aad69444f99c886b0709872"
+  inputs-digest = "f33ba836eb834aa06d39ad2438f73168a5eb8220cd73d56436e1e0018be16a4e"
   solver-name = "gps-cdcl"
   solver-version = 1
