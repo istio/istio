@@ -209,17 +209,23 @@ mixer_template_protos := $(shell find $(mixer_template_path) -maxdepth 1 -type f
 mixer_template_pb_gos := $(mixer_template_protos:.proto=.pb.go)
 mixer_template_pb_doc := $(mixer_template_path)/istio.mixer.v1.template.pb.html
 
-mixer_adapter_model_v1beta_path := mixer/adapter/model/v1beta
-mixer_adapter_model_v1beta_protos := $(shell find $(mixer_adapter_model_v1beta_path) -maxdepth 1 -type f -name '*.proto' | sort)
-mixer_adapter_model_v1beta_pb_gos := $(mixer_adapter_model_v1beta_protos:.proto=.pb.go)
-mixer_adapter_model_v1beta_pb_doc := $(mixer_adapter_model_v1beta_path)/istio.mixer.adapter.model.v1beta.pb.html
+mixer_adapter_model_v1beta1_path := mixer/adapter/model/v1beta1
+mixer_adapter_model_v1beta1_protos := $(shell find $(mixer_adapter_model_v1beta1_path) -maxdepth 1 -type f -name '*.proto' | sort)
+mixer_adapter_model_v1beta1_pb_gos := $(mixer_adapter_model_v1beta1_protos:.proto=.pb.go)
+mixer_adapter_model_v1beta1_pb_doc := $(mixer_adapter_model_v1beta1_path)/istio.mixer.adapter.model.v1beta1.pb.html
+
+policy_v1beta1_path := policy/v1beta1
+policy_v1beta1_protos := $(shell find $(policy_v1beta1_path) -maxdepth 1 -type f -name '*.proto' | sort)
+policy_v1beta1_pb_gos := $(policy_v1beta1_protos:.proto=.pb.go)
+policy_v1beta1_pb_doc := $(policy_v1beta1_path)/istio.policy.v1beta1.pb.html
 
 generate-mixer-go: \
 	$(mixer_v1_pb_gos) $(mixer_v1_pb_doc) \
 	$(mixer_config_client_pb_gos) $(mixer_config_client_pb_doc) \
 	$(mixer_config_descriptor_pb_gos) $(mixer_config_descriptor_pb_doc) \
 	$(mixer_template_pb_gos) $(mixer_template_pb_doc) \
-	$(mixer_adapter_model_v1beta_pb_gos) $(mixer_adapter_model_v1beta_pb_doc) \
+	$(mixer_adapter_model_v1beta1_pb_gos) $(mixer_adapter_model_v1beta1_pb_doc) \
+	$(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) \
 	mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html
 
 $(mixer_v1_pb_gos) $(mixer_v1_pb_doc): $(mixer_v1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
@@ -238,9 +244,13 @@ $(mixer_template_pb_gos) $(mixer_template_pb_doc) : $(mixer_template_protos) | d
 	## Generate mixer/v1/template/*.pb.go + $(mixer_template_pb_doc)
 	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_template_path) $^
 
-$(mixer_adapter_model_v1beta_pb_gos) $(mixer_adapter_model_v1beta_pb_doc) : $(mixer_adapter_model_v1beta_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
-	## Generate mixer/adapter/model/v1beta/*.pb.go + $(mixer_adapter_model_v1beta_pb_doc)
-	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_adapter_model_v1beta_path) $^
+$(mixer_adapter_model_v1beta1_pb_gos) $(mixer_adapter_model_v1beta1_pb_doc) : $(mixer_adapter_model_v1beta1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate mixer/adapter/model/v1beta1/*.pb.go + $(mixer_adapter_model_v1beta1_pb_doc)
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_adapter_model_v1beta1_path) $^
+
+$(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) : $(policy_v1beta1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
+	## Generate policy/v1beta1/*.pb.go + $(policy_v1beta1_pb_doc)
+	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(policy_v1beta1_path) $^
 
 mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: mixer/v1/config/cfg.proto | depend $(protoc_gen_gogo) $(protoc_bin)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
@@ -251,8 +261,8 @@ mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: m
 	@rm mixer/v1/config/cfg.pb.go
 
 clean-mixer-generated:
-	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) $(mixer_adapter_model_v1beta_pb_gos) mixer/v1/config/fixed_cfg.pb.go
-	rm -f $(mixer_v1_pb_doc) $(mixer_config_client_pb_doc) $(mixer_config_descriptor_pb_doc) $(mixer_template_pb_doc) $(mixer_adapter_model_v1beta_pb_doc) mixer/v1/config/istio.mixer.v1.config.pb.html
+	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) $(mixer_adapter_model_v1beta1_pb_gos) $(policy_v1beta1_pb_gos) mixer/v1/config/fixed_cfg.pb.go
+	rm -f $(mixer_v1_pb_doc) $(mixer_config_client_pb_doc) $(mixer_config_descriptor_pb_doc) $(mixer_template_pb_doc) $(mixer_adapter_model_v1beta1_pb_doc) $(policy_v1beta1_pb_doc) mixer/v1/config/istio.mixer.v1.config.pb.html
 
 #####################
 # routing/...

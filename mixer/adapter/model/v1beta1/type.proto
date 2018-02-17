@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package istio.mixer.adapter.model.v1beta;
+package istio.mixer.adapter.model.v1beta1;
 
-option go_package="istio.io/api/mixer/adapter/model/v1beta";
+option go_package="istio.io/api/mixer/adapter/model/v1beta1";
 
 // Value is used inside templates for fields that have dynamic types. The actual datatype
 // of the field depends on the datatype of the expression used in the operator configuration.
