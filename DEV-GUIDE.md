@@ -17,6 +17,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
+  - [Building and pushing a specific container](#building-and-pushing-a-container)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
@@ -28,6 +29,8 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
 - [Working with CircleCI](#working-with-circleci)
+- [Writing reference docs](#writing-reference-docs)
+  - [About proto documentation](#about-proto-documentation)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
@@ -56,6 +59,15 @@ environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
 
 Istio currently builds with Go 1.9
+
+### Setting up Docker
+
+Istio has a Docker build system for creating and publishing Docker images.
+To leverage that you will need:
+
+- **Docker platform:** To download and install Docker follow [these instructions](https://docs.docker.com/install/).
+
+- **Docker Hub ID:** If you do not yet have a Docker ID account you can follow [these steps](https://docs.docker.com/docker-id/) to create one. This ID will be used in a later step when setting up the environment variables.
 
 ### Setting up dep
 
@@ -225,6 +237,46 @@ Push the containers to your registry:
 make push
 ```
 
+### Building and pushing a specific container.
+
+If you want to make a local change and test some component, say istio-ca, you
+could do:
+
+Under istio/istio repo
+
+```shell
+pwd
+```
+The path should be
+
+```shell
+.../src/istio.io/istio
+```
+
+Set up environment variables HUB and TAG by
+```shell
+export HUB=docker.io/yourrepo
+export TAG=istio-ca
+```
+
+Make some local change of CA code, then build istio-ca
+
+```shell
+bin/gobuild.sh istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+```
+
+Note: for other images, check Makefile for more info.
+
+And move this file to docker_temp repo
+```shell
+cp istio_ca /usr/local/google/home/lita/Desktop/out/linux_amd64/release/docker_temp
+```
+
+Push docker image
+```shell
+make push.docker.istio-ca
+```
+
 ### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
@@ -302,7 +354,7 @@ You can automatically format the source code to follow our conventions by going 
 top of the repo and entering:
 
 ```shell
-make fmt
+make format
 ```
 
 ### Running the linters
@@ -366,6 +418,146 @@ the full suite of tests that we run for every PR.
 Please refer to the
 [wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a
 detailed guide on using CircleCI with Istio.
+
+## Writing reference docs
+
+Our users depend on having quality documentation for our product. In addition to the prose
+you should be creating in the `istio/istio.github.io` repo, you need to also write quality reference documentation
+throughout the product.
+
+Our reference documentation comes from two places:
+
+- Comments on proto files for our config formats and API definitions. The various
+protos in the `istio/api` repo, the Mixer adapter configuration protos, and the Mixer
+template definitions are all examples of this.
+
+- Cobra commands for our CLI docs. The various CLI commands we build generally use the
+Cobra framework to parse our command-lines. Cobra is also used to produce 
+reference documentation for the individual commands.
+
+Here's how this works:
+
+- Developers comment every element in proto files they author
+
+- Developers provide quality help & usage text in Cobra command definitions.
+
+- Whenever we compile protos, in addition to producing `.pb.go` files, our build system
+also produces `.pb.html` files which hold the documentation for the particular proto package.
+
+- Within the `istio/istio.github.io` repo, the script file
+[scripts/grab_reference_docs.sh](https://github.com/istio/istio.github.io/blob/master/scripts/grab_reference_docs.sh) 
+does the work necessary to harvest all the generated `.pb.html` files from the `istio/api`
+and `istio/istio` repos and installs them in the right place in the website hierarchy.
+The script also builds and runs the various CLI commands we have in order to extract their
+documentation, and copies their docs to the right place in the website hierarchy. Once the
+script is done running, the changes to the website just need to be pushed and istio.io will
+shortly thereafter reflect the changes.
+
+### About proto documentation
+
+Writing proto documentation is a simple matter of adding comments to elements
+within the input proto files. You can put comments directly above individual elements, or to the
+right. For example:
+
+```proto
+// A package-level comment
+package pkg;
+
+// This documents the message as a whole
+message MyMsg {
+    // This documents this field 
+    // It can contain many lines.
+    int32 field1 = 1;
+
+    int32 field2 = 2;       // This documents field2
+}
+```
+
+Comments are treated as markdown. You can thus embed classic markdown annotations within any comment.
+
+#### Linking to types and elements
+
+In addition to normal markdown links, you can also use special proto links within any comment. Proto
+links are used to create a link to other types or elements within the set of protos. You specify proto links
+using two pairs of square brackets such as:
+
+```proto
+// This is a comment that links to another type: [MyOtherType][MyPkg.MyOtherType]
+message MyMsg {
+
+}
+
+```
+
+The first square brackets contain the name of the type to display in the resulting documentation. The second
+square brackets contain the fully qualified name of the type or element being referenced, including the
+package name.
+
+#### Annotations
+
+Within a proto file, you should insert special comments which provide additional metadata to
+use in producing quality documentation. Within a package, include an unattached
+comment of the form:
+
+```
+// $title: My Title
+// $overview: My Overview
+// $location: https://mysite.com/mypage.html
+```
+
+`$title` provides a title for the generated package documentation. This is used for things like the
+title of the generated HTML. `$overview` is a one-line description of the package, useful for
+tables of contents or indexes. Finally, `$location` indicates the expected URL for the generated
+documentation. This is used to help downstream processing tools to know where to copy
+the documentation, and is used when creating documentation links from other packages to this one.
+
+You can also use the $front_matter annotation to introduce new Jekyll front matter which can be useful
+for special tuning of the output. For example:
+
+```
+// $front_matter: order: 10
+```
+
+The above will include the front matter `order: 10` in the generated Jekyll HTML document.
+
+If a comment for an element contains the annotation `$hide_from_docs`,
+then the associated element will be omitted from the output. This is useful when staging the
+introduction of new features that aren't quite ready for use yet. The annotation can appear
+anywhere in the comment for the element. For example:
+
+```proto
+message MyMsg {
+    int32 field1 = 1; // $hide_from_docs
+}
+```
+
+The comment for any element can contain the annotation `$class: <foo>` which is used
+to insert a specific HTML class around the generated element. This is useful to give
+particular styling to particular elements. Common examples of useful classes include
+
+```proto
+message MyMsg {
+    int32 field1 = 1; // $class: alpha
+    int32 field2 = 2; // $class: beta
+    int32 field3 = 3; // $class: experimental
+}
+```
+
+The specific class used can be used to control the rendering of the element. At the moment, Istio
+doesn't provide any specific rendering controls for these classes, but it would be easy to add some.
+As shown in the example, we could readily have different rendering for alpha elements vs. beta vs.
+experimental. If you find this would be a useful feature, file an issue in `istio/istio.github.io`
+to introduce the CSS necessary to support the particular class you want to use.
+
+#### Proto doc checklist
+
+- Ensure each package contains the appropriate `$title`, `$overview`, and `$location` annotations such
+that your package's docs are properly published to istio.io.
+
+- Ensure each package contains exactly one package-level comment. This comment is displayed at the top of the
+documentation page.
+
+- Ensure each element (message, enum, message field, enum value, etc) has good operator-centric documentation.
 
 ## Git workflow
 

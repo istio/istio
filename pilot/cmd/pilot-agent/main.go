@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	role     model.Node
+	role     model.Proxy
 	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
@@ -59,6 +59,7 @@ var (
 	controlPlaneAuthPolicy string
 	customConfigFile       string
 	proxyLogLevel          string
+	concurrency            int
 	bootstrapv2            bool
 
 	loggingOptions = log.NewOptions()
@@ -135,6 +136,7 @@ var (
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
@@ -180,13 +182,11 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := make([]envoy.CertSource, 0, 3)
-			// Only when auth is enabled, watch the internal certificate path.
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				certs = append(certs, envoy.CertSource{
+			certs := []envoy.CertSource{
+				{
 					Directory: model.AuthCertsPath,
 					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
-				})
+				},
 			}
 
 			if role.Type == model.Ingress {
@@ -278,6 +278,8 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
+	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
+		"number of worker threads to run")
 	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
 

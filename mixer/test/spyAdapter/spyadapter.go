@@ -19,6 +19,9 @@
 // apa template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/apa/tmpl.proto
 
+// check template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/check/tmpl.proto
+
 // report template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/report/reporttmpl.proto
 
@@ -32,6 +35,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	checkTmpl "istio.io/istio/mixer/test/spyAdapter/template/check"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
@@ -59,6 +63,10 @@ type (
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
 
+		HandleSampleCheckResult adapter.CheckResult
+		HandleSampleCheckErr    error
+		HandleSampleCheckPanic  bool
+
 		GenerateSampleApaErr    error
 		GenerateSampleApaOutput *apaTmpl.Output
 		GenerateSampleApaPanic  bool
@@ -71,6 +79,7 @@ type (
 	// nolint: maligned
 	BuilderBehavior struct {
 		SetSampleReportTypesPanic bool
+		SetSampleCheckTypesPanic  bool
 
 		SetAdapterConfigPanic bool
 
@@ -98,6 +107,9 @@ type (
 		HandleSampleReportInstances []*reportTmpl.Instance
 		HandleSampleReportCount     int
 
+		HandleSampleCheckInstance *checkTmpl.Instance
+		HandleSampleCheckCount    int
+
 		GenerateSampleApaInstance *apaTmpl.Instance
 		GenerateSampleApaCount    int
 
@@ -109,6 +121,11 @@ type (
 		SetSampleReportTypesCount int
 		// input to the method
 		SetSampleReportTypesTypes map[string]*reportTmpl.Type
+
+		// no of time called
+		SetSampleCheckTypesCount int
+		// input to the method
+		SetSampleCheckTypesTypes map[string]*checkTmpl.Type
 
 		SetAdapterConfigAdptCfg adapter.Config
 		SetAdapterConfigCount   int
@@ -123,9 +140,11 @@ type (
 
 var _ reportTmpl.HandlerBuilder = builder{}
 var _ apaTmpl.HandlerBuilder = builder{}
+var _ checkTmpl.HandlerBuilder = builder{}
 
 var _ reportTmpl.Handler = handler{}
 var _ apaTmpl.Handler = handler{}
+var _ checkTmpl.Handler = handler{}
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	b.data.BuildCount++
@@ -137,6 +156,15 @@ func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, e
 	b.data.BuildEnv = env
 
 	return handler{behavior: b.handlerBehavior, data: b.handlerData}, b.behavior.BuildErr
+}
+
+func (b builder) SetSampleCheckTypes(typeParams map[string]*checkTmpl.Type) {
+	b.data.SetSampleCheckTypesCount++
+	b.data.SetSampleCheckTypesTypes = typeParams
+
+	if b.behavior.SetSampleCheckTypesPanic {
+		panic("SetSampleCheckTypes")
+	}
 }
 
 func (b builder) SetSampleReportTypes(typeParams map[string]*reportTmpl.Type) {
@@ -164,6 +192,16 @@ func (b builder) Validate() *adapter.ConfigErrors {
 	}
 
 	return b.behavior.ValidateErr
+}
+
+func (h handler) HandleSampleCheck(ctx context.Context, instance *checkTmpl.Instance) (adapter.CheckResult, error) {
+	h.data.HandleSampleCheckCount++
+	if h.behavior.HandleSampleCheckPanic {
+		panic("HandleSampleCheck")
+	}
+
+	h.data.HandleSampleCheckInstance = instance
+	return h.behavior.HandleSampleCheckResult, h.behavior.HandleSampleCheckErr
 }
 
 func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl.Instance) error {

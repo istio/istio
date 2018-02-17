@@ -951,13 +951,13 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		EgressProxyAddress: "10.0.0.100",
-		MixerAddress:       "10.0.0.100",
-		ProxyListenPort:    0,
-		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
-		AuthPolicy:         -1,
-		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
-		DefaultConfig:      &meshconfig.ProxyConfig{},
+		MixerCheckServer:  "10.0.0.100",
+		MixerReportServer: "10.0.0.100",
+		ProxyListenPort:   0,
+		ConnectTimeout:    ptypes.DurationProto(-1 * time.Second),
+		AuthPolicy:        -1,
+		RdsRefreshDelay:   ptypes.DurationProto(-1 * time.Second),
+		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)

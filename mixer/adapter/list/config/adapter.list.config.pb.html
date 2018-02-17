@@ -5,7 +5,6 @@ location: https://istio.io/docs/reference/config/adapters/list.html
 layout: protoc-gen-docs
 number_of_entries: 2
 ---
-{% raw %}
 <p>The <code>list</code> adapter makes it possible to perform simple whitelist or blacklist
 checks. You can configure the adapter with the list to check, or you can point
 it to a URL from where the list should be fetched. Lists can be simple strings,
@@ -13,6 +12,8 @@ IP addresses, or regex patterns.</p>
 
 <h2 id="Params">Params</h2>
 <section>
+<p>Configuration format for the <code>list</code> adapter.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -97,6 +98,8 @@ before it should ask the adapter again.</p>
 </section>
 <h2 id="Params.ListEntryType">Params.ListEntryType</h2>
 <section>
+<p>Determines the type of list that the adapter is consulting.</p>
+
 <table class="enum-values">
 <thead>
 <tr>
@@ -136,4 +139,3 @@ before it should ask the adapter again.</p>
 </tbody>
 </table>
 </section>
-{% endraw %}

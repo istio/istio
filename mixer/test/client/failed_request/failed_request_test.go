@@ -47,6 +47,7 @@ const checkAttributesMixerFail = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -81,6 +82,7 @@ const reportAttributesMixerFail = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -125,6 +127,7 @@ const reportAttributesBackendFail = `
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
+  "connection.mtls": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -148,7 +151,7 @@ const reportAttributesBackendFail = `
 `
 
 func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetupV2(env.FailedRequestTest, t)
+	s := env.NewTestSetup(env.FailedRequestTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

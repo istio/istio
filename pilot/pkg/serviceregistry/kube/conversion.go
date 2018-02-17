@@ -200,7 +200,7 @@ func parseDomain(nodeDomain string) (namespace string, err error) {
 	return
 }
 
-func parseKubeServiceNode(IPAddress string, node *model.Node, kubeNodes map[string]*kubeServiceNode) (err error) {
+func parseKubeServiceNode(IPAddress string, node *model.Proxy, kubeNodes map[string]*kubeServiceNode) (err error) {
 	podname, namespace, err := parsePodID(node.ID)
 	if err != nil {
 		return

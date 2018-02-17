@@ -3,7 +3,6 @@ title: traceSpan
 layout: protoc-gen-docs
 number_of_entries: 1
 ---
-{% raw %}
 <h2 id="Template">Template</h2>
 <section>
 <p>TraceSpan represents an individual span within a distributed trace.</p>
@@ -120,7 +119,7 @@ This makes it easier to correlate spans in different traces.</p>
 </tr>
 <tr id="Template.span_tags">
 <td><code>spanTags</code></td>
-<td><code>map&lt;string, <a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
 <td>
 <p>Span tags are a set of <key, value> pairs that provide metadata for the
 entire span. The values can be specified in the form of expressions.</p>
@@ -132,4 +131,3 @@ entire span. The values can be specified in the form of expressions.</p>
 </tbody>
 </table>
 </section>
-{% endraw %}

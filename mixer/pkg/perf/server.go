@@ -90,6 +90,7 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
 	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
 	args.SingleThreaded = setup.Config.SingleThreaded
+	args.UseNewRuntime = setup.Config.UseRuntime2
 
 	if setup.Config.EnableDebugLog {
 		// Override enableLog. This should skip the next if conditional

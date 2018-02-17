@@ -16,6 +16,7 @@ package solarwinds
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -25,6 +26,11 @@ import (
 )
 
 func TestNewMetricsHandler(t *testing.T) {
+
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test is broken for race testing, see issue #3208")
+	}
+
 	ctx := context.Background()
 	env := test2.NewEnv(t)
 	logger := env.Logger()

@@ -20,9 +20,8 @@ import (
 	"html"
 	"os"
 	"sort"
-	"strings"
-
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -117,7 +116,7 @@ func genJekyllHTML(cmd *cobra.Command, path string) error {
 	commands := make(map[string]*cobra.Command)
 	findCommands(commands, cmd)
 
-	names := make([]string, len(commands), len(commands))
+	names := make([]string, len(commands))
 	i := 0
 	for n := range commands {
 		names[i] = n

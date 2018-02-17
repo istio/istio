@@ -126,13 +126,28 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 		for _, binding := range bindings {
 			subjects := binding.GetSubjects()
 			for _, subject := range subjects {
-				if subject.GetUser() != "" && subject.GetUser() != user {
-					continue
+				foundMatch := false
+				if subject.GetUser() != "" {
+					if subject.GetUser() == "*" || subject.GetUser() == user {
+						foundMatch = true
+					} else {
+						// Found a mismatch, try next subject.
+						continue
+					}
 				}
-				if subject.GetGroup() != "" && subject.GetGroup() != groups {
-					continue
+				if subject.GetGroup() != "" {
+					if subject.GetGroup() == "*" || subject.GetGroup() == groups {
+						foundMatch = true
+					} else {
+						// Found a mismatch, try next subject.
+						continue
+					}
 				}
-				if checkSubject(instSub, subject.GetProperties()) {
+				subProp := subject.GetProperties()
+				if len(subProp) != 0 && checkSubject(instSub, subProp) {
+					foundMatch = true
+				}
+				if foundMatch {
 					return true, nil
 				}
 			}

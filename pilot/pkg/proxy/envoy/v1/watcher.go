@@ -56,7 +56,7 @@ type CertSource struct {
 
 type watcher struct {
 	agent    proxy.Agent
-	role     model.Node
+	role     model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -64,7 +64,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -117,8 +117,9 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if w.config.AvailabilityZone == "" {
-		log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
+	if !model.IsApplicationNodeType(w.role.Type) {
+		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
+		return
 	}
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
@@ -141,6 +142,9 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 			_ = resp.Body.Close()
 		}
 		attempts++
+	}
+	if w.config.AvailabilityZone == "" {
+		log.Info("Availability zone not set, proxy will default to not using zone aware routing.")
 	}
 }
 
@@ -279,6 +283,10 @@ func (proxy envoy) args(fname string, epoch int) []string {
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)
 
+	if proxy.config.Concurrency > 0 {
+		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(proxy.config.Concurrency))
+	}
+
 	if len(proxy.config.AvailabilityZone) > 0 {
 		startupArgs = append(startupArgs, []string{"--service-zone", proxy.config.AvailabilityZone}...)
 	}
@@ -296,7 +304,10 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if proxy.v2 {
+	if len(proxy.config.CustomConfigFile) > 0 {
+		// there is a custom configuration. Don't write our own config - but keep watching the certs.
+		fname = proxy.config.CustomConfigFile
+	} else if proxy.v2 {
 		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
@@ -304,9 +315,6 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 			return err
 		}
 		fname = out
-	} else if len(proxy.config.CustomConfigFile) > 0 {
-		// there is a custom configuration. Don't write our own config - but keep watching the certs.
-		fname = proxy.config.CustomConfigFile
 	} else {
 		// create parent directories if necessary
 		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {

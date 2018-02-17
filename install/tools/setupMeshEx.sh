@@ -125,6 +125,45 @@ function istio_provision_certs() {
   echo "$0 machineSetup does this for you."
 }
 
+# Install required files on a VM and run the setup script.
+# This is an example to help integrating the steps into the admin automation tools.
+#
+# Must be run for each VM added to the cluster
+# Params:
+# - name of the VM - used to copy files over.
+# - optional service account to be provisioned (defaults to istio.default)
+# - optional namespace of the service account and VM services, defaults to SERVICE_NAMESPACE env
+# or kube config.
+#
+# Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
+function istioBootstrapGCE() {
+  local DESTINATION=${1}
+
+  DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
+  SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
+
+  for i in {1..10}; do
+    # Copy deb, helper and config files
+    istioCopy $DESTINATION \
+      kubedns \
+      cluster.env \
+      istio.VERSION \
+      ${SETUP_ISTIO_VM_SCRIPT}
+
+    if [[ $? -ne 0 ]]; then
+      echo "scp failed, retry in 10 sec"
+      sleep 10
+    else
+      echo "scp succeeded"
+      break
+    fi
+  done
+
+  istioRun $DESTINATION "ls -a"
+
+  # Run the setup script.
+  istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
+}
 
 # Install required files on a VM and run the setup script.
 # This is an example to help integrating the steps into the admin automation tools.
@@ -208,9 +247,13 @@ elif [[ ${1:-} == "machineCerts" ]] ; then
 elif [[ ${1:-} == "machineSetup" ]] ; then
   shift
   istioBootstrapVM $1
+elif [[ ${1:-} == "gceMachineSetup" ]] ; then
+  shift
+  istioBootstrapGCE $1
 else
   echo "$0 generateDnsmasq: Generate dnsmasq config files (one time)"
   echo "GCP_OPTS=\"--project P --zone Z\" $0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
   echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
   echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
+  echo "$0 gceMachineSetup HOST: Copy files to a GCE HOST, and run the setup script (one time per host)"
 fi
