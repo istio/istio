@@ -166,7 +166,28 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
+
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
+	git submodule sync
+	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+.PHONY: submodule pull submodule-sync
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -193,7 +214,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -490,10 +510,18 @@ ifeq ($(GOOS),linux)
 
 include tools/istio-docker.mk
 
-endif # end of docker block that's restricted to Linux
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
+
+push: docker.push installgen
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
+
+gcs.push.deb: deb
+	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
+
+endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'

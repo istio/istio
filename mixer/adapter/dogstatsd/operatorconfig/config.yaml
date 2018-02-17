@@ -1,0 +1,40 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: dogstatsd
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  address: "localhost:8125"
+  prefix: "service."
+  global_tags: 
+    service_mesh: istio
+  sample_rate: 1.0
+  metrics:
+    requestcount.metric.istio-system:
+      name: requestcount
+      type: COUNTER
+    requestduration.metric.istio-system:
+      name: requestduration
+      type: DISTRIBUTION
+    requestsize.metric.istio-system:
+      name: requestsize
+      type: DISTRIBUTION
+    responsesize.metric.istio-system:
+      name: responsesize
+      type: DISTRIBUTION
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: doghttp
+  namespace: istio-system
+  labels:
+    istio-protocol: http
+spec:
+  actions:
+  - handler: handler.dogstatsd
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric

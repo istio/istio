@@ -45,6 +45,12 @@
   version = "v0.3.0"
 
 [[projects]]
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  revision = "9487d3a9d3be5bf3cf60b86ae810b97926964515"
+  version = "2.0.0"
+
+[[projects]]
   name = "github.com/Masterminds/semver"
   packages = ["."]
   revision = "15d8430ab86497c5c0da827b748823945e1cf1e1"
@@ -1063,6 +1069,8 @@
     "encoding/gzip",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
+    "health",
+    "health/grpc_health_v1",
     "internal",
     "keepalive",
     "metadata",
@@ -1134,11 +1142,14 @@
 [[projects]]
   name = "istio.io/fortio"
   packages = [
+    ".",
+    "fgrpc",
     "fhttp",
     "fnet",
     "log",
     "periodic",
-    "stats"
+    "stats",
+    "ui"
   ]
   revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
   version = "v0.6.8"
@@ -1431,6 +1442,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7aaf154c968d1682989350af2bd5d9ca3d2f56a5a06ee7a5b9545d84bf2cf7e9"
+  inputs-digest = "f33ba836eb834aa06d39ad2438f73168a5eb8220cd73d56436e1e0018be16a4e"
   solver-name = "gps-cdcl"
   solver-version = 1

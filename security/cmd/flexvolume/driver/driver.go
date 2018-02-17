@@ -230,7 +230,7 @@ func Mount(dir, opts string) error {
 		return failure("mount", inp, sErr)
 	}
 
-	if configuration.UseGrpc == true {
+	if configuration.UseGrpc {
 		if err := sendWorkloadAdded(ninputs); err != nil {
 			handleErrMount(dir, ninputs)
 			sErr := "Failure to notify nodeagent: " + err.Error()
@@ -261,7 +261,7 @@ func Unmount(dir string) error {
 		Attrs:        &pb.WorkloadInfo_WorkloadAttributes{Uid: uid},
 		Workloadpath: uid,
 	}
-	if configuration.UseGrpc == true {
+	if configuration.UseGrpc {
 		if err := sendWorkloadDeleted(naInp); err != nil {
 			sErr := "Failure to notify nodeagent: " + err.Error()
 			return failure("unmount", dir, sErr)
@@ -389,8 +389,7 @@ func getCredFile(uid string) string {
 // addCredentialFile is used to create a credential file when a workload with the flex-volume volume mounted is created.
 func addCredentialFile(ninputs *pb.WorkloadInfo) error {
 	//Make the directory and then write the ninputs as json to it.
-	var err error
-	err = os.MkdirAll(configuration.NodeAgentCredentialsHomeDir, 0755)
+	err := os.MkdirAll(configuration.NodeAgentCredentialsHomeDir, 0755)
 	if err != nil {
 		return err
 	}
