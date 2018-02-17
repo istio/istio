@@ -1297,7 +1297,7 @@
         "options": [],
         "query": "label_values(source_service)",
         "refresh": 1,
-        "regex": "",
+        "regex": ".+",
         "sort": 0,
         "tagValuesQuery": "",
         "tags": [],

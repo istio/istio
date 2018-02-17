@@ -37,7 +37,7 @@ func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []str
 
 // applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
 func applyClusterPolicy(cluster *Cluster,
-	instances []*model.ServiceInstance,
+	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	mesh *meshconfig.MeshConfig,
 	accounts model.ServiceAccounts,
@@ -63,7 +63,7 @@ func applyClusterPolicy(cluster *Cluster,
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(instances, cluster.hostname, cluster.labels)
+	policyConfig := config.Policy(proxyInstances, cluster.hostname, cluster.labels)
 
 	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {

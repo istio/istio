@@ -100,8 +100,3 @@ func (c *KubernetesService) IsAlive() (bool, error) {
 	}
 	return true, nil
 }
-
-// Cleanup clean up tmp files and other resource created by this component
-func (c *KubernetesService) Cleanup() error {
-	return nil
-}

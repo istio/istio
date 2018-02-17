@@ -100,34 +100,11 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 	return instances, nil
 }
 
-// GetSidecarServiceInstances implements a service catalog operation
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
-	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
-	if err != nil {
-		return nil, fmt.Errorf("getting host instances: %s", err)
-	}
-
-	var instances []*model.ServiceInstance
-
-	for hostname, backendSet := range resp.GetBackends() {
-		for _, backend := range backendSet.GetBackends() {
-			port := sd.servicePort()
-
-			instances = append(instances, &model.ServiceInstance{
-				Endpoint: model.NetworkEndpoint{
-					Address:     backend.Address,
-					Port:        int(backend.Port),
-					ServicePort: port,
-				},
-				Service: &model.Service{
-					Hostname: hostname,
-					Ports:    []*model.Port{port},
-				},
-			})
-		}
-	}
-
-	return instances, nil
+// GetProxyServiceInstances returns all service instances running on a particular proxy
+// Cloud Foundry integration is currently ingress-only -- there is no sidecar support yet.
+// So this function always returns an empty slice.
+func (sd *ServiceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
+	return nil, nil
 }
 
 // ManagementPorts is not currently implemented for Cloud Foundry
@@ -137,5 +114,9 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 
 // all CF apps listen on the same port (for now)
 func (sd *ServiceDiscovery) servicePort() *model.Port {
-	return &model.Port{Port: sd.ServicePort, Protocol: model.ProtocolHTTP}
+	return &model.Port{
+		Port:     sd.ServicePort,
+		Protocol: model.ProtocolHTTP,
+		Name:     "http",
+	}
 }

@@ -1,17 +1,45 @@
 # Istio Load Testing User Guide
+### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh, a GCE VM and runs [Fortio](https://github.com/istio/fortio/)
-on the VM and within the mesh. Fortio is used to perform load testing, graph results and as a backend echo server.
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/)
+on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. The following diagram provides
+additional details of the deployment:
 
-### Clone Istio
+![Deployment Diagram](perf_setup.svg)
+
+The deployment provides a basis for Istio performance characterization. Fortio is used to perform load testing,
+graphing results and as a backend echo server.
+
+### Download a Release or Clone Istio
+
+From release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
+```
+curl -L https://git.io/getLatestIstio | sh -  # or download the daily TGZ
+```
+
+From source:
 ```
 $ git clone https://github.com/istio/istio.git && cd istio
 ```
 
 ### Prepare the Istio Deployment Manifest and Istio Client
-__Option A:__ Build the deployment manifest and `istioctl` binary:
+
+__Option A:__ (From release) Make sure `istioctl` is in your path is the one matching the downloaded release.
+
+For instance, in `~/tmp/istio-0.5.0/` run:
 ```
-$ ./install/updateVersion.sh
+export PATH=`pwd`/bin:$PATH
+# check 'which istioctl' and 'istioctl version' returns the correct version
+```
+For versions before 0.5.0 (the tools/ directory is now part of the release)
+```
+$ ln -s $GOPATH/src/istio.io/istio/tools
+```
+If you want to get newer version of the tools, you can `rm -rf tools/` and do the symlink above to use your updated/newer script.
+
+__Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
+```
+$ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
 Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
 Make the kubectl binary executable.
@@ -24,12 +52,6 @@ Move the binary in to your PATH.
 $ mv ./istioctl /usr/local/bin/istioctl
 ```
 
-__Option B:__ Follow the [quickstart guide](https://istio.io/docs/setup/kubernetes/quick-start.html) to install the
-manifests and `istioctl` binary. Make sure `istioctl` in your path is the one matching the downloaded release.
-For instance, in `~/tmp/istio-0.4.0/` run:
-```
-$ ln -s $GOPATH/src/istio.io/istio/tools
-```
 
 ### Set Your Google Cloud Credentials.
 ```
@@ -43,6 +65,7 @@ For example, to update the default gcloud zone (us-east4-b):
 ```
 $ ZONE=us-west1-a
 ```
+If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
 
 ### Source the Script
 ```
@@ -75,7 +98,8 @@ istio-system   istio-mixer-3192291716-psskv                           3/3       
 istio-system   istio-pilot-3663920167-4ns3g                           2/2       Running   0          7m
 <SNIP>
 ```
-You can now run the performance tests:
+You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
+
 ```
 $ run_tests
 ```
@@ -109,8 +133,9 @@ of the Istio service mesh:
 ```
 Compare the test results to understand the load differential between the 3 test cases.
 
-### Additional Testing
-Fortio provides a [Web UI](https://user-images.githubusercontent.com/3664595/34192808-1983be12-e505-11e7-9c16-2ee9f101f2ce.png) that
+### Interactive Testing / UI Graphing of results
+
+Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
@@ -137,3 +162,7 @@ $ delete_cluster
 $ delete_vm
 $ delete_vm_firewall
 ```
+
+### See also
+
+[Perf setup FAQ wiki](https://github.com/istio/istio/wiki/Istio-Performance-oriented-setup-FAQ)

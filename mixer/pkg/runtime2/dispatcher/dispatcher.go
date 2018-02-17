@@ -150,7 +150,9 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 // Quota implementation of runtime.Dispatcher.
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
-	s.quotaMethodArgs = *qma
+	s.quotaArgs.QuotaAmount = qma.Amount
+	s.quotaArgs.DeduplicationID = qma.DeduplicationID
+	s.quotaArgs.BestEffort = qma.BestEffort
 
 	err := d.dispatch(s)
 	if err == nil {
@@ -244,6 +246,7 @@ func (d *Dispatcher) dispatch(session *session) error {
 				}
 
 				// Dispatch for singleton dispatches
+				state.quotaArgs = session.quotaArgs
 				d.dispatchToHandler(state)
 			}
 

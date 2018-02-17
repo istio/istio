@@ -25,13 +25,6 @@ import (
 const (
 	testService1 = "test-service-1"
 	testService2 = "test-service-2"
-	testLabelApp = "app"
-	testLabelVer = "version"
-	testLabelEnv = "environment"
-	testLabelExp = "experiment"
-	testLabelShd = "shard"
-	testSubset1  = "test-subset-1"
-	testSubset2  = "test-subset-2"
 )
 
 // Enums used to tweak attributes while building an endpoint for testing.
@@ -68,13 +61,6 @@ var (
 		diffUser,
 		diffServiceOrder,
 		diffDomainOrder,
-	}
-	allTestLabels = []string{
-		testLabelApp,
-		testLabelVer,
-		testLabelEnv,
-		testLabelExp,
-		testLabelShd,
 	}
 
 	// Test domain sets to associate with a service.
@@ -476,22 +462,6 @@ func assertEqualEndpointLists(t *testing.T, expected, actual []*Endpoint) {
 	if len(expected) != len(actual) {
 		t.Errorf("expected endpoint count: %d do not tally with actual count: %d", len(expected), len(actual))
 	}
-}
-
-// epListDebugInfo prints out a limited set of endpoint attributes in the supplied endpoint list.
-func epListDebugInfo(epList []*Endpoint) string {
-	epListDebugInfo := "["
-	for _, ep := range epList {
-		if ep == nil {
-			continue
-		}
-		if len(epListDebugInfo) > 1 {
-			epListDebugInfo += ", "
-		}
-		epListDebugInfo += epDebugInfo(ep)
-	}
-	epListDebugInfo += "]"
-	return epListDebugInfo
 }
 
 // epDebugInfo prints out a limited set of endpoint attributes for the supplied endpoint.

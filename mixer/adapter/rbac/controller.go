@@ -68,21 +68,21 @@ func (c *controller) processRBACRoles(env adapter.Env) {
 			roleName := bindingSpec.GetRoleRef().GetName()
 
 			if roleKind != serviceRoleKind {
-				env.Logger().Errorf("RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
+				_ = env.Logger().Errorf("RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
 			}
 			if roleName == "" {
-				env.Logger().Errorf("RoleBinding %s does not refer to a valid role name", k.Name)
+				_ = env.Logger().Errorf("RoleBinding %s does not refer to a valid role name", k.Name)
 				continue
 			}
 
 			rn := roles[k.Namespace]
 			if rn == nil {
-				env.Logger().Errorf("RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Name, k.Namespace)
+				_ = env.Logger().Errorf("RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Name, k.Namespace)
 				continue
 			}
 			role := rn[roleName]
 			if role == nil {
-				env.Logger().Errorf("RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
+				_ = env.Logger().Errorf("RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
 				continue
 			}
 			role.setBinding(k.Name, bindingSpec)

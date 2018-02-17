@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -46,6 +47,18 @@ const (
 	caKeySize = 2048
 )
 
+// cATypes is the enum for the CA type.
+type cATypes int
+
+const (
+	// IntegratedCA means the Istio CA automatically interacts with upstream CA.
+	integratedCA cATypes = iota
+	// SelfSignedCA means the Istio CA uses a self signed certificate.
+	selfSignedCA
+	// PluggedCertCA means the Istio CA uses a operator-specified key/cert.
+	pluggedCertCA
+)
+
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
@@ -56,14 +69,22 @@ type CertificateAuthority interface {
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
 type IstioCAOptions struct {
+	CAType cATypes
+
+	CertTTL    time.Duration
+	MaxCertTTL time.Duration
+
 	CertChainBytes   []byte
-	CertTTL          time.Duration
-	MaxCertTTL       time.Duration
 	SigningCertBytes []byte
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
 
+	UpstreamCAAddress   string
+	UpstreamCACertBytes []byte
+	UpstreamAuth        string
+
 	LivenessProbeOptions *probe.Options
+	ProbeCheckInterval   time.Duration
 }
 
 // IstioCA generates keys and certificates for Istio identities.
@@ -75,17 +96,18 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
-	livenessProbe  *probe.Probe
+
+	livenessProbe *probe.Probe
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
 	core corev1.SecretsGetter) (*IstioCAOptions, error) {
-
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
 	caSecret, err := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
 	opts := &IstioCAOptions{
+		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 	}
@@ -135,6 +157,57 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	return opts, nil
 }
 
+// NewIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+func NewIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+	certTTL, maxCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CAType:     pluggedCertCA,
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
+	}
+	if certChainFile != "" {
+		if certChainBytes, err := ioutil.ReadFile(certChainFile); err == nil {
+			caOpts.CertChainBytes = certChainBytes
+		} else {
+			return nil, err
+		}
+	}
+	if signingCertBytes, err := ioutil.ReadFile(signingCertFile); err == nil {
+		caOpts.SigningCertBytes = signingCertBytes
+	} else {
+		return nil, err
+	}
+	if signingKeyBytes, err := ioutil.ReadFile(signingKeyFile); err == nil {
+		caOpts.SigningKeyBytes = signingKeyBytes
+	} else {
+		return nil, err
+	}
+	if rootCertBytes, err := ioutil.ReadFile(rootCertFile); err == nil {
+		caOpts.RootCertBytes = rootCertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
+// NewIntegratedIstioCAOptions returns a new IstioCAOptions instance with upstream CA configuration.
+func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstreamAuth string,
+	workloadCertTTL, maxWorkloadCertTTL time.Duration) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
+		CAType:            integratedCA,
+		CertTTL:           workloadCertTTL,
+		MaxCertTTL:        maxWorkloadCertTTL,
+		UpstreamCAAddress: upstreamCAAddress,
+		UpstreamAuth:      upstreamAuth,
+	}
+	if upstreamCACertBytes, err := ioutil.ReadFile(upstreamCACertFile); err == nil {
+		caOpts.UpstreamCACertBytes = upstreamCACertBytes
+	} else {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
@@ -162,13 +235,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		return nil, err
 	}
 
-	if opts.LivenessProbeOptions.IsValid() {
-		livenessProbeController := probe.NewFileController(opts.LivenessProbeOptions)
-		ca.livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-		livenessProbeController.Start()
-		ca.livenessProbe.SetAvailable(nil)
-	}
-
 	return ca, nil
 }
 
@@ -180,6 +246,10 @@ func (ca *IstioCA) GetRootCertificate() []byte {
 // Sign takes a PEM-encoded certificate signing request and returns a signed
 // certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
+	if ca.signingCert == nil {
+		return nil, fmt.Errorf("Istio CA is not ready") // nolint
+	}
+
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		return nil, err

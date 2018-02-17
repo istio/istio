@@ -109,7 +109,7 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 
 			for _, label := range mInfo.LabelNames {
 				// val.Dimensions[label] should exists because we have validated this before during config time.
-				m.Tags[label] = h.processLabels(val.Dimensions[label])
+				m.Tags[label] = adapter.Stringify(val.Dimensions[label])
 			}
 			measurements = append(measurements, m)
 		}
@@ -154,19 +154,4 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 		_ = h.logger.Errorf("could not extract numeric value for %v", i)
 		return 0
 	}
-}
-
-func (h *metricsHandler) processLabels(v interface{}) string {
-	switch vv := v.(type) {
-	case int:
-	case int32:
-	case int64:
-		return strconv.FormatInt(vv, 10)
-	case float64:
-		return strconv.FormatFloat(vv, 'f', -1, 64)
-	default:
-		str, _ := v.(string)
-		return str
-	}
-	return ""
 }

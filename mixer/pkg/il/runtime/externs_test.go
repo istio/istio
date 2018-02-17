@@ -169,3 +169,10 @@ func TestExternEndsWith(t *testing.T) {
 		}
 	}
 }
+
+func TestExternEmptyStringMap(t *testing.T) {
+	m := externEmptyStringMap()
+	if len(m) != 0 {
+		t.Errorf("emptyStringMap() returned non-empty map: %#v", m)
+	}
+}

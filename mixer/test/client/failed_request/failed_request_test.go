@@ -123,8 +123,6 @@ const reportAttributesBackendFail = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
-  "destination.ip": "[127 0 0 1]",
-  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -153,7 +151,7 @@ const reportAttributesBackendFail = `
 `
 
 func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetupV2(env.FailedRequestTest, t)
+	s := env.NewTestSetup(env.FailedRequestTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

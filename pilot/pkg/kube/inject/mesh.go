@@ -39,7 +39,7 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
-    [[ if eq .DebugMode true -]]  
+    [[ if eq .DebugMode true -]]
     privileged: true
     [[ end -]]
   restartPolicy: Always
@@ -74,17 +74,17 @@ containers:
   - "istio-proxy"
   {{ end -}}
   - --drainDuration
-  - 2s
+  - {{ formatDuration .ProxyConfig.DrainDuration }}
   - --parentShutdownDuration
-  - 3s
+  - {{ formatDuration .ProxyConfig.ParentShutdownDuration }}
   - --discoveryAddress
   - {{ .ProxyConfig.DiscoveryAddress }}
   - --discoveryRefreshDelay
-  - 1s
+  - {{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}
   - --zipkinAddress
   - {{ .ProxyConfig.ZipkinAddress }}
   - --connectTimeout
-  - 1s
+  - {{ formatDuration .ProxyConfig.ConnectTimeout }}
   - --statsdUdpAddress
   - {{ .ProxyConfig.StatsdUdpAddress }}
   - --proxyAdminPort

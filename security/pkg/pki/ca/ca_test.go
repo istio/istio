@@ -17,7 +17,9 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
+	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +28,13 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/pki/util"
+)
+
+const (
+	certChainFile = "testdata/cert-chain.pem"
+	rootCertFile  = "testdata/root-cert.pem"
+	caCertFile    = "testdata/ca-cert.pem"
+	caKeyFile     = "testdata/ca-key.pem"
 )
 
 var (
@@ -130,7 +139,7 @@ RRoQIlr5T8PG4vXwsn2/hohILCJJyHAee/4gIq42jLu6hQsQxcoy
 
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
 
-func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
+func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
@@ -189,7 +198,7 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 }
 
-func TestSelfSignedIstioCAWithSecret(t *testing.T) {
+func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertPem := cert1Pem
 	// Use the same signing cert and root cert for self-signed CA.
 	signingCertPem := rootCertPem
@@ -234,6 +243,81 @@ func TestSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertBytes := copyBytes([]byte(rootCertPem))
 	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
 		t.Error("Root cert does not match")
+	}
+}
+
+func TestNewIstioCAOptions(t *testing.T) {
+	testCases := map[string]struct {
+		certChainFile string
+		caCertFile    string
+		caKeyFile     string
+		rootCertFile  string
+		expectedErr   string
+	}{
+		"Success": {
+			certChainFile: certChainFile,
+			caCertFile:    caCertFile,
+			caKeyFile:     caKeyFile,
+			rootCertFile:  rootCertFile,
+			expectedErr:   "",
+		},
+		"No cert chain file": {
+			certChainFile: "",
+			caCertFile:    caCertFile,
+			caKeyFile:     caKeyFile,
+			rootCertFile:  rootCertFile,
+			expectedErr:   "",
+		},
+		"file does not exist": {
+			certChainFile: "",
+			caCertFile:    "random/path/does/not/exist",
+			caKeyFile:     caKeyFile,
+			rootCertFile:  rootCertFile,
+			expectedErr:   "open random/path/does/not/exist: no such file or directory",
+		},
+	}
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+
+	for id, tc := range testCases {
+		caOpts, err := NewIstioCAOptions(tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
+		if err != nil {
+			if len(tc.expectedErr) == 0 {
+				t.Errorf("%s: Unexpected error: %v", id, err)
+			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
+				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
+			}
+		} else if len(tc.expectedErr) != 0 {
+			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
+		}
+
+		if len(tc.expectedErr) != 0 {
+			continue
+		}
+		if tc.certChainFile != "" {
+			if certChainBytes, err := ioutil.ReadFile(tc.certChainFile); err != nil {
+				t.Errorf("%s: file read error %v", id, err)
+			} else if !bytes.Equal(certChainBytes, caOpts.CertChainBytes) {
+				t.Errorf("%s: Cert chain does not match", id)
+			}
+		} else if len(caOpts.CertChainBytes) != 0 {
+			t.Errorf("%s: Cert chain is not empty", id)
+		}
+		if caCertBytes, err := ioutil.ReadFile(tc.caCertFile); err != nil {
+			t.Errorf("%s: file read error %v", id, err)
+		} else if !bytes.Equal(caCertBytes, caOpts.SigningCertBytes) {
+			t.Errorf("%s: Signing cert does not match", id)
+		}
+		if caKeyBytes, err := ioutil.ReadFile(tc.caKeyFile); err != nil {
+			t.Errorf("%s: file read error %v", id, err)
+		} else if !bytes.Equal(caKeyBytes, caOpts.SigningKeyBytes) {
+			t.Errorf("%s: Signing key does not match", id)
+		}
+		if rootCertBytes, err := ioutil.ReadFile(tc.rootCertFile); err != nil {
+			t.Errorf("%s: file read error %v", id, err)
+		} else if !bytes.Equal(rootCertBytes, caOpts.RootCertBytes) {
+			t.Errorf("%s: Root cert does not match", id)
+		}
 	}
 }
 
