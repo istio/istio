@@ -56,7 +56,7 @@ type CertSource struct {
 
 type watcher struct {
 	agent    proxy.Agent
-	role     model.Node
+	role     model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -64,7 +64,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -117,8 +117,9 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if w.config.AvailabilityZone == "" {
-		log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
+	if !model.IsApplicationNodeType(w.role.Type) {
+		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
+		return
 	}
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
@@ -141,6 +142,9 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 			_ = resp.Body.Close()
 		}
 		attempts++
+	}
+	if w.config.AvailabilityZone == "" {
+		log.Info("Availability zone not set, proxy will default to not using zone aware routing.")
 	}
 }
 

@@ -1,28 +1,44 @@
-# Istio ServiceGraph
+# Istio Servicegraph
 
-*WARNING WARNING WARNING WARNING*
+Servicegraph is a small app that generates and visualizes graph
+representations of your Istio service mesh. Servicegraph is dependent
+on the
+[Prometheus](https://istio.io/docs/tasks/telemetry/querying-metrics.html)
+addon and the standard metrics configuration. The documentation for
+deploying and using Servicegraph is
+[here](https://istio.io/docs/tasks/telemetry/servicegraph.html).
 
-These services are examples ONLY. This code may change at will, or be removed
-entirely without warning. Taking any dependency on this code is done at your own
-peril.
+## Visualizations
 
-## Services
+- `/force/forcegraph.html` is an interactive
+  [D3.js](https://d3js.org/) visualization.
 
-### Servicegraph service
+- `/dotviz` is a static [Graphviz](https://www.graphviz.org/)
+  visualization.
 
-Defined in `servicegraph/cmd/server`, this provides a basic HTTP API for
-generating servicegraphs. It exposes the following endpoints:
-- `/graph` which provides a JSON serialization of the servicegraph
-- `/dotgraph` which provides a dot serialization of the servicegraph
-- `/dotviz` which provides a visual representation of the servicegraph
+## Serializations
 
-All endpoints take an optional argument of `time_horizon`, which controls the 
-timespan to consider for graph generation.
+- `/dotgraph` provides a
+  [DOT](https://en.wikipedia.org/wiki/DOT_(graph_description_language))
+  serialization.
 
-All endpoints also take an optional arugment of `filter_empty=true`, which will
-restrict the nodes and edges shown to only those that reflect non-zero traffic
-levels during the specified `time_horizon`.
+- `/d3graph` provides a JSON serialization for D3 visualization.
 
-### Demosvc service
-Defined in `servicegraph/cmd/demosvc`, this provides a simple HTTP endpoint that
-generates prometheus metrics. This can be used to test the servicegraph service.
+- `/graph` provides a JSON serialization.
+
+## Query Parameters
+
+All endpoints take these query parameters:
+
+- `time_horizon` controls the timespan to consider for graph
+  generation. Format is a number plus a time unit. Example `15s` or
+  `1m`. Default is `5m`.
+
+- `filter_empty=true` will restrict the nodes and edges shown to only
+  those that reflect non-zero traffic levels during the specified
+  `time_horizon`. Deafult is `false`.
+
+# Demosvc service
+Defined in `servicegraph/cmd/demosvc`, this provides a simple HTTP
+endpoint that generates Prometheus metrics. This can be used to test
+the servicegraph service.

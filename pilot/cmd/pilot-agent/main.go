@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	role     model.Node
+	role     model.Proxy
 	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
@@ -182,13 +182,11 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := make([]envoy.CertSource, 0, 3)
-			// Only when auth is enabled, watch the internal certificate path.
-			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				certs = append(certs, envoy.CertSource{
+			certs := []envoy.CertSource{
+				{
 					Directory: model.AuthCertsPath,
 					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
-				})
+				},
 			}
 
 			if role.Type == model.Ingress {

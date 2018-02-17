@@ -277,6 +277,26 @@ var (
 		file: "testdata/weighted-route-v1alpha2.yaml.golden",
 	}
 
+	gatewayWeightedRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-weighted"},
+		file: "testdata/gateway-weighted-route.yaml",
+	}
+
+	gatewayRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-simple"},
+		file: "testdata/gateway-route.yaml",
+	}
+
+	gatewayConfig = fileConfig{
+		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway"},
+		file: "testdata/gateway.yaml",
+	}
+
+	gatewayConfig2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-2"},
+		file: "testdata/gateway2.yaml",
+	}
+
 	faultRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
 		file: "testdata/fault-route.yaml.golden",
@@ -476,11 +496,11 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 	}
 	content, err := ioutil.ReadFile(config.file)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("reading %s: %s", config.file, err)
 	}
 	spec, err := schema.FromYAML(string(content))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("parsing yaml for %s: %s", config.file, err)
 	}
 	out := model.Config{
 		ConfigMeta: config.meta,
@@ -493,7 +513,7 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 
 	_, err = r.Create(out)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create for %s: %s", config.file, err)
 	}
 }
 
@@ -518,7 +538,8 @@ func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 
 func makeMeshConfig() meshconfig.MeshConfig {
 	mesh := model.DefaultMeshConfig()
-	mesh.MixerAddress = "istio-mixer.istio-system:9091"
+	mesh.MixerCheckServer = "istio-mixer.istio-system:9091"
+	mesh.MixerReportServer = mesh.MixerCheckServer
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }

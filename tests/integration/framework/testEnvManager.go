@@ -34,51 +34,58 @@ type runnable interface {
 
 // TestEnvManager is core test framework struct
 type TestEnvManager struct {
-	TestEnv     TestEnv
-	TestID      string
-	Components  []Component
+	testEnv     TestEnv
+	testID      string
 	skipCleanup bool
 }
 
-// NewTestEnvManager create a TestEnvManager with a given environment and ID
+// NewTestEnvManager creates a TestEnvManager with a given environment and ID
 func NewTestEnvManager(env TestEnv, id string) *TestEnvManager {
 	return &TestEnvManager{
-		TestEnv:     env,
-		Components:  env.GetComponents(),
-		TestID:      id,
+		testEnv:     env,
+		testID:      id,
 		skipCleanup: *skipCleanup,
 	}
 }
 
+// GetEnv returns the test environment currently using
+func (envManager *TestEnvManager) GetEnv() TestEnv {
+	return envManager.testEnv
+}
+
+// GetID returns this test ID
+func (envManager *TestEnvManager) GetID() string {
+	return envManager.testID
+}
+
 // StartUp sets up the whole environment as well brings up components
 func (envManager *TestEnvManager) StartUp() (err error) {
-	if err = envManager.TestEnv.Bringup(); err != nil {
+	if err = envManager.testEnv.Bringup(); err != nil {
 		log.Printf("Failed to bring up environment")
 		return
 	}
-	for _, comp := range envManager.Components {
+	for _, comp := range envManager.testEnv.GetComponents() {
 		if err := comp.Start(); err != nil {
 			log.Printf("Failed to setup component: %s", comp.GetName())
 			return err
 		}
 	}
-
 	if ready, err := envManager.WaitUntilReady(); err != nil || !ready {
 		err = fmt.Errorf("failed to get env ready: %s", err)
 		return err
 	}
-
+	log.Printf("Successfully started environment %s", envManager.testEnv.GetName())
 	return
 }
 
-// TearDown stop components and clean up environment
+// TearDown stops components and clean up environment
 func (envManager *TestEnvManager) TearDown() {
 	if envManager.skipCleanup {
 		log.Println("Dev mode (--skip_cleanup), skipping cleanup")
 		return
 	}
 
-	for _, comp := range envManager.Components {
+	for _, comp := range envManager.testEnv.GetComponents() {
 		if alive, err := comp.IsAlive(); err != nil {
 			log.Printf("Failed to check if componment %s is alive: %s", comp.GetName(), err)
 		} else if alive {
@@ -86,16 +93,14 @@ func (envManager *TestEnvManager) TearDown() {
 				log.Printf("Failed to stop componment %s: %s", comp.GetName(), err)
 			}
 		}
-		if err := comp.Cleanup(); err != nil {
-			log.Printf("Failed to cleanup %s: %s", comp.GetName(), err)
-		}
 	}
-	_ = envManager.TestEnv.Cleanup()
+	_ = envManager.testEnv.Cleanup()
 }
 
 // WaitUntilReady checks and waits until the whole environment is ready
 // It retries several time before aborting and throwing error
 func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
+	log.Println("Start checking components' status")
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
@@ -104,7 +109,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 
 	ready := false
 	retryFn := func(i int) error {
-		for _, comp := range envManager.Components {
+		for _, comp := range envManager.testEnv.GetComponents() {
 			if alive, err := comp.IsAlive(); err != nil {
 				return fmt.Errorf("unable to comfirm compoment %s is alive %v", comp.GetName(), err)
 			} else if !alive {
@@ -113,6 +118,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 		}
 
 		ready = true
+		log.Println("All components are ready")
 		return nil
 	}
 

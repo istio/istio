@@ -70,7 +70,7 @@ endif
 # Output control
 #-----------------------------------------------------------------------------
 # Invoke make VERBOSE=1 to enable echoing of the command being executed
-VERBOSE ?= 0
+export VERBOSE ?= 0
 # Place the variable Q in front of a command to control echoing of the command being executed.
 Q = $(if $(filter 1,$VERBOSE),,@)
 # Use the variable H to add a header (equivalent to =>) to informational output
@@ -122,8 +122,9 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
+DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -165,7 +166,28 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
+
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
+	git submodule sync
+	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+.PHONY: submodule pull submodule-sync
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -192,7 +214,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -202,17 +223,21 @@ ${DEP}:
 ${GOLINT}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
 
+${GEN_CERT}:
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
 
-depend.status: Gopkg.lock
+# Generates the current status of the dependencies. Does not update the deps.
+depend.status:
 	$(Q) ${DEP} status > vendor/dep.txt
 	$(Q) ${DEP} status -dot > vendor/dep.dot
 
-# Requires 'graphviz' package. Run as user
-depend.view: depend.status
+# Visualize the dep status, using 'graphviz' package. Run as user
+depend.view:
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.pkg
+	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -279,17 +304,17 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/example/servicegraph/cmd/server
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -303,13 +328,16 @@ istio-ca:
 
 .PHONY: node-agent
 node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node-agent
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca
-multicluster_ca:
+.PHONY: multicluster_ca node_agent istio_ca
+multicluster_ca node_agent istio_ca:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
@@ -361,7 +389,6 @@ $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
-	go build -o ${ISTIO_OUT}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -483,10 +510,18 @@ ifeq ($(GOOS),linux)
 
 include tools/istio-docker.mk
 
-endif # end of docker block that's restricted to Linux
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
+
+push: docker.push installgen
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
+
+gcs.push.deb: deb
+	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
+
+endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'
@@ -498,12 +533,19 @@ installgen:
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/eureka/istio.yaml \
+                install/kubernetes/addons/grafana.yaml \
+                install/kubernetes/addons/prometheus.yaml \
+                install/kubernetes/addons/servicegraph.yaml \
+                install/kubernetes/addons/zipkin-to-stackdriver.yaml \
+                install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-initializer.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml

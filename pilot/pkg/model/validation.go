@@ -1342,15 +1342,15 @@ func ValidateConnectTimeout(timeout *duration.Duration) error {
 
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
-	if mesh.EgressProxyAddress != "" {
-		if err := ValidateProxyAddress(mesh.EgressProxyAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid egress proxy address:"))
+	if mesh.MixerCheckServer != "" {
+		if err := ValidateProxyAddress(mesh.MixerCheckServer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Policy Check Server address:"))
 		}
 	}
 
-	if mesh.MixerAddress != "" {
-		if err := ValidateProxyAddress(mesh.MixerAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Mixer address:"))
+	if mesh.MixerReportServer != "" {
+		if err := ValidateProxyAddress(mesh.MixerReportServer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Telemetry Server address:"))
 		}
 	}
 

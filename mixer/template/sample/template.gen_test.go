@@ -1086,7 +1086,7 @@ func TestProcessReport(t *testing.T) {
 				"foo": &sample_report.InstanceParam{
 					// missing all fields
 					Res1: &sample_report.Res1InstanceParam{
-					// missing all fields
+						// missing all fields
 					},
 				},
 				"bar": &sample_report.InstanceParam{

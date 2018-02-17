@@ -30,6 +30,8 @@ import (
 	"github.com/ghodss/yaml"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
@@ -196,10 +198,18 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 	status := annotations[istioSidecarAnnotationStatusKey]
 
-	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		metadata.Namespace, metadata.Name, namespacePolicy, useDefault, inject, status, required)
 
 	return required
+}
+
+func formatDuration(in *duration.Duration) string {
+	dur, err := ptypes.Duration(in)
+	if err != nil {
+		return "1s"
+	}
+	return dur.String()
 }
 
 func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
@@ -210,8 +220,10 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 		MeshConfig:  meshConfig,
 	}
 
+	funcMap := template.FuncMap{"formatDuration": formatDuration}
+
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Parse(sidecarTemplate))
+	t := template.Must(template.New("inject").Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -354,7 +366,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
 		return out, nil
 	}
 

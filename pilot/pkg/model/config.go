@@ -228,7 +228,7 @@ type IstioConfigStore interface {
 	ConfigStore
 
 	// EgressRules lists all egress rules
-	EgressRules() map[string]*routing.EgressRule
+	EgressRules() []Config
 
 	// ExternalServices lists all external services
 	ExternalServices() []Config
@@ -621,18 +621,12 @@ func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceIns
 	return nil
 }
 
-func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
-	out := make(map[string]*routing.EgressRule)
-	rs, err := store.List(EgressRule.Type, NamespaceAll)
+func (store *istioConfigStore) EgressRules() []Config {
+	configs, err := store.List(EgressRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	for _, r := range rs {
-		if rule, ok := r.Spec.(*routing.EgressRule); ok {
-			out[r.Key()] = rule
-		}
-	}
-	return out
+	return configs
 }
 
 func (store *istioConfigStore) ExternalServices() []Config {

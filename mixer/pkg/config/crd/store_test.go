@@ -159,6 +159,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
+		donec:            make(chan struct{}),
 		retryTimeout:     testingRetryTimeout,
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
@@ -185,13 +186,12 @@ func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) 
 
 func TestStore(t *testing.T) {
 	s, ns, lw := getTempClient()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
+	defer s.Stop()
 
-	wch, err := s.Watch(ctx)
+	wch, err := s.Watch()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -239,11 +239,10 @@ func TestStore(t *testing.T) {
 
 func TestStoreWrongKind(t *testing.T) {
 	s, ns, lw := getTempClient()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Action"}); err != nil {
+	if err := s.Init([]string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
+	defer s.Stop()
 
 	k := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
@@ -260,13 +259,12 @@ func TestStoreNamespaces(t *testing.T) {
 	s, ns, lw := getTempClient()
 	otherNS := "other-namespace"
 	s.ns = map[string]bool{ns: true, otherNS: true}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Action", "Handler"}); err != nil {
+	if err := s.Init([]string{"Action", "Handler"}); err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
 
-	wch, err := s.Watch(ctx)
+	wch, err := s.Watch()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,21 +300,20 @@ func TestStoreNamespaces(t *testing.T) {
 
 func TestStoreFailToInit(t *testing.T) {
 	s, _, _ := getTempClient()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return nil, errors.New("dummy")
 	}
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy" {
+	if err := s.Init([]string{"Handler", "Action"}); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
 	s.discoveryBuilder = createFakeDiscovery
 	s.listerWatcherBuilder = func(*rest.Config) (listerWatcherBuilderInterface, error) {
 		return nil, errors.New("dummy2")
 	}
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy2" {
+	if err := s.Init([]string{"Handler", "Action"}); err.Error() != "dummy2" {
 		t.Errorf("Got %v, Want dummy2 error", err)
 	}
+	s.Stop()
 }
 
 func TestCrdsAreNotReady(t *testing.T) {
@@ -325,10 +322,8 @@ func TestCrdsAreNotReady(t *testing.T) {
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return emptyDiscovery, nil
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	start := time.Now()
-	err := s.Init(ctx, []string{"Handler", "Action"})
+	err := s.Init([]string{"Handler", "Action"})
 	d := time.Since(start)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -336,16 +331,16 @@ func TestCrdsAreNotReady(t *testing.T) {
 	if d < testingRetryTimeout {
 		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
 	}
+	s.Stop()
 }
 
 func TestStoreReadiness(t *testing.T) {
 	s, _, lw := getTempClient()
 	lw.setErrors("Handler", errors.New("dummy"))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
 	if err := s.getReadiness(); err == nil {
 		t.Errorf("Got nil, want error")
 	}
@@ -388,15 +383,14 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	}
 	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
 	s.retryTimeout = 2 * time.Second
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	err := s.Init(ctx, []string{"Handler", "Action"})
+	err := s.Init([]string{"Handler", "Action"})
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	if callCount != 3 {
 		t.Errorf("Got %d, Want 3", callCount)
 	}
+	s.Stop()
 }
 
 func TestCrdsRetryAsynchronously(t *testing.T) {
@@ -431,18 +425,17 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err := lw.put(k1, map[string]interface{}{"adapter": "noop"}); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
 	s.cacheMutex.Lock()
 	ncaches := len(s.informers)
 	s.cacheMutex.Unlock()
 	if ncaches != 1 {
 		t.Errorf("Has %d caches, Want 1 caches", ncaches)
 	}
-	wch, err := s.Watch(ctx)
+	wch, err := s.Watch()
 	if err != nil {
 		t.Fatal(err)
 	}

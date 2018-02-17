@@ -85,6 +85,9 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		},
 		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
 			l.writeFormat(name, "DispatchCheck => instance: '%+v'", instance)
+
+			signalCallAndWait(s)
+
 			if s.PanicOnDispatchCheck {
 				l.write(name, "DispatchCheck <= (PANIC)")
 				panic(s.PanicData)
@@ -106,6 +109,9 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 			l.writeFormat(name, "DispatchReport => instances: '%+v'", instances)
+
+			signalCallAndWait(s)
+
 			if s.PanicOnDispatchReport {
 				l.write(name, "DispatchReport <= (PANIC)")
 				panic(s.PanicData)
@@ -120,7 +126,11 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return nil
 		},
 		DispatchQuota: func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-			l.writeFormat(name, "DispatchQuota => instance: '%+v'", instance)
+			l.writeFormat(name, "DispatchQuota => instance: '%+v'm qArgs:{dedup:'%v', amount:'%v', best:'%v'}",
+				instance, args.DeduplicationID, args.QuotaAmount, args.BestEffort)
+
+			signalCallAndWait(s)
+
 			if s.PanicOnDispatchQuota {
 				l.write(name, "DispatchQuota <= (PANIC)")
 				panic(s.PanicData)
@@ -143,6 +153,9 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, instance interface{},
 			attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 			l.writeFormat(name, "DispatchGenAttrs => instance: '%+v'", instance)
+
+			signalCallAndWait(s)
+
 			if s.PanicOnDispatchGenAttrs {
 				l.write(name, "DispatchGenAttrs <= (PANIC)")
 				panic(s.PanicData)
@@ -200,6 +213,16 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 	}
 }
 
+func signalCallAndWait(s FakeTemplateSettings) {
+	if s.ReceivedCallChannel != nil {
+		s.ReceivedCallChannel <- struct{}{}
+	}
+
+	if s.CommenceSignalChannel != nil {
+		<-s.CommenceSignalChannel
+	}
+}
+
 // FakeTemplateSettings describes the behavior of a fake template.
 type FakeTemplateSettings struct {
 	Name                           string
@@ -221,4 +244,10 @@ type FakeTemplateSettings struct {
 	QuotaResults                   []adapter.QuotaResult
 	CheckResults                   []adapter.CheckResult
 	OutputAttrs                    map[string]interface{}
+
+	// template will signal the receipt of an incoming dispatch on this channel
+	ReceivedCallChannel chan struct{}
+
+	// template will wait on this channel before completing the dispatch
+	CommenceSignalChannel chan struct{}
 }

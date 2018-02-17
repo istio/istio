@@ -262,8 +262,6 @@ func TestAwsGetDialOptions(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		sigFile         string
-		requestPath     string
 		expectedErr     string
 		cfg             *ClientConfig
 		expectedOptions []grpc.DialOption

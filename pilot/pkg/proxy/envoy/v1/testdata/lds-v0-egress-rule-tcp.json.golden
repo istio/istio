@@ -48,6 +48,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -57,6 +64,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
@@ -69,12 +83,23 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -165,6 +190,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -174,6 +206,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
@@ -186,12 +225,23 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -258,6 +308,13 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -267,6 +324,13 @@
             "attributes": {
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
              },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
@@ -279,12 +343,23 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -451,6 +526,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -460,12 +542,23 @@
             "hello.default.svc.cluster.local": {
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
@@ -516,6 +609,10 @@
            "stringValue": "kubernetes://v0.default"
           }
          }
+        },
+        "transport": {
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -565,6 +662,10 @@
            "stringValue": "kubernetes://v0.default"
           }
          }
+        },
+        "transport": {
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -621,6 +722,10 @@
            "stringValue": "kubernetes://v0.default"
           }
          }
+        },
+        "transport": {
+         "checkCluster": "mixer_check_server",
+         "reportCluster": "mixer_check_server"
         }
        }
       }
@@ -731,6 +836,13 @@
              "destination.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "destination.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
              }
@@ -740,12 +852,23 @@
             "hello.default.svc.cluster.local": {
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_check_server"
            }
           }
          }
