@@ -10,7 +10,6 @@ tools/vagrant/.vagrant/
 .vscode/
 # Bazel
 /bazel-*
-vendor
 # vi backups
 *.bak
 # python artifacts
@@ -32,16 +31,19 @@ bin/protoc-gen-docs*
 # Install generated files
 install/consul/istio.yaml
 install/eureka/istio.yaml
+install/kubernetes/addons/grafana.yaml
+install/kubernetes/addons/prometheus.yaml
+install/kubernetes/addons/servicegraph.yaml
+install/kubernetes/addons/zipkin-to-stackdriver.yaml
+install/kubernetes/addons/zipkin.yaml
 install/kubernetes/helm/istio/values.yaml
 install/kubernetes/istio-auth.yaml
 install/kubernetes/istio-ca-plugin-certs.yaml
-install/kubernetes/istio-sidecar-injector.yaml
-install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
-install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
 install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+install/kubernetes/istio-sidecar-injector.yaml
 install/kubernetes/istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml

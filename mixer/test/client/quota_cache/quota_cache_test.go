@@ -22,9 +22,22 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 1,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 1,
+	"http_mixer_filter.total_check_calls":                 20,
+	"http_mixer_filter.total_quota_calls":                 20,
+	"http_mixer_filter.total_remote_check_calls":          2,
+	"http_mixer_filter.total_remote_quota_calls":          2,
+	"http_mixer_filter.total_remote_report_calls":         1,
+	"http_mixer_filter.total_report_calls":                20,
+}
+
 func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := env.NewTestSetup(env.QuotaCacheTest, t)
+	env.SetStatsUpdateInterval(s.V2(), 1)
 	env.AddHTTPQuota(s.V2(), "RequestCount", 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -73,5 +86,12 @@ func TestQuotaCache(t *testing.T) {
 	if s.GetMixerQuotaCount() >= 5 {
 		t.Fatalf("%s quota called count %v should not be more than 5",
 			tag, s.GetMixerQuotaCount())
+	}
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
 }

@@ -71,9 +71,6 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Enables use of pkg/runtime2, instead of pkg/runtime.
-	UseNewRuntime bool
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -92,6 +89,9 @@ type Args struct {
 
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
 
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool

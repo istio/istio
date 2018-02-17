@@ -90,14 +90,14 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRoutesV2(nodeInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
 			routes = append(routes, buildInboundRouteV2(config, cluster, http, nil))
 		}
 		for _, match := range http.Match {
-			for _, instance := range nodeInstances {
+			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
 					routes = append(routes, buildInboundRouteV2(config, cluster, http, match))
 					break
@@ -177,13 +177,13 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 
 // buildHTTPRoutes translates a route rule to an Envoy route
 func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, nodeInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRoutesV2(store, config, service, port, nodeInstances, domain, buildCluster)
+		return buildHTTPRoutesV2(store, config, service, port, proxyInstances, domain, buildCluster)
 	default:
 		panic("unsupported rule")
 	}
@@ -314,7 +314,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	nodeInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
@@ -324,7 +324,7 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain, buildCluster))
 		}
 		for _, match := range http.Match {
-			for _, instance := range nodeInstances {
+			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
 					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain, buildCluster))
 					break

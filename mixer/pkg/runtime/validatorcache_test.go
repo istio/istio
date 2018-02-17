@@ -15,7 +15,6 @@
 package runtime
 
 import (
-	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -32,22 +31,22 @@ import (
 const expirationForTest = 10 * time.Millisecond
 const watchFlushDurationForTest = time.Millisecond
 
-func newValidatorCacheForTest(ctx context.Context, name string) (*validatorCache, *storetest.Memstore, error) {
+func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *storetest.Memstore, error) {
 	m := storetest.NewMemstore()
 	s := store.WithBackend(m)
-	if err := s.Init(ctx, map[string]proto.Message{RulesKind: &cpb.Rule{}, AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
-		return nil, nil, err
+	if err := s.Init(map[string]proto.Message{RulesKind: &cpb.Rule{}, AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
+		return nil, nil, nil, err
 	}
 	c := &validatorCache{
 		c:          cache.NewTTL(expirationForTest, expirationForTest*2),
 		configData: map[store.Key]proto.Message{},
 	}
-	wch, err := s.Watch(ctx)
+	wch, err := s.Watch()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	go watchChanges(wch, watchFlushDurationForTest, c.applyChanges)
-	return c, m, nil
+	return c, s, m, nil
 }
 
 func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
@@ -83,12 +82,11 @@ func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want pro
 }
 
 func TestValidatorCache(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c, m, err := newValidatorCacheForTest(ctx, t.Name())
+	c, s, m, err := newValidatorCacheForTest(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
 	assertListKeys(t, c)
 	k1 := store.Key{Kind: RulesKind, Name: "foo", Namespace: "ns"}
 	r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}, Spec: map[string]interface{}{"match": "foo"}}
@@ -253,12 +251,11 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			c, m, err := newValidatorCacheForTest(ctx, t.Name())
+			c, s, m, err := newValidatorCacheForTest(t.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer s.Stop()
 
 			r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{"match": "base"}}
 			m.Put(r1)

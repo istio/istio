@@ -26,8 +26,21 @@ const (
 	mixerQuotaFailMessage = "Quota is exhausted for: RequestCount"
 )
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 2,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 2,
+	"http_mixer_filter.total_check_calls":                 2,
+	"http_mixer_filter.total_quota_calls":                 2,
+	"http_mixer_filter.total_remote_check_calls":          2,
+	"http_mixer_filter.total_remote_quota_calls":          2,
+	"http_mixer_filter.total_remote_report_calls":         1,
+	"http_mixer_filter.total_report_calls":                2,
+}
+
 func TestQuotaCall(t *testing.T) {
 	s := env.NewTestSetup(env.QuotaCallTest, t)
+	env.SetStatsUpdateInterval(s.V2(), 1)
 
 	// Add v2 quota config for all requests.
 	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
@@ -64,4 +77,11 @@ func TestQuotaCall(t *testing.T) {
 		t.Errorf("Error response body is not expected.")
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }
