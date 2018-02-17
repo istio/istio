@@ -29,7 +29,6 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -97,8 +96,6 @@ type IstioCA struct {
 
 	certChainBytes []byte
 	rootCertBytes  []byte
-
-	caClient grpc.CAGrpcClient
 
 	livenessProbe *probe.Probe
 }
