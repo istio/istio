@@ -115,7 +115,7 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.6.4"
+  version = ">= v0.6.9"
 
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
