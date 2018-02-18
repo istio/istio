@@ -48,7 +48,7 @@ type handler struct {
 func (b *builder) Build(_ context.Context, env adapter.Env) (adapter.Handler, error) {
 	ac := b.adapterConfig
 
-	client := &statsd.Client{}
+	var client = &statsd.Client{}
 	var err error
 	if ac.BufferLength > 0 {
 		client, err = statsd.NewBuffered(ac.Address, int(ac.BufferLength))
@@ -98,7 +98,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	// Validate the adapter handles all metrics it is being sent
 	for mname := range b.metricTypes {
 		if _, found := ac.Metrics[mname]; !found {
-			ce.Appendf("metricName", "%s is a valid metric but is not configured to be handled by the datadog adapter", mname)
+			ce = ce.Appendf("metricName", "%s is a valid metric but is not configured to be handled by the datadog adapter", mname)
 		}
 	}
 
@@ -147,7 +147,7 @@ func (h *handler) record(value *metric.Instance) error {
 	mname := value.Name
 
 	// Shouldn't fail since validation checks metric creation
-	info, _ := h.metrics[mname]
+	info := h.metrics[mname]
 
 	tagMap := make(map[string]string)
 	for k, v := range h.metrics[mname].Tags {
