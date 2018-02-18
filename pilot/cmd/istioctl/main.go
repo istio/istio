@@ -679,7 +679,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 			return err
 		}
 		if config.APIVersion == "" {
-			return err
+			configs[i].APIVersion = crd.IstioAPIGroupVersion.String()
 		}
 		// TODO: invokes the mixer validation webhook.
 	}
@@ -691,14 +691,9 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 	if err != nil {
 		return nil, err
 	}
-
-	resources := make([]*metav1.APIResourceList, 0)
-	for _, c := range configs {
-		rs, err := client.ServerResourcesForGroupVersion(c.ResourceVersion)
-		if err != nil {
-			return nil, err
-		}
-		resources = append(resources, rs)
+	resources, err := client.ServerResourcesForGroupVersion(crd.IstioAPIGroupVersion.String())
+	if err != nil {
+		return nil, err
 	}
 	kindsSet := map[string]bool{}
 	for _, config := range configs {
@@ -707,11 +702,9 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 		}
 	}
 	result := make(map[string]metav1.APIResource, len(kindsSet))
-	for _, resource := range resources {
-		for _, rs := range resource.APIResources {
-			if kindsSet[rs.Kind] {
-				result[rs.Kind] = rs
-			}
+	for _, resource := range resources.APIResources {
+		if kindsSet[resource.Kind] {
+			result[resource.Kind] = resource
 		}
 	}
 	return result, nil
@@ -720,7 +713,7 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 func restClientForOthers(config *rest.Config) (*rest.RESTClient, error) {
 	configCopied := *config
 	configCopied.ContentConfig = dynamic.ContentConfig()
-	configCopied.GroupVersion = config.GroupVersion
+	configCopied.GroupVersion = &crd.IstioAPIGroupVersion
 	return rest.RESTClientFor(config)
 }
 
