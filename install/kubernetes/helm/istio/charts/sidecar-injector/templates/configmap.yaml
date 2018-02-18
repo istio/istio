@@ -14,7 +14,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.proxyInit.repository }}:{{ .Values.global.proxyInit.tag }}
+        image: {{ .Values.hub }}/proxy_init:{{ .Values.tag }}
         args:
         - "-p"
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
@@ -33,7 +33,7 @@ data:
         restartPolicy: Always
       containers:
       - name: istio-proxy
-        image: {{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}
+        image: {{ .Values.hub }}/{{ .Values.proxy.image }}:{{ .Values.tag }}
         args:
         - proxy
         - sidecar

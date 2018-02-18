@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.global.servicegraph.repository }}:{{ .Values.global.servicegraph.tag }}"
+          image: "{{ .Values.global.hub }}/servicegraph:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}

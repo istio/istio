@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}-webhook
-          image: "{{ .Values.global.sidecarInjector.repository }}:{{ .Values.global.sidecarInjector.tag }}"
+          image: "{{ .Values.global.hub }}/sidecar_injector:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - --tlsCertFile=/etc/istio/certs/cert.pem

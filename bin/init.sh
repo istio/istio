@@ -29,6 +29,8 @@ set -o pipefail
 GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 OUT=${GO_TOP}/out
 
+HELM_VER=v2.7.2
+
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
@@ -110,6 +112,15 @@ if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     mkdir -p ${ISTIO_OUT}
     # Make sure the envoy binary exists.
     cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
+fi
+
+if [ ! -f /usr/local/bin/helm -a ! -f ${ISTIO_OUT}/helm ] ; then
+    # Install helm. Please keep it in sync with .circleci
+    cd /tmp && \
+        curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
+        tar xfz helm.tgz && \
+        mv linux-amd64/helm ${ISTIO_OUT}/helm && \
+        rm -rf helm.tgz linux-amd64
 fi
 
 # circleCI expects this in the bin directory

@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.global.grafana.repository }}:{{ .Values.global.grafana.tag }}"
+          image: "{{ .Values.global.hub }}/grafana:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}

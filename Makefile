@@ -100,6 +100,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
+export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
@@ -304,7 +305,7 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
@@ -338,7 +339,7 @@ pilot: pilot-discovery
 
 .PHONY: multicluster_ca node_agent istio_ca
 multicluster_ca node_agent istio_ca:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -529,6 +530,36 @@ artifacts: docker
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
+
+# A make target to generate all the YAML files
+generate_yaml:
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+
+
+istio.yaml:
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+
+deploy/helm:
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+			install/kubernetes/helm/istio | kubectl apply -n istio-system -f -
+
+deploy/mixer:
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+			install/kubernetes/helm/istio/charts/mixer
+			#| kubectl apply -n istio-system -f -
+
+
+# Generate the install files, using istioctl.
+# TODO: make sure they match, pass all tests.
+# TODO:
+generate_yaml_new:
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
+
 
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \

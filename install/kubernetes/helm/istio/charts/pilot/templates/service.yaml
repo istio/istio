@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-pilot
+  name: istio-pilot
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -18,6 +18,4 @@ spec:
   - port: 443
     name: admission-webhook
   selector:
-    app: {{ template "pilot.name" . }}
-    release: {{ .Release.Name }}
     istio: pilot

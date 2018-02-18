@@ -1,9 +1,10 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "pilot.fullname" . }}
+  name: istio-pilot
+  # TODO: default tempate doesn't have this, which one is right ?
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -15,18 +16,23 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "pilot.name" . }}
+        app: istio-pilot
         release: {{ .Release.Name }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: {{ template "pilot.serviceAccountName" . }}
+      serviceAccountName: istio-pilot-service-account
       containers:
-        - name: {{ template "pilot.name" . }}-discovery
-          image: "{{ .Values.global.pilot.repository }}:{{ .Values.global.pilot.tag }}"
+        - name: discovery
+          image: "{{ .Values.global.hub }}/pilot:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          args: ["discovery", "-v", "2", "--admission-service", "{{ template "pilot.fullname" . }}"]
+          args:
+          - "discovery"
+          - "-v"
+          - "2"
+          - "--admission-service"
+          - "istio-pilot"
           ports:
           - containerPort: 8080
           - containerPort: 443
@@ -54,8 +60,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-        - name: {{ template "pilot.name" . }}-proxy
-          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+        - name: istio-proxy
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -65,7 +71,7 @@ spec:
           - -v
           - "2"
           - --discoveryAddress
-          - {{ template "pilot.fullname" . }}:15003
+          - istio-pilot:15003
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
@@ -88,7 +94,7 @@ spec:
           name: istio
       - name: istio-certs
         secret:
-          secretName: "istio.{{ template "pilot.serviceAccountName" . }}"
+          secretName: "istio.istio-pilot-service-account"
           optional: true
     {{- if .Values.nodeSelector }}
       nodeSelector:
