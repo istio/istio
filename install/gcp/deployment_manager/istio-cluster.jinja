@@ -113,15 +113,15 @@ resources:
                   ./install/kubernetes/webhook-patch-ca-bundle.sh > \
                   install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
               kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+              # Wait for the deployment to finish
+              kubectl rollout status -n istio-system deploy/istio-sidecar-injector
               kubectl label namespace default istio-injection=enabled
             {% else %}
               # Setup an initializer
               kubectl apply -f install/kubernetes/istio-initializer.yaml
+              # Wait for the deployment to finish
+              kubectl rollout status -n istio-system deploy/istio-initializer
             {% endif %}
-            # After setting up an initializer, the k8s docs indicates that it
-            # may take "a few seconds" to take effect. Without anything more
-            # direct to poll on, here we just sleep for some time.
-            sleep 10
           {% endif %}
 
           {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
