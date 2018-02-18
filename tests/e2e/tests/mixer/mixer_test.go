@@ -280,7 +280,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 	allowPrometheusSync()
 
-	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
 	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
@@ -288,7 +288,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	log.Infof("promvalue := %s", value.String())
+	t.Logf("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
@@ -336,7 +336,7 @@ func TestIngressReport(t *testing.T) {
 	}
 	allowPrometheusSync()
 
-	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
 	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("istio-ingress"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
@@ -344,7 +344,7 @@ func TestIngressReport(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	log.Infof("promvalue := %s", value.String())
+	t.Logf("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
