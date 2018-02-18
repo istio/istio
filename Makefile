@@ -100,6 +100,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
+export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
@@ -304,7 +305,7 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
@@ -338,7 +339,7 @@ pilot: pilot-discovery
 
 .PHONY: multicluster_ca node_agent istio_ca
 multicluster_ca node_agent istio_ca:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -565,6 +566,11 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+# Pull from git master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+git/master:
+	git pull origin master
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution
