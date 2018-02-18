@@ -9,7 +9,7 @@ spec:
   - port: 9411
     name: zipkin
   selector:
-    infra: zipkin
+    istio: zipkin
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -20,7 +20,7 @@ spec:
   template:
     metadata:
       labels:
-        infra: zipkin
+        istio: zipkin
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

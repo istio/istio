@@ -11,7 +11,7 @@ spec:
   - name: http
     port: 80
   selector:
-    app: ingress
+    istio: ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -27,7 +27,7 @@ spec:
   template:
     metadata:
       labels:
-        app: ingress
+        istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
