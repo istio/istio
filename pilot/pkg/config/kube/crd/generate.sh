@@ -35,16 +35,16 @@ package crd
 // as declared in the Pilot config model.
 
 import (
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+    meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/pkg/model"
+    "istio.io/istio/pilot/pkg/model"
 )
 
 var knownTypes = map[string]struct {
     schema     model.ProtoSchema
-	object     IstioObject
-	collection IstioObjectList
+    object     IstioObject
+    collection IstioObjectList
 }{
 EOF
 
@@ -52,16 +52,16 @@ CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule Exte
 
 for crd in $CRDS; do
 cat << EOF
-	model.$crd.Type: {
-	    schema: model.$crd,
-		object: &${crd}{
-			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "${crd}",
-				APIVersion: ResourceGroup(&model.$crd) + "/" + model.$crd.Version,
-			},
-		},
-		collection: &${crd}List{},
-	},
+    model.$crd.Type: {
+        schema: model.$crd,
+        object: &${crd}{
+            TypeMeta: meta_v1.TypeMeta{
+                Kind:       "${crd}",
+                APIVersion: ResourceGroup(&model.$crd) + "/" + model.$crd.Version,
+            },
+        },
+        collection: &${crd}List{},
+    },
 EOF
 
 done

@@ -84,7 +84,7 @@ func ResourceName(s string) string {
 
 // ResourceGroup generates the k8s API group for each schema.
 func ResourceGroup(schema *model.ProtoSchema) string {
-	return schema.GroupPrefix + model.IstioAPIGroupSuffix
+	return schema.Group + model.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type
