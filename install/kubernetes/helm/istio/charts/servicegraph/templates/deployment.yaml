@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "servicegraph.fullname" . }}
+  name: servicegraph
   labels:
     app: {{ template "servicegraph.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -12,13 +12,13 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "servicegraph.name" . }}
+        app: servicegraph
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
-        - name: {{ .Chart.Name }}
+        - name: servicegraph
           image: "{{ .Values.global.hub }}/servicegraph:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:

@@ -539,18 +539,25 @@ generate_yaml:
 istio.yaml:
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
-			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-deploy/helm:
+istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
-			install/kubernetes/helm/istio | kubectl apply -n istio-system -f -
+	              --set global.mtlsDefault=true \
+    			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-deploy/mixer:
+deploy/all:
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
-			install/kubernetes/helm/istio/charts/mixer
-			#| kubectl apply -n istio-system -f -
+    		      --set sidecar-injector.enabled=true \
+     		      --set ingress.enabled=true \
+                  --set servicegraph.enabled=true \
+                  --set zipkin.enabled=true \
+                  --set grafana.enabled=true \
+                  --set prometheus.enabled=true \
+            install/kubernetes/helm/istio | kubectl apply -n istio-system -f -
 
 
 # Generate the install files, using istioctl.

@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "grafana.fullname" . }}
+  name: grafana
   labels:
     app: {{ template "grafana.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -14,8 +14,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "grafana.name" . }}
-        release: {{ .Release.Name }}
+        app: grafana
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

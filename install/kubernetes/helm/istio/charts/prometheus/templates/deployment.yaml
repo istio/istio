@@ -1,9 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "prometheus.fullname" . }}
+  name: prometheus
   labels:
-    app: {{ template "prometheus.name" . }}
+    app: prometheus
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -12,17 +12,21 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "prometheus.name" . }}
+        app: prometheus
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}"
+        - name: prometheus
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - '--storage.tsdb.retention=6h'
+            - '--config.file=/etc/prometheus/prometheus.yml'
           ports:
             - containerPort: {{ .Values.service.internalPort }}
+              name: http
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -39,7 +43,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: {{ template "prometheus.fullname" . }}
+          name: prometheus
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}

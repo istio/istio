@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "zipkin.fullname" . }}
+  name: zipkin
   labels:
     app: {{ template "zipkin.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -12,14 +12,14 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "zipkin.name" . }}
+        app: zipkin
         release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.zipkin.image.repository }}:{{ .Values.zipkin.image.tag }}"
+        - name: zipkin
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}

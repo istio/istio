@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "sidecar-injector.fullname" . }}
+  name: istio-sidecar-injector
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -15,12 +15,12 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "sidecar-injector.name" . }}
+        app: sidecar-injector
         release: {{ .Release.Name }}
         istio: sidecar-injector
     spec:
       containers:
-        - name: {{ .Chart.Name }}-webhook
+        - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}/sidecar_injector:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
@@ -69,7 +69,7 @@ spec:
           secretName: sidecar-injector-certs
       - name: inject-config
         configMap:
-          name: {{ template "sidecar-injector.fullname" . }}
+          name: istio-sidecar-injector
           items:
           - key: config
             path: config
