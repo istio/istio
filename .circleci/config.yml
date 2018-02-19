@@ -390,8 +390,9 @@ jobs:
       - run:
           command: |
             date '+%Y-%W-%D' > /go/out/cache.stamp
+
       - restore_cache
-        key: build_cache_{{ checksum "/go/out/cache.stamp" }}
+          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git/master
       #- run: make submodule-sync
