@@ -365,7 +365,7 @@ istioctl delete routerule productpage-default
 				if err != nil {
 					return err
 				}
-				ns, err := handleNamespaces(namespace);
+				ns, err := handleNamespaces(namespace)
 				if err != nil {
 					return err
 				}
