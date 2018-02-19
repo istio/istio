@@ -192,11 +192,10 @@ pull:
 # remote is called 'origin' (git default). Will fail on conflicts
 # Note: in a branch, this will get the latest from master. In master it has no effect.
 # (pull == fetch + merge )
-git/master:
+git.pullmaster:
 	git pull origin master
 
-
-.PHONY: submodule pull submodule-sync git/master
+.PHONY: submodule pull submodule-sync git.pullmaster
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which

@@ -156,7 +156,7 @@ jobs:
           sudo chown -R circleci /go
           mkdir -p /home/circleci/logs
       - checkout
-      - run: make git/master
+      - run: make git.pullmaster
       - run: make submodule-sync
       - attach_workspace:
           at:  /go
@@ -296,6 +296,7 @@ jobs:
       - checkout
       - run: make submodule-sync
       - run: make init
+      - run: git.pullmaster
       - run:
             command: |
               date '+%Y-%W-%D' > /go/out/cache.stamp
@@ -350,7 +351,7 @@ jobs:
           keys:
             - test_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
-      #- run: make git/master
+      #- run: make git.pullmaster
       #- run: make submodule-sync
       - run:
           command: |
@@ -408,7 +409,7 @@ jobs:
           keys:
             - build_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
-      #- run: make git/master
+      #- run: make git.pullmaster
       #- run: make submodule-sync
       - run:
           command: |
