@@ -178,11 +178,14 @@ jobs:
             make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
                | tee -a /go/out/tests/go-test-report.out
       - run:
-        when: always
-        command: |
-          # TODO: move to a make target 'dumpsys'.
-          kubectl get all -o wide --all-namespaces
-          kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n istio-test > /go/out/logs/pods-test.txt
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
