@@ -290,7 +290,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
-		caOpts, err = ca.NewIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
 			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
