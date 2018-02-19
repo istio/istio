@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/api"
 	xdscache "github.com/envoyproxy/go-control-plane/pkg/cache"
@@ -89,23 +91,21 @@ import (
 // VirtualHost holds the virtual host proto representation and pointers to
 // owning route configurations.
 type VirtualHost struct {
-	// name associated with this virtual host
-	name string
 	// The proto representation of this virtual host
-	protoVirtualHost *xdsapi.VirtualHost
+	xdsapi.VirtualHost
 	// list of route configurations (RDS responses) that hold this virtual host
 	// use: When a virtual host changes, we have to update the protos of *all* associated
 	// route configurations, and push these to envoys
 	routeConfigurations []*RouteConfiguration
+	// list of envoy clusters associated with this virtual host.
+
 }
 
 // RouteConfiguration holds the route configuration proto representation and pointers to
 // owning listeners
 type RouteConfiguration struct {
-	// Name associated with this route configuration (used in RDS)
-	name string
 	// The proto representation of this route configuration
-	protoRouteConfiguration *xdsapi.RouteConfiguration
+	xdsapi.RouteConfiguration
 	// list of virtual hosts attached to this route configuration
 	// use: When a route configuration is deleted, we need to update all the
 	// constituent virtual hosts - wherein we update the backpointers to *not* point to
@@ -116,10 +116,10 @@ type RouteConfiguration struct {
 // EnvoyEndpoint holds the endpoint proto representation and pointers to
 // owning clusters
 type EnvoyEndpoint struct {
+	// The proto representation of this endpoint
+	xdsapi.LbEndpoint
 	// Unique ID associated with this endpoint
 	name string
-	// The proto representation of this endpoint
-	protoEndpoint *xdsapi.LbEndpoint
 	// list of clusters that contain this endpoint
 	// use: when an endpoint is removed or its labels change, we use this
 	// slice to update *all* clusters that contain this endpoint.
@@ -130,10 +130,8 @@ type EnvoyEndpoint struct {
 
 // EnvoyCluster holds the envoy cluster proto representations
 type EnvoyCluster struct {
-	// name associated with this cluster
-	name string
 	// The proto representation of this envoy cluster
-	protoEnvoyCluster *xdsapi.Cluster
+	xdsapi.Cluster
 	// The proto representation of the EDS data for this envoy cluster
 	protoEDSresp *xdsapi.ClusterLoadAssignment
 	// list of endpoints associated with this envoy cluster
@@ -147,11 +145,24 @@ type EnvoyCluster struct {
 	labels map[string]string
 }
 
+// XDSNodeInfo holds the service instances associated with a given Envoy node,
+// and other diagnostic information such as the last version acked by that envoy.
+type XDSNodeInfo struct {
+	model.Proxy
+	instances []*model.ServiceInstance
+	// TODO - might need more fine grained option
+	version int
+}
+
 // Indices is a set of reverse indices to quickly locate endpoints, clusters, routes
 // and listeners
 type Indices struct {
 	// A Mutex to guard the entire Index.
+	// TODO: This is super coarse grained. We need more finer grained locks
+	// and have to use RCU style semantics. Make updates in a copy of a map
+	// and atomically replace the pointer to the said map.
 	indicesMutex sync.RWMutex
+	rebuildMutex sync.Mutex
 
 	// Map of listeners across the system indexed by port
 	listeners map[int]*xdsapi.Listener
@@ -176,7 +187,8 @@ type Indices struct {
 	labelToEnvoyClusters map[string][]*EnvoyCluster
 
 	// Map of Envoy instances connected to this pilot
-	xdsNodes map[string]*model.Proxy
+	// The key is the proxy ID
+	xdsNodes map[string]*XDSNodeInfo
 }
 
 // XDSNode represents information associated with a single Envoy sidecar
@@ -189,15 +201,38 @@ func (e XDSNode) Hash(node *xdsapi.Node) (xdscache.Key, error) {
 	return xdscache.Key(node.Id), nil
 }
 
+const (
+	// IndexRebuildInterval denotes the interval between
+	// two rebuilds of the pilot index. Every "interval" seconds,
+	// if the needRebuild flag is set, the index will be rebuilt
+	// and updates will be pushed to all Envoys.
+	IndexRebuildInterval = time.Second
+)
+
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
+	port int
+	// Just a collection of interfaces to handle streaming requests
+	xdsServer  xdsserver.Server
+	grpcServer *grpc.Server
+
 	webhookClient   *http.Client
 	webhookEndpoint string
 	indices         *Indices
 	// protos per envoy
 	xdsConfigCache *xdscache.Cache
-	version        int // This is the version info we send to envoy per xds
+	// This is the version info we send to envoy per xds
+	version int
+	// This is the equivalent of a level trigger.
+	// The registry callbacks set this to 1. Every N seconds, we
+	// check this variable. If set, we clear this value and rebuild indices.
+	// We need this coarse grained trigger until we incorporate partial
+	// rebuild of indices, which in turn requires precise information about
+	// what changed in the service registry. Today, we just have two coarse
+	// grained handlers (appendService, appendInstance) that do not tell us
+	// what piece of information changed.
+	needRebuild uint64
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -207,121 +242,6 @@ type DiscoveryServiceOptions struct {
 	MonitoringPort  int
 	EnableProfiling bool
 	WebhookEndpoint string
-}
-
-// Start XDS servers on a given port
-// xdscache.Cache is a simple cache that holds the entire config for each envoy connected to pilot
-func startXDS(ctx context.Context, xdsConfigCache *xdscache.Cache, port int) {
-	server := xdsserver.NewServer(*xdsConfigCache)
-	grpcServer := grpc.NewServer()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Errorf("failed to listen %v", err)
-	}
-
-	xdsapi.RegisterClusterDiscoveryServiceServer(grpcServer, server)
-	xdsapi.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
-	xdsapi.RegisterListenerDiscoveryServiceServer(grpcServer, server)
-	xdsapi.RegisterRouteDiscoveryServiceServer(grpcServer, server)
-	log.Infof("XDS servers listening on %d", port)
-
-	go func() {
-		if err = grpcServer.Serve(lis); err != nil {
-			log.Errorf("Failed to start ADS gRPC server: %v", err)
-		}
-	}()
-	<-ctx.Done()
-	grpcServer.GracefulStop()
-}
-
-// RegisterNewEnvoy is a callback invoked by the xds server, when
-// creating a new config snapshot set (LDS, RDS, CDS, EDS) for an
-// Envoy node
-func (ds *DiscoveryService) RegisterNewEnvoy(envoyNodeId xdscache.Key) {
-	indices := ds.indices
-	indices.indicesMutex.Lock()
-	defer indices.indicesMutex.Unlock()
-	serviceNode := string(envoyNodeId)
-	proxy, err := model.ParseServiceNode(serviceNode)
-	if err != nil {
-		log.Errorf("Failed to parse service node: %v - %v", serviceNode, err)
-		return
-	}
-
-	indices.xdsNodes[serviceNode] = &proxy
-	var temp []*model.Proxy
-	temp = append(temp, &proxy)
-	ds.UpdateEnvoy(temp)
-}
-
-// UpdateEnvoy pushes configuration to the specified list of Envoys
-func (ds *DiscoveryService) UpdateEnvoy(serviceNodes []*model.Proxy) {
-	indices := ds.indices
-	indices.indicesMutex.RLock()
-	defer indices.indicesMutex.RUnlock()
-
-	for _, proxy := range serviceNodes {
-		clusterLoadAssignments := make([]proto.Message, len(indices.envoyClusters))
-		clusters := make([]proto.Message, len(indices.envoyClusters))
-		routes := make([]proto.Message, len(indices.routeConfigs))
-		listeners := make([]proto.Message, len(indices.listeners))
-
-		// The code below assumes that everyone has same set of clusters, listeners, etc.
-		// This would have to be tweaked to populate cluster array based on source match rules in route rules
-		// Even though we are copying the two arrays, its essentially just a copy of pointer array and not
-		// the entire proto. We still maintain the proto code. proto.Message is just an interface
-		for _, cval := range indices.envoyClusters {
-			clusterLoadAssignments = append(clusterLoadAssignments, proto.Message(cval.protoEDSresp))
-			clusters = append(clusters, proto.Message(cval.protoEnvoyCluster))
-		}
-
-		for _, r := range indices.routeConfigs {
-			routes = append(routes, proto.Message(r.protoRouteConfiguration))
-		}
-
-		for _, l := range indices.listeners {
-			listeners = append(listeners, proto.Message(l))
-		}
-
-		snapshot := xdscache.NewSnapshot(fmt.Sprintf("%s-version-%d", proxy.ID, ds.version),
-			clusterLoadAssignments, clusters, routes, listeners)
-		(*ds.xdsConfigCache).SetSnapshot(xdscache.Key(proxy.ID), snapshot)
-	}
-}
-
-// UpdateIndices updates the indices in Pilot in response to a change in service registry, or route rules,
-// and pushes out updates to all the envoys connected to this pilot. Once we add/remove/update clusters,
-// listeners, etc., we call the SetSnapshot function of the envoyConfigCache. Changing the cache snapshot
-// for a node will cause the server to push the updated listeners, clusters, etc. to the respective envoy.
-// The xds server implementation should take care of pushing the resources in the correct order (i.e. clusters,
-// then endpoints, then listeners
-func (ds *DiscoveryService) UpdateIndices() {
-	// TODO: We need to batch calls to UpdateIndices
-	// and collapse them such that we update things every second at minimum.
-	services, err := ds.Services()
-	if err != nil {
-		log.Errorf("Failed to obtain all services: %v", err)
-		return
-	}
-
-	// ensure services are ordered to simplify generation logic
-	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
-
-	indices := ds.indices
-	indices.indicesMutex.Lock()
-	defer indices.indicesMutex.Unlock()
-	for _, proxy := range indices.xdsNodes {
-		proxyInstances, err := ds.GetProxyServiceInstances(*proxy)
-		if err != nil {
-			log.Errorf("Unable to retrieve proxy instances for %s: %v", proxy.ID, err)
-			continue
-		}
-		listeners, clusters := buildOutboundListeners(ds.Environment.Mesh, proxy, proxyInstances,
-			services, ds.IstioConfigStore)
-	}
-
-	// Increment the global version number served from this pilot
-	ds.version = ds.version + 1
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
@@ -337,22 +257,26 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 			endpoints:     make(map[string]*EnvoyEndpoint),
 		},
 		version: 0,
+		port:    o.Port,
 	}
 
-	xdsConfigCache := xdscache.NewSimpleCache(XDSNode{}, ds.RegisterNewEnvoy)
+	xdsConfigCache := xdscache.NewSimpleCache(XDSNode{}, ds.registerEnvoy)
 	ds.xdsConfigCache = &xdsConfigCache
+	ds.xdsServer = xdsserver.NewServer(xdsConfigCache)
+	ds.grpcServer = grpc.NewServer()
+	xdsapi.RegisterClusterDiscoveryServiceServer(ds.grpcServer, ds.xdsServer)
+	xdsapi.RegisterEndpointDiscoveryServiceServer(ds.grpcServer, ds.xdsServer)
+	xdsapi.RegisterListenerDiscoveryServiceServer(ds.grpcServer, ds.xdsServer)
+	xdsapi.RegisterRouteDiscoveryServiceServer(ds.grpcServer, ds.xdsServer)
 
 	// TODO: this has to change to a GRPC webhook
 	ds.webhookEndpoint, ds.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
-	// set up the rest/grpc server
-	startXDS(ctx, ds.xdsConfigCache, o.Port)
-
 	// The service model provides two callbacks
 	// 1. ServiceHandler callback notifies us of updates to the service object (add/remove/new labels/ports)
 	// 2. InstanceHandler notifies us of updates to the instances of a service (add/remove or label changes)
-	serviceHandler := func(s *model.Service, e model.Event) { ds.UpdateIndices() }
-	instanceHandler := func(i *model.ServiceInstance, e model.Event) { ds.UpdateIndices() }
+	serviceHandler := func(s *model.Service, e model.Event) { atomic.StoreUint64(&ds.needRebuild, 1) }
+	instanceHandler := func(i *model.ServiceInstance, e model.Event) { atomic.StoreUint64(&ds.needRebuild, 1) }
 
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil, err
@@ -362,13 +286,206 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 	}
 
 	// Config handler callback is invoked when routing rules change
-	configHandler := func(rule model.Config, e model.Event) { ds.UpdateIndices() }
+	configHandler := func(rule model.Config, e model.Event) { atomic.StoreUint64(&ds.needRebuild, 1) }
 	for _, descriptor := range model.IstioConfigTypes {
 		// register a callback for route rules, destination rules, external services, gateways, etc.
 		configCache.RegisterEventHandler(descriptor.Type, configHandler)
 	}
 
 	return ds, nil
+}
+
+// Start starts the XDS discovery service on the port specified in DiscoveryServiceOptions.
+// Serving can be cancelled at any time by closing the provided stop channel.
+func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", ds.port))
+	if err != nil {
+		log.Errorf("failed to listen %v", err)
+		return nil, err
+	}
+
+	go func() {
+		go func() {
+			if err := ds.grpcServer.Serve(listener); err != nil {
+				log.Warna(err)
+			}
+		}()
+
+		// Wait for the stop notification and shutdown the server.
+		<-stop
+		ds.grpcServer.GracefulStop()
+	}()
+
+	log.Infof("XDS server started at %s", listener.Addr().String())
+
+	// Start the index builder
+	go func() {
+		ticker := time.NewTicker(IndexRebuildInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				doRebuild := atomic.CompareAndSwapUint64(&ds.needRebuild, 1, 0)
+				if doRebuild {
+					ds.rebuildIndices()
+				}
+			}
+		}
+	}()
+	return listener.Addr(), nil
+}
+
+// RegisterEnvoy is a callback invoked by the xds server, when
+// creating a new config snapshot set (LDS, RDS, CDS, EDS) for an
+// Envoy node.
+func (ds *DiscoveryService) registerEnvoy(envoyNodeId xdscache.Key) {
+	indices := ds.indices
+	indices.indicesMutex.Lock()
+	defer indices.indicesMutex.Unlock()
+	serviceNode := string(envoyNodeId)
+	proxy, err := model.ParseServiceNode(serviceNode)
+	if err != nil {
+		log.Errorf("Failed to parse service node: %v - %v", serviceNode, err)
+		return
+	}
+
+	proxyInstances, err := ds.GetProxyServiceInstances(proxy)
+	if err != nil {
+		log.Errorf("Unable to retrieve proxy instances for %s: %v", proxy.ID, err)
+		return
+	}
+
+	// Note: Setting version=0 here handles the case where an envoy disconnects and reconnects.
+	// Decoupling XDSNode from Endpoint handles the case where the envoy is not part of the service
+	// registry (e.g., pool of LB instances).
+	indices.xdsNodes[serviceNode] = &XDSNodeInfo{
+		Proxy:     proxy,
+		instances: proxyInstances,
+		version:   0,
+	}
+
+	// Since version is set to 0, we can be sure that this proxy will receive config
+	// updates.
+	ds.updateEnvoy()
+}
+
+// UpdateEnvoy pushes configuration (synthesized from the indices) to envoys
+// connected to this instance of Pilot.
+// We call the SetSnapshot function of the envoyConfigCache. Changing the cache snapshot
+// for a node will cause the server to push the updated listeners, clusters, etc. to the
+// respective envoy. The xds server implementation should take care of pushing the resources
+// in the correct order, while dealing with nonces/versions.
+func (ds *DiscoveryService) updateEnvoy() {
+	indices := ds.indices
+	indices.indicesMutex.RLock()
+	defer indices.indicesMutex.RUnlock()
+
+	for proxyId, xdsInfo := range indices.xdsNodes {
+		if xdsInfo.version == ds.version {
+			// Skip pushing update if the proxy's config version and our version are same.
+			continue
+		}
+		clusterLoadAssignments := make([]proto.Message, len(indices.envoyClusters))
+		clusters := make([]proto.Message, len(indices.envoyClusters))
+		routes := make([]proto.Message, len(indices.routeConfigs))
+		listeners := make([]proto.Message, len(indices.listeners))
+
+		// The code below assumes that everyone has same set of clusters, listeners, etc.
+		// This would have to be tweaked to populate cluster array based on source match rules in route rules
+		// Even though we are copying the two arrays, its essentially just a copy of pointer array and not
+		// the entire proto. We still maintain the proto code. proto.Message is just an interface
+		// PROBLEM: this could have more clusters than what Envoy wants for a given route config
+		// when using source based routing
+		for _, cval := range indices.envoyClusters {
+			clusterLoadAssignments = append(clusterLoadAssignments, proto.Message(cval.protoEDSresp))
+			clusters = append(clusters, proto.Message(&cval.Cluster))
+		}
+
+		for _, r := range indices.routeConfigs {
+			routes = append(routes, proto.Message(&r.RouteConfiguration))
+		}
+
+		for _, l := range indices.listeners {
+			listeners = append(listeners, proto.Message(l))
+		}
+
+		snapshot := xdscache.NewSnapshot(fmt.Sprintf("%s-version-%d", proxyId, ds.version),
+			clusterLoadAssignments, clusters, routes, listeners)
+		(*ds.xdsConfigCache).SetSnapshot(xdscache.Key(proxyId), snapshot)
+	}
+}
+
+// TODO: Need a way to detect an envoy being removed and delete its data from pilot indices
+// XDS code has to notify us.
+func (ds *DiscoveryService) unregisterEnvoy(serviceNodes []*model.Proxy) {
+
+}
+
+// RebuildIndices updates the indices in Pilot in response to a change in service registry, or route rules,
+func (ds *DiscoveryService) rebuildIndices() {
+	// TODO: We need to batch calls to UpdateIndices
+	// and collapse them such that we update things every second at minimum.
+	services, err := ds.Services()
+	if err != nil {
+		log.Errorf("Failed to obtain all services: %v", err)
+		return
+	}
+
+	// ensure services are ordered to simplify generation logic
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
+
+	indices := ds.indices
+	// Since we are creating a separate copy of these indices,
+	// we only need a read lock, which can also be eliminated if we follow the RCU style
+	// updates
+	indices.indicesMutex.RLock()
+
+	// TODO: apply this step selectively based on conditions defined above
+	// Assumption: All external services are represented in services
+	listeners, err := ds.buildOutboundListeners(services)
+	if err != nil {
+		log.Errorf("Failed to build outbound listeners: %v", err)
+		indices.indicesMutex.RUnlock()
+		return
+	}
+
+	// TODO: apply this step selectively based on conditions defined above
+	// Assumption: External services are represented in services. Subsets are
+	// represented as virtual services.
+	clusters, err := ds.buildOutboundClusters(services)
+	if err != nil {
+		log.Errorf("Failed to build outbound clusters: %v", err)
+		indices.indicesMutex.RUnlock()
+		return
+	}
+
+	// TODO: apply this step selectively based on conditions defined above
+	// Assumption: External services are represented in services. Every route
+	// rule can be uniquely associated with atleast one service.
+	// TODO: need to handle source specific vhost config
+	routeConfigs, err := ds.buildOutboundRouteConfigs(services)
+	if err != nil {
+		log.Errorf("Failed to build outbound route config: %v", err)
+		indices.indicesMutex.RUnlock()
+		return
+	}
+
+	// TODO: Need source-based routing changes here. This will probably
+	// change a ton of stuff above.
+
+	indices.indicesMutex.RUnlock()
+
+	// Now lock all indices for updates
+	indices.indicesMutex.Lock()
+	indices.listeners = listeners
+	indices.envoyClusters = clusters
+	indices.routeConfigs = routeConfigs
+	// Increment the global version number served from this pilot
+	ds.version = ds.version + 1
+	indices.indicesMutex.Unlock()
+
 }
 
 func (ds *DiscoveryService) GetAllServicesAndInstances() ([]*model.Service, []*model.ServiceInstance, error) {
@@ -393,4 +510,16 @@ func (ds *DiscoveryService) GetAllServicesAndInstances() ([]*model.Service, []*m
 	}
 
 	return services, instances, nil
+}
+
+func (ds *DiscoveryService) buildOutboundListeners(services []*model.Service) (map[int]*xdsapi.Listener, error) {
+	return nil, nil
+}
+
+func (ds *DiscoveryService) buildOutboundClusters(services []*model.Service) (map[string]*EnvoyCluster, error) {
+	return nil, nil
+}
+
+func (ds *DiscoveryService) buildOutboundRouteConfigs(services []*model.Service) (map[string]*RouteConfiguration, error) {
+	return nil, nil
 }
