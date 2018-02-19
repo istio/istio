@@ -274,12 +274,19 @@ jobs:
           path: vendor/dep.dot
       # TODO: auto-commit Gopkg.lock if test is successful
 
+  # Runs first, will download any dependencies - currently envoy, and do any work
+  # that can be shared between build/test/lint.
   dependencies:
     <<: *defaults
     steps:
       - checkout
       - run: make submodule-sync
       - run: make init
+      - persist_to_workspace:
+          root: /go
+            paths:
+              - out
+
 
   codecov:
     <<: *defaults
@@ -366,9 +373,11 @@ jobs:
     <<: *defaults
     resource_class: xlarge
     steps:
-      - checkout
-      - run: make git/master
-      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
+      #- checkout
+      #- run: make git/master
+      #- run: make submodule-sync
       - run:
           command: |
             cd /go/src/istio.io/istio
