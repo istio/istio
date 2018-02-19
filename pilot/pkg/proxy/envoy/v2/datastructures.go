@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/api"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
-	routing "istio.io/api/routing/v1alpha2"
 )
 
 // Endpoints (react to updates in registry endpoints) - EDS updates
@@ -151,17 +151,7 @@ type EnvoyCluster struct {
 // and listeners
 type Indices struct {
 	// A Mutex to guard the entire Index.
-	// Where should it be used? TBD
 	indicesMutex sync.RWMutex
-
-	// A Mutex to guard listener table
-	listenerMutex sync.RWMutex
-
-	// A Mutex to guard cluster and endpoints
-	clusterMutex sync.RWMutex
-
-	// A mutex to guard route objects (virtual hosts, route configs)
-	rdsMutex sync.RWMutex
 
 	// Map of listeners across the system indexed by port
 	listeners map[int]*xdsapi.Listener
@@ -178,19 +168,24 @@ type Indices struct {
 	envoyClusters map[string]*EnvoyCluster
 
 	// Map of UID to the network endpoint. The UID is expected to be unique across the Mesh.
+	// Note that some endpoints in this map may not be in the service registry (e.g., envoy nodes
+	// representing a dedicated pool of gateways)
 	endpoints map[string]*EnvoyEndpoint
 
 	// Map of a "single" label string ("key=value") to the list of envoy clusters that use this label.
 	labelToEnvoyClusters map[string][]*EnvoyCluster
+
+	// Map of Envoy instances connected to this pilot
+	xdsNodes map[string]*model.Proxy
 }
 
-// EnvoyNode represents information associated with a single Envoy sidecar
-type EnvoyNode struct{}
+// XDSNode represents information associated with a single Envoy sidecar
+type XDSNode struct{}
 
 // Hash returns a globally unique ID for a given Envoy node
 // This implements the interface needed by xds cache
-func (e EnvoyNode) Hash(node *xdsapi.Node) (xdscache.Key, error) {
-	// DUMMY IMPLEMENTATION
+func (e XDSNode) Hash(node *xdsapi.Node) (xdscache.Key, error) {
+	// Use the envoy node ID (e.g., sidecar~a.b.c.d~...) as the hash key
 	return xdscache.Key(node.Id), nil
 }
 
@@ -201,8 +196,8 @@ type DiscoveryService struct {
 	webhookEndpoint string
 	indices         *Indices
 	// protos per envoy
-	envoyConfigCache *xdscache.Cache
-	version         int // This is the version info we send to envoy per xds
+	xdsConfigCache *xdscache.Cache
+	version        int // This is the version info we send to envoy per xds
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -216,8 +211,8 @@ type DiscoveryServiceOptions struct {
 
 // Start XDS servers on a given port
 // xdscache.Cache is a simple cache that holds the entire config for each envoy connected to pilot
-func startXDS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
-	server := xdsserver.NewServer(*envoyConfigCache)
+func startXDS(ctx context.Context, xdsConfigCache *xdscache.Cache, port int) {
+	server := xdsserver.NewServer(*xdsConfigCache)
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -239,67 +234,99 @@ func startXDS(ctx context.Context, envoyConfigCache *xdscache.Cache, port int) {
 	grpcServer.GracefulStop()
 }
 
+// RegisterNewEnvoy is a callback invoked by the xds server, when
+// creating a new config snapshot set (LDS, RDS, CDS, EDS) for an
+// Envoy node
+func (ds *DiscoveryService) RegisterNewEnvoy(envoyNodeId xdscache.Key) {
+	indices := ds.indices
+	indices.indicesMutex.Lock()
+	defer indices.indicesMutex.Unlock()
+	serviceNode := string(envoyNodeId)
+	proxy, err := model.ParseServiceNode(serviceNode)
+	if err != nil {
+		log.Errorf("Failed to parse service node: %v - %v", serviceNode, err)
+		return
+	}
+
+	indices.xdsNodes[serviceNode] = &proxy
+	var temp []*model.Proxy
+	temp = append(temp, &proxy)
+	ds.UpdateEnvoy(temp)
+}
+
+// UpdateEnvoy pushes configuration to the specified list of Envoys
+func (ds *DiscoveryService) UpdateEnvoy(serviceNodes []*model.Proxy) {
+	indices := ds.indices
+	indices.indicesMutex.RLock()
+	defer indices.indicesMutex.RUnlock()
+
+	for _, proxy := range serviceNodes {
+		clusterLoadAssignments := make([]proto.Message, len(indices.envoyClusters))
+		clusters := make([]proto.Message, len(indices.envoyClusters))
+		routes := make([]proto.Message, len(indices.routeConfigs))
+		listeners := make([]proto.Message, len(indices.listeners))
+
+		// The code below assumes that everyone has same set of clusters, listeners, etc.
+		// This would have to be tweaked to populate cluster array based on source match rules in route rules
+		// Even though we are copying the two arrays, its essentially just a copy of pointer array and not
+		// the entire proto. We still maintain the proto code. proto.Message is just an interface
+		for _, cval := range indices.envoyClusters {
+			clusterLoadAssignments = append(clusterLoadAssignments, proto.Message(cval.protoEDSresp))
+			clusters = append(clusters, proto.Message(cval.protoEnvoyCluster))
+		}
+
+		for _, r := range indices.routeConfigs {
+			routes = append(routes, proto.Message(r.protoRouteConfiguration))
+		}
+
+		for _, l := range indices.listeners {
+			listeners = append(listeners, proto.Message(l))
+		}
+
+		snapshot := xdscache.NewSnapshot(fmt.Sprintf("%s-version-%d", proxy.ID, ds.version),
+			clusterLoadAssignments, clusters, routes, listeners)
+		(*ds.xdsConfigCache).SetSnapshot(xdscache.Key(proxy.ID), snapshot)
+	}
+}
+
 // UpdateIndices updates the indices in Pilot in response to a change in service registry, or route rules,
 // and pushes out updates to all the envoys connected to this pilot. Once we add/remove/update clusters,
 // listeners, etc., we call the SetSnapshot function of the envoyConfigCache. Changing the cache snapshot
-// for a node will cause the ADS server to push the updated listeners, clusters, etc. to the respective envoy.
-// The ADS server implementation should take care of pushing the resources in the correct order (i.e. clusters,
+// for a node will cause the server to push the updated listeners, clusters, etc. to the respective envoy.
+// The xds server implementation should take care of pushing the resources in the correct order (i.e. clusters,
 // then endpoints, then listeners
 func (ds *DiscoveryService) UpdateIndices() {
 	// TODO: We need to batch calls to UpdateIndices
 	// and collapse them such that we update things every second at minimum.
-	services, instances, err := ds.GetAllServicesAndInstances()
+	services, err := ds.Services()
 	if err != nil {
-		// If there is an error retrieving clusters/endpoints/routes/etc.,
-		// skip updating indices to keep them in consistent state
+		log.Errorf("Failed to obtain all services: %v", err)
 		return
 	}
+
+	// ensure services are ordered to simplify generation logic
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 
 	indices := ds.indices
 	indices.indicesMutex.Lock()
 	defer indices.indicesMutex.Unlock()
-
-	// call buildOutboundListenersClusters... buildOutbound...
+	for _, proxy := range indices.xdsNodes {
+		proxyInstances, err := ds.GetProxyServiceInstances(*proxy)
+		if err != nil {
+			log.Errorf("Unable to retrieve proxy instances for %s: %v", proxy.ID, err)
+			continue
+		}
+		listeners, clusters := buildOutboundListeners(ds.Environment.Mesh, proxy, proxyInstances,
+			services, ds.IstioConfigStore)
+	}
 
 	// Increment the global version number served from this pilot
-	// TODO
 	ds.version = ds.version + 1
-	clusterLoadAssignments := make([]proto.Message, len(indices.envoyClusters))
-	clusters := make([]proto.Message, len(indices.envoyClusters))
-	routes := make([]proto.Message, len(indices.routeConfigs))
-	listeners := make([]proto.Message, len(indices.listeners))
-
-	// The code below assumes that everyone has same set of clusters, listeners, etc.
-	// This would have to be tweaked to populate cluster array based on source match rules in route rules
-	// Even though we are copying the two arrays, its essentially just a copy of pointer array and not
-	// the entire proto. We still maintain the proto code. proto.Message is just an interface
-	for _, c := range indices.envoyClusters {
-		clusterLoadAssignments = append(clusterLoadAssignments, proto.Message(c.protoEDSresp))
-		clusters = append(clusters, proto.Message(c.protoEnvoyCluster))
-	}
-
-	for _, r := range indices.routeConfigs {
-		routes = append(routes, proto.Message(r.protoRouteConfiguration))
-	}
-
-	for _, l := range indices.listeners {
-		listeners = append(listeners, proto.Message(l))
-	}
-
-	// Schedule updates to nodes
-	// In common case, we might need to update all endpoints when a new cluster/service is added
-	for _, e := range indices.endpoints {
-		// OPTIMIZE..
-		snapshot := xdscache.NewSnapshot("unique-version-string",
-			clusterLoadAssignments, clusters, routes, listeners)
-		(*ds.envoyConfigCache).SetSnapshot(xdscache.Key(e.name), snapshot)
-	}
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache model.ConfigStoreCache,
 	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
-	envoyConfigCache := xdscache.NewSimpleCache(EnvoyNode{}, nil)
 	ds := &DiscoveryService{
 		Environment: environment,
 		indices: &Indices{
@@ -309,14 +336,17 @@ func NewDiscoveryService(ctx context.Context, ctl model.Controller, configCache 
 			envoyClusters: make(map[string]*EnvoyCluster),
 			endpoints:     make(map[string]*EnvoyEndpoint),
 		},
-		envoyConfigCache: &envoyConfigCache,
 		version: 0,
 	}
 
+	xdsConfigCache := xdscache.NewSimpleCache(XDSNode{}, ds.RegisterNewEnvoy)
+	ds.xdsConfigCache = &xdsConfigCache
+
+	// TODO: this has to change to a GRPC webhook
 	ds.webhookEndpoint, ds.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	// set up the rest/grpc server
-	startXDS(ctx, ds.envoyConfigCache, o.Port)
+	startXDS(ctx, ds.xdsConfigCache, o.Port)
 
 	// The service model provides two callbacks
 	// 1. ServiceHandler callback notifies us of updates to the service object (add/remove/new labels/ports)
