@@ -45,23 +45,50 @@ type Service struct {
 	// Hostname of the service, e.g. "catalog.mystore.com"
 	Hostname string `json:"hostname"`
 
-	// Address specifies the service IPv4 address of the load balancer
+	// Address specifies the virtual IP address associated with the service.
 	Address string `json:"address,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	ExternalName string `json:"external"`
-
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	LoadBalancingDisabled bool `json:"-"`
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ExternalService spec.
+	MeshExternal bool
+
+	// Virtual (if true) indicates that the service is not discoverable or directly
+	// routable using its hostname. These are typically used to indicate subsets of
+	// a given service (e.g., v1.reviews.bookinfo.com, where v1 is the name of a subset that
+	// indicates the set of instances associated with version v1 of the reviews service.
+	VirtualService bool
+
+	// Labels is a set of key-value pair metadata associated with each service instance
+	// associated with this service. For virtual services, the set of labels will be a super set
+	// of the set of labels associated with the respective parent service.
+	// For example, if a service named "catalog" is composed of all instances with the label "foo:bar",
+	// and a new version of the catalog service (say "dev") has labels "env: dev", then the virtual
+	// service called dev.catalog will have labels "env: dev", and "foo : bar". The virtual service
+	// will be composed of instances that have these two labels.
+	Labels Labels
+
+	// IdentificationMode indicates how the proxy will identify the destination service for a given
+	// connection or request using the information available. HTTP based services will typically
+	// use VirtualHost based selection. TCP based services can be delineated using IP/CIDR blocks
+	// and some services can be identified solely using the port on which the connection arrives
+	// (typically used to proxy HTTPS traffic to external services, or by TCP services on platforms
+	// that do not have virtual IPs for services).
+	IdentificationMode IdentificationMode
+
+	// Resolution indicates how the service instances need to be resolved before routing
+	// traffic. Most services in the service registry will use static load balancing wherein
+	// the proxy will decide the service instance that will receive the traffic. External services
+	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
+	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
+	// by the caller)
+	Resolution Resolution
 }
 
 // Port represents a network port where a service is listening for
@@ -80,7 +107,7 @@ type Port struct {
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
 
-	// In combine with the mesh's AuthPolicy, controls authentication for
+	// In combination with the mesh's AuthPolicy, controls authentication for
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
 	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
@@ -114,6 +141,26 @@ const (
 	ProtocolRedis Protocol = "Redis"
 	// ProtocolUnsupported - value to signify that the protocol is unsupported
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
+)
+
+type Resolution int
+const (
+	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
+	ClientSideLB Resolution = iota
+	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSLB
+	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
+	Passthrough
+)
+
+type IdentificationMode int
+const (
+	// VirtualHost based selection is typically used for HTTP services
+	VirtualHost IdentificationMode = iota
+	// IPPort based selection is typically used for TCP services on platforms that assign virtual IPs to services
+	IPPort
+	// PortOnly based selection is typically used for TCP services on platforms that do not assign virtual IPs to services
+	PortOnly
 )
 
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
@@ -232,19 +279,22 @@ type ServiceDiscovery interface {
 	// any of the supplied labels. All instances match an empty tag list.
 	//
 	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
+	// Instances(catalog.myservice.com, ["80"]) ->
 	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 	//
 	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
+	// e.g., Instances(catalog.myservice.com, ["80"], ["foo=bar"]) ->
 	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
+	//
+	// Calling Instances with empty values for all parameters returns every service instances in the
+	// service registry. e.g., Instances("", nil, nil)
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
