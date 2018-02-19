@@ -193,7 +193,7 @@ pull:
 # Note: in a branch, this will get the latest from master. In master it has no effect.
 # (pull == fetch + merge )
 git.pullmaster:
-	git pull origin master
+	git merge master
 
 .PHONY: submodule pull submodule-sync git.pullmaster
 
