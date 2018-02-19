@@ -177,10 +177,21 @@ jobs:
             # Run the tests in env similar with recommended setup.
             make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
                | tee -a /go/out/tests/go-test-report.out
+      - run:
+        when: always
+        command: |
+          # TODO: move to a make target 'dumpsys'. 
+          kubectl get all -o wide --all-namespaces
+          kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+      - store_artifacts:
+          path: /go/out/tests
       - store_artifacts:
           path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
       - store_test_results:
           path: /go/out/tests
+
 
   e2e-pilot-noauth:
     <<: *integrationDefaults
