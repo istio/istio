@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/pilot/cmd/istioctl/convert"
 )
 
 const (
@@ -541,6 +542,7 @@ func init() {
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
+	rootCmd.AddCommand(convert.Command())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
