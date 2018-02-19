@@ -293,6 +293,10 @@ jobs:
       - checkout
       - run: make submodule-sync
       - run: make init
+      - run:
+            command: |
+              date '+%Y-%W-%D' > /go/out/cache.stamp
+
       - persist_to_workspace:
           root: /go
           paths:
@@ -337,7 +341,12 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
-      - checkout
+      - attach_workspace:
+          at:  /go
+      - restore_cache:
+          keys:
+            - test_cache_{{ checksum "/go/out/cache.stamp" }}
+      #- checkout
       - run: make git/master
       - run: make submodule-sync
       - run:
@@ -348,6 +357,11 @@ jobs:
             make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
+      - save_cache:
+          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
+          paths:
+            - /go/pkg
+
 
   racetest:
     <<: *defaults
@@ -387,10 +401,6 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - run:
-          command: |
-            date '+%Y-%W-%D' > /go/out/cache.stamp
-
       - restore_cache:
           keys:
             - build_cache_{{ checksum "/go/out/cache.stamp" }}
@@ -422,9 +432,19 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
-      - checkout
-      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
+      - restore_cache:
+          keys:
+            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
+
+      #- checkout
+      #- run: make submodule-sync
       - run: make lint
+      - save_cache:
+          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
+          paths:
+            - /go/pkg
 
   docker-push:
     <<: *defaults
