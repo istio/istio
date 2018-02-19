@@ -284,9 +284,8 @@ jobs:
       - run: make init
       - persist_to_workspace:
           root: /go
-            paths:
+          paths:
               - out
-
 
   codecov:
     <<: *defaults
