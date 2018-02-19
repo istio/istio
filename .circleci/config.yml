@@ -295,6 +295,10 @@ jobs:
       - run: make init
       - persist_to_workspace:
           root: /go
+          paths:
+            - src
+            - bin
+            - out
 
   codecov:
     <<: *defaults
@@ -383,6 +387,11 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
+      - run:
+          command: |
+            date '+%Y-%W-%D' > /go/out/cache.stamp
+      - restore_cache
+        key: build_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git/master
       #- run: make submodule-sync
@@ -398,6 +407,10 @@ jobs:
             - bin
             - out
       - run:  make sidecar.deb
+      - save_cache
+          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
+          paths:
+            - /go/pkg
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
