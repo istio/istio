@@ -5,11 +5,12 @@ metadata:
   labels:
     app: ingress
 spec:
+  type: LoadBalancer
   ports:
-  - name: https
-    port: 443
-  - name: http
-    port: 80
+  - port: 80
+    name: http
+  - port: 443
+    name: https
   selector:
     istio: ingress
 ---
