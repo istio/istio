@@ -180,7 +180,7 @@ jobs:
       - run:
         when: always
         command: |
-          # TODO: move to a make target 'dumpsys'. 
+          # TODO: move to a make target 'dumpsys'.
           kubectl get all -o wide --all-namespaces
           kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
       - store_artifacts:
@@ -295,8 +295,6 @@ jobs:
       - run: make init
       - persist_to_workspace:
           root: /go
-          paths:
-              - out
 
   codecov:
     <<: *defaults
