@@ -350,8 +350,8 @@ jobs:
           keys:
             - test_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
-      - run: make git/master
-      - run: make submodule-sync
+      #- run: make git/master
+      #- run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/tests

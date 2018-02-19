@@ -188,7 +188,15 @@ pull:
 	git pull
 	$(MAKE) submodule-sync
 
-.PHONY: submodule pull submodule-sync
+# Pull from git master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# (pull == fetch + merge )
+git/master:
+	git pull origin master
+
+
+.PHONY: submodule pull submodule-sync git/master
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -566,11 +574,6 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
-
-# Pull from git master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-git/master:
-	git pull origin master
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution
