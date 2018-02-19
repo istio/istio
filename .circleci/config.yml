@@ -296,7 +296,7 @@ jobs:
       - checkout
       - run: make submodule-sync
       - run: make init
-      - run: git.pullmaster
+      - run: make git.pullmaster
       - run:
             command: |
               date '+%Y-%W-%D' > /go/out/cache.stamp
