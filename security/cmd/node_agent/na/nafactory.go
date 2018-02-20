@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/platform"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/istio/security/pkg/workload"
 )
 
@@ -37,7 +38,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
-		certUtil: CertUtilImpl{},
+		certUtil: util.CertUtilImpl{},
 	}
 
 	if pc, err := platform.NewClient(cfg.Env, cfg.PlatformConfig, cfg.IstioCAAddress); err == nil {
