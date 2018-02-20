@@ -49,6 +49,9 @@
         "vet": "error",
         "vetshadow": "error"
     },
+    "skip": [
+        "mixer/tools/adapterlinter/testdata"
+    ],
     "exclude": [
         ".pb.go",
         "mock_*",
@@ -59,7 +62,6 @@
         "mixer/template/sample/.*.go",
         "mixer/test/spyAdapter/template/doc.go",
         "mixer/template/doc.go",
-        "mixer/tools/adapterlinter/testdata/.*",
         "should have a package comment",
         "composite literal uses unkeyed fields",
         "genfiles"

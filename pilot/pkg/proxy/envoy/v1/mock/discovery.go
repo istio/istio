@@ -183,12 +183,12 @@ func MakeIP(service *model.Service, version int) string {
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services                        map[string]*model.Service
-	versions                        int
+	services                      map[string]*model.Service
+	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
-	ServicesError                   error
-	GetServiceError                 error
-	InstancesError                  error
+	ServicesError                 error
+	GetServiceError               error
+	InstancesError                error
 	GetProxyServiceInstancesError error
 }
 

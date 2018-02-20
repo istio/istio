@@ -1,7 +1,14 @@
 # Istio Load Testing User Guide
+### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh, a GCE VM and runs [Fortio](https://github.com/istio/fortio/)
-on the VM and within the mesh. Fortio is used to perform load testing, graph results and as a backend echo server.
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/)
+on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. The following diagram provides
+additional details of the deployment:
+
+![Deployment Diagram](perf_setup.svg)
+
+The deployment provides a basis for Istio performance characterization. Fortio is used to perform load testing,
+graphing results and as a backend echo server.
 
 ### Download a Release or Clone Istio
 

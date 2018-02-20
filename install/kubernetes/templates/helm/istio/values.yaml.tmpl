@@ -60,7 +60,7 @@ ingress:
 #
 # sidecar-injector configuration
 #
-sidecarInjector:
+sidecar-injector:
   enabled: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
@@ -73,6 +73,13 @@ sidecarInjector:
   #  cpu: 100m
   #  memory: 128Mi
   nodeSelector: {}
+
+  # istio egress capture whitelist
+  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+  # be allowed by the sidecar
+  includeIPRanges: {}
 
 #
 # mixer configuration
