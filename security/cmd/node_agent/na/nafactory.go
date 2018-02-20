@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"os"
 
-  "cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/compute/metadata"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
@@ -63,7 +63,6 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	na.secretServer = secretServer
 	return na, nil
 }
-
 
 // determinePlatform choose the right platform. If the env is specified in cfg.Env,
 // then we will use it. Otherwise nodeagent will detect the platform for you.
