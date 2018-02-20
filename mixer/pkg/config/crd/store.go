@@ -77,7 +77,8 @@ type Store struct {
 	donec        chan struct{}
 
 	cacheMutex sync.Mutex
-	informers  map[string]cache.SharedInformer
+	// mapping of CRD kind --> SharedInformer
+	informers map[string]cache.SharedInformer
 
 	watchMutex sync.RWMutex
 	watchCh    chan store.BackendEvent
