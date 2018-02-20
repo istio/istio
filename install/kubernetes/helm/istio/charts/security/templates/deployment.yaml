@@ -14,8 +14,6 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-ca
-        heritage: {{ .Release.Service }}
         istio: istio-ca
       annotations:
         sidecar.istio.io/inject: "false"

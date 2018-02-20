@@ -16,8 +16,6 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-pilot
-        release: {{ .Release.Name }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"

@@ -9,11 +9,13 @@ metadata:
     heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       labels:
         app: prometheus
-        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

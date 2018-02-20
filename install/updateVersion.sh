@@ -228,8 +228,9 @@ EOF
 function update_helm_version() {
   # Helm version and hub only generated for the install/release.
   if [ ${DEST_DIR} != ${ROOT} ]; then
+      local HELM_FILE=${DEST_DIR}/install/kubernetes/helm/istio/values.yaml
       cp install/kubernetes/helm/istio/values.yaml $HELM_FILE
-      execute_sed "s|tag:.*|tag: ${PILOT_TAG}|"       $HELM_FILE
+      execute_sed "s|^  tag:.*|  tag: ${PILOT_TAG}|" $HELM_FILE
   fi
 }
 

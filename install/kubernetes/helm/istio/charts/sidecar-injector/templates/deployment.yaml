@@ -15,8 +15,6 @@ spec:
   template:
     metadata:
       labels:
-        app: sidecar-injector
-        release: {{ .Release.Name }}
         istio: sidecar-injector
     spec:
       containers:

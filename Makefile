@@ -549,6 +549,7 @@ istio_auth.yaml:
     			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 deploy/all:
+	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
     		      --set sidecar-injector.enabled=true \
@@ -557,7 +558,8 @@ deploy/all:
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \
                   --set prometheus.enabled=true \
-            install/kubernetes/helm/istio | kubectl apply -n istio-system -f -
+            install/kubernetes/helm/istio > install/kubernetes/istio-all.yaml
+	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 
 
 # Generate the install files, using istioctl.

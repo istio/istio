@@ -3,26 +3,41 @@ kind: Service
 metadata:
   name: istio-ingress
   labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: ingress
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    name: http
+  - port: 443
+    name: https
+  selector:
+    istio: ingress
+
+---
+{{- if .Values.service.nodePort.enabled }}
+# Using separate ingress for nodeport, to avoid conflict with pilot e2e test configs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-nodeport
+  labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: ingress
 spec:
-{{- if .Values.service.nodePort.enabled }}
   type: NodePort
-{{- else }}
-  type: LoadBalancer
-{{- end }}
   ports:
   - port: 80
-{{- if .Values.service.nodePort.enabled }}
     nodePort: {{ .Values.service.nodePort.port }}
-{{- end }}
     name: http
   - port: 443
     name: https
   selector:
-    app: {{ template "istio.name" . }}
-    release: {{ .Release.Name }}
     istio: ingress
+{{- end }}

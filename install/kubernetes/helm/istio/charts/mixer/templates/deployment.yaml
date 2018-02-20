@@ -15,8 +15,6 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-mixer
-        release: {{ .Release.Name }}
         istio: mixer
       annotations:
         sidecar.istio.io/inject: "false"

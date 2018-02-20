@@ -13,7 +13,6 @@ spec:
     metadata:
       labels:
         app: servicegraph
-        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -25,14 +24,14 @@ spec:
             - containerPort: {{ .Values.service.internalPort }}
           args:
           - --prometheusAddr={{ .Values.prometheusAddr }}
-          livenessProbe:
-            httpGet:
-              path: /
-              port: {{ .Values.service.internalPort }}
-          readinessProbe:
-            httpGet:
-              path: /
-              port: {{ .Values.service.internalPort }}
+#          livenessProbe:
+#            httpGet:
+#              path: /
+#              port: {{ .Values.service.internalPort }}
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: {{ .Values.service.internalPort }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- if .Values.nodeSelector }}

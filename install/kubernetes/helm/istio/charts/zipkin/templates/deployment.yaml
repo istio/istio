@@ -13,7 +13,6 @@ spec:
     metadata:
       labels:
         app: zipkin
-        release: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
