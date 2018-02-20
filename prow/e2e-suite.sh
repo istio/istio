@@ -82,5 +82,10 @@ if ${SINGLE_MODE}; then
 
 else
     echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all > tee >(go-junit-report > junit.xml)
+    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all
+fi
+
+if [ "${CI:-}" == 'bootstrap' ] && [ -f junit.xml ]; then
+  # allow bootsrap to upload junit results
+  mv junit.xml ${ARTIFACTS_DIR}
 fi
