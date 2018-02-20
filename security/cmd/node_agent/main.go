@@ -62,7 +62,8 @@ func init() {
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
-	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")
+	flags.StringVar(&naConfig.Env, "env", "unspecified",
+		"Node Environment : unspecified | onprem | gcp | aws")
 
 	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.CertChainFile, "onprem-cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file in on premise environment")
