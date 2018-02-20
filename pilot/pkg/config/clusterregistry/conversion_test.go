@@ -42,7 +42,7 @@ func (e *env) setup() error {
 
 func (e *env) teardown() {
 	// Remove the temp dir.
-	os.RemoveAll(e.fsRoot)
+	os.RemoveAll(e.fsRoot) // nolint: errcheck
 }
 
 func createTempDir() string {
@@ -54,9 +54,11 @@ func createTempDir() string {
 
 func createAccessCfgFiles(dir string, cData []clusterData) (err error) {
 	for _, cD := range cData {
-		_, err = os.OpenFile(dir+"/"+cD.AccessConfig, os.O_RDONLY|os.O_CREATE, 0666)
+		if _, err = os.OpenFile(dir+"/"+cD.AccessConfig, os.O_RDONLY|os.O_CREATE, 0666); err != nil {
+			return err
+		}
 	}
-	return err
+	return
 }
 
 var clusterTempl = `
@@ -264,7 +266,9 @@ func testClusterReadDir(t *testing.T, crFunc createCfgDataFilesFunc,
 	dir string, cData []clusterData) {
 	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
 	defer os.RemoveAll(dir)
-	createAccessCfgFiles(dir, cData)
+	if err := createAccessCfgFiles(dir, cData); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := crFunc(dir, cData); err != nil {
 		t.Error(err)
@@ -380,7 +384,9 @@ func TestParseClusters_templ(t *testing.T) {
 		t.Error(err)
 	}
 	defer e.teardown()
-	createAccessCfgFiles(e.fsRoot, clusData)
+	if err = createAccessCfgFiles(e.fsRoot, clusData); err != nil {
+		t.Fatal(err)
+	}
 
 	tmpl, err := template.New("test").Parse(clusterTempl)
 	if err != nil {
@@ -424,7 +430,9 @@ func TestParseClusters_fail(t *testing.T) {
 		t.Error(err)
 	}
 	defer e.teardown()
-	createAccessCfgFiles(e.fsRoot, clusData)
+	if err := createAccessCfgFiles(e.fsRoot, clusData); err != nil {
+		t.Fatal(err)
+	}
 
 	// Map of bad cluster registry input templates to test validity checks in parseClusters
 	testData := map[string]string{

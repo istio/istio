@@ -6,7 +6,7 @@
     "deadline": "600s",
     "minConfidence": 0.0,
     "lineLength": 160,
-    "tests": true,
+    "test": true,
     "sort": ["path"],
     "Linters": {
         "goimports": {"Command": "goimports -l --local istio.io"}
@@ -62,6 +62,7 @@
         "mixer/template/sample/.*.go",
         "mixer/test/spyAdapter/template/doc.go",
         "mixer/template/doc.go",
+        "_test\\.go:.*\\bdefer .*\\(errcheck\\)$",
         "should have a package comment",
         "composite literal uses unkeyed fields",
         "genfiles"
