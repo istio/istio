@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"cloud.google.com/go/compute/metadata"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/platform"
@@ -41,7 +43,8 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		certUtil: util.CertUtilImpl{},
 	}
 
-	if pc, err := platform.NewClient(cfg.Env, cfg.PlatformConfig, cfg.IstioCAAddress); err == nil {
+	env := determinePlatform(cfg)
+	if pc, err := platform.NewClient(env, cfg.PlatformConfig, cfg.IstioCAAddress); err == nil {
 		na.pc = pc
 	} else {
 		return nil, err
@@ -52,11 +55,24 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile, cfg.PlatformConfig.OnPremConfig.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile,
+			cfg.PlatformConfig.OnPremConfig.KeyFile))
 	if err != nil {
 		log.Errorf("Workload IO creation error: %v", err)
 		os.Exit(-1)
 	}
 	na.secretServer = secretServer
 	return na, nil
+}
+
+// determinePlatform choose the right platform. If the env is specified in cfg.Env,
+// then we will use it. Otherwise nodeagent will detect the platform for you.
+func determinePlatform(cfg *Config) string {
+	if cfg.Env != "unspecified" {
+		return cfg.Env
+	}
+	if metadata.OnGCE() {
+		return "gcp"
+	}
+	return "onprem"
 }
