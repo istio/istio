@@ -1,12 +1,14 @@
 ################################
-# Istio CA with plug-in key/certs. Run this after istio-auth.yaml
+# Istio-CA cluster-wide
 ################################
+# Service account CA
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ca-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
+# Istio CA watching all namespaces
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -32,21 +34,20 @@ spec:
           - --istio-ca-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
           - --grpc-hostname=istio-ca
-          - --self-signed-ca=false
-          - --signing-cert=/etc/cacerts/ca-cert.pem
-          - --signing-key=/etc/cacerts/ca-key.pem
-          - --root-cert=/etc/cacerts/root-cert.pem
-          - --cert-chain=/etc/cacerts/cert-chain.pem
+          - --self-signed-ca=true
+          - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+          - --liveness-probe-interval=60s # interval for health check file update
+          - --probe-check-interval=15s    # interval for health status check
           - --logtostderr
           - --stderrthreshold
           - INFO
-        volumeMounts:
-        - name: cacerts
-          mountPath: /etc/cacerts
-          readOnly: true
-      volumes:
-      - name: cacerts
-        secret:
-          secretName: cacerts
-          optional: true
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/istio_ca
+            - probe
+            - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --interval=125s               # the maximum time gap allowed between the file mtime and the current sys clock.
+          initialDelaySeconds: 60
+          periodSeconds: 60
 ---

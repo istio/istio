@@ -136,6 +136,7 @@ function merge_files() {
   ISTIO_SIDECAR_INJECTOR_CONFIGMAP_DEBUG=$DEST/istio-sidecar-injector-configmap-debug.yaml
   ISTIO_SIDECAR_INJECTOR_CONFIGMAP_RELEASE=$DEST/istio-sidecar-injector-configmap-release.yaml
   ISTIO_CA_PLUGIN_CERTS=$DEST/istio-ca-plugin-certs.yaml
+  ISTIO_CA_HEALTH_CHECK=$DEST/istio-ca-with-health-check.yaml
 
 
   if [ "$COMPONENT_FILES" = true ]; then
@@ -197,6 +198,10 @@ function merge_files() {
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_PLUGIN_CERTS
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_PLUGIN_CERTS
   cat $SRC/istio-ca-plugin-certs.yaml.tmpl >> $ISTIO_CA_PLUGIN_CERTS
+
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_HEALTH_CHECK
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_HEALTH_CHECK
+  cat $SRC/istio-ca-with-health-check.yaml.tmpl >> $ISTIO_CA_HEALTH_CHECK
 }
 
 function update_version_file() {
