@@ -104,3 +104,4 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
           --logtostderr \
         -n istio-test \
            ${TESTOPTS}
+           

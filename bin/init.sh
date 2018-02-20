@@ -99,8 +99,8 @@ if [ ! -f $OUT/envoy-$PROXYVERSION ] ; then
         exit 1
     fi
 
-    time ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     echo "Downloading envoy $PROXY using $DOWNLOAD_COMMAND"
+    time ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $OUT/envoy-$PROXYVERSION
     rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
     popd
