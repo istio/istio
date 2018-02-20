@@ -203,46 +203,48 @@ func TestApa(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
+		t.Run(tt.name, func(t *testing.T) {
+			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 
-		args := testEnv.NewArgs()
-		args.APIPort = 0
-		args.MonitoringPort = 0
-		args.Templates = e2eTmpl.SupportedTmplInfo
-		args.Adapters = adapterInfos
-		var cerr error
-		if args.ConfigStore, cerr = storetest.SetupStoreForTest(apaGlobalCfg, tt.cfg); cerr != nil {
-			t.Fatal(cerr)
-		}
+			args := testEnv.NewArgs()
+			args.APIPort = 0
+			args.MonitoringPort = 0
+			args.Templates = tt.templates
+			args.Adapters = adapterInfos
+			var cerr error
+			if args.ConfigStore, cerr = storetest.SetupStoreForTest(apaGlobalCfg, tt.cfg); cerr != nil {
+				t.Fatal(cerr)
+			}
 
-		env, err := testEnv.New(args)
-		if err != nil {
-			t.Fatalf("fail to create mixer: %v", err)
-		}
+			env, err := testEnv.New(args)
+			if err != nil {
+				t.Fatalf("fail to create mixer: %v", err)
+			}
 
-		env.Run()
+			env.Run()
 
-		defer closeHelper(env)
+			defer closeHelper(env)
 
-		conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
-		if err != nil {
-			t.Fatalf("Unable to connect to gRPC server: %v", err)
-		}
+			conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+			if err != nil {
+				t.Fatalf("Unable to connect to gRPC server: %v", err)
+			}
 
-		client := istio_mixer_v1.NewMixerClient(conn)
-		defer closeHelper(conn)
+			client := istio_mixer_v1.NewMixerClient(conn)
+			defer closeHelper(conn)
 
-		req := istio_mixer_v1.ReportRequest{
-			Attributes: []istio_mixer_v1.CompressedAttributes{
-				getAttrBag(tt.attrs,
-					args.ConfigIdentityAttribute,
-					args.ConfigIdentityAttributeDomain)},
-		}
-		_, err = client.Report(context.Background(), &req)
-		if err == nil {
-			tt.validate(t, err, spyAdapters)
-		} else {
-			t.Errorf("Got error '%v', want success", err)
-		}
+			req := istio_mixer_v1.ReportRequest{
+				Attributes: []istio_mixer_v1.CompressedAttributes{
+					getAttrBag(tt.attrs,
+						args.ConfigIdentityAttribute,
+						args.ConfigIdentityAttributeDomain)},
+			}
+			_, err = client.Report(context.Background(), &req)
+			if err == nil {
+				tt.validate(t, err, spyAdapters)
+			} else {
+				t.Errorf("Got error '%v', want success", err)
+			}
+		})
 	}
 }

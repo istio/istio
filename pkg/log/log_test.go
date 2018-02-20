@@ -154,7 +154,7 @@ func TestBasic(t *testing.T) {
 				}
 
 				c.f()
-				Sync()
+				Sync() // nolint: errcheck
 			})
 
 			if err != nil {
@@ -262,7 +262,7 @@ func TestRotateNoStdout(t *testing.T) {
 	}
 
 	Error("HELLO")
-	Sync()
+	Sync() // nolint: errcheck
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -289,7 +289,7 @@ func TestRotateAndStdout(t *testing.T) {
 		}
 
 		Error("HELLO")
-		Sync()
+		Sync() // nolint: errcheck
 
 		content, err := ioutil.ReadFile(file)
 		if err != nil {
