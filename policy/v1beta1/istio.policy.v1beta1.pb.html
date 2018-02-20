@@ -13,7 +13,7 @@ number_of_entries: 8
 <p>Action describes which <a href="#Handler">Handler</a> to invoke and what data to pass to it for processing.</p>
 
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler and pass it the object
-constructed using the instance &lsquo;RequestCountByService&rsquo;</p>
+constructed using the instance &lsquo;RequestCountByService&rsquo;.</p>
 
 <pre><code class="language-yaml">  handler: prometheus-handler
   instances:
@@ -101,7 +101,7 @@ match the regular expression <code>[\.-]</code>.</p>
 <p>Attribute names must be unique within a single Istio deployment. The set of canonical
 attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
 Attributes not in that list should be named with a component-specific suffix such as
-request.count-my.component</p>
+request.count-my.component.</p>
 
 </td>
 </tr>

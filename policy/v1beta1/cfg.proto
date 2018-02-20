@@ -97,7 +97,7 @@ message AttributeManifest {
   // Attribute names must be unique within a single Istio deployment. The set of canonical
   // attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
   // Attributes not in that list should be named with a component-specific suffix such as
-  // request.count-my.component
+  // request.count-my.component.
   map<string, AttributeInfo> attributes = 3;
 }
 
@@ -135,7 +135,7 @@ message Rule {
 // Action describes which [Handler][istio.policy.v1beta1.Handler] to invoke and what data to pass to it for processing.
 //
 // The following example instructs Mixer to invoke 'prometheus-handler' handler and pass it the object
-// constructed using the instance 'RequestCountByService'
+// constructed using the instance 'RequestCountByService'.
 //
 // ```yaml
 //   handler: prometheus-handler

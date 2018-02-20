@@ -251,6 +251,14 @@ $(mixer_adapter_model_v1beta1_pb_gos) $(mixer_adapter_model_v1beta1_pb_doc) : $(
 $(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) : $(policy_v1beta1_protos) | depend $(protoc_gen_gogoslick) $(protoc_bin)
 	## Generate policy/v1beta1/*.pb.go + $(policy_v1beta1_pb_doc)
 	@$(protoc) $(proto_path) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(policy_v1beta1_path) $^
+	## Generate policy/v1beta1/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct
+	@$(protoc) $(proto_path) $(gogo_plugin) policy/v1beta1/cfg.proto
+	@if [ -f "policy/v1beta1/cfg.pb.go" ]; then\
+	    sed -e 's/*google_protobuf.Struct/interface{}/g' \
+	        -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' policy/v1beta1/cfg.pb.go \
+	        | grep -v "google_protobuf" >policy/v1beta1/fixed_cfg.pb.go;\
+	    rm policy/v1beta1/cfg.pb.go;\
+	fi
 
 mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: mixer/v1/config/cfg.proto | depend $(protoc_gen_gogo) $(protoc_bin)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
@@ -261,7 +269,7 @@ mixer/v1/config/fixed_cfg.pb.go mixer/v1/config/istio.mixer.v1.config.pb.html: m
 	@rm mixer/v1/config/cfg.pb.go
 
 clean-mixer-generated:
-	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) $(mixer_adapter_model_v1beta1_pb_gos) $(policy_v1beta1_pb_gos) mixer/v1/config/fixed_cfg.pb.go
+	rm -f $(mixer_v1_pb_gos) $(mixer_config_client_pb_gos) $(mixer_config_descriptor_pb_gos) $(mixer_template_pb_gos) $(mixer_adapter_model_v1beta1_pb_gos) $(policy_v1beta1_pb_gos) policy/v1beta1/fixed_cfg.pb.go mixer/v1/config/fixed_cfg.pb.go
 	rm -f $(mixer_v1_pb_doc) $(mixer_config_client_pb_doc) $(mixer_config_descriptor_pb_doc) $(mixer_template_pb_doc) $(mixer_adapter_model_v1beta1_pb_doc) $(policy_v1beta1_pb_doc) mixer/v1/config/istio.mixer.v1.config.pb.html
 
 #####################
