@@ -26,29 +26,25 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-// OnPremConfig ...
-type OnPremConfig struct {
-	// Root CA cert file to validate the gRPC service in CA.
-	RootCACertFile string
-	// The private key file
-	KeyFile string
-	// The cert chain file
-	CertChainFile string
-}
-
 // OnPremClientImpl is the implementation of on premise metadata client.
 type OnPremClientImpl struct {
-	config OnPremConfig
+	// Root CA cert file to validate the gRPC service in CA.
+	rootCertFile string
+	// The private key file
+	keyFile string
+	// The cert chain file
+	certChainFile string
 }
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
-func NewOnPremClientImpl(config OnPremConfig) *OnPremClientImpl {
-	return &OnPremClientImpl{config}
+func NewOnPremClientImpl(rootCert, key, certChain string) *OnPremClientImpl {
+	return &OnPremClientImpl{rootCert, key, certChain}
 }
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.
 func (ci *OnPremClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
-	transportCreds, err := getTLSCredentials(ci.config.CertChainFile, ci.config.KeyFile, ci.config.RootCACertFile)
+	transportCreds, err := getTLSCredentials(ci.rootCertFile,
+		ci.keyFile, ci.certChainFile)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +61,7 @@ func (ci *OnPremClientImpl) IsProperPlatform() bool {
 
 // GetServiceIdentity gets the service account from the cert SAN field.
 func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
-	certBytes, err := ioutil.ReadFile(ci.config.CertChainFile)
+	certBytes, err := ioutil.ReadFile(ci.certChainFile)
 	if err != nil {
 		return "", err
 	}
@@ -85,9 +81,9 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 
 // GetAgentCredential passes the certificate to control plane to authenticate
 func (ci *OnPremClientImpl) GetAgentCredential() ([]byte, error) {
-	certBytes, err := ioutil.ReadFile(ci.config.CertChainFile)
+	certBytes, err := ioutil.ReadFile(ci.certChainFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cert file: %s", ci.config.CertChainFile)
+		return nil, fmt.Errorf("failed to read cert file: %s", ci.certChainFile)
 	}
 	return certBytes, nil
 }
@@ -99,18 +95,17 @@ func (ci *OnPremClientImpl) GetCredentialType() string {
 
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
-func getTLSCredentials(certificateFile string, keyFile string,
-	caCertFile string) (credentials.TransportCredentials, error) {
+func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials.TransportCredentials, error) {
 
 	// Load the certificate from disk
-	certificate, err := tls.LoadX509KeyPair(certificateFile, keyFile)
+	certificate, err := tls.LoadX509KeyPair(certChainFile, keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load key pair: %s", err)
 	}
 
 	// Create a certificate pool
 	certPool := x509.NewCertPool()
-	bs, err := ioutil.ReadFile(caCertFile)
+	bs, err := ioutil.ReadFile(rootCertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CA cert: %s", err)
 	}
