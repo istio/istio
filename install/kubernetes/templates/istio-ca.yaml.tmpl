@@ -35,7 +35,7 @@ spec:
           - --grpc-port=8060
           - --grpc-hostname=istio-ca
           - --self-signed-ca=true
-          - --liveness-probe-path=/usr/local/bin/ca.liveness # path to the liveness health check status file
+          - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
           - --liveness-probe-interval=60s # interval for health check file update
           - --probe-check-interval=15s    # interval for health status check
           - --logtostderr
@@ -46,8 +46,8 @@ spec:
             command:
             - /usr/local/bin/istio_ca
             - probe
-            - --probe-path=/usr/local/bin/ca.liveness  # path to the liveness health check status file
-            - --interval=125s                          # maximum duration that passed since last check before health check restart the pod
+            - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --interval=125s               # the maximum time gap allowed between the file mtime and the current sys clock.
           initialDelaySeconds: 60
           periodSeconds: 60
 ---
