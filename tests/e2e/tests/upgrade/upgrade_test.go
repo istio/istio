@@ -255,7 +255,9 @@ func upgradeControlPlane() error {
 	if !util.CheckPodsRunning(k.Kube.Namespace) {
 		return fmt.Errorf("can't get all pods running")
 	}
-	util.Shell("kubectl get all -n %s -o wide", k.Kube.Namespace)
+	if _, err = util.Shell("kubectl get all -n %s -o wide", k.Kube.Namespace); err != nil {
+		return err
+	}
 	// Update gateway address
 	tc.gateway = "http://" + k.Kube.Ingress
 	return nil

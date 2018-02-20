@@ -232,7 +232,7 @@ func (testState *testState) runEnvoy(discoveryAddr string) error {
 	cleanupSignal := errors.New("test cleanup")
 	testState.addCleanupTask(func() {
 		abortCh <- cleanupSignal
-		os.RemoveAll(config.ConfigPath)
+		os.RemoveAll(config.ConfigPath) // nolint: errcheck
 	})
 
 	go func() {
@@ -285,9 +285,9 @@ func runFakeApp(port int) {
 			"received-host-header": r.Host,
 			"received-headers":     r.Header,
 		}
-		json.NewEncoder(w).Encode(responseData)
+		json.NewEncoder(w).Encode(responseData) // nolint: errcheck
 	})
-	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler)
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler) // nolint: errcheck
 }
 
 func runPilot(copilotConfigFile, istioConfigDir string, port int) (*gexec.Session, error) {
