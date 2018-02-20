@@ -175,7 +175,7 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN 
 
 // buildMixerConfig build per route mixer config to be deployed at the `model.Proxy` workload
 // with destination of Service `dest` and `destName` as the service name
-func buildMixerConfig(source model.Node, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
+func buildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
 	disableCheck bool, disableReport bool) map[string]string {
 	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
 	var labels map[string]string
@@ -219,7 +219,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)  ServiceInstances belong to the Node.
-func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	transport := &mccpb.TransportConfig{
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
@@ -261,7 +261,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, no
 		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
-	for _, instance := range proxyInstances {
+	for _, instance := range nodeInstances {
 		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
