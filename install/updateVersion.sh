@@ -264,6 +264,7 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-with-health-check.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector-configmap-release.yaml.tmpl
@@ -275,6 +276,7 @@ function update_istio_install() {
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-with-health-check.yaml.tmpl
 
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-injector.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector.yaml.tmpl
