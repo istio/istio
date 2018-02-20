@@ -56,29 +56,22 @@ func (s *Server) WaitDone() {
 }
 
 // Serve opens the UDS channel
-func (s *Server) Serve(isUds bool, path string) {
+func (s *Server) Serve(path string) {
 	grpcServer := grpc.NewServer()
 	pb.RegisterNodeAgentServiceServer(grpcServer, s)
 
 	var lis net.Listener
 	var err error
-	if !isUds {
-		lis, err = net.Listen("tcp", path)
-		if err != nil {
-			log.Errorf("failed to %v", err)
+	_, e := os.Stat(path)
+	if e == nil {
+		e := os.RemoveAll(path)
+		if e != nil {
+			log.Errorf("failed to %s with error %v", path, err)
 		}
-	} else {
-		_, e := os.Stat(path)
-		if e == nil {
-			e := os.RemoveAll(path)
-			if e != nil {
-				log.Errorf("failed to %s with error %v", path, err)
-			}
-		}
-		lis, err = net.Listen("unix", path)
-		if err != nil {
-			log.Errorf("failed to %v", err)
-		}
+	}
+	lis, err = net.Listen("unix", path)
+	if err != nil {
+		log.Errorf("failed to %v", err)
 	}
 
 	go func(ln net.Listener, s *Server) {
