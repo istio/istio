@@ -40,6 +40,12 @@ func TestNewNodeAgent(t *testing.T) {
 			},
 			expectedErr: "",
 		},
+		"unspecified env test": {
+			config: &Config{
+				Env: "unspecified",
+			},
+			expectedErr: "",
+		},
 		"Unsupported env test": {
 			config: &Config{
 				Env: "somethig else",
@@ -61,6 +67,5 @@ func TestNewNodeAgent(t *testing.T) {
 		} else if err != nil {
 			t.Errorf("%s: Unexpected Error: %v", id, err)
 		}
-
 	}
 }
