@@ -5,14 +5,13 @@ metadata:
   labels:
     app: ingress
 spec:
-  type: LoadBalancer
   ports:
-  - port: 80
-    name: http
-  - port: 443
-    name: https
+  - name: https
+    port: 443
+  - name: http
+    port: 80
   selector:
-    istio: ingress
+    app: ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -28,7 +27,7 @@ spec:
   template:
     metadata:
       labels:
-        istio: ingress
+        app: ingress
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
