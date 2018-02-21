@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/pkg/log"
 )
 
 type (
