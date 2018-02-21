@@ -37,10 +37,15 @@ ENVOY_BINARY=$(make where-is-out)/envoy
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
+FL=$(mktemp)
+grep PROXY_TAG ${GOPATH}/src/istio.io/istio/istio.VERSION > $FL
+source $FL
+rm $FL
 git pull
 
+git reset ${PROXY_TAG} --hard
 #ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
+START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
 # Install Fortio
