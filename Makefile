@@ -255,8 +255,9 @@ $(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) : $(policy_v1beta1_protos) | d
 	@$(protoc) $(proto_path) $(gogo_plugin) policy/v1beta1/cfg.proto
 	@if [ -f "policy/v1beta1/cfg.pb.go" ]; then\
 	    sed -e 's/*google_protobuf.Struct/interface{}/g' \
-	        -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' policy/v1beta1/cfg.pb.go \
-	        | grep -v "google_protobuf" >policy/v1beta1/fixed_cfg.pb.go;\
+	        -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' \
+	        -e 's/istio_policy_v1beta1\.//g' policy/v1beta1/cfg.pb.go \
+	        | grep -v "google_protobuf" | grep -v "import istio_policy_v1beta1" >policy/v1beta1/fixed_cfg.pb.go;\
 	    rm policy/v1beta1/cfg.pb.go;\
 	fi
 

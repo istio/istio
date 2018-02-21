@@ -163,7 +163,7 @@ message Action {
 // The following example instructs Mixer to construct an instance associated with template
 // 'istio.mixer.adapter.metric.Metric'. It provides a mapping from the template's fields to expressions.
 // Instances produced with this instance can be referenced by [Actions][istio.policy.v1beta1.Action] using name
-// 'RequestCountByService'.
+// 'RequestCountByService'
 //
 // ```yaml
 // - name: RequestCountByService

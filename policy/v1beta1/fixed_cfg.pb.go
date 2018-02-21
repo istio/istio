@@ -21,7 +21,6 @@ package v1beta1
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -130,7 +129,7 @@ type AttributeManifest_AttributeInfo struct {
 	// Optional. A human-readable description of the attribute's purpose.
 	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
 	// Required. The type of data carried by this attribute.
-	ValueType istio_policy_v1beta1.ValueType `protobuf:"varint,2,opt,name=value_type,json=valueType,proto3,enum=istio.policy.v1beta1.ValueType" json:"value_type,omitempty"`
+	ValueType ValueType `protobuf:"varint,2,opt,name=value_type,json=valueType,proto3,enum=istio.policy.v1beta1.ValueType" json:"value_type,omitempty"`
 }
 
 func (m *AttributeManifest_AttributeInfo) Reset()         { *m = AttributeManifest_AttributeInfo{} }
@@ -147,11 +146,11 @@ func (m *AttributeManifest_AttributeInfo) GetDescription() string {
 	return ""
 }
 
-func (m *AttributeManifest_AttributeInfo) GetValueType() istio_policy_v1beta1.ValueType {
+func (m *AttributeManifest_AttributeInfo) GetValueType() ValueType {
 	if m != nil {
 		return m.ValueType
 	}
-	return istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED
+	return VALUE_TYPE_UNSPECIFIED
 }
 
 // A Rule is a selector and a set of intentions to be executed when the
@@ -252,7 +251,7 @@ func (m *Action) GetInstances() []string {
 // The following example instructs Mixer to construct an instance associated with template
 // 'istio.mixer.adapter.metric.Metric'. It provides a mapping from the template's fields to expressions.
 // Instances produced with this instance can be referenced by [Actions][istio.policy.v1beta1.Action] using name
-// 'RequestCountByService'.
+// 'RequestCountByService'
 //
 // ```yaml
 // - name: RequestCountByService
