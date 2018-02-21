@@ -40,7 +40,7 @@ cd proxy
 git pull
 
 #ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
+START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
 cd ../istio
 
 # Install Fortio
