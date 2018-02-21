@@ -28,11 +28,6 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 )
 
-const (
-	// The default path/file of root cert.
-	defaultRoot = "/etc/certs/root-cert.pem"
-)
-
 var (
 	naConfig = na.NewConfig()
 
@@ -65,20 +60,12 @@ func init() {
 	flags.StringVar(&naConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
 
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.CertChainFile, "onprem-cert-chain",
-		"/etc/certs/cert-chain.pem", "Node Agent identity cert file in on premise environment")
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.KeyFile,
-		"onprem-key", "/etc/certs/key.pem", "Node identity private key file in on premise environment")
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.RootCACertFile, "onprem-root-cert",
-		defaultRoot, "Root Certificate file in on premise environment")
-
-	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.RootCACertFile, "gcp-root-cert",
-		defaultRoot, "Root Certificate file in GCP environment")
-	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.CAAddr, "gcp-ca-address",
-		"istio-ca:8060", "Istio CA address in GCP environment")
-
-	flags.StringVar(&naConfig.PlatformConfig.AwsConfig.RootCACertFile, "aws-root-cert",
-		defaultRoot, "Root Certificate file in AWS environment")
+	flags.StringVar(&naConfig.CertChainFile, "cert-chain",
+		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
+	flags.StringVar(&naConfig.KeyFile,
+		"key", "/etc/certs/key.pem", "Node Agent private key file")
+	flags.StringVar(&naConfig.RootCertFile, "root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
