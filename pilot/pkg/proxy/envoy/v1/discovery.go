@@ -737,6 +737,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
+			log.Errorf("error invoking webhook: %v", err)
 			transformedOutput = out
 		}
 

@@ -1,7 +1,14 @@
 # Istio Load Testing User Guide
+### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh, a GCE VM and runs [Fortio](https://github.com/istio/fortio/)
-on the VM and within the mesh. Fortio is used to perform load testing, graph results and as a backend echo server.
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/)
+on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. The following diagram provides
+additional details of the deployment:
+
+![Deployment Diagram](perf_setup.svg)
+
+The deployment provides a basis for Istio performance characterization. Fortio is used to perform load testing,
+graphing results and as a backend echo server.
 
 ### Download a Release or Clone Istio
 
@@ -34,7 +41,7 @@ __Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
 ```
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 Make the kubectl binary executable.
 ```
 $ chmod +x ./istioctl
@@ -46,8 +53,12 @@ $ mv ./istioctl /usr/local/bin/istioctl
 ```
 
 
-### Set Your Google Cloud Credentials.
+### Set Your Google Cloud Credentials (optional/one time setup)
+This is not necessary if you already have working `gcloud` commands and you
+did `gcloud auth login` at least once.
 ```
+$ gcloud auth login
+# Or
 $ export GOOGLE_APPLICATION_CREDENTIALS=/my/gce/creds.json
 ```
 If you do not have a Google Cloud account, [set one up](https://cloud.google.com/).
@@ -59,6 +70,8 @@ For example, to update the default gcloud zone (us-east4-b):
 $ ZONE=us-west1-a
 ```
 If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
+
+The script tries to guess your `PROJECT` but it's safer to set it explicitly. (and use a new empty project if possible)
 
 ### Source the Script
 ```

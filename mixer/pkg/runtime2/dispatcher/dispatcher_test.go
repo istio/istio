@@ -525,7 +525,9 @@ ident                         : dest.istio-system
 
 func TestDispatcher(t *testing.T) {
 	o := log.NewOptions()
-	log.Configure(o)
+	if err := log.Configure(o); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {

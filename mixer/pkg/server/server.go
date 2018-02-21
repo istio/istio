@@ -73,7 +73,7 @@ type patchTable struct {
 		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
 		handlerPool *pool.GoroutinePool, enableTracing bool) *mixerRuntime2.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
-	startMonitor  func(port uint16) (*monitor, error)
+	startMonitor  func(port uint16, enableProfiling bool) (*monitor, error)
 	listen        func(network string, address string) (net.Listener, error)
 }
 
@@ -145,7 +145,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
-	if s.monitor, err = p.startMonitor(a.MonitoringPort); err != nil {
+	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
