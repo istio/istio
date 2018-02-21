@@ -77,32 +77,32 @@ func NewOutput() *Output {
 }
 
 func (o *Output) SetInt64Primitive(val int64) {
-	o.fieldsSet["Int64Primitive"] = true
+	o.fieldsSet["int64Primitive"] = true
 	o.Int64Primitive = val
 }
 
 func (o *Output) SetBoolPrimitive(val bool) {
-	o.fieldsSet["BoolPrimitive"] = true
+	o.fieldsSet["boolPrimitive"] = true
 	o.BoolPrimitive = val
 }
 
 func (o *Output) SetDoublePrimitive(val float64) {
-	o.fieldsSet["DoublePrimitive"] = true
+	o.fieldsSet["doublePrimitive"] = true
 	o.DoublePrimitive = val
 }
 
 func (o *Output) SetStringPrimitive(val string) {
-	o.fieldsSet["StringPrimitive"] = true
+	o.fieldsSet["stringPrimitive"] = true
 	o.StringPrimitive = val
 }
 
 func (o *Output) SetTimeStamp(val time.Time) {
-	o.fieldsSet["TimeStamp"] = true
+	o.fieldsSet["timeStamp"] = true
 	o.TimeStamp = val
 }
 
 func (o *Output) SetDuration(val time.Duration) {
-	o.fieldsSet["Duration"] = true
+	o.fieldsSet["duration"] = true
 	o.Duration = val
 }
 
