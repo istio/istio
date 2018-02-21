@@ -19,3 +19,4 @@ testVMServices: 100
 # Number of ingress routing rules, routing "/test/N/.*" to fortio.
 # Will generate envoy RDS for ingress.
 loadTestIngress: 50
+healthCheck: true
