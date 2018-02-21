@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
-	"os"
 )
 
 const (
@@ -377,7 +376,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws.Produces(restful.MIME_JSON)
 
 	if "1" == os.Getenv(envPilotLogRequest) {
-		restful.Filter(func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
+		ws.Filter(func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
 			t0 := time.Now()
 			chain.ProcessFilter(request, response)
 			log.Infof("Req=%s res=%d from=%s time=%v", request.Request.URL, response.StatusCode(), request.Request.RemoteAddr, time.Since(t0))

@@ -109,8 +109,8 @@ spec:
           value: "1000"
         - name: PILOT_LOG_REQUEST
           value: "1"
-        - name: PILOT_LOG_REQUEST
-          value: "1"
+        - name: PILOT_CACHE_SQUASH
+          value: "10"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
