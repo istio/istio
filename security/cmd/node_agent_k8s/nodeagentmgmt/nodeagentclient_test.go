@@ -27,10 +27,7 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-type FakeNodeAgentGrpcServer struct {
-	response *pb.CsrResponse
-	errorMsg string
-}
+type FakeNodeAgentGrpcServer struct{}
 
 func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
