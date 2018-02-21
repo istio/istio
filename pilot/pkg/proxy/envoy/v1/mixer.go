@@ -128,7 +128,8 @@ type FilterMixerConfig struct {
 	V2 map[string]interface{} `json:"v2,omitempty"`
 }
 
-func (*FilterMixerConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks FilterMixerConfig as an implementation of NetworkFilterConfig
+func (*FilterMixerConfig) IsNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster of a given name
 func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, clusterName string) *Cluster {
@@ -154,7 +155,7 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, c
 }
 
 // buildMixerClusters builds an outbound mixer cluster with configured check/report clusters
-func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN []string) []*Cluster {
+func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN []string) []*Cluster {
 	mixerClusters := make([]*Cluster, 0)
 
 	if mesh.MixerCheckServer != "" {
@@ -172,12 +173,21 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Node, mixerSAN [
 	return mixerClusters
 }
 
-// buildMixerConfig build per route mixer config to be deployed at the `model.Node` workload
+// buildMixerConfig build per route mixer config to be deployed at the `model.Proxy` workload
 // with destination of Service `dest` and `destName` as the service name
-func buildMixerConfig(source model.Node, destName string, dest *model.Service, config model.IstioConfigStore,
+func buildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
 	disableCheck bool, disableReport bool) map[string]string {
 	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
-	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source, nil)
+	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
+	if len(instances) > 0 {
+		labels = instances[0].Labels
+	}
+	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source.IPAddress, source.ID, labels)
+
+	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrDestinationPrefix, "", destName, nil)
+
 	oc := map[string]string{
 		AttrDestinationService: destName,
 	}
@@ -209,19 +219,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)  ServiceInstances belong to the Node.
-func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
-	filter := &FilterMixerConfig{
-		MixerAttributes: map[string]string{
-			AttrDestinationIP:  role.IPAddress,
-			AttrDestinationUID: "kubernetes://" + role.ID,
-		},
-		ForwardAttributes: map[string]string{
-			AttrSourceIP:  role.IPAddress,
-			AttrSourceUID: "kubernetes://" + role.ID,
-		},
-		QuotaName: MixerRequestCount,
-	}
-
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	transport := &mccpb.TransportConfig{
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
@@ -238,16 +236,21 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, no
 		Transport:      transport,
 	}
 
+	filter := &FilterMixerConfig{}
+
 	var labels map[string]string
 	// Note: instances are all running on mode.Node named 'role'
 	// So instance labels are the workload / Node labels.
 	if len(nodeInstances) > 0 {
 		labels = nodeInstances[0].Labels
 		v2.DefaultDestinationService = nodeInstances[0].Service.Hostname
-		//TODO remove this once listener config is removed.
-		filter.MixerAttributes[AttrDestinationService] = nodeInstances[0].Service.Hostname
 	}
-	addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role, labels)
+
+	if !outboundRoute {
+		// for outboundRoutes there are no default MixerAttributes
+		// specific MixerAttributes are in per route configuration.
+		addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
 		// Don't forward mixer attributes to the app from inbound sidecar routes
@@ -255,7 +258,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, no
 		v2.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
-		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role, labels)
+		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
 	for _, instance := range nodeInstances {
@@ -272,13 +275,15 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, no
 }
 
 // addStandardNodeAttributes add standard node attributes with the given prefix
-func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, node model.Node, labels map[string]string) {
-	attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
-		Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(node.IPAddress)},
+func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
+	if len(IPAddress) > 0 {
+		attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(IPAddress)},
+		}
 	}
 
 	attr[prefix+"."+AttrUIDSuffix] = &mpb.Attributes_AttributeValue{
-		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + node.ID},
+		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + ID},
 	}
 
 	if len(labels) > 0 {
@@ -353,7 +358,7 @@ func serviceConfig(serviceName string, dest *model.ServiceInstance, config model
 }
 
 // Mixer TCP filter config for inbound requests.
-func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Node, instance *model.ServiceInstance) *FilterMixerConfig {
+func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -433,13 +438,13 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error)
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
 // JWT auth filter to fetch public keys from the specified jwks_uri.
-func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, nodeInstances []*model.ServiceInstance) Clusters {
+func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance) Clusters {
 	type authCluster struct {
 		name   string
 		useSSL bool
 	}
 	authClusters := map[string]authCluster{}
-	for _, instance := range nodeInstances {
+	for _, instance := range proxyInstances {
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
 				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {

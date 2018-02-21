@@ -609,7 +609,9 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		}
 
 		for funcTime, funcHandler := range c.mockRedis {
-			s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string)))
+			if err = s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string))); err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		b := info.NewBuilder().(*builder)

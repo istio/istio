@@ -14,6 +14,6 @@ roleRef:
   name: {{ template "mixer.fullname" . }}
 subjects:
   - kind: ServiceAccount
-    name: {{ template "mixer.fullname" . }}
+    name: {{ template "mixer.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}

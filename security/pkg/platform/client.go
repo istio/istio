@@ -20,15 +20,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// ClientConfig consists of the platform client configuration.
-type ClientConfig struct {
-	OnPremConfig OnPremConfig
-
-	GcpConfig GcpConfig
-
-	AwsConfig AwsConfig
-}
-
 // Client is the interface for implementing the client to access platform metadata.
 type Client interface {
 	GetDialOptions() ([]grpc.DialOption, error)
@@ -44,14 +35,14 @@ type Client interface {
 }
 
 // NewClient is the function to create implementations of the platform metadata client.
-func NewClient(platform string, config ClientConfig, caAddr string) (Client, error) {
+func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (Client, error) {
 	switch platform {
 	case "onprem":
-		return NewOnPremClientImpl(config.OnPremConfig), nil
+		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile), nil
 	case "gcp":
-		return NewGcpClientImpl(config.GcpConfig), nil
+		return NewGcpClientImpl(rootCertFile, caAddr), nil
 	case "aws":
-		return NewAwsClientImpl(config.AwsConfig), nil
+		return NewAwsClientImpl(rootCertFile), nil
 	default:
 		return nil, fmt.Errorf("invalid env %s specified", platform)
 	}

@@ -66,17 +66,8 @@ type Limit interface {
 func matchDimensions(cfg map[string]string, inst map[string]interface{}) bool {
 	for k, val := range cfg {
 		rval := inst[k]
-		if rval == val { // this dimension matches, on to next comparison.
+		if adapter.StringEquals(rval, val) { // this dimension matches, on to next comparison.
 			continue
-		}
-
-		// if rval has a string representation then compare it with val
-		// For example net.ip has a useful string representation.
-		switch v := rval.(type) {
-		case fmt.Stringer:
-			if v.String() == val {
-				continue
-			}
 		}
 		// rval does not match val.
 		return false

@@ -34,7 +34,10 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-const configMapKey = "mesh"
+const (
+	configMapKey       = "mesh"
+	injectConfigMapKey = "config"
+)
 
 func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
 	_, client, err := kube.CreateInterface(kubeconfig)
@@ -62,18 +65,27 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	injectConfigMap := "istio-inject"
-	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMap, metav1.GetOptions{})
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-				"Use --meshConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-			meshConfigMapName, istioNamespace, err)
+		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
+			injectConfigMapName, istioNamespace, err)
 	}
-	yaml, exists := config.Data["config"]
+	// values in the data are strings, while proto might use a
+	// different data type.  therefore, we have to get a value by a
+	// key
+	injectData, exists := config.Data[injectConfigMapKey]
 	if !exists {
-		return "", fmt.Errorf("missing configuration map key %q", configMapKey)
+		return "", fmt.Errorf("missing configuration map key %q in %q",
+			injectConfigMapKey, injectConfigMapName)
 	}
-	return string(yaml), nil
+	var injectConfig inject.Config
+	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
+		return "", fmt.Errorf("unable to convert data from configmap %q: %v",
+			injectConfigMapName, err)
+	}
+	log.Debugf("using inject template from configmap %q", injectConfigMapName)
+	return injectConfig.Template, nil
 }
 
 var (
@@ -88,11 +100,12 @@ var (
 	debugMode       bool
 	emitTemplate    bool
 
-	inFilename        string
-	outFilename       string
-	meshConfigFile    string
-	meshConfigMapName string
-	injectConfigFile  string
+	inFilename          string
+	outFilename         string
+	meshConfigFile      string
+	meshConfigMapName   string
+	injectConfigFile    string
+	injectConfigMapName string
 )
 
 var (
@@ -115,6 +128,12 @@ added as necessary.
 The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
+
+To override the sidecar injection template built into istioctl, the
+parameters --injectConfigFile or --injectConfigMapName can be used.
+Both options override any other template configuration parameters, eg.
+--hub and --tag.  These options would typically be used with the
+file/configmap created with a new Istio release.
 `,
 		Example: `
 # Update resources on the fly before applying.
@@ -126,6 +145,10 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
 # Update an existing deployment.
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+
+# Create a persistent version of the deployment with Envoy sidecar
+# injected configuration from kubernetes configmap 'istio-inject'
+istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
 		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
@@ -136,6 +159,8 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return errors.New("filename not specified (see --filename or -f)")
 			case meshConfigFile == "" && meshConfigMapName == "":
 				return errors.New("--meshConfigFile or --meshConfigMapName must be set")
+			case injectConfigFile != "" && injectConfigMapName != "":
+				return errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive")
 			}
 
 			var reader io.Reader
@@ -208,6 +233,10 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					return err
 				}
 				sidecarTemplate = config.Template
+			} else if injectConfigMapName != "" {
+				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
 			} else {
 				sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig)
 				var config inject.Config
@@ -243,7 +272,8 @@ func init() {
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
-	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "", "injection configuration filename")
+	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
+		"injection configuration filename. Cannot be used with --injectConfigMapName")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
 
@@ -274,4 +304,8 @@ func init() {
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
+	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "",
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
+			"This option overrides any other sidecar injection config options, eg. --hub",
+			injectConfigMapKey))
 }

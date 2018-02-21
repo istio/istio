@@ -44,13 +44,6 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPe
 }
 
 func TestStartWithArgs(t *testing.T) {
-	generalPcConfig := platform.ClientConfig{
-		OnPremConfig: platform.OnPremConfig{
-			RootCACertFile: "ca_file",
-			KeyFile:        "pkey",
-			CertChainFile:  "cert_file",
-		},
-	}
 	generalConfig := Config{
 		IstioCAAddress:     "ca_addr",
 		ServiceIdentityOrg: "Google Inc.",
@@ -59,8 +52,10 @@ func TestStartWithArgs(t *testing.T) {
 		CSRInitialRetrialInterval: time.Millisecond,
 		CSRMaxRetries:             3,
 		CSRGracePeriodPercentage:  50,
-		PlatformConfig:            generalPcConfig,
 		LoggingOptions:            log.NewOptions(),
+		RootCertFile:              "ca_file",
+		KeyFile:                   "pkey",
+		CertChainFile:             "cert_file",
 	}
 	testCases := map[string]struct {
 		config      *Config
@@ -104,7 +99,9 @@ func TestStartWithArgs(t *testing.T) {
 				CSRInitialRetrialInterval: time.Millisecond,
 				CSRMaxRetries:             3,
 				CSRGracePeriodPercentage:  50,
-				PlatformConfig:            generalPcConfig,
+				RootCertFile:              "ca_file",
+				KeyFile:                   "pkey",
+				CertChainFile:             "cert_file",
 				LoggingOptions:            log.NewOptions(),
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},

@@ -73,7 +73,7 @@ type patchTable struct {
 		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
 		handlerPool *pool.GoroutinePool, enableTracing bool) *mixerRuntime2.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
-	startMonitor  func(port uint16) (*monitor, error)
+	startMonitor  func(port uint16, enableProfiling bool) (*monitor, error)
 	listen        func(network string, address string) (net.Listener, error)
 }
 
@@ -145,7 +145,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
-	if s.monitor, err = p.startMonitor(a.MonitoringPort); err != nil {
+	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
@@ -174,6 +174,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 	}
 
+	var rt *mixerRuntime2.Runtime
 	var dispatcher mixerRuntime.Dispatcher
 	if a.UseNewRuntime {
 		templateMap := make(map[string]*template.Info, len(a.Templates))
@@ -182,13 +183,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			templateMap[k] = &t
 		}
 
-		runtime := p.newRuntime2(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
+		rt = p.newRuntime2(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
 			s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
-		if err = runtime.StartListening(); err != nil {
+
+		if err = rt.StartListening(); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to create runtime2 dispatcherForTesting: %v", err)
 		}
-		dispatcher = runtime.Dispatcher()
+		dispatcher = rt.Dispatcher()
 	} else {
 		if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 			a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, st, adapterMap, a.Templates); err != nil {
@@ -212,6 +214,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
 		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
 			e.RegisterProbe(s.readinessProbe, "dispatcher")
+		}
+		if rt != nil {
+			rt.RegisterProbe(s.readinessProbe, "dispatcher2")
 		}
 		st.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()

@@ -247,7 +247,12 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// GetSidecarServiceInstances returns the service instances that are hosted on (implemented by) a given Node
+	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+	//
+	// Co-located generally means running in the same network namespace and security context.
+	//
+	// A Proxy operating as a Sidecar will return a non-empty slice.  A stand-alone Proxy
+	// will return an empty slice.
 	//
 	// There are two reasons why this returns multiple ServiceInstances instead of one:
 	// - A ServiceInstance has a single NetworkEndpoint which has a single Port.  But a Service
@@ -258,8 +263,8 @@ type ServiceDiscovery interface {
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
-	// determine the intendend destination of a connection without a Host header on the request.
-	GetSidecarServiceInstances(Node) ([]*ServiceInstance, error)
+	// determine the intended destination of a connection without a Host header on the request.
+	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
