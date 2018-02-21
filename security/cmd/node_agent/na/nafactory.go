@@ -44,19 +44,19 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 
 	env := determinePlatform(cfg)
-	if pc, err := platform.NewClient(env, cfg.PlatformConfig, cfg.IstioCAAddress); err == nil {
-		na.pc = pc
-	} else {
+	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
+		cfg.CertChainFile, cfg.IstioCAAddress)
+	if err != nil {
 		return nil, err
 	}
+	na.pc = pc
 
 	cAClient := &grpc.CAGrpcClientImpl{}
 	na.cAClient = cAClient
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile,
-			cfg.PlatformConfig.OnPremConfig.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile))
 	if err != nil {
 		log.Errorf("Workload IO creation error: %v", err)
 		os.Exit(-1)

@@ -29,9 +29,8 @@ import (
 
 // NodeAgentClient specify a UDS client connection
 type NodeAgentClient struct {
-	conn  *grpc.ClientConn
-	dest  string
-	isUds bool
+	conn *grpc.ClientConn
+	dest string
 }
 
 // unixDialer connect a target with specified timeout.
@@ -40,16 +39,15 @@ func unixDialer(target string, timeout time.Duration) (net.Conn, error) {
 }
 
 // NewClient is used by the flexvolume driver to interface with the nodeagent grpc server
-func NewClient(isUds bool, path string) *NodeAgentClient {
+func NewClient(path string) *NodeAgentClient {
 	c := new(NodeAgentClient)
 	c.dest = path
-	c.isUds = isUds
 	return c
 }
 
 // ClientUds create a new client with path
 func ClientUds(path string) *NodeAgentClient {
-	return NewClient(true, path)
+	return NewClient(path)
 }
 
 // client create a new client
@@ -59,17 +57,10 @@ func (c *NodeAgentClient) client() (pb.NodeAgentServiceClient, error) {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure())
-	if !c.isUds {
-		conn, err = grpc.Dial(c.dest, opts...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		opts = append(opts, grpc.WithDialer(unixDialer))
-		conn, err = grpc.Dial(c.dest, opts...)
-		if err != nil {
-			return nil, err
-		}
+	opts = append(opts, grpc.WithDialer(unixDialer))
+	conn, err = grpc.Dial(c.dest, opts...)
+	if err != nil {
+		return nil, err
 	}
 
 	sigc := make(chan os.Signal, 1)

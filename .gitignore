@@ -39,6 +39,7 @@ install/kubernetes/addons/zipkin.yaml
 install/kubernetes/helm/istio/values.yaml
 install/kubernetes/istio-auth.yaml
 install/kubernetes/istio-ca-plugin-certs.yaml
+install/kubernetes/istio-ca-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
 install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
