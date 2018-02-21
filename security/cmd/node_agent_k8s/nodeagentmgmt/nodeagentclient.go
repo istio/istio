@@ -29,8 +29,8 @@ import (
 
 // NodeAgentClient specify a UDS client connection
 type NodeAgentClient struct {
-	conn  *grpc.ClientConn
-	dest  string
+	conn *grpc.ClientConn
+	dest string
 }
 
 // unixDialer connect a target with specified timeout.
@@ -61,7 +61,7 @@ func (c *NodeAgentClient) client() (pb.NodeAgentServiceClient, error) {
 	conn, err = grpc.Dial(c.dest, opts...)
 	if err != nil {
 		return nil, err
-  }
+	}
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
