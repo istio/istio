@@ -220,8 +220,9 @@ def MakeCommonDag(name='istio_daily_flow_test',
     -u "{{ settings.MFEST_URL }}" \
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
     -a {{ settings.SVC_ACCT }}
+    BUILD_RET=$?
     echo "{{ m_commit }}" >> green_build_sha.txt
-    gsutil cp green_build_sha.txt gs://{{ settings.GCS_BUILD_PATH }}/green_build_sha.txt
+    gsutil cp green_build_sha.txt gs://{{ settings.GCS_BUILD_PATH }}/green_build_sha.txt && exit $BUILD_RET
     """
 
   build = BashOperator(
