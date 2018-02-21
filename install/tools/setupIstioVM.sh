@@ -56,10 +56,9 @@ function istioNetworkInit() {
 # will generate and copy the files and install the packages on each machine.
 function istioInstall() {
   echo "*** Fetching istio packages..."
-  echo "Downloanding istio-sidecar.deb from {PILOT_DEBIAN_URL}/istio-sidecar.deb"
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
   rm -f istio-sidecar.deb
-  echo curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
+  echo "curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb"
   curl -f -L ${PILOT_DEBIAN_URL}/istio-sidecar.deb > ${ISTIO_STAGING}/istio-sidecar.deb
 
   # Install istio binaries
