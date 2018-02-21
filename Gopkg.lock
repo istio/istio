@@ -1143,7 +1143,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "24209c4d7c9713900ac7571dfc38dd2eeea3f167"
+  revision = "a11fc3a78b68ede57ad46fb4d1f7fe5742325489"
 
 [[projects]]
   name = "istio.io/fortio"
