@@ -57,12 +57,6 @@ EXTRA_E2E_ARGS += --pilot_hub ${HUB}
 EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
-# Generate the install files, using istioctl.
-# TODO: make sure they match, pass all tests.
-generate_yaml_new:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
-
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
