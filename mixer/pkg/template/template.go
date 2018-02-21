@@ -287,8 +287,6 @@ func NewOutputMapperFn(expressions map[string]compiled.Expression) OutputMapperF
 			switch v := val.(type) {
 			case net.IP:
 				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-				// TODO: remove
-				log.Info("converting net.IP to []byte")
 				if v4 := v.To4(); v4 != nil {
 					resultBag.Set(attrName, []byte(v4))
 					continue
