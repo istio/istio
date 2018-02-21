@@ -22,7 +22,7 @@ import (
 )
 
 type headless struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *headless) String() string {
@@ -47,7 +47,7 @@ func (t *headless) Run() error {
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
 			for _, port := range []string{":10090", ":19090"} {
-				for _, domain := range []string{"", "." + t.Namespace} {
+				for _, domain := range []string{"", "." + t.Config.Namespace} {
 					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
 					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)

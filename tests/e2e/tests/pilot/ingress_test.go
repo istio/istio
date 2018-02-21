@@ -27,7 +27,7 @@ import (
 )
 
 type ingress struct {
-	*tutil.Infra
+	*tutil.Environment
 	logs *accessLogs
 }
 
@@ -40,18 +40,18 @@ func (t *ingress) String() string {
 }
 
 func (t *ingress) Setup() error {
-	if !t.Ingress {
+	if !t.Config.Ingress {
 		return nil
 	}
-	if serviceregistry.ServiceRegistry(t.Registry) != serviceregistry.KubernetesRegistry {
+	if serviceregistry.ServiceRegistry(t.Config.Registry) != serviceregistry.KubernetesRegistry {
 		return nil
 	}
 	t.logs = makeAccessLogs()
 
 	// parse and send yamls
-	if yaml, err := t.Fill("ingress.yaml.tmpl", t.Infra); err != nil {
+	if yaml, err := t.Fill("ingress.yaml.tmpl", t.ToTemplateData()); err != nil {
 		return err
-	} else if err = t.KubeApply(yaml, t.Namespace); err != nil {
+	} else if err = t.KubeApply(yaml, t.Config.Namespace); err != nil {
 		return err
 	}
 
@@ -60,11 +60,11 @@ func (t *ingress) Setup() error {
 }
 
 func (t *ingress) Run() error {
-	if !t.Ingress {
+	if !t.Config.Ingress {
 		log.Info("skipping test since ingress is missing")
 		return nil
 	}
-	if serviceregistry.ServiceRegistry(t.Registry) != serviceregistry.KubernetesRegistry {
+	if serviceregistry.ServiceRegistry(t.Config.Registry) != serviceregistry.KubernetesRegistry {
 		return nil
 	}
 
@@ -78,18 +78,18 @@ func (t *ingress) Run() error {
 		url  string
 		host string
 	}{
-		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.IstioNamespace), ""},
-		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/.well_known/foo", ingressServiceName, t.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/io.grpc/method", ingressServiceName, t.IstioNamespace), ""},
-		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), "foo.bar.com"},
-		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.IstioNamespace), "foo.baz.com"},
-		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.IstioNamespace), "api.company.com"},
-		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.IstioNamespace), "api.company.com"},
-		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.IstioNamespace), ""},
-		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/.well_known/foo", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/io.grpc/method", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Config.IstioNamespace), "foo.bar.com"},
+		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.Config.IstioNamespace), "foo.baz.com"},
+		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.Config.IstioNamespace), "api.company.com"},
+		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.Config.IstioNamespace), "api.company.com"},
+		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.Config.IstioNamespace), ""},
+		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Config.IstioNamespace), ""},
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
@@ -124,12 +124,12 @@ func (t *ingress) Run() error {
 	if err := tutil.Parallel(funcs); err != nil {
 		return err
 	}
-	return t.logs.check(t.Infra)
+	return t.logs.check(t.Environment)
 }
 
 // checkRouteRule verifies that version splitting is applied to ingress paths
 func (t *ingress) checkRouteRule() tutil.Status {
-	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.IstioNamespace)
+	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.Config.IstioNamespace)
 	resp := t.ClientRequest("t", url, 100, "")
 	count := counts(resp.Version)
 	log.Infof("counts: %v", count)
@@ -141,7 +141,7 @@ func (t *ingress) checkRouteRule() tutil.Status {
 
 // ensure that IPs/hostnames are in the ingress statuses
 func (t *ingress) checkIngressStatus() tutil.Status {
-	ings, err := t.KubeClient.ExtensionsV1beta1().Ingresses(t.Namespace).List(metav1.ListOptions{})
+	ings, err := t.KubeClient.ExtensionsV1beta1().Ingresses(t.Config.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (t *ingress) checkIngressStatus() tutil.Status {
 }
 
 func (t *ingress) Teardown() {
-	if !t.Ingress {
+	if !t.Config.Ingress {
 		return
 	}
 	if err := t.DeleteAllConfigs(); err != nil {
