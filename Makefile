@@ -35,9 +35,11 @@ clean:
 
 test:
 	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+
+test_asan:
 	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=asan //...
 
-clang-test:
+test_tsan:
 	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //...
 
 check:
