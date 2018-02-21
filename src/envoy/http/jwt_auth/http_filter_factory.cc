@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "src/envoy/auth/http_filter.h"
+#include "src/envoy/http/jwt_auth/http_filter.h"
 #include "envoy/registry/registry.h"
 #include "google/protobuf/util/json_util.h"
-#include "src/envoy/auth/auth_store.h"
-#include "src/envoy/auth/config.pb.validate.h"
+#include "src/envoy/http/jwt_auth/auth_store.h"
+#include "src/envoy/http/jwt_auth/config.pb.validate.h"
 
 namespace Envoy {
 namespace Server {
@@ -28,7 +28,7 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
   HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
                                           const std::string&,
                                           FactoryContext& context) override {
-    Http::Auth::Config::AuthFilterConfig proto_config;
+    Http::JwtAuth::Config::AuthFilterConfig proto_config;
     MessageUtil::loadFromJson(config.asJsonString(), proto_config);
     return createFilter(proto_config, context);
   }
@@ -38,21 +38,22 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
       FactoryContext& context) override {
     return createFilter(
         MessageUtil::downcastAndValidate<
-            const Http::Auth::Config::AuthFilterConfig&>(proto_config),
+            const Http::JwtAuth::Config::AuthFilterConfig&>(proto_config),
         context);
   }
 
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
-    return ProtobufTypes::MessagePtr{new Http::Auth::Config::AuthFilterConfig};
+    return ProtobufTypes::MessagePtr{
+        new Http::JwtAuth::Config::AuthFilterConfig};
   }
 
   std::string name() override { return "jwt-auth"; }
 
  private:
   HttpFilterFactoryCb createFilter(
-      const Http::Auth::Config::AuthFilterConfig& proto_config,
+      const Http::JwtAuth::Config::AuthFilterConfig& proto_config,
       FactoryContext& context) {
-    auto store_factory = std::make_shared<Http::Auth::JwtAuthStoreFactory>(
+    auto store_factory = std::make_shared<Http::JwtAuth::JwtAuthStoreFactory>(
         proto_config, context);
     Upstream::ClusterManager& cm = context.clusterManager();
     return [&cm, store_factory](

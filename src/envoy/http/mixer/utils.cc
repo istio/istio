@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/mixer/utils.h"
+#include "src/envoy/http/mixer/utils.h"
 #include "mixer/v1/attributes.pb.h"
 
 using ::google::protobuf::Message;

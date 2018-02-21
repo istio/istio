@@ -21,9 +21,9 @@
 #include "envoy/upstream/cluster_manager.h"
 #include "include/control/http/controller.h"
 #include "include/control/tcp/controller.h"
-#include "src/envoy/mixer/config.h"
-#include "src/envoy/mixer/grpc_transport.h"
-#include "src/envoy/mixer/stats.h"
+#include "src/envoy/http/mixer/config.h"
+#include "src/envoy/http/mixer/grpc_transport.h"
+#include "src/envoy/http/mixer/stats.h"
 
 namespace Envoy {
 namespace Http {

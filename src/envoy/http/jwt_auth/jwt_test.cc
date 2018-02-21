@@ -23,7 +23,7 @@
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 
 class DatasetPem {
  public:
@@ -547,6 +547,6 @@ TEST_F(JwtTestJwks, JwkBadPublicKey) {
          Status::JWK_NO_VALID_PUBKEY, nullptr);
 }
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy

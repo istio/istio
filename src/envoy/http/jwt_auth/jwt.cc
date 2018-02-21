@@ -33,7 +33,7 @@
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 
 std::string StatusToString(Status status) {
   static std::map<Status, std::string> table = {
@@ -458,6 +458,6 @@ std::unique_ptr<Pubkeys> Pubkeys::CreateFrom(const std::string &pkey,
   return keys;
 }
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy

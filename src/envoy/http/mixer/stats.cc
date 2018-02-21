@@ -15,7 +15,7 @@
 
 #include <chrono>
 
-#include "src/envoy/mixer/stats.h"
+#include "src/envoy/http/mixer/stats.h"
 
 namespace Envoy {
 namespace Http {

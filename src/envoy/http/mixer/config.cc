@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/envoy/mixer/config.h"
+#include "src/envoy/http/mixer/config.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/json_util.h"
-#include "src/envoy/mixer/utils.h"
+#include "src/envoy/http/mixer/utils.h"
 
 using ::google::protobuf::Message;
 using ::google::protobuf::util::Status;

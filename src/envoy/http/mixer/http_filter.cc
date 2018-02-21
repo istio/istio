@@ -24,13 +24,13 @@
 #include "google/protobuf/util/json_util.h"
 #include "include/utils/status.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/auth/jwt.h"
-#include "src/envoy/auth/jwt_authenticator.h"
-#include "src/envoy/mixer/config.h"
-#include "src/envoy/mixer/grpc_transport.h"
-#include "src/envoy/mixer/mixer_control.h"
-#include "src/envoy/mixer/stats.h"
-#include "src/envoy/mixer/utils.h"
+#include "src/envoy/http/jwt_auth/jwt.h"
+#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
+#include "src/envoy/http/mixer/config.h"
+#include "src/envoy/http/mixer/grpc_transport.h"
+#include "src/envoy/http/mixer/mixer_control.h"
+#include "src/envoy/http/mixer/stats.h"
+#include "src/envoy/http/mixer/utils.h"
 
 #include <map>
 #include <mutex>
@@ -277,16 +277,16 @@ class CheckData : public HttpCheckData,
   bool GetJWTPayload(
       std::map<std::string, std::string>* payload) const override {
     const HeaderEntry* entry =
-        headers_.get(Auth::JwtAuthenticator::JwtPayloadKey());
+        headers_.get(JwtAuth::JwtAuthenticator::JwtPayloadKey());
     if (!entry) {
       return false;
     }
     std::string value(entry->value().c_str(), entry->value().size());
-    std::string payload_str = Auth::Base64UrlDecode(value);
+    std::string payload_str = JwtAuth::Base64UrlDecode(value);
     // Return an empty string if Base64 decode fails.
     if (payload_str.empty()) {
       ENVOY_LOG(error, "Invalid {} header, invalid base64: {}",
-                Auth::JwtAuthenticator::JwtPayloadKey().get(), value);
+                JwtAuth::JwtAuthenticator::JwtPayloadKey().get(), value);
       return false;
     }
     try {
@@ -302,7 +302,7 @@ class CheckData : public HttpCheckData,
           });
     } catch (...) {
       ENVOY_LOG(error, "Invalid {} header, invalid json: {}",
-                Auth::JwtAuthenticator::JwtPayloadKey().get(), payload_str);
+                JwtAuth::JwtAuthenticator::JwtPayloadKey().get(), payload_str);
       return false;
     }
     return true;

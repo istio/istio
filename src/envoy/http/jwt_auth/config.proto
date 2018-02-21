@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package Envoy.Http.Auth.Config;
+package Envoy.Http.JwtAuth.Config;
 
 import "google/protobuf/duration.proto";
 import "validate/validate.proto";

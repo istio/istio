@@ -25,7 +25,7 @@
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 
 enum class Status {
   OK = 0,
@@ -277,7 +277,7 @@ class Pubkeys : public WithStatus {
   friend bool Verifier::Verify(const Jwt& jwt, const Pubkeys& pubkeys);
 };
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy
 

@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "src/envoy/auth/jwt_authenticator.h"
+#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 
 #include "common/common/logger.h"
 #include "server/config/network/http_connection_manager.h"
@@ -25,11 +25,11 @@ namespace Http {
 
 // The Envoy filter to process JWT auth.
 class JwtVerificationFilter : public StreamDecoderFilter,
-                              public Auth::JwtAuthenticator::Callbacks,
+                              public JwtAuth::JwtAuthenticator::Callbacks,
                               public Logger::Loggable<Logger::Id::http> {
  public:
   JwtVerificationFilter(Upstream::ClusterManager& cm,
-                        Auth::JwtAuthStore& store);
+                        JwtAuth::JwtAuthStore& store);
   ~JwtVerificationFilter();
 
   // Http::StreamFilterBase
@@ -43,14 +43,14 @@ class JwtVerificationFilter : public StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override;
 
  private:
-  // the function for Auth::Authenticator::Callbacks interface.
+  // the function for JwtAuth::Authenticator::Callbacks interface.
   // To be called when its Verify() call is completed.
-  void onDone(const Auth::Status& status);
+  void onDone(const JwtAuth::Status& status);
 
   // The callback funcion.
   StreamDecoderFilterCallbacks* decoder_callbacks_;
   // The auth object.
-  Auth::JwtAuthenticator jwt_auth_;
+  JwtAuth::JwtAuthenticator jwt_auth_;
 
   // The state of the request
   enum State { Init, Calling, Responded, Complete };

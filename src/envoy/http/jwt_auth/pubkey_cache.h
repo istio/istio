@@ -13,18 +13,18 @@
  * limitations under the License.
  */
 
-#ifndef AUTH_PUBKEY_CACHE_H
-#define AUTH_PUBKEY_CACHE_H
+#ifndef JWT_AUTH_PUBKEY_CACHE_H
+#define JWT_AUTH_PUBKEY_CACHE_H
 
 #include <chrono>
 #include <unordered_map>
 
-#include "src/envoy/auth/config.pb.h"
-#include "src/envoy/auth/jwt.h"
+#include "src/envoy/http/jwt_auth/config.pb.h"
+#include "src/envoy/http/jwt_auth/jwt.h"
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 namespace {
 // Default cache expiration time in 5 minutes.
 const int kPubkeyCacheExpirationSec = 600;
@@ -118,8 +118,8 @@ class PubkeyCache {
   std::unordered_map<std::string, PubkeyCacheItem> pubkey_cache_map_;
 };
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy
 
-#endif  // AUTH_PUBKEY_CACHE_H
+#endif  // JWT_AUTH_PUBKEY_CACHE_H

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/auth/jwt_authenticator.h"
+#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 #include "common/http/message_impl.h"
 #include "common/json/json_loader.h"
 #include "gtest/gtest.h"
@@ -26,7 +26,7 @@ using ::testing::NiceMock;
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 namespace {
 
 // A good public key
@@ -401,6 +401,6 @@ TEST_F(JwtAuthenticatorTest, TestOnDestroy) {
   auth_->onDestroy();
 }
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy

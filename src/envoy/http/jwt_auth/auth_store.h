@@ -13,18 +13,18 @@
  * limitations under the License.
  */
 
-#ifndef AUTH_STORE_H
-#define AUTH_STORE_H
+#ifndef JWT_AUTH_STORE_H
+#define JWT_AUTH_STORE_H
 
 #include "common/common/logger.h"
 #include "envoy/server/filter_config.h"
 #include "envoy/thread_local/thread_local.h"
-#include "src/envoy/auth/config.pb.h"
-#include "src/envoy/auth/pubkey_cache.h"
+#include "src/envoy/http/jwt_auth/config.pb.h"
+#include "src/envoy/http/jwt_auth/pubkey_cache.h"
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 
 // The JWT auth store object to store config and caches.
 // It only has pubkey_cache for now. In the future it will have token cache.
@@ -71,8 +71,8 @@ class JwtAuthStoreFactory : public Logger::Loggable<Logger::Id::config> {
   ThreadLocal::SlotPtr tls_;
 };
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy
 
-#endif  // AUTH_STORE_H
+#endif  // JWT_AUTH_STORE_H

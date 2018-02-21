@@ -20,11 +20,11 @@
 #include "envoy/http/async_client.h"
 #include "server/config/network/http_connection_manager.h"
 
-#include "src/envoy/auth/auth_store.h"
+#include "src/envoy/http/jwt_auth/auth_store.h"
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 
 // A per-request JWT authenticator to handle all JWT authentication:
 // * fetch remote public keys and cache them.
@@ -55,7 +55,7 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::http>,
   void onFailure(AsyncClient::FailureReason);
 
   // Verify with a specific public key.
-  void VerifyKey(const Auth::Pubkeys& pubkey);
+  void VerifyKey(const JwtAuth::Pubkeys& pubkey);
 
   // Handle the public key fetch done event.
   void OnFetchPubkeyDone(const std::string& pubkey);
@@ -68,7 +68,7 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::http>,
   // The cache object.
   JwtAuthStore& store_;
   // The JWT object.
-  std::unique_ptr<Auth::Jwt> jwt_;
+  std::unique_ptr<JwtAuth::Jwt> jwt_;
 
   // The HTTP request headers
   HeaderMap* headers_{};
@@ -81,7 +81,7 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::http>,
   AsyncClient::Request* request_{};
 };
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy
 

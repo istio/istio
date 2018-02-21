@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include "src/envoy/auth/jwt_authenticator.h"
+#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 #include "common/http/message_impl.h"
 #include "common/http/utility.h"
 
 namespace Envoy {
 namespace Http {
-namespace Auth {
+namespace JwtAuth {
 namespace {
 
 // The autorization bearer prefix.
@@ -184,8 +184,8 @@ void JwtAuthenticator::OnFetchPubkeyDone(const std::string& pubkey) {
 }
 
 // Verify with a specific public key.
-void JwtAuthenticator::VerifyKey(const Auth::Pubkeys& pubkey) {
-  Auth::Verifier v;
+void JwtAuthenticator::VerifyKey(const JwtAuth::Pubkeys& pubkey) {
+  JwtAuth::Verifier v;
   if (!v.Verify(*jwt_, pubkey)) {
     DoneWithStatus(v.GetStatus());
     return;
@@ -200,7 +200,7 @@ void JwtAuthenticator::VerifyKey(const Auth::Pubkeys& pubkey) {
 
 void JwtAuthenticator::DoneWithStatus(const Status& status) {
   ENVOY_LOG(debug, "Jwt authentication completed with: {}",
-            Auth::StatusToString(status));
+            JwtAuth::StatusToString(status));
   callback_->onDone(status);
   callback_ = nullptr;
 }
@@ -209,6 +209,6 @@ const LowerCaseString& JwtAuthenticator::JwtPayloadKey() {
   return kJwtPayloadKey;
 }
 
-}  // namespace Auth
+}  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy

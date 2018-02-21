@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/auth/http_filter.h"
+#include "src/envoy/http/jwt_auth/http_filter.h"
 
 #include "common/http/message_impl.h"
 #include "common/http/utility.h"
@@ -27,7 +27,7 @@ namespace Envoy {
 namespace Http {
 
 JwtVerificationFilter::JwtVerificationFilter(Upstream::ClusterManager& cm,
-                                             Auth::JwtAuthStore& store)
+                                             JwtAuth::JwtAuthStore& store)
     : jwt_auth_(cm, store) {}
 
 JwtVerificationFilter::~JwtVerificationFilter() {}
@@ -54,20 +54,20 @@ FilterHeadersStatus JwtVerificationFilter::decodeHeaders(HeaderMap& headers,
   return FilterHeadersStatus::StopIteration;
 }
 
-void JwtVerificationFilter::onDone(const Auth::Status& status) {
+void JwtVerificationFilter::onDone(const JwtAuth::Status& status) {
   ENVOY_LOG(debug, "Called JwtVerificationFilter : check complete {}",
             int(status));
   // This stream has been reset, abort the callback.
   if (state_ == Responded) {
     return;
   }
-  if (status != Auth::Status::OK) {
+  if (status != JwtAuth::Status::OK) {
     state_ = Responded;
     // verification failed
     Code code = Code(401);  // Unauthorized
     // return failure reason as message body
     Utility::sendLocalReply(*decoder_callbacks_, false, code,
-                            Auth::StatusToString(status));
+                            JwtAuth::StatusToString(status));
     return;
   }
 

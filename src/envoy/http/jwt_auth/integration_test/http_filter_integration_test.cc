@@ -185,7 +185,7 @@ class JwtVerificationFilterIntegrationTest
 class JwtVerificationFilterIntegrationTestWithJwks
     : public JwtVerificationFilterIntegrationTest {
   std::string ConfigPath() override {
-    return "src/envoy/auth/integration_test/envoy.conf.jwk";
+    return "src/envoy/http/jwt_auth/integration_test/envoy.conf.jwk";
   }
 
  protected:

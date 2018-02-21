@@ -20,10 +20,10 @@
 #include "envoy/registry/registry.h"
 #include "envoy/server/instance.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/mixer/config.h"
-#include "src/envoy/mixer/mixer_control.h"
-#include "src/envoy/mixer/stats.h"
-#include "src/envoy/mixer/utils.h"
+#include "src/envoy/http/mixer/config.h"
+#include "src/envoy/http/mixer/mixer_control.h"
+#include "src/envoy/http/mixer/stats.h"
+#include "src/envoy/http/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
