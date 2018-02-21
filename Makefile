@@ -188,10 +188,10 @@ pull:
 	git pull
 	$(MAKE) submodule-sync
 
-# Pull from git master. To be used in CI or by developers, assumes the
+# Merge master. To be used in CI or by developers, assumes the
 # remote is called 'origin' (git default). Will fail on conflicts
 # Note: in a branch, this will get the latest from master. In master it has no effect.
-# (pull == fetch + merge )
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
 git.pullmaster:
 	git merge master
 
