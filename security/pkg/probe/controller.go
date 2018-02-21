@@ -134,11 +134,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	// Generate csr and credential
-	pc := platform.NewOnPremClientImpl(platform.OnPremConfig{
-		RootCACertFile: testRoot.Name(),
-		KeyFile:        testKey.Name(),
-		CertChainFile:  testCert.Name(),
-	})
+	pc := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
 
 	csr, _, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
