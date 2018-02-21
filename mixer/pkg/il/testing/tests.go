@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	pb "istio.io/api/policy/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
@@ -510,7 +510,37 @@ end`,
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		conf:   exprEvalAttrs,
 	},
-
+	{
+		E:    "emptyStringMap()",
+		Type: descriptor.STRING_MAP,
+		IL: `
+fn eval() interface
+  call emptyStringMap
+  ret
+end
+`,
+		R:          map[string]string{},
+		I:          map[string]interface{}{},
+		Referenced: []string{},
+		conf:       exprEvalAttrs,
+	},
+	{
+		E:          `source.labels | emptyStringMap()`,
+		Type:       descriptor.STRING_MAP,
+		I:          map[string]interface{}{},
+		R:          map[string]string{},
+		Referenced: []string{"source.labels"},
+		conf:       exprEvalAttrs,
+	},
+	// TODO: uncomment the following lines when short-circuiting for externs is added
+	//{
+	//	E:    `emptyStringMap() | source.labels`,
+	//	Type: descriptor.STRING_MAP,
+	//	I:    map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
+	//	R:    map[string]string{},
+	//	Referenced: []string{},
+	//	conf: exprEvalAttrs,
+	//},
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
 		E: "a = 2",
@@ -2681,6 +2711,9 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"servicename": {
 		ValueType: descriptor.STRING,
+	},
+	"source.labels": {
+		ValueType: descriptor.STRING_MAP,
 	},
 }
 
