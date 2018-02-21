@@ -28,6 +28,8 @@ import (
 )
 
 type FakeNodeAgentGrpcServer struct {
+	response *pb.CsrResponse
+	errorMsg string
 }
 
 func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
@@ -62,7 +64,7 @@ func TestWorkloadAdded(t *testing.T) {
 
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
-	client := &NodeAgentClient{nil, "Dest", false}
+	client := &NodeAgentClient{nil, "Dest"}
 
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
