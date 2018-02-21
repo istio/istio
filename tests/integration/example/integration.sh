@@ -38,7 +38,8 @@ cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
 FL=$(mktemp)
-grep PROXY_TAG ${GOPATH}/src/istio.io/istio/istio.VERSION > $FL
+echo -n "export PROXY_TAG=" > $FL
+grep lastStableSHA ../istio/istio.deps | tail -1 |  awk '{print $2}' >> $FL
 source $FL
 rm $FL
 git pull
