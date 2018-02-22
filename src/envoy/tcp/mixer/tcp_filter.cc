@@ -41,6 +41,11 @@ const std::string kTcpStatsPrefix("tcp_mixer_filter.");
 
 class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
+  static Utils::MixerFilterStats generateStats(const std::string& name,
+                                               Stats::Scope& scope) {
+    return {ALL_MIXER_FILTER_STATS(POOL_COUNTER_PREFIX(scope, name))};
+  }
+
   Upstream::ClusterManager& cm_;
   TcpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
@@ -51,8 +56,7 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
             Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()),
-        stats_{ALL_MIXER_FILTER_STATS(
-            POOL_COUNTER_PREFIX(context.scope(), kTcpStatsPrefix))} {
+        stats_(generateStats(kTcpStatsPrefix, context.scope())) {
     mixer_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
     tls_->set([this, &random](Event::Dispatcher& dispatcher)
@@ -127,12 +131,32 @@ class TcpInstance : public Network::Filter,
     start_time_ = std::chrono::system_clock::now();
   }
 
+  // Makes a Check() call to Mixer.
+  void callCheck() {
+    handler_ = mixer_control_.controller()->CreateRequestHandler();
+
+    state_ = State::Calling;
+    filter_callbacks_->connection().readDisable(true);
+    calling_check_ = true;
+    cancel_check_ = handler_->Check(
+        this, [this](const Status& status) { completeCheck(status); });
+    calling_check_ = false;
+  }
+
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance& data, bool) override {
+    if (state_ == State::NotStarted) {
+      // By waiting to invoke the callCheck() at onData(), the call to Mixer
+      // will have sufficient SSL information to fill the check Request.
+      callCheck();
+    }
+
     ENVOY_CONN_LOG(debug, "Called TcpInstance onRead bytes: {}",
                    filter_callbacks_->connection(), data.length());
     received_bytes_ += data.length();
-    return Network::FilterStatus::Continue;
+
+    return state_ == State::Calling ? Network::FilterStatus::StopIteration
+                                    : Network::FilterStatus::Continue;
   }
 
   // Network::WriteFilter
@@ -150,17 +174,8 @@ class TcpInstance : public Network::Filter,
                    filter_callbacks_->connection().remoteAddress()->asString(),
                    filter_callbacks_->connection().localAddress()->asString());
 
-    handler_ = mixer_control_.controller()->CreateRequestHandler();
-    if (state_ == State::NotStarted) {
-      state_ = State::Calling;
-      filter_callbacks_->connection().readDisable(true);
-      calling_check_ = true;
-      cancel_check_ = handler_->Check(
-          this, [this](const Status& status) { completeCheck(status); });
-      calling_check_ = false;
-    }
-    return state_ == State::Calling ? Network::FilterStatus::StopIteration
-                                    : Network::FilterStatus::Continue;
+    // Wait until onData() is invoked.
+    return Network::FilterStatus::Continue;
   }
 
   void completeCheck(const Status& status) {
