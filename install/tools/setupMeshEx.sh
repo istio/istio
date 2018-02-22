@@ -110,17 +110,21 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
+  local ALL=${3}
   local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+  echo "Generated root-cert.pem. It should be installed on /etc/certs"
+  if [ "$ALL" == "all" ] ; then
+    kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+    kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+    echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
+  fi
 
-  echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
   echo "the directory and files must be owned by 'istio-proxy' user"
   echo "$0 machineSetup does this for you."
 }
@@ -138,14 +142,19 @@ function istio_provision_certs() {
 # Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
 function istioBootstrapGCE() {
   local DESTINATION=${1}
+  local SA=${2:-${SERVICE_ACCOUNT:-default}}
+  local NS=${3:-${SERVICE_NAMESPACE:-}}
 
   DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
   SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
+  echo "Making certs for service account $SA (namespace $NS)"
+  istio_provision_certs $SA $NS "root-cert-only"
 
   for i in {1..10}; do
     # Copy deb, helper and config files
     istioCopy $DESTINATION \
       kubedns \
+      *.pem \
       cluster.env \
       istio.VERSION \
       ${SETUP_ISTIO_VM_SCRIPT}
@@ -184,7 +193,7 @@ function istioBootstrapVM() {
   DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
   SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
   echo "Making certs for service account $SA (namespace $NS)"
-  istio_provision_certs $SA $NS
+  istio_provision_certs $SA $NS "all"
 
   for i in {1..10}; do
     # Copy deb, helper and config files
@@ -243,7 +252,7 @@ elif [[ ${1:-} == "generateClusterEnv" ]] ; then
   istioClusterEnv $1
 elif [[ ${1:-} == "machineCerts" ]] ; then
   shift
-  istio_provision_certs $1 $2
+  istio_provision_certs $1 $2 $3
 elif [[ ${1:-} == "machineSetup" ]] ; then
   shift
   istioBootstrapVM $1
