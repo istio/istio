@@ -34,6 +34,21 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Specifies the behavior when the client is unable to connect to Mixer.
+message NetworkFailPolicy {
+  // Describes the policy.
+  enum FailPolicy {
+    // If network connection fails, request is allowed and delivered to the service.
+    FAIL_OPEN = 0;
+
+    // If network connection fails, request is rejected.
+    FAIL_CLOSE = 1;
+  }
+
+  // Specifies the behavior when the client is unable to connect to Mixer.
+  FailPolicy policy = 1;
+}
+
 // Defines the per-service client configuration.
 message ServiceConfig {
   // If true, do not call Mixer Check.
@@ -54,6 +69,11 @@ message ServiceConfig {
 
   // End user authentication policy.
   EndUserAuthenticationPolicySpec end_user_authn_spec = 6;
+
+  // Specifies the behavior when the client is unable to connect to Mixer.
+  // This is the service-level policy. It overrides 
+  // [mesh-level policy][istio.mixer.v1.config.client.TransportConfig.network_fail_policy].
+  NetworkFailPolicy network_fail_policy = 7;
 }
 
 // Defines the transport config on how to call Mixer.
@@ -67,15 +87,8 @@ message TransportConfig {
   // The flag to disable report batch.
   bool disable_report_batch = 3;
 
-  // NetworkFailPolicy defines behavior when network connection
-  // failure occurs.
-  enum NetworkFailPolicy {
-    // If network fails, request is passed to the backend.
-    FAIL_OPEN = 0;
-    // If network fails, request is rejected.
-    FAIL_CLOSE = 1;
-  }
-  // Specifies the policy when failed to connect to Mixer server.
+  // Specifies the behavior when the client is unable to connect to Mixer.
+  // This is the mesh level policy. The default value for policy is FAIL_OPEN.
   NetworkFailPolicy network_fail_policy = 4;
 
   // Specify refresh interval to write mixer client statistics to Envoy share
