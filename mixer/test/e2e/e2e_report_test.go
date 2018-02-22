@@ -16,7 +16,6 @@ package e2e
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -126,14 +125,14 @@ func TestReport(t *testing.T) {
 			},
 		},
 	}
-	for i, tt := range tests {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 
 			args := testEnv.NewArgs()
 			args.APIPort = 0
 			args.MonitoringPort = 0
-			args.Templates = e2eTmpl.SupportedTmplInfo
+			args.Templates = tt.templates
 			args.Adapters = adapterInfos
 			var cerr error
 			if args.ConfigStore, cerr = storetest.SetupStoreForTest(reportGlobalCfg, tt.cfg); cerr != nil {

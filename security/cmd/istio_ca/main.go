@@ -127,8 +127,8 @@ func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
-		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+listenedNamespaceKey+"} "+
-			"environment variable. If neither is set, Istio CA listens to all namespaces.")
+		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+
+			listenedNamespaceKey+"} environment variable. If neither is set, Istio CA listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "istio-ca-storage-namespace", "istio-system", "Namespace where "+
 		"the Istio CA pods is running. Will not be used if explicit file or other storage mechanism is specified.")
 
@@ -152,12 +152,15 @@ func init() {
 		"The TTL of self-signed CA root certificate")
 
 	// Certificate signing configuration.
-	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL, "The TTL of issued workload certificates")
-	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL, "The max TTL of issued workload certificates")
-	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio", defaultWorkloadCertGracePeriodRatio,
-		"The workload certificate rotation grace period, as a ratio of the workload certificate TTL.")
-	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period", defaultWorkloadMinCertGracePeriod,
-		"The minimum workload certificate rotation grace period.")
+	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL,
+		"The TTL of issued workload certificates")
+	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL,
+		"The max TTL of issued workload certificates")
+	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
+		defaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
+			"workload certificate TTL.")
+	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
+		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "The hostname for GRPC server.")
@@ -167,8 +170,10 @@ func init() {
 	// Upstream CA configuration
 	flags.StringVar(&opts.upstreamCAAddress, "upstream-ca-address", "", "The IP:port address of the upstream CA. "+
 		"When set, the CA will rely on the upstream Istio CA to provision its own certificate.")
-	flags.StringVar(&opts.upstreamCACertFile, "upstream-ca-cert-file", "", "Path to the certificate for authenticating upstream CA.")
-	flags.StringVar(&opts.upstreamAuth, "upstream-auth", "mtls", "Specifies how the Istio CA is authenticated to the upstream CA.")
+	flags.StringVar(&opts.upstreamCACertFile, "upstream-ca-cert-file", "",
+		"Path to the certificate for authenticating upstream CA.")
+	flags.StringVar(&opts.upstreamAuth, "upstream-auth", "mtls",
+		"Specifies how the Istio CA is authenticated to the upstream CA.")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -218,8 +223,8 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
-		cs.CoreV1(), opts.listenedNamespace)
+	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
+		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace)
 	if err != nil {
 		fatalf("failed to create secret controller: %v", err)
 	}
@@ -276,8 +281,8 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 
 	if opts.upstreamCAAddress != "" {
 		log.Info("Rely on upstream CA to provision CA certificate")
-		caOpts, err = ca.NewIntegratedIstioCAOptions(opts.upstreamCAAddress, opts.upstreamCACertFile, opts.upstreamAuth,
-			opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+		caOpts, err = ca.NewIntegratedIstioCAOptions(opts.upstreamCAAddress, opts.upstreamCACertFile,
+			opts.upstreamAuth, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
 			fatalf("Failed to create a integrated Istio CA (error: %v)", err)
 		}
@@ -290,7 +295,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
-		caOpts, err = ca.NewIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
 			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
@@ -363,7 +368,8 @@ func verifyCommandLineOptions() {
 	}
 
 	if opts.workloadCertGracePeriodRatio < 0 || opts.workloadCertGracePeriodRatio > 1 {
-		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]", opts.workloadCertGracePeriodRatio)
+		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]",
+			opts.workloadCertGracePeriodRatio)
 	}
 
 }

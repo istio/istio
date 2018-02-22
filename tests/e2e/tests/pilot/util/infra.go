@@ -344,7 +344,7 @@ func (infra *Infra) Setup() error {
 			},
 		})
 		if err != nil {
-			return err
+			log.Warn("Secret already exists")
 		}
 	}
 	if infra.Zipkin {

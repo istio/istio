@@ -5,15 +5,11 @@
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
-    "iam",
-    "internal",
-    "internal/optional",
     "internal/version",
     "logging",
     "logging/apiv2",
     "logging/internal",
-    "monitoring/apiv3",
-    "storage"
+    "monitoring/apiv3"
   ]
   revision = "767c40d6a2e058483c25fa193e963a22da17236d"
   version = "v0.18.0"
@@ -121,6 +117,7 @@
     "aws/session",
     "aws/signer/v4",
     "awstesting/unit",
+    "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
     "private/protocol/query",
@@ -129,8 +126,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "35d933260a22b7435667bd957f422029f6012e98"
-  version = "v1.12.76"
+  revision = "adeb60566bc8c9202b0f1be7e3a675beedbc11f0"
+  version = "v1.13.2"
 
 [[projects]]
   branch = "master"
@@ -294,10 +291,11 @@
     "internal/consistenthash",
     "internal/hashtag",
     "internal/pool",
-    "internal/proto"
+    "internal/proto",
+    "internal/singleflight"
   ]
-  revision = "8b4fa6d443e35ca8b1c37be877285252430b06a3"
-  version = "v6.8.3"
+  revision = "fa7f64f7f27348658ecfa71dd71dfb2d112e2f86"
+  version = "v6.9.0"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -443,7 +441,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "6da026c32e2d622cc242d32984259c77237aefe1"
+  revision = "6c823a6861b8e5dcf93a9a5a6937d592370aacb6"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -557,7 +555,7 @@
   branch = "master"
   name = "github.com/huandu/xstrings"
   packages = ["."]
-  revision = "37469d0c81a7910b49d64a0d308ded4823e90937"
+  revision = "2bf18b218c51864a87384c06996e40ff9dcff8e1"
 
 [[projects]]
   name = "github.com/imdario/mergo"
@@ -584,8 +582,8 @@
 [[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
-  revision = "28452fcdec4e44348d2af0d91d1e9e38da3a9e0a"
-  version = "1.0.5"
+  revision = "be70f29b04dea7efb4d82a8989c33aee989b74d1"
+  version = "1.1.0"
 
 [[projects]]
   name = "github.com/juju/ratelimit"
@@ -596,8 +594,8 @@
 [[projects]]
   name = "github.com/lyft/protoc-gen-validate"
   packages = ["validate"]
-  revision = "8e6aaf55f4954f1ef9d3ee2e8f5a50e79cc04f8f"
-  version = "v0.0.5"
+  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
+  version = "v0.0.6"
 
 [[projects]]
   branch = "master"
@@ -855,6 +853,15 @@
   version = "v1.3.1"
 
 [[projects]]
+  name = "github.com/v2pro/plz"
+  packages = [
+    "concurrent",
+    "reflect2"
+  ]
+  revision = "571356917fca907b069b7b47a14cd32ba0b340d4"
+  version = "0.9.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/yuin/gopher-lua"
   packages = [
@@ -901,7 +908,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "3a6c3ce65c4f0844ac396b02aebda1496fd2ac9d"
+  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
 
 [[projects]]
   branch = "master"
@@ -919,7 +926,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
 
 [[projects]]
   branch = "master"
@@ -949,7 +956,6 @@
   revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/text"
   packages = [
     "collate",
@@ -980,7 +986,8 @@
     "unicode/rangetable",
     "width"
   ]
-  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
   branch = "master"
@@ -995,7 +1002,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "90b807ada4cc7ab5d1409d637b1f3beb5a776be7"
+  revision = "f8f2f88271bf2c23f28a09d288d26507a9503c97"
 
 [[projects]]
   branch = "master"
@@ -1009,13 +1016,12 @@
     "iterator",
     "option",
     "servicecontrol/v1",
-    "storage/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
     "transport/http"
   ]
-  revision = "644c193aa4421c00a67106abb92f5d942c09d558"
+  revision = "ab90adb3efa287b869ecb698db42f923cc734972"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1045,7 +1051,6 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
-    "googleapis/iam/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1067,6 +1072,7 @@
     "credentials/oauth",
     "encoding",
     "encoding/gzip",
+    "encoding/proto",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
     "health",
@@ -1086,8 +1092,8 @@
     "tap",
     "transport"
   ]
-  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
-  version = "v1.9.2"
+  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
+  version = "v1.10.0"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -1137,7 +1143,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "145be4868f169e496d90e258b45b34a1755dabe1"
+  revision = "24209c4d7c9713900ac7571dfc38dd2eeea3f167"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1149,10 +1155,11 @@
     "log",
     "periodic",
     "stats",
-    "ui"
+    "ui",
+    "version"
   ]
-  revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
-  version = "v0.6.8"
+  revision = "56d9eab3a9acf6be3546f50d12c31b2c154a02a9"
+  version = "v0.7.1"
 
 [[projects]]
   branch = "master"
@@ -1210,7 +1217,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "e30829566af6c087be3c38280705184ebecb321a"
+  revision = "b89f5ce12ce6e022fc3e9d7586d61346e694d56e"
 
 [[projects]]
   branch = "release-1.9"
@@ -1272,7 +1279,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "66da060b9e5e1f415bbaff2c0956518656534ce8"
+  revision = "340af4b1e3bc0849088579387c93cc73ec37f4de"
 
 [[projects]]
   branch = "release-6.0"
@@ -1422,7 +1429,7 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "275e2ce91dec4c05a4094a7b1daee5560b555ac9"
+  revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
   branch = "release-1.9"
@@ -1437,11 +1444,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "f88c4c0b5e95eb2c559e2a00c80f7a9dee902d38"
+  revision = "1d6e114ce7a090d80b87b6eb0ca88d4eca98de7f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f33ba836eb834aa06d39ad2438f73168a5eb8220cd73d56436e1e0018be16a4e"
+  inputs-digest = "beffe12b8cf5f8de6a15f880ef14da18366914c119e13315e27feb25ebab2184"
   solver-name = "gps-cdcl"
   solver-version = 1

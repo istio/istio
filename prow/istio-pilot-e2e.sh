@@ -32,6 +32,7 @@ set -x
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
+export NUM_NODES=4
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT
