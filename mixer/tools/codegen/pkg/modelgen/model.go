@@ -420,9 +420,8 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 		if field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
 			if valueTypeAllowed {
 				return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
-			} else {
-				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 			}
+			return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 		}
 		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
 			return TypeInfo{Name: field.GetTypeName()[1:]},
