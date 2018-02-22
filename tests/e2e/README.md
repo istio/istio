@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-Only an E2E smoke test (bookinfo test with auth enabled) is automatically triggered in Before-Merge stage for every PR. The full suite of E2E tests are run in After-Merge stage only. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio
+E2E-bookInfoTest and E2E-smokeTest (both with auth enabled) is automatically triggered in Before-Merge stage for every PR. The full suite of E2E tests are run in After-Merge stage only. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio
 
 # Running E2E tests in PR stage
 
