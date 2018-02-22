@@ -36,6 +36,7 @@ type RawVM interface {
 
 var (
 	// flags to select vm with specific configuration
+	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
 	projectID     = flag.String("project_id", "istio-testing", "Project ID")
 	projectNumber = flag.String("project_number", "450874614208", "Project Number")
 	zone          = flag.String("zone", "us-east4-c", "The zone in which the VM and cluster resides")
@@ -60,18 +61,30 @@ type GCPRawVM struct {
 	Name        string
 	ClusterName string
 	Namespace   string
+	ProjectID   string
+	Zone        string
+	// Use Mason does not require provisioning, and therefore all following fields are not required
+	UseMason bool
 	// ServiceAccount must have iam.serviceAccountActor or owner permissions
 	// to the project. Use IAM settings.
 	ServiceAccount string
-	ProjectID      string
-	Zone           string
 	Image          string
 	ImageProject   string
 }
 
 // NewGCPRawVM creates a new vm on GCP
-func NewGCPRawVM(namespace string) *GCPRawVM {
-	// TODO (chx) generate by vm pool server
+func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
+	if *masonInfoFile != "" {
+		info, err := parseInfoFile(*masonInfoFile)
+		if err != nil {
+			return nil, err
+		}
+		g, err := resourceInfoToGCPRawVM(*info)
+		if err != nil {
+			return nil, err
+		}
+		return g, nil
+	}
 	vmName := fmt.Sprintf("vm-%v", time.Now().UnixNano())
 	if *clusterName == "" {
 		// Use default cluster. Determine clusterName at run time since cluster that
@@ -93,7 +106,7 @@ func NewGCPRawVM(namespace string) *GCPRawVM {
 		Zone:           *zone,
 		Image:          *image,
 		ImageProject:   *imageProject,
-	}
+	}, nil
 }
 
 // GetInternalIP returns the internal IP of the VM
@@ -135,8 +148,11 @@ func (vm *GCPRawVM) Teardown() error {
 			return err
 		}
 	}
-	_, err := u.Shell(vm.baseCommand("delete"))
-	return err
+	if !vm.UseMason {
+		_, err := u.Shell(vm.baseCommand("delete"))
+		return err
+	}
+	return nil
 }
 
 // Setup initialize the VM
@@ -191,22 +207,24 @@ func buildIstioVersion() error {
 }
 
 func (vm *GCPRawVM) provision() error {
-	// Create the VM
-	createVMcmd := vm.baseCommand("create") + fmt.Sprintf(
-		`--machine-type "n1-standard-1" \
-			 --subnet default \
-			 --can-ip-forward \
-			 --service-account %s \
-			 --scopes "https://www.googleapis.com/auth/cloud-platform" \
-			 --tags "http-server","https-server" \
-			 --image %s \
-			 --image-project %s \
-			 --boot-disk-size "10" \
-			 --boot-disk-type "pd-standard" \
-			 --boot-disk-device-name "debtest"`,
-		vm.ServiceAccount, vm.Image, vm.ImageProject)
-	if _, err := u.Shell(createVMcmd); err != nil {
-		return err
+	if !vm.UseMason {
+		// Create the VM
+		createVMcmd := vm.baseCommand("create") + fmt.Sprintf(
+			`--machine-type "n1-standard-1" \
+				 --subnet default \
+				 --can-ip-forward \
+				 --service-account %s \
+				 --scopes "https://www.googleapis.com/auth/cloud-platform" \
+				 --tags "http-server","https-server" \
+				 --image %s \
+				 --image-project %s \
+				 --boot-disk-size "10" \
+				 --boot-disk-type "pd-standard" \
+				 --boot-disk-device-name "debtest"`,
+			vm.ServiceAccount, vm.Image, vm.ImageProject)
+		if _, err := u.Shell(createVMcmd); err != nil {
+			return err
+		}
 	}
 	if err := setFirewallRuleToAllowAccessToVM(); err != nil {
 		return err
@@ -214,7 +232,7 @@ func (vm *GCPRawVM) provision() error {
 	// wait until VM is up and ready
 	isVMLive := func() (bool, error) {
 		_, err := vm.SecureShell("echo hello")
-		return (err == nil), nil
+		return err == nil, nil
 	}
 	return u.Poll(20*time.Second, 10, isVMLive)
 }

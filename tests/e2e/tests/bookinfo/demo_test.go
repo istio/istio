@@ -462,10 +462,14 @@ func TestDbRoutingMysql(t *testing.T) {
 func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
-		vm := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		if err != nil {
+			t.Errorf(err.Error())
+			return
+		}
 		// VM setup and teardown is manual for now
 		// will be replaced with preprovision server calls
-		err := vm.Setup()
+		err = vm.Setup()
 		inspect(err, "VM setup failed", "VM setup succeeded", t)
 		_, err = vm.SecureShell("curl -v istio-pilot:8080")
 		inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)
