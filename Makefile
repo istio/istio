@@ -214,9 +214,11 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 
 depend.status: | $(ISTIO_OUT)
 	dep status -dot > $(ISTIO_OUT)/dep.dot
-	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
 	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
 	cp Gopkg.* vendor/
+
+$(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
+	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
 
 # https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
 depend.update.full: depend.cleanlock depend.update
