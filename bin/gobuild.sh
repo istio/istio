@@ -31,8 +31,16 @@ BUILDPATH=${3:?"path to build"}
 
 set -e
 
+ARCH=`uname -m`
+
 GOOS=${GOOS:-linux}
-GOARCH=${GOARCH:-amd64}
+if [ "$ARCH" == "ppc64le" ]; then
+    DEFAULT_ARCH=$ARCH
+else
+    DEFAULT_ARCH="amd64"
+fi
+GOARCH=${GOARCH:-${DEFAULT_ARCH}}
+
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}

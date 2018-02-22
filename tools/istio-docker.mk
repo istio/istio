@@ -14,9 +14,14 @@
 
 .PHONY: docker
 
+prereq.docker:
+ifneq ($(MACH), $(GOARCH))
+    $(error Platform and target architecture don\'t match, Cross building docker images not supported.)
+endif
+
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: build test-bins docker.all
+docker: build prereq.docker test-bins docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -44,6 +49,14 @@ GRAFANA_FILES:=addons/grafana/dashboards.yaml \
 # note that "dashboards" is a directory rather than a file
 $(ISTIO_DOCKER)/dashboards: addons/grafana/$$(notdir $$@) | $(ISTIO_DOCKER)
 	cp -r $< $(@D)
+
+ifeq ($(MACH), ppc64le)
+    GRAFANA_BASE := ibmcom/grafana-ppc64le:4.6.3
+else
+    GRAFANA_BASE := grafana/grafana:5.0.4
+endif
+
+DOCKER_OPT.grafana:=--build-arg grafana_base=$(GRAFANA_BASE)
 
 # note that "js" and "force" are directories rather than a file
 $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $(ISTIO_DOCKER)
@@ -156,14 +169,12 @@ $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # addons docker images
-
 SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
 $(SERVICEGRAPH_DOCKER): addons/servicegraph/docker/Dockerfile$$(suffix $$@) \
-		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force | $(ISTIO_DOCKER)
+                $(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # mixer docker images
-
 MIXER_DOCKER:=docker.mixer docker.mixer_debug
 $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
 		$(ISTIO_DOCKER)/ca-certificates.tgz $(ISTIO_DOCKER)/mixs | $(ISTIO_DOCKER)
@@ -186,7 +197,6 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # grafana image
-
 $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
@@ -194,7 +204,7 @@ docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO
 DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-            docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
+            docker build $(DOCKER_OPT$(suffix $@)) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.

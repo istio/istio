@@ -20,6 +20,8 @@ TEMP_DIR="/tmp"
 # Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
 COMPONENT_FILES=false
+ARCH=`uname -m`
+
 set -o errexit
 set -o pipefail
 
@@ -36,6 +38,10 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
     -h ... <hub>,<tag> for the hyperkube docker image
     -o ... <hub>,<tag> for the proxy docker image
+    -s ... <hub>,<tag> for the statsd docker image
+    -M ... <hub>,<tag> for the prometheus docker image
+    -z ... <hub>,<tag> for the zipkin docker image
+    -Z ... <hub>,<tag> for the zipkin-collector docker image
     -n ... <namespace> namespace in which to install Istio control plane components
     -A ... URL to download auth debian packages
     -P ... URL to download pilot debian packages
@@ -53,6 +59,14 @@ FORTIO_HUB="docker.io/istio"
 FORTIO_TAG="latest_release"
 HYPERKUBE_HUB="quay.io/coreos/hyperkube"
 HYPERKUBE_TAG="v1.7.6_coreos.0"
+STATSD_HUB="prom"
+STATSD_TAG="v0.5.0"
+PROM_HUB="docker.io/prom"
+PROM_TAG="v2.0.0"
+ZIPKIN_HUB="docker.io/openzipkin"
+ZIPKIN_TAG="latest"
+ZIPKIN_COLLECTOR_HUB="gcr.io/stackdriver-trace-docker"
+ZIPKIN_COLLECTOR_TAG="latest"
 
 while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
   case ${arg} in
@@ -63,6 +77,10 @@ while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
     h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     o) PROXY_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
+    s) STATSD_HUB_TAG="${OPTARG}";;
+    M) PROM_HUB_TAG="${OPTARG}";;
+    z) ZIPKIN_HUB_TAG="${OPTARG}";;
+    Z) ZIPKIN_COLLECTOR_HUB_TAG="${OPTARG}";;
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
     D) PROXY_DEBUG="${OPTARG}";;
@@ -105,6 +123,26 @@ fi
 if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
     HYPERKUBE_HUB="$(echo ${HYPERKUBE_HUB_TAG}|cut -f1 -d,)"
     HYPERKUBE_TAG="$(echo ${HYPERKUBE_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${STATSD_HUB_TAG} ]]; then
+    STATSD_HUB="$(echo ${STATSD_HUB_TAG}|cut -f1 -d,)"
+    STATSD_TAG="$(echo ${STATSD_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${PROM_HUB_TAG} ]]; then
+    PROM_HUB="$(echo ${PROM_HUB_TAG}|cut -f1 -d,)"
+    PROM_TAG="$(echo ${PROM_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${ZIPKIN_HUB_TAG} ]]; then
+    ZIPKIN_HUB="$(echo ${ZIPKIN_HUB_TAG}|cut -f1 -d,)"
+    ZIPKIN_TAG="$(echo ${ZIPKIN_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${ZIPKIN_COLLECTOR_HUB_TAG} ]]; then
+    ZIPKIN_COLLECTOR_HUB="$(echo ${ZIPKIN_COLLECTOR_HUB_TAG}|cut -f1 -d,)"
+    ZIPKIN_COLLECTOR_TAG="$(echo ${ZIPKIN_COLLECTOR_HUB_TAG}|cut -f2 -d,)"
 fi
 
 # handle PROXY_DEBUG conversion to proxy_debug or proxy image
@@ -231,6 +269,14 @@ export FORTIO_HUB="${FORTIO_HUB}"
 export FORTIO_TAG="${FORTIO_TAG}"
 export HYPERKUBE_HUB="${HYPERKUBE_HUB}"
 export HYPERKUBE_TAG="${HYPERKUBE_TAG}"
+export STATSD_HUB="${STATSD_HUB}"
+export STATSD_TAG="${STATSD_TAG}"
+export PROM_HUB="${PROM_HUB}"
+export PROM_TAG="${PROM_TAG}"
+export ZIPKIN_HUB="${ZIPKIN_HUB}"
+export ZIPKIN_TAG="${ZIPKIN_TAG}"
+export ZIPKIN_COLLECTOR_HUB="${ZIPKIN_COLLECTOR_HUB}"
+export ZIPKIN_COLLECTOR_TAG="${ZIPKIN_COLLECTOR_TAG}"
 EOF
 }
 
@@ -269,6 +315,7 @@ function update_istio_install() {
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer-with-health-check.yaml.tmpl
+  execute_sed "s|image: {STATSD_HUB}/\(.*\):{STATSD_TAG}|image: ${STATSD_HUB}/\1:${STATSD_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
@@ -284,6 +331,9 @@ function update_istio_addons() {
   pushd $TEMP_DIR/templates/addons
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
+  execute_sed "s|image: {PROM_HUB}/\(.*\):{PROM_TAG}|image: ${PROM_HUB}/\1:${PROM_TAG}|" prometheus.yaml.tmpl
+  execute_sed "s|image: {ZIPKIN_HUB}/\(.*\):{ZIPKIN_TAG}|image: ${ZIPKIN_HUB}/\1:${ZIPKIN_TAG}|" zipkin.yaml.tmpl
+  execute_sed "s|image: {ZIPKIN_COLLECTOR_HUB}/\(.*\):{ZIPKIN_COLLECTOR_TAG}|image: ${ZIPKIN_COLLECTOR_HUB}/\1:${ZIPKIN_COLLECTOR_TAG}|" zipkin-to-stackdriver.yaml.tmpl
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
@@ -339,6 +389,11 @@ update_istio_install
 update_istio_addons
 merge_files
 rm -R $TEMP_DIR/templates
+
+if [ "$ARCH" == "ppc64le" ]; then
+    echo "Only kubernetes supported for ppc64le, no consul or eureka support yet."
+    exit 0
+fi
 
 for platform in consul eureka
 do

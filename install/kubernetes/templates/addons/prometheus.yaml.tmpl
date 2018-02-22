@@ -222,7 +222,7 @@ spec:
       serviceAccountName: prometheus
       containers:
       - name: prometheus
-        image: docker.io/prom/prometheus:v2.0.0
+        image: {PROM_HUB}/prometheus:{PROM_TAG}
         imagePullPolicy: IfNotPresent
         args:
           - '--storage.tsdb.retention=6h'
