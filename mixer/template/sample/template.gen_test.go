@@ -29,9 +29,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
+	adpTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
-	adpTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"

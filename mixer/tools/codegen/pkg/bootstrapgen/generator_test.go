@@ -28,10 +28,10 @@ type logFn func(string, ...interface{})
 // and compares them against the golden files.
 func TestGenerator_Generate(t *testing.T) {
 	importmap := map[string]string{
-		"policy/v1beta1/value_type.proto": "istio.io/api/policy/v1beta1",
-		"mixer/adapter/model/v1beta1/extensions.proto":          "istio.io/api/mixer/adapter/model/v1beta1",
-		"gogoproto/gogo.proto":                        "github.com/gogo/protobuf/gogoproto",
-		"google/protobuf/duration.proto":              "github.com/gogo/protobuf/types",
+		"policy/v1beta1/value_type.proto":              "istio.io/api/policy/v1beta1",
+		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/api/mixer/adapter/model/v1beta1",
+		"gogoproto/gogo.proto":                         "github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/duration.proto":               "github.com/gogo/protobuf/types",
 	}
 
 	tests := []struct {

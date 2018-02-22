@@ -26,7 +26,6 @@ import (
 	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
 )
 
-
 const fullProtoNameOfValueTypeEnum = "istio.policy.v1beta1.ValueType"
 const fullGoNameOfValueTypeEnum = "istio_policy_v1beta1.ValueType"
 const fullProtoNameOfValueMsg = "istio.mixer.adapter.model.v1beta1.Value"
