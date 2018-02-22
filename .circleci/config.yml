@@ -270,6 +270,8 @@ jobs:
   depupdate:
     <<: *defaults
     steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
       - checkout
       - run: make submodule-sync
       - run: make depend.status # check before any change
@@ -290,6 +292,8 @@ jobs:
   dependencies:
     <<: *defaults
     steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
       - checkout
       - run: make git.pullmaster
       - run: make submodule-sync
