@@ -251,20 +251,24 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 	t.Errorf(format, args...)
 }
 
-func TestGlobalReport(t *testing.T) {
+func TestMetric(t *testing.T) {
+	checkMetricReport(t, promAPI, "productpage")
+}
+
+func TestIngressMetric(t *testing.T) {
+	checkMetricReport(t, promAPI, "istio-ingress")
+}
+
+// checkMetricReport checks whether report works for the given service
+// by visiting productpage and comparing request_count metric.
+func checkMetricReport(t *testing.T, serviceName string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	checkMetricReport(t, promAPI, "productpage")
-	checkMetricReport(t, promAPI, "istio-ingress")
-}
 
-// checkMetricReport checks whether report works for the given service
-// by visiting productpage and comparing request_count metric.
-func checkMetricReport(t *testing.T, promAPI v1.API, serviceName string) {
 	t.Logf("Check request count metric for %s", serviceName)
 
 	// establish baseline by querying request count metric.
@@ -285,7 +289,7 @@ func checkMetricReport(t *testing.T, promAPI v1.API, serviceName string) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
-	// visit production page.
+	// visit product page.
 	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
@@ -426,6 +430,9 @@ func TestNewMetrics(t *testing.T) {
 
 func TestDenials(t *testing.T) {
 	testDenials(t, denialRule)
+}
+
+func TestIngressDenials(t *testing.T) {
 	testDenials(t, ingressDenialRule)
 }
 
