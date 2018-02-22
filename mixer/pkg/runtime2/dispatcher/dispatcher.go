@@ -243,6 +243,7 @@ func (d *Dispatcher) dispatch(session *session) error {
 				state.instance = instance
 				if session.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
+					state.inputBag = session.bag
 				}
 
 				// Dispatch for singleton dispatches
