@@ -25,15 +25,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.3.3.5",
-           "destination.uid": "kubernetes://router.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.3.3.5",
-           "source.uid": "kubernetes://router.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "forwardAttributes": {
             "attributes": {
@@ -109,15 +100,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.3.3.5",
-           "destination.uid": "kubernetes://router.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.3.3.5",
-           "source.uid": "kubernetes://router.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "forwardAttributes": {
             "attributes": {

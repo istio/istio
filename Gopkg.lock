@@ -1153,10 +1153,11 @@
     "log",
     "periodic",
     "stats",
-    "ui"
+    "ui",
+    "version"
   ]
-  revision = "1b38faa39e53f1fa46d1c01e821385f047df93cc"
-  version = "v0.6.9"
+  revision = "3f6357777a6b5017ae944866ca1abb5c612deb42"
+  version = "v0.7.0"
 
 [[projects]]
   branch = "master"

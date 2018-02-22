@@ -41,7 +41,7 @@ __Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
 ```
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source.
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 Make the kubectl binary executable.
 ```
 $ chmod +x ./istioctl
@@ -53,8 +53,12 @@ $ mv ./istioctl /usr/local/bin/istioctl
 ```
 
 
-### Set Your Google Cloud Credentials.
+### Set Your Google Cloud Credentials (optional/one time setup)
+This is not necessary if you already have working `gcloud` commands and you
+did `gcloud auth login` at least once.
 ```
+$ gcloud auth login
+# Or
 $ export GOOGLE_APPLICATION_CREDENTIALS=/my/gce/creds.json
 ```
 If you do not have a Google Cloud account, [set one up](https://cloud.google.com/).
@@ -66,6 +70,8 @@ For example, to update the default gcloud zone (us-east4-b):
 $ ZONE=us-west1-a
 ```
 If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
+
+The script tries to guess your `PROJECT` but it's safer to set it explicitly. (and use a new empty project if possible)
 
 ### Source the Script
 ```
