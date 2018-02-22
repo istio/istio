@@ -147,7 +147,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.status depend.update init
+.PHONY: depend depend.status depend.update depend.cleanlock depend.update.full init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -215,14 +215,19 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 depend.status: | $(ISTIO_OUT)
 	dep status -dot > $(ISTIO_OUT)/dep.dot
 	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
+	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
+	cp Gopkg.* vendor/
 
 # https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
-depend.update:
+depend.update.full: depend.cleanlock depend.update
+
+depend.cleanlock:
 	-rm Gopkg.lock
+
+depend.update:
 	time dep ensure
 	cp Gopkg.* vendor/
 	@echo "now check the diff in vendor/ and make a PR"
-
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
