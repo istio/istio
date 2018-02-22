@@ -55,7 +55,7 @@ var (
 	testRetryTimes    = 5
 	defaultRules      = []string{allRule, testRule}
 	flagBaseVersion   = flag.String("base_version", "0.4.0", "Base version to upgrade from.")
-	flagTargetVersion = flag.String("target_version", "0.5.0", "Target version to upgrade to.")
+	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
 	flagSmoothCheck   = flag.Bool("smooth_check", false, "Whether to check the upgrade is smooth.")
 )
 
@@ -262,14 +262,26 @@ func upgradeControlPlane() error {
 	if _, err = util.Shell("kubectl get all -n %s -o wide", targetConfig.Kube.Namespace); err != nil {
 		return err
 	}
+	// TODO: Check control plane version.
 	// Update gateway address
 	tc.gateway = "http://" + targetConfig.Kube.Ingress
 	return nil
 }
 
 func upgradeSidecars() error {
-	err := targetConfig.Kube.AppManager.Setup()
-	return err
+	err := targetConfig.Kube.Istioctl.Setup()
+	if err != nil {
+		return err
+	}
+	err = targetConfig.Kube.AppManager.Setup()
+	if err != nil {
+		return err
+	}
+	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
+	// TODO: Check sidecar version.
+	return nil
 }
 
 func TestUpgrade(t *testing.T) {
@@ -297,12 +309,6 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	tc = new(testConfig)
-	tc.CommonConfig = baseConfig
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
-	if err != nil {
-		return err
-	}
 	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
 	},
@@ -320,7 +326,14 @@ func setTestConfig() error {
 		},
 	}
 	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
+		baseConfig.Kube.AppManager.AddApp(&demoApps[i])
+		targetConfig.Kube.AppManager.AddApp(&demoApps[i])
+	}
+	tc = new(testConfig)
+	tc.CommonConfig = baseConfig
+	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
+	if err != nil {
+		return err
 	}
 	return nil
 }
