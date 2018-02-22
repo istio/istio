@@ -16,6 +16,7 @@
 #include "client_context_base.h"
 
 using ::google::protobuf::util::Status;
+using ::istio::mixer::v1::config::client::NetworkFailPolicy;
 using ::istio::mixer::v1::config::client::TransportConfig;
 using ::istio::mixerclient::CancelFunc;
 using ::istio::mixerclient::CheckOptions;
@@ -40,7 +41,8 @@ CheckOptions GetJustCheckOptions(const TransportConfig& config) {
 
 CheckOptions GetCheckOptions(const TransportConfig& config) {
   auto options = GetJustCheckOptions(config);
-  if (config.network_fail_policy() == TransportConfig::FAIL_CLOSE) {
+  if (config.has_network_fail_policy() &&
+      config.network_fail_policy().policy() == NetworkFailPolicy::FAIL_CLOSE) {
     options.network_fail_open = false;
   }
   return options;
