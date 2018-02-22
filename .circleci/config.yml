@@ -278,7 +278,7 @@ jobs:
       - run: make init build
       - run:
           name: Status and artifacts
-          command: make depend.status
+          command: make depend.status ISTIO_OUT=/go/out
       - store_artifacts:
           path: vendor/Gopkg.lock
       - store_artifacts:
