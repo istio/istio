@@ -416,6 +416,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (SUCCESS)
 `,
 	},
@@ -443,6 +447,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (ERROR)
 
 `,

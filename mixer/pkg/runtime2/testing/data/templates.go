@@ -153,6 +153,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, instance interface{},
 			attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 			l.writeFormat(name, "DispatchGenAttrs => instance: '%+v'", instance)
+			l.writeFormat(name, "DispatchGenAttrs => attrs:    '%+v'", attrs.DebugString())
+			l.writeFormat(name, "DispatchGenAttrs => mapper(exists):   '%+v'", mapper != nil)
 
 			signalCallAndWait(s)
 
