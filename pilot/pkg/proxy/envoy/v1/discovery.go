@@ -30,11 +30,14 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
+	xdsapi "github.com/envoyproxy/go-control-plane/api"
+	"github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/v2"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
@@ -141,6 +144,8 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
+	// gRPC server serving envoy v2 EDS APIs
+	serverV2        *envoyv2.DiscoveryServer
 	server          *http.Server
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -328,6 +333,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
+	// TODO: add a flag to pass the Pilot's new data structures to the constructor instead of out.
+	// For now we create the gRPC server sourcing data from Pilot's older data model.
+	out.serverV2 = envoyv2.NewDiscoveryServer(out)
 
 	container := restful.NewContainer()
 	if o.EnableProfiling {
@@ -342,6 +350,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
+	out.serverV2.ChainHandlers(out.server)
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -863,4 +872,56 @@ func writeResponse(r *restful.Response, data []byte) {
 	if _, err := r.Write(data); err != nil {
 		log.Warna(err)
 	}
+}
+
+/************ Forward compatibility of older pilot data model with Envoy v2 APIs ****************************/
+// MeshDiscovery interfaces are declared in pilot/pkg/proxy/envoy/v2
+
+// Endpoints implements MeshDiscovery.Endpoints()
+func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.DiscoveryResponse {
+	methodName := "v2/Endpoints"
+	incCalls(methodName)
+	out := &xdsapi.DiscoveryResponse{}
+	key := fmt.Sprintf("%v", serviceClusters)
+	cachedResp, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
+	var totalEndpoints uint32
+	if !cached {
+		out.Resources = make([]*types.Any, 0, len(serviceClusters))
+		for _, serviceCluster := range serviceClusters {
+			hostname, ports, labels := model.ParseServiceKey(serviceCluster)
+			instances, err := ds.Instances(hostname, ports.GetNames(), labels)
+			if err != nil {
+				if log.WarnEnabled() {
+					log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
+				}
+				continue
+			}
+			if len(instances) == 0 {
+				continue
+			}
+			resource := &xdsapi.LocalityLbEndpoints{
+				LbEndpoints: v2.EndpointsFromInstances(instances),
+			}
+			resource.Locality = &xdsapi.Locality{
+				// TODO: add region and subzone
+				Zone: instances[0].AvailabilityZone,
+			}
+			anyResource, _ := types.MarshalAny(resource)
+			out.Resources = append(out.Resources, anyResource)
+			totalEndpoints += uint32(len(resource.LbEndpoints))
+		}
+		// TODO: Retained for backward compatibility wrt cache behavior
+		// Not storing a zero result in cache can negatively impact server performance
+		// up until the ds begins to see instances!!!
+		if totalEndpoints > 0 {
+			bytes, err := out.Marshal()
+			if err != nil {
+				ds.sdsCache.updateCachedDiscoveryResponse(key, totalEndpoints, bytes)
+			}
+		}
+		return out
+	}
+	out.Unmarshal(cachedResp)
+	observeResources(methodName, resourceCount)
+	return out
 }
