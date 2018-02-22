@@ -84,7 +84,7 @@ func InitLogging() error {
 	return nil
 }
 
-// NewCommonConfigWithBaseVersion creates a new CommonConfig with the specified
+// NewCommonConfigWithVersion creates a new CommonConfig with the specified
 // version of Istio. If baseVersion is empty, it will use the local head
 // version.
 func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
