@@ -280,7 +280,8 @@ func TestNewIstioCAOptions(t *testing.T) {
 	maxCertTTL := time.Hour
 
 	for id, tc := range testCases {
-		caOpts, err := NewIstioCAOptions(tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
+		caOpts, err := NewPluggedCertIstioCAOptions(
+			tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
 				t.Errorf("%s: Unexpected error: %v", id, err)

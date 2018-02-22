@@ -26,7 +26,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportDisableTest, t)
 
 	// Disable both Check and Report cache.
-	env.DisableClientCache(s.V2().HTTPServerConf, true, true, true)
+	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, true, true)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

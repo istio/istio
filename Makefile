@@ -100,6 +100,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
+export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
@@ -122,8 +123,9 @@ ifeq ($(TAG),)
 endif
 
 # Discover if user has dep installed -- prefer that
-DEP    := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-GOLINT := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
+GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -165,7 +167,35 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
+
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
+	git submodule sync
+	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
+
+.PHONY: submodule pull submodule-sync git.pullmaster
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -192,7 +222,6 @@ depend.ensure: init
 depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	${DEP} ensure
 	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -201,6 +230,9 @@ ${DEP}:
 
 ${GOLINT}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
+
+${GEN_CERT}:
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -280,12 +312,12 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -306,12 +338,15 @@ istio-ca:
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
+.PHONY: flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume
+
 .PHONY: pilot
 pilot: pilot-discovery
 
 .PHONY: multicluster_ca node_agent istio_ca
 multicluster_ca node_agent istio_ca:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -483,10 +518,18 @@ ifeq ($(GOOS),linux)
 
 include tools/istio-docker.mk
 
-endif # end of docker block that's restricted to Linux
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
+
+push: docker.push installgen
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
+
+gcs.push.deb: deb
+	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
+
+endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'
@@ -498,12 +541,19 @@ installgen:
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/eureka/istio.yaml \
+                install/kubernetes/addons/grafana.yaml \
+                install/kubernetes/addons/prometheus.yaml \
+                install/kubernetes/addons/servicegraph.yaml \
+                install/kubernetes/addons/zipkin-to-stackdriver.yaml \
+                install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-initializer.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
+                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml

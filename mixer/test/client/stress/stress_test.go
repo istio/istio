@@ -41,7 +41,7 @@ func TestStressEnvoy(t *testing.T) {
 
 	// Not cache, enable quota
 	env.AddHTTPQuota(s.V2(), "RequestCount", 1)
-	env.DisableClientCache(s.V2().HTTPServerConf, true, true, true)
+	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, true, true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

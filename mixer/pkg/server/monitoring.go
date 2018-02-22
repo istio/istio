@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -37,7 +38,7 @@ const (
 	versionPath = "/version"
 )
 
-func startMonitor(port uint16) (*monitor, error) {
+func startMonitor(port uint16, enableProfiling bool) (*monitor, error) {
 	m := &monitor{
 		closed: make(chan struct{}),
 	}
@@ -60,6 +61,14 @@ func startMonitor(port uint16) (*monitor, error) {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	m.monitoringServer = &http.Server{
 		Handler: mux,

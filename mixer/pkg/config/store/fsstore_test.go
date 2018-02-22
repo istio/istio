@@ -15,7 +15,6 @@
 package store
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -70,13 +69,12 @@ func TestFSStore2(t *testing.T) {
 	s, fsroot := getTempFSStore2()
 	defer cleanupRootIfOK(t, fsroot)
 	const ns = "istio-mixer-testing"
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err != nil {
+	if err := s.Init([]string{"Handler", "Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
+	defer s.Stop()
 
-	wch, err := s.Watch(ctx)
+	wch, err := s.Watch()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -124,11 +122,10 @@ func TestFSStore2WrongKind(t *testing.T) {
 	s, fsroot := getTempFSStore2()
 	defer cleanupRootIfOK(t, fsroot)
 	const ns = "istio-mixer-testing"
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Action"}); err != nil {
+	if err := s.Init([]string{"Action"}); err != nil {
 		t.Fatal(err.Error())
 	}
+	defer s.Stop()
 
 	k := Key{Kind: "Handler", Namespace: ns, Name: "default"}
 	h := map[string]interface{}{"name": "default", "adapter": "noop"}
@@ -158,11 +155,10 @@ spec:
 			if err != nil {
 				tt.Fatal(err)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			if err := s.Init(ctx, []string{"Kind"}); err != nil {
+			if err := s.Init([]string{"Kind"}); err != nil {
 				tt.Fatal(err.Error())
 			}
+			defer s.Stop()
 			if lst := s.List(); len(lst) != 1 {
 				tt.Errorf("Got %d elements, Want 1", len(lst))
 			}
@@ -292,11 +288,10 @@ func TestFSStore2MissingRoot(t *testing.T) {
 	if err := os.RemoveAll(fsroot); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, []string{"Kind"}); err != nil {
+	if err := s.Init([]string{"Kind"}); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
+	defer s.Stop()
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %+v, Want empty", lst)
 	}
@@ -358,11 +353,10 @@ spec:
 			if err := c.prepare(fsroot); err != nil {
 				tt.Fatalf("Failed to prepare precondition: %v", err)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			if err := s.Init(ctx, []string{"Handler"}); err != nil {
+			if err := s.Init([]string{"Handler"}); err != nil {
 				tt.Fatalf("Init failed: %v", err)
 			}
+			defer s.Stop()
 			want := map[Key]*BackEndResource{k: {Spec: data}}
 			got := s.List()
 			if len(got) != len(want) {

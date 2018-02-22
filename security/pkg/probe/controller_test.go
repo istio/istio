@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/balancer"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/probe"
@@ -84,6 +86,11 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			err:      fmt.Errorf("sendCSR failed"),
 			expected: "sendCSR failed",
 		},
+		"gRPC server is not available": {
+			resp:     nil,
+			err:      fmt.Errorf("%v", balancer.ErrTransientFailure.Error()),
+			expected: "",
+		},
 	}
 
 	for id, c := range testCases {
@@ -121,8 +128,8 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				t.Errorf("%v: checkGrpcServer should return nil: %v", id, err)
 			}
 		} else {
-			if c.expected != err.Error() {
-				t.Errorf("%v: Unexpected error. expected: %v, got: %v", id, c.expected, err.Error())
+			if err == nil || c.expected != err.Error() {
+				t.Errorf("%v: Unexpected error. expected: %v, got: %v", id, c.expected, err)
 			}
 		}
 	}

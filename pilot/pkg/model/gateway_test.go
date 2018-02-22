@@ -177,7 +177,7 @@ func TestMergeGateways(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// we want to save the original state of tt.a for printing if we fail the test, so we'll merge into a new gateway struct.
 			actual := &routing.Gateway{}
-			MergeGateways(actual, tt.a)
+			MergeGateways(actual, tt.a) // nolint: errcheck
 			err := MergeGateways(actual, tt.b)
 			if err != tt.expectedErrPrefix && !strings.HasPrefix(err.Error(), tt.expectedErrPrefix.Error()) {
 				t.Fatalf("%s: got err %v, wanted %v", tt.name, err, tt.expectedErrPrefix)

@@ -15,8 +15,8 @@
     "monitoring/apiv3",
     "storage"
   ]
-  revision = "767c40d6a2e058483c25fa193e963a22da17236d"
-  version = "v0.18.0"
+  revision = "eaddaf6dd7ee35fd3c2420c8d27478db176b0485"
+  version = "v0.15.0"
 
 [[projects]]
   name = "code.cloudfoundry.org/copilot"
@@ -43,6 +43,12 @@
   packages = ["."]
   revision = "b26d9c308763d68093482582cea63d69be07a0f0"
   version = "v0.3.0"
+
+[[projects]]
+  name = "github.com/DataDog/datadog-go"
+  packages = ["statsd"]
+  revision = "9487d3a9d3be5bf3cf60b86ae810b97926964515"
+  version = "2.0.0"
 
 [[projects]]
   name = "github.com/Masterminds/semver"
@@ -115,6 +121,7 @@
     "aws/session",
     "aws/signer/v4",
     "awstesting/unit",
+    "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
     "private/protocol/query",
@@ -123,8 +130,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "35d933260a22b7435667bd957f422029f6012e98"
-  version = "v1.12.76"
+  revision = "bff41fb23b7550368282029f6478819d6a99ae0f"
+  version = "v1.12.79"
 
 [[projects]]
   branch = "master"
@@ -270,9 +277,10 @@
   revision = "36d33bfe519efae5632669801b180bf1a245da3b"
 
 [[projects]]
+  branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "84b5bee7bcb76f3d17bcbaf421bac44bd5709ca6"
+  revision = "1de3e0542de65ad8d75452a595886fdd0befb363"
 
 [[projects]]
   branch = "master"
@@ -288,10 +296,11 @@
     "internal/consistenthash",
     "internal/hashtag",
     "internal/pool",
-    "internal/proto"
+    "internal/proto",
+    "internal/singleflight"
   ]
-  revision = "8b4fa6d443e35ca8b1c37be877285252430b06a3"
-  version = "v6.8.3"
+  revision = "fa7f64f7f27348658ecfa71dd71dfb2d112e2f86"
+  version = "v6.9.0"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -437,7 +446,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "6da026c32e2d622cc242d32984259c77237aefe1"
+  revision = "cf2bbaa52ab69d063466a3c46a5918d05d752625"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -551,13 +560,12 @@
   branch = "master"
   name = "github.com/huandu/xstrings"
   packages = ["."]
-  revision = "37469d0c81a7910b49d64a0d308ded4823e90937"
+  revision = "2bf18b218c51864a87384c06996e40ff9dcff8e1"
 
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "163f41321a19dd09362d4c63cc2489db2015f1f4"
-  version = "0.3.2"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -579,8 +587,8 @@
 [[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
-  revision = "28452fcdec4e44348d2af0d91d1e9e38da3a9e0a"
-  version = "1.0.5"
+  revision = "e7c7f3b33712573affdcc7a107218e7926b9a05b"
+  version = "1.0.6"
 
 [[projects]]
   name = "github.com/juju/ratelimit"
@@ -896,7 +904,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "3a6c3ce65c4f0844ac396b02aebda1496fd2ac9d"
+  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
 
 [[projects]]
   branch = "master"
@@ -914,7 +922,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+  revision = "136a25c244d3019482a795d728110278d6ba09a4"
 
 [[projects]]
   branch = "master"
@@ -990,7 +998,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "90b807ada4cc7ab5d1409d637b1f3beb5a776be7"
+  revision = "ce871d178848e3eea1e8795e5cfb74053dde4bb9"
 
 [[projects]]
   branch = "master"
@@ -1010,7 +1018,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "644c193aa4421c00a67106abb92f5d942c09d558"
+  revision = "c7a403bb5fe12fe4644bb956edd5cd677626120a"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1062,8 +1070,11 @@
     "credentials/oauth",
     "encoding",
     "encoding/gzip",
+    "encoding/proto",
     "grpclb/grpc_lb_v1/messages",
     "grpclog",
+    "health",
+    "health/grpc_health_v1",
     "internal",
     "keepalive",
     "metadata",
@@ -1079,8 +1090,8 @@
     "tap",
     "transport"
   ]
-  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
-  version = "v1.9.2"
+  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
+  version = "v1.10.0"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -1130,19 +1141,23 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "6ce328b48d94e90f3c8022e811b875453da05477"
+  revision = "24209c4d7c9713900ac7571dfc38dd2eeea3f167"
 
 [[projects]]
   name = "istio.io/fortio"
   packages = [
+    ".",
+    "fgrpc",
     "fhttp",
     "fnet",
     "log",
     "periodic",
-    "stats"
+    "stats",
+    "ui",
+    "version"
   ]
-  revision = "abaacfd56859479cd712c45e70c8f1362be15e5b"
-  version = "v0.6.8"
+  revision = "3f6357777a6b5017ae944866ca1abb5c612deb42"
+  version = "v0.7.0"
 
 [[projects]]
   branch = "master"
@@ -1200,7 +1215,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "e30829566af6c087be3c38280705184ebecb321a"
+  revision = "4781907d891f76ddacb7f5bef62ad974948d7e6d"
 
 [[projects]]
   branch = "release-1.9"
@@ -1262,7 +1277,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "66da060b9e5e1f415bbaff2c0956518656534ce8"
+  revision = "43a9f1d3a4f036ddf9965108814e227dd06b42d4"
 
 [[projects]]
   branch = "release-6.0"
@@ -1367,13 +1382,10 @@
   revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
 
 [[projects]]
+  branch = "master"
   name = "k8s.io/cluster-registry"
-  packages = [
-    "pkg/apis/clusterregistry",
-    "pkg/apis/clusterregistry/v1alpha1"
-  ]
-  revision = "a636176fd5730d0638f1dee29307d6073eb0ba72"
-  version = "v0.0.3"
+  packages = ["pkg/apis/clusterregistry/v1alpha1"]
+  revision = "75c64f7daf2dbdb7756138c3d4b198109858488d"
 
 [[projects]]
   name = "k8s.io/helm"
@@ -1412,7 +1424,7 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "275e2ce91dec4c05a4094a7b1daee5560b555ac9"
+  revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
   branch = "release-1.9"
@@ -1427,11 +1439,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "f88c4c0b5e95eb2c559e2a00c80f7a9dee902d38"
+  revision = "1d6e114ce7a090d80b87b6eb0ca88d4eca98de7f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7f29290fe3a84c7338dce54e5b4e945d14b13f4d502822992ddf2c54f3bee827"
+  inputs-digest = "6a394f86ba6bebbc277706b5bfe953ecd9e24c222ffb6b613fda4bf70fd43ef8"
   solver-name = "gps-cdcl"
   solver-version = 1

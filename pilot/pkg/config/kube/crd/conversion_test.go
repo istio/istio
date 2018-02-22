@@ -53,6 +53,8 @@ func TestConvert(t *testing.T) {
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            model.RouteRule.Type,
+			Group:           "config.istio.io",
+			Version:         "v1alpha2",
 			Name:            "test",
 			Namespace:       "default",
 			Domain:          "cluster",

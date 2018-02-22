@@ -1004,12 +1004,6 @@ func TestDiscoveryCache(t *testing.T) {
 			clearCache: true,
 			query:      true,
 		},
-		{
-			wantCache:  "testdata/cache-cold.json",
-			clearCache: true,
-			clearStats: true,
-			query:      true,
-		},
 	}
 	for _, c := range cases {
 		if c.clearCache {

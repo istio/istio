@@ -16,11 +16,28 @@ This dashboard focuses on
 
 ## Implementation details
 
-[`start.sh`](start.sh) is the entrypoint, and it runs
-[`import_dashboard.sh`](import_dashboard.sh) in the background then
-starts Grafana. `import_dashboard.sh` POSTs the included dashboards
-and Prometheus data-source config to Grafana once it starts up.
+Grafana config is stored in
+[`grafana.ini`](grafana.ini). [`dashboards.yaml`](dashboards.yaml) and
+[`datasources.yaml`](datasources.yaml) configure those resources
+respectively using the
+[provisioning](http://docs.grafana.org/administration/provisioning/)
+config.
 
-A few env vars are set in the [Dockerfile](Dockerfile) to configure
-Grafana, and more environment-specific ones are set in the [install
+Provisioning is currently a new feature, so dashboards require a small
+modification. Normally when exporting a dashboard from Grafana, the
+datasources are templated, and then Grafana un-templates on import by
+matching to an existing datasource. When using Provisioning this
+doesn't happen, so this needs to be done manually.
+
+The name of the configured datasource in `datasources.yaml` is
+`Prometheus`, so all instances of `${DS_PROMETHEUS}` in exported
+dashboards need to be replaced with
+`Prometheus`. [`fix_datasources.sh`](fix_datasources.sh) accomplishes
+this. Grafana is expected to fix this issue in the near future.
+
+Another modification to dashboards is the `"uid"` field. This is
+hard-coded instead of using the randomly generated one. This is to
+allow easy direct hyperlinks to dashboards.
+
+Environment-specific config is set in the [install
 config](/install/kubernetes/templates/addons/grafana.yaml.tmpl).

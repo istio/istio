@@ -24,19 +24,16 @@
 PROJECT_NAME=istio-testing
 ZONE=us-central1-f
 MACHINE_TYPE=n1-standard-4
-NUM_NODES=1
+NUM_NODES=${NUM_NODES:-1}
 CLUSTER_NAME=
 
-# IFS=';' VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
-# CLUSTER_VERSION="${VERSIONS[1]}"
-
-# TODO(https://github.com/istio/istio/issues/2929)
-CLUSTER_VERSION=1.9.2-gke.0
+IFS=';' VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
+CLUSTER_VERSION="${VERSIONS[0]}"
 
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
 CLUSTER_CREATED=false
 
-delete_cluster () {
+function delete_cluster () {
   if [ "${CLUSTER_CREATED}" = true ]; then
     gcloud container clusters delete ${CLUSTER_NAME}\
       --zone ${ZONE}\
@@ -44,6 +41,12 @@ delete_cluster () {
       --quiet\
       || echo "Failed to delete cluster ${CLUSTER_NAME}"
   fi
+}
+
+function setup_cluster() {
+  kubectl create clusterrolebinding prow-cluster-admin-binding\
+    --clusterrole=cluster-admin\
+    --user="${KUBE_USER}"
 }
 
 function create_cluster() {
@@ -73,7 +76,6 @@ function create_cluster() {
     sleep 5
   done
 
-  kubectl create clusterrolebinding prow-cluster-admin-binding\
-    --clusterrole=cluster-admin\
-    --user="${KUBE_USER}"
+  setup_cluster
 }
+
