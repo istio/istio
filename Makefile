@@ -164,7 +164,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Marker for whether vendor submodule is here or not already
 GRPC_DIR:=./vendor/google.golang.org/grpc
@@ -230,6 +230,14 @@ depend.update:
 	time dep ensure
 	cp Gopkg.* vendor/
 	@echo "now check the diff in vendor/ and make a PR"
+
+vendor.check:
+	@echo "Checking that Gopkg.* are in sync with vendor/ submodule:"
+	@echo "if this fails, 'make pull' and/or seek on-call help"
+	diff Gopkg.toml vendor/
+	diff Gopkg.lock vendor/
+
+.PHONY: vendor.check
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
