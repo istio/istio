@@ -103,7 +103,7 @@ func TestMergeGateways(t *testing.T) {
 				}}},
 			nil,
 		},
-		{"same ports different domains",
+		{"same ports different domains (Multiple Hosts)",
 			&routing.Gateway{Servers: []*routing.Server{
 				{
 					Port:  port80,
@@ -172,6 +172,24 @@ func TestMergeGateways(t *testing.T) {
 			nil,
 			errors.New(`unable to merge gateways: conflicting ports`),
 		},
+		{"wildcard hosts",
+			&routing.Gateway{},
+			&routing.Gateway{Servers: []*routing.Server{
+				{
+					Port:  port80,
+					Tls:   tlsOne,
+					Hosts: []string{"*"},
+				},
+			}},
+			&routing.Gateway{Servers: []*routing.Server{
+				{
+					Port:  port80,
+					Tls:   tlsOne,
+					Hosts: []string{"*"},
+				},
+			}},
+			nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -189,7 +207,6 @@ func TestMergeGateways(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestPortsEqualAndDistinct(t *testing.T) {

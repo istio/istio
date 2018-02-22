@@ -640,6 +640,7 @@ func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
 	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
 	addConfig(registry, gatewayWeightedRouteRule, t)
 	addConfig(registry, gatewayConfig, t)
 	addConfig(registry, gatewayConfig2, t)
@@ -652,6 +653,19 @@ func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
 	url = fmt.Sprintf("/v1/routes/10088/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-router-gateway-weighted-server2.json", t)
+}
+
+func TestRouteDiscoveryRouterWildcardGateway(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
+	addConfig(registry, gatewayWildcardRouteRule, t)
+	addConfig(registry, gatewayWildcardConfig, t)
+
+	url := fmt.Sprintf("/v1/routes/10080/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-wildcard-server1.json", t)
 }
 
 func TestExternalServicesDiscoveryMode(t *testing.T) {
