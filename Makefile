@@ -122,8 +122,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-# Discover if user has dep installed -- prefer that
-DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
 GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
 GEN_CERT := ${ISTIO_BIN}/generate_cert
 
@@ -150,7 +148,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.ensure depend.status depend.update depend.view init
+.PHONY: depend depend.ensure depend.status depend.view init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -200,9 +198,9 @@ git.pullmaster:
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT} ${DEP}
-	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-	@touch $(ISTIO_OUT)/istio_is_init
+$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT}
+	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
+	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
@@ -217,35 +215,13 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 
 depend.ensure: init
 
-# Target to update the Gopkg.lock with latest versions.
-# Should be run when adding any new dependency and periodically.
-depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
-	${DEP} ensure
-	${DEP} ensure -update
-
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
-${DEP}:
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
-
 ${GOLINT}:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
-
-Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
-	$(Q) ${DEP} ensure -update
-
-# Generates the current status of the dependencies. Does not update the deps.
-depend.status:
-	$(Q) ${DEP} status > vendor/dep.txt
-	$(Q) ${DEP} status -dot > vendor/dep.dot
-
-# Visualize the dep status, using 'graphviz' package. Run as user
-depend.view:
-	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit
