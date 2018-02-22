@@ -21,13 +21,13 @@
 #include "common/common/logger.h"
 #include "envoy/event/dispatcher.h"
 #include "envoy/grpc/async_client.h"
+#include "envoy/http/header_map.h"
 
 #include "envoy/upstream/cluster_manager.h"
 #include "include/mixerclient/client.h"
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
 
 // An object to use Envoy::Grpc::AsyncClient to make grpc call.
 template <class RequestType, class ResponseType>
@@ -40,10 +40,10 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
 
   static Func GetFunc(Upstream::ClusterManager& cm,
                       const std::string& cluster_name,
-                      const HeaderMap* headers = nullptr);
+                      const Http::HeaderMap* headers = nullptr);
 
   GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
-                const HeaderMap* headers, ResponseType* response,
+                const Http::HeaderMap* headers, ResponseType* response,
                 istio::mixerclient::DoneFunc on_done);
 
   // Grpc::AsyncRequestCallbacks<ResponseType>
@@ -61,7 +61,7 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
   static const google::protobuf::MethodDescriptor& descriptor();
 
   Grpc::AsyncClientPtr async_client_;
-  const HeaderMap* headers_;
+  const Http::HeaderMap* headers_;
   ResponseType* response_;
   ::istio::mixerclient::DoneFunc on_done_;
   Grpc::AsyncRequest* request_{};
@@ -75,6 +75,5 @@ typedef GrpcTransport<istio::mixer::v1::ReportRequest,
                       istio::mixer::v1::ReportResponse>
     ReportTransport;
 
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy

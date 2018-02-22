@@ -20,10 +20,10 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "include/control/http/controller.h"
-#include "include/control/tcp/controller.h"
 #include "src/envoy/http/mixer/config.h"
-#include "src/envoy/http/mixer/grpc_transport.h"
-#include "src/envoy/http/mixer/stats.h"
+#include "src/envoy/utils/grpc_transport.h"
+#include "src/envoy/utils/mixer_control.h"
+#include "src/envoy/utils/stats.h"
 
 namespace Envoy {
 namespace Http {
@@ -34,52 +34,48 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   HttpMixerControl(const HttpMixerConfig& mixer_config,
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                   Runtime::RandomGenerator& random, MixerFilterStats& stats);
+                   Runtime::RandomGenerator& random,
+                   Utils::MixerFilterStats& stats)
+      : config_(mixer_config),
+        cm_(cm),
+        stats_obj_(dispatcher, stats,
+                   config_.http_config().transport().stats_update_interval(),
+                   [this](::istio::mixerclient::Statistics* stat) -> bool {
+                     return GetStats(stat);
+                   }) {
+    ::istio::control::http::Controller::Options options(config_.http_config());
+
+    Utils::CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
+                             config_.report_cluster(), &options.env);
+
+    controller_ = ::istio::control::http::Controller::Create(options);
+  }
 
   ::istio::control::http::Controller* controller() { return controller_.get(); }
 
-  CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
-    return CheckTransport::GetFunc(cm_, config_.check_cluster(), headers);
+  Utils::CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
+    return Utils::CheckTransport::GetFunc(cm_, config_.check_cluster(),
+                                          headers);
   }
 
  private:
+  // Call controller to get statistics.
+  bool GetStats(::istio::mixerclient::Statistics* stat) {
+    if (!controller_) {
+      return false;
+    }
+    controller_->GetStatistics(stat);
+    return true;
+  }
+
   // The mixer config.
   const HttpMixerConfig& config_;
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::control::http::Controller> controller_;
-
-  MixerStatsObject stats_obj_;
-};
-
-class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
- public:
-  // The constructor.
-  TcpMixerControl(const TcpMixerConfig& mixer_config,
-                  Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                  Runtime::RandomGenerator& random, MixerFilterStats& stats);
-
-  ::istio::control::tcp::Controller* controller() { return controller_.get(); }
-
-  std::chrono::milliseconds report_interval_ms() const {
-    return report_interval_ms_;
-  }
-
-  Event::Dispatcher& dispatcher() { return dispatcher_; }
-
- private:
-  // The mixer config.
-  const TcpMixerConfig& config_;
-  // The mixer control
-  std::unique_ptr<::istio::control::tcp::Controller> controller_;
-
-  // Time interval in milliseconds for sending periodical delta reports.
-  std::chrono::milliseconds report_interval_ms_;
-
-  Event::Dispatcher& dispatcher_;
-
-  MixerStatsObject stats_obj_;
+  // The stats object.
+  Utils::MixerStatsObject stats_obj_;
 };
 
 }  // namespace Mixer

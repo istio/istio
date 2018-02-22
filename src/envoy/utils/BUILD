@@ -18,22 +18,42 @@
 load(
     "@envoy//bazel:envoy_build_system.bzl",
     "envoy_cc_library",
+    "envoy_cc_test",
 )
 
 envoy_cc_library(
-    name = "filter_lib",
+    name = "utils_lib",
     srcs = [
+        "config.cc",
+        "grpc_transport.cc",
+        "mixer_control.cc",
+        "stats.cc",
+        "utils.cc",
+    ],
+    hdrs = [
         "config.h",
-        "http_filter.cc",
+        "grpc_transport.h",
         "mixer_control.h",
+        "stats.h",
+        "utils.h",
     ],
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/control/http:control_lib",
-        "//src/envoy/http/jwt_auth:http_filter_lib",
-        "//src/envoy/utils:utils_lib",
+        "//src/mixerclient:mixerclient_lib",
+        "//external:mixer_client_config_cc_proto",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
 
+envoy_cc_test(
+    name = "utils_test",
+    srcs = [
+        "utils_test.cc",
+    ],
+    deps = [
+        ":utils_lib",
+        "@envoy//test/test_common:utility_lib",
+    ],
+    repository = "@envoy",
+)

@@ -13,24 +13,26 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/config.h"
+#include "src/envoy/utils/config.h"
+#include "common/common/logger.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/json_util.h"
-#include "src/envoy/http/mixer/utils.h"
+#include "src/envoy/utils/utils.h"
 
 using ::google::protobuf::Message;
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::TransportConfig;
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
 namespace {
 
 const std::string kV2Config("v2");
 
 // The name for the mixer server cluster.
 const std::string kDefaultMixerClusterName("mixer_server");
+
+}  // namespace
 
 void SetDefaultMixerClusters(TransportConfig *config) {
   if (config->check_cluster().empty()) {
@@ -46,7 +48,7 @@ bool ReadV2Config(const Json::Object &json, Message *message) {
     return false;
   }
   std::string v2_str = json.getObject(kV2Config)->asJsonString();
-  Status status = Utils::ParseJsonMessage(v2_str, message);
+  Status status = ParseJsonMessage(v2_str, message);
   auto &logger = Logger::Registry::getLog(Logger::Id::config);
   if (status.ok()) {
     ENVOY_LOG_TO_LOGGER(logger, info, "V2 mixer client config: {}",
@@ -60,20 +62,5 @@ bool ReadV2Config(const Json::Object &json, Message *message) {
   return false;
 }
 
-}  // namespace
-
-void HttpMixerConfig::Load(const Json::Object &json) {
-  ReadV2Config(json, &http_config);
-
-  SetDefaultMixerClusters(http_config.mutable_transport());
-}
-
-void TcpMixerConfig::Load(const Json::Object &json) {
-  ReadV2Config(json, &tcp_config);
-
-  SetDefaultMixerClusters(tcp_config.mutable_transport());
-}
-
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy

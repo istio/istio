@@ -23,12 +23,11 @@
 #include "google/protobuf/util/json_util.h"
 
 namespace Envoy {
-namespace Http {
 namespace Utils {
 
 // Extract HTTP headers into a string map
 std::map<std::string, std::string> ExtractHeaders(
-    const HeaderMap& header_map, const std::set<std::string>& exclusives);
+    const Http::HeaderMap& header_map, const std::set<std::string>& exclusives);
 
 // Get ip and port from Envoy ip.
 bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port);
@@ -44,5 +43,4 @@ bool IsMutualTLS(const Network::Connection* connection);
     const std::string& json, ::google::protobuf::Message* output);
 
 }  // namespace Utils
-}  // namespace Http
 }  // namespace Envoy

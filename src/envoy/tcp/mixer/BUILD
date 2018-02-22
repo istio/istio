@@ -24,16 +24,15 @@ envoy_cc_library(
     name = "filter_lib",
     srcs = [
         "config.h",
-        "http_filter.cc",
+        "mixer_control.cc",
         "mixer_control.h",
+        "tcp_filter.cc",
     ],
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/control/http:control_lib",
-        "//src/envoy/http/jwt_auth:http_filter_lib",
+        "//src/control/tcp:control_lib",
         "//src/envoy/utils:utils_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
-

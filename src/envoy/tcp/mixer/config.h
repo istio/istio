@@ -20,39 +20,39 @@
 #include "src/envoy/utils/config.h"
 
 namespace Envoy {
-namespace Http {
+namespace Tcp {
 namespace Mixer {
 
-// Config for http filter.
-class HttpMixerConfig {
+// Config for tcp filter.
+class TcpMixerConfig {
  public:
   // Load from envoy filter config in JSON format.
   void Load(const Json::Object& json) {
-    Utils::ReadV2Config(json, &http_config_);
+    Utils::ReadV2Config(json, &tcp_config_);
 
-    Utils::SetDefaultMixerClusters(http_config_.mutable_transport());
+    Utils::SetDefaultMixerClusters(tcp_config_.mutable_transport());
   }
 
-  // The Http client config.
-  const ::istio::mixer::v1::config::client::HttpClientConfig& http_config()
+  // The Tcp client config.
+  const ::istio::mixer::v1::config::client::TcpClientConfig& tcp_config()
       const {
-    return http_config_;
+    return tcp_config_;
   }
 
   // check cluster
   const std::string& check_cluster() const {
-    return http_config_.transport().check_cluster();
+    return tcp_config_.transport().check_cluster();
   }
   // report cluster
   const std::string& report_cluster() const {
-    return http_config_.transport().report_cluster();
+    return tcp_config_.transport().report_cluster();
   }
 
  private:
-  // The Http client config.
-  ::istio::mixer::v1::config::client::HttpClientConfig http_config_;
+  // The Tcp client config.
+  ::istio::mixer::v1::config::client::TcpClientConfig tcp_config_;
 };
 
 }  // namespace Mixer
-}  // namespace Http
+}  // namespace Tcp
 }  // namespace Envoy

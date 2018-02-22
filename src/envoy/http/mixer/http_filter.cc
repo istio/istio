@@ -27,17 +27,15 @@
 #include "src/envoy/http/jwt_auth/jwt.h"
 #include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 #include "src/envoy/http/mixer/config.h"
-#include "src/envoy/http/mixer/grpc_transport.h"
 #include "src/envoy/http/mixer/mixer_control.h"
-#include "src/envoy/http/mixer/stats.h"
-#include "src/envoy/http/mixer/utils.h"
+#include "src/envoy/utils/grpc_transport.h"
+#include "src/envoy/utils/utils.h"
 
 #include <map>
 #include <mutex>
 #include <thread>
 
 using ::google::protobuf::util::Status;
-using ::istio::mixerclient::Statistics;
 using HttpCheckData = ::istio::control::http::CheckData;
 using HttpHeaderUpdate = ::istio::control::http::HeaderUpdate;
 using HttpReportData = ::istio::control::http::ReportData;
@@ -91,7 +89,7 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Upstream::ClusterManager& cm_;
   HttpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
-  MixerFilterStats stats_;
+  Utils::MixerFilterStats stats_;
 
  public:
   Config(const Json::Object& config,
@@ -117,7 +115,7 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   std::unique_ptr<EndUserAuthenticationPolicySpec> auth_config() {
     auto spec = std::unique_ptr<EndUserAuthenticationPolicySpec>(
         new EndUserAuthenticationPolicySpec);
-    for (const auto& it : mixer_config_.http_config.service_configs()) {
+    for (const auto& it : mixer_config_.http_config().service_configs()) {
       if (it.second.has_end_user_authn_spec()) {
         spec->MergeFrom(it.second.end_user_authn_spec());
       }

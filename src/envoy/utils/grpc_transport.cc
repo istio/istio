@@ -12,14 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/envoy/http/mixer/grpc_transport.h"
+#include "src/envoy/utils/grpc_transport.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
 namespace {
 
 // gRPC request timeout
@@ -27,16 +26,16 @@ const std::chrono::milliseconds kGrpcRequestTimeoutMs(5000);
 
 // HTTP trace headers that should pass to gRPC metadata from origin request.
 // x-request-id is added for easy debugging.
-const LowerCaseString kRequestId("x-request-id");
-const LowerCaseString kB3TraceId("x-b3-traceid");
-const LowerCaseString kB3SpanId("x-b3-spanid");
-const LowerCaseString kB3ParentSpanId("x-b3-parentspanid");
-const LowerCaseString kB3Sampled("x-b3-sampled");
-const LowerCaseString kB3Flags("x-b3-flags");
-const LowerCaseString kOtSpanContext("x-ot-span-context");
+const Http::LowerCaseString kRequestId("x-request-id");
+const Http::LowerCaseString kB3TraceId("x-b3-traceid");
+const Http::LowerCaseString kB3SpanId("x-b3-spanid");
+const Http::LowerCaseString kB3ParentSpanId("x-b3-parentspanid");
+const Http::LowerCaseString kB3Sampled("x-b3-sampled");
+const Http::LowerCaseString kB3Flags("x-b3-flags");
+const Http::LowerCaseString kOtSpanContext("x-ot-span-context");
 
-inline void CopyHeaderEntry(const HeaderEntry* entry,
-                            const LowerCaseString& key,
+inline void CopyHeaderEntry(const Http::HeaderEntry* entry,
+                            const Http::LowerCaseString& key,
                             Http::HeaderMap& headers) {
   if (entry) {
     std::string val(entry->value().c_str(), entry->value().size());
@@ -49,7 +48,7 @@ inline void CopyHeaderEntry(const HeaderEntry* entry,
 template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
     Grpc::AsyncClientPtr async_client, const RequestType& request,
-    const HeaderMap* headers, ResponseType* response,
+    const Http::HeaderMap* headers, ResponseType* response,
     istio::mixerclient::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       headers_(headers),
@@ -108,7 +107,7 @@ template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(
     Upstream::ClusterManager& cm, const std::string& cluster_name,
-    const HeaderMap* headers) {
+    const Http::HeaderMap* headers) {
   return [&cm, cluster_name, headers](const RequestType& request,
                                       ResponseType* response,
                                       istio::mixerclient::DoneFunc on_done)
@@ -142,11 +141,10 @@ const google::protobuf::MethodDescriptor& ReportTransport::descriptor() {
 // explicitly instantiate CheckTransport and ReportTransport
 template CheckTransport::Func CheckTransport::GetFunc(
     Upstream::ClusterManager& cm, const std::string& cluster_name,
-    const HeaderMap* headers);
+    const Http::HeaderMap* headers);
 template ReportTransport::Func ReportTransport::GetFunc(
     Upstream::ClusterManager& cm, const std::string& cluster_name,
-    const HeaderMap* headers);
+    const Http::HeaderMap* headers);
 
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy

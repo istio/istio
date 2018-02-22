@@ -21,8 +21,7 @@
 #include "include/mixerclient/client.h"
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
 
 /**
  * All mixer filter stats. @see stats_macros.h
@@ -82,6 +81,5 @@ class MixerStatsObject {
   int stats_update_interval_;
 };
 
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy

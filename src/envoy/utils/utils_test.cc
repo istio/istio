@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/utils.h"
+#include "src/envoy/utils/utils.h"
 #include "mixer/v1/config/client/client_config.pb.h"
 #include "test/test_common/utility.h"
 
-using Envoy::Http::Utils::ParseJsonMessage;
+using Envoy::Utils::ParseJsonMessage;
 
 namespace {
 

@@ -13,14 +13,13 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/utils.h"
+#include "src/envoy/utils/utils.h"
 #include "mixer/v1/attributes.pb.h"
 
 using ::google::protobuf::Message;
 using ::google::protobuf::util::Status;
 
 namespace Envoy {
-namespace Http {
 namespace Utils {
 
 namespace {
@@ -30,7 +29,8 @@ const std::string kSPIFFEPrefix("spiffe://");
 }  // namespace
 
 std::map<std::string, std::string> ExtractHeaders(
-    const HeaderMap& header_map, const std::set<std::string>& exclusives) {
+    const Http::HeaderMap& header_map,
+    const std::set<std::string>& exclusives) {
   std::map<std::string, std::string> headers;
   struct Context {
     Context(const std::set<std::string>& exclusives,
@@ -41,12 +41,13 @@ std::map<std::string, std::string> ExtractHeaders(
   };
   Context ctx(exclusives, headers);
   header_map.iterate(
-      [](const HeaderEntry& header, void* context) -> HeaderMap::Iterate {
+      [](const Http::HeaderEntry& header,
+         void* context) -> Http::HeaderMap::Iterate {
         Context* ctx = static_cast<Context*>(context);
         if (ctx->exclusives.count(header.key().c_str()) == 0) {
           ctx->headers[header.key().c_str()] = header.value().c_str();
         }
-        return HeaderMap::Iterate::Continue;
+        return Http::HeaderMap::Iterate::Continue;
       },
       &ctx);
   return headers;
@@ -99,5 +100,4 @@ Status ParseJsonMessage(const std::string& json, Message* output) {
 }
 
 }  // namespace Utils
-}  // namespace Http
 }  // namespace Envoy

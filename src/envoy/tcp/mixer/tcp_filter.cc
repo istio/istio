@@ -20,17 +20,17 @@
 #include "envoy/registry/registry.h"
 #include "envoy/server/instance.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/http/mixer/config.h"
-#include "src/envoy/http/mixer/mixer_control.h"
-#include "src/envoy/http/mixer/stats.h"
-#include "src/envoy/http/mixer/utils.h"
+#include "src/envoy/tcp/mixer/config.h"
+#include "src/envoy/tcp/mixer/mixer_control.h"
+#include "src/envoy/utils/stats.h"
+#include "src/envoy/utils/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 using ::istio::mixerclient::Statistics;
 
 namespace Envoy {
-namespace Http {
+namespace Tcp {
 namespace Mixer {
 namespace {
 
@@ -44,7 +44,7 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
   Upstream::ClusterManager& cm_;
   TcpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
-  MixerFilterStats stats_;
+  Utils::MixerFilterStats stats_;
 
  public:
   TcpConfig(const Json::Object& config,
@@ -241,7 +241,7 @@ class TcpInstance : public Network::Filter,
 };
 
 }  // namespace Mixer
-}  // namespace Http
+}  // namespace Tcp
 
 namespace Server {
 namespace Configuration {
@@ -250,11 +250,11 @@ class TcpMixerFilterFactory : public NamedNetworkFilterConfigFactory {
  public:
   NetworkFilterFactoryCb createFilterFactory(const Json::Object& config,
                                              FactoryContext& context) override {
-    Http::Mixer::TcpConfigPtr tcp_config(
-        new Http::Mixer::TcpConfig(config, context));
+    Tcp::Mixer::TcpConfigPtr tcp_config(
+        new Tcp::Mixer::TcpConfig(config, context));
     return [tcp_config](Network::FilterManager& filter_manager) -> void {
-      std::shared_ptr<Http::Mixer::TcpInstance> instance =
-          std::make_shared<Http::Mixer::TcpInstance>(tcp_config);
+      std::shared_ptr<Tcp::Mixer::TcpInstance> instance =
+          std::make_shared<Tcp::Mixer::TcpInstance>(tcp_config);
       filter_manager.addReadFilter(Network::ReadFilterSharedPtr(instance));
       filter_manager.addWriteFilter(Network::WriteFilterSharedPtr(instance));
     };

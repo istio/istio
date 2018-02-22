@@ -17,7 +17,7 @@
 ################################################################################
 #
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"
@@ -37,8 +37,8 @@ EOF
 }
 
 ENVOY="$ROOT/bazel-bin/src/envoy/envoy"
-TEMPLATE="$ROOT/src/envoy/mixer/envoy.conf.template"
-CONFIG="$ROOT/src/envoy/mixer/envoy.conf"
+TEMPLATE="$ROOT/src/envoy/http/mixer/envoy.conf.template"
+CONFIG="$ROOT/src/envoy/http/mixer/envoy.conf"
 DEBUG=''
 
 PORT='9090'

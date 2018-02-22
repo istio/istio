@@ -15,11 +15,10 @@
 
 #include <chrono>
 
-#include "src/envoy/http/mixer/stats.h"
+#include "src/envoy/utils/stats.h"
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
 namespace {
 
 // The time interval for envoy stats update.
@@ -100,6 +99,5 @@ void MixerStatsObject::CheckAndUpdateStats(
   old_stats_ = new_stats;
 }
 
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy
