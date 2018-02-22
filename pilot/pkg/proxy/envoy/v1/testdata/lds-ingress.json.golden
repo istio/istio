@@ -49,7 +49,7 @@
            "serviceConfigs": {},
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -124,7 +124,7 @@
            "serviceConfigs": {},
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }

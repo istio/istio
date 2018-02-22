@@ -75,7 +75,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -169,7 +169,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -274,7 +274,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -474,7 +474,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -528,7 +528,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -581,7 +581,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -641,7 +641,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -774,7 +774,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
