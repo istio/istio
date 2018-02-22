@@ -24,6 +24,7 @@ ISTIO_GO=$ROOT
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x # echo on
 
 # Set GOPATH to match the expected layout
 GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
@@ -42,43 +43,29 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
-PROXY=debug-$PROXYVERSION
+# Get the debug istio.io/proxy docker image. We'll use this image to extract the envoy executable used by
+# some of our tests.
+PROXY_DOCKERFILE="pilot/docker/Dockerfile.proxy_debug"
+ENVOY_IMAGE=$(grep envoy-debug $PROXY_DOCKERFILE  |cut -d ' ' -f2)
+ENVOY_IMAGE_VERSION=$(grep envoy-debug $PROXY_DOCKERFILE  |cut -d: -f2)
+ENVOY_BIN_NAME=envoy-$ENVOY_IMAGE_VERSION
 
-# Save envoy in $out
-if [ ! -f $OUT/envoy-$PROXYVERSION ] ; then
+if [ ! -f $OUT/$ENVOY_BIN_NAME ] ; then
     mkdir -p $OUT
     pushd $OUT
-    # New version of envoy downloaded. Save it to cache, and clean any old version.
 
-    DOWNLOAD_COMMAND=""
-    if command -v curl > /dev/null; then
-       if curl --version | grep Protocols  | grep https > /dev/null; then
-	   DOWNLOAD_COMMAND='curl -fLSs'
-       else
-           echo curl does not support https, will try wget for downloading files.
-       fi
-    else
-       echo curl is not installed, will try wget for downloading files.
-    fi
+    # Pull the image to the local docker registry.
+    echo "Downloading envoy docker image..."
+    docker pull $ENVOY_IMAGE
 
-    if [ -z "${DOWNLOAD_COMMAND}" ]; then
-        if command -v wget > /dev/null; then
-	    DOWNLOAD_COMMAND='wget -qO -'
-        else
-            echo wget is not installed.
-        fi
-    fi
+    # Run the image and pull out the envoy executable
+    echo "Extracting envoy from docker image..."
+    docker run $ENVOY_IMAGE cat /usr/local/bin/envoy > $ENVOY_BIN_NAME
 
-    if [ -z "${DOWNLOAD_COMMAND}" ]; then
-        echo Error: curl is not installed or does not support https, wget is not installed. \
-             Cannot download envoy. Please install wget or add support of https to curl.
-        exit 1
-    fi
+    # Set executable permissions on the binary.
+    chmod +x $ENVOY_BIN_NAME
 
-    echo "Downloading envoy $PROXY using $DOWNLOAD_COMMAND"
-    time ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-    cp usr/local/bin/envoy $OUT/envoy-$PROXYVERSION
+    # Remove any old envoy binaries.
     rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
     popd
 fi
@@ -86,11 +73,11 @@ fi
 if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     mkdir -p ${ISTIO_OUT}
     # Make sure the envoy binary exists.
-    cp $OUT/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
+    cp $OUT/$ENVOY_BIN_NAME ${ISTIO_OUT}/envoy
 fi
 
 # circleCI expects this in the bin directory
 if [ ! -f ${ISTIO_BIN}/envoy ] ; then
     mkdir -p ${ISTIO_BIN}
-    cp $OUT/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+    cp $OUT/$ENVOY_BIN_NAME ${ISTIO_BIN}/envoy
 fi
