@@ -18,10 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/mixer/v1/config"
+	"istio.io/api/mixer/v1/config/descriptor"
 	istio_mixer_v1_template "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -57,6 +60,15 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		Name:    name,
 		Variety: variety,
 		CtrCfg:  &types.Struct{},
+		AttributeManifests: []*config.AttributeManifest{
+			{
+				Attributes: map[string]*config.AttributeManifest_AttributeInfo{
+					"prefix.generated.string": {
+						ValueType: descriptor.STRING,
+					},
+				},
+			},
+		},
 		InferType: func(p proto.Message, evalFn template.TypeEvalFn) (proto.Message, error) {
 			l.writeFormat(name, "InferType => p: '%+v'", p)
 
@@ -67,7 +79,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 			_, _ = evalFn("source.name")
 			l.writeFormat(name, "InferType <= (SUCCESS)")
-			return &types.Empty{}, nil
+			return &types.Struct{}, nil
 		},
 		BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 			l.write(name, "BuilderSupportsTemplate =>")
@@ -84,7 +96,9 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.write(name, "SetType <=")
 		},
 		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
-			l.writeFormat(name, "DispatchCheck => instance: '%+v'", instance)
+			l.writeFormat(name, "DispatchCheck => context exists: '%+v'", ctx != nil)
+			l.writeFormat(name, "DispatchCheck => handler exists: '%+v'", handler != nil)
+			l.writeFormat(name, "DispatchCheck => instance:       '%+v'", instance)
 
 			signalCallAndWait(s)
 
@@ -108,6 +122,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return result, nil
 		},
 		DispatchReport: func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
+			l.writeFormat(name, "DispatchReport => context exists: '%+v'", ctx != nil)
+			l.writeFormat(name, "DispatchReport => handler exists: '%+v'", handler != nil)
 			l.writeFormat(name, "DispatchReport => instances: '%+v'", instances)
 
 			signalCallAndWait(s)
@@ -126,7 +142,9 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			return nil
 		},
 		DispatchQuota: func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-			l.writeFormat(name, "DispatchQuota => instance: '%+v'm qArgs:{dedup:'%v', amount:'%v', best:'%v'}",
+			l.writeFormat(name, "DispatchQuota => context exists: '%+v'", ctx != nil)
+			l.writeFormat(name, "DispatchQuota => handler exists: '%+v'", handler != nil)
+			l.writeFormat(name, "DispatchQuota => instance: '%+v' qArgs:{dedup:'%v', amount:'%v', best:'%v'}",
 				instance, args.DeduplicationID, args.QuotaAmount, args.BestEffort)
 
 			signalCallAndWait(s)
@@ -178,13 +196,29 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 
 		},
 		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
-			l.writeFormat(name, "CreateInstanceBuilder => name: '%+s', param: '%v'", instanceName, instanceParam)
+			l.writeFormat(name, "CreateInstanceBuilder => instanceName: '%+s'", instanceName)
+			l.writeFormat(name, "CreateInstanceBuilder => instanceParam: '%s'", instanceParam)
 			if s.ErrorAtCreateInstanceBuilder {
 				l.writeFormat(name, "CreateInstanceBuilder <= (FAIL)")
 				return nil, errors.New("error at create instance builder")
 			}
 
 			l.writeFormat(name, "CreateInstanceBuilder <= (SUCCESS)")
+
+			ip := instanceParam.(*types.Struct)
+			exprs := make(map[string]compiled.Expression)
+			for k, v := range ip.Fields {
+				if k == "attribute_bindings" {
+					continue
+				}
+
+				exp, _, err := builder.Compile(v.GetStringValue())
+				if err != nil {
+					l.writeFormat(name, "InstanceBuilderFn() <= (UNEXPECTED ERROR) (%v) %v", v.GetStringValue(), err)
+					return nil, fmt.Errorf("error compiling expression: %v=%v => %v", k, v, err)
+				}
+				exprs[k] = exp
+			}
 
 			return func(bag attribute.Bag) (interface{}, error) {
 				l.writeFormat(name, "InstanceBuilderFn() => name: '%s', bag: '%v'", name, bag.DebugString())
@@ -195,22 +229,52 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 				}
 
 				l.write(name, "InstanceBuilderFn() <= (SUCCESS)")
-				return &types.Empty{}, nil
+
+				instance := &types.Struct{
+					Fields: make(map[string]*types.Value),
+				}
+				for k, exp := range exprs {
+					v, err := exp.Evaluate(bag)
+					if err != nil {
+						return nil, err
+					}
+
+					instance.Fields[k] = &types.Value{
+						Kind: &types.Value_StringValue{StringValue: fmt.Sprintf("%v", v)},
+					}
+				}
+				return instance, nil
 			}, nil
 		},
 		CreateOutputExpressions: func(
 			instanceParam proto.Message,
 			finder expr.AttributeDescriptorFinder,
 			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
-			l.writeFormat(name, "CreateOutputExpressions => param: '%+v'", instanceParam)
+			l.writeFormat(name, "CreateOutputExpressions => param:            '%+v'", instanceParam)
+			l.writeFormat(name, "CreateOutputExpressions => finder exists:    '%+v'", finder != nil)
+			l.writeFormat(name, "CreateOutputExpressions => expb exists:      '%+v'", expb != nil)
 
-			l.writeFormat(name, "CreateOutputExpressions <= (SUCCESS)")
 			if s.ErrorAtCreateOutputExpressions {
 				l.writeFormat(name, "CreateOutputExpressions <= (FAIL)")
 				return nil, errors.New("error ar create output expressions")
 			}
 
-			return make(map[string]compiled.Expression), nil
+			ip := instanceParam.(*types.Struct)
+			exprs := make(map[string]compiled.Expression)
+			if bindings, ok := ip.Fields["attribute_bindings"]; ok {
+				for k, v := range bindings.GetStructValue().Fields {
+					str := strings.Replace(v.GetStringValue(), "$out", "prefix", -1)
+					exp, _, err := expb.Compile(str)
+					if err != nil {
+						l.writeFormat(name, "CreateOutputExpressions() <= (UNEXPECTED ERROR) (%v) %v", str, err)
+						return nil, fmt.Errorf("error compiling expression: %v=%v => %v", k, v, err)
+					}
+					exprs[k] = exp
+				}
+			}
+
+			l.write(name, "CreateOutputExpressions <= (SUCCESS)")
+			return exprs, nil
 		},
 	}
 }
