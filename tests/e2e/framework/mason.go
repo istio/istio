@@ -49,7 +49,7 @@ func parseInfoFile(filePath string) (*resourceInfo, error) {
 	return &info, nil
 }
 
-func resourceInfoToGCPRawVM(info resourceInfo) (*GCPRawVM, error) {
+func resourceInfoToGCPRawVM(info resourceInfo, ns string) (*GCPRawVM, error) {
 	// Need to have the cluster and VM are in the same project,
 	// if there is more than one project we'll take the first one.
 	if len(info.ProjectsInfo) < 1 {
@@ -72,5 +72,6 @@ func resourceInfoToGCPRawVM(info resourceInfo) (*GCPRawVM, error) {
 		ClusterName: clusterInfo.Name,
 		ProjectID:   projectInfo.Name,
 		UseMason:    true,
+		Namespace:   ns,
 	}, nil
 }

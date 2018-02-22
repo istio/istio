@@ -79,7 +79,7 @@ func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
 		if err != nil {
 			return nil, err
 		}
-		g, err := resourceInfoToGCPRawVM(*info)
+		g, err := resourceInfoToGCPRawVM(*info, namespace)
 		if err != nil {
 			return nil, err
 		}
