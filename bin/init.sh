@@ -42,29 +42,6 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
-
-# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
-# If CGO_ENABLED=0 then go get tries to install in system directories.
-# If -pkgdir <dir> is also used then various additional .a files are present.
-if [ ! -f ${DEP} ]; then
-    DEP=${ISTIO_BIN}/dep
-    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
-fi
-
-# Download dependencies if needed
-if [ ! -d vendor/github.com ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-elif [ ! -f vendor/Gopkg.lock ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-else
-    diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${DEP} ensure -vendor-only ; \
-              cp Gopkg.lock vendor/Gopkg.lock)
-fi
-
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
