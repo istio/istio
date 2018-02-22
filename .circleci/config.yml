@@ -266,26 +266,23 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
-  # Run nightly, to verify 'dep update' works and prime the cache
+  # Run nightly, to verify 'dep update' works
   depupdate:
     <<: *defaults
     steps:
       - checkout
       - run: make submodule-sync
-      - run: make depend.update init
-      - run: make build
+      - run: make depend.status # check before any change
+      - run: make depend.update
+      - run: ( cd vendor ; git status  ) # just to see what changes
+      - run: make init build
       - run:
           name: Status and artifacts
-          command: |
-            mkdir -p $/go/out
-            make depend.status
-            tar cfz /go/out/istio-vendor.tgz vendor
-      - store_artifacts:
-          path: /go/out/istio-vendor.tgz
+          command: make depend.status
       - store_artifacts:
           path: vendor/Gopkg.lock
       - store_artifacts:
-          path: vendor/dep.dot
+          path: /go/out/dep.dot
       # TODO: auto-commit Gopkg.lock if test is successful
 
   # Runs first, will download any dependencies - currently envoy, and do any work
