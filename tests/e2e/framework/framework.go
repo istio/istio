@@ -87,7 +87,7 @@ func InitLogging() error {
 // NewCommonConfigWithBaseVersion creates a new CommonConfig with the specified
 // version of Istio. If baseVersion is empty, it will use the local head
 // version.
-func NewCommonConfigWithBaseVersion(testID, version string) (*CommonConfig, error) {
+func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func NewCommonConfigWithBaseVersion(testID, version string) (*CommonConfig, erro
 
 // NewCommonConfig creates a full config with the local head version.
 func NewCommonConfig(testID string) (*CommonConfig, error) {
-	return NewCommonConfigWithBaseVersion(testID, "")
+	return NewCommonConfigWithVersion(testID, "")
 }
 
 func (t *testCleanup) RegisterCleanable(c Cleanable) {

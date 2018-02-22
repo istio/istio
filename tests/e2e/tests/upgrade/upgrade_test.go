@@ -300,11 +300,11 @@ func TestUpgrade(t *testing.T) {
 
 func setTestConfig() error {
 	var err error
-	baseConfig, err = framework.NewCommonConfigWithBaseVersion("upgrade_test", *flagBaseVersion)
+	baseConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagBaseVersion)
 	if err != nil {
 		return err
 	}
-	targetConfig, err = framework.NewCommonConfigWithBaseVersion("upgrade_test", *flagTargetVersion)
+	targetConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagTargetVersion)
 	if err != nil {
 		return err
 	}
