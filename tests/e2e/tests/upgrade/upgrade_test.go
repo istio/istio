@@ -233,9 +233,8 @@ func applyRules(ruleKeys []string) error {
 }
 
 func checkTraffic(t *testing.T) {
-	var err error
 	// Check whether gateway is reachable
-	err = probeGateway()
+	err := probeGateway()
 	inspect(err, "Failed to reach Gateway after upgrade", "", t)
 	// Check whether routes are correct.
 	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
@@ -332,10 +331,7 @@ func setTestConfig() error {
 	tc = new(testConfig)
 	tc.CommonConfig = baseConfig
 	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func TestMain(m *testing.M) {
