@@ -147,7 +147,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend init
+.PHONY: depend depend.status depend.update init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -205,12 +205,24 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${
 ${ISTIO_OUT}/envoy: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call dep.update if adding new deps or to pull recent
-# changes.
+# Developers must manually call make depend.update if adding new deps or
+# make pull to pull recent changes in the submodule.
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
+
+depend.status: | $(ISTIO_OUT)
+	dep status -dot > $(ISTIO_OUT)/dep.dot
+	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
+
+# https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
+depend.update:
+	-rm Gopkg.lock
+	time dep ensure
+	cp Gopkg.* vendor/
+	@echo "now check the diff in vendor/ and make a PR"
+
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
