@@ -20,8 +20,9 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
-	"istio.io/istio/security/pkg/pki/util"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
@@ -35,7 +36,7 @@ type nodeAgentInternal struct {
 	cAClient     grpc.CAGrpcClient
 	identity     string
 	secretServer workload.SecretServer
-	certUtil     CertUtil
+	certUtil     util.CertUtil
 }
 
 // Start starts the node Agent.
@@ -115,7 +116,7 @@ func (na *nodeAgentInternal) Start() error {
 }
 
 func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
-	csr, privKey, err := util.GenCSR(util.CertOptions{
+	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
 		Host:       na.identity,
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,

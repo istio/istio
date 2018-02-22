@@ -157,8 +157,8 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	return opts, nil
 }
 
-// NewIstioCAOptions returns a new IstioCAOptions instance using given certificate.
-func NewIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
+// NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
 	certTTL, maxCertTTL time.Duration) (*IstioCAOptions, error) {
 	caOpts := &IstioCAOptions{
 		CAType:     pluggedCertCA,

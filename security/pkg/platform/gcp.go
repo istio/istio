@@ -45,25 +45,21 @@ func (j *jwtAccess) RequireTransportSecurity() bool {
 	return true
 }
 
-// GcpConfig ...
-type GcpConfig struct {
-	// Root CA cert file to validate the gRPC service in CA.
-	RootCACertFile string
-	// Istio CA grpc server
-	CAAddr string
-}
-
 // GcpClientImpl is the implementation of GCP metadata client.
 type GcpClientImpl struct {
-	config  GcpConfig
+	// Root CA cert file to validate the gRPC service in CA.
+	rootCertFile string
+	// Istio CA grpc server
+	caAddr  string
 	fetcher cred.TokenFetcher
 }
 
 // NewGcpClientImpl creates a new GcpClientImpl.
-func NewGcpClientImpl(config GcpConfig) *GcpClientImpl {
+func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
 	return &GcpClientImpl{
-		config:  config,
-		fetcher: &cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", config.CAAddr)},
+		rootCertFile: rootCert,
+		caAddr:       ca,
+		fetcher:      &cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", ca)},
 	}
 }
 
@@ -76,16 +72,17 @@ func (ci *GcpClientImpl) IsProperPlatform() bool {
 func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 	jwtKey, err := ci.fetcher.FetchToken()
 	if err != nil {
-		log.Errorf("Failed to get instance from GCE metadata %s, please make sure this binary is running on a GCE VM", err)
+		log.Errorf("Failed to get token for dial option with error %s", err)
 		return nil, err
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(ci.config.RootCACertFile, "")
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
 	if err != nil {
 		return nil, err
 	}
 
-	options := []grpc.DialOption{grpc.WithPerRPCCredentials(&jwtAccess{jwtKey}), grpc.WithTransportCredentials(creds)}
+	options := []grpc.DialOption{grpc.WithPerRPCCredentials(&jwtAccess{jwtKey}),
+		grpc.WithTransportCredentials(creds)}
 	return options, nil
 }
 
@@ -93,12 +90,13 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 	serviceAccount, err := ci.fetcher.FetchServiceAccount()
 	if err != nil {
-		log.Errorf("Failed to get service account from GCE metadata %v, please make sure this binary is running on a GCE VM", err)
+		log.Errorf("Failed to get service account with error: %v", err)
 		return "", err
 	}
 
 	// Note: this is a temporary format, which might change.
-	serviceIdentity := fmt.Sprintf("spiffe://cluster.local/ns/default/sa/%s", serviceAccount)
+	serviceIdentity := fmt.Sprintf("spiffe://cluster.local/ns/default/sa/%s",
+		serviceAccount)
 	return serviceIdentity, nil
 }
 
@@ -106,7 +104,7 @@ func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 func (ci *GcpClientImpl) GetAgentCredential() ([]byte, error) {
 	jwtKey, err := ci.fetcher.FetchToken()
 	if err != nil {
-		log.Errorf("Failed to get instance from GCE metadata %s, please make sure this binary is running on a GCE VM", err)
+		log.Errorf("Failed to get creds with error %s", err)
 		return nil, err
 	}
 

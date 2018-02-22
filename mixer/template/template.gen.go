@@ -599,7 +599,7 @@ var (
 				outBag := newWrapperAttrBag(
 					func(name string) (value interface{}, found bool) {
 						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) {
+						if len(field) != len(name) && out.WasSet(field) {
 							switch field {
 
 							case "source_pod_ip":
