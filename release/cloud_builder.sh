@@ -62,7 +62,7 @@ done
 
 DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
 if [[ -n "${TEST_GCS_PATH}" ]]; then
-  TEST_PATH="https://storage.googleapis.com/${TEST_GCS_PATH}"
+  TEST_PATH="${TEST_GCS_PATH}"
 else
   TEST_PATH="${DEFAULT_GCS_PATH}"
 fi
