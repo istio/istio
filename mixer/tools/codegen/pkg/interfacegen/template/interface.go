@@ -22,6 +22,7 @@ package {{.GoPackageName}}
 
 import (
   "context"
+  "strings"
   "istio.io/istio/mixer/pkg/adapter"
   "istio.io/istio/mixer/pkg/adapter"
   $$additional_imports$$
@@ -49,10 +50,27 @@ type Instance struct {
 //
 {{.OutputTemplateMessage.Comment}}{{end}}
 type Output struct {
+  fieldsSet map[string]bool
   {{range .OutputTemplateMessage.Fields}}
   {{.Comment}}
   {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}
   {{end}}
+}
+
+func NewOutput() (*Output) {
+  return &Output{fieldsSet: make(map[string]bool)}
+}
+
+{{range .OutputTemplateMessage.Fields}}
+func (o *Output) Set{{.GoName}}(val {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}) { 
+   o.fieldsSet["{{.ProtoName}}"] = true
+   o.{{.GoName}} = val
+}
+{{end}}
+
+func (o *Output) WasSet(field string) bool {
+   _, found := o.fieldsSet[field]
+   return found
 }
 {{end}}
 

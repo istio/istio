@@ -22,7 +22,7 @@ import (
 	"time"
 
 	pb "istio.io/api/mixer/v1/config"
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
@@ -510,6 +510,37 @@ end`,
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		conf:   exprEvalAttrs,
 	},
+	{
+		E:    "emptyStringMap()",
+		Type: descriptor.STRING_MAP,
+		IL: `
+fn eval() interface
+  call emptyStringMap
+  ret
+end
+`,
+		R:          map[string]string{},
+		I:          map[string]interface{}{},
+		Referenced: []string{},
+		conf:       exprEvalAttrs,
+	},
+	{
+		E:          `source.labels | emptyStringMap()`,
+		Type:       descriptor.STRING_MAP,
+		I:          map[string]interface{}{},
+		R:          map[string]string{},
+		Referenced: []string{"source.labels"},
+		conf:       exprEvalAttrs,
+	},
+	// TODO: uncomment the following lines when short-circuiting for externs is added
+	//{
+	//	E:    `emptyStringMap() | source.labels`,
+	//	Type: descriptor.STRING_MAP,
+	//	I:    map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
+	//	R:    map[string]string{},
+	//	Referenced: []string{},
+	//	conf: exprEvalAttrs,
+	//},
 
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
@@ -1994,6 +2025,268 @@ end
 	},
 
 	{
+		E:    `ip(as) | ip(bs)`,
+		Type: descriptor.IP_ADDRESS,
+		I: map[string]interface{}{
+			"as": "1.2.3.4",
+			"bs": "5.6.7.8",
+		},
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call ip
+  jmp L0
+  resolve_s "bs"
+  call ip
+L0:
+  ret
+end
+`,
+		R: net.ParseIP("1.2.3.4"),
+	},
+
+	{
+		E:    `ip(as) | ip(bs)`,
+		Type: descriptor.IP_ADDRESS,
+		I: map[string]interface{}{
+			"bs": "1.2.3.4",
+		},
+		Err: `lookup failed: 'as'`,
+	},
+
+	{
+		E:    `true | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  apush_b true
+  jmp L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | true`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_b true
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | ab`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": true,
+		},
+		R: false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  resolve_b "ab"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("f") | ab`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+  jmp L0
+  resolve_b "ab"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | bb`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"bb": true,
+		},
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  resolve_b "bb"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | bb | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  tresolve_b "bb"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | bb | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"bb": true,
+		},
+	},
+	{
+		E:    `ab | true | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_b true
+  jmp L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | true`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_b true
+L0:
+  ret
+end
+`,
+	},
+
+	{
 		E:    `reverse(as)`,
 		Type: descriptor.STRING,
 		IL: `
@@ -2419,6 +2712,9 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"servicename": {
 		ValueType: descriptor.STRING,
+	},
+	"source.labels": {
+		ValueType: descriptor.STRING_MAP,
 	},
 }
 

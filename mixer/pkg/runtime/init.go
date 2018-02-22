@@ -15,8 +15,6 @@
 package runtime
 
 import (
-	"context"
-
 	"github.com/gogo/protobuf/proto"
 
 	cpb "istio.io/api/mixer/v1/config"
@@ -49,13 +47,12 @@ func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeLi
 // startWatch registers with store, initiates a watch, and returns the current config state.
 func startWatch(s store.Store, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
-	ctx := context.Background()
 	kindMap := KindMap(adapterInfo, templateInfo)
-	if err := s.Init(ctx, kindMap); err != nil {
+	if err := s.Init(kindMap); err != nil {
 		return nil, nil, err
 	}
 	// create channel before listing.
-	watchChan, err := s.Watch(ctx)
+	watchChan, err := s.Watch()
 	if err != nil {
 		return nil, nil, err
 	}

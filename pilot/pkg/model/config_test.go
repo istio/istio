@@ -317,19 +317,19 @@ func TestMatchSource(t *testing.T) {
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "world"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      true,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      true,
 		},
 	}
@@ -392,7 +392,7 @@ func (errorStore) Delete(typ, name, namespace string) error {
 }
 
 func TestRouteRules(t *testing.T) {
-	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
+	instance := mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")
 
 	testCases := []struct {
 		configType string
@@ -456,7 +456,7 @@ func TestRouteRules(t *testing.T) {
 				t.Error("RouteRules() => expected no match for source-matched rules")
 			}
 
-			world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
+			world := mock.MakeInstance(mock.WorldService, mock.GetPortHTTP(mock.WorldService), 0, "")
 			if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}, mock.HelloProxyV0.Domain); len(out) != 1 ||
 				!reflect.DeepEqual(tc.spec, out[0].Spec) {
 				t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, tc.spec)
@@ -503,12 +503,15 @@ func TestEgressRules(t *testing.T) {
 		t.Error(err)
 	}
 
-	want := map[string]*routing.EgressRule{
-		"egress-rule/default/example": rule,
-	}
 	got := store.EgressRules()
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("EgressRules() => expected %#v, got %#v", want, got)
+	if len(got) != 1 {
+		t.Fatalf("EgressRules() => want 1 rule, got %d", len(got))
+	}
+
+	gotRule := got[0].Spec
+
+	if !reflect.DeepEqual(gotRule, rule) {
+		t.Errorf("EgressRules() => expected \n%#v, got \n%#v", rule, gotRule)
 	}
 
 	// erroring out list
@@ -520,7 +523,7 @@ func TestEgressRules(t *testing.T) {
 func TestPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
-	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")}
+	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
 
 	policy1 := &routing.DestinationPolicy{
 		Source: &routing.IstioService{

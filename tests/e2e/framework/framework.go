@@ -190,9 +190,6 @@ func (c *CommonConfig) saveLogs(r int) error {
 		log.Warn("Skipping log saving as Info is not initialized")
 		return nil
 	}
-	if c.Info.LogBucketPath == "" {
-		return nil
-	}
 	log.Info("Saving logs")
 	if err := c.Info.Update(r); err != nil {
 		log.Errorf("Could not create status file. Error %s", err)

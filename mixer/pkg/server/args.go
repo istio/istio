@@ -90,6 +90,12 @@ type Args struct {
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
 
+	// Enable profiling via web interface host:port/debug/pprof
+	EnableProfiling bool
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
+
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
@@ -110,6 +116,7 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
+		UseNewRuntime:                 true,
 		LoggingOptions:                log.NewOptions(),
 		TracingOptions:                tracing.NewOptions(),
 		LivenessProbeOptions:          &probe.Options{},
@@ -144,11 +151,13 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
+	b.WriteString(fmt.Sprint("EnableProfiling: ", a.EnableProfiling, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
 	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
 	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()

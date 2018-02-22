@@ -263,7 +263,7 @@ func TestClusterDiscoveryError(t *testing.T) {
 
 func TestClusterDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -401,7 +401,7 @@ func TestRouteDiscoveryError(t *testing.T) {
 
 func TestRouteDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -412,7 +412,8 @@ func TestRouteDiscoveryError2(t *testing.T) {
 
 func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh := makeMeshConfig()
-	mesh.MixerAddress = ""
+	mesh.MixerCheckServer = ""
+	mesh.MixerReportServer = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
 	addConfig(registry, egressRuleTCP, t)
@@ -627,8 +628,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 
 func TestRouteDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	url := fmt.Sprintf("/v1/routes/invalidRDSName/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("unexpected error response from discovery: got %v, want %v",
@@ -636,18 +636,36 @@ func TestRouteDiscoveryRouterError(t *testing.T) {
 	}
 }
 
-func TestRouteDiscoveryRouterWeighted(t *testing.T) {
-	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
-		_, registry, ds := commonSetup(t)
-		addConfig(registry, weightConfig, t)
+func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
+	_, registry, ds := commonSetup(t)
 
-		// TODO: v1alpha2 only
-		addConfig(registry, destinationRuleWorld, t)
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
+	addConfig(registry, gatewayWeightedRouteRule, t)
+	addConfig(registry, gatewayConfig, t)
+	addConfig(registry, gatewayConfig2, t)
+	addConfig(registry, destinationRuleWorld, t)
 
-		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-		response := makeDiscoveryRequest(ds, "GET", url, t)
-		compareResponse(response, "testdata/rds-router-weighted.json", t)
-	}
+	url := fmt.Sprintf("/v1/routes/10080/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-weighted-server1.json", t)
+
+	url = fmt.Sprintf("/v1/routes/10088/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-weighted-server2.json", t)
+}
+
+func TestRouteDiscoveryRouterWildcardGateway(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
+	addConfig(registry, gatewayWildcardRouteRule, t)
+	addConfig(registry, gatewayWildcardConfig, t)
+
+	url := fmt.Sprintf("/v1/routes/10080/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-wildcard-server1.json", t)
 }
 
 func TestExternalServicesDiscoveryMode(t *testing.T) {
@@ -808,7 +826,8 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 
 			// test with no mixer
 			mesh := makeMeshConfig()
-			mesh.MixerAddress = ""
+			mesh.MixerCheckServer = ""
+			mesh.MixerReportServer = ""
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response = makeDiscoveryRequest(ds, "GET", url, t)
@@ -873,7 +892,7 @@ func TestRouteDiscoverySidecarError(t *testing.T) {
 
 func TestRouteDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -913,7 +932,7 @@ func TestListenerDiscoverySidecarError(t *testing.T) {
 
 func TestListenerDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	mockDiscovery.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -938,31 +957,27 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 	compareResponse(response, "testdata/rds-httpproxy.json", t)
 }
 
-func TestListenerDiscoveryRouterError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("mock Services() error")
-	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
-}
-
-func TestListenerDiscoveryRouter(t *testing.T) {
+func TestListenerDiscoveryRouterWithGateway(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
-	addConfig(registry, egressRule, t)
+
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayWeightedRouteRule, t)
+	addConfig(registry, gatewayConfig, t)
+	addConfig(registry, gatewayConfig2, t)
+	addConfig(registry, destinationRuleWorld, t)
 
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-router.json", t)
+	compareResponse(response, "testdata/lds-router-with-gateway.json", t)
 
 	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-router-auth.json", t)
+
+	// same response with or without auth
+	compareResponse(response, "testdata/lds-router-with-gateway.json", t)
 }
 
 func TestDiscoveryCache(t *testing.T) {
@@ -1001,12 +1016,6 @@ func TestDiscoveryCache(t *testing.T) {
 		{
 			wantCache:  "testdata/cache-cleared.json",
 			clearCache: true,
-			query:      true,
-		},
-		{
-			wantCache:  "testdata/cache-cold.json",
-			clearCache: true,
-			clearStats: true,
 			query:      true,
 		},
 	}
@@ -1055,7 +1064,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 			want:             "AvailabilityZone couldn't find the given cluster node",
 		},
 		{
-			name: "when GetSidecarServiceInstances errors return that error",
+			name: "when GetProxyServiceInstances errors return that error",
 			err:  errors.New("bang"),
 			want: "AvailabilityZone bang",
 		},
@@ -1064,8 +1073,8 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, ds := commonSetup(t)
 			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
-			mock.Discovery.WantGetSidecarServiceInstances = tt.sidecarInstances
-			mockDiscovery.GetSidecarServiceInstancesError = tt.err
+			mock.Discovery.WantGetProxyServiceInstances = tt.sidecarInstances
+			mockDiscovery.GetProxyServiceInstancesError = tt.err
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			if tt.want != string(response) {
 				t.Errorf("wanted %v but received %v", tt.want, string(response))
@@ -1074,7 +1083,7 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	}
 }
 
-func TestMixerclientServiceConfig(t *testing.T) {
+func TestMixerFilterServiceConfig(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
 	addConfig(registry, mixerclientAPISpec, t)
@@ -1091,4 +1100,20 @@ func TestMixerclientServiceConfig(t *testing.T) {
 	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-mixerclient-filter.json", t)
+}
+
+func TestSeparateCheckReportClusters(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.MixerCheckServer = "istio-mixer-policy-check.istio-system:9090"
+	mesh.MixerReportServer = "istio-mixer-telemetry.istio-system:9090"
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-mixer-check-report-config.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-mixer-check-report-config.json", t)
 }

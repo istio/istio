@@ -18,44 +18,94 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"istio.io/istio/tests/integration/framework"
 )
 
-var (
-	envoyBinary = flag.String("envoy_binary", "", "Envoy binary path.")
+const (
+	sideCarEndpoint = "http://localhost:9090/echo"
 )
+
+var (
+	envoyStartScript = flag.String("envoy_start_script", "", "start_envoy script")
+	envoyBinary      = flag.String("envoy_binary", "", "Envoy binary path.")
+	lock             sync.Mutex
+)
+
+// LocalCompConfig contains configs for LocalComponent
+type LocalCompConfig struct {
+	framework.Config
+	LogFile string
+}
+
+// LocalCompStatus contains status for LocalComponent
+type LocalCompStatus struct {
+	framework.Status
+	SideCarEndpoint string
+}
 
 // LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
-	Name        string
-	LogFile     string
+	name        string
+	config      LocalCompConfig
+	status      LocalCompStatus
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, logDir string) *LocalComponent {
-	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
-
+func NewLocalComponent(n string, config LocalCompConfig) *LocalComponent {
 	return &LocalComponent{
-		Name:    n,
-		LogFile: logFile,
+		name:   n,
+		config: config,
 	}
 }
 
 // GetName implement the function in component interface
 func (proxyComp *LocalComponent) GetName() string {
-	return proxyComp.Name
+	return proxyComp.name
+}
+
+// GetConfig return the config for outside use
+func (proxyComp *LocalComponent) GetConfig() framework.Config {
+	lock.Lock()
+	config := proxyComp.config
+	lock.Unlock()
+	return config
+}
+
+// SetConfig set a config into this component
+func (proxyComp *LocalComponent) SetConfig(config framework.Config) error {
+	proxyConfig, ok := config.(LocalCompConfig)
+	if !ok {
+		return fmt.Errorf("cannot cast config into proxy local config")
+	}
+	lock.Lock()
+	proxyComp.config = proxyConfig
+	lock.Unlock()
+	return nil
+}
+
+// GetStatus return the status for outside use
+func (proxyComp *LocalComponent) GetStatus() framework.Status {
+	lock.Lock()
+	status := proxyComp.status
+	lock.Unlock()
+	return status
 }
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s > %s 2>&1",
-		*envoyBinary, proxyComp.LogFile)); err != nil {
+	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s -e %s > %s 2>&1",
+		*envoyStartScript, *envoyBinary, proxyComp.config.LogFile)); err != nil {
 		return
 	}
+
+	lock.Lock()
+	proxyComp.status.SideCarEndpoint = sideCarEndpoint
+	lock.Unlock()
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
@@ -75,9 +125,4 @@ func (proxyComp *LocalComponent) IsAlive() (bool, error) {
 func (proxyComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", proxyComp.GetName())
 	return proxyComp.testProcess.Stop()
-}
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (proxyComp *LocalComponent) Cleanup() error {
-	return nil
 }

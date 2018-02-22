@@ -2,7 +2,11 @@ dependencies:
   - name: sidecar-injector
     version: 0.5.0
     # repository: file://../sidecar-injector
-    condition: sidecarInjector.enabled
+    condition: sidecar-injector.enabled
+  - name: ingress
+    version: 0.5.0
+    # repository: file://../ingress
+    condition: ingress.enabled
   - name: mixer
     version: 0.5.0
     # repository: file://../mixer

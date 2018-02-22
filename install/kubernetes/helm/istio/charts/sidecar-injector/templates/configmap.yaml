@@ -14,12 +14,16 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.sidecarInjector.repository }}:{{ .Values.global.sidecarInjector.tag }}
+        image: {{ .Values.global.proxyInit.repository }}:{{ .Values.global.proxyInit.tag }}
         args:
         - "-p"
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
         - "-u"
         - 1337
+        {{ if .Values.includeIPRanges -}}
+        - "-i"
+        - {{ .Values.includeIPRanges | quote }}
+        {{ end -}}
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
@@ -44,17 +48,17 @@ data:
         - "istio-proxy"
         {{ "{{ end -}}" }}
         - --drainDuration
-        - 2s
+        - {{ "{{ formatDuration .ProxyConfig.DrainDuration }}" }}
         - --parentShutdownDuration
-        - 3s
+        - {{ "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}" }}
         - --discoveryAddress
         - {{ "{{ .ProxyConfig.DiscoveryAddress }}" }}
         - --discoveryRefreshDelay
-        - 1s
+        - {{ "{{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}" }}
         - --zipkinAddress
         - {{ "{{ .ProxyConfig.ZipkinAddress }}" }}
         - --connectTimeout
-        - 1s
+        - {{ "{{ formatDuration .ProxyConfig.ConnectTimeout }}" }}
         - --statsdUdpAddress
         - {{ "{{ .ProxyConfig.StatsdUdpAddress }}" }}
         - --proxyAdminPort

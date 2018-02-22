@@ -17,6 +17,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
+  - [Building and pushing a specific container](#building-and-pushing-a-container)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Debug an Istio container with Delve](#debug-an-istio-container-with-delve)
@@ -28,7 +29,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
 - [Working with CircleCI](#working-with-circleci)
-- [Writing reference docs](#wiriting-reference-docs)
+- [Writing reference docs](#writing-reference-docs)
   - [About proto documentation](#about-proto-documentation)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
@@ -236,6 +237,46 @@ Push the containers to your registry:
 make push
 ```
 
+### Building and pushing a specific container.
+
+If you want to make a local change and test some component, say istio-ca, you
+could do:
+
+Under istio/istio repo
+
+```shell
+pwd
+```
+The path should be
+
+```shell
+.../src/istio.io/istio
+```
+
+Set up environment variables HUB and TAG by
+```shell
+export HUB=docker.io/yourrepo
+export TAG=istio-ca
+```
+
+Make some local change of CA code, then build istio-ca
+
+```shell
+bin/gobuild.sh istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+```
+
+Note: for other images, check Makefile for more info.
+
+And move this file to docker_temp repo
+```shell
+cp istio_ca /usr/local/google/home/lita/Desktop/out/linux_amd64/release/docker_temp
+```
+
+Push docker image
+```shell
+make push.docker.istio-ca
+```
+
 ### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
@@ -313,7 +354,7 @@ You can automatically format the source code to follow our conventions by going 
 top of the repo and entering:
 
 ```shell
-make fmt
+make format
 ```
 
 ### Running the linters
@@ -349,6 +390,9 @@ dep ensure -add github.com/foo/bar
 The command above adds a version constraint to Gopkg.toml and updates
 Gopkg.lock. Inspect Gopkg.toml to ensure that the package is pinned to the
 correct SHA. _Please pin to COMMIT SHAs instead of branches or tags._
+
+You will need to commit the vendor/ change through a separate PR, please see
+https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
 
 ### About testing
 
@@ -391,7 +435,7 @@ protos in the `istio/api` repo, the Mixer adapter configuration protos, and the 
 template definitions are all examples of this.
 
 - Cobra commands for our CLI docs. The various CLI commands we build generally use the
-Cobra framework to parse our command-lines. Cobra is also used to produce 
+Cobra framework to parse our command-lines. Cobra is also used to produce
 reference documentation for the individual commands.
 
 Here's how this works:
@@ -404,7 +448,7 @@ Here's how this works:
 also produces `.pb.html` files which hold the documentation for the particular proto package.
 
 - Within the `istio/istio.github.io` repo, the script file
-[scripts/grab_reference_docs.sh](https://github.com/istio/istio.github.io/blob/master/scripts/grab_reference_docs.sh) 
+[scripts/grab_reference_docs.sh](https://github.com/istio/istio.github.io/blob/master/scripts/grab_reference_docs.sh)
 does the work necessary to harvest all the generated `.pb.html` files from the `istio/api`
 and `istio/istio` repos and installs them in the right place in the website hierarchy.
 The script also builds and runs the various CLI commands we have in order to extract their
@@ -424,7 +468,7 @@ package pkg;
 
 // This documents the message as a whole
 message MyMsg {
-    // This documents this field 
+    // This documents this field
     // It can contain many lines.
     int32 field1 = 1;
 

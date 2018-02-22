@@ -324,7 +324,7 @@ func ExtractTarGz(gzipStream io.Reader) error {
 			if err != nil {
 				return errors.Wrap(err, "ExtractTarGz: Create() failed")
 			}
-			defer outFile.Close()
+			defer outFile.Close() // nolint: errcheck
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return errors.Wrap(err, "ExtractTarGz: Copy() failed")
 			}

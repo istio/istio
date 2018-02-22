@@ -27,10 +27,7 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-type FakeNodeAgentGrpcServer struct {
-	response *pb.CsrResponse
-	errorMsg string
-}
+type FakeNodeAgentGrpcServer struct{}
 
 func (s *FakeNodeAgentGrpcServer) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	status := &rpc.Status{Code: int32(rpc.OK), Message: "OK"}
@@ -64,7 +61,7 @@ func TestWorkloadAdded(t *testing.T) {
 
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
-	client := &NodeAgentClient{nil, "Dest", false}
+	client := &NodeAgentClient{nil, "Dest"}
 
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
@@ -97,7 +94,7 @@ func TestWorkloadDeleted(t *testing.T) {
 
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
-	client := &NodeAgentClient{nil, "Dest", false}
+	client := &NodeAgentClient{nil, "Dest"}
 
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}

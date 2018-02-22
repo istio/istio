@@ -82,13 +82,14 @@ func TestIsProperPlatform(t *testing.T) {
 }
 
 func TestNewAwsClientImpl(t *testing.T) {
-	client := NewAwsClientImpl(AwsConfig{})
+	client := NewAwsClientImpl("")
 	if client == nil {
 		t.Errorf("NewAwsClientImpl should not return nil")
 	}
 }
 
 func TestAwsGetInstanceIdentityDocument(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/3177")
 	testCases := map[string]struct {
 		sigFile              string
 		doc                  string
@@ -198,6 +199,7 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 }
 
 func TestGetGetAgentCredential(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/3177")
 	testCases := map[string]struct {
 		sigFile            string
 		doc                string
@@ -260,30 +262,20 @@ func TestAwsGetDialOptions(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		sigFile         string
-		requestPath     string
 		expectedErr     string
-		cfg             *ClientConfig
+		rootCertFile    string
 		expectedOptions []grpc.DialOption
 	}{
 		"Good DialOptions": {
-			expectedErr: "",
-			cfg: &ClientConfig{
-				AwsConfig: AwsConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
+			expectedErr:  "",
+			rootCertFile: "testdata/cert-chain-good.pem",
 			expectedOptions: []grpc.DialOption{
 				grpc.WithTransportCredentials(creds),
 			},
 		},
 		"Bad DialOptions": {
-			expectedErr: "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
-			cfg: &ClientConfig{
-				AwsConfig: AwsConfig{
-					RootCACertFile: "testdata/cert-chain-good_not_exist.pem",
-				},
-			},
+			expectedErr:  "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
+			rootCertFile: "testdata/cert-chain-good_not_exist.pem",
 			expectedOptions: []grpc.DialOption{
 				grpc.WithTransportCredentials(creds),
 			},
@@ -292,8 +284,8 @@ func TestAwsGetDialOptions(t *testing.T) {
 
 	for id, c := range testCases {
 		awsc := &AwsClientImpl{
-			config: c.cfg.AwsConfig,
-			client: ec2metadata.New(unit.Session, &aws.Config{}),
+			rootCertFile: c.rootCertFile,
+			client:       ec2metadata.New(unit.Session, &aws.Config{}),
 		}
 
 		options, err := awsc.GetDialOptions()

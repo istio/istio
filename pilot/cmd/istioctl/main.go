@@ -613,8 +613,8 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
 			crd.KabobCaseToCamelCase(c.Type),
-			model.IstioAPIVersion,
-			model.IstioAPIGroup,
+			c.Group,
+			c.Version,
 		)
 		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
 	}
@@ -646,12 +646,15 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 }
 
 func newClient() (*crd.Client, error) {
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
 		model.V1alpha2RouteRule,
 		model.Gateway,
 		model.EgressRule,
+		model.ExternalService,
 		model.DestinationPolicy,
+		model.DestinationRule,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,

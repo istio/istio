@@ -42,42 +42,19 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-DEP=${DEP:-$(which dep || echo "${ISTIO_BIN}/dep" )}
-
-# Just in case init.sh is called directly, not from Makefile which has a dependency to dep
-# If CGO_ENABLED=0 then go get tries to install in system directories.
-# If -pkgdir <dir> is also used then various additional .a files are present.
-if [ ! -f ${DEP} ]; then
-    DEP=${ISTIO_BIN}/dep
-    unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
-fi
-
-# Download dependencies if needed
-if [ ! -d vendor/github.com ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-elif [ ! -f vendor/Gopkg.lock ]; then
-    ${DEP} ensure -vendor-only
-    cp Gopkg.lock vendor/Gopkg.lock
-else
-    diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${DEP} ensure -vendor-only ; \
-              cp Gopkg.lock vendor/Gopkg.lock)
-fi
-
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
-# Save envoy in vendor, which is cached
-if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
+# Save envoy in $out
+if [ ! -f $OUT/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
     # New version of envoy downloaded. Save it to cache, and clean any old version.
 
     DOWNLOAD_COMMAND=""
     if command -v curl > /dev/null; then
-       if curl --version | grep Protocols  | grep https; then
-	   DOWNLOAD_COMMAND='curl -Lo -'
+       if curl --version | grep Protocols  | grep https > /dev/null; then
+	   DOWNLOAD_COMMAND='curl -Lso -'
        else
            echo curl does not support https, will try wget for downloading files.
        fi
@@ -99,20 +76,21 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
         exit 1
     fi
 
-    ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-    cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy
+    echo "Downloading envoy $PROXY using $DOWNLOAD_COMMAND"
+    time ${DOWNLOAD_COMMAND} https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
+    cp usr/local/bin/envoy $OUT/envoy-$PROXYVERSION
+    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
     popd
 fi
 
 if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     mkdir -p ${ISTIO_OUT}
     # Make sure the envoy binary exists.
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
+    cp $OUT/envoy-$PROXYVERSION ${ISTIO_OUT}/envoy
 fi
 
 # circleCI expects this in the bin directory
 if [ ! -f ${ISTIO_BIN}/envoy ] ; then
     mkdir -p ${ISTIO_BIN}
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
+    cp $OUT/envoy-$PROXYVERSION ${ISTIO_BIN}/envoy
 fi

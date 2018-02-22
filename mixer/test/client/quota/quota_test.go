@@ -26,11 +26,24 @@ const (
 	mixerQuotaFailMessage = "Quota is exhausted for: RequestCount"
 )
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 2,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 2,
+	"http_mixer_filter.total_check_calls":                 2,
+	"http_mixer_filter.total_quota_calls":                 2,
+	"http_mixer_filter.total_remote_check_calls":          2,
+	"http_mixer_filter.total_remote_quota_calls":          2,
+	"http_mixer_filter.total_remote_report_calls":         1,
+	"http_mixer_filter.total_report_calls":                2,
+}
+
 func TestQuotaCall(t *testing.T) {
-	s := env.NewTestSetup(
-		env.QuotaCallTest,
-		t,
-		env.BasicConfig+","+env.QuotaConfig)
+	s := env.NewTestSetup(env.QuotaCallTest, t)
+	env.SetStatsUpdateInterval(s.V2(), 1)
+
+	// Add v2 quota config for all requests.
+	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -39,14 +52,14 @@ func TestQuotaCall(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet v1"
+	tag := "OKGet"
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 
 	// Issues a failed POST request caused by Mixer Quota
-	tag = "QuotaFail v1"
+	tag = "QuotaFail"
 	s.SetMixerQuotaStatus(rpc.Status{
 		Code:    int32(rpc.RESOURCE_EXHAUSTED),
 		Message: mixerQuotaFailMessage,
@@ -65,19 +78,10 @@ func TestQuotaCall(t *testing.T) {
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Add v2 quota config for all requests.
-	env.AddHTTPQuota(s.V2().HTTPServerConf, "RequestCount", 5)
-	s.ReStartEnvoy()
-
-	// Issues a GET echo request with 0 size body
-	tag = "OKGet"
-	if _, _, err := env.HTTPGet(url); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-	s.VerifyQuota(tag, "RequestCount", 5)
 }

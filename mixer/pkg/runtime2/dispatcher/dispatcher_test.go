@@ -261,14 +261,19 @@ ident                         : dest.istio-system
 			data.InstanceQuota1,
 			data.RuleQuota1,
 		},
-		variety:             tpb.TEMPLATE_VARIETY_QUOTA,
+		variety: tpb.TEMPLATE_VARIETY_QUOTA,
+		qma: &runtime.QuotaMethodArgs{
+			BestEffort:      true,
+			DeduplicationID: "42",
+			Amount:          64,
+		},
 		expectedQuotaResult: &adapter.QuotaResult{},
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -294,7 +299,7 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (ERROR)
 `,
 	},
@@ -331,13 +336,13 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -386,13 +391,13 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -520,7 +525,9 @@ ident                         : dest.istio-system
 
 func TestDispatcher(t *testing.T) {
 	o := log.NewOptions()
-	log.Configure(o)
+	if err := log.Configure(o); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {
