@@ -49,6 +49,7 @@ const (
 	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
+	ingressDenialRule        = "mixer-rule-ingress-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
@@ -76,7 +77,7 @@ type testConfig struct {
 var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
-	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
 		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
 )
 
@@ -250,71 +251,25 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 	t.Errorf(format, args...)
 }
 
-func TestGlobalCheckAndReport(t *testing.T) {
+func TestGlobalReport(t *testing.T) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	// establish baseline
-	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("productpage"))
-	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
-	}
-
-	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
-	if err != nil {
-		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
-		prior200s = 0
-	}
-
-	t.Logf("Baseline established: prior200s = %f", prior200s)
-	t.Log("Visiting product page...")
-
-	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
-		t.Fatalf("Test app setup failure: %v", errNew)
-	}
-	allowPrometheusSync()
-
-	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
-
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
-	t.Logf("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
-	}
-	t.Logf("promvalue := %s", value.String())
-
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		fatalf(t, "Could not find metric value: %v", err)
-	}
-	t.Logf("Got request_count (200s) of: %f", got)
-	t.Logf("Actual new requests observed: %f", got-prior200s)
-
-	want := float64(1)
-	if (got - prior200s) < want {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		errorf(t, "Bad metric value: got %f, want at least %f", got-prior200s, want)
-	}
+	checkMetricReport(t, promAPI, "productpage")
+	checkMetricReport(t, promAPI, "istio-ingress")
 }
 
-func TestIngressReport(t *testing.T) {
-	// setup prometheus API
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
-	}
+// checkMetricReport checks whether report works for the given service
+// by visiting productpage and comparing request_count metric.
+func checkMetricReport(t *testing.T, promAPI v1.API, serviceName string) {
+	t.Logf("Check request count metric for %s", serviceName)
 
-	// establish baseline by querying request count metric with istio-ingress as destination.
-	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("istio-ingress"))
+	// establish baseline by querying request count metric.
+	t.Log("establishing metrics baseline for test...")
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(serviceName))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -330,7 +285,7 @@ func TestIngressReport(t *testing.T) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
-	// visit production page as well as ingress.
+	// visit production page.
 	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
@@ -338,7 +293,7 @@ func TestIngressReport(t *testing.T) {
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("istio-ingress"), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn(serviceName), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -470,6 +425,12 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
+	testDenials(t, denialRule)
+	testDenials(t, ingressDenialRule)
+}
+
+// testDenials checks that the given rule could deny requests to productpage unless x-user is set in header.
+func testDenials(t *testing.T, rule string) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
@@ -477,12 +438,12 @@ func TestDenials(t *testing.T) {
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
 	log.Infof("Denials: block productpage if x-user header is missing")
-	if err := applyMixerRule(denialRule); err != nil {
+	if err := applyMixerRule(rule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
 
 	defer func() {
-		if err := deleteMixerRule(denialRule); err != nil {
+		if err := deleteMixerRule(rule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
@@ -500,6 +461,7 @@ func TestDenials(t *testing.T) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
+
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
