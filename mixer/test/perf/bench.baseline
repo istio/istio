@@ -1,0 +1,16 @@
+
+# 2/13/2018
+Benchmark_Multi_Metric/InProcessBypassGrpc-8    	   30000	     48106 ns/op	    7572 B/op	     216 allocs/op
+Benchmark_Multi_Metric_R2/InProcessBypassGrpc-8 	   50000	     28084 ns/op	    4362 B/op	     136 allocs/op
+Benchmark_NoRule_Report/InProcessBypassGrpc-8   	  200000	      6009 ns/op	     808 B/op	      16 allocs/op
+Benchmark_NoRule_Report_R2/InProcessBypassGrpc-8         	  500000	      3222 ns/op	     179 B/op	       8 allocs/op
+Benchmark_NoRule_Check/InProcessBypassGrpc-8             	  300000	      6037 ns/op	     806 B/op	      15 allocs/op
+Benchmark_NoRule_Check_R2/InProcessBypassGrpc-8          	  500000	      3195 ns/op	     171 B/op	       7 allocs/op
+Benchmark_Single_Check/InProcessBypassGrpc-8             	  100000	     12261 ns/op	    2130 B/op	      37 allocs/op
+Benchmark_Single_Check_R2/InProcessBypassGrpc-8          	  200000	      6462 ns/op	     304 B/op	      12 allocs/op
+Benchmark_Single_Metric/InProcessBypassGrpc-8            	  100000	     20868 ns/op	    3452 B/op	      73 allocs/op
+Benchmark_Single_Metric_R2/InProcessBypassGrpc-8         	  200000	     11486 ns/op	    1057 B/op	      36 allocs/op
+Benchmark_Single_Report/InProcessBypassGrpc-8            	  100000	     12567 ns/op	    2420 B/op	      39 allocs/op
+Benchmark_Single_Report_R2/InProcessBypassGrpc-8         	  200000	      6380 ns/op	     263 B/op	      13 allocs/op
+Benchmark_Single_Report_SuccessCondition/InProcessBypassGrpc-8         	  100000	     12623 ns/op	    2421 B/op	      39 allocs/op
+Benchmark_Single_Report_SuccessCondition_R2/InProcessBypassGrpc-8      	  200000	      6330 ns/op	     265 B/op	      13 allocs/op
