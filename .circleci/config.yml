@@ -338,6 +338,10 @@ jobs:
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F mixer
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pkg
+      - run:
+          command: |
+          bash <(curl -s https://codecov.io/bash) -F common
 
   test:
     <<: *defaults
