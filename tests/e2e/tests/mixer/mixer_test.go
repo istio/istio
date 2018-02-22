@@ -252,11 +252,11 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestMetric(t *testing.T) {
-	checkMetricReport(t, promAPI, "productpage")
+	checkMetricReport(t, "productpage")
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, promAPI, "istio-ingress")
+	checkMetricReport(t, "istio-ingress")
 }
 
 // checkMetricReport checks whether report works for the given service
@@ -267,7 +267,6 @@ func checkMetricReport(t *testing.T, serviceName string) {
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
-
 
 	t.Logf("Check request count metric for %s", serviceName)
 
