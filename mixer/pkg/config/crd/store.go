@@ -60,6 +60,11 @@ var retryInterval = time.Second / 2
 // update its readiness.
 var readinessCheckInterval = time.Second
 
+// readinessInitialInterval is the initial buffer to allow unreadiness when a new
+// cache is added in the background. Within this period, the store itself is considered
+// to be ready although some caches are still in the process of the initial sync.
+var readinessInitialInterval = time.Minute
+
 // When retrying happens on initializing caches, it shouldn't log the message for
 // every retry, it may flood the log messages if the initialization is never satisfied.
 // see also https://github.com/istio/istio/issues/3138
@@ -79,6 +84,8 @@ type Store struct {
 	cacheMutex sync.Mutex
 	// mapping of CRD kind --> SharedInformer
 	informers map[string]cache.SharedInformer
+	// mapping of CRD kind --> the timestamp when the shared informer is created.
+	created map[string]time.Time
 
 	watchMutex sync.RWMutex
 	watchCh    chan store.BackendEvent
@@ -101,7 +108,12 @@ func (s *Store) getReadiness() error {
 		return fmt.Errorf("no informers are prepared")
 	}
 	for k, i := range s.informers {
-		if !i.HasSynced() {
+		if ctime, ok := s.created[k]; ok && time.Since(ctime) < readinessInitialInterval {
+			continue
+		}
+		if i.HasSynced() {
+			delete(s.created, k)
+		} else {
 			errs = multierror.Append(errs, fmt.Errorf("%s is not yet synced", k))
 		}
 	}
@@ -152,7 +164,8 @@ func (s *Store) checkAndCreateCaches(
 	retryDone chan struct{},
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) []string {
+	kinds []string,
+	initial bool) []string {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
@@ -190,6 +203,9 @@ loop:
 				cl := lwBuilder.build(res)
 				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
 				s.informers[res.Kind] = informer
+				if !initial {
+					s.created[res.Kind] = time.Now()
+				}
 				delete(kindsSet, res.Kind)
 				informer.AddEventHandler(s)
 				go informer.Run(s.donec)
@@ -217,6 +233,7 @@ func (s *Store) Init(kinds []string) error {
 		return err
 	}
 	s.informers = make(map[string]cache.SharedInformer, len(kinds))
+	s.created = make(map[string]time.Time, len(kinds))
 	go s.checkReadiness()
 	timeout := time.After(s.retryTimeout)
 	timeoutdone := make(chan struct{})
@@ -224,10 +241,10 @@ func (s *Store) Init(kinds []string) error {
 		<-timeout
 		close(timeoutdone)
 	}()
-	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds)
+	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds, true)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
-		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds)
+		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds, false)
 	}
 	return nil
 }

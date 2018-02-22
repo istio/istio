@@ -40,6 +40,9 @@ import (
 // The "retryTimeout" used by the test.
 const testingRetryTimeout = 10 * time.Millisecond
 
+// The readinessInitialInterval for test.
+const testingReadinessInitialInterval = 40 * time.Millisecond
+
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
@@ -64,12 +67,19 @@ type dummyListerWatcherBuilder struct {
 	data     map[store.Key]*unstructured.Unstructured
 	watchers map[string]*watch.RaceFreeFakeWatcher
 	errors   map[string]error
+	delays   map[string]time.Duration
 }
 
 func (d *dummyListerWatcherBuilder) setErrors(kind string, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.errors[kind] = err
+}
+
+func (d *dummyListerWatcherBuilder) setDelay(kind string, delay time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.delays[kind] = delay
 }
 
 func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
@@ -85,6 +95,9 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 			defer d.mu.RUnlock()
 			if err := d.errors[res.Kind]; err != nil {
 				return nil, err
+			}
+			if delay, ok := d.delays[res.Kind]; ok {
+				time.Sleep(delay)
 			}
 			for k, v := range d.data {
 				if k.Kind == res.Kind {
@@ -151,11 +164,13 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 
 func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	retryInterval = 0
+	readinessInitialInterval = testingReadinessInitialInterval
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
 		watchers: map[string]*watch.RaceFreeFakeWatcher{},
 		errors:   map[string]error{},
+		delays:   map[string]time.Duration{},
 	}
 	client := &Store{
 		conf:             &rest.Config{},
@@ -348,6 +363,61 @@ func TestStoreReadiness(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	if err := s.getReadiness(); err != nil {
 		t.Errorf("Got %v, want nil", err)
+	}
+}
+
+func TestStoreReadinessWithRetry(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: apiGroupVersion,
+					APIResources: []metav1.APIResource{
+						metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+						{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
+					},
+				},
+			},
+		},
+	}
+	var count int32
+	// Gradually increase the number of API resources.
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if atomic.LoadInt32(&count) != 0 {
+			fakeDiscovery.Resources[0].APIResources = append(
+				fakeDiscovery.Resources[0].APIResources,
+				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+			)
+		}
+		return true, nil, nil
+	})
+	s, _, lw := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	if err := s.Init([]string{"Handler", "Action"}); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+	if err := s.getReadiness(); err != nil {
+		t.Errorf("Got %v, want nil", err)
+	}
+	lw.setDelay("Action", testingReadinessInitialInterval/2)
+	atomic.StoreInt32(&count, 1)
+	tick := time.NewTicker(testingReadinessInitialInterval / 4)
+	for i := 0; i < 6; i++ {
+		<-tick.C
+		if err := s.getReadiness(); err != nil {
+			t.Errorf("%d: Got %v, want nil", i, err)
+		}
+	}
+	tick.Stop()
+
+	s.cacheMutex.Lock()
+	ncaches := len(s.informers)
+	s.cacheMutex.Unlock()
+	if ncaches != 2 {
+		t.Errorf("Has %d caches, Want 2 caches", ncaches)
 	}
 }
 
