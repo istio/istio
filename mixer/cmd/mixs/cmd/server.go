@@ -50,7 +50,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	// TODO: what is the right default value for expressionEvalCacheSize.
 	serverCmd.PersistentFlags().IntVarP(&sa.ExpressionEvalCacheSize, "expressionEvalCacheSize", "", evaluator.DefaultCacheSize,
 		"Number of entries in the expression cache")
-	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", false, "Use the new runtime code for processing requests.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", true, "Use the new runtime code for processing requests.")
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 
