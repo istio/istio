@@ -350,7 +350,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
-	out.serverV2.ChainHandlers(out.server)
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -393,6 +392,11 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListEndpoints).
 		Doc("SDS registration").
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
+
+	ws.Route(ws.
+		POST("/v2/discovery:endpoints").
+		To(ds.ListEndpoints).
+		Doc("SDS registration"))
 
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
 	// See https://envoyproxy.github.io/envoy/configuration/cluster_manager/cds.html#config-cluster-manager-cds
@@ -458,13 +462,15 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 		return nil, err
 	}
 
+	ds.serverV2.Start()
+
 	go func() {
+
 		go func() {
 			if err := ds.server.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
-
 		// Wait for the stop notification and shutdown the server.
 		<-stop
 		err := ds.server.Close()
@@ -899,16 +905,22 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 			if len(instances) == 0 {
 				continue
 			}
-			resource := &xdsapi.LocalityLbEndpoints{
-				LbEndpoints: v2.EndpointsFromInstances(instances),
+			locEps, countEps := v2.LocalityLbEndpointsFromInstances(instances)
+			clAssignment := &xdsapi.ClusterLoadAssignment{
+				ClusterName: serviceCluster,
+				Endpoints:   locEps,
 			}
-			resource.Locality = &xdsapi.Locality{
-				// TODO: add region and subzone
-				Zone: instances[0].AvailabilityZone,
-			}
-			anyResource, _ := types.MarshalAny(resource)
+			anyResource, _ := types.MarshalAny(clAssignment)
 			out.Resources = append(out.Resources, anyResource)
-			totalEndpoints += uint32(len(resource.LbEndpoints))
+			out.TypeUrl = anyResource.GetTypeUrl()
+			verTs := time.Now()
+			// Pilot does not really care for versioning. It always supplies what's currently
+			// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+			// responses. Pilot believes in eventual consistency and that at some point, Envoy
+			// will begin seeing results it deems to be good.
+			out.VersionInfo = verTs.String()
+			out.Nonce = out.VersionInfo
+			totalEndpoints += uint32(countEps)
 		}
 		// TODO: Retained for backward compatibility wrt cache behavior
 		// Not storing a zero result in cache can negatively impact server performance

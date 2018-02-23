@@ -21,28 +21,60 @@
 package v2
 
 import (
+	"strconv"
+
 	v2 "github.com/envoyproxy/go-control-plane/api"
 	"istio.io/istio/pilot/pkg/model"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/log"
 )
 
 // EndpointFromInstance returns an Envoy v2 Endpoint from Pilot's older data structure model.ServiceInstance.
-func EndpointFromInstance(instance *model.ServiceInstance) *v2.LbEndpoint {
-	labels := make([]envoyv2.EndpointLabel, 0, len(instance.Labels))
+func EndpointFromInstance(instance *model.ServiceInstance) (*v2.LbEndpoint, error) {
+	labels := make([]envoyv2.EndpointLabel, 0, len(instance.Labels)+2)
 	for n, v := range instance.Labels {
 		labels = append(labels, envoyv2.EndpointLabel{Name: n, Value: v})
 	}
-	// TODO: May need to handle errors. The probability of errors is low given that the older Pilot model does not use Istio destination labels
-	// and all user supplied labels are single valued, given the older model stores them in a map.
-	out, _ := envoyv2.NewEndpoint(instance.Service.Hostname, (uint32)(instance.Endpoint.Port), envoyv2.SocketProtocolTCP, labels)
-	return (*v2.LbEndpoint)(out)
+	// TODO: remove the following comment once Envoy's REST APIs are deprecated in Istio.
+	// The following labels will be inconsequentil to Envoy, but is forward compatible with Istio's use of Envoy v2 APIs
+	// particularly in Istio environments involving remote Pilot discovery.
+	epUID := instance.Service.Hostname + "|" + instance.Endpoint.Address + ":" + strconv.Itoa(instance.Endpoint.Port)
+	labels = append(labels,
+		envoyv2.EndpointLabel{Name: envoyv2.DestinationUID.AttrName(), Value: epUID},
+		envoyv2.EndpointLabel{Name: envoyv2.DestinationService.AttrName(), Value: instance.Service.Hostname})
+	out, err := envoyv2.NewEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port), envoyv2.SocketProtocolTCP, labels)
+	return (*v2.LbEndpoint)(out), err
 }
 
-// EndpointFromInstance returns a list of Envoy v2 Endpoints from Pilot's older data structure model.ServiceInstance objects.
-func EndpointsFromInstances(instances []*model.ServiceInstance) []*v2.LbEndpoint {
-	out := make([]*v2.LbEndpoint, 0, len(instances))
+// LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints and a total count of
+// Envoy v2 Endpoints constructed from Pilot's older data structure involving model.ServiceInstance objects.
+func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) ([]*v2.LocalityLbEndpoints, int) {
+	localityEpMap := make(map[string]*v2.LocalityLbEndpoints)
+	countEps := 0
 	for _, instance := range instances {
-		out = append(out, EndpointFromInstance(instance))
+		lbEp, err := EndpointFromInstance(instance)
+		if err != nil {
+			log.Errorf("unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			continue
+		}
+		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
+		// Once we do that, the key must be a | separated tupple.
+		locality := instance.AvailabilityZone
+		locLbEps, found := localityEpMap[locality]
+		if !found {
+			locLbEps = &v2.LocalityLbEndpoints{
+				Locality: &v2.Locality{
+					Zone: instance.AvailabilityZone,
+				},
+			}
+			localityEpMap[locality] = locLbEps
+		}
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, lbEp)
 	}
-	return out
+	out := make([]*v2.LocalityLbEndpoints, 0, len(localityEpMap))
+	for _, locLbEps := range localityEpMap {
+		out = append(out, locLbEps)
+		countEps++
+	}
+	return out, countEps
 }

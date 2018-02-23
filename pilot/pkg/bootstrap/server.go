@@ -229,7 +229,6 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 			return nil, err
 		}
 	}
-
 	return s.listeningAddr, nil
 }
 
