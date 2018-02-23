@@ -393,11 +393,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("SDS registration").
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
-	ws.Route(ws.
-		POST("/v2/discovery:endpoints").
-		To(ds.ListEndpoints).
-		Doc("SDS registration"))
-
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
 	// See https://envoyproxy.github.io/envoy/configuration/cluster_manager/cds.html#config-cluster-manager-cds
 	ws.Route(ws.
