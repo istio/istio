@@ -28,11 +28,11 @@ set -e
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
+cd ${ROOT}
+
 echo 'Build'
-(cd ${ROOT}; make build)
+make build
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
-(cd ${ROOT}; make localTestEnv test || fatal move_junit_xml_to_artifacts_dir_if_on_prow)
-
-(cd ${ROOT}; move_junit_xml_to_artifacts_dir_if_on_prow)
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" make localTestEnv test

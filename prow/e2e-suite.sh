@@ -72,8 +72,10 @@ if ${SINGLE_MODE}; then
     for T in ${TESTS_TARGETS[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
-            time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make "${SINGLE_TEST}" \
-              || fatal move_junit_xml_to_artifacts_dir_if_on_prow
+            time ISTIO_DOCKER_HUB=$HUB \
+              E2E_ARGS="${E2E_ARGS[@]}" \
+              JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+              make "${SINGLE_TEST}"
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
@@ -84,8 +86,8 @@ if ${SINGLE_MODE}; then
 
 else
     echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all \
-      || fatal move_junit_xml_to_artifacts_dir_if_on_prow
+    time ISTIO_DOCKER_HUB=$HUB \
+      E2E_ARGS="${E2E_ARGS[@]}" \
+      JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+      make e2e_all
 fi
-
-move_junit_xml_to_artifacts_dir_if_on_prow

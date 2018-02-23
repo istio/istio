@@ -44,15 +44,3 @@ function setup_and_export_git_sha() {
     export GIT_SHA="$(git rev-parse --verify HEAD)"
   fi
 }
-
-function fatal() {
-  $1
-  exit 1
-}
-function move_junit_xml_to_artifacts_dir_if_on_prow() {
-  if [ "${CI:-}" == 'bootstrap' ] && [ -f junit.xml ]; then
-    # allow bootsrap to upload junit results
-    ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-    mv junit.xml ${ARTIFACTS_DIR}
-  fi
-}

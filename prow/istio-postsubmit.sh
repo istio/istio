@@ -37,8 +37,7 @@ cd $ROOT
 make init
 
 echo 'Running Unit Tests'
-time make localTestEnv test || fatal move_junit_xml_to_artifacts_dir_if_on_prow
-move_junit_xml_to_artifacts_dir_if_on_prow
+time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
