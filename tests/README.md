@@ -16,4 +16,4 @@ $ make e2e_pilot
 ```
 
 Replace e2e_pilot with other targets accordingly if necessary. The detail can
-be found in istio.mk of this directory.
+be found in tests/istio.mk.
