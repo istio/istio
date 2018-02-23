@@ -566,9 +566,6 @@ workflows:
       - build:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
       - racetest:
           requires:
             - dependencies
