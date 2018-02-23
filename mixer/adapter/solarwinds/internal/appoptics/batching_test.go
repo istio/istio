@@ -44,25 +44,32 @@ func TestBatchMeasurements(t *testing.T) {
 		loopFactor.Store(CloseKey, false)
 		batchSize := 100
 
-		go BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		finish := make(chan bool)
 
-		measurements := []*Measurement{}
-		for i := 0; i < batchSize+1; i++ {
-			measurements = append(measurements, &Measurement{})
-		}
-		prepChan <- measurements
-		loopFactor.Store(CloseKey, true)
-		time.Sleep(time.Millisecond)
-		close(prepChan)
-		close(pushChan)
-		count := 0
-		for range pushChan {
-			count++
-		}
-		if count != 1 {
-			t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
-		}
-		close(stopChan)
+		go func() {
+			BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+			finish <- true
+		}()
+
+		go func() {
+			measurements := make([]*Measurement, 0)
+			for i := 0; i < batchSize+1; i++ {
+				measurements = append(measurements, &Measurement{})
+			}
+			prepChan <- measurements
+			loopFactor.Store(CloseKey, true)
+			<-finish
+			close(prepChan)
+			close(pushChan)
+			count := 0
+			for range pushChan {
+				count++
+			}
+			if count != 1 {
+				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
+			}
+			close(stopChan)
+		}()
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
