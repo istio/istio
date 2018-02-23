@@ -42,6 +42,10 @@ spec:
   type: LoadBalancer
 {{end}}
   ports:
+  - port: 15003
+    name: discovery
+  - port: 15005
+    name: https-discovery
   - port: 15007
     name: http-discovery
 {{if .DebugPort}}
@@ -124,8 +128,8 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
-        - containerPort: 15007
         - containerPort: 15005
+        - containerPort: 15007
         args:
         - proxy
         - pilot

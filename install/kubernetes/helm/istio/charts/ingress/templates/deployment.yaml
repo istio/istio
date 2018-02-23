@@ -55,7 +55,7 @@ spec:
           - {{ .Release.Name }}-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
-          - NONE
+          - NONE #--controlPlaneAuthPolicy
           - --discoveryAddress
           - {{ .Release.Name }}-pilot:15007
         {{- end }}

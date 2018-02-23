@@ -75,13 +75,17 @@ data:
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:9125
     {{- if .Values.global.securityEnabled }}
+      #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
+      #
       # Address where istio Pilot service is running
       discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15005
     {{- else }}
+      #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
+      #
       # Address where istio Pilot service is running
       discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
