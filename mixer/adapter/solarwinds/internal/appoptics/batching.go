@@ -15,20 +15,27 @@
 package appoptics
 
 import (
+	"sync"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// CloseKey defines the key for synchronized map value for loopFactor.
+const CloseKey = "if-close"
+
 // BatchMeasurements reads slices of Measurement types off a channel populated by the web handler
 // and packages them into batches conforming to the limitations imposed by the API.
-func BatchMeasurements(loopFactor *bool, prepChan <-chan []*Measurement,
+func BatchMeasurements(loopFactor *sync.Map, prepChan <-chan []*Measurement,
 	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int, logger adapter.Logger) {
 	var currentBatch []*Measurement
 	dobrk := false
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
-	for *loopFactor {
+	for true {
+		if v, _ := loopFactor.Load(CloseKey); v.(bool) {
+			break
+		}
 		select {
 		case mslice := <-prepChan:
 			currentBatch = append(currentBatch, mslice...)
@@ -59,12 +66,15 @@ func BatchMeasurements(loopFactor *bool, prepChan <-chan []*Measurement,
 
 // PersistBatches reads maximal slices of Measurement types off a channel and persists them to the remote AppOptics
 // API. Errors are placed on the error channel.
-func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Measurement,
+func PersistBatches(loopFactor *sync.Map, lc ServiceAccessor, pushChan <-chan []*Measurement,
 	stopChan <-chan struct{}, logger adapter.Logger) {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
 	dobrk := false
-	for *loopFactor {
+	for true {
+		if v, _ := loopFactor.Load(CloseKey); v.(bool) {
+			break
+		}
 		select {
 		case <-ticker.C:
 			batch := <-pushChan

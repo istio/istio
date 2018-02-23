@@ -81,7 +81,7 @@ func TestLog(t *testing.T) {
 			logInfos:      map[string]*logInfo{},
 			loopFactor:    new(sync.Map),
 		}
-		pp.loopFactor.Store(ifClose, false)
+		pp.loopFactor.Store(closeKey, false)
 
 		if pp.Log(&logentry.Instance{
 			Name: "NO ENTRY",

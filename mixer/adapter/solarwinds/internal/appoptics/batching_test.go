@@ -40,10 +40,11 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
-		loopFactor := true
+		loopFactor := new(sync.Map)
+		loopFactor.Store(CloseKey, false)
 		batchSize := 100
 
-		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		go BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 
 		go func() {
 			measurements := []*Measurement{}
@@ -51,7 +52,7 @@ func TestBatchMeasurements(t *testing.T) {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
-			loopFactor = false
+			loopFactor.Store(CloseKey, true)
 			time.Sleep(time.Millisecond)
 			close(prepChan)
 			close(pushChan)
@@ -75,13 +76,14 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 		batchSize := 100
-		loopFactor := true
+		loopFactor := new(sync.Map)
+		loopFactor.Store(CloseKey, false)
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-		loopFactor = false
+		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		loopFactor.Store(CloseKey, true)
 		close(prepChan)
 		close(pushChan)
 		close(stopChan)
@@ -153,9 +155,10 @@ func TestPersistBatches(t *testing.T) {
 					}
 				}()
 			}
-			loopFactor := true
+			loopFactor := new(sync.Map)
+			loopFactor.Store(CloseKey, false)
 
-			go PersistBatches(&loopFactor, &MockServiceAccessor{
+			go PersistBatches(loopFactor, &MockServiceAccessor{
 				MockMeasurementsService: func() MeasurementsCommunicator {
 					return &MockMeasurementsService{
 						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
@@ -175,7 +178,7 @@ func TestPersistBatches(t *testing.T) {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
-			loopFactor = false
+			loopFactor.Store(CloseKey, true)
 			close(pushChan)
 			close(stopChan)
 		})

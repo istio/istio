@@ -34,7 +34,7 @@ import (
 
 const (
 	defaultRetention = time.Hour
-	ifClose          = "if-close"
+	closeKey         = "if-close"
 	keyFormat        = "TS:%d-BODY:%s"
 	keyPattern       = "TS:(\\d+)-BODY:(.*)"
 	defaultTemplate  = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
@@ -96,7 +96,7 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 		loopWait:        make(chan struct{}),
 	}
 
-	p.loopFactor.Store(ifClose, false)
+	p.loopFactor.Store(closeKey, false)
 
 	p.logInfos = map[string]*logInfo{}
 
@@ -169,7 +169,7 @@ func (p *Logger) flushLogs() {
 	}()
 	re := regexp.MustCompile(keyPattern)
 	for true {
-		if v, _ := p.loopFactor.Load(ifClose); v.(bool) {
+		if v, _ := p.loopFactor.Load(closeKey); v.(bool) {
 			break
 		}
 		hose := make(chan interface{}, p.maxWorkers)
@@ -213,7 +213,7 @@ func (p *Logger) flushLogs() {
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	p.loopFactor.Store(ifClose, true)
+	p.loopFactor.Store(closeKey, true)
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil
