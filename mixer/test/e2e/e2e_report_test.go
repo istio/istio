@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	pb "istio.io/api/mixer/v1/config/descriptor"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"

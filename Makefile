@@ -122,9 +122,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-# Discover if user has dep installed -- prefer that
-DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
 GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
@@ -150,7 +147,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.ensure depend.status depend.update depend.view init
+.PHONY: depend depend.status depend.update depend.cleanlock depend.update.full init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -167,7 +164,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: submodule check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Marker for whether vendor submodule is here or not already
 GRPC_DIR:=./vendor/google.golang.org/grpc
@@ -200,52 +197,50 @@ git.pullmaster:
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT} ${DEP}
-	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-	@touch $(ISTIO_OUT)/istio_is_init
+$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT}
+	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
+	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call dep.update if adding new deps or to pull recent
-# changes.
+# Developers must manually call make depend.update if adding new deps or
+# make pull to pull recent changes in the submodule.
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-depend.ensure: init
+depend.status: | $(ISTIO_OUT)
+	dep status -dot > $(ISTIO_OUT)/dep.dot
+	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
+	cp Gopkg.* vendor/
 
-# Target to update the Gopkg.lock with latest versions.
-# Should be run when adding any new dependency and periodically.
-depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
-	${DEP} ensure
-	${DEP} ensure -update
+$(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
+	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
 
-# If CGO_ENABLED=0 then go get tries to install in system directories.
-# If -pkgdir <dir> is also used then various additional .a files are present.
-${DEP}:
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
+# https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
+depend.update.full: depend.cleanlock depend.update
 
-${GOLINT}:
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
+depend.cleanlock:
+	-rm Gopkg.lock
+
+depend.update:
+	time dep ensure
+	cp Gopkg.* vendor/
+	@echo "now check the diff in vendor/ and make a PR"
+
+vendor.check:
+	@echo "Checking that Gopkg.* are in sync with vendor/ submodule:"
+	@echo "if this fails, 'make pull' and/or seek on-call help"
+	diff Gopkg.toml vendor/
+	diff Gopkg.lock vendor/
+
+.PHONY: vendor.check
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
-
-Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
-	$(Q) ${DEP} ensure -update
-
-# Generates the current status of the dependencies. Does not update the deps.
-depend.status:
-	$(Q) ${DEP} status > vendor/dep.txt
-	$(Q) ${DEP} status -dot > vendor/dep.dot
-
-# Visualize the dep status, using 'graphviz' package. Run as user
-depend.view:
-	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit

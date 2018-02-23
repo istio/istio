@@ -33,20 +33,16 @@ make mixs
 MIXER_BINARY=$(make where-is-out)/mixs
 ENVOY_BINARY=$(make where-is-out)/envoy
 
+PROXY_TAG=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 # Download Proxy Repo
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
-FL=$(mktemp)
-echo -n "export PROXY_TAG=" > $FL
-grep lastStableSHA ../istio/istio.deps | tail -1 |  awk '{print $2}' >> $FL
-source $FL
-rm $FL
 git pull
 
 git reset ${PROXY_TAG} --hard
 #ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
+START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
 cd ../istio
 
 # Install Fortio

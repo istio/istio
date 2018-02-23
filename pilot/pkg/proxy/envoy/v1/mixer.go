@@ -163,10 +163,6 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN 
 	}
 
 	if mesh.MixerReportServer != "" {
-		// if both fields point to same server, reuse the cluster
-		if mesh.MixerReportServer == mesh.MixerCheckServer {
-			return mixerClusters
-		}
 		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerReportServer, MixerReportClusterName))
 	}
 
@@ -223,9 +219,6 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	transport := &mccpb.TransportConfig{
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
-	}
-	if mesh.MixerCheckServer == mesh.MixerReportServer {
-		transport.ReportCluster = transport.CheckCluster
 	}
 
 	v2 := &mccpb.HttpClientConfig{
@@ -369,9 +362,6 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 	transport := &mccpb.TransportConfig{
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
-	}
-	if mesh.MixerCheckServer == mesh.MixerReportServer {
-		transport.ReportCluster = transport.CheckCluster
 	}
 
 	v2 := &mccpb.TcpClientConfig{

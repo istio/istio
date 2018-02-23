@@ -24,7 +24,7 @@
 PROJECT_NAME=istio-testing
 ZONE=us-central1-f
 MACHINE_TYPE=n1-standard-4
-NUM_NODES=1
+NUM_NODES=${NUM_NODES:-1}
 CLUSTER_NAME=
 
 IFS=';' VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))

@@ -17,7 +17,7 @@ package runtime
 import (
 	"github.com/gogo/protobuf/proto"
 
-	cpb "istio.io/api/mixer/v1/config"
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
