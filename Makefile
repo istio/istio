@@ -197,13 +197,8 @@ git.pullmaster:
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-<<<<<<< HEAD
-$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT} ${DEP}
-	(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-=======
 $(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT}
 	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
->>>>>>> master
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
@@ -516,21 +511,16 @@ clean.go: ; $(info $(H) cleaning...)
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-<<<<<<< HEAD
-=======
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
 $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
 
 push: docker.push installgen
 
->>>>>>> master
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
 
 gcs.push.deb: deb
 	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
-
-endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'
