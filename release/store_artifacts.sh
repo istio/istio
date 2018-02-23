@@ -94,4 +94,5 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
   done
 fi
 
+tar -cvzf "${OUTPUT_PATH}/source.tar.gz" .
 gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"
