@@ -67,24 +67,24 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 
 // RetrieveNewKeyCert sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
 // and cert, otherwise, it returns error. This is a blocking function.
-func (c *CAClient) RetrieveNewKeyCert() (certChain []byte, privateKey []byte, err error) {
+func (c *CAClient) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
 		privateKey, req, reqErr := c.createRequest()
 		if reqErr != nil {
-			return nil, nil, reqErr
+			return nil, nil, nil, reqErr
 		}
 
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
 		resp, err := c.protocolClient.SendCSR(req, c.platformClient, c.istioCAAddress)
 		if err == nil && resp != nil && resp.IsApproved {
-			return resp.SignedCertChain, privateKey, nil
+			return resp.SignedCert, resp.CertChain, privateKey, nil
 		}
 
 		if retries >= c.maxRetries {
-			return nil, nil, fmt.Errorf(
+			return nil, nil, nil, fmt.Errorf(
 				"CA client cannot get the CSR approved from Istio CA after max number of retries (%d)", c.maxRetries)
 		}
 		if err != nil {
