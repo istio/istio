@@ -34,6 +34,7 @@ import (
 
 const (
 	defaultRetention = time.Hour
+	ifClose          = "if-close"
 	keyFormat        = "TS:%d-BODY:%s"
 	keyPattern       = "TS:(\\d+)-BODY:(.*)"
 	defaultTemplate  = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
@@ -69,7 +70,7 @@ type Logger struct {
 
 	maxWorkers int
 
-	loopFactor bool
+	loopFactor *sync.Map
 
 	loopWait chan struct{}
 }
@@ -87,13 +88,15 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 	p := &Logger{
 		paperTrailURL:   paperTrailURL,
 		retentionPeriod: retention,
-		cmap:            &sync.Map{},
+		cmap:            new(sync.Map),
 		log:             logger,
 		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
-		loopFactor:      true,
+		loopFactor:      new(sync.Map),
 		loopWait:        make(chan struct{}),
 	}
+
+	p.loopFactor.Store(ifClose, false)
 
 	p.logInfos = map[string]*logInfo{}
 
@@ -165,7 +168,10 @@ func (p *Logger) flushLogs() {
 		p.loopWait <- struct{}{}
 	}()
 	re := regexp.MustCompile(keyPattern)
-	for p.loopFactor {
+	for true {
+		if v, _ := p.loopFactor.Load(ifClose); v.(bool) {
+			break
+		}
 		hose := make(chan interface{}, p.maxWorkers)
 		var wg sync.WaitGroup
 
@@ -207,7 +213,7 @@ func (p *Logger) flushLogs() {
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	p.loopFactor = false
+	p.loopFactor.Store(ifClose, true)
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil

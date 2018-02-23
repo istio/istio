@@ -16,6 +16,7 @@ package papertrail
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -67,7 +68,6 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	loopFactor := true
 	t.Run("No log info for msg name", func(t *testing.T) {
 		env := test.NewEnv(t)
 		logger := env.Logger()
@@ -79,8 +79,9 @@ func TestLog(t *testing.T) {
 			log:           logger,
 			env:           env,
 			logInfos:      map[string]*logInfo{},
-			loopFactor:    loopFactor,
+			loopFactor:    new(sync.Map),
 		}
+		pp.loopFactor.Store(ifClose, false)
 
 		if pp.Log(&logentry.Instance{
 			Name: "NO ENTRY",
