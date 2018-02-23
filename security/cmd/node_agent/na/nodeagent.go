@@ -70,12 +70,13 @@ func (na *nodeAgentInternal) Start() error {
 		resp, err := na.cAClient.SendCSR(req, na.pc, na.config.IstioCAAddress)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(
-				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)
+				resp.SignedCert, time.Now(), na.config.CSRGracePeriodPercentage)
 			if ttlErr != nil {
 				log.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false
 			} else {
-				if writeErr := na.secretServer.SetServiceIdentityCert(resp.SignedCertChain); writeErr != nil {
+				if writeErr := na.secretServer.SetServiceIdentityCert(
+					append(resp.SignedCert, resp.CertChain...)); writeErr != nil {
 					return writeErr
 				}
 				if writeErr := na.secretServer.SetServiceIdentityPrivateKey(privateKey); writeErr != nil {
