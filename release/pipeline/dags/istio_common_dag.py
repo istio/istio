@@ -1,4 +1,4 @@
-"""Airfow DAG and helpers used in one or more istio release pipline."""
+"""Airfow DAG and helpers used in one or more istio release pipeline."""
 """Copyright 2017 Istio Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +32,7 @@ YESTERDAY = datetime.datetime.combine(
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
-    # This is the date to when the airlfow pipline tryes to backfil to.
+    # This is the date to when the airlfow pipeline tryes to backfil to.
     'start_date': YESTERDAY,
     'email': environment_config.EMAIL_LIST,
     'email_on_failure': True,
