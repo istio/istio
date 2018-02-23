@@ -47,8 +47,8 @@ type Environment struct {
 	MixerSAN []string
 }
 
-// Node defines the proxy attributes used by xDS identification
-type Node struct {
+// Proxy defines the proxy attributes used by xDS identification
+type Proxy struct {
 	// Type specifies the node type
 	Type NodeType
 
@@ -78,8 +78,18 @@ const (
 	Router NodeType = "router"
 )
 
+// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
+func IsApplicationNodeType(nType NodeType) bool {
+	switch nType {
+	case Sidecar, Ingress, Router:
+		return true
+	default:
+		return false
+	}
+}
+
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
-func (node Node) ServiceNode() string {
+func (node Proxy) ServiceNode() string {
 	return strings.Join([]string{
 		string(node.Type), node.IPAddress, node.ID, node.Domain,
 	}, serviceNodeSeparator)
@@ -87,9 +97,9 @@ func (node Node) ServiceNode() string {
 }
 
 // ParseServiceNode is the inverse of service node function
-func ParseServiceNode(s string) (Node, error) {
+func ParseServiceNode(s string) (Proxy, error) {
 	parts := strings.Split(s, serviceNodeSeparator)
-	out := Node{}
+	out := Proxy{}
 
 	if len(parts) != 4 {
 		return out, fmt.Errorf("missing parts in the service node %q", s)
@@ -170,6 +180,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
+		Concurrency:            0,
 	}
 }
 
@@ -177,8 +188,10 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		EgressProxyAddress:    "",
+		// TODO(mixeraddress is deprecated. Remove)
 		MixerAddress:          "",
+		MixerCheckServer:      "",
+		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
@@ -217,6 +230,15 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
+
+	// Backward compat option: if mixer address is set but
+	// mixer_check_server and mixer_report_server are unset, copy the value
+	// into these two config vars.
+	if out.MixerAddress != "" && out.MixerCheckServer == "" && out.MixerReportServer == "" {
+		out.MixerCheckServer = out.MixerAddress
+		out.MixerReportServer = out.MixerAddress
+	}
+
 	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}

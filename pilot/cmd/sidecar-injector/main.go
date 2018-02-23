@@ -15,17 +15,22 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"time"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 )
 
@@ -33,11 +38,14 @@ var (
 	flags = struct {
 		loggingOptions *log.Options
 
-		meshconfig       string
-		injectConfigFile string
-		certFile         string
-		privateKeyFile   string
-		port             int
+		meshconfig          string
+		injectConfigFile    string
+		certFile            string
+		privateKeyFile      string
+		port                int
+		healthCheckInterval time.Duration
+		healthCheckFile     string
+		probeOptions        probe.Options
 	}{
 		loggingOptions: log.NewOptions(),
 	}
@@ -52,7 +60,16 @@ var (
 
 			log.Infof("version %s", version.Info.String())
 
-			wh, err := inject.NewWebhook(flags.injectConfigFile, flags.meshconfig, flags.certFile, flags.privateKeyFile, flags.port) // nolint: lll
+			parameters := inject.WebhookParameters{
+				ConfigFile:          flags.injectConfigFile,
+				MeshFile:            flags.meshconfig,
+				CertFile:            flags.certFile,
+				KeyFile:             flags.privateKeyFile,
+				Port:                flags.port,
+				HealthCheckInterval: flags.healthCheckInterval,
+				HealthCheckFile:     flags.healthCheckFile,
+			}
+			wh, err := inject.NewWebhook(parameters)
 			if err != nil {
 				return multierror.Prefix(err, "failed to create injection webhook")
 			}
@@ -60,6 +77,21 @@ var (
 			stop := make(chan struct{})
 			go wh.Run(stop)
 			cmd.WaitSignal(stop)
+			return nil
+		},
+	}
+
+	probeCmd = &cobra.Command{
+		Use:   "probe",
+		Short: "Check the liveness or readiness of a locally-running server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !flags.probeOptions.IsValid() {
+				return errors.New("some options are not valid")
+			}
+			if err := probe.NewFileClient(&flags.probeOptions).GetStatus(); err != nil {
+				return fmt.Errorf("fail on inspecting path %s: %v", flags.probeOptions.Path, err)
+			}
+			fmt.Println("OK")
 			return nil
 		},
 	}
@@ -76,6 +108,11 @@ func init() {
 		"File containing the x509 private key matching --tlsCertFile.")
 	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 443, "Webhook port")
 
+	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
+		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
+	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
+		"File that should be periodically updated if health checking is enabled")
+
 	// Attach the Istio logging options to the command.
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -87,6 +124,12 @@ func init() {
 		Section: "sidecar-injector CLI",
 		Manual:  "Istio Sidecar Injector",
 	}))
+
+	probeCmd.PersistentFlags().StringVar(&flags.probeOptions.Path, "probe-path", "",
+		"Path of the file for checking the availability.")
+	probeCmd.PersistentFlags().DurationVar(&flags.probeOptions.UpdateInterval, "interval", 0,
+		"Duration used for checking the target file's last modified time.")
+	rootCmd.AddCommand(probeCmd)
 }
 
 func main() {

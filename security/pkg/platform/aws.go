@@ -22,58 +22,54 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/fullsailor/pkcs7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
-	// AWSCertificatePem is the official public certificate for AWS
-	// copied from https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
+	// AWSCertificatePem is the official public RSA certificate for AWS
 	AWSCertificatePem = `-----BEGIN CERTIFICATE-----
-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
+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
 -----END CERTIFICATE-----`
 )
 
-// AwsConfig ...
-type AwsConfig struct {
-	// Root CA cert file to validate the gRPC service in CA.
-	RootCACertFile string
-}
-
 // AwsClientImpl is the implementation of AWS metadata client.
 type AwsClientImpl struct {
-	config AwsConfig
+	// Root CA cert file to validate the gRPC service in CA.
+	rootCertFile string
+
 	client *ec2metadata.EC2Metadata
 }
 
 // NewAwsClientImpl creates a new AwsClientImpl.
-func NewAwsClientImpl(config AwsConfig) *AwsClientImpl {
+func NewAwsClientImpl(rootCert string) *AwsClientImpl {
 	return &AwsClientImpl{
-		config: config,
-		client: ec2metadata.New(session.Must(session.NewSession())),
+		rootCertFile: rootCert,
+		client:       ec2metadata.New(session.Must(session.NewSession())),
 	}
 }
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.
 func (ci *AwsClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
-	creds, err := credentials.NewClientTLSFromFile(ci.config.RootCACertFile, "")
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
 	if err != nil {
 		return nil, err
 	}
@@ -99,27 +95,26 @@ func (ci *AwsClientImpl) getInstanceIdentityDocument() ([]byte, error) {
 		return nil, fmt.Errorf("failed to parse AWS public certificate: %v", err)
 	}
 
-	resp, err := ci.client.GetDynamicData("instance-identity/pkcs7")
+	doc, err := ci.client.GetDynamicData("instance-identity/document")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get EC2 instance PKCS7 signature: %v", err)
+		return nil, fmt.Errorf("failed to get EC2 instance identity document: %v", err)
+	}
+
+	resp, err := ci.client.GetDynamicData("instance-identity/signature")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EC2 instance identity signature: %v", err)
 	}
 
 	dec, err := base64.StdEncoding.DecodeString(resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode PKCS7 signature: %v", err)
+		return nil, fmt.Errorf("failed to decode EC2 instance identity signature: %v", err)
 	}
 
-	parsed, err := pkcs7.Parse(dec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse PKCS7 response: %v", err)
-	}
-
-	parsed.Certificates = []*x509.Certificate{cert}
-	if err := parsed.Verify(); err != nil {
+	if err := cert.CheckSignature(x509.SHA256WithRSA, []byte(doc), dec); err != nil {
 		return nil, fmt.Errorf("failed to verify PKCS7 signature: %v", err)
 	}
 
-	return parsed.Content, nil
+	return []byte(doc), nil
 }
 
 // GetAgentCredential retrieves the instance identity document as the

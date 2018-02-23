@@ -29,9 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/opentracing/opentracing-go"
-	tpb "istio.io/api/mixer/v1/template"
+	multierror "github.com/hashicorp/go-multierror"
+	opentracing "github.com/opentracing/opentracing-go"
+
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -149,7 +150,9 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 // Quota implementation of runtime.Dispatcher.
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
-	s.quotaMethodArgs = *qma
+	s.quotaArgs.QuotaAmount = qma.Amount
+	s.quotaArgs.DeduplicationID = qma.DeduplicationID
+	s.quotaArgs.BestEffort = qma.BestEffort
 
 	err := d.dispatch(s)
 	if err == nil {
@@ -240,9 +243,11 @@ func (d *Dispatcher) dispatch(session *session) error {
 				state.instance = instance
 				if session.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
+					state.inputBag = session.bag
 				}
 
 				// Dispatch for singleton dispatches
+				state.quotaArgs = session.quotaArgs
 				d.dispatchToHandler(state)
 			}
 

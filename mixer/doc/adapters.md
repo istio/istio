@@ -140,18 +140,18 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/template/standard_types.proto";
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.template.Value value = 1;
+   istio.mixer.adapter.model.v1beta1.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.template.Value> dimensions = 2;
+   map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
 }
 ```
 
@@ -201,7 +201,7 @@ syntax = "proto3";
 
 package listentry;
 
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
@@ -260,18 +260,18 @@ syntax = "proto3";
 
 package metric;
 
-import "mixer/v1/template/standard_types.proto";
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
 // Metric represents a single piece of data to report.
 message Template {
    // The value being reported.
-   istio.mixer.v1.template.Value value = 1;
+   istio.mixer.adapter.model.v1beta1.Value value = 1;
 
    // The unique identity of the particular metric to report.
-   map<string, istio.mixer.v1.template.Value> dimensions = 2;
+   map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
 }
 ```
 
@@ -321,10 +321,10 @@ syntax = "proto3";
 
 package adapter.template.kubernetes;
 
-import "mixer/v1/template/extensions.proto";
-import "mixer/v1/template/standard_types.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+import "mixer/adapter/model/v1beta1/type.proto";
 
-option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
 // kubernetes template represents data used to generate kubernetes attributes.
 //
@@ -363,26 +363,26 @@ message Template {
     string source_uid = 1;
 
     // Source pod's ip.
-    istio.mixer.v1.template.IPAddress source_ip = 2;
+    istio.mixer.adapter.model.v1beta1.IPAddress source_ip = 2;
 
     // Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string destination_uid = 3;
 
     // Destination pod's ip.
-    istio.mixer.v1.template.IPAddress destination_ip = 4;
+    istio.mixer.adapter.model.v1beta1.IPAddress destination_ip = 4;
 
     // Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string origin_uid = 5;
 
     // Origin pod's ip.
-    istio.mixer.v1.template.IPAddress origin_ip = 6;
+    istio.mixer.adapter.model.v1beta1.IPAddress origin_ip = 6;
 }
 
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
 message OutputTemplate {
     // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
-    istio.mixer.v1.template.IPAddress source_pod_ip = 1;
+    istio.mixer.adapter.model.v1beta1.IPAddress source_pod_ip = 1;
 
     // Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
     string source_pod_name = 2;
@@ -400,12 +400,12 @@ message OutputTemplate {
     string source_service_account_name = 6;
 
     // Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
-    istio.mixer.v1.template.IPAddress source_host_ip = 7;
+    istio.mixer.adapter.model.v1beta1.IPAddress source_host_ip = 7;
 
 
 
     // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
-    istio.mixer.v1.template.IPAddress destination_pod_ip = 8;
+    istio.mixer.adapter.model.v1beta1.IPAddress destination_pod_ip = 8;
 
     // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
     string destination_pod_name = 9;
@@ -423,12 +423,12 @@ message OutputTemplate {
     string destination_service_account_name = 13;
 
     // Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
-    istio.mixer.v1.template.IPAddress destination_host_ip = 14;
+    istio.mixer.adapter.model.v1beta1.IPAddress destination_host_ip = 14;
 
 
 
     // Refers to origin pod ip address. attribute_bindings can refer to this field using $out.origin_pod_ip
-    istio.mixer.v1.template.IPAddress origin_pod_ip = 15;
+    istio.mixer.adapter.model.v1beta1.IPAddress origin_pod_ip = 15;
 
     // Refers to origin pod name. attribute_bindings can refer to this field using $out.origin_pod_name
     string origin_pod_name = 16;
@@ -446,7 +446,7 @@ message OutputTemplate {
     string origin_service_account_name = 20;
 
     // Refers to origin pod host ip address. attribute_bindings can refer to this field using $out.origin_host_ip
-    istio.mixer.v1.template.IPAddress origin_host_ip = 21;
+    istio.mixer.adapter.model.v1beta1.IPAddress origin_host_ip = 21;
 }
 ```
 

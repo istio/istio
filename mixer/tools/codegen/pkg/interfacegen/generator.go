@@ -35,10 +35,10 @@ import (
 const (
 	resourceMsgTypeSuffix      = "Type"
 	resourceMsgInstParamSuffix = "InstanceParam"
-	fullGoNameOfValueTypeEnum  = "istio_mixer_v1_config_descriptor.ValueType"
+	fullGoNameOfValueTypeEnum  = "istio_policy_v1beta1.ValueType"
 	goFileImportFmt            = `"%s"`
 	protoFileImportFmt         = `import "%s";`
-	protoValueTypeImport       = "mixer/v1/config/descriptor/value_type.proto"
+	protoValueTypeImport       = "policy/v1beta1/value_type.proto"
 )
 
 // Generator generates Go interfaces for adapters to implement for a given Template.

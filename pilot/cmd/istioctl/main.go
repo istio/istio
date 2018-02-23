@@ -40,6 +40,8 @@ import (
 	"path"
 
 	"github.com/spf13/cobra/doc"
+	"k8s.io/client-go/util/homedir"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -48,7 +50,6 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"k8s.io/client-go/util/homedir"
 )
 
 const (
@@ -428,7 +429,7 @@ istioctl delete routerule productpage-default
 		},
 	}
 
-	configCmd = &cobra.Command{
+	contextCmd = &cobra.Command{
 		Use:   "context-create --api-server http://<ip>:<port>",
 		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
 		Example: `# Create a config file for the api server.
@@ -515,9 +516,9 @@ func init() {
 		"Config namespace")
 
 	defaultContext := "istio"
-	configCmd.PersistentFlags().StringVar(&istioContext, "context", defaultContext,
+	contextCmd.PersistentFlags().StringVar(&istioContext, "context", defaultContext,
 		"Kubernetes configuration file context name")
-	configCmd.PersistentFlags().StringVar(&istioAPIServer, "api-server", "",
+	contextCmd.PersistentFlags().StringVar(&istioAPIServer, "api-server", "",
 		"URL for Istio api server")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
@@ -537,7 +538,7 @@ func init() {
 	rootCmd.AddCommand(putCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 
@@ -612,8 +613,8 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
 			crd.KabobCaseToCamelCase(c.Type),
-			model.IstioAPIVersion,
-			model.IstioAPIGroup,
+			c.Group,
+			c.Version,
 		)
 		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
 	}
@@ -645,12 +646,15 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 }
 
 func newClient() (*crd.Client, error) {
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
 		model.V1alpha2RouteRule,
 		model.Gateway,
 		model.EgressRule,
+		model.ExternalService,
 		model.DestinationPolicy,
+		model.DestinationRule,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,

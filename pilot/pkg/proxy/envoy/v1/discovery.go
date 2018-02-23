@@ -22,10 +22,12 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	restful "github.com/emicklei/go-restful"
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
@@ -111,6 +113,14 @@ var (
 		}, []string{metricLabelMethod, metricBuildVersion})
 )
 
+var (
+	// Variables associated with clear cache squashing.
+	lastClearCache     time.Time
+	clearCacheTimerSet bool
+	clearCacheMutex    sync.Mutex
+	clearCacheTime     = 1
+)
+
 func init() {
 	prometheus.MustRegister(cacheSizeGauge)
 	prometheus.MustRegister(cacheHitCounter)
@@ -118,6 +128,14 @@ func init() {
 	prometheus.MustRegister(callCounter)
 	prometheus.MustRegister(errorCounter)
 	prometheus.MustRegister(resourceCounter)
+
+	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
+	if len(cacheSquash) > 0 {
+		t, err := strconv.Atoi(cacheSquash)
+		if err == nil {
+			clearCacheTime = t
+		}
+	}
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
@@ -337,20 +355,12 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 
 	if configCache != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
-		configCache.RegisterEventHandler(model.RouteRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.IngressRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.EgressRule.Type, configHandler)
-		configCache.RegisterEventHandler(model.DestinationPolicy.Type, configHandler)
-
-		// TODO: Changes to mixerclient HTTP and Quota should not
-		// trigger recompute of full LDS/RDS/CDS/EDS
-		configCache.RegisterEventHandler(model.HTTPAPISpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.HTTPAPISpecBinding.Type, configHandler)
-		configCache.RegisterEventHandler(model.QuotaSpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.QuotaSpecBinding.Type, configHandler)
-		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpec.Type, configHandler)
-		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpecBinding.Type, configHandler)
+		for _, descriptor := range model.IstioConfigTypes {
+			configCache.RegisterEventHandler(descriptor.Type, configHandler)
+		}
 	}
 
 	return out, nil
@@ -486,7 +496,24 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.ldsCache.resetStats()
 }
 
+// clearCache will clear all envoy caches. Called by service, instance and config handlers.
+// This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	clearCacheMutex.Lock()
+	defer clearCacheMutex.Unlock()
+
+	if time.Since(lastClearCache) < time.Duration(clearCacheTime)*time.Second {
+		if !clearCacheTimerSet {
+			clearCacheTimerSet = true
+			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
+				clearCacheTimerSet = false
+				ds.clearCache() // it's after time - so will clear the cache
+			})
+		}
+		return
+	}
+	// TODO: clear the RDS few seconds after CDS !!
+	lastClearCache = time.Now()
 	log.Infof("Cleared discovery service cache")
 	ds.sdsCache.clear()
 	ds.cdsCache.clear()
@@ -589,7 +616,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	writeResponse(response, out)
 }
 
-func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Node, error) {
+func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
 	nodeInfo := request.PathParameter(ServiceNode)
 	svcNode, err := model.ParseServiceNode(nodeInfo)
 	if err != nil {
@@ -608,17 +635,17 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	instances, err := ds.GetSidecarServiceInstances(svcNode)
+	proxyInstances, err := ds.GetProxyServiceInstances(svcNode)
 	if err != nil {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
 		return
 	}
-	if len(instances) <= 0 {
+	if len(proxyInstances) <= 0 {
 		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
 		return
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(instances[0].AvailabilityZone))
+	writeResponse(response, []byte(proxyInstances[0].AvailabilityZone))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
@@ -697,6 +724,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
+			log.Errorf("error invoking webhook: %v", err)
 			transformedOutput = out
 		}
 
@@ -771,7 +799,7 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint: errcheck
 
 	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

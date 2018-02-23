@@ -24,14 +24,9 @@ import (
 
 // Mock values
 var (
-	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	PortHTTP     = &model.Port{
-		Name:                 "http",
-		Port:                 80, // target port 80
-		Protocol:             model.ProtocolHTTP,
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-	}
+	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	PortHTTPName   = "http"
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -49,25 +44,25 @@ var (
 	}
 	HelloInstanceV0 = MakeIP(HelloService, 0)
 	HelloInstanceV1 = MakeIP(HelloService, 1)
-	HelloProxyV0    = model.Node{
+	HelloProxyV0    = model.Proxy{
 		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV0,
 		ID:        "v0.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	HelloProxyV1 = model.Node{
+	HelloProxyV1 = model.Proxy{
 		Type:      model.Sidecar,
 		IPAddress: HelloInstanceV1,
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Ingress = model.Node{
+	Ingress = model.Proxy{
 		Type:      model.Ingress,
 		IPAddress: "10.3.3.3",
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Router = model.Node{
+	Router = model.Proxy{
 		Type:      model.Router,
 		IPAddress: "10.3.3.5",
 		ID:        "router.default",
@@ -89,8 +84,12 @@ func MakeService(hostname, address string) *model.Service {
 		Hostname: hostname,
 		Address:  address,
 		Ports: []*model.Port{
-			PortHTTP,
 			{
+				Name:                 PortHTTPName,
+				Port:                 80, // target port 80
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			}, {
 				Name:                 "http-status",
 				Port:                 81, // target port 1081
 				Protocol:             model.ProtocolHTTP,
@@ -169,6 +168,18 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	}
 }
 
+// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
+// a port does not exist (should not happenen if service is create via
+// mock MakeSericve)
+func GetPortHTTP(service *model.Service) *model.Port {
+	for _, port := range service.Ports {
+		if port.Name == PortHTTPName {
+			return port
+		}
+	}
+	return nil
+}
+
 // MakeIP creates a fake IP address for a service and instance version
 func MakeIP(service *model.Service, version int) string {
 	// external services have no instances
@@ -183,13 +194,13 @@ func MakeIP(service *model.Service, version int) string {
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services                        map[string]*model.Service
-	versions                        int
-	WantGetSidecarServiceInstances  []*model.ServiceInstance
-	ServicesError                   error
-	GetServiceError                 error
-	InstancesError                  error
-	GetSidecarServiceInstancesError error
+	services                      map[string]*model.Service
+	versions                      int
+	WantGetProxyServiceInstances  []*model.ServiceInstance
+	ServicesError                 error
+	GetServiceError               error
+	InstancesError                error
+	GetProxyServiceInstancesError error
 }
 
 // ClearErrors clear errors used for mocking failures during model.ServiceDiscovery interface methods
@@ -197,7 +208,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.ServicesError = nil
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
-	sd.GetSidecarServiceInstancesError = nil
+	sd.GetProxyServiceInstancesError = nil
 }
 
 // Services implements discovery interface
@@ -247,13 +258,13 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	return out, sd.InstancesError
 }
 
-// GetSidecarServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
-	if sd.GetSidecarServiceInstancesError != nil {
-		return nil, sd.GetSidecarServiceInstancesError
+// GetProxyServiceInstances implements discovery interface
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+	if sd.GetProxyServiceInstancesError != nil {
+		return nil, sd.GetProxyServiceInstancesError
 	}
-	if sd.WantGetSidecarServiceInstances != nil {
-		return sd.WantGetSidecarServiceInstances, nil
+	if sd.WantGetProxyServiceInstances != nil {
+		return sd.WantGetProxyServiceInstances, nil
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
@@ -267,7 +278,7 @@ func (sd *ServiceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*mode
 			}
 		}
 	}
-	return out, sd.GetSidecarServiceInstancesError
+	return out, sd.GetProxyServiceInstancesError
 }
 
 // ManagementPorts implements discovery interface

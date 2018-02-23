@@ -46,10 +46,9 @@ import (
     "istio.io/istio/mixer/pkg/expr"
     "istio.io/istio/mixer/pkg/il/compiled"
     "istio.io/istio/pkg/log"
-    istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
     "istio.io/istio/mixer/pkg/template"
-    adptTmpl "istio.io/api/mixer/v1/template"
-    "istio.io/istio/mixer/pkg/config/proto"
+    istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
+    istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
     "errors"
     {{range .TemplateModels}}
         "{{.PackageImportPath}}"
@@ -61,7 +60,7 @@ import (
 // below codegen.
 var (
     _ net.IP
-    _ istio_mixer_v1_config.AttributeManifest
+    _ istio_policy_v1beta1.AttributeManifest
     _ = strings.Reader{}
 )
  
@@ -115,7 +114,7 @@ var (
             Name: {{.GoPackageName}}.TemplateName,
             Impl: "{{.PackageName}}",
             CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
-            Variety:   adptTmpl.{{.VarietyName}},
+            Variety:   istio_adapter_model_v1beta1.{{.VarietyName}},
             BldrInterfaceName:  {{.GoPackageName}}.TemplateName + "." + "HandlerBuilder",
             HndlrInterfaceName: {{.GoPackageName}}.TemplateName + "." + "Handler",
             BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -266,9 +265,9 @@ var (
             {{end}}
             {{if eq $varietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
             {{$goPkgName := .GoPackageName}}
-            AttributeManifests: []*istio_mixer_v1_config.AttributeManifest{
+            AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
                 {
-                    Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+                    Attributes: map[string]*istio_policy_v1beta1.AttributeManifest_AttributeInfo{
                         {{range .OutputTemplateMessage.Fields}}
                         "{{$goPkgName}}.output.{{.ProtoName}}": {
                             ValueType: {{getValueType .GoType}},
@@ -433,7 +432,7 @@ var (
                     abag = newWrapperAttrBag(
                         func(name string) (value interface{}, found bool) {
                             field := strings.TrimPrefix(name, fullOutName)
-                            if len(field) != len(name) {
+                            if len(field) != len(name) && out.WasSet(field) {
                                 switch field {
                                     {{range .OutputTemplateMessage.Fields}}
                                     case "{{.ProtoName}}":
@@ -544,7 +543,7 @@ var (
             outBag := newWrapperAttrBag(
                 func(name string) (value interface{}, found bool) {
                     field := strings.TrimPrefix(name, fullOutName)
-                    if len(field) != len(name) {
+                    if len(field) != len(name) && out.WasSet(field) {
                         switch field {
                             {{range .OutputTemplateMessage.Fields}}
                             case "{{.ProtoName}}":
@@ -618,7 +617,7 @@ var (
 			finder expr.AttributeDescriptorFinder,
 			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
             var err error
-			var expType istio_mixer_v1_config_descriptor.ValueType
+			var expType istio_policy_v1beta1.ValueType
 
             // Convert the generic instanceParam to its specialized type.
             param := instanceParam.(*{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}})
@@ -711,7 +710,7 @@ var (
             _ = err
             var errp template.ErrorPath
             _ = errp
-			var expType istio_mixer_v1_config_descriptor.ValueType
+			var expType istio_policy_v1beta1.ValueType
             _ = expType
 
             {{range $m.Fields}}

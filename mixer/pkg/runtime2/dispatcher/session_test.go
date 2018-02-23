@@ -21,10 +21,9 @@ import (
 	"testing"
 	"time"
 
-	tpb "istio.io/api/mixer/v1/template"
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/runtime"
 )
 
 func TestSessionPool(t *testing.T) {
@@ -85,7 +84,7 @@ func TestSession_Clear(t *testing.T) {
 		ctx:              context.TODO(),
 		checkResult:      &adapter.CheckResult{ValidUseCount: 53},
 		quotaResult:      &adapter.QuotaResult{Amount: 23},
-		quotaMethodArgs:  runtime.QuotaMethodArgs{BestEffort: true},
+		quotaArgs:        adapter.QuotaArgs{BestEffort: true},
 		variety:          tpb.TEMPLATE_VARIETY_CHECK,
 		responseBag:      attribute.GetMutableBag(nil),
 	}

@@ -19,10 +19,9 @@ import (
 	"sync"
 	"time"
 
-	tpb "istio.io/api/mixer/v1/template"
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/pkg/log"
 )
 
@@ -32,30 +31,28 @@ const queueAllocSize = 64
 // call. It is used as temporary memory location to keep ephemeral state, thus avoiding garbage creation.
 type session struct {
 
-	// The variety of the operation that is being performed.
-	variety tpb.TemplateVariety
-
 	// start time of the session.
 	start time.Time
 
 	// input parameters that was collected as part of the call.
-	ctx             context.Context
-	bag             attribute.Bag
-	quotaMethodArgs runtime.QuotaMethodArgs
-	responseBag     *attribute.MutableBag
+	ctx         context.Context
+	bag         attribute.Bag
+	quotaArgs   adapter.QuotaArgs
+	responseBag *attribute.MutableBag
 
 	// output parameters that gets collected / accumulated as result.
 	checkResult *adapter.CheckResult
 	quotaResult *adapter.QuotaResult
 	err         error
 
-	//  handler dispatching related parameters
-
 	// The current number of activeDispatches handler dispatches.
 	activeDispatches int
 
 	// channel for collecting states of completed dispatches.
 	completed chan *dispatchState
+
+	// The variety of the operation that is being performed.
+	variety tpb.TemplateVariety
 
 	// whether to trace spans or not
 	trace bool
@@ -78,7 +75,7 @@ func (s *session) clear() {
 	s.variety = 0
 	s.ctx = nil
 	s.bag = nil
-	s.quotaMethodArgs = runtime.QuotaMethodArgs{}
+	s.quotaArgs = adapter.QuotaArgs{}
 	s.responseBag = nil
 
 	s.start = time.Time{}

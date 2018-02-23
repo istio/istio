@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"os"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/spf13/cobra/doc"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/collateral"
@@ -79,6 +79,8 @@ func init() {
 			bootstrap.KubernetesRegistry, bootstrap.ConsulRegistry, bootstrap.EurekaRegistry, bootstrap.CloudFoundryRegistry, bootstrap.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
 		"Cloud Foundry config file")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesDir, "clusterRegistriesDir", "",
+		"Directory for a file-based cluster config store")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
@@ -108,7 +110,7 @@ func init() {
 	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
 	// enable webhook for specific xDS config (cds/lds/etc).
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports DNS, IP, and unix domain socket.")
+		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.Config, "consulconfig", "",
 		"Consul Config file for discovery")

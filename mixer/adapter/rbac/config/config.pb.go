@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `rbac` adapter provides Role-Based Access Control (RBAC) functionality for
+	for services within the Istio mesh.
+
 	It is generated from these files:
 		mixer/adapter/rbac/config/config.proto
 
@@ -39,29 +42,29 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// The parameter is provided when defining a handler of the adapter.
+// Configuration format for the `rbac` adapter.
 //
 // For example, the following configuration defines a RBAC handler with
 // configuration store URL pointing to Kubernetes etcd ("k8s://").
 // If you want to run Mixer locally, you can set the configuration store
 // URL to a local directory (e.g., "fs:///tmp/testdata/configroot").
 //
-//   apiVersion: "config.istio.io/v1alpha2"
-//   kind: rbac
-//   metadata:
-//     name: rbachandler
-//     namespace: istio-system
-//   spec:
-//     config_store_url: "fs:///tmp/testdata/config"
-//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: rbac
+// metadata:
+//   name: rbachandler
+//   namespace: istio-system
+// spec:
+//   config_store_url: "fs:///tmp/testdata/config"
+// ```
 type Params struct {
 	// URL for the config store. It is used to initiate a new Store instance.
 	// Following are some examples of the config store URL:
 	// * "k8s://"
 	// * "fs:///tmp/testdata/configroot"
-	// * "memstore://test"
 	ConfigStoreUrl string `protobuf:"bytes,1,opt,name=config_store_url,json=configStoreUrl,proto3" json:"config_store_url,omitempty"`
-	// The duration for which the authorization result is cached.
+	// The duration for which authorization results may be cached.
 	CacheDuration time.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration,stdduration" json:"cache_duration"`
 }
 

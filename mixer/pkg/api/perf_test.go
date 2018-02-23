@@ -33,12 +33,11 @@ import (
 )
 
 type benchState struct {
-	client       mixerpb.MixerClient
-	connection   *grpc.ClientConn
-	gs           *grpc.Server
-	gp           *pool.GoroutinePool
-	s            *grpcServer
-	delayOnClose bool
+	client     mixerpb.MixerClient
+	connection *grpc.ClientConn
+	gs         *grpc.Server
+	gp         *pool.GoroutinePool
+	s          *grpcServer
 }
 
 func (bs *benchState) createGRPCServer() (string, error) {
@@ -76,19 +75,12 @@ func (bs *benchState) createAPIClient(dial string) error {
 		return err
 	}
 
-	bs.delayOnClose = true
 	bs.client = mixerpb.NewMixerClient(bs.connection)
 	return nil
 }
 
 func (bs *benchState) deleteAPIClient() {
 	_ = bs.connection.Close()
-
-	if bs.delayOnClose {
-		// TODO: This is to compensate for this bug: https://github.com/grpc/grpc-go/issues/1059
-		//       Remove this delay once that bug is fixed.
-		time.Sleep(100 * time.Millisecond)
-	}
 
 	bs.client = nil
 	bs.connection = nil

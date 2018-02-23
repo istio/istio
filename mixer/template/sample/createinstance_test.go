@@ -24,10 +24,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
-	pb "istio.io/api/mixer/v1/config/descriptor"
+	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"

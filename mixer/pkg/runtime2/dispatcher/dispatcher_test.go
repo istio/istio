@@ -21,11 +21,9 @@ import (
 	"testing"
 	"time"
 
-	tpb "istio.io/api/mixer/v1/template"
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/pkg/log"
-
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
@@ -34,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/pkg/log"
 )
 
 var gp = pool.NewGoroutinePool(10, true)
@@ -262,14 +261,19 @@ ident                         : dest.istio-system
 			data.InstanceQuota1,
 			data.RuleQuota1,
 		},
-		variety:             tpb.TEMPLATE_VARIETY_QUOTA,
+		variety: tpb.TEMPLATE_VARIETY_QUOTA,
+		qma: &runtime.QuotaMethodArgs{
+			BestEffort:      true,
+			DeduplicationID: "42",
+			Amount:          64,
+		},
 		expectedQuotaResult: &adapter.QuotaResult{},
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -295,7 +299,7 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (ERROR)
 `,
 	},
@@ -332,13 +336,13 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -387,13 +391,13 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'
+[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -412,6 +416,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (SUCCESS)
 `,
 	},
@@ -439,6 +447,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (ERROR)
 
 `,
@@ -521,7 +533,9 @@ ident                         : dest.istio-system
 
 func TestDispatcher(t *testing.T) {
 	o := log.NewOptions()
-	log.Configure(o)
+	if err := log.Configure(o); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {

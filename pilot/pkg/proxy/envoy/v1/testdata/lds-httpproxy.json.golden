@@ -24,16 +24,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "forwardAttributes": {
@@ -41,20 +31,20 @@
              "source.ip": {
               "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
              },
+             "source.labels": {
+              "stringMapValue": {
+               "entries": {
+                "version": "v0"
+               }
+              }
+             },
              "source.uid": {
               "stringValue": "kubernetes://v0.default"
              }
             }
            },
            "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
+            "attributes": {}
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
@@ -62,12 +52,23 @@
              "disableReportCalls": true,
              "mixerAttributes": {
               "attributes": {
+               "destination.labels": {
+                "stringMapValue": {
+                 "entries": {
+                  "version": "v0"
+                 }
+                }
+               },
                "destination.service": {
                 "stringValue": "hello.default.svc.cluster.local"
                }
               }
              }
             }
+           },
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_report_server"
            }
           }
          }

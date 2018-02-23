@@ -30,6 +30,7 @@ type (
 	NodeAgentTestEnv struct {
 		framework.TestEnv
 		name      string
+		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
 		NameSpace string
 		Hub       string
@@ -76,48 +77,51 @@ func (env *NodeAgentTestEnv) GetName() string {
 // It defines what components a environment contains.
 // Components will be stored in framework for start and stop
 func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
-	return []framework.Component{
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			istioCaWithGivenCertificate,
-			fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
-			[]string{},
-			[]string{},
-		),
-		NewKubernetesService(
-			env.ClientSet,
-			env.NameSpace,
-			"istio-ca",
-			v1.ServiceTypeClusterIP,
-			8060,
-			map[string]string{
-				"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
-			},
-			map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
-			},
-		),
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			nodeAgent,
-			fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
-			[]string{},
-			[]string{},
-		),
-		NewKubernetesService(
-			env.ClientSet,
-			env.NameSpace,
-			nodeAgentService,
-			v1.ServiceTypeLoadBalancer,
-			8080,
-			map[string]string{
-				"pod-group": nodeAgent + podGroupPostfix,
-			},
-			map[string]string{},
-		),
+	if env.comps == nil {
+		env.comps = []framework.Component{
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				istioCaWithGivenCertificate,
+				fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
+				[]string{},
+				[]string{},
+			),
+			NewKubernetesService(
+				env.ClientSet,
+				env.NameSpace,
+				"istio-ca",
+				v1.ServiceTypeClusterIP,
+				8060,
+				map[string]string{
+					"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
+				},
+				map[string]string{
+					kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
+				},
+			),
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				nodeAgent,
+				fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
+				[]string{},
+				[]string{},
+			),
+			NewKubernetesService(
+				env.ClientSet,
+				env.NameSpace,
+				nodeAgentService,
+				v1.ServiceTypeLoadBalancer,
+				8080,
+				map[string]string{
+					"pod-group": nodeAgent + podGroupPostfix,
+				},
+				map[string]string{},
+			),
+		}
 	}
+	return env.comps
 }
 
 // Bringup doing general setup for environment level, not components.

@@ -174,16 +174,16 @@ func TestGetServiceError(t *testing.T) {
 	}
 }
 
-func TestGetSidecarServiceInstances(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.HelloInstanceV0})
+	instances, err := aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.HelloInstanceV0})
 	if err != nil {
-		t.Fatalf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
+		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned GetSidecarServiceInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.HelloService.Hostname {
@@ -192,12 +192,12 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.MakeIP(mock.WorldService, 1)})
+	instances, err = aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
-		t.Fatalf("GetSidecarServiceInstances() encountered unexpected error: %v", err)
+		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned GetSidecarServiceInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.WorldService.Hostname {
@@ -206,28 +206,28 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	}
 }
 
-func TestGetSidecarServiceInstancesError(t *testing.T) {
+func TestGetProxyServiceInstancesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.GetSidecarServiceInstancesError = errors.New("mock GetSidecarServiceInstances() error")
+	discovery1.GetProxyServiceInstancesError = errors.New("mock GetProxyServiceInstances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.HelloInstanceV0})
+	instances, err := aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.HelloInstanceV0})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
 	}
 	if len(instances) != 0 {
-		t.Fatal("GetSidecarServiceInstances() should return no instances is client experiences error")
+		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.GetSidecarServiceInstances(model.Node{IPAddress: mock.MakeIP(mock.WorldService, 1)})
+	instances, err = aggregateCtl.GetProxyServiceInstances(model.Proxy{IPAddress: mock.MakeIP(mock.WorldService, 1)})
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}
 	if len(instances) != 5 {
-		t.Fatalf("Returned GetSidecarServiceInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.WorldService.Hostname {
@@ -241,7 +241,7 @@ func TestInstances(t *testing.T) {
 
 	// Get Instances from mockAdapter1
 	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHTTPName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -253,14 +253,14 @@ func TestInstances(t *testing.T) {
 		if instance.Service.Hostname != mock.HelloService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
 
 	// Get Instances from mockAdapter2
 	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHTTPName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
@@ -272,7 +272,7 @@ func TestInstances(t *testing.T) {
 		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}
@@ -285,7 +285,7 @@ func TestInstancesError(t *testing.T) {
 
 	// Get Instances from client with error
 	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHTTPName},
 		model.LabelsCollection{})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
@@ -297,7 +297,7 @@ func TestInstancesError(t *testing.T) {
 
 	// Get Instances from client without error
 	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
-		[]string{mock.PortHTTP.Name},
+		[]string{mock.PortHTTPName},
 		model.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() should not return error is instances are found: %v", err)
@@ -309,7 +309,7 @@ func TestInstancesError(t *testing.T) {
 		if instance.Service.Hostname != mock.WorldService.Hostname {
 			t.Fatal("Returned instance's hostname does not match desired value")
 		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
 	}

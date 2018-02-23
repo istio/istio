@@ -62,7 +62,7 @@ done
 
 DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
 if [[ -n "${TEST_GCS_PATH}" ]]; then
-  TEST_PATH="https://storage.googleapis.com/${TEST_GCS_PATH}"
+  TEST_PATH="${TEST_GCS_PATH}"
 else
   TEST_PATH="${DEFAULT_GCS_PATH}"
 fi
@@ -79,9 +79,6 @@ ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-apt-get -qqy install ruby ruby-dev rubygems build-essential
-gem install --no-ri --no-rdoc fpm
-
 MAKE_TARGETS=istio-archive
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
@@ -91,7 +88,7 @@ if [ "${BUILD_DOCKER}" == "true" ]; then
 fi
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
-  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH ISTIO_GCS_ISTIOCTL=istioctl-stage make istio-archive
+  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH ISTIO_GCS_ISTIOCTL=istioctl-stage make istio-archive
   cp ${ISTIO_OUT}/archive/istio*z* ${OUTPUT_PATH}
   # These files are only used for testing, so use a name to help make this clear
   for TAR_FILE in ${OUTPUT_PATH}/istio?${ISTIO_VERSION}*; do
@@ -101,7 +98,7 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl-stage
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
 cp ${ISTIO_OUT}/archive/istio*z* ${OUTPUT_PATH}
 mkdir -p "${OUTPUT_PATH}/istioctl"
 cp ${ISTIO_OUT}/istioctl-* ${OUTPUT_PATH}/istioctl

@@ -2,6 +2,9 @@ global:
   proxy:
     repository: {PROXY_HUB}/{PROXY_IMAGE}
     tag: {PROXY_TAG}
+  proxyInit:
+    repository: {PROXY_HUB}/proxy_init
+    tag: {PROXY_TAG}
   sidecarInjector:
     repository: {PILOT_HUB}/sidecar_injector
     tag: {PILOT_TAG}
@@ -34,28 +37,30 @@ global:
 #
 # ingress configuration
 #
-serviceAccountName: default
-imagePullPolicy: IfNotPresent
-resources: {}
+ingress:
+  enabled: true
+  serviceAccountName: default
+  imagePullPolicy: IfNotPresent
+  resources: {}
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
-nodeSelector: {}
+  nodeSelector: {}
 # istio ingress configuration
-service:
+  service:
   # By default istio ingress uses LoadBalancer type of service
   # to use NodePort, it needs to be enabled and desired port specified
-  nodePort:
-    enabled: false
-    port: 32000
+    nodePort:
+      enabled: false
+      port: 32000
 
 #
 # sidecar-injector configuration
 #
-sidecarInjector:
+sidecar-injector:
   enabled: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
@@ -68,6 +73,13 @@ sidecarInjector:
   #  cpu: 100m
   #  memory: 128Mi
   nodeSelector: {}
+
+  # istio egress capture whitelist
+  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+  # be allowed by the sidecar
+  includeIPRanges: {}
 
 #
 # mixer configuration
@@ -135,8 +147,8 @@ grafana:
   service:
     name: http
     type: ClusterIP
-    externalPort: 9000
-    internalPort: 9000
+    externalPort: 3000
+    internalPort: 3000
   ingress:
     enabled: false
     # Used to create an Ingress record.

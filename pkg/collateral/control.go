@@ -17,11 +17,10 @@ package collateral
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"os"
 	"sort"
-
-	"html"
-
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -111,11 +110,13 @@ func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command) {
 	}
 }
 
+const help = "help"
+
 func genJekyllHTML(cmd *cobra.Command, path string) error {
 	commands := make(map[string]*cobra.Command)
 	findCommands(commands, cmd)
 
-	names := make([]string, len(commands), len(commands))
+	names := make([]string, len(commands))
 	i := 0
 	for n := range commands {
 		names[i] = n
@@ -127,9 +128,18 @@ func genJekyllHTML(cmd *cobra.Command, path string) error {
 		buffer: &bytes.Buffer{},
 	}
 
-	g.genFileHeader(cmd)
+	count := 0
 	for _, n := range names {
-		if commands[n].Name() == "help" {
+		if commands[n].Name() == help {
+			continue
+		}
+
+		count++
+	}
+
+	g.genFileHeader(cmd, count)
+	for _, n := range names {
+		if commands[n].Name() == help {
 			continue
 		}
 
@@ -146,11 +156,12 @@ func genJekyllHTML(cmd *cobra.Command, path string) error {
 	return err
 }
 
-func (g *generator) genFileHeader(root *cobra.Command) {
+func (g *generator) genFileHeader(root *cobra.Command, numEntries int) {
 	g.emit("---")
 	g.emit("title: ", root.Name())
 	g.emit("overview: ", html.EscapeString(root.Short))
 	g.emit("layout: pkg-collateral-docs")
+	g.emit("number_of_entries: ", strconv.Itoa(numEntries))
 	g.emit("---")
 }
 
@@ -224,7 +235,7 @@ func addFlags(f map[string]*pflag.Flag, s *pflag.FlagSet) {
 			return
 		}
 
-		if flag.Name == "help" {
+		if flag.Name == help {
 			return
 		}
 

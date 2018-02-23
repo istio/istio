@@ -57,7 +57,7 @@ func TestRunReload(t *testing.T) {
 		},
 	}
 	config := model.DefaultProxyConfig()
-	node := model.Node{
+	node := model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}
@@ -100,6 +100,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 		name        string
 		az          string
 		retries     int
+		nodeType    model.NodeType
 		wantReload  bool
 		wantAZ      string
 		pilotStates []pilotStubState
@@ -108,6 +109,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retrieves an AZ and calls for a reload",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "az1"},
@@ -117,6 +119,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives an error",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 301, Response: ""},
@@ -127,6 +130,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives non 200 status from pilot",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 500, Response: ""},
@@ -137,12 +141,24 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "do nothing if az is set",
 			az:         "az1",
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			wantReload: false,
 		},
 		{
-			name:    "give up after retry count is reached",
-			retries: 2,
+			name:       "do nothing if node type is pilot",
+			nodeType:   "pilot",
+			wantReload: false,
+		},
+		{
+			name:       "do nothing if node type is mixer",
+			nodeType:   "mixer",
+			wantReload: false,
+		},
+		{
+			name:     "give up after retry count is reached",
+			nodeType: model.Ingress,
+			retries:  2,
 			pilotStates: []pilotStubState{
 				{StatusCode: 500, Response: ""},
 				{StatusCode: 500, Response: ""},
@@ -160,8 +176,8 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 					called <- true
 				},
 			}
-			node := model.Node{
-				Type:      model.Ingress,
+			node := model.Proxy{
+				Type:      tt.nodeType,
 				ID:        "id",
 				Domain:    "domain",
 				IPAddress: "ip",
@@ -325,6 +341,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config := model.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
+	config.Concurrency = 8
 
 	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
 	testProxy := NewProxy(config, "my-node", "trace")
@@ -342,6 +359,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 		"-l", "trace",
+		"--concurrency", "8",
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {

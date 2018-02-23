@@ -17,10 +17,9 @@ package data
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
@@ -201,7 +200,7 @@ func (f *FakeHandler) Close() error {
 		return fmt.Errorf("error on close")
 	}
 
-	if f.settings.CloseGoRoutines == true {
+	if f.settings.CloseGoRoutines {
 		f.closingDaemon <- true
 		f.closingWorker <- true
 		close(f.closingDaemon)
@@ -216,7 +215,7 @@ func (f *FakeHandler) Close() error {
 var _ adapter.Handler = &FakeHandler{}
 
 // FakeAdapterSettings describes the behavior of a fake adapter.
-type FakeAdapterSettings struct {
+type FakeAdapterSettings struct { // nolint: maligned
 	Name                    string
 	PanicAtSetAdapterConfig bool
 	PanicData               interface{}

@@ -15,6 +15,10 @@
 package v1
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -505,7 +509,8 @@ type HTTPFilterConfig struct {
 	AccessLog         []AccessLog            `json:"access_log"`
 }
 
-func (*HTTPFilterConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks HTTPFilterConfig as an implementation of NetworkFilterConfig
+func (*HTTPFilterConfig) IsNetworkFilterConfig() {}
 
 // HTTPFilterTraceConfig definition
 type HTTPFilterTraceConfig struct {
@@ -575,7 +580,8 @@ type TCPProxyFilterConfig struct {
 	RouteConfig *TCPRouteConfig `json:"route_config"`
 }
 
-func (*TCPProxyFilterConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks TCPProxyFilterConfig as an implementation of NetworkFilterConfig
+func (*TCPProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // TCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
 type TCPRouteConfig struct {
@@ -587,13 +593,15 @@ type MongoProxyFilterConfig struct {
 	StatPrefix string `json:"stat_prefix"`
 }
 
-func (*MongoProxyFilterConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks MongoProxyFilterConfig as an implementation of NetworkFilterConfig
+func (*MongoProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // CORSFilterConfig definition
 // See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
 type CORSFilterConfig struct{}
 
-func (*CORSFilterConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks CORSFilterConfig as an implementation of NetworkFilterConfig
+func (*CORSFilterConfig) IsNetworkFilterConfig() {}
 
 // RedisConnPool definition
 type RedisConnPool struct {
@@ -607,7 +615,8 @@ type RedisProxyFilterConfig struct {
 	StatPrefix  string         `json:"stat_prefix"`
 }
 
-func (*RedisProxyFilterConfig) isNetworkFilterConfig() {}
+// IsNetworkFilterConfig marks RedisProxyFilterConfig as an implementation of NetworkFilterConfig
+func (*RedisProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // NetworkFilter definition
 type NetworkFilter struct {
@@ -618,7 +627,58 @@ type NetworkFilter struct {
 
 // NetworkFilterConfig is a marker interface
 type NetworkFilterConfig interface {
-	isNetworkFilterConfig()
+	IsNetworkFilterConfig()
+}
+
+// NetworkFilterTypes maps filter names to types of structs that implement them. It is used when unmarshaling JSON data.
+// To add your own NetworkFilter types, add additional entries to this map prior to calling json.Unmarshal.
+var NetworkFilterTypes = map[string]reflect.Type{
+	RedisProxyFilter:      reflect.TypeOf(RedisProxyFilterConfig{}),
+	CORSFilter:            reflect.TypeOf(CORSFilterConfig{}),
+	MongoProxyFilter:      reflect.TypeOf(MongoProxyFilterConfig{}),
+	TCPProxyFilter:        reflect.TypeOf(TCPProxyFilterConfig{}),
+	HTTPConnectionManager: reflect.TypeOf(HTTPFilterConfig{}),
+	MixerFilter:           reflect.TypeOf(FilterMixerConfig{}),
+}
+
+// UnmarshalJSON handles custom unmarshal logic for the NetworkFilter struct. This is needed because the config field
+// depends on the filter name.
+func (nf *NetworkFilter) UnmarshalJSON(b []byte) error {
+
+	// First, unmarshal to a generic data structure so we can get the name.
+	var j interface{}
+	err := json.Unmarshal(b, &j)
+	if err != nil {
+		return err
+	}
+	m := j.(map[string]interface{})
+	n, ok := m["name"].(string)
+	if !ok {
+		return errors.New("filter missing name field")
+	}
+
+	// Once we have the name, we can look up the concrete type of the config field.
+	t, ok := NetworkFilterTypes[n]
+	if !ok {
+		return fmt.Errorf("unknown filter name: %s", n)
+	}
+	v := reflect.New(t)
+
+	// Since Unmarshal takes a []byte, we re-marshall the config and then call Unmarshal on it.
+	cfgBytes, err := json.Marshal(m["config"])
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(cfgBytes, v.Interface())
+	if err != nil {
+		return err
+	}
+
+	// Fill in the NetworkFilter
+	nf.Name = n
+	nf.Type = m["type"].(string)
+	nf.Config = v.Interface().(NetworkFilterConfig)
+	return nil
 }
 
 // Listener definition

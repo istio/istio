@@ -8,7 +8,7 @@ resources:
     zone: {{ properties['zone'] }}
     cluster:
       name: {{ properties['gkeClusterName'] }}
-      enableKubernetesAlpha: true
+      initialClusterVersion: 1.9.2-gke.1
       legacyAbac:
         enabled: false
       initialNodeCount: {{ properties['initialNodeCount'] }}
@@ -97,14 +97,50 @@ resources:
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
-            kubectl apply -f install/kubernetes/istio-sidecar-injector.yaml
+            {% if properties['installIstioRelease'] == "0.5.1" %}
+              # Setup automatic istio sidecar injection for the default namespace.
+              # Note that the original 0.5.1-tagged version of this script had
+              # a timing bug; here we pull one commit later.
+              curl -s https://raw.githubusercontent.com/istio/istio/41203341818c4dada2ea5385cfedc7859c01e957/install/kubernetes/webhook-create-signed-cert.sh -o ./install/kubernetes/webhook-create-signed-cert.sh && chmod +x ./install/kubernetes/webhook-create-signed-cert.sh
+              curl -s https://raw.githubusercontent.com/istio/istio/0.5.1/install/kubernetes/webhook-patch-ca-bundle.sh -o ./install/kubernetes/webhook-patch-ca-bundle.sh && chmod +x ./install/kubernetes/webhook-patch-ca-bundle.sh
+
+              ./install/kubernetes/webhook-create-signed-cert.sh \
+                  --service istio-sidecar-injector \
+                      --namespace istio-system \
+                      --secret sidecar-injector-certs
+              kubectl apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+              cat install/kubernetes/istio-sidecar-injector.yaml | \
+                  ./install/kubernetes/webhook-patch-ca-bundle.sh > \
+                  install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+              kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+              # Wait for the deployment to finish
+              kubectl rollout status -n istio-system deploy/istio-sidecar-injector
+              kubectl label namespace default istio-injection=enabled
+            {% else %}
+              # Setup an initializer
+              kubectl apply -f install/kubernetes/istio-initializer.yaml
+              # Wait for the deployment to finish
+              kubectl rollout status -n istio-system deploy/istio-initializer
+            {% endif %}
+          {% endif %}
+
+          {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
+            {% if properties['installIstioRelease'] == '0.5.1' %}
+              # Unfortunately the default prometheus RBAC rules have two small
+              # omissions - correct that before proceeding.
+              # See https://github.com/istio/istio/pull/3393 and
+              # https://github.com/istio/istio/issues/3149#issuecomment-365431877
+              # for more details.
+              awk -v s="  - nodes/proxy" 'NR==257{print s}1' install/kubernetes/addons/prometheus.yaml \
+                  | awk -v s="  namespace: istio-system" 'NR==245{print s}1' - \
+                  | kubectl apply -f -
+            {% else %}
+              kubectl apply -f install/kubernetes/addons/prometheus.yaml
+            {% endif %}
           {% endif %}
 
           {% if  properties['enableGrafana'] %}
-            kubectl apply -f install/kubernetes/addons/prometheus.yaml
             kubectl apply -f install/kubernetes/addons/grafana.yaml
-          {% elif properties['enablePrometheus'] %}
-            kubectl apply -f install/kubernetes/addons/prometheus.yaml
           {% endif %}
 
           {% if  properties['enableZipkin'] %}
@@ -112,7 +148,7 @@ resources:
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
-             kubectl apply -f install/kubernetes/addons/servicegraph.yaml
+            kubectl apply -f install/kubernetes/addons/servicegraph.yaml
           {% endif %}
 
           {% if  properties['enableBookInfoSample'] %}

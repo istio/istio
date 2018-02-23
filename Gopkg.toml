@@ -1,4 +1,3 @@
-
 # Gopkg.toml example
 #
 # Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
@@ -23,21 +22,38 @@
 # TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
 # This repo includes only istio-generated files.
 
-### BEGIN Mixer codegen deps
 
 required = [
+  ### BEGIN Mixer codegen deps
   "github.com/gogo/protobuf/proto",
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
+  "github.com/istio/tools/protoc-gen-docs",
+  ### END Mixer codegen deps
+  # fortio binary (main) is used by the testing framework and should not be
+  # pruned
+  "istio.io/fortio",
 ]
 
-### END Mixer codegen deps
+### Pruning settings
+[prune]
+  unused-packages = true
+  go-tests = true
+  non-go = true
+###
 
 [[constraint]]
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
+
+# Lock mergo against kubernetes/client-go's version to fix merging related kubeconfig bugs
+# related to CertificateAuthorityData/certificate-authority-data failures
+# https://github.com/kubernetes/client-go/blob/7cd1d3291b7d9b1e2d54d4b69eb65995eaf8888e/tools/clientcmd/client_config.go#L160-L162
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 # When necessary, override transitive contraints that might be pinned
 # to older versions (e.g. ingress-nginx pinned to 1.8).
@@ -61,6 +77,10 @@ required = [
 [[override]]
   name = "k8s.io/api"
   branch = "release-1.9"
+
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  version = "v9.10.0"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
@@ -95,13 +115,13 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.6.4"
+  version = ">= v0.6.9"
 
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "740b653f32ae495c5e11ddb012cce3ac088a5491"
+  revision = "a11fc3a78b68ede57ad46fb4d1f7fe5742325489"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
@@ -138,3 +158,11 @@ required = [
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
   revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/istio/tools"
+
+[[constraint]]
+  name = "github.com/openshift/api"
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"

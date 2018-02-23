@@ -30,6 +30,8 @@ import (
 	"github.com/ghodss/yaml"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
@@ -196,10 +198,18 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 	status := annotations[istioSidecarAnnotationStatusKey]
 
-	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		metadata.Namespace, metadata.Name, namespacePolicy, useDefault, inject, status, required)
 
 	return required
+}
+
+func formatDuration(in *duration.Duration) string {
+	dur, err := ptypes.Duration(in)
+	if err != nil {
+		return "1s"
+	}
+	return dur.String()
 }
 
 func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
@@ -210,8 +220,10 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 		MeshConfig:  meshConfig,
 	}
 
+	funcMap := template.FuncMap{"formatDuration": formatDuration}
+
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Parse(sidecarTemplate))
+	t := template.Must(template.New("inject").Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -251,28 +263,24 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 			return err
 		}
 
-		var typeMeta metav1.TypeMeta
-		if err = yaml.Unmarshal(raw, &typeMeta); err != nil {
+		obj, err := fromRawToObject(raw)
+		if err != nil && !runtime.IsNotRegisteredError(err) {
 			return err
 		}
 
-		gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
-		obj, err := injectScheme.New(gvk)
 		var updated []byte
 		if err == nil {
-			if err = yaml.Unmarshal(raw, obj); err != nil {
-				return err
-			}
-			out, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			outObject, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
-			if updated, err = yaml.Marshal(out); err != nil {
+			if updated, err = yaml.Marshal(outObject); err != nil {
 				return err
 			}
 		} else {
 			updated = raw // unchanged
 		}
+
 		if _, err = out.Write(updated); err != nil {
 			return err
 		}
@@ -283,11 +291,54 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 	return nil
 }
 
+func fromRawToObject(raw []byte) (runtime.Object, error) {
+	var typeMeta metav1.TypeMeta
+	if err := yaml.Unmarshal(raw, &typeMeta); err != nil {
+		return nil, err
+	}
+
+	gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
+	obj, err := injectScheme.New(gvk)
+	if err != nil {
+		return nil, err
+	}
+	if err = yaml.Unmarshal(raw, obj); err != nil {
+		return nil, err
+	}
+
+	return obj, nil
+}
+
 func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
 	var podSpec *v1.PodSpec
+
+	// Handle Lists
+	if list, ok := out.(*v1.List); ok {
+		result := list
+
+		for i, item := range list.Items {
+			obj, err := fromRawToObject(item.Raw)
+			if runtime.IsNotRegisteredError(err) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			r, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			if err != nil {
+				return nil, err
+			}
+
+			re := runtime.RawExtension{}
+			re.Object = r.(runtime.Object)
+			result.Items[i] = re
+		}
+		return result, nil
+	}
 
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
@@ -315,7 +366,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
 		return out, nil
 	}
 

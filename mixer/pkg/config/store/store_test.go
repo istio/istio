@@ -15,16 +15,14 @@
 package store
 
 import (
-	"context"
 	"errors"
 	"net/url"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/istio/mixer/pkg/config/proto"
+	cfg "istio.io/api/policy/v1beta1"
 )
 
 type testStore struct {
@@ -39,7 +37,13 @@ type testStore struct {
 	listCount    int
 }
 
-func (t *testStore) Init(ctx context.Context, kinds []string) error {
+func (t *testStore) Stop() {
+	if t.watchCh != nil {
+		close(t.watchCh)
+	}
+}
+
+func (t *testStore) Init(kinds []string) error {
 	return t.initErr
 }
 
@@ -53,16 +57,12 @@ func (t *testStore) List() map[Key]*BackEndResource {
 	return t.listResponse
 }
 
-func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+func (t *testStore) Watch() (<-chan BackendEvent, error) {
 	t.watchCount++
 	if t.watchErr != nil {
 		return nil, t.watchErr
 	}
 	ch := make(chan BackendEvent)
-	go func() {
-		<-ctx.Done()
-		close(ch)
-	}()
 	t.watchCh = ch
 	return t.watchCh, nil
 }
@@ -81,9 +81,10 @@ func TestStore(t *testing.T) {
 	b := newTestBackend()
 	s := WithBackend(b)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
-	if err := s.Init(context.Background(), kinds); err != nil {
+	if err := s.Init(kinds); err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
 
 	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
 	b.getError = ErrNotFound
@@ -126,9 +127,7 @@ func TestStore(t *testing.T) {
 	if b.watchCount != 0 {
 		t.Errorf("Watch is called %d times already", b.watchCount)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ch, err := s.Watch(ctx)
+	ch, err := s.Watch()
 	if err != nil {
 		t.Error(err)
 	}
@@ -155,37 +154,24 @@ func TestStoreWatchMultiple(t *testing.T) {
 	b := newTestBackend()
 	s := WithBackend(b)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if err := s.Init(ctx, map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+	if err := s.Init(map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
 		t.Fatal(err)
 	}
-	wctx, wcancel := context.WithCancel(ctx)
+	defer s.Stop()
 	if b.watchCount != 0 {
 		t.Errorf("Watch is called %d times already", b.watchCount)
 	}
-	if _, err := s.Watch(wctx); err != nil {
+	if _, err := s.Watch(); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	if b.watchCount != 1 {
 		t.Errorf("Got %d, Want 1", b.watchCount)
 	}
-	if _, err := s.Watch(wctx); err != ErrWatchAlreadyExists {
+	if _, err := s.Watch(); err != ErrWatchAlreadyExists {
 		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExists)
 	}
 	if b.watchCount != 1 {
 		t.Errorf("Got %d, Want 1", b.watchCount)
-	}
-	wcancel()
-	// short sleep to make sure the goroutine for canceling watch status in store.
-	time.Sleep(time.Millisecond * 5)
-	wctx2, wcancel2 := context.WithCancel(ctx)
-	defer wcancel2()
-	if _, err := s.Watch(wctx2); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
-	if b.watchCount != 2 {
-		t.Errorf("Got %d, Want 2", b.watchCount)
 	}
 }
 
@@ -194,16 +180,17 @@ func TestStoreFail(t *testing.T) {
 	s := WithBackend(b)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
 	b.initErr = errors.New("dummy")
-	if err := s.Init(context.Background(), kinds); err.Error() != "dummy" {
+	if err := s.Init(kinds); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
+	defer s.Stop()
 	b.initErr = nil
-	if err := s.Init(context.Background(), kinds); err != nil {
+	if err := s.Init(kinds); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 
 	b.watchErr = errors.New("watch error")
-	if _, err := s.Watch(context.Background()); err.Error() != "watch error" {
+	if _, err := s.Watch(); err.Error() != "watch error" {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 

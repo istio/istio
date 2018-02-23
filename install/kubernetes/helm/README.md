@@ -10,7 +10,7 @@ $ helm install istio --name istio --namespace=istio-system
 ```
 
 ## Configuration
-All configurable variables can be seem in `values.yaml`.
+All configurable variables can be seen in `values.yaml`.
 
 <!--- TODO:
  - describe all possible config options for the chart (values.yaml)

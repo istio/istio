@@ -25,15 +25,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.3.3.3",
-           "destination.uid": "kubernetes://ingress.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.3.3.3",
-           "source.uid": "kubernetes://ingress.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "forwardAttributes": {
             "attributes": {
@@ -55,7 +46,11 @@
              }
             }
            },
-           "serviceConfigs": {}
+           "serviceConfigs": {},
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_report_server"
+           }
           }
          }
         },
@@ -105,15 +100,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.3.3.3",
-           "destination.uid": "kubernetes://ingress.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.3.3.3",
-           "source.uid": "kubernetes://ingress.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "forwardAttributes": {
             "attributes": {
@@ -135,7 +121,11 @@
              }
             }
            },
-           "serviceConfigs": {}
+           "serviceConfigs": {},
+           "transport": {
+            "checkCluster": "mixer_check_server",
+            "reportCluster": "mixer_report_server"
+           }
           }
          }
         },
