@@ -96,7 +96,7 @@ metadata:
     istio: pilot
 spec:
   ports:
-  - port: 15003
+  - port: 15007
     name: http-discovery
   - port: 8080
     name: http-legacy-discovery
@@ -156,14 +156,14 @@ spec:
         image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 15003
+        - containerPort: 15007
         args:
         - proxy
         - pilot
         - -v
         - "2"
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:15007
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile

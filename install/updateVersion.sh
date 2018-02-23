@@ -167,6 +167,7 @@ function merge_files() {
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
+  execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_AUTH
   execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_AUTH
@@ -178,6 +179,7 @@ function merge_files() {
   cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
