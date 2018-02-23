@@ -28,8 +28,20 @@ import (
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
 	// TestVM is true if in this test run user wants to test VM on istio
-	TestVM = flag.Bool("test_vm", false, "whether to test VM on istio")
+	TestVM     = flag.Bool("test_vm", false, "whether to test VM on istio")
+	testKube   = flag.Bool("test_kube", true, "whether to test on kubernetes environment")
+	testConsul = flag.Bool("test_consul", false, "whether to tets on consul on docker")
 )
+
+type Environment interface {
+	Cleanable
+	GenerateRule(rule, dest, user string) error
+	AddRule(rule string) error
+	DeleteRule(rule string) error
+	GetGateway() string
+	CheckRunning() bool
+	AddApp(app string)
+}
 
 type testCleanup struct {
 	Cleanables         []Cleanable
@@ -47,6 +59,8 @@ type CommonConfig struct {
 	Info *testInfo
 	// Kubernetes and istio installation information
 	Kube *KubeInfo
+
+	Env Environment
 }
 
 // Cleanable interfaces that need to be registered to CommonConfig
@@ -90,22 +104,30 @@ func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
-	if err != nil {
-		return nil, err
-	}
+
 	cl := new(testCleanup)
 	cl.skipCleanup = *skipCleanup
 
 	c := &CommonConfig{
 		Info:    t,
-		Kube:    k,
 		Cleanup: cl,
 	}
+
+	if *testKube {
+		k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
+		if err != nil {
+			return nil, err
+		}
+		//TODO remove Kube
+		c.Kube = k
+		c.Env = k
+		c.Cleanup.RegisterCleanable(c.Env)
+		c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
+		c.Cleanup.RegisterCleanable(c.Kube.AppManager)
+	}
+
 	c.Cleanup.RegisterCleanable(c.Info)
-	c.Cleanup.RegisterCleanable(c.Kube)
-	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
-	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
+
 	return c, nil
 }
 

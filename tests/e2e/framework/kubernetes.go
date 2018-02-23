@@ -41,6 +41,8 @@ const (
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
+
+	rulesDir = "samples/bookinfo/kube"
 )
 
 var (
@@ -133,6 +135,52 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
 	}, nil
+}
+
+func (k *KubeInfo) GetGateway() string {
+	return k.Ingress
+}
+
+func (k *KubeInfo) AddApp(appYaml string) {
+	demo := App{AppYaml: util.GetResourcePath(filepath.Join(rulesDir, appYaml)), KubeInject: true}
+	k.AppManager.AddApp(&demo)
+}
+
+func (k *KubeInfo) CheckRunning() bool {
+	return util.CheckPodsRunning(k.Namespace)
+}
+
+func (k *KubeInfo) DeleteRule(rule string) error {
+	if err := util.KubeDelete(k.Namespace, rule); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) AddRule(rule string) error {
+	if err := util.KubeApply(k.Namespace, rule); err != nil {
+		log.Errorf("Kubectl apply %s failed", rule)
+		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) GenerateRule(rule, dest, user string) error {
+	src := util.GetResourcePath(filepath.Join(rulesDir, rule))
+	ruleDest := filepath.Join(dest, rule)
+	ori, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("Failed to read original rule file %s", src)
+		return err
+	}
+	content := string(ori)
+	content = strings.Replace(content, "jason", user, -1)
+	err = ioutil.WriteFile(ruleDest, []byte(content), 0600)
+	if err != nil {
+		log.Errorf("Failed to write into new rule file %s", dest)
+		return err
+	}
+	return nil
 }
 
 // Setup set up Kubernetes prerequest for tests
