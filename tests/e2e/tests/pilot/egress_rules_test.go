@@ -29,7 +29,7 @@ import (
 )
 
 type egressRules struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *egressRules) String() string {
