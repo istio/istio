@@ -42,14 +42,11 @@ spec:
         args:
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
-          - --zipkinURL=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           - --livenessProbePath=/live
           - --livenessProbeInterval=5s
           - --readinessProbePath=/ready
           - --readinessProbeInterval=5s
-          - --logtostderr
-          - -v
-          - "2"
         livenessProbe:
           exec:
             command:

@@ -83,27 +83,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Interval of updating file for the readiness probe.")
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", true, "Enable profiling via web interface host:port/debug/pprof")
 
-	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
-	// base & docs)
-	var dummy string
-	var dummy2 uint16
-	var dummy3 uint
-	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStore2URL", "", "", "deprecated")
-	serverCmd.PersistentFlags().StringVarP(&dummy, "serviceConfigFile", "", "", "deprecated")
-	serverCmd.PersistentFlags().StringVarP(&dummy, "globalConfigFile", "", "", "deprecated")
-	serverCmd.PersistentFlags().Uint16VarP(&dummy2, "configAPIPort", "", 0, "deprecated")
-	serverCmd.PersistentFlags().UintVarP(&dummy3, "configFetchInterval", "", 0, "deprecated")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configStore2URL", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("serviceConfigFile", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("globalConfigFile", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configAPIPort", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configFetchInterval", "")
-	_ = serverCmd.PersistentFlags().MarkHidden("configStore2URL")
-	_ = serverCmd.PersistentFlags().MarkHidden("serviceConfigFile")
-	_ = serverCmd.PersistentFlags().MarkHidden("globalConfigFile")
-	_ = serverCmd.PersistentFlags().MarkHidden("configAPIPort")
-	_ = serverCmd.PersistentFlags().MarkHidden("configFetchInterval")
-
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 	sa.TracingOptions.AttachCobraFlags(serverCmd)
 
