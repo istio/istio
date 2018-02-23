@@ -160,7 +160,7 @@ def pod_info():
     o = json.loads(op)
     return {i['metadata']['name'] + "." + i['metadata']['namespace']:
             POD(i['metadata']['name'], i['metadata']['namespace'],
-                i['status']['podIP'], i['metadata']['labels']) for i in o['items']}
+                i['status']['podIP'], i['metadata'].get('labels', {})) for i in o['items']}
 
 
 def searchpod(pi, searchstr):
