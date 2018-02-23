@@ -65,6 +65,8 @@ type CertificateAuthority interface {
 	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetRootCertificate retrieves the root certificate from CA.
 	GetRootCertificate() []byte
+	// GetCertChain retrieves the certificate chain from CA.
+	GetCertChain() []byte
 }
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
@@ -243,6 +245,11 @@ func (ca *IstioCA) GetRootCertificate() []byte {
 	return copyBytes(ca.rootCertBytes)
 }
 
+// GetCertChain returns the PEM-encoded cert chain.
+func (ca *IstioCA) GetCertChain() []byte {
+	return copyBytes(ca.certChainBytes)
+}
+
 // Sign takes a PEM-encoded certificate signing request and returns a signed
 // certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
@@ -272,10 +279,7 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 	}
 	cert := pem.EncodeToMemory(block)
 
-	// Also append intermediate certs into the chain.
-	chain := append(cert, ca.certChainBytes...)
-
-	return chain, nil
+	return cert, nil
 }
 
 // verify that the cert chain, root cert and signing key/cert match.
