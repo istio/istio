@@ -30,10 +30,10 @@ type logFn func(string, ...interface{})
 // and compares them against the golden files.
 func TestGenerator_Generate(t *testing.T) {
 	importmap := map[string]string{
-		"mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
-		"mixer/v1/template/extensions.proto":          "istio.io/api/mixer/v1/template",
-		"gogoproto/gogo.proto":                        "github.com/gogo/protobuf/gogoproto",
-		"google/protobuf/duration.proto":              "github.com/gogo/protobuf/types",
+		"policy/v1beta1/value_type.proto":              "istio.io/api/policy/v1beta1",
+		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/api/mixer/adapter/model/v1beta1",
+		"gogoproto/gogo.proto":                         "github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/duration.proto":               "github.com/gogo/protobuf/types",
 	}
 
 	tests := []struct {
@@ -54,11 +54,13 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			oIntface, err := os.Create(path.Join(os.TempDir(), path.Base(v.wantIntFace)))
+			tmpDir := path.Join(os.TempDir(), v.name)
+			_ = os.MkdirAll(tmpDir, os.ModeDir|os.ModePerm)
+			oIntface, err := os.Create(path.Join(tmpDir, path.Base(v.wantIntFace)))
 			if err != nil {
 				t.Fatal(err)
 			}
-			oTmpl, err := os.Create(path.Join(os.TempDir(), path.Base(v.wantProto)))
+			oTmpl, err := os.Create(path.Join(tmpDir, path.Base(v.wantProto)))
 			if err != nil {
 				t.Fatal(err)
 			}

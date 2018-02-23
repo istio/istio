@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	pb "istio.io/api/mixer/v1/config"
-	"istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
@@ -541,7 +541,6 @@ end
 	//	Referenced: []string{},
 	//	conf: exprEvalAttrs,
 	//},
-
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
 		E: "a = 2",
