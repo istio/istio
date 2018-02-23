@@ -39,6 +39,7 @@ function setup_and_export_git_sha() {
 
     # Set artifact dir based on checkout
     export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
+    mkdir -p "${ARTIFACTS_DIR}"
   else
     # Use the current commit.
     export GIT_SHA="$(git rev-parse --verify HEAD)"
