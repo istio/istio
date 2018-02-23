@@ -46,17 +46,15 @@ func TestBatchMeasurements(t *testing.T) {
 
 		go BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 
-		go func() {
-			measurements := []*Measurement{}
-			for i := 0; i < batchSize+1; i++ {
-				measurements = append(measurements, &Measurement{})
-			}
-			prepChan <- measurements
-			loopFactor.Store(CloseKey, true)
-			time.Sleep(time.Millisecond)
-			close(prepChan)
-			close(pushChan)
-		}()
+		measurements := []*Measurement{}
+		for i := 0; i < batchSize+1; i++ {
+			measurements = append(measurements, &Measurement{})
+		}
+		prepChan <- measurements
+		loopFactor.Store(CloseKey, true)
+		time.Sleep(time.Millisecond)
+		close(prepChan)
+		close(pushChan)
 		count := 0
 		for range pushChan {
 			count++
@@ -158,16 +156,21 @@ func TestPersistBatches(t *testing.T) {
 			loopFactor := new(sync.Map)
 			loopFactor.Store(CloseKey, false)
 
-			go PersistBatches(loopFactor, &MockServiceAccessor{
-				MockMeasurementsService: func() MeasurementsCommunicator {
-					return &MockMeasurementsService{
-						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
-							atomic.AddInt32(&count, 1)
-							return test.response, test.error
-						},
-					}
-				},
-			}, pushChan, stopChan, logger)
+			var testWg sync.WaitGroup
+			testWg.Add(1)
+			go func() {
+				PersistBatches(loopFactor, &MockServiceAccessor{
+					MockMeasurementsService: func() MeasurementsCommunicator {
+						return &MockMeasurementsService{
+							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
+								atomic.AddInt32(&count, 1)
+								return test.response, test.error
+							},
+						}
+					},
+				}, pushChan, stopChan, logger)
+				testWg.Done()
+			}()
 
 			time.Sleep(2 * time.Second)
 			logger.Infof("%s - waiting...\n", t.Name())
@@ -181,6 +184,7 @@ func TestPersistBatches(t *testing.T) {
 			loopFactor.Store(CloseKey, true)
 			close(pushChan)
 			close(stopChan)
+			testWg.Wait()
 		})
 	}
 }
