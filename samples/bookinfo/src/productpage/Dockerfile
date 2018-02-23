@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2.7-slim
+FROM python:2.7-alpine
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
