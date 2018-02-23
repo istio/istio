@@ -24,7 +24,6 @@ set -u
 set -x
 set -e
 
-# imports fatal, setup_and_export_git_sha, move_junit_xml_to_artifacts_dir_if_on_prow
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 

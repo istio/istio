@@ -34,7 +34,6 @@ TESTS_TARGETS="e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade"
 SINGLE_MODE=false
 E2E_ARGS=()
 
-# imports fatal, setup_and_export_git_sha, move_junit_xml_to_artifacts_dir_if_on_prow
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
