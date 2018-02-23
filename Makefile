@@ -213,8 +213,8 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
 depend.status: | $(ISTIO_OUT)
-	dep status -dot > $(ISTIO_OUT)/dep.dot
 	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
+	dep status -dot > $(ISTIO_OUT)/dep.dot
 	cp Gopkg.* vendor/
 
 $(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
