@@ -35,8 +35,8 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
-		loopFactor := new(sync.Map)
-		loopFactor.Store(CloseKey, false)
+		loopFactor := new(int32)
+		atomic.StoreInt32(loopFactor, OpenState)
 		batchSize := 100
 
 		finish := make(chan bool)
@@ -52,7 +52,7 @@ func TestBatchMeasurements(t *testing.T) {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
-			loopFactor.Store(CloseKey, true)
+			atomic.StoreInt32(loopFactor, CloseState)
 			<-finish
 			close(prepChan)
 			close(pushChan)
@@ -76,14 +76,14 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 		batchSize := 100
-		loopFactor := new(sync.Map)
-		loopFactor.Store(CloseKey, false)
+		loopFactor := new(int32)
+		atomic.StoreInt32(loopFactor, OpenState)
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
 		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-		loopFactor.Store(CloseKey, true)
+		atomic.StoreInt32(loopFactor, CloseState)
 		close(prepChan)
 		close(pushChan)
 		close(stopChan)
@@ -151,8 +151,8 @@ func TestPersistBatches(t *testing.T) {
 					}
 				}()
 			}
-			loopFactor := new(sync.Map)
-			loopFactor.Store(CloseKey, false)
+			loopFactor := new(int32)
+			atomic.StoreInt32(loopFactor, OpenState)
 
 			var testWg sync.WaitGroup
 			testWg.Add(1)
@@ -179,7 +179,7 @@ func TestPersistBatches(t *testing.T) {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
-			loopFactor.Store(CloseKey, true)
+			atomic.StoreInt32(loopFactor, CloseState)
 			close(pushChan)
 			close(stopChan)
 			testWg.Wait()

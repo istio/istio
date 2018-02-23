@@ -16,9 +16,10 @@ package papertrail
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
+
+	"sync/atomic"
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -79,9 +80,9 @@ func TestLog(t *testing.T) {
 			log:           logger,
 			env:           env,
 			logInfos:      map[string]*logInfo{},
-			loopFactor:    new(sync.Map),
+			loopFactor:    new(int32),
 		}
-		pp.loopFactor.Store(closeKey, false)
+		atomic.StoreInt32(pp.loopFactor, openState)
 
 		if pp.Log(&logentry.Instance{
 			Name: "NO ENTRY",
