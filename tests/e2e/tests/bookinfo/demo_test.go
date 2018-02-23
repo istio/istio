@@ -463,10 +463,7 @@ func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
 		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
-		if err != nil {
-			t.Errorf(err.Error())
-			return
-		}
+		inspect(err, "unable to configure VM", "VM configured correctly", t)
 		// VM setup and teardown is manual for now
 		// will be replaced with preprovision server calls
 		err = vm.Setup()
