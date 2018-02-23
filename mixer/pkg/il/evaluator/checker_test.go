@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	cfgpb "istio.io/api/mixer/v1/config"
-	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cfgpb "istio.io/api/policy/v1beta1"
+	dpb "istio.io/api/policy/v1beta1"
 )
 
 func TestTypeCheck(t *testing.T) {

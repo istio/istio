@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	configpb "istio.io/api/mixer/v1/config"
+	configpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/pool"
 )
 

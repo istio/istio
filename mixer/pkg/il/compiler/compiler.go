@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/pkg/log"

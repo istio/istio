@@ -22,8 +22,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	pb "istio.io/api/mixer/v1/config"
-	pbd "istio.io/api/mixer/v1/config/descriptor"
+	pb "istio.io/api/policy/v1beta1"
+	pbd "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
