@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -43,7 +43,7 @@ type Generator struct {
 }
 
 const (
-	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
+	fullGoNameOfValueTypePkgName = "istio_policy_v1beta1."
 	strInt64                     = "int64"
 	strString                    = "string"
 	strBool                      = "bool"
@@ -52,18 +52,18 @@ const (
 
 // TODO share the code between this generator and the interfacegen code generator.
 var primitiveToValueType = map[string]string{
-	strString:              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
-	strBool:                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
-	strInt64:               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
-	strFloat64:             fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
-	"map[string]string":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING_MAP.String(),
-	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
-	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
-	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DNS_NAME.String(),
-	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.EMAIL_ADDRESS.String(),
+	strString:              fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING.String(),
+	strBool:                fullGoNameOfValueTypePkgName + istio_policy_v1beta1.BOOL.String(),
+	strInt64:               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.INT64.String(),
+	strFloat64:             fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DOUBLE.String(),
+	"map[string]string":    fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING_MAP.String(),
+	"net.IP":               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.IP_ADDRESS.String(),
+	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_policy_v1beta1.URI.String(),
+	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DNS_NAME.String(),
+	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.EMAIL_ADDRESS.String(),
 
-	"time.Duration": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DURATION.String(),
-	"time.Time":     fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.TIMESTAMP.String(),
+	"time.Duration": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DURATION.String(),
+	"time.Time":     fullGoNameOfValueTypePkgName + istio_policy_v1beta1.TIMESTAMP.String(),
 }
 
 var aliasTypes = map[string]string{
@@ -98,7 +98,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				return primitiveToValueType[strings.Replace(goType.Name, " ", "", -1)]
 			},
 			"getUnspecifiedValueType": func() string {
-				return fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED.String()
+				return fullGoNameOfValueTypePkgName + istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED.String()
 			},
 			"isAliasType": func(goType string) bool {
 				_, found := aliasTypes[goType]

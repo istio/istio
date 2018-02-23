@@ -344,7 +344,7 @@ func (infra *Infra) Setup() error {
 			},
 		})
 		if err != nil {
-			return err
+			log.Warn("Secret already exists")
 		}
 	}
 	if infra.Zipkin {
@@ -461,6 +461,24 @@ func (infra *Infra) Teardown() {
 		return
 	}
 
+	if infra.UseAdmissionWebhook {
+		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
+			log.Infof("Could not delete admission webhook secret: %v", err)
+		}
+	}
+
+	// automatic injection webhook is not namespaced.
+	if infra.UseAutomaticInjection {
+		infra.deleteSidecarInjector()
+	}
+
+	if filledYaml, err := infra.Fill("rbac-beta.yaml.tmpl", infra); err != nil {
+		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
+			err)
+	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
+		log.Infof("RBAC config could could not be deleted: %v", err)
+	}
+
 	if infra.Ingress {
 		if err := infra.KubeClient.ExtensionsV1beta1().Ingresses(infra.Namespace).
 			DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{}); err != nil {
@@ -472,31 +490,13 @@ func (infra *Infra) Teardown() {
 		}
 	}
 
-	if filledYaml, err := infra.Fill("rbac-beta.yaml.tmpl", infra); err != nil {
-		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
-			err)
-	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
-		log.Infof("RBAC config could could not be deleted: %v", err)
-	}
-
-	if infra.UseAdmissionWebhook {
-		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
-			log.Infof("Could not delete admission webhook secret: %v", err)
-		}
-	}
-
-	if infra.KubeClient != nil && infra.namespaceCreated {
+	if infra.namespaceCreated {
 		util.DeleteNamespace(infra.KubeClient, infra.Namespace)
 		infra.Namespace = ""
 	}
-	if infra.KubeClient != nil && infra.istioNamespaceCreated {
+	if infra.istioNamespaceCreated {
 		util.DeleteNamespace(infra.KubeClient, infra.IstioNamespace)
 		infra.IstioNamespace = ""
-	}
-
-	// automatic injection webhook is not namespaced.
-	if infra.UseAutomaticInjection {
-		infra.deleteSidecarInjector()
 	}
 }
 

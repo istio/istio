@@ -49,15 +49,15 @@ syntax = "proto3";
 
 package listEntry;
 
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
-option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 
 // ListEntry is used to verify the presence/absence of a string
 // within a list.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
@@ -109,7 +109,7 @@ kubernetes environment specific attributes:
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
 message OutputTemplate {
     // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
-    istio.mixer.v1.template.IPAddress source_pod_ip = 1;
+    istio.mixer.adapter.model.v1beta1.IPAddress source_pod_ip = 1;
 
     // Refers to source pod name. attribute_bindings can refer to this field using $out.source_pod_name
     string source_pod_name = 2;
@@ -127,11 +127,11 @@ message OutputTemplate {
     string source_service_account_name = 6;
 
     // Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
-    istio.mixer.v1.template.IPAddress source_host_ip = 7;
+    istio.mixer.adapter.model.v1beta1.IPAddress source_host_ip = 7;
 
 
     // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
-    istio.mixer.v1.template.IPAddress destination_pod_ip = 8;
+    istio.mixer.adapter.model.v1beta1.IPAddress destination_pod_ip = 8;
 
     // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
     string destination_pod_name = 9;
@@ -149,7 +149,7 @@ message OutputTemplate {
     string destination_service_account_name = 13;
 
     // Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
-    istio.mixer.v1.template.IPAddress destination_host_ip = 14;
+    istio.mixer.adapter.model.v1beta1.IPAddress destination_host_ip = 14;
 
     ...
 }
@@ -171,24 +171,24 @@ Template field type | Golang type
 `int64` | `int64`
 `double` | `float64`
 `bool` | `bool`
-`istio.mixer.v1.template.TimeStamp` | `time.Time`
-`istio.mixer.v1.template.Duration` | `time.Duration`
-`istio.mixer.v1.template.IPAddress` | `net.IP`
-`istio.mixer.v1.template.DNSName` | `adapter.DNSName`
-`istio.mixer.v1.template.Value` | `interface{}`
+`istio.mixer.adapter.model.v1beta1.TimeStamp` | `time.Time`
+`istio.mixer.adapter.model.v1beta1.Duration` | `time.Duration`
+`istio.mixer.adapter.model.v1beta1.IPAddress` | `net.IP`
+`istio.mixer.adapter.model.v1beta1.DNSName` | `adapter.DNSName`
+`istio.mixer.adapter.model.v1beta1.Value` | `interface{}`
 `map<string, string>` | `map[string]string`
 `map<string, int64>` | `map[string]int64`
 `map<string, double>` | `map[string]float64`
 `map<string, bool>` | `map[string]bool`
-`map<string, istio.mixer.v1.template.TimeStamp>` | `map[string]time.Time`
-`map<string, istio.mixer.v1.template.Duration>` | `map[string]time.Duration`
-`map<string, istio.mixer.v1.template.IPAddress>` | `map[string]net.IP`
-`map<string, istio.mixer.v1.template.DNSName>` | `map[string]adapter.DNSName`
-`map<string, istio.mixer.v1.template.Value>` | `map[string]interface{}`
+`map<string, istio.mixer.adapter.model.v1beta1.TimeStamp>` | `map[string]time.Time`
+`map<string, istio.mixer.adapter.model.v1beta1.Duration>` | `map[string]time.Duration`
+`map<string, istio.mixer.adapter.model.v1beta1.IPAddress>` | `map[string]net.IP`
+`map<string, istio.mixer.adapter.model.v1beta1.DNSName>` | `map[string]adapter.DNSName`
+`map<string, istio.mixer.adapter.model.v1beta1.Value>` | `map[string]interface{}`
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
+The type `istio.mixer.adapter.model.v1beta1.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
@@ -197,7 +197,7 @@ themselves accordingly.
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 
-The type `istio.mixer.v1.template.Value` has a special meaning. Use of this type
+The type `istio.mixer.adapter.model.v1beta1.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
 types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.

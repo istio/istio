@@ -20,44 +20,40 @@ import (
 
 func TestNewClient(t *testing.T) {
 	testCases := map[string]struct {
-		platform     string
-		cfg          ClientConfig
-		caAddr       string
-		expectedErr  string
-		expectedType string
+		platform      string
+		rootCertFile  string
+		keyFile       string
+		certChainFile string
+		caAddr        string
+		expectedErr   string
+		expectedType  string
 	}{
 		"onprem test": {
-			platform: "onprem",
-			cfg: ClientConfig{
-				OnPremConfig: OnPremConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "onprem",
+			platform:      "onprem",
+			rootCertFile:  "testdata/root-cert-good.pem",
+			keyFile:       "testdata/key-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
+			expectedType:  "onprem",
 		},
 		"gcp test": {
-			platform: "gcp",
-			cfg: ClientConfig{
-				GcpConfig: GcpConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "gcp",
+			platform:      "gcp",
+			rootCertFile:  "testdata/root-cert-good.pem",
+			keyFile:       "testdata/key-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
+			expectedType:  "gcp",
 		},
 		"aws test": {
-			platform: "aws",
-			cfg: ClientConfig{
-				AwsConfig: AwsConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "aws",
+			platform:      "aws",
+			rootCertFile:  "testdata/root-cert-good.pem",
+			keyFile:       "testdata/key-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
+			expectedType:  "aws",
 		},
 		"invalid test": {
 			platform:    "invalid",
@@ -66,7 +62,8 @@ func TestNewClient(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		client, err := NewClient(tc.platform, tc.cfg, tc.caAddr)
+		client, err := NewClient(
+			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile, tc.caAddr)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

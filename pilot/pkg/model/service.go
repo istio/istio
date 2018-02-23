@@ -263,7 +263,7 @@ type ServiceDiscovery interface {
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
-	// determine the intendend destination of a connection without a Host header on the request.
+	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.

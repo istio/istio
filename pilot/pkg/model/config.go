@@ -36,6 +36,12 @@ type ConfigMeta struct {
 	// (e.g. "route-rule")
 	Type string `json:"type,omitempty"`
 
+	// Group is the API group of the config.
+	Group string `json:"group,omitempty"`
+
+	// Version is the API version of the Config.
+	Version string `json:"version,omitempty"`
+
 	// Name is a unique immutable identifier in a namespace
 	Name string `json:"name,omitempty"`
 
@@ -179,11 +185,17 @@ type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
 type ProtoSchema struct {
-	// Type refers to the short configuration type name
+	// Type is the config proto type.
 	Type string
 
-	// Plural refers to the short plural configuration name
+	// Plural is the type in plural.
 	Plural string
+
+	// Group is the config proto group.
+	Group string
+
+	// Version is the config proto version.
+	Version string
 
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
@@ -267,11 +279,12 @@ type IstioConfigStore interface {
 }
 
 const (
-	// IstioAPIGroup defines API group name for Istio configuration resources
-	IstioAPIGroup = "config.istio.io"
+	// IstioAPIGroupDomain defines API group domain of all Istio configuration resources.
+	// Group domain suffix to the proto schema's group to generate the full resource group.
+	IstioAPIGroupDomain = ".istio.io"
 
-	// IstioAPIVersion defines API group version
-	IstioAPIVersion = "v1alpha2"
+	// Default API version of an Istio config proto message.
+	istioAPIVersion = "v1alpha2"
 
 	// HeaderURI is URI HTTP header
 	HeaderURI = "uri"
@@ -294,6 +307,8 @@ var (
 	MockConfig = ProtoSchema{
 		Type:        "mock-config",
 		Plural:      "mock-configs",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
@@ -307,6 +322,8 @@ var (
 	RouteRule = ProtoSchema{
 		Type:        "route-rule",
 		Plural:      "route-rules",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.RouteRule",
 		Validate:    ValidateRouteRule,
 	}
@@ -315,6 +332,8 @@ var (
 	V1alpha2RouteRule = ProtoSchema{
 		Type:        "v1alpha2-route-rule",
 		Plural:      "v1alpha2-route-rules",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.RouteRule",
 		Validate:    ValidateRouteRuleV2,
 	}
@@ -323,6 +342,8 @@ var (
 	Gateway = ProtoSchema{
 		Type:        "gateway",
 		Plural:      "gateways",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.Gateway",
 		Validate:    ValidateGateway,
 	}
@@ -331,6 +352,8 @@ var (
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.IngressRule",
 		Validate:    ValidateIngressRule,
 	}
@@ -339,6 +362,8 @@ var (
 	EgressRule = ProtoSchema{
 		Type:        "egress-rule",
 		Plural:      "egress-rules",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.EgressRule",
 		Validate:    ValidateEgressRule,
 	}
@@ -347,6 +372,8 @@ var (
 	ExternalService = ProtoSchema{
 		Type:        "external-service",
 		Plural:      "external-services",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.ExternalService",
 		Validate:    ValidateExternalService,
 	}
@@ -355,6 +382,8 @@ var (
 	DestinationPolicy = ProtoSchema{
 		Type:        "destination-policy",
 		Plural:      "destination-policies",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
 	}
@@ -363,6 +392,8 @@ var (
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
 		Plural:      "destination-rules",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.DestinationRule",
 		Validate:    ValidateDestinationRule,
 	}
@@ -371,6 +402,8 @@ var (
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
 		Plural:      "http-api-specs",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
 		Validate:    ValidateHTTPAPISpec,
 	}
@@ -379,6 +412,8 @@ var (
 	HTTPAPISpecBinding = ProtoSchema{
 		Type:        "http-api-spec-binding",
 		Plural:      "http-api-spec-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
 		Validate:    ValidateHTTPAPISpecBinding,
 	}
@@ -387,6 +422,8 @@ var (
 	QuotaSpec = ProtoSchema{
 		Type:        "quota-spec",
 		Plural:      "quota-specs",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
 		Validate:    ValidateQuotaSpec,
 	}
@@ -395,6 +432,8 @@ var (
 	QuotaSpecBinding = ProtoSchema{
 		Type:        "quota-spec-binding",
 		Plural:      "quota-spec-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
 		Validate:    ValidateQuotaSpecBinding,
 	}
@@ -403,6 +442,8 @@ var (
 	EndUserAuthenticationPolicySpec = ProtoSchema{
 		Type:        "end-user-authentication-policy-spec",
 		Plural:      "end-user-authentication-policy-specs",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
 		Validate:    ValidateEndUserAuthenticationPolicySpec,
 	}
@@ -411,6 +452,8 @@ var (
 	EndUserAuthenticationPolicySpecBinding = ProtoSchema{
 		Type:        "end-user-authentication-policy-spec-binding",
 		Plural:      "end-user-authentication-policy-spec-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpecBinding",
 		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
 	}

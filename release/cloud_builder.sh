@@ -62,7 +62,7 @@ done
 
 DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
 if [[ -n "${TEST_GCS_PATH}" ]]; then
-  TEST_PATH="https://storage.googleapis.com/${TEST_GCS_PATH}"
+  TEST_PATH="${TEST_GCS_PATH}"
 else
   TEST_PATH="${DEFAULT_GCS_PATH}"
 fi
@@ -78,9 +78,6 @@ echo gopath is $GOPATH
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
-
-apt-get -qqy install ruby ruby-dev rubygems build-essential
-gem install --no-ri --no-rdoc fpm
 
 MAKE_TARGETS=istio-archive
 if [ "${BUILD_DEBIAN}" == "true" ]; then

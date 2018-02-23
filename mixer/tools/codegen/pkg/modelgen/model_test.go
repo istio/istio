@@ -30,21 +30,21 @@ func TestErrorInTemplate(t *testing.T) {
 		src           string
 		expectedError []string
 	}{
-		{"testdata/missing_package_name.descriptor_set", []string{"package name missing"}},
-		{"testdata/missing_both_required.descriptor_set", []string{"There has to be one proto file that has the " +
-			"extension istio.mixer.v1.template.template_variety"}},
-		{"testdata/missing_template_message.descriptor_set", []string{"message 'Template' not defined"}},
-		{"testdata/reserved_field_in_template.descriptor_set", []string{"proto:14: Template message " +
+		{"testdata/MissingPackageName_proto.descriptor_set", []string{"package name missing"}},
+		{"testdata/MissingBothRequiredExt_proto.descriptor_set", []string{"There has to be one proto file that has the " +
+			"extension istio.mixer.adapter.model.v1beta1.template_variety"}},
+		{"testdata/MissingTemplateMessage_proto.descriptor_set", []string{"message 'Template' not defined"}},
+		{"testdata/ReservedFieldInTemplate_proto.descriptor_set", []string{"proto:14: Template message " +
 			"must not contain the reserved field name 'Name'"}},
-		{"testdata/proto2_bad_syntax.descriptor_set", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
-		{"testdata/unsupported_field_type_primitive.descriptor_set", []string{"unsupported type for field 'o'. " +
-			"Supported types are 'istio.mixer.v1.config.descriptor.ValueType, string, int64, double, bool, other messages " +
+		{"testdata/Proto2BadSyntax_proto.descriptor_set", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
+		{"testdata/UnsupportedFieldTypePrimitive_proto.descriptor_set", []string{"unsupported type for field 'o'. " +
+			"Supported types are 'istio.mixer.adapter.model.v1beta1.Value, string, int64, double, bool, other messages " +
 			"defined within the same package, map<string, any of the listed supported types>"}},
-		{"testdata/unsupported_field_type_as_map.descriptor_set", []string{"unsupported type for field 'o'."}},
-		{"testdata/unsupported_field_type_enum.descriptor_set", []string{"unsupported type for field 'o'."}},
-		{"testdata/wrong_pkg_name.descriptor_set", []string{"WrongPkgName.proto:2: the last segment of package " +
+		{"testdata/UnsupportedFieldTypeAsMap_proto.descriptor_set", []string{"unsupported type for field 'o'."}},
+		{"testdata/UnsupportedFieldTypeEnum_proto.descriptor_set", []string{"unsupported type for field 'o'."}},
+		{"testdata/WrongPkgName_proto.descriptor_set", []string{"WrongPkgName.proto:2: the last segment of package " +
 			"name 'foo.badStrNumbersNotAllowed123' must match the reges '^[a-zA-Z]+$'"}},
-		{"testdata/unsupported_valuetype_in_apa.descriptor_set", []string{"testdata/UnsupportedValueTypeInAPA.proto:12: " +
+		{"testdata/UnsupportedValueTypeInAPA_proto.descriptor_set", []string{"testdata/UnsupportedValueTypeInAPA.proto:12: " +
 			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, other messages defined " +
 			"within the same package, map<string, any of the listed supported types>'.",
 			"testdata/UnsupportedValueTypeInAPA.proto: message 'OutputTemplate' not defined."}},
@@ -70,7 +70,7 @@ func TestErrorInTemplate(t *testing.T) {
 }
 
 func TestBasicTopLevelFields(t *testing.T) {
-	testFilename := "testdata/basic_top_level_fields.descriptor_set"
+	testFilename := "testdata/BasicTopLevelFields_proto.descriptor_set"
 	model, err := createTestModel(t,
 		testFilename)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestBasicTopLevelFields(t *testing.T) {
 
 func TestTypeFields(t *testing.T) {
 	model, err := createTestModel(t,
-		"testdata/simple_template.descriptor_set")
+		"testdata/SimpleTemplate_proto.descriptor_set")
 
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestTypeFields(t *testing.T) {
 
 func TestApaFields(t *testing.T) {
 	model, _ := createTestModel(t,
-		"testdata/simple_apa_template.descriptor_set")
+		"testdata/SimpleApaTemplate_proto.descriptor_set")
 
 	testApaSimpleTemplateFields(model.TemplateMessage, t)
 	testApaSimpleTemplateFields(model.OutputTemplateMessage, t)
@@ -151,21 +151,21 @@ func testSimpleTemplateFields(msgInfo MessageInfo, t *testing.T) {
 		"FieldDouble", TypeInfo{Name: "float64"}, "")
 	testField(t, testFileName, msgInfo,
 		"val",
-		TypeInfo{Name: "istio.mixer.v1.config.descriptor.ValueType", IsValueType: true}, "Val",
-		TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true}, "single line block comment")
+		TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true}, "Val",
+		TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true}, "single line block comment")
 	testField(t, testFileName, msgInfo,
 		"dimensions",
-		TypeInfo{Name: "map<string, istio.mixer.v1.config.descriptor.ValueType>",
+		TypeInfo{Name: "map<string, istio.policy.v1beta1.ValueType>",
 			IsMap:    true,
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio.mixer.v1.config.descriptor.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true},
 		},
 		"Dimensions",
 		TypeInfo{
-			Name:     "map[string]istio_mixer_v1_config_descriptor.ValueType",
+			Name:     "map[string]istio_policy_v1beta1.ValueType",
 			IsMap:    true,
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true},
 		}, "single line comment")
 	testField(t, testFileName, msgInfo,
 		"dimensionsConstInt64Val",
