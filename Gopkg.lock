@@ -339,10 +339,12 @@
     "protoc-gen-gogo/grpc",
     "protoc-gen-gogo/plugin",
     "protoc-gen-gogoslick",
+    "protoc-min-version",
     "sortkeys",
     "types",
     "vanity",
-    "vanity/command"
+    "vanity/command",
+    "version"
   ]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
   version = "v0.5"
@@ -1136,10 +1138,7 @@
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
-    "mixer/v1/config",
     "mixer/v1/config/client",
-    "mixer/v1/config/descriptor",
-    "mixer/v1/template",
     "policy/v1beta1",
     "rbac/v1alpha1",
     "routing/v1alpha1",
@@ -1451,6 +1450,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4c857b8bcaf9ca728d67b8477f64d14583fde9e813c35dc7c9d04012d2a297fd"
+  inputs-digest = "741f0e15da19aab9c008ebff9b8699aebfa77767534352122af9cd1a4ebcd158"
   solver-name = "gps-cdcl"
   solver-version = 1

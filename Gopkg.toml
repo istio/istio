@@ -29,6 +29,7 @@ required = [
   "github.com/gogo/protobuf/jsonpb",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
+  "github.com/gogo/protobuf/protoc-min-version",
   "github.com/istio/tools/protoc-gen-docs",
   ### END Mixer codegen deps
   # fortio binary (main) is used by the testing framework and should not be
