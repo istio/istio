@@ -127,7 +127,7 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
-	ssh := fmt.Sprintf("gcloud compute ssh --project %s --zone %s %s --command \"%s\"",
+	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --command \"%s\"",
 		vm.ProjectID, vm.Zone, vm.Name, cmd)
 	return u.Shell(ssh)
 }
@@ -135,7 +135,7 @@ func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
 // SecureCopy copies files to vm via scp
 func (vm *GCPRawVM) SecureCopy(files ...string) (string, error) {
 	filesStr := strings.Join(files, " ")
-	scp := fmt.Sprintf("gcloud compute scp --project %s --zone %s %s %s",
+	scp := fmt.Sprintf("gcloud compute scp -q --project %s --zone %s %s %s",
 		vm.ProjectID, vm.Zone, filesStr, vm.Name)
 	return u.Shell(scp)
 }
