@@ -202,7 +202,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh, err := model.ApplyMeshConfigDefaults(cfgYaml) 
+	mesh, err := model.ApplyMeshConfigDefaults(cfgYaml)
 	if err != nil {
 		return nil, nil, err
 	}
