@@ -438,7 +438,7 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -460,6 +460,10 @@ galley-coverage:
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
+
+.PHONY: common-coverage
+common-coverage:
+	bin/parallel-codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
