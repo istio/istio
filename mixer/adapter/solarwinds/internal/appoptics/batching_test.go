@@ -16,7 +16,6 @@ package appoptics
 
 import (
 	"net/http"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
