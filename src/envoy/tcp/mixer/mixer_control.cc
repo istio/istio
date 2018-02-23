@@ -35,7 +35,8 @@ TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
                                  Runtime::RandomGenerator& random,
-                                 Utils::MixerFilterStats& stats)
+                                 Utils::MixerFilterStats& stats,
+                                 const std::string& uuid)
     : config_(mixer_config),
       dispatcher_(dispatcher),
       stats_obj_(dispatcher, stats,
@@ -46,7 +47,8 @@ TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                    }
                    controller_->GetStatistics(stat);
                    return true;
-                 }) {
+                 }),
+      uuid_(uuid) {
   ::istio::control::tcp::Controller::Options options(config_.tcp_config());
 
   Utils::CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),

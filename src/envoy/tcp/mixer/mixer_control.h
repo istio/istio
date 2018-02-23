@@ -33,7 +33,7 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   TcpMixerControl(const TcpMixerConfig& mixer_config,
                   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                   Runtime::RandomGenerator& random,
-                  Utils::MixerFilterStats& stats);
+                  Utils::MixerFilterStats& stats, const std::string& uuid);
 
   ::istio::control::tcp::Controller* controller() { return controller_.get(); }
 
@@ -42,6 +42,8 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   }
 
   Event::Dispatcher& dispatcher() { return dispatcher_; }
+
+  const std::string& uuid() const { return uuid_; }
 
  private:
   // The mixer config.
@@ -55,6 +57,9 @@ class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
   Event::Dispatcher& dispatcher_;
 
   Utils::MixerStatsObject stats_obj_;
+
+  // UUID of the Envoy TCP mixer filter.
+  const std::string& uuid_;
 };
 
 }  // namespace Mixer

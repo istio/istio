@@ -36,6 +36,9 @@ class CheckData {
 
   // Returns true if connection is mutual TLS enabled.
   virtual bool IsMutualTLS() const = 0;
+
+  // Get downstream tcp connection id.
+  virtual std::string GetConnectionId() const = 0;
 };
 
 }  // namespace tcp

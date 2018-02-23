@@ -28,6 +28,7 @@ using ::google::protobuf::util::MessageDifferencer;
 
 using ::testing::_;
 using ::testing::Invoke;
+using ::testing::Return;
 
 namespace istio {
 namespace control {
@@ -70,6 +71,12 @@ attributes {
   key: "source.user"
   value {
     string_value: "test_user"
+  }
+}
+attributes {
+  key: "connection.id"
+  value {
+    string_value: "1234-5"
   }
 }
 )";
@@ -254,6 +261,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         *user = "test_user";
         return true;
       }));
+  EXPECT_CALL(mock_data, GetConnectionId()).WillOnce(Return("1234-5"));
 
   RequestContext request;
   AttributesBuilder builder(&request);

@@ -15,6 +15,7 @@
 
 #include "common/common/enum_to_int.h"
 #include "common/common/logger.h"
+#include "common/common/utility.h"
 #include "envoy/network/connection.h"
 #include "envoy/network/filter.h"
 #include "envoy/registry/registry.h"
@@ -50,20 +51,23 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
   TcpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
   Utils::MixerFilterStats stats_;
+  // UUID of the Envoy TCP mixer filter.
+  const std::string uuid_;
 
  public:
   TcpConfig(const Json::Object& config,
             Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()),
-        stats_(generateStats(kTcpStatsPrefix, context.scope())) {
+        stats_(generateStats(kTcpStatsPrefix, context.scope())),
+        uuid_(context.random().uuid()) {
     mixer_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
     tls_->set([this, &random](Event::Dispatcher& dispatcher)
                   -> ThreadLocal::ThreadLocalObjectSharedPtr {
                     return ThreadLocal::ThreadLocalObjectSharedPtr(
                         new TcpMixerControl(mixer_config_, cm_, dispatcher,
-                                            random, stats_));
+                                            random, stats_, uuid_));
                   });
   }
 
@@ -252,6 +256,15 @@ class TcpInstance : public Network::Filter,
     data->send_bytes = send_bytes_;
     data->duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now() - start_time_);
+  }
+
+  std::string GetConnectionId() const override {
+    char connection_id_str[32];
+    StringUtil::itoa(connection_id_str, 32,
+                     filter_callbacks_->connection().id());
+    std::string uuid_connection_id = mixer_control_.uuid() + "-";
+    uuid_connection_id.append(connection_id_str);
+    return uuid_connection_id;
   }
 };
 
