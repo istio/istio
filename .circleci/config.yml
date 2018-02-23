@@ -317,7 +317,7 @@ jobs:
       - run:
           name: Running Kubernetes API Server standalone
           command: make localTestEnv
-      - run: cd /go/src/istio.io/istio; MAXPROCS=6 bin/parallel-codecov.sh
+      - run: cd /go/src/istio.io/istio; MAXPROCS=6 bin/codecov.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
