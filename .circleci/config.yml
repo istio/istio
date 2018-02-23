@@ -315,9 +315,11 @@ jobs:
       - checkout
       - run: make submodule-sync
       - run:
-          name: Running Kubernetes API Server standalone
-          command: make localTestEnv
-      - run: cd /go/src/istio.io/istio; MAXPROCS=6 bin/codecov.sh
+          name: Starting Kubernetes API Server standalone and running tests
+          command: |
+            make localTestEnv
+            cd /go/src/istio.io/istio
+            MAXPROCS=6 bin/codecov.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
