@@ -221,6 +221,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
     -a {{ settings.SVC_ACCT }}
     """
+  # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 
   build = BashOperator(
       task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
