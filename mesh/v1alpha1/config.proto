@@ -123,8 +123,14 @@ message ProxyConfig {
   // The number of worker threads to run. Default value is number of cores on the machine.
   int32 concurrency = 16;
 
-  // Address of the discovery service exposing xDS.
+  // Deprecated, use discovery_mtls_address/discovery_plain_address instead.
   ServerAddress pilot = 17;
+
+  // Address of the discovery service exposing xDS with mTLS connection.
+  string discovery_mtls_address = 18;
+
+  // Address of the discovery service exposing xDS with plain text connection.
+  string discovery_plain_address = 19;
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the

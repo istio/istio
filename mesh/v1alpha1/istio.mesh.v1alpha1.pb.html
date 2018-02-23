@@ -472,7 +472,23 @@ Increase the value of this field if you find that the metrics from Envoys are tr
 <td><code>pilot</code></td>
 <td><code><a href="#ServerAddress">ServerAddress</a></code></td>
 <td>
-<p>Address of the discovery service exposing xDS.</p>
+<p>Deprecated, use discovery<em>mtls</em>address/discovery<em>plain</em>address instead.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig.discovery_mtls_address">
+<td><code>discoveryMtlsAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the discovery service exposing xDS with mTLS connection.</p>
+
+</td>
+</tr>
+<tr id="ProxyConfig.discovery_plain_address">
+<td><code>discoveryPlainAddress</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the discovery service exposing xDS with plain text connection.</p>
 
 </td>
 </tr>
