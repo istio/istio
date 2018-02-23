@@ -381,7 +381,10 @@ istioctl-install:
 .PHONY: test localTestEnv test-bins
 
 # Run coverage tests
-test: pilot-test mixer-test security-test broker-test galley-test common-test
+test:
+	set -o pipefail; \
+	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
+	|& tee >(go-junit-report > junit.xml)
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1

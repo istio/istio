@@ -38,6 +38,9 @@ make init
 echo 'Running Unit Tests'
 time make localTestEnv test
 
+# from lib.sh
+move_junit_xml_to_artifacts_dir_if_on_prow
+
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images

@@ -85,7 +85,5 @@ else
     time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all
 fi
 
-if [ "${CI:-}" == 'bootstrap' ] && [ -f junit.xml ]; then
-  # allow bootsrap to upload junit results
-  mv junit.xml ${ARTIFACTS_DIR}
-fi
+# from lib.sh
+move_junit_xml_to_artifacts_dir_if_on_prow

@@ -44,3 +44,10 @@ function setup_and_export_git_sha() {
     export GIT_SHA="$(git rev-parse --verify HEAD)"
   fi
 }
+
+function move_junit_xml_to_artifacts_dir_if_on_prow() {
+  if [ "${CI:-}" == 'bootstrap' ] && [ -f junit.xml ]; then
+    # allow bootsrap to upload junit results
+    mv junit.xml ${ARTIFACTS_DIR}
+  fi
+}

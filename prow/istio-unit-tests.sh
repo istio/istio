@@ -33,3 +33,6 @@ echo 'Build'
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
 (cd ${ROOT}; make localTestEnv test)
+
+# from lib.sh
+move_junit_xml_to_artifacts_dir_if_on_prow
