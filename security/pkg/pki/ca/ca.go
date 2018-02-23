@@ -255,7 +255,7 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 		return nil, err
 	}
 
-	// If the requested TTL is greater than maxCertTTL, apply maxCertTTL as the TTL.
+	// If the requested TTL is greater than maxCertTTL, return an error
 	if ttl.Seconds() > ca.maxCertTTL.Seconds() {
 		return nil, fmt.Errorf(
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
