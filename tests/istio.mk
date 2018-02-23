@@ -102,6 +102,5 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
 		--use-sidecar-injector=false \
 		--core-files-dir=${OUT_DIR}/logs \
          --ns istio-system \
-          --logtostderr \
         -n istio-test \
            ${TESTOPTS}

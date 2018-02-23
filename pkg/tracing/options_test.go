@@ -79,18 +79,18 @@ func TestTracingEnabled(t *testing.T) {
 	o = NewOptions()
 	o.LogTraceSpans = true
 	if !o.TracingEnabled() {
-		t.Fatal("logTraceSpans should have trigged tracing")
+		t.Fatal("LogTraceSpans should have triggered tracing")
 	}
 
 	o = NewOptions()
 	o.ZipkinURL = "http://foo.bar.com"
 	if !o.TracingEnabled() {
-		t.Fatal("zipkinURL should have trigged tracing")
+		t.Fatal("ZipkinURL should have triggered tracing")
 	}
 
 	o = NewOptions()
 	o.JaegerURL = "http://foo.bar.com"
 	if !o.TracingEnabled() {
-		t.Fatal("jaegerURL should have trigged tracing")
+		t.Fatal("JaegerURL should have triggered tracing")
 	}
 }
