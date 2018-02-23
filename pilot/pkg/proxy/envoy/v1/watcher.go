@@ -124,7 +124,11 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+		discoveryAddress := w.config.DiscoveryPlainAddress
+		if w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+			discoveryAddress = w.config.DiscoveryMtlsAddress
+		}
+		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {

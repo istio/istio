@@ -162,7 +162,9 @@ spec:
         - pilot
         - -v
         - "2"
-        - --discoveryAddress
+        - --discoveryMtlsAddress
+        - istio-pilot:15005
+        - --discoveryPlainAddress
         - istio-pilot:15003
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy

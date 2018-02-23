@@ -69,7 +69,6 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, error) {

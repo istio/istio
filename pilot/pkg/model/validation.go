@@ -1406,10 +1406,16 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	// discovery address is mandatory since mutual TLS relies on CDS.
 	// strictly speaking, proxies can operate without RDS/CDS and with hot restarts
 	// but that requires additional test validation
-	if config.DiscoveryAddress == "" {
-		errs = multierror.Append(errs, errors.New("discovery address must be set to the proxy discovery service"))
-	} else if err := ValidateProxyAddress(config.DiscoveryAddress); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery address:"))
+	if config.DiscoveryMtlsAddress == "" {
+		errs = multierror.Append(errs,
+			errors.New("discovery mTLS address must be set to the proxy discovery service"))
+	} else if err := ValidateProxyAddress(config.DiscoveryMtlsAddress); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery mTLS address:"))
+	} else if config.config.DiscoveryPlainAddress == "" {
+		errs = multierror.Append(errs,
+			errors.New("discovery plain text address must be set to the proxy discovery service"))
+	} else if err := ValidateProxyAddress(DiscoveryPlainAddress); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery plain text address:"))
 	}
 
 	if config.ZipkinAddress != "" {

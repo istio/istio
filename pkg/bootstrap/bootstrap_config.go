@@ -72,7 +72,11 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
-	addPort := strings.Split(config.DiscoveryAddress, ":")
+	discoveryAddress := config.DiscoveryPlainAddress
+	if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		discoveryAddress = config.DiscoveryMtlsAddress
+	}
+	addPort := strings.Split(discoveryAddress, ":")
 	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
 
 	if config.ZipkinAddress != "" {

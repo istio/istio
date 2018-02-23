@@ -984,7 +984,8 @@ func TestValidateProxyConfig(t *testing.T) {
 	invalid := meshconfig.ProxyConfig{
 		ConfigPath:             "",
 		BinaryPath:             "",
-		DiscoveryAddress:       "10.0.0.100",
+		DiscoveryMtlsAddress:   "10.0.0.100",
+		DiscoveryPlainAddress:  "10.0.0.100",
 		ProxyAdminPort:         0,
 		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),

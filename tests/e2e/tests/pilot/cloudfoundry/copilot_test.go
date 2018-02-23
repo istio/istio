@@ -263,7 +263,7 @@ func (testState *testState) runEnvoy(discoveryAddr string) error {
 	config.BinaryPath = path.Join(dir, "envoy")
 
 	config.ConfigPath = "tmp"
-	config.DiscoveryAddress = discoveryAddr
+	config.DiscoveryPlainAddress = discoveryAddr
 	config.ServiceCluster = "x"
 
 	envoyConfig := envoy.BuildConfig(config, nil)

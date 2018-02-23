@@ -8,6 +8,27 @@
       "type": "read",
       "name": "tcp_proxy",
       "config": {
+      "stat_prefix": "tcp",
+      "route_config": {
+        "routes": [
+         {
+          "cluster": "in.8080"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:15005",
+    "name": "tcp_0.0.0.0_15005",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
        "stat_prefix": "tcp",
        "route_config": {
         "routes": [
@@ -26,7 +47,7 @@
      "require_client_certificate": true
     },
     "bind_to_port": true
-   }
+   },
   ],
   "admin": {
     "access_log_path": "/dev/stdout",

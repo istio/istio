@@ -50,7 +50,8 @@ var (
 	availabilityZone       string
 	drainDuration          time.Duration
 	parentShutdownDuration time.Duration
-	discoveryAddress       string
+	discoveryPlainAddress  string
+	discoveryMtlsAddress   string
 	discoveryRefreshDelay  time.Duration
 	zipkinAddress          string
 	connectTimeout         time.Duration
@@ -130,7 +131,9 @@ var (
 			proxyConfig.ServiceCluster = serviceCluster
 			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
 			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
-			proxyConfig.DiscoveryAddress = discoveryAddress
+			proxyConfig.DiscoveryMtlsAddress = discoveryMtlsAddress
+			proxyConfig.DiscoveryPlainAddress = discoveryPlainAddress
+			proxyConfig.Pilot = discoveryMtlsAddress
 			proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(discoveryRefreshDelay)
 			proxyConfig.ZipkinAddress = zipkinAddress
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
@@ -146,7 +149,7 @@ var (
 				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
-					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
+					partDiscoveryAddress := strings.Split(discoveryMtlsAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]
 					parts := strings.Split(discoveryHostname, ".")
 					if len(parts) == 1 {
@@ -256,8 +259,12 @@ func init() {
 	proxyCmd.PersistentFlags().DurationVar(&parentShutdownDuration, "parentShutdownDuration",
 		timeDuration(values.ParentShutdownDuration),
 		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
-	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
-		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
+	proxyCmd.PersistentFlags().StringVar(&discoveryPlainAddress, "discoveryPlainAddress",
+		values.DiscoveryPlainAddress,
+		"Address of the discovery service exposing xDS with plain text connection (e.g. istio-pilot:8080)")
+	proxyCmd.PersistentFlags().StringVar(&discoveryMtlsAddress, "discoveryMtlsAddress",
+		values.DiscoveryMtlsAddress,
+		"Address of the discovery service exposing xDS with mTLS connection (e.g. istio-pilot:8080)")
 	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
 		timeDuration(values.DiscoveryRefreshDelay),
 		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")

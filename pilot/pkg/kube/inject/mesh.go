@@ -77,8 +77,10 @@ containers:
   - {{ formatDuration .ProxyConfig.DrainDuration }}
   - --parentShutdownDuration
   - {{ formatDuration .ProxyConfig.ParentShutdownDuration }}
-  - --discoveryAddress
-  - {{ .ProxyConfig.DiscoveryAddress }}
+  - --discoveryMtlsAddress
+  - {{ .ProxyConfig.DiscoveryMtlsAddress }}
+  - --discoveryPlainAddress
+  - {{ .ProxyConfig.DiscoveryPlainAddress }}
   - --discoveryRefreshDelay
   - {{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}
   - --zipkinAddress

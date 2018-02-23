@@ -82,8 +82,12 @@ func (conf *Config) Write(w io.Writer) error {
 func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 	listeners := Listeners{}
 
-	clusterRDS := buildCluster(config.DiscoveryAddress, RDSName, config.ConnectTimeout)
-	clusterLDS := buildCluster(config.DiscoveryAddress, LDSName, config.ConnectTimeout)
+	serverAddress := config.DiscoveryPlainAddress
+	if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		serverAddress = config.DiscoveryMtlsAddress
+	}
+	clusterRDS := buildCluster(serverAddress, RDSName, config.ConnectTimeout)
+	clusterLDS := buildCluster(serverAddress, LDSName, config.ConnectTimeout)
 	clusters := Clusters{clusterRDS, clusterLDS}
 
 	out := &Config{
@@ -99,11 +103,11 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
 			SDS: &DiscoveryCluster{
-				Cluster:        buildCluster(config.DiscoveryAddress, SDSName, config.ConnectTimeout),
+				Cluster:        buildCluster(serverAddress, SDSName, config.ConnectTimeout),
 				RefreshDelayMs: protoDurationToMS(config.DiscoveryRefreshDelay),
 			},
 			CDS: &DiscoveryCluster{
-				Cluster:        buildCluster(config.DiscoveryAddress, CDSName, config.ConnectTimeout),
+				Cluster:        buildCluster(serverAddress, CDSName, config.ConnectTimeout),
 				RefreshDelayMs: protoDurationToMS(config.DiscoveryRefreshDelay),
 			},
 		},

@@ -40,7 +40,9 @@ spec:
         - ingress
         - -v
         - "{{.Verbosity}}"
-        - --discoveryAddress
+        - --discoveryMtlsAddress
+        - istio-pilot:15005
+        - --discoveryPlainAddress
         - istio-pilot:15003
 {{if .Zipkin}}
         - --zipkinAddress
