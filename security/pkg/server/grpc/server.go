@@ -78,8 +78,9 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	}
 
 	response := &pb.CsrResponse{
-		IsApproved:      true,
-		SignedCertChain: cert,
+		IsApproved: true,
+		SignedCert: cert,
+		CertChain:  s.ca.GetCertChain(),
 	}
 	log.Info("CSR successfully signed.")
 

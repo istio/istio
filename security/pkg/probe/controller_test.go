@@ -74,9 +74,10 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}{
 		"Check success": {
 			resp: &pb.CsrResponse{
-				IsApproved:      true,
-				Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
-				SignedCertChain: nil,
+				IsApproved: true,
+				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
+				SignedCert: nil,
+				CertChain:  nil,
 			},
 			err:      nil,
 			expected: "",

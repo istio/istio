@@ -27,31 +27,37 @@ import (
 )
 
 func TestRetrieveNewKeyCert(t *testing.T) {
+	signedCert := []byte(`TESTCERT`)
+	certChain := []byte(`CERTCHAIN`)
 	testCases := map[string]struct {
-		pltfmc       platform.Client
-		ptclc        *mockclient.FakeCAClient
-		keySize      int
-		ttl          time.Duration
-		maxRetries   int
-		interval     time.Duration
-		expectedErr  string
-		expectedCert []byte
-		sendTimes    int
+		pltfmc            platform.Client
+		ptclc             *mockclient.FakeCAClient
+		keySize           int
+		ttl               time.Duration
+		maxRetries        int
+		interval          time.Duration
+		expectedErr       string
+		expectedCert      []byte
+		expectedCertChain []byte
+		sendTimes         int
 	}{
 		"Success": {
-			pltfmc:       mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			ptclc:        &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
-			keySize:      512,
-			ttl:          time.Hour,
-			maxRetries:   0,
-			interval:     time.Second,
-			expectedErr:  "",
-			expectedCert: []byte(`TESTCERT`),
-			sendTimes:    1,
+			pltfmc: mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			ptclc: &mockclient.FakeCAClient{
+				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			keySize:           512,
+			ttl:               time.Hour,
+			maxRetries:        0,
+			interval:          time.Second,
+			expectedErr:       "",
+			expectedCert:      signedCert,
+			expectedCertChain: certChain,
+			sendTimes:         1,
 		},
 		"Create CSR error": {
 			pltfmc: mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			ptclc:  &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
+			ptclc: &mockclient.FakeCAClient{
+				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			// 128 is too small for a RSA private key. GenCSR will return error.
 			keySize:     128,
 			ttl:         time.Hour,
@@ -110,7 +116,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
-		certChain, _, err := client.RetrieveNewKeyCert()
+		cert, certChain, _, err := client.RetrieveNewKeyCert()
 		if err == nil {
 			if len(c.expectedErr) != 0 {
 				t.Errorf("Test case [%s]: succeeded but expected error: %v", id, c.expectedErr)
@@ -121,9 +127,13 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			}
 			continue
 		}
-		if !bytes.Equal(c.expectedCert, certChain) {
-			t.Errorf("Test case [%s]: cert chain file content incorrect: %s VS (expected) %s",
-				id, certChain, c.expectedCert)
+		if !bytes.Equal(c.expectedCert, cert) {
+			t.Errorf("Test case [%s]: cert content incorrect: %s VS (expected) %s",
+				id, cert, c.expectedCert)
+		}
+		if !bytes.Equal(c.expectedCertChain, certChain) {
+			t.Errorf("Test case [%s]: cert chain content incorrect: %s VS (expected) %s",
+				id, certChain, c.expectedCertChain)
 		}
 		if c.ptclc.Counter != c.sendTimes {
 			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
