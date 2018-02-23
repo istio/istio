@@ -5,6 +5,8 @@ set -u
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname ${SCRIPTPATH})"
 DIR="./..."
+CODECOV_SKIP="${ROOTDIR}/codecov.skip"
+SKIPPED_TESTS_GREP_ARGS=
 
 if [ "${1:-}" != "" ]; then
     DIR="./$1/..."
@@ -51,13 +53,23 @@ function join_procs() {
   done
 }
 
+function parse_skipped_tests() {
+  while read entry; do
+    if [[ "${SKIPPED_TESTS_GREP_ARGS}" != '' ]]; then
+      SKIPPED_TESTS_GREP_ARGS+='\|'
+    fi
+    SKIPPED_TESTS_GREP_ARGS+="\(${entry}\)"
+  done < "${CODECOV_SKIP}"
+}
+
 cd "${ROOTDIR}"
+
+parse_skipped_tests
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
 for P in $(go list ${DIR} | grep -v vendor); do
     #FIXME remove mixer tools exclusion after tests can be run without bazel
-    if [[ ${P} == "istio.io/istio/tests"* || \
-      ${P} == "istio.io/istio/mixer/tools/codegen"* ]];then
+    if echo ${P} | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
       echo "Skipped ${P}"
       continue
     fi
@@ -70,7 +82,7 @@ join_procs
 touch "${COVERAGEDIR}/empty"
 cat "${COVERAGEDIR}"/* > coverage.txt
 
-if [[ -n ${FAILED_TESTS} ]]; then
+if [[ -n ${FAILED_TESTS:-} ]]; then
   echo "The following tests failed"
   for T in ${FAILED_TESTS[@]}; do
     echo "FAIL: $T"
