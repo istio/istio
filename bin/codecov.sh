@@ -22,6 +22,7 @@ if [[ -z ${MAXPROCS:-} ]];then
   MAXPROCS=$[$(getconf _NPROCESSORS_ONLN)/2]
 fi
 PIDS=()
+FAILED_TESTS=()
 
 declare -a PKGS
 
@@ -42,16 +43,12 @@ function wait_for_proc() {
 }
 
 function join_procs() {
-  local ret=0
   local p
-  for p in ${PIDS}; do
+  for p in ${PIDS[@]}; do
       if ! wait ${p}; then
-          echo "${PKGS[${p}]} failed"
-          ret=1
+          FAILED_TESTS+=(${PKGS[${p}]})
       fi
   done
-  wait
-  return ${ret}
 }
 
 cd "${ROOTDIR}"
@@ -68,10 +65,15 @@ for P in $(go list ${DIR} | grep -v vendor); do
     wait_for_proc
 done
 
-EXIT_CODE=0
-join_procs || EXIT_CODE=$?
+join_procs
 
 touch "${COVERAGEDIR}/empty"
 cat "${COVERAGEDIR}"/* > coverage.txt
 
-exit ${EXIT_CODE}
+if [[ -n ${FAILED_TESTS} ]]; then
+  echo "The following tests failed"
+  for T in ${FAILED_TESTS[@]}; do
+    echo "FAIL: $T"
+  done
+  exit 1
+fi
