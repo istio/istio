@@ -22,7 +22,7 @@
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "google/protobuf/util/json_util.h"
-#include "include/utils/status.h"
+#include "include/istio/utils/status.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/http/jwt_auth/jwt.h"
 #include "src/envoy/http/jwt_auth/jwt_authenticator.h"

@@ -31,7 +31,7 @@ envoy_cc_library(
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/control/tcp:control_lib",
+        "//src/istio/control/tcp:control_lib",
         "//src/envoy/utils:utils_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],

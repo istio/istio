@@ -18,7 +18,7 @@
 #include "envoy/event/dispatcher.h"
 #include "envoy/runtime/runtime.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/mixerclient/client.h"
+#include "include/istio/mixerclient/client.h"
 #include "src/envoy/utils/config.h"
 
 namespace Envoy {

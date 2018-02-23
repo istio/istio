@@ -24,7 +24,7 @@
 #include "envoy/http/header_map.h"
 
 #include "envoy/upstream/cluster_manager.h"
-#include "include/mixerclient/client.h"
+#include "include/istio/mixerclient/client.h"
 
 namespace Envoy {
 namespace Utils {
