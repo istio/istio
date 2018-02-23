@@ -29,6 +29,7 @@ set -u
 # Print commands
 set -x
 
+# imports fatal, setup_and_export_git_sha, move_junit_xml_to_artifacts_dir_if_on_prow
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
@@ -36,9 +37,7 @@ cd $ROOT
 make init
 
 echo 'Running Unit Tests'
-time make localTestEnv test
-
-# from lib.sh
+time make localTestEnv test || fatal move_junit_xml_to_artifacts_dir_if_on_prow
 move_junit_xml_to_artifacts_dir_if_on_prow
 
 HUB="gcr.io/istio-testing"

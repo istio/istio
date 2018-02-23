@@ -24,6 +24,7 @@ set -u
 set -x
 set -e
 
+# imports fatal, setup_and_export_git_sha, move_junit_xml_to_artifacts_dir_if_on_prow
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
@@ -32,7 +33,6 @@ echo 'Build'
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
-(cd ${ROOT}; make localTestEnv test)
+(cd ${ROOT}; make localTestEnv test || fatal move_junit_xml_to_artifacts_dir_if_on_prow)
 
-# from lib.sh
-move_junit_xml_to_artifacts_dir_if_on_prow
+(cd ${ROOT}; move_junit_xml_to_artifacts_dir_if_on_prow)

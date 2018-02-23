@@ -34,6 +34,7 @@ TESTS_TARGETS="e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade"
 SINGLE_MODE=false
 E2E_ARGS=()
 
+# imports fatal, setup_and_export_git_sha, move_junit_xml_to_artifacts_dir_if_on_prow
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
@@ -71,7 +72,8 @@ if ${SINGLE_MODE}; then
     for T in ${TESTS_TARGETS[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
-            time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make "${SINGLE_TEST}"
+            time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make "${SINGLE_TEST}" \
+              || fatal move_junit_xml_to_artifacts_dir_if_on_prow
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
@@ -82,8 +84,8 @@ if ${SINGLE_MODE}; then
 
 else
     echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all
+    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all \
+      || fatal move_junit_xml_to_artifacts_dir_if_on_prow
 fi
 
-# from lib.sh
 move_junit_xml_to_artifacts_dir_if_on_prow
