@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -89,15 +90,21 @@ type IstioCAOptions struct {
 	ProbeCheckInterval   time.Duration
 }
 
+type cAKeyCert struct {
+	SigningCert    *x509.Certificate
+	SigningKey     crypto.PrivateKey
+	CertChainBytes []byte
+	RootCertBytes  []byte
+}
+
 // IstioCA generates keys and certificates for Istio identities.
 type IstioCA struct {
-	certTTL     time.Duration
-	maxCertTTL  time.Duration
-	signingCert *x509.Certificate
-	signingKey  crypto.PrivateKey
+	certTTL    time.Duration
+	maxCertTTL time.Duration
 
-	certChainBytes []byte
-	rootCertBytes  []byte
+	keyCert cAKeyCert
+	// keyCertMutex protects the access to keyCert.
+	keyCertMutex sync.RWMutex
 
 	livenessProbe *probe.Probe
 }
@@ -212,25 +219,25 @@ func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstream
 
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
+	signingCert, err := util.ParsePemEncodedCertificate(opts.SigningCertBytes)
+	if err != nil {
+		return nil, err
+	}
+	signingKey, err := util.ParsePemEncodedKey(opts.SigningKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
 	ca := &IstioCA{
 		certTTL:    opts.CertTTL,
 		maxCertTTL: opts.MaxCertTTL,
-
+		keyCert: cAKeyCert{
+			SigningCert:    signingCert,
+			SigningKey:     signingKey,
+			CertChainBytes: copyBytes(opts.CertChainBytes),
+			RootCertBytes:  copyBytes(opts.RootCertBytes),
+		},
 		livenessProbe: probe.NewProbe(),
-	}
-
-	ca.certChainBytes = copyBytes(opts.CertChainBytes)
-	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
-
-	var err error
-	ca.signingCert, err = util.ParsePemEncodedCertificate(opts.SigningCertBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	ca.signingKey, err = util.ParsePemEncodedKey(opts.SigningKeyBytes)
-	if err != nil {
-		return nil, err
 	}
 
 	if err := ca.verify(); err != nil {
@@ -242,18 +249,27 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 // GetRootCertificate returns the PEM-encoded root certificate.
 func (ca *IstioCA) GetRootCertificate() []byte {
-	return copyBytes(ca.rootCertBytes)
+	ca.keyCertMutex.RLock()
+	defer ca.keyCertMutex.RUnlock()
+	return copyBytes(ca.keyCert.RootCertBytes)
 }
 
 // GetCertChain returns the PEM-encoded cert chain.
 func (ca *IstioCA) GetCertChain() []byte {
-	return copyBytes(ca.certChainBytes)
+	ca.keyCertMutex.RLock()
+	defer ca.keyCertMutex.RUnlock()
+	return copyBytes(ca.keyCert.CertChainBytes)
 }
 
 // Sign takes a PEM-encoded certificate signing request and returns a signed
 // certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
-	if ca.signingCert == nil {
+	ca.keyCertMutex.RLock()
+	signingCert := ca.keyCert.SigningCert
+	signingKey := ca.keyCert.SigningKey
+	ca.keyCertMutex.RUnlock()
+
+	if signingCert == nil {
 		return nil, fmt.Errorf("Istio CA is not ready") // nolint
 	}
 
@@ -268,7 +284,7 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL)
 	}
 
-	certBytes, err := util.GenCertFromCSR(csr, ca.signingCert, csr.PublicKey, ca.signingKey, ttl, forCA)
+	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, signingKey, ttl, forCA)
 	if err != nil {
 		return nil, err
 	}
@@ -284,19 +300,25 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 
 // verify that the cert chain, root cert and signing key/cert match.
 func (ca *IstioCA) verify() error {
+	ca.keyCertMutex.RLock()
+	rootCertBytes := ca.keyCert.RootCertBytes
+	certChainBytes := ca.keyCert.CertChainBytes
+	signingCert := ca.keyCert.SigningCert
+	ca.keyCertMutex.RUnlock()
+
 	// Create another CertPool to hold the root.
 	rcp := x509.NewCertPool()
-	rcp.AppendCertsFromPEM(ca.rootCertBytes)
+	rcp.AppendCertsFromPEM(rootCertBytes)
 
 	icp := x509.NewCertPool()
-	icp.AppendCertsFromPEM(ca.certChainBytes)
+	icp.AppendCertsFromPEM(certChainBytes)
 
 	opts := x509.VerifyOptions{
 		Intermediates: icp,
 		Roots:         rcp,
 	}
+	chains, err := signingCert.Verify(opts)
 
-	chains, err := ca.signingCert.Verify(opts)
 	if len(chains) == 0 || err != nil {
 		return errors.New(
 			"invalid parameters: cannot verify the signing cert with the provided root chain and cert pool")
