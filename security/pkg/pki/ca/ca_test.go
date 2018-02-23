@@ -375,7 +375,8 @@ func TestSignCSRForWorkload(t *testing.T) {
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
-	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(
+		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -428,7 +429,8 @@ func TestSignCSRForCA(t *testing.T) {
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
 	}
-	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(
+		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
