@@ -1136,7 +1136,10 @@
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
+    "mixer/v1/config",
     "mixer/v1/config/client",
+    "mixer/v1/config/descriptor",
+    "mixer/v1/template",
     "policy/v1beta1",
     "rbac/v1alpha1",
     "routing/v1alpha1",
@@ -1448,6 +1451,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "596d33b7f4c445b800102cc532c0b7643143cd75f2450be28906bab6d0c48727"
+  inputs-digest = "4c857b8bcaf9ca728d67b8477f64d14583fde9e813c35dc7c9d04012d2a297fd"
   solver-name = "gps-cdcl"
   solver-version = 1
