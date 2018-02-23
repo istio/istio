@@ -42,10 +42,6 @@ spec:
   type: LoadBalancer
 {{end}}
   ports:
-  - port: 15003
-    name: http-discovery
-  - port: 15005
-    name: http-discovery
   - port: 15007
     name: http-discovery
 {{if .DebugPort}}
