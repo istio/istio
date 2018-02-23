@@ -65,7 +65,8 @@ data:
       proxyAdminPort: 15000
       #
       # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:15003
+      discoveryPlainAddress: istio-pilot.{ISTIO_NAMESPACE}:15003
+      discoveryMtlsAddress: istio-pilot.{ISTIO_NAMESPACE}:15005
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411

@@ -64,8 +64,10 @@ spec:
           - pilot
           - -v
           - "2"
-          - --discoveryAddress
+          - --discoveryPlainAddress
           - {{ template "pilot.fullname" . }}:15003
+          - --discoveryMtlsAddress
+          - {{ template "pilot.fullname" . }}:15005
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS

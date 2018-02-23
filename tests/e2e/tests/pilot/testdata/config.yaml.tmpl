@@ -10,7 +10,8 @@ data:
       serviceCluster:         istio-proxy
       drainDuration:          2s
       parentShutdownDuration: 3s
-      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15003
+      discoveryMtlsAddress:       istio-pilot.{{.IstioNamespace}}:15005
+      discoveryPlainAddress:       istio-pilot.{{.IstioNamespace}}:15003
       discoveryRefreshDelay:  1s
       connectTimeout:         1s
       proxyAdminPort:         15000

@@ -32,8 +32,10 @@ spec:
           - ingress
           - -v
           - "2"
-          - --discoveryAddress
+          - --discoveryPlainAddress
           - {{ .Release.Name }}-pilot:15003
+          - --discoveryMtlsAddress
+          - {{ .Release.Name }}-pilot:15005
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration

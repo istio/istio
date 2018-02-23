@@ -55,8 +55,10 @@ data:
         - {{ formatDuration .ProxyConfig.DrainDuration }}
         - --parentShutdownDuration
         - {{ formatDuration .ProxyConfig.ParentShutdownDuration }}
-        - --discoveryAddress
-        - {{ .ProxyConfig.DiscoveryAddress }}
+        - --discoveryMtlsAddress
+        - {{ .ProxyConfig.DiscoveryMtlsAddress }}
+        - --discoveryPlainAddress
+        - {{ .ProxyConfig.iscoveryPlainAddress }}
         - --discoveryRefreshDelay
         - {{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}
         - --zipkinAddress
