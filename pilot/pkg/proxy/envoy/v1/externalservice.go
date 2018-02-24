@@ -16,8 +16,6 @@ package v1
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"

@@ -177,7 +177,7 @@ function merge_files() {
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
 
   # restrict pilot controllers to a single namespace in the test file
-  execute_sed "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
+  execute_sed "s|args: \[\"discovery\"|args: \[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH

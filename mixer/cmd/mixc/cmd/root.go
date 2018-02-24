@@ -110,13 +110,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	// hack to make flag.Parsed return true such that glog is happy
-	// about the flags having been parsed
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	/* #nosec */
-	_ = fs.Parse([]string{})
-	flag.CommandLine = fs
-
 	rootArgs := &rootArgs{
 		tracingOptions: tracing.NewOptions(),
 	}

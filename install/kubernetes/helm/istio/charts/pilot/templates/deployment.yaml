@@ -27,8 +27,6 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
           - "discovery"
-          - "-v"
-          - "2"
           - "--admission-service"
           - "istio-pilot"
           ports:
@@ -71,8 +69,6 @@ spec:
           args:
           - proxy
           - pilot
-          - -v
-          - "2"
           - --discoveryAddress
           - localhost:8080
           - --controlPlaneAuthPolicy

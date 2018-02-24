@@ -159,3 +159,7 @@ required = [
 [[constraint]]
   name = "github.com/openshift/api"
   revision = "0d921e363e951d89f583292c60d013c318df64dc"
+
+[[override]]
+  name = "github.com/golang/glog"
+  source = "github.com/istio/glog"

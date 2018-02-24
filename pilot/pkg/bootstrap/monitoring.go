@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"istio.io/istio/pkg/log"
