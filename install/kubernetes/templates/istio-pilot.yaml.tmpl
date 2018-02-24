@@ -97,6 +97,10 @@ metadata:
 spec:
   ports:
   - port: 15003
+    name: discovery
+  - port: 15005
+    name: https-discovery
+  - port: 15007
     name: http-discovery
   - port: 8080
     name: http-legacy-discovery
@@ -147,6 +151,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_THROTTLE
+          value: "200"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
@@ -155,13 +161,15 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
+        - containerPort: 15005
+        - containerPort: 15007
         args:
         - proxy
         - pilot
         - -v
         - "2"
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:15007
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile

@@ -151,6 +151,8 @@ func Make(namespace string, i int) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.MockConfig.Type,
+			Group:     "config.istio.io",
+			Version:   "v1alpha2",
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{

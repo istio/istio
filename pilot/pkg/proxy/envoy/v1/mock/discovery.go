@@ -24,14 +24,9 @@ import (
 
 // Mock values
 var (
-	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	PortHTTP     = &model.Port{
-		Name:                 "http",
-		Port:                 80, // target port 80
-		Protocol:             model.ProtocolHTTP,
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-	}
+	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	PortHTTPName   = "http"
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -89,8 +84,12 @@ func MakeService(hostname, address string) *model.Service {
 		Hostname: hostname,
 		Address:  address,
 		Ports: []*model.Port{
-			PortHTTP,
 			{
+				Name:                 PortHTTPName,
+				Port:                 80, // target port 80
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			}, {
 				Name:                 "http-status",
 				Port:                 81, // target port 1081
 				Protocol:             model.ProtocolHTTP,
@@ -169,6 +168,18 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	}
 }
 
+// GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
+// a port does not exist (should not happenen if service is create via
+// mock MakeSericve)
+func GetPortHTTP(service *model.Service) *model.Port {
+	for _, port := range service.Ports {
+		if port.Name == PortHTTPName {
+			return port
+		}
+	}
+	return nil
+}
+
 // MakeIP creates a fake IP address for a service and instance version
 func MakeIP(service *model.Service, version int) string {
 	// external services have no instances
@@ -183,12 +194,12 @@ func MakeIP(service *model.Service, version int) string {
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services                        map[string]*model.Service
-	versions                        int
+	services                      map[string]*model.Service
+	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
-	ServicesError                   error
-	GetServiceError                 error
-	InstancesError                  error
+	ServicesError                 error
+	GetServiceError               error
+	InstancesError                error
 	GetProxyServiceInstancesError error
 }
 

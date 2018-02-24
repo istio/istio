@@ -157,9 +157,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
 
-	// Check the generated CA cert.
 	rootCertBytes := ca.GetRootCertificate()
-
 	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		t.Error(err)
@@ -173,8 +171,17 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
 	}
 
+	certChainBytes := ca.GetCertChain()
+	if len(certChainBytes) != 0 {
+		t.Errorf("Cert chain should be empty")
+	}
+
+	ca.keyCertMutex.RLock()
+	signingCert := ca.keyCert.SigningCert
+	ca.keyCertMutex.RUnlock()
+
 	// Root cert and siging cert are the same for self-signed CA.
-	if !rootCert.Equal(ca.signingCert) {
+	if !rootCert.Equal(signingCert) {
 		t.Error("CA root cert does not match signing cert")
 	}
 
@@ -189,19 +196,15 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
 
-	if !signingCertFromSecret.Equal(ca.signingCert) {
-		t.Error("CA signing cert does not the K8s secret")
-	}
-
-	if len(ca.certChainBytes) > 0 {
-		t.Error("CertChain should be empty")
+	if !signingCertFromSecret.Equal(signingCert) {
+		t.Error("CA signing cert does not match the K8s secret")
 	}
 }
 
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertPem := cert1Pem
 	// Use the same signing cert and root cert for self-signed CA.
-	signingCertPem := rootCertPem
+	signingCertPem := cert1Pem
 	signingKeyPem := key1Pem
 
 	client := fake.NewSimpleClientset()
@@ -232,17 +235,22 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
 
-	if !signingCert.Equal(ca.signingCert) {
-		t.Error("Cert does not match")
+	ca.keyCertMutex.RLock()
+	signingCertFromCA := ca.keyCert.SigningCert
+	rootCertFromCA := ca.keyCert.RootCertBytes
+	ca.keyCertMutex.RUnlock()
+
+	if !signingCert.Equal(signingCertFromCA) {
+		t.Error("Signing cert does not match")
 	}
 
-	if len(ca.certChainBytes) > 0 {
-		t.Error("CertChain should be empty")
-	}
-
-	rootCertBytes := copyBytes([]byte(rootCertPem))
-	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
+	if !bytes.Equal(rootCertFromCA, []byte(rootCertPem)) {
 		t.Error("Root cert does not match")
+	}
+
+	certChainBytes := ca.GetCertChain()
+	if len(certChainBytes) != 0 {
+		t.Errorf("Cert chain should be empty")
 	}
 }
 
@@ -280,7 +288,8 @@ func TestNewIstioCAOptions(t *testing.T) {
 	maxCertTTL := time.Hour
 
 	for id, tc := range testCases {
-		caOpts, err := NewIstioCAOptions(tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
+		caOpts, err := NewPluggedCertIstioCAOptions(
+			tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
 				t.Errorf("%s: Unexpected error: %v", id, err)
@@ -374,7 +383,8 @@ func TestSignCSRForWorkload(t *testing.T) {
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
-	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(
+		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -427,7 +437,8 @@ func TestSignCSRForCA(t *testing.T) {
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
 	}
-	if err = util.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
+	if err = util.VerifyCertificate(
+		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 

@@ -131,7 +131,7 @@ func TestDiscoveryLDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'listeners': [ {'name': 'Hello-LDS-WebHook'}]")
+		fmt.Fprintln(w, `{"listeners": [ {"name": "Hello-LDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -149,7 +149,7 @@ func TestDiscoveryCDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'clusters': [ {'name': 'Hello-CDS-WebHook'}]")
+		fmt.Fprintln(w, `{"clusters": [ {"name": "Hello-CDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -167,7 +167,7 @@ func TestDiscoveryRDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'routes': [ {'name': 'Hello-RDS-WebHook'}]")
+		fmt.Fprintln(w, `{"routes": [ {"name": "Hello-RDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -640,6 +640,7 @@ func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
 	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
 	addConfig(registry, gatewayWeightedRouteRule, t)
 	addConfig(registry, gatewayConfig, t)
 	addConfig(registry, gatewayConfig2, t)
@@ -652,6 +653,19 @@ func TestRouteDiscoveryRouterWeightedWithGateway(t *testing.T) {
 	url = fmt.Sprintf("/v1/routes/10088/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-router-gateway-weighted-server2.json", t)
+}
+
+func TestRouteDiscoveryRouterWildcardGateway(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, gatewayRouteRule, t)
+	addConfig(registry, gatewayRouteRule2, t)
+	addConfig(registry, gatewayWildcardRouteRule, t)
+	addConfig(registry, gatewayWildcardConfig, t)
+
+	url := fmt.Sprintf("/v1/routes/10080/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-gateway-wildcard-server1.json", t)
 }
 
 func TestExternalServicesDiscoveryMode(t *testing.T) {
@@ -1002,12 +1016,6 @@ func TestDiscoveryCache(t *testing.T) {
 		{
 			wantCache:  "testdata/cache-cleared.json",
 			clearCache: true,
-			query:      true,
-		},
-		{
-			wantCache:  "testdata/cache-cold.json",
-			clearCache: true,
-			clearStats: true,
 			query:      true,
 		},
 	}
