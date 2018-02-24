@@ -139,6 +139,10 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		return nil
 	}
 
+	_, err := util.Shell("kubectl get ingress --all-namespaces")
+	if err != nil {
+		return err
+	}
 	lines, err := util.Shell("kubectl get pods -n " + namespace)
 	if err != nil {
 		return err
