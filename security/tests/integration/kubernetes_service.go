@@ -17,11 +17,11 @@ package integration
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/integration/framework"
 )
 
@@ -77,7 +77,7 @@ func (c *KubernetesService) Start() (err error) {
 		c.selector,
 		c.annotation)
 	if err != nil {
-		glog.Errorf("failed to create a service %v", c.name)
+		log.Errorf("failed to create a service %v", c.name)
 	}
 
 	return err
@@ -86,14 +86,14 @@ func (c *KubernetesService) Start() (err error) {
 // Stop stop this component
 // Stop is being called in framework.TearDown()
 func (c *KubernetesService) Stop() (err error) {
-	glog.Infof("deleting the service: %v", c.name)
+	log.Infof("deleting the service: %v", c.name)
 	return deleteService(c.clientset, c.namespace, c.name)
 }
 
 // IsAlive checks if the component is alive/running
 func (c *KubernetesService) IsAlive() (bool, error) {
 	if c.serviceType == v1.ServiceTypeLoadBalancer {
-		glog.Infof("waiting for the load balancer to be ready...")
+		log.Infof("waiting for the load balancer to be ready...")
 		if err := waitForServiceExternalIPAddress(c.clientset, c.namespace, c.uuid, kubernetesWaitTimeout); err != nil {
 			return false, fmt.Errorf("failed to get the external IP adddress of %v service: %v", c.name, err)
 		}
