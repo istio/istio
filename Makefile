@@ -175,16 +175,10 @@ submodule: $(GRPC_DIR)
 $(GRPC_DIR):
 	$(MAKE) submodule-sync
 
-# Optional branch used by vendor. When doing LTS istio release a matching
-# branch would be setup in vendor-istio
-BRANCH:= master
-
 # If you want to force update/sync, invoke 'make submodule-sync' directly
 submodule-sync:
 	git submodule sync
 	git submodule update --init
-	@echo "optional, allow your vendor/ to be on branch BRANCH=$(BRANCH)"
-	-(cd vendor; git checkout $(BRANCH))
 
 # Short cut for pulling/updating to latest of the current branch
 pull:
