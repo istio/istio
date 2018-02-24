@@ -126,8 +126,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "adeb60566bc8c9202b0f1be7e3a675beedbc11f0"
-  version = "v1.13.2"
+  revision = "f7f1ee9550cc76ceea731d99c8dbe00a0c39f66d"
+  version = "v1.13.4"
 
 [[projects]]
   branch = "master"
@@ -281,7 +281,7 @@
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+  revision = "0d03ad0b6405ada874d59d97c416b5cf4234e154"
 
 [[projects]]
   name = "github.com/go-redis/redis"
@@ -292,10 +292,11 @@
     "internal/hashtag",
     "internal/pool",
     "internal/proto",
-    "internal/singleflight"
+    "internal/singleflight",
+    "internal/util"
   ]
-  revision = "fa7f64f7f27348658ecfa71dd71dfb2d112e2f86"
-  version = "v6.9.0"
+  revision = "56dea1f39a5f4a64fe8c639464c966c75f226e3e"
+  version = "v6.9.1"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -443,7 +444,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "6c823a6861b8e5dcf93a9a5a6937d592370aacb6"
+  revision = "8f1afb16493e82ad2cabafc23843cb128e64ee97"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -584,8 +585,8 @@
 [[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
-  revision = "be70f29b04dea7efb4d82a8989c33aee989b74d1"
-  version = "1.1.0"
+  revision = "0ac74bba4a81211b28e32ef260c0f16ae41f1377"
+  version = "1.1.1"
 
 [[projects]]
   name = "github.com/juju/ratelimit"
@@ -651,7 +652,8 @@
     "matchers/support/goraph/util",
     "types"
   ]
-  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
+  revision = "003f63b7f4cff3fc95357005358af2de0f5fe152"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/open-policy-agent/opa"
@@ -860,8 +862,8 @@
     "concurrent",
     "reflect2"
   ]
-  revision = "571356917fca907b069b7b47a14cd32ba0b340d4"
-  version = "0.9.0"
+  revision = "10fc95fad3224a032229e59f6e7023137d82b526"
+  version = "0.9.1"
 
 [[projects]]
   branch = "master"
@@ -910,7 +912,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
 
 [[projects]]
   branch = "master"
@@ -955,7 +957,7 @@
     "unix",
     "windows"
   ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "88d2dcc510266da9f7f8c7f34e1940716cab5f5c"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -1004,7 +1006,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "f8f2f88271bf2c23f28a09d288d26507a9503c97"
+  revision = "2ae76fd1560b622911f444c1e66b70a857e1de67"
 
 [[projects]]
   branch = "master"
@@ -1126,10 +1128,10 @@
   revision = "59c90c7046f643cbe0d4e7c8776c42a84ce75910"
 
 [[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+  revision = "3e6d767784b037b90a14701b6c9f0643f05db963"
+  version = "v2.1.0"
 
 [[projects]]
   name = "istio.io/api"

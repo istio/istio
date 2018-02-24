@@ -175,10 +175,16 @@ submodule: $(GRPC_DIR)
 $(GRPC_DIR):
 	$(MAKE) submodule-sync
 
+# Optional branch used by vendor. When doing LTS istio release a matching
+# branch would be setup in vendor-istio
+BRANCH:= master
+
 # If you want to force update/sync, invoke 'make submodule-sync' directly
 submodule-sync:
 	git submodule sync
 	git submodule update --init
+	@echo "optional, allow your vendor/ to be on branch BRANCH=$(BRANCH)"
+	-(cd vendor; git checkout $(BRANCH))
 
 # Short cut for pulling/updating to latest of the current branch
 pull:
@@ -213,8 +219,8 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
 depend.status: | $(ISTIO_OUT)
-	dep status -dot > $(ISTIO_OUT)/dep.dot
 	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
+	dep status -dot > $(ISTIO_OUT)/dep.dot
 	cp Gopkg.* vendor/
 
 $(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
@@ -227,7 +233,8 @@ depend.cleanlock:
 	-rm Gopkg.lock
 
 depend.update:
-	time dep ensure
+	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
+	time dep ensure $(DEPARGS)
 	cp Gopkg.* vendor/
 	@echo "now check the diff in vendor/ and make a PR"
 
@@ -431,7 +438,7 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -453,6 +460,10 @@ galley-coverage:
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
+
+.PHONY: common-coverage
+common-coverage:
+	bin/parallel-codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race

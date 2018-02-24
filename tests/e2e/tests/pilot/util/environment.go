@@ -27,7 +27,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -59,11 +58,12 @@ const (
 	pilotConfigAuthFile    = "/etc/istio/proxy/envoy_pilot_auth.json"
 )
 
-// Infra defines the test configuration.
-type Infra struct { // nolint: maligned
-	Name string
+// Environment defines the test configuration.
+type Environment struct {
+	// nolint: maligned
+	Name   string
+	Config Config
 
-	KubeConfig string
 	KubeClient kubernetes.Interface
 
 	// Directory where test data files are located.
@@ -71,14 +71,6 @@ type Infra struct { // nolint: maligned
 
 	// Directory where test cert files are located.
 	certDir string
-
-	// docker tags
-	Hub, Tag string
-
-	Namespace      string
-	IstioNamespace string
-	Registry       string
-	Verbosity      int
 
 	// map from app to pods
 	Apps map[string][]string
@@ -88,47 +80,11 @@ type Infra struct { // nolint: maligned
 	MixerCustomConfigFile  string
 	PilotCustomConfigFile  string
 
-	// switches for infrastructure components
-	Mixer     bool
-	Ingress   bool
-	Zipkin    bool
-	DebugPort int
-
-	APIVersions []string
-	V1alpha1    bool
-	V1alpha2    bool
-
-	SkipCleanup          bool
-	SkipCleanupOnFailure bool
-
-	// check proxy logs
-	CheckLogs bool
-
-	// store error logs in specific directory
-	ErrorLogsDir string
-
-	// copy core files in this directory on the Kubernetes node machine
-	CoreFilesDir string
-
-	// The number of times to run each test.
-	TestCount int
-
-	// A user-specified test to run. If not provided, all tests will be run.
-	SelectedTest string
-
 	namespaceCreated      bool
 	istioNamespaceCreated bool
-	DebugImagesAndMode    bool
 
-	// automatic sidecar injection
-	UseAutomaticInjection bool
-	SidecarTemplate       string
-	meshConfig            *meshconfig.MeshConfig
-	CABundle              string
-
-	// External Admission Webhook for validation
-	UseAdmissionWebhook  bool
-	AdmissionServiceName string
+	meshConfig *meshconfig.MeshConfig
+	CABundle   string
 
 	config model.IstioConfigStore
 
@@ -140,52 +96,47 @@ const (
 	ConfigMapKey = "mesh"
 )
 
-// NewInfra creates a new test configuration with default values.
-func NewInfra() *Infra {
-	return &Infra{
-		Name:           "(default infra)",
-		KubeConfig:     os.Getenv("KUBECONFIG"),
-		testDataDir:    "testdata/",
-		certDir:        "../../../../pilot/docker/certs/",
-		Hub:            "gcr.io/istio-testing",
-		Tag:            "",
-		Namespace:      "",
-		IstioNamespace: "",
-		Registry:       string(serviceregistry.KubernetesRegistry),
-		Verbosity:      2,
-		Auth:           meshconfig.MeshConfig_NONE,
-		MixerCustomConfigFile: mixerConfigFile,
-		PilotCustomConfigFile: pilotConfigFile,
-		Mixer:                 true,
-		Ingress:               true,
-		Zipkin:                true,
-		DebugPort:             0,
-		SkipCleanup:           false,
-		SkipCleanupOnFailure:  false,
-		CheckLogs:             false,
-		ErrorLogsDir:          "",
-		CoreFilesDir:          "",
-		TestCount:             1,
-		SelectedTest:          "",
-		DebugImagesAndMode:    true,
-		UseAutomaticInjection: false,
-		UseAdmissionWebhook:   false,
-		AdmissionServiceName:  "istio-pilot",
-		V1alpha1:              false,
-		V1alpha2:              true,
-	}
+// TemplateData is a container for common fields accessed from yaml templates.
+type TemplateData struct {
+	Hub                    string
+	Tag                    string
+	Namespace              string
+	IstioNamespace         string
+	Registry               string
+	AdmissionServiceName   string
+	Verbosity              int
+	DebugPort              int
+	Auth                   meshconfig.MeshConfig_AuthPolicy
+	Mixer                  bool
+	Ingress                bool
+	Zipkin                 bool
+	UseAdmissionWebhook    bool
+	ControlPlaneAuthPolicy meshconfig.AuthenticationPolicy
+	PilotCustomConfigFile  string
+	MixerCustomConfigFile  string
+	CABundle               string
 }
 
-// CopyWithDefaultAuth creates a copy of this configuration, but with mTLS enabled.
-func (infra *Infra) CopyWithDefaultAuth() *Infra {
-	// Make a copy of the config
-	out := *infra
-	out.Name = "(auth infra)"
-	out.Auth = meshconfig.MeshConfig_MUTUAL_TLS
-	out.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-	out.MixerCustomConfigFile = mixerConfigAuthFile
-	out.PilotCustomConfigFile = pilotConfigAuthFile
-	return &out
+// NewEnvironment creates a new test environment based on the configuration.
+func NewEnvironment(config Config) *Environment {
+	e := Environment{
+		Config:      config,
+		Name:        "(no-auth environment)",
+		testDataDir: "testdata/",
+		certDir:     "../../../../pilot/docker/certs/",
+		Auth:        meshconfig.MeshConfig_NONE,
+		MixerCustomConfigFile: mixerConfigFile,
+		PilotCustomConfigFile: pilotConfigFile,
+	}
+
+	if config.Auth {
+		e.Name = "(auth environment)"
+		e.Auth = meshconfig.MeshConfig_MUTUAL_TLS
+		e.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+		e.MixerCustomConfigFile = mixerConfigAuthFile
+		e.PilotCustomConfigFile = pilotConfigAuthFile
+	}
+	return &e
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -209,18 +160,40 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 	return config, mesh, nil
 }
 
+// ToTemplateData creates a data structure containing common fields used in yaml templates.
+func (e *Environment) ToTemplateData() TemplateData {
+	return TemplateData{
+		Hub:                    e.Config.Hub,
+		Tag:                    e.Config.Tag,
+		IstioNamespace:         e.Config.IstioNamespace,
+		Auth:                   e.Auth,
+		Zipkin:                 e.Config.Zipkin,
+		Mixer:                  e.Config.Mixer,
+		Namespace:              e.Config.Namespace,
+		DebugPort:              e.Config.DebugPort,
+		UseAdmissionWebhook:    e.Config.UseAdmissionWebhook,
+		Registry:               e.Config.Registry,
+		Verbosity:              e.Config.Verbosity,
+		AdmissionServiceName:   e.Config.AdmissionServiceName,
+		ControlPlaneAuthPolicy: e.ControlPlaneAuthPolicy,
+		PilotCustomConfigFile:  e.PilotCustomConfigFile,
+		MixerCustomConfigFile:  e.MixerCustomConfigFile,
+		CABundle:               e.CABundle,
+	}
+}
+
 // Setup creates the k8s environment and deploys the test apps
-func (infra *Infra) Setup() error {
-	if infra.KubeConfig == "" {
-		infra.KubeConfig = "pilot/pkg/kube/config"
+func (e *Environment) Setup() error {
+	if e.Config.KubeConfig == "" {
+		e.Config.KubeConfig = "pilot/pkg/kube/config"
 		log.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
 	}
 	var err error
-	if _, infra.KubeClient, err = kube.CreateInterface(infra.KubeConfig); err != nil {
+	if _, e.KubeClient, err = kube.CreateInterface(e.Config.KubeConfig); err != nil {
 		return err
 	}
 
-	crdclient, crderr := crd.NewClient(infra.KubeConfig, model.IstioConfigTypes, "")
+	crdclient, crderr := crd.NewClient(e.Config.KubeConfig, model.IstioConfigTypes, "")
 	if crderr != nil {
 		return crderr
 	}
@@ -228,115 +201,117 @@ func (infra *Infra) Setup() error {
 		return err
 	}
 
-	infra.config = model.MakeIstioStore(crdclient)
+	e.config = model.MakeIstioStore(crdclient)
 
-	if infra.Namespace == "" {
-		if infra.Namespace, err = util.CreateNamespaceWithPrefix(infra.KubeClient, "istio-test-app-", infra.UseAutomaticInjection); err != nil { // nolint: lll
+	if e.Config.Namespace == "" {
+		if e.Config.Namespace, err = util.CreateNamespaceWithPrefix(e.KubeClient, "istio-test-app-", e.Config.UseAutomaticInjection); err != nil { // nolint: lll
 			return err
 		}
-		infra.namespaceCreated = true
+		e.namespaceCreated = true
 	} else {
-		if _, err = infra.KubeClient.CoreV1().Namespaces().Get(infra.Namespace, meta_v1.GetOptions{}); err != nil {
+		if _, err = e.KubeClient.CoreV1().Namespaces().Get(e.Config.Namespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
 
-	if infra.IstioNamespace == "" {
-		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(infra.KubeClient, "istio-test-", false); err != nil {
+	if e.Config.IstioNamespace == "" {
+		if e.Config.IstioNamespace, err = util.CreateNamespaceWithPrefix(e.KubeClient, "istio-test-", false); err != nil {
 			return err
 		}
-		infra.istioNamespaceCreated = true
+		e.istioNamespaceCreated = true
 	} else {
-		if _, err = infra.KubeClient.CoreV1().Namespaces().Get(infra.IstioNamespace, meta_v1.GetOptions{}); err != nil {
+		if _, err = e.KubeClient.CoreV1().Namespaces().Get(e.Config.IstioNamespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
 
 	deploy := func(name, namespace string) error {
 		var filledYaml string
-		if filledYaml, err = infra.Fill(name, infra); err != nil {
+		data := e.ToTemplateData()
+		if filledYaml, err = e.Fill(name, data); err != nil {
 			return err
-		} else if err = infra.KubeApply(filledYaml, namespace); err != nil {
+		} else if err = e.KubeApply(filledYaml, namespace); err != nil {
 			return err
 		}
 		return nil
 	}
-	if err = deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
+
+	if err = deploy("rbac-beta.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
 
-	if err = deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if err = deploy("config.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
 
-	if _, infra.meshConfig, err = GetMeshConfig(infra.KubeClient, infra.IstioNamespace, "istio"); err != nil {
+	if _, e.meshConfig, err = GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, "istio"); err != nil {
 		return err
 	}
-	debugMode := infra.DebugImagesAndMode
-	log.Infof("mesh %s", spew.Sdump(infra.meshConfig))
+	debugMode := e.Config.DebugImagesAndMode
+	log.Infof("mesh %s", spew.Sdump(e.meshConfig))
 
-	infra.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-		InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
-		ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
-		Verbosity:       infra.Verbosity,
+	e.Config.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+		InitImage:       inject.InitImageName(e.Config.Hub, e.Config.Tag, debugMode),
+		ProxyImage:      inject.ProxyImageName(e.Config.Hub, e.Config.Tag, debugMode),
+		Verbosity:       e.Config.Verbosity,
 		SidecarProxyUID: inject.DefaultSidecarProxyUID,
 		EnableCoreDump:  true,
 		Version:         "integration-test",
-		Mesh:            infra.meshConfig,
+		Mesh:            e.meshConfig,
 		DebugMode:       debugMode,
 	})
 	if err != nil {
 		return err
 	}
 
-	if infra.UseAutomaticInjection {
-		if err = infra.createSidecarInjector(); err != nil {
+	if e.Config.UseAutomaticInjection {
+		if err = e.createSidecarInjector(); err != nil {
 			return err
 		}
 	}
 
-	if infra.UseAdmissionWebhook {
-		if err = infra.createAdmissionWebhookSecret(); err != nil {
+	if e.Config.UseAdmissionWebhook {
+		if err = e.createAdmissionWebhookSecret(); err != nil {
 			return err
 		}
 	}
 
-	if err = deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if err = deploy("pilot.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
-	if infra.Mixer {
-		if err = deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if e.Config.Mixer {
+		if err = deploy("mixer.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 			return err
 		}
 	}
-	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
-		if err = deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if serviceregistry.ServiceRegistry(e.Config.Registry) == serviceregistry.EurekaRegistry {
+		if err = deploy("eureka.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 			return err
 		}
 	}
 
-	if err = deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if err = deploy("ca.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
-	if err = deploy("headless.yaml.tmpl", infra.Namespace); err != nil {
+	if err = deploy("headless.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
-	if infra.Ingress {
-		if err = deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
+	if e.Config.Ingress {
+		if err = deploy("ingress-proxy.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 			return err
 		}
 		// Create ingress key/cert in secret
 		var key []byte
-		key, err = ioutil.ReadFile(infra.certDir + "cert.key")
+		key, err = ioutil.ReadFile(e.certDir + "cert.key")
 		if err != nil {
 			return err
 		}
 		var crt []byte
-		crt, err = ioutil.ReadFile(infra.certDir + "cert.crt")
+		crt, err = ioutil.ReadFile(e.certDir + "cert.crt")
 		if err != nil {
 			return err
 		}
-		_, err = infra.KubeClient.CoreV1().Secrets(infra.IstioNamespace).Create(&v1.Secret{
+		_, err = e.KubeClient.CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{
 			ObjectMeta: meta_v1.ObjectMeta{Name: ingressSecretName},
 			Data: map[string][]byte{
 				"tls.key": key,
@@ -347,64 +322,64 @@ func (infra *Infra) Setup() error {
 			log.Warn("Secret already exists")
 		}
 	}
-	if infra.Zipkin {
-		if err = deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
+	if e.Config.Zipkin {
+		if err = deploy("zipkin.yaml", e.Config.IstioNamespace); err != nil {
 			return err
 		}
 	}
-	if err = deploy("external-wikipedia.yaml.tmpl", infra.Namespace); err != nil {
+	if err = deploy("external-wikipedia.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
-	if err = deploy("externalbin.yaml.tmpl", infra.Namespace); err != nil {
-		return err
-	}
-
-	if err = infra.deployApps(); err != nil {
+	if err = deploy("externalbin.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
 
-	nslist := []string{infra.IstioNamespace, infra.Namespace}
-	infra.Apps, err = util.GetAppPods(infra.KubeClient, infra.KubeConfig, nslist)
+	if err = e.deployApps(); err != nil {
+		return err
+	}
+
+	nslist := []string{e.Config.IstioNamespace, e.Config.Namespace}
+	e.Apps, err = util.GetAppPods(e.KubeClient, e.Config.KubeConfig, nslist)
 	return err
 }
 
-func (infra *Infra) deployApps() error {
+func (e *Environment) deployApps() error {
 	// deploy a healthy mix of apps, with and without proxy
-	if err := infra.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false); err != nil {
+	if err := e.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false); err != nil {
+	if err := e.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false); err != nil {
+	if err := e.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false); err != nil {
+	if err := e.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false); err != nil {
+	if err := e.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true); err != nil {
+	if err := e.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true); err != nil {
 		return err
 	}
 	// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 	// environment, pilot can see only services in the test namespaces). This service
 	// will be listed in mtlsExcludedServices in the mesh config.
-	return infra.deployApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false)
+	return e.deployApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false)
 }
 
-func (infra *Infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
+func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
 	version string, injectProxy bool, perServiceAuth bool) error {
 	// Eureka does not support management ports
 	healthPort := "true"
-	if serviceregistry.ServiceRegistry(infra.Registry) == serviceregistry.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(e.Config.Registry) == serviceregistry.EurekaRegistry {
 		healthPort = "false"
 	}
 
-	w, err := infra.Fill("app.yaml.tmpl", map[string]string{
-		"Hub":            infra.Hub,
-		"Tag":            infra.Tag,
+	w, err := e.Fill("app.yaml.tmpl", map[string]string{
+		"Hub":            e.Config.Hub,
+		"Tag":            e.Config.Tag,
 		"service":        svcName,
 		"perServiceAuth": strconv.FormatBool(perServiceAuth),
 		"deployment":     deployment,
@@ -415,7 +390,7 @@ func (infra *Infra) deployApp(deployment, svcName string, port1, port2, port3, p
 		"port5":          strconv.Itoa(port5),
 		"port6":          strconv.Itoa(port6),
 		"version":        version,
-		"istioNamespace": infra.IstioNamespace,
+		"istioNamespace": e.Config.IstioNamespace,
 		"injectProxy":    strconv.FormatBool(injectProxy),
 		"healthPort":     healthPort,
 	})
@@ -425,8 +400,8 @@ func (infra *Infra) deployApp(deployment, svcName string, port1, port2, port3, p
 
 	writer := new(bytes.Buffer)
 
-	if injectProxy && !infra.UseAutomaticInjection {
-		if err := inject.IntoResourceFile(infra.SidecarTemplate, infra.meshConfig, strings.NewReader(w), writer); err != nil {
+	if injectProxy && !e.Config.UseAutomaticInjection {
+		if err := inject.IntoResourceFile(e.Config.SidecarTemplate, e.meshConfig, strings.NewReader(w), writer); err != nil {
 			return err
 		}
 	} else {
@@ -435,25 +410,25 @@ func (infra *Infra) deployApp(deployment, svcName string, port1, port2, port3, p
 		}
 	}
 
-	return infra.KubeApply(writer.String(), infra.Namespace)
+	return e.KubeApply(writer.String(), e.Config.Namespace)
 }
 
 // Teardown cleans up the k8s environment, removing any resources that were created by the tests.
-func (infra *Infra) Teardown() {
-	if infra.KubeClient == nil {
+func (e *Environment) Teardown() {
+	if e.KubeClient == nil {
 		return
 	}
 
-	needToTeardown := !infra.SkipCleanup
+	needToTeardown := !e.Config.SkipCleanup
 
 	// spill all logs on error
-	if infra.Err != nil {
-		if infra.SkipCleanupOnFailure {
+	if e.Err != nil {
+		if e.Config.SkipCleanupOnFailure {
 			needToTeardown = false
 		}
 
 		// Dump all logs on error.
-		infra.dumpErrorLogs()
+		e.dumpErrorLogs()
 	}
 
 	// If configured to cleanup after each test, do so now.
@@ -461,68 +436,68 @@ func (infra *Infra) Teardown() {
 		return
 	}
 
-	if infra.UseAdmissionWebhook {
-		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
+	if e.Config.UseAdmissionWebhook {
+		if err := e.deleteAdmissionWebhookSecret(); err != nil {
 			log.Infof("Could not delete admission webhook secret: %v", err)
 		}
 	}
 
 	// automatic injection webhook is not namespaced.
-	if infra.UseAutomaticInjection {
-		infra.deleteSidecarInjector()
+	if e.Config.UseAutomaticInjection {
+		e.deleteSidecarInjector()
 	}
 
-	if filledYaml, err := infra.Fill("rbac-beta.yaml.tmpl", infra); err != nil {
+	if filledYaml, err := e.Fill("rbac-beta.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
 			err)
-	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
+	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("RBAC config could could not be deleted: %v", err)
 	}
 
-	if infra.Ingress {
-		if err := infra.KubeClient.ExtensionsV1beta1().Ingresses(infra.Namespace).
+	if e.Config.Ingress {
+		if err := e.KubeClient.ExtensionsV1beta1().Ingresses(e.Config.Namespace).
 			DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{}); err != nil {
 			log.Warna(err)
 		}
-		if err := infra.KubeClient.CoreV1().Secrets(infra.Namespace).
+		if err := e.KubeClient.CoreV1().Secrets(e.Config.Namespace).
 			Delete(ingressSecretName, &meta_v1.DeleteOptions{}); err != nil {
 			log.Warna(err)
 		}
 	}
 
-	if infra.namespaceCreated {
-		util.DeleteNamespace(infra.KubeClient, infra.Namespace)
-		infra.Namespace = ""
+	if e.namespaceCreated {
+		util.DeleteNamespace(e.KubeClient, e.Config.Namespace)
+		e.Config.Namespace = ""
 	}
-	if infra.istioNamespaceCreated {
-		util.DeleteNamespace(infra.KubeClient, infra.IstioNamespace)
-		infra.IstioNamespace = ""
+	if e.istioNamespaceCreated {
+		util.DeleteNamespace(e.KubeClient, e.Config.IstioNamespace)
+		e.Config.IstioNamespace = ""
 	}
 }
 
-func (infra *Infra) dumpErrorLogs() {
-	for _, pod := range util.GetPods(infra.KubeClient, infra.Namespace) {
+func (e *Environment) dumpErrorLogs() {
+	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {
 		var filename, content string
 		if strings.HasPrefix(pod, "istio-pilot") {
 			Tlog("Discovery log", pod)
 			filename = "istio-pilot"
-			content = util.FetchLogs(infra.KubeClient, pod, infra.IstioNamespace, "discovery")
+			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, "discovery")
 		} else if strings.HasPrefix(pod, "istio-mixer") {
 			Tlog("Mixer log", pod)
 			filename = "istio-mixer"
-			content = util.FetchLogs(infra.KubeClient, pod, infra.IstioNamespace, "mixer")
+			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, "mixer")
 		} else if strings.HasPrefix(pod, "istio-ingress") {
 			Tlog("Ingress log", pod)
 			filename = "istio-ingress"
-			content = util.FetchLogs(infra.KubeClient, pod, infra.IstioNamespace, inject.ProxyContainerName)
+			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, inject.ProxyContainerName)
 		} else {
 			Tlog("Proxy log", pod)
 			filename = pod
-			content = util.FetchLogs(infra.KubeClient, pod, infra.Namespace, inject.ProxyContainerName)
+			content = util.FetchLogs(e.KubeClient, pod, e.Config.Namespace, inject.ProxyContainerName)
 		}
 
-		if len(infra.ErrorLogsDir) > 0 {
-			if err := ioutil.WriteFile(infra.ErrorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
+		if len(e.Config.ErrorLogsDir) > 0 {
+			if err := ioutil.WriteFile(e.Config.ErrorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
 				log.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
 				log.Info(content)
 			}
@@ -533,14 +508,14 @@ func (infra *Infra) dumpErrorLogs() {
 }
 
 // KubeApply runs kubectl apply with the given yaml and namespace.
-func (infra *Infra) KubeApply(yaml, namespace string) error {
+func (e *Environment) KubeApply(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
-		infra.KubeConfig, namespace), yaml)
+		e.Config.KubeConfig, namespace), yaml)
 }
 
-func (infra *Infra) kubeDelete(yaml, namespace string) error {
+func (e *Environment) kubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
-		infra.KubeConfig, namespace), yaml)
+		e.Config.KubeConfig, namespace), yaml)
 }
 
 // Response represents a response to a client request.
@@ -572,16 +547,16 @@ var (
 )
 
 // ClientRequest makes the given request from within the k8s environment.
-func (infra *Infra) ClientRequest(app, url string, count int, extra string) Response {
+func (e *Environment) ClientRequest(app, url string, count int, extra string) Response {
 	out := Response{}
-	if len(infra.Apps[app]) == 0 {
+	if len(e.Apps[app]) == 0 {
 		log.Errorf("missing pod names for app %q", app)
 		return out
 	}
 
-	pod := infra.Apps[app][0]
+	pod := e.Apps[app][0]
 	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s -count %d %s",
-		pod, infra.KubeConfig, infra.Namespace, url, count, extra)
+		pod, e.Config.KubeConfig, e.Config.Namespace, url, count, extra)
 	request, err := util.Shell(cmd)
 
 	if err != nil {
@@ -615,8 +590,8 @@ func (infra *Infra) ClientRequest(app, url string, count int, extra string) Resp
 }
 
 // ApplyConfig fills in the given template file (if necessary) and applies the configuration.
-func (infra *Infra) ApplyConfig(inFile string, data map[string]string) error {
-	config, err := infra.Fill(inFile, data)
+func (e *Environment) ApplyConfig(inFile string, data map[string]string) error {
+	config, err := e.Fill(inFile, data)
 	if err != nil {
 		return err
 	}
@@ -628,14 +603,14 @@ func (infra *Infra) ApplyConfig(inFile string, data map[string]string) error {
 
 	for _, v := range vs {
 		// fill up namespace for the config
-		v.Namespace = infra.Namespace
+		v.Namespace = e.Config.Namespace
 
-		old, exists := infra.config.Get(v.Type, v.Name, v.Namespace)
+		old, exists := e.config.Get(v.Type, v.Name, v.Namespace)
 		if exists {
 			v.ResourceVersion = old.ResourceVersion
-			_, err = infra.config.Update(v)
+			_, err = e.config.Update(v)
 		} else {
-			_, err = infra.config.Create(v)
+			_, err = e.config.Create(v)
 		}
 		if err != nil {
 			return err
@@ -649,8 +624,8 @@ func (infra *Infra) ApplyConfig(inFile string, data map[string]string) error {
 }
 
 // DeleteConfig deletes the given configuration from the k8s environment
-func (infra *Infra) DeleteConfig(inFile string, data map[string]string) error {
-	config, err := infra.Fill(inFile, data)
+func (e *Environment) DeleteConfig(inFile string, data map[string]string) error {
+	config, err := e.Fill(inFile, data)
 	if err != nil {
 		return err
 	}
@@ -662,10 +637,10 @@ func (infra *Infra) DeleteConfig(inFile string, data map[string]string) error {
 
 	for _, v := range vs {
 		// fill up namespace for the config
-		v.Namespace = infra.Namespace
+		v.Namespace = e.Config.Namespace
 
 		log.Infof("Delete config %s", v.Key())
-		if err = infra.config.Delete(v.Type, v.Name, v.Namespace); err != nil {
+		if err = e.config.Delete(v.Type, v.Name, v.Namespace); err != nil {
 			return err
 		}
 	}
@@ -677,15 +652,15 @@ func (infra *Infra) DeleteConfig(inFile string, data map[string]string) error {
 }
 
 // DeleteAllConfigs deletes any config resources that were installed by the tests.
-func (infra *Infra) DeleteAllConfigs() error {
-	for _, desc := range infra.config.ConfigDescriptor() {
-		configs, err := infra.config.List(desc.Type, infra.Namespace)
+func (e *Environment) DeleteAllConfigs() error {
+	for _, desc := range e.config.ConfigDescriptor() {
+		configs, err := e.config.List(desc.Type, e.Config.Namespace)
 		if err != nil {
 			return err
 		}
 		for _, config := range configs {
 			log.Infof("Delete config %s", config.Key())
-			if err = infra.config.Delete(desc.Type, config.Name, config.Namespace); err != nil {
+			if err = e.config.Delete(desc.Type, config.Name, config.Namespace); err != nil {
 				return err
 			}
 		}
@@ -756,8 +731,8 @@ func createWebhookCerts(service, namespace string) (caCertPEM, serverCertPEM, se
 	return caCertPEM, serverCertPEM, serverKeyPEM, nil
 }
 
-func (infra *Infra) createAdmissionWebhookSecret() error {
-	caCert, serverCert, serverKey, err := createWebhookCerts(infra.AdmissionServiceName, infra.IstioNamespace)
+func (e *Environment) createAdmissionWebhookSecret() error {
+	caCert, serverCert, serverKey, err := createWebhookCerts(e.Config.AdmissionServiceName, e.Config.IstioNamespace)
 	if err != nil {
 		return err
 	}
@@ -767,29 +742,29 @@ func (infra *Infra) createAdmissionWebhookSecret() error {
 		"serverCert":  base64.StdEncoding.EncodeToString(serverCert),
 		"serverKey":   base64.StdEncoding.EncodeToString(serverKey),
 	}
-	filledYaml, err := infra.Fill("pilot-webhook-secret.yaml.tmpl", data)
+	filledYaml, err := e.Fill("pilot-webhook-secret.yaml.tmpl", data)
 	if err != nil {
 		return err
 	}
-	return infra.KubeApply(filledYaml, infra.IstioNamespace)
+	return e.KubeApply(filledYaml, e.Config.IstioNamespace)
 }
 
-func (infra *Infra) deleteAdmissionWebhookSecret() error {
+func (e *Environment) deleteAdmissionWebhookSecret() error {
 	return util.Run(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s secret pilot-webhook",
-		infra.KubeConfig, infra.IstioNamespace))
+		e.Config.KubeConfig, e.Config.IstioNamespace))
 }
 
-func (infra *Infra) createSidecarInjector() error {
+func (e *Environment) createSidecarInjector() error {
 	configData, err := yaml.Marshal(&inject.Config{
 		Policy:   inject.InjectionPolicyEnabled,
-		Template: infra.SidecarTemplate,
+		Template: e.Config.SidecarTemplate,
 	})
 	if err != nil {
 		return err
 	}
 
 	// sidecar configuration template
-	if _, err = infra.KubeClient.CoreV1().ConfigMaps(infra.IstioNamespace).Create(&v1.ConfigMap{
+	if _, err = e.KubeClient.CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "istio-inject",
 		},
@@ -801,11 +776,11 @@ func (infra *Infra) createSidecarInjector() error {
 	}
 
 	// webhook certificates
-	ca, cert, key, err := createWebhookCerts(sidecarInjectorService, infra.IstioNamespace) // nolint: vetshadow
+	ca, cert, key, err := createWebhookCerts(sidecarInjectorService, e.Config.IstioNamespace) // nolint: vetshadow
 	if err != nil {
 		return err
 	}
-	if _, err := infra.KubeClient.CoreV1().Secrets(infra.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
+	if _, err := e.KubeClient.CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
 		ObjectMeta: meta_v1.ObjectMeta{Name: "sidecar-injector-certs"},
 		Data: map[string][]byte{
 			"cert.pem": cert,
@@ -817,36 +792,36 @@ func (infra *Infra) createSidecarInjector() error {
 	}
 
 	// webhook deployment
-	infra.CABundle = base64.StdEncoding.EncodeToString(ca)
-	if filledYaml, err := infra.Fill("sidecar-injector.yaml.tmpl", infra); err != nil { // nolint: vetshadow
+	e.CABundle = base64.StdEncoding.EncodeToString(ca)
+	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil { // nolint: vetshadow
 		return err
-	} else if err = infra.KubeApply(filledYaml, infra.IstioNamespace); err != nil {
+	} else if err = e.KubeApply(filledYaml, e.Config.IstioNamespace); err != nil {
 		return err
 	}
 
 	// wait until injection webhook service is running before
 	// proceeding with deploying test applications
-	if _, err = util.GetAppPods(infra.KubeClient, infra.KubeConfig, []string{infra.IstioNamespace}); err != nil {
+	if _, err = util.GetAppPods(e.KubeClient, e.Config.KubeConfig, []string{e.Config.IstioNamespace}); err != nil {
 		return fmt.Errorf("sidecar injector failed to start: %v", err)
 	}
 	return nil
 }
 
-func (infra *Infra) deleteSidecarInjector() {
-	if filledYaml, err := infra.Fill("sidecar-injector.yaml.tmpl", infra); err != nil {
+func (e *Environment) deleteSidecarInjector() {
+	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("Sidecar injector template could not be processed, please delete stale injector webhook: %v",
 			err)
-	} else if err = infra.kubeDelete(filledYaml, infra.IstioNamespace); err != nil {
+	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("Sidecar injector could not be deleted: %v", err)
 	}
 }
 
 // Fill fills in a template with the given values
-func (infra *Infra) Fill(inFile string, values interface{}) (string, error) {
+func (e *Environment) Fill(inFile string, values interface{}) (string, error) {
 	var out bytes.Buffer
 	w := bufio.NewWriter(&out)
 
-	tmpl, err := template.ParseFiles(infra.testDataDir + inFile)
+	tmpl, err := template.ParseFiles(e.testDataDir + inFile)
 	if err != nil {
 		return "", err
 	}

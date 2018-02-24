@@ -107,16 +107,12 @@ required = [
 #  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[override]]
-  name = "github.com/ugorji/go"
-  revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
-
-[[override]]
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.6.9"
+  version = ">= v0.7.1"
 
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
@@ -145,10 +141,6 @@ required = [
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
   version = "0.5.13"
-
-[[constraint]]
-  name = "github.com/onsi/gomega"
-  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
 
 # To use reference package:
 #   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
