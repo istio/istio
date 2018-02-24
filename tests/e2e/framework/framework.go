@@ -84,13 +84,15 @@ func InitLogging() error {
 	return nil
 }
 
-// NewTestConfig creates a full config will all supported configs.
-func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
+// NewCommonConfigWithVersion creates a new CommonConfig with the specified
+// version of Istio. If baseVersion is empty, it will use the local head
+// version.
+func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
+	k, err := newKubeInfo(t.TempDir, t.RunID, version)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +111,9 @@ func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	return c, nil
 }
 
-// NewCommonConfig creates a full config will all supported configs.
+// NewCommonConfig creates a full config with the local head version.
 func NewCommonConfig(testID string) (*CommonConfig, error) {
-	return NewTestConfig(testID, "")
+	return NewCommonConfigWithVersion(testID, "")
 }
 
 func (t *testCleanup) RegisterCleanable(c Cleanable) {
