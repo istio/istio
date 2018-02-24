@@ -49,4 +49,4 @@ get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 setup_cluster
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
-${ROOT}/prow/e2e-suite.sh --auth_enable --cluster_wide "$@"
+${ROOT}/prow/e2e-suite.sh --test_vm --auth_enable --cluster_wide --mason_info="${INFO_PATH}" "$@"
