@@ -84,8 +84,9 @@ e2e_bookinfo: istioctl generate_yaml
 e2e_upgrade: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-JUNIT_E2E_XML ?= junit.xml
-e2e_all:
+JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
+e2e_all: | $(ISTIO_OUT)
+	mkdir -p $(dir $(JUNIT_E2E_XML))
 	set -o pipefail; \
 	$(MAKE) e2e_simple e2e_mixer e2e_bookinfo \
 	|& tee >(go-junit-report > $(JUNIT_E2E_XML))

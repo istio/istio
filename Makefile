@@ -381,8 +381,9 @@ istioctl-install:
 .PHONY: test localTestEnv test-bins
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= junit_unit_tests.xml
-test:
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
+test: | $(ISTIO_OUT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
 	|& tee >(go-junit-report > $(JUNIT_UNIT_TEST_XML))
