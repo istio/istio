@@ -382,7 +382,7 @@ istioctl-install:
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
-test: | $(ISTIO_OUT)
+test:
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
