@@ -930,7 +930,8 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 		}
 		return out
 	}
-	out.Unmarshal(cachedResp)
+	// Given marshall was successful, we ought not to expect errors.
+	_ = out.Unmarshal(cachedResp)
 	observeResources(methodName, resourceCount)
 	return out
 }

@@ -52,6 +52,7 @@ type MeshDiscovery interface {
 	Endpoints(serviceClusters []string) *xdsapi.DiscoveryResponse
 }
 
+// DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	mu             sync.Mutex
 	mesh           MeshDiscovery
@@ -66,6 +67,7 @@ func init() {
 	}
 }
 
+// NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(mesh MeshDiscovery) *DiscoveryServer {
 	// TODO for now use hard coded / default gRPC options. The constructor may evolve to use interfaces that guide specific options later.
 	// Example:
@@ -93,6 +95,7 @@ func NewDiscoveryServer(mesh MeshDiscovery) *DiscoveryServer {
 	return out
 }
 
+// Start runs DiscoveryServer's gRPC server on the port specified by the environment variable PILOT_GRPC_PORT.
 func (s *DiscoveryServer) Start() {
 	lis, err := net.Listen("tcp", ":"+gRPCPort)
 	if err != nil {
@@ -112,7 +115,6 @@ func (s *DiscoveryServer) Start() {
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
 func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	wg := sync.WaitGroup{}
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -133,12 +135,10 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			log.Infof("Stream requested for %q", reqKey)
 		}
 		chanLoopDone := s.newResponseLoop(stream, reqKey)
-		wg.Add(1)
 		// Periodically send the ClusterLoadAssignment to the stream peer until this stream is closed or the timer is
 		// closed in response to a new request with the same request key.
 		go func(clusters []string, stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer,
-			reqKey string, chanLoopDone *chan bool, wg *sync.WaitGroup) {
-			defer wg.Done()
+			reqKey string, chanLoopDone *chan bool) {
 			defer s.stopResponseLoop(stream, reqKey, chanLoopDone)
 			for {
 				select {
@@ -152,10 +152,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 					time.Sleep(responseTickDuration)
 				}
 			}
-		}(clusters, stream, reqKey, chanLoopDone, &wg)
+		}(clusters, stream, reqKey, chanLoopDone)
 	}
-	wg.Wait()
-	return nil
 }
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
@@ -170,7 +168,7 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamLoadStatsServer) error {
 	// TODO: Change fake values to real load assignments
-	return errors.New("To be implemented")
+	return errors.New("unsupported streaming method")
 }
 
 /***************************  Common logic used by most  **********************************
@@ -200,17 +198,16 @@ func (s *DiscoveryServer) stopResponseLoop(stream grpc.Stream, requestKey string
 	resMap, found := s.pendingStreams[stream]
 	if !found {
 		return
-	} else {
-		prevChanLoopDone, found := resMap[requestKey]
-		if found {
-			if chanLoopDone != prevChanLoopDone {
-				return
-			}
-			close(*chanLoopDone)
-			delete(resMap, requestKey)
-			if len(resMap) == 0 {
-				delete(s.pendingStreams, stream)
-			}
+	}
+	prevChanLoopDone, found := resMap[requestKey]
+	if found {
+		if chanLoopDone != prevChanLoopDone {
+			return
+		}
+		close(*chanLoopDone)
+		delete(resMap, requestKey)
+		if len(resMap) == 0 {
+			delete(s.pendingStreams, stream)
 		}
 	}
 }
