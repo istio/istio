@@ -162,6 +162,21 @@ cc_proto_library(
     ],
 )
 
+cc_proto_library(
+    name = "authentication_policy_config_cc_proto",
+    srcs = glob(
+        ["authentication/v1alpha1/*.proto",
+         "routing/v1alpha2/*.proto",
+        ],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_gogoproto",
+    ],
+)
+
 filegroup(
     name = "global_dictionary_file",
     srcs = ["mixer/v1/global_dictionary.yaml"],
@@ -184,7 +199,10 @@ filegroup(
             name = "mixer_client_config_cc_proto",
             actual = "@mixerapi_git//:mixer_client_config_cc_proto",
         )
-
+        native.bind(
+            name = "authentication_policy_config_cc_proto",
+            actual = "@mixerapi_git//:authentication_policy_config_cc_proto",
+        )
 
 load(":protobuf.bzl", "protobuf_repositories")
 load(":cc_gogo_protobuf.bzl", "cc_gogoproto_repositories")
