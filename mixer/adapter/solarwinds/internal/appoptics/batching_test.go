@@ -35,10 +35,14 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
-		loopFactor := make(chan bool)
 		batchSize := 100
 
-		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		finish := make(chan bool)
+
+		go func() {
+			BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+			finish <- true
+		}()
 
 		go func() {
 			measurements := make([]*Measurement, 0)
@@ -46,18 +50,19 @@ func TestBatchMeasurements(t *testing.T) {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
-			close(loopFactor)
+			stopChan <- struct{}{}
+			<-finish
 			close(prepChan)
 			close(pushChan)
+			count := 0
+			for range pushChan {
+				count++
+			}
+			if count != 1 {
+				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
+			}
+			close(stopChan)
 		}()
-		count := 0
-		for range pushChan {
-			count++
-		}
-		if count != 1 {
-			t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
-		}
-		close(stopChan)
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
@@ -69,13 +74,11 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 		batchSize := 100
-		loopFactor := make(chan bool)
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-		close(loopFactor)
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
 		close(prepChan)
 		close(pushChan)
 		close(stopChan)
@@ -127,28 +130,10 @@ func TestPersistBatches(t *testing.T) {
 			pushChan := make(chan []*Measurement)
 			stopChan := make(chan struct{})
 			var count int32
-			var wg sync.WaitGroup
-			if test.sendOnStopChan {
-				wg.Add(1)
-				go func() {
-					time.Sleep(time.Millisecond)
-					stopChan <- struct{}{}
-					wg.Done()
-				}()
-			} else {
-				go func() {
-					time.Sleep(50 * time.Millisecond)
-					pushChan <- []*Measurement{
-						{}, {}, {},
-					}
-				}()
-			}
-			loopFactor := make(chan bool)
-
 			var testWg sync.WaitGroup
 			testWg.Add(1)
 			go func() {
-				PersistBatches(loopFactor, &MockServiceAccessor{
+				PersistBatches(&MockServiceAccessor{
 					MockMeasurementsService: func() MeasurementsCommunicator {
 						return &MockMeasurementsService{
 							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
@@ -161,16 +146,33 @@ func TestPersistBatches(t *testing.T) {
 				testWg.Done()
 			}()
 
-			time.Sleep(2 * time.Second)
-			logger.Infof("%s - waiting...\n", t.Name())
+			var action sync.WaitGroup
+			action.Add(1)
 			if test.sendOnStopChan {
-				wg.Wait()
+				go func() {
+					time.Sleep(time.Millisecond)
+					stopChan <- struct{}{}
+					action.Done()
+				}()
+			} else {
+				go func() {
+					time.Sleep(50 * time.Millisecond)
+					pushChan <- []*Measurement{
+						{}, {}, {},
+					}
+					action.Done()
+				}()
 			}
+
+			logger.Infof("%s - waiting...\n", t.Name())
+			action.Wait()
 			if atomic.LoadInt32(&count) != test.expectedCount {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
-			close(loopFactor)
+			if !test.sendOnStopChan {
+				stopChan <- struct{}{}
+			}
 			close(pushChan)
 			close(stopChan)
 			testWg.Wait()
