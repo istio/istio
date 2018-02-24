@@ -54,7 +54,7 @@ if [ ! -f $OUT/envoy-$PROXYVERSION ] ; then
     DOWNLOAD_COMMAND=""
     if command -v curl > /dev/null; then
        if curl --version | grep Protocols  | grep https > /dev/null; then
-	   DOWNLOAD_COMMAND='curl -Lso -'
+	   DOWNLOAD_COMMAND='curl -fLSs'
        else
            echo curl does not support https, will try wget for downloading files.
        fi
