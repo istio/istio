@@ -1,5 +1,5 @@
 # keep Dockerfile.proxy and Dockerfile.proxy_debug consistent for proxy sha
-FROM gcr.io/istio-testing/envoy-debug:0c3a58814ebcaa50195cb8382e307c53ea739c98
+FROM gcr.io/istio-testing/envoy-debug:54077a0c8486b6db7b2fc5d10619b6813bb40767
 ADD pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json

@@ -29,9 +29,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
-	pb "istio.io/api/mixer/v1/config/descriptor"
-	adpTmpl "istio.io/api/mixer/v1/template"
+	adpTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -1086,7 +1086,7 @@ func TestProcessReport(t *testing.T) {
 				"foo": &sample_report.InstanceParam{
 					// missing all fields
 					Res1: &sample_report.Res1InstanceParam{
-						// missing all fields
+					// missing all fields
 					},
 				},
 				"bar": &sample_report.InstanceParam{
@@ -1698,6 +1698,16 @@ attribute_bindings:
 }
 
 func TestProcessApa(t *testing.T) {
+	handlerOut := istio_mixer_adapter_sample_myapa.NewOutput()
+	handlerOut.SetBoolPrimitive(true)
+	handlerOut.SetDoublePrimitive(1237)
+	handlerOut.SetStringPrimitive("1237")
+	handlerOut.SetTimeStamp(time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC))
+	handlerOut.SetDuration(10 * time.Second)
+	handlerOut.SetInt64Primitive(1237)
+	handlerOut.SetEmail(adapter.EmailAddress("updatedfoo@bar.com"))
+	handlerOut.SetOutIp(net.ParseIP("1.2.3.4"))
+	handlerOut.SetOutStrMap(map[string]string{"a": "b"})
 	for _, tst := range []struct {
 		name         string
 		instName     string
@@ -1743,17 +1753,7 @@ func TestProcessApa(t *testing.T) {
 				},
 			},
 			hdlr: &fakeMyApaHandler{
-				retOutput: &istio_mixer_adapter_sample_myapa.Output{
-					BoolPrimitive:   true,
-					DoublePrimitive: 1237,
-					StringPrimitive: "1237",
-					TimeStamp:       time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC),
-					Duration:        10 * time.Second,
-					Int64Primitive:  1237,
-					Email:           adapter.EmailAddress("updatedfoo@bar.com"),
-					OutIp:           net.ParseIP("1.2.3.4"),
-					OutStrMap:       map[string]string{"a": "b"},
-				},
+				retOutput: handlerOut,
 			},
 			wantOutAttrs: map[string]interface{}{
 				"source.mystring":          "1237",
@@ -1851,7 +1851,7 @@ func TestProcessApa(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Fatalf("got error; want success: error %v", err)
+					t.Fatalf("got error; want success: error : %v", err)
 				}
 				v := (*h).(*fakeMyApaHandler).procCallInput
 				if !reflect.DeepEqual(v, tst.wantInstance) {

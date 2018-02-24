@@ -30,7 +30,7 @@ import (
 )
 
 type routing struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *routing) String() string {
@@ -44,10 +44,10 @@ func (t *routing) Setup() error {
 // TODO: test negatives
 func (t *routing) Run() error {
 	versions := make([]string, 0)
-	if t.V1alpha1 {
+	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")
 	}
-	if t.V1alpha2 {
+	if t.Config.V1alpha2 {
 		versions = append(versions, "v1alpha2")
 	}
 
@@ -149,7 +149,7 @@ func (t *routing) Run() error {
 				return err
 			}
 
-			if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
+			if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
 				log.Infof("Failed the test with %v", err)
 				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
 			} else {
@@ -184,7 +184,7 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 	resp := t.ClientRequest(src, url, samples, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	count := counts(resp.Version)
 	log.Infof("request counts %v", count)
-	epsilon := 5
+	epsilon := 10
 
 	var errs error
 	for version, expected := range expectedCount {
@@ -205,13 +205,13 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 
 // verify that the traces were picked up by Zipkin and decorator has been applied
 func (t *routing) verifyDecorator(operation string) error {
-	if !t.Zipkin {
+	if !t.Config.Zipkin {
 		return nil
 	}
 
-	response := t.Infra.ClientRequest(
+	response := t.Environment.ClientRequest(
 		"t",
-		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),
+		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.Config.IstioNamespace),
 		1, "",
 	)
 

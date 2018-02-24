@@ -32,6 +32,7 @@ set -x
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
+export NUM_NODES=4
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT
@@ -40,4 +41,4 @@ create_cluster 'e2e-pilot'
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio
-make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false"
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-logtostderr -mixer=true -use-sidecar-injector=true -use-admission-webhook=false"

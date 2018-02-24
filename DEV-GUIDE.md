@@ -260,8 +260,16 @@ export TAG=istio-ca
 ```
 
 Make some local change of CA code, then build istio-ca
+
 ```shell
-make docker.istio-ca
+bin/gobuild.sh istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+```
+
+Note: for other images, check Makefile for more info.
+
+And move this file to docker_temp repo
+```shell
+cp istio_ca /usr/local/google/home/lita/Desktop/out/linux_amd64/release/docker_temp
 ```
 
 Push docker image
@@ -383,6 +391,9 @@ The command above adds a version constraint to Gopkg.toml and updates
 Gopkg.lock. Inspect Gopkg.toml to ensure that the package is pinned to the
 correct SHA. _Please pin to COMMIT SHAs instead of branches or tags._
 
+You will need to commit the vendor/ change through a separate PR, please see
+https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
+
 ### About testing
 
 Before sending pull requests you should at least make sure your changes have
@@ -424,7 +435,7 @@ protos in the `istio/api` repo, the Mixer adapter configuration protos, and the 
 template definitions are all examples of this.
 
 - Cobra commands for our CLI docs. The various CLI commands we build generally use the
-Cobra framework to parse our command-lines. Cobra is also used to produce 
+Cobra framework to parse our command-lines. Cobra is also used to produce
 reference documentation for the individual commands.
 
 Here's how this works:
@@ -437,7 +448,7 @@ Here's how this works:
 also produces `.pb.html` files which hold the documentation for the particular proto package.
 
 - Within the `istio/istio.github.io` repo, the script file
-[scripts/grab_reference_docs.sh](https://github.com/istio/istio.github.io/blob/master/scripts/grab_reference_docs.sh) 
+[scripts/grab_reference_docs.sh](https://github.com/istio/istio.github.io/blob/master/scripts/grab_reference_docs.sh)
 does the work necessary to harvest all the generated `.pb.html` files from the `istio/api`
 and `istio/istio` repos and installs them in the right place in the website hierarchy.
 The script also builds and runs the various CLI commands we have in order to extract their
@@ -457,7 +468,7 @@ package pkg;
 
 // This documents the message as a whole
 message MyMsg {
-    // This documents this field 
+    // This documents this field
     // It can contain many lines.
     int32 field1 = 1;
 
