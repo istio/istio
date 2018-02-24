@@ -38,7 +38,7 @@ spec:
         - --parentShutdownDuration
         - 3s
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:15007
         - --discoveryRefreshDelay
         - 1s
         - --zipkinAddress
