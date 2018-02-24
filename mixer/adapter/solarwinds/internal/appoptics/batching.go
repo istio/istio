@@ -17,28 +17,19 @@ package appoptics
 import (
 	"time"
 
-	"sync/atomic"
-
 	"istio.io/istio/mixer/pkg/adapter"
-)
-
-const (
-	// OpenState indicates that loopFactor is not closed.
-	OpenState int32 = iota
-	// CloseState indicates that loopFactor is closed.
-	CloseState
 )
 
 // BatchMeasurements reads slices of Measurement types off a channel populated by the web handler
 // and packages them into batches conforming to the limitations imposed by the API.
-func BatchMeasurements(loopFactor *int32, prepChan <-chan []*Measurement,
+func BatchMeasurements(loopFactor chan bool, prepChan <-chan []*Measurement,
 	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int, logger adapter.Logger) {
 	var currentBatch []*Measurement
 	dobrk := false
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
 	for {
-		if v := atomic.LoadInt32(loopFactor); v == CloseState {
+		if _, open := <-loopFactor; !open {
 			break
 		}
 		select {
@@ -71,13 +62,13 @@ func BatchMeasurements(loopFactor *int32, prepChan <-chan []*Measurement,
 
 // PersistBatches reads maximal slices of Measurement types off a channel and persists them to the remote AppOptics
 // API. Errors are placed on the error channel.
-func PersistBatches(loopFactor *int32, lc ServiceAccessor, pushChan <-chan []*Measurement,
+func PersistBatches(loopFactor chan bool, lc ServiceAccessor, pushChan <-chan []*Measurement,
 	stopChan <-chan struct{}, logger adapter.Logger) {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
 	dobrk := false
 	for {
-		if v := atomic.LoadInt32(loopFactor); v == CloseState {
+		if _, open := <-loopFactor; !open {
 			break
 		}
 		select {

@@ -19,8 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"sync/atomic"
-
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
@@ -80,9 +78,8 @@ func TestLog(t *testing.T) {
 			log:           logger,
 			env:           env,
 			logInfos:      map[string]*logInfo{},
-			loopFactor:    new(int32),
+			loopFactor:    make(chan bool),
 		}
-		atomic.StoreInt32(pp.loopFactor, openState)
 
 		if pp.Log(&logentry.Instance{
 			Name: "NO ENTRY",

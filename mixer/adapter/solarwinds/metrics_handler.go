@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"sync/atomic"
-
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/adapter/solarwinds/internal/appoptics"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -43,7 +41,7 @@ type metricsHandler struct {
 	prepChan    chan []*appoptics.Measurement
 	stopChan    chan struct{}
 	pushChan    chan []*appoptics.Measurement
-	loopFactor  *int32
+	loopFactor  chan bool
 	lc          *appoptics.Client
 	batchWait   chan struct{}
 	persistWait chan struct{}
@@ -52,8 +50,7 @@ type metricsHandler struct {
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
 	buffChanSize := runtime.NumCPU() * 10
 
-	loopFactor := new(int32)
-	atomic.StoreInt32(loopFactor, appoptics.OpenState)
+	loopFactor := make(chan bool)
 
 	// prepChan holds groups of Measurements to be batched
 	prepChan := make(chan []*appoptics.Measurement, buffChanSize)
@@ -129,7 +126,7 @@ func (h *metricsHandler) close() error {
 	close(h.stopChan)
 	defer close(h.batchWait)
 	defer close(h.persistWait)
-	atomic.StoreInt32(h.loopFactor, appoptics.CloseState)
+	close(h.loopFactor)
 	if h.lc != nil {
 		<-h.batchWait
 		<-h.persistWait

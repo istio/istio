@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"sync/atomic"
-
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
@@ -41,11 +39,6 @@ const (
 	defaultTemplate  = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
 		`[{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} ` +
 		`{{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
-)
-
-const (
-	openState int32 = iota
-	closeState
 )
 
 var defaultWorkerCount = 10
@@ -76,7 +69,7 @@ type Logger struct {
 
 	maxWorkers int
 
-	loopFactor *int32
+	loopFactor chan bool
 
 	loopWait chan struct{}
 }
@@ -98,11 +91,9 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 		log:             logger,
 		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
-		loopFactor:      new(int32),
+		loopFactor:      make(chan bool),
 		loopWait:        make(chan struct{}),
 	}
-
-	atomic.StoreInt32(p.loopFactor, openState)
 
 	p.logInfos = map[string]*logInfo{}
 
@@ -175,7 +166,7 @@ func (p *Logger) flushLogs() {
 	}()
 	re := regexp.MustCompile(keyPattern)
 	for {
-		if v := atomic.LoadInt32(p.loopFactor); v == closeState {
+		if _, open := <-p.loopFactor; !open {
 			break
 		}
 		hose := make(chan interface{}, p.maxWorkers)
@@ -219,7 +210,7 @@ func (p *Logger) flushLogs() {
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	atomic.StoreInt32(p.loopFactor, closeState)
+	close(p.loopFactor)
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil
