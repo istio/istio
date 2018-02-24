@@ -74,6 +74,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 
 	addPort := strings.Split(config.DiscoveryAddress, ":")
 	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+	opts["pilot_grpc_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": 15443}", addPort[0])
 
 	if config.ZipkinAddress != "" {
 		addPort = strings.Split(config.ZipkinAddress, ":")

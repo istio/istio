@@ -35,6 +35,7 @@ import (
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/v2"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -466,6 +467,7 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 				log.Warna(err)
 			}
 		}()
+
 		// Wait for the stop notification and shutdown the server.
 		<-stop
 		err := ds.server.Close()
