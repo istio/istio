@@ -38,12 +38,7 @@ func TestBatchMeasurements(t *testing.T) {
 		loopFactor := make(chan bool)
 		batchSize := 100
 
-		finish := make(chan bool)
-
-		go func() {
-			BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-			finish <- true
-		}()
+		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 
 		go func() {
 			measurements := make([]*Measurement, 0)
@@ -52,18 +47,17 @@ func TestBatchMeasurements(t *testing.T) {
 			}
 			prepChan <- measurements
 			close(loopFactor)
-			<-finish
 			close(prepChan)
 			close(pushChan)
-			count := 0
-			for range pushChan {
-				count++
-			}
-			if count != 1 {
-				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
-			}
-			close(stopChan)
 		}()
+		count := 0
+		for range pushChan {
+			count++
+		}
+		if count != 1 {
+			t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
+		}
+		close(stopChan)
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {

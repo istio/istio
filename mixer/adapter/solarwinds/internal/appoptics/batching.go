@@ -32,6 +32,7 @@ func BatchMeasurements(loopFactor chan bool, prepChan <-chan []*Measurement,
 		if _, open := <-loopFactor; !open {
 			break
 		}
+
 		select {
 		case mslice := <-prepChan:
 			currentBatch = append(currentBatch, mslice...)

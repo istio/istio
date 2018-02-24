@@ -166,51 +166,53 @@ func (p *Logger) flushLogs() {
 	}()
 	re := regexp.MustCompile(keyPattern)
 	for {
-		if _, open := <-p.loopFactor; !open {
-			break
-		}
-		hose := make(chan interface{}, p.maxWorkers)
-		var wg sync.WaitGroup
+		select {
+		case <-p.loopFactor:
+			return
+		default:
+			hose := make(chan interface{}, p.maxWorkers)
+			var wg sync.WaitGroup
 
-		// workers
-		for i := 0; i < p.maxWorkers; i++ {
-			p.env.ScheduleDaemon(func() {
-				for keyI := range hose {
-					key, _ := keyI.(string)
-					match := re.FindStringSubmatch(key)
-					if len(match) > 2 {
-						if err = p.sendLogs(match[2]); err == nil {
-							p.cmap.Delete(key)
-							wg.Done()
-							continue
+			// workers
+			for i := 0; i < p.maxWorkers; i++ {
+				p.env.ScheduleDaemon(func() {
+					for keyI := range hose {
+						key, _ := keyI.(string)
+						match := re.FindStringSubmatch(key)
+						if len(match) > 2 {
+							if err = p.sendLogs(match[2]); err == nil {
+								p.cmap.Delete(key)
+								wg.Done()
+								continue
+							}
+
+							tsN, _ := strconv.ParseInt(match[1], 10, 64)
+							ts := time.Unix(0, tsN)
+
+							if time.Since(ts) > p.retentionPeriod {
+								p.cmap.Delete(key)
+							}
 						}
-
-						tsN, _ := strconv.ParseInt(match[1], 10, 64)
-						ts := time.Unix(0, tsN)
-
-						if time.Since(ts) > p.retentionPeriod {
-							p.cmap.Delete(key)
-						}
+						wg.Done()
 					}
-					wg.Done()
-				}
-			})
-		}
+				})
+			}
 
-		p.cmap.Range(func(k, v interface{}) bool {
-			wg.Add(1)
-			hose <- k
-			return true
-		})
-		wg.Wait()
-		close(hose)
-		time.Sleep(500 * time.Millisecond)
+			p.cmap.Range(func(k, v interface{}) bool {
+				wg.Add(1)
+				hose <- k
+				return true
+			})
+			wg.Wait()
+			close(hose)
+			time.Sleep(500 * time.Millisecond)
+		}
 	}
 }
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	close(p.loopFactor)
+	p.loopFactor <- true
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil

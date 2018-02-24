@@ -61,7 +61,6 @@ func TestNewLogger(t *testing.T) {
 			if got == nil {
 				t.Errorf("Expected a non-nil instance")
 			}
-
 		})
 	}
 }
