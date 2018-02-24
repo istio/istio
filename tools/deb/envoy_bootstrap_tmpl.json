@@ -90,7 +90,7 @@
             "socket_address": {{ .pilot_grpc_address }}
           }
         ],
-	    "http2_protocol_options": {},
+	    "http2_protocol_options": {}
     }
     {{ if .zipkin }}
     ,
