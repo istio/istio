@@ -25,8 +25,8 @@
 #
 # This script relies on artifacts being in a local directory.  If you'd
 # instead like to specify a GCS source then consider running this script
-# via create_release.sh instead (don't forget to disable the other steps
-# in that script like releasing to gcs/gcr/docker, etc.).
+# via create_release_archives.sh instead (don't forget to disable the
+# other steps in that script like releasing to gcs/gcr/docker, etc.).
 
 set -o errexit
 set -o nounset
