@@ -58,9 +58,10 @@ if [ ! -f $OUT/$ENVOY_BIN_NAME ] ; then
     echo "Downloading envoy docker image..."
     docker pull $ENVOY_IMAGE
 
-    # Run the image and pull out the envoy executable
+    # Run the image and pull out the envoy executable. Need to override the entrypoint so
+    # avoid attempting to update iptables, which requires root access.
     echo "Extracting envoy from docker image..."
-    docker run $ENVOY_IMAGE cat /usr/local/bin/envoy > $ENVOY_BIN_NAME
+    docker run --entrypoint cat $ENVOY_IMAGE /usr/local/bin/envoy > $ENVOY_BIN_NAME
 
     # Set executable permissions on the binary.
     chmod +x $ENVOY_BIN_NAME
