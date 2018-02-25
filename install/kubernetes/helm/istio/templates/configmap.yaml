@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtlsDefault }}
+  {{- if .Values.global.mtls.enabed }}
     # Mutual TLS between proxies
     authPolicy: MUTUAL_TLS
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]

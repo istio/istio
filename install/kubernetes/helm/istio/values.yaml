@@ -28,7 +28,14 @@ global:
   securityEnabled: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
-  mtlsDefault: false
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
+    # List of fully qualified services to exclude from mtls
+    # TODO: add the templating.
+    mtlsExcludedServices:
+    - "kubernetes.default.svc.cluster.local"
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
