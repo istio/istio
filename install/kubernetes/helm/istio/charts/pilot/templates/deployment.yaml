@@ -70,21 +70,12 @@ spec:
           - pilot
           - -v
           - "2"
-        {{- if .Values.global.securityEnabled }}
-          - --controlPlaneAuthPolicy
-          - MUTUAL_TLS
-          - --customConfigFile
-          - /etc/istio/proxy/envoy_pilot_auth.json
           - --discoveryAddress
-          - {{ template "pilot.fullname" . }}:15005
-        {{- else }}
+          - localhost:8080
           - --controlPlaneAuthPolicy
           - NONE #--controlPlaneAuthPolicy
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot.json
-          - --discoveryAddress
-          - {{ template "pilot.fullname" . }}:15007
-        {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
           volumeMounts:

@@ -6,12 +6,12 @@
 # Common settings.
 global:
   # Default tag for Istio images.
-  hub: istio
+  hub: docker.io/istionightly
 
   # Default tag for Istio images.
-  # The default is the latest released version, will be updated after
-  # each release.
-  tag: 0.5.1
+  # Should track latest released version.
+  # Currently using nightly build, for testing
+  tag: circleci-nightly
   proxy:
     image: proxy
 

@@ -1,0 +1,9 @@
+# Configuration overrides for deploying istio for testing
+
+global:
+  nodePort: true
+
+ingress:
+  service:
+    nodePort:
+      enabled: true
