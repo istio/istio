@@ -50,7 +50,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	// TODO: what is the right default value for expressionEvalCacheSize.
 	serverCmd.PersistentFlags().IntVarP(&sa.ExpressionEvalCacheSize, "expressionEvalCacheSize", "", evaluator.DefaultCacheSize,
 		"Number of entries in the expression cache")
-	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", false, "Use the new runtime code for processing requests.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", true, "Use the new runtime code for processing requests.")
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 
@@ -82,27 +82,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", 0,
 		"Interval of updating file for the readiness probe.")
 	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", true, "Enable profiling via web interface host:port/debug/pprof")
-
-	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
-	// base & docs)
-	var dummy string
-	var dummy2 uint16
-	var dummy3 uint
-	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStore2URL", "", "", "deprecated")
-	serverCmd.PersistentFlags().StringVarP(&dummy, "serviceConfigFile", "", "", "deprecated")
-	serverCmd.PersistentFlags().StringVarP(&dummy, "globalConfigFile", "", "", "deprecated")
-	serverCmd.PersistentFlags().Uint16VarP(&dummy2, "configAPIPort", "", 0, "deprecated")
-	serverCmd.PersistentFlags().UintVarP(&dummy3, "configFetchInterval", "", 0, "deprecated")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configStore2URL", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("serviceConfigFile", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("globalConfigFile", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configAPIPort", "")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("configFetchInterval", "")
-	_ = serverCmd.PersistentFlags().MarkHidden("configStore2URL")
-	_ = serverCmd.PersistentFlags().MarkHidden("serviceConfigFile")
-	_ = serverCmd.PersistentFlags().MarkHidden("globalConfigFile")
-	_ = serverCmd.PersistentFlags().MarkHidden("configAPIPort")
-	_ = serverCmd.PersistentFlags().MarkHidden("configFetchInterval")
 
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 	sa.TracingOptions.AttachCobraFlags(serverCmd)

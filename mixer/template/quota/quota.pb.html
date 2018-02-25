@@ -12,7 +12,7 @@ number_of_entries: 1
 <p>The <code>quota</code> template represents a piece of data to check Quota for.</p>
 
 <p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
 then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <p>Example config:</p>
@@ -41,7 +41,7 @@ spec:
 <tbody>
 <tr id="Template.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>The unique identity of the particular quota to manipulate.</p>
 

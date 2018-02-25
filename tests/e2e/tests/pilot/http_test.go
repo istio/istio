@@ -24,7 +24,7 @@ import (
 )
 
 type http struct {
-	*tutil.Infra
+	*tutil.Environment
 	logs *accessLogs
 }
 
@@ -44,7 +44,7 @@ func (r *http) Run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
-	return r.logs.check(r.Infra)
+	return r.logs.check(r.Environment)
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
@@ -68,7 +68,7 @@ func (r *http) makeRequests() error {
 				continue
 			}
 			for _, port := range []string{"", ":80", ":8080"} {
-				for _, domain := range []string{"", "." + r.Namespace} {
+				for _, domain := range []string{"", "." + r.Config.Namespace} {
 					name := fmt.Sprintf("HTTP request from %s to %s%s%s", src, dst, domain, port)
 					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
@@ -103,7 +103,7 @@ func (r *http) makeRequests() error {
 									}
 								}
 								// mixer filter is invoked on the server side, that is when dst is not "t"
-								if r.Mixer && dst != "t" {
+								if r.Config.Mixer && dst != "t" {
 									r.logs.add("mixer", id, name)
 								}
 								return nil

@@ -51,7 +51,12 @@ message CsrRequest {
 }
 
 message CsrResponse {
+  // Whether the CSR is approved.
   bool is_approved = 1;
   google.rpc.Status status = 2;
-  bytes signed_cert_chain = 3;
+  // The signed target cert.
+  bytes signed_cert = 3;
+  // The cert chain up to the trusted root cert. It includes all the certs between the
+  // newly signed cert and the root cert.
+  bytes cert_chain = 4;
 }

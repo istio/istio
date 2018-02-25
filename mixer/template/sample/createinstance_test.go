@@ -24,8 +24,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
-	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
-	pb "istio.io/api/mixer/v1/config/descriptor"
+	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"

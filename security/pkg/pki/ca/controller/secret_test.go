@@ -44,6 +44,10 @@ func (ca *fakeCa) GetRootCertificate() []byte {
 	return []byte("fake root cert")
 }
 
+func (ca *fakeCa) GetCertChain() []byte {
+	return []byte("fake cert chain")
+}
+
 func createSecret(saName, scrtName, namespace string) *v1.Secret {
 	return &v1.Secret{
 		Data: map[string][]byte{

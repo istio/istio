@@ -66,19 +66,4 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", false,
 		"Whether or not to log trace spans.")
-
-	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
-	// base & docs)
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "traceOutput", "", "", "deprecated")
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "zipkinURL", "", "", "deprecated")
-	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "jaegerURL", "", "", "deprecated")
-	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "logTraceSpans", "", false, "deprecated")
-	_ = cmd.PersistentFlags().MarkDeprecated("traceOutput", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("zipkinURL", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("jaegerURL", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("logTraceSpans", "")
-	_ = cmd.PersistentFlags().MarkHidden("traceOutput")
-	_ = cmd.PersistentFlags().MarkHidden("zipkinURL")
-	_ = cmd.PersistentFlags().MarkHidden("jaegerURL")
-	_ = cmd.PersistentFlags().MarkHidden("logTraceSpans")
 }

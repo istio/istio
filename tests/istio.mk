@@ -73,7 +73,8 @@ e2e_bookinfo: istioctl generate_yaml
 e2e_upgrade: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_all: e2e_simple e2e_mixer e2e_bookinfo
+e2e_all:
+	set -o pipefail; $(MAKE) e2e_simple e2e_mixer e2e_bookinfo |& tee >(go-junit-report > junit.xml)
 
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG}
@@ -90,6 +91,5 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
 		--use-sidecar-injector=false \
 		--core-files-dir=${OUT_DIR}/logs \
          --ns istio-system \
-          --logtostderr \
         -n istio-test \
            ${TESTOPTS}
