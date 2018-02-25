@@ -50,12 +50,12 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - {{ .Release.Name }}-pilot:15005
+          - istio-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE #--controlPlaneAuthPolicy
           - --discoveryAddress
-          - {{ .Release.Name }}-pilot:15007
+          - istio-pilot:15007
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}

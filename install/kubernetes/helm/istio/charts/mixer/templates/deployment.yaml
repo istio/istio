@@ -47,6 +47,7 @@ spec:
             - --configStoreURL=k8s://
             - --configDefaultNamespace={{ .Release.Namespace }}
             - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+            - --logtostderr
           resources:
 {{ toYaml .Values.resources | indent 12 }}
         - name: {{ template "mixer.name" . }}-proxy
