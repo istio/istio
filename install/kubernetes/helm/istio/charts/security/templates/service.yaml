@@ -7,7 +7,6 @@ metadata:
   labels:
     app: istio-ca
 spec:
-  type: LoadBalancer
   ports:
     - port: 8060
       targetPort: 8060

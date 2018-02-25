@@ -9,6 +9,11 @@ metadata:
     heritage: {{ .Release.Service }}
 spec:
   ports:
+  - port: 15005
+    name: https-discovery
+  - port: 15007
+    name: http-discovery
+    targetPort: 15007
   - port: 15003
     name: http-old-discovery
   - port: 8080
@@ -17,10 +22,5 @@ spec:
     name: http-monitoring
   - port: 443
     name: admission-webhook
-  - port: 15005
-    name: https-discovery
-  - port: 15007
-    name: http-discovery
-    targetPort: 15007
   selector:
     istio: pilot
