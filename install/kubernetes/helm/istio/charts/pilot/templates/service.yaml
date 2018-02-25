@@ -10,7 +10,7 @@ metadata:
 spec:
   ports:
   - port: 15003
-    name: http-discovery
+    name: http-old-discovery
   - port: 8080
     name: http-legacy-discovery
   - port: 9093
