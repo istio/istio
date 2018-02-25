@@ -17,5 +17,10 @@ spec:
     name: http-monitoring
   - port: 443
     name: admission-webhook
+  - port: 15005
+    name: https-discovery
+  - port: 15007
+    name: http-discovery
+    targetPort: 15007
   selector:
     istio: pilot
