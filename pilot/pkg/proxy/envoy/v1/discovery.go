@@ -587,10 +587,10 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.sdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		hostname, ports, tags := model.ParseServiceKey(request.PathParameter(ServiceKey))
+		hostname, ports, labels := model.ParseServiceKey(request.PathParameter(ServiceKey))
 		// envoy expects an empty array if no hosts are available
 		hostArray := make([]*host, 0)
-		endpoints, err := ds.Instances(hostname, ports.GetNames(), tags)
+		endpoints, err := ds.Instances(hostname, ports.GetNames(), labels)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -598,9 +598,15 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 			return
 		}
 		for _, ep := range endpoints {
+			// Only set tags if theres an AZ to set, ensures nil tags when there isnt
+			var t *tags
+			if ep.AvailabilityZone != "" {
+				t = &tags{AZ: ep.AvailabilityZone}
+			}
 			hostArray = append(hostArray, &host{
 				Address: ep.Endpoint.Address,
 				Port:    ep.Endpoint.Port,
+				Tags:    t,
 			})
 		}
 		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {

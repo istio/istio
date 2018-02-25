@@ -250,7 +250,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 		if port, ok := service.Ports.Get(name); ok {
 			for v := 0; v < sd.versions; v++ {
 				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-					out = append(out, MakeInstance(service, port, v, ""))
+					out = append(out, MakeInstance(service, port, v, "zone/region"))
 				}
 			}
 		}
@@ -272,7 +272,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model
 			for v := 0; v < sd.versions; v++ {
 				if node.IPAddress == MakeIP(service, v) {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, ""))
+						out = append(out, MakeInstance(service, port, v, "zone/region"))
 					}
 				}
 			}
