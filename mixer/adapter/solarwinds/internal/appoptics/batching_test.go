@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/adapter/solarwinds/internal/utils"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
@@ -40,10 +41,10 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
-		loopFactor := true
+		loopFactor := utils.NewLoopFactor(true)
 		batchSize := 100
 
-		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		go BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
 
 		go func() {
 			measurements := []*Measurement{}
@@ -51,8 +52,8 @@ func TestBatchMeasurements(t *testing.T) {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
-			loopFactor = false
-			time.Sleep(time.Millisecond)
+			loopFactor.SetBool(false)
+			time.Sleep(10 * time.Millisecond)
 			close(prepChan)
 			close(pushChan)
 		}()
@@ -75,13 +76,13 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 		batchSize := 100
-		loopFactor := true
+		loopFactor := utils.NewLoopFactor(true)
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-		loopFactor = false
+		BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		loopFactor.SetBool(false)
 		close(prepChan)
 		close(pushChan)
 		close(stopChan)
@@ -153,9 +154,9 @@ func TestPersistBatches(t *testing.T) {
 					}
 				}()
 			}
-			loopFactor := true
+			loopFactor := utils.NewLoopFactor(true)
 
-			go PersistBatches(&loopFactor, &MockServiceAccessor{
+			go PersistBatches(loopFactor, &MockServiceAccessor{
 				MockMeasurementsService: func() MeasurementsCommunicator {
 					return &MockMeasurementsService{
 						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
@@ -175,7 +176,7 @@ func TestPersistBatches(t *testing.T) {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
-			loopFactor = false
+			loopFactor.SetBool(false)
 			close(pushChan)
 			close(stopChan)
 		})

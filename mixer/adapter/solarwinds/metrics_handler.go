@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/adapter/solarwinds/internal/appoptics"
+	"istio.io/istio/mixer/adapter/solarwinds/internal/utils"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
@@ -41,7 +42,7 @@ type metricsHandler struct {
 	prepChan    chan []*appoptics.Measurement
 	stopChan    chan struct{}
 	pushChan    chan []*appoptics.Measurement
-	loopFactor  *bool
+	loopFactor  *utils.LoopFactor
 	lc          *appoptics.Client
 	batchWait   chan struct{}
 	persistWait chan struct{}
@@ -50,7 +51,7 @@ type metricsHandler struct {
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
 	buffChanSize := runtime.NumCPU() * 10
 
-	loopFactor := true
+	loopFactor := utils.NewLoopFactor(true)
 
 	// prepChan holds groups of Measurements to be batched
 	prepChan := make(chan []*appoptics.Measurement, buffChanSize)
@@ -73,11 +74,11 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		}
 
 		env.ScheduleDaemon(func() {
-			appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, int(batchSize), env.Logger())
+			appoptics.BatchMeasurements(loopFactor, prepChan, pushChan, stopChan, int(batchSize), env.Logger())
 			batchWait <- struct{}{}
 		})
 		env.ScheduleDaemon(func() {
-			appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, env.Logger())
+			appoptics.PersistBatches(loopFactor, lc, pushChan, stopChan, env.Logger())
 			persistWait <- struct{}{}
 		})
 	}
@@ -86,7 +87,7 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		prepChan:    prepChan,
 		stopChan:    stopChan,
 		pushChan:    pushChan,
-		loopFactor:  &loopFactor,
+		loopFactor:  loopFactor,
 		lc:          lc,
 		persistWait: persistWait,
 		batchWait:   batchWait,
@@ -126,7 +127,7 @@ func (h *metricsHandler) close() error {
 	close(h.stopChan)
 	defer close(h.batchWait)
 	defer close(h.persistWait)
-	*h.loopFactor = false
+	h.loopFactor.SetBool(false)
 	if h.lc != nil {
 		<-h.batchWait
 		<-h.persistWait
