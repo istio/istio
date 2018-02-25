@@ -27,6 +27,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/pki/ca"
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -109,23 +111,26 @@ func TestSign(t *testing.T) {
 			}},
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
-			ca:         &mockCA{errMsg: "cannot sign"},
+			ca:         &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockCA{errMsg: "cannot sign"},
+			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
 			csr:            csr,
 			code:           codes.Internal,
 		},
 		"Successful signing": {
 			authenticators: []authenticator{&mockAuthenticator{}},
 			authorizer:     &mockAuthorizer{},
-			ca:             &mockCA{cert: "generated cert", certChain: "cert chain"},
-			csr:            csr,
-			cert:           "generated cert",
-			certChain:      "cert chain",
-			code:           codes.OK,
+			ca: &mockca.FakeCA{
+				SignedCert:    []byte("generated cert"),
+				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
+			},
+			csr:       csr,
+			cert:      "generated cert",
+			certChain: "cert chain",
+			code:      codes.OK,
 		},
 	}
 
@@ -196,7 +201,7 @@ func TestShouldRefresh(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	testCases := map[string]struct {
-		ca                          *mockCA
+		ca                          *mockca.FakeCA
 		hostname                    string
 		port                        int
 		expectedErr                 string
@@ -204,12 +209,12 @@ func TestRun(t *testing.T) {
 		expectedAuthenticatorsLen   int
 	}{
 		"Invalid listening port number": {
-			ca:          &mockCA{cert: csr},
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"Random listening port number": {
-			ca:                        &mockCA{cert: csr},
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  "localhost",
 			port:                      0,
 			expectedErr:               "",
