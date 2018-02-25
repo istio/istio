@@ -43,8 +43,8 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-# Get the debug istio.io/proxy docker image. We'll use this image to extract the envoy executable used by
-# some of our tests.
+# Get the envoy binary (the same one used by our docker images). Some of our
+# tests use the envoy binary directly.
 PROXY_DOCKERFILE="pilot/docker/Dockerfile.proxy_debug"
 ENVOY_IMAGE=$(grep envoy-debug $PROXY_DOCKERFILE  |cut -d ' ' -f2)
 ENVOY_IMAGE_VERSION=$(grep envoy-debug $PROXY_DOCKERFILE  |cut -d: -f2)
@@ -58,8 +58,9 @@ if [ ! -f $OUT/$ENVOY_BIN_NAME ] ; then
     echo "Downloading envoy docker image..."
     docker pull $ENVOY_IMAGE
 
-    # Run the image and pull out the envoy executable. Need to override the entrypoint so
-    # avoid attempting to update iptables, which requires root access.
+    # Run the image and pull out the envoy executable. Need to override the
+    # entrypoint to avoid attempting to update iptables, which requires
+    # root access.
     echo "Extracting envoy from docker image..."
     docker run --entrypoint cat $ENVOY_IMAGE /usr/local/bin/envoy > $ENVOY_BIN_NAME
 
