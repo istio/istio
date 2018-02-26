@@ -33,10 +33,10 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
-          "api_type": "GRPC",
+          "api_type": "REST_LEGACY",
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
-            "rds-grpc"
+            "rds"
           ]
         }
       }
@@ -79,18 +79,6 @@
           }
         ]
 
-    },
-    {
-        "name": "rds-grpc",
-        "type": "STRICT_DNS",
-        "connect_timeout": {{ .connect_timeout }},
-        "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {{ .pilot_grpc_address }}
-          }
-        ],
-	    "http2_protocol_options": {}
     }
     {{ if .zipkin }}
     ,
