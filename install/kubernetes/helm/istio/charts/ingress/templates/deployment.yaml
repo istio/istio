@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "istio.fullname" . }}
+  name: istio-ingress
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -13,16 +13,14 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "istio.name" . }}
-        release: {{ .Release.Name }}
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: {{ template "istio.serviceAccountName" . }}
+      serviceAccountName: istio-ingress-service-account
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80
@@ -41,23 +39,23 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - {{ .Release.Name }}-ingress
+          - istio-ingress
           - --zipkinAddress
-          - {{ .Release.Name }}-zipkin:9411
+          - istio-zipkin:9411
           - --statsdUdpAddress
-          - {{ .Release.Name }}-mixer:9125
+          - istio-mixer:9125
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.securityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - {{ .Release.Name }}-pilot:15005
+          - istio-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE #--controlPlaneAuthPolicy
           - --discoveryAddress
-          - {{ .Release.Name }}-pilot:15007
+          - istio-pilot:15007
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
@@ -76,10 +74,17 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          - name: ingress-certs
+            mountPath: /etc/istio/ingress-certs
+            readOnly: true
       volumes:
       - name: istio-certs
         secret:
-          secretName: "istio.{{ template "istio.serviceAccountName" . }}"
+          secretName: "istio.default"
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
           optional: true
     {{- if .Values.nodeSelector }}
       nodeSelector:

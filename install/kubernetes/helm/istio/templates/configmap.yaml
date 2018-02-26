@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.securityEnabled }}
+  {{- if .Values.global.mtls.enabed }}
     # Mutual TLS between proxies
     authPolicy: MUTUAL_TLS
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
@@ -28,23 +28,23 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
-    mixerCheckServer: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
-    mixerReportServer: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:15004
+    mixerCheckServer: istio-mixer.{{ .Release.Namespace }}:15004
+    mixerReportServer: istio-mixer.{{ .Release.Namespace }}:15004
     # This is the ingress service name, update if you used a different name
-    ingressService: {{ .Release.Name }}-ingress
+    ingressService: istio-ingress
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
     # from istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: 1s
+    rdsRefreshDelay: {{ .Values.global.refreshInterval }}
     #
     defaultConfig:
       # NOTE: If you change any values in this section, make sure to make
       # the same changes in start up args in istio-ingress pods.
       # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: 1s
+      discoveryRefreshDelay: {{ .Values.global.refreshInterval }}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
@@ -69,23 +69,23 @@ data:
       proxyAdminPort: 15000
       #
       # Zipkin trace collector
-      zipkinAddress: {{ .Release.Name}}-zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: istio-zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
-      statsdUdpAddress: {{ .Release.Name }}-mixer.{{ .Release.Namespace }}:9125
+      statsdUdpAddress: istio-mixer.{{ .Release.Namespace }}:9125
     {{- if .Values.global.securityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15005
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15005
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15007
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}

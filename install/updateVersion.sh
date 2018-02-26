@@ -18,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="istio.VERSION"
 SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
+# Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
 COMPONENT_FILES=false
 
@@ -236,30 +237,15 @@ EOF
 }
 
 #
-# Updating helm's values.yaml for the current versions
-#
+# Updating helm's values.yaml for the current versions in the release.
+# For development, helm command line allows overriding (-set tag, -set hub).
 function update_helm_version() {
-  pushd $TEMP_DIR/templates/helm/istio
-  local HELM_FILE=$DEST_DIR/install/kubernetes/helm/istio/values.yaml
-
-  execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
-  execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
-  execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
-  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" values.yaml.tmpl
-  execute_sed "s|{PROXY_TAG}|${PILOT_TAG}|" values.yaml.tmpl
-  execute_sed "s|{PROXY_DEBUG}|${PROXY_DEBUG}|" values.yaml.tmpl
-  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
-  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
-  execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
-  execute_sed "s|{MIXER_TAG}|${MIXER_TAG}|" values.yaml.tmpl
-  execute_sed "s|{HYPERKUBE_HUB}|${HYPERKUBE_HUB}|" values.yaml.tmpl
-  execute_sed "s|{HYPERKUBE_TAG}|${HYPERKUBE_TAG}|" values.yaml.tmpl
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $HELM_FILE
-  echo "# TO UPDATE, modify files in install/kubernetes/templates/helm/istio and run install/updateVersion.sh" >> $HELM_FILE
-  cat values.yaml.tmpl >> $HELM_FILE
-
-  popd
+  # Helm version and hub only generated for the install/release.
+  if [ ${DEST_DIR} != ${ROOT} ]; then
+      local HELM_FILE=${DEST_DIR}/install/kubernetes/helm/istio/values.yaml
+      cp install/kubernetes/helm/istio/values.yaml $HELM_FILE
+      execute_sed "s|^  tag:.*|  tag: ${PILOT_TAG}|" $HELM_FILE
+  fi
 }
 
 function update_istio_install() {
