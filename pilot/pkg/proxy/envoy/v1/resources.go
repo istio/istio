@@ -889,7 +889,8 @@ type RDS struct {
 
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters Clusters          `json:"clusters"`
-	SDS      *DiscoveryCluster `json:"sds,omitempty"`
-	CDS      *DiscoveryCluster `json:"cds,omitempty"`
+	Clusters         Clusters          `json:"clusters"`
+	SDS              *DiscoveryCluster `json:"sds,omitempty"`
+	CDS              *DiscoveryCluster `json:"cds,omitempty"`
+	LocalClusterName string            `json:"local_cluster_name,omitempty"`
 }
