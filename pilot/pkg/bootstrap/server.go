@@ -327,6 +327,7 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	needToCreateClient := false
+	// FIXME: in the case of multiple registries, we are currently only checking needToCreateClient for the last one
 	for _, r := range args.Service.Registries {
 		switch ServiceRegistry(r) {
 		case KubernetesRegistry:
@@ -335,10 +336,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			needToCreateClient = true
 		case EurekaRegistry:
 			needToCreateClient = true
-		}
+		case CloudFoundryRegistry:
+			needToCreateClient = false
 	}
 
-	if needToCreateClient {
+	if needToCreateClient && args.Config.FileDir == "" {
 		var client kubernetes.Interface
 		var kuberr error
 
