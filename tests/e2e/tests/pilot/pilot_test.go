@@ -16,11 +16,10 @@ package pilot
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
-
-	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
 
