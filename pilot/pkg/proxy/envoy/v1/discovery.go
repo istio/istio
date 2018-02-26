@@ -334,9 +334,11 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
-	// TODO: add a flag to pass the Pilot's new data structures to the constructor instead of out.
-	// For now we create the gRPC server sourcing data from Pilot's older data model.
-	out.serverV2 = envoyv2.NewDiscoveryServer(out)
+
+	if envoyv2.IsEnabled() {
+		// For now we create the gRPC server sourcing data from Pilot's older data model.
+		out.serverV2 = envoyv2.NewDiscoveryServer(out)
+	}
 
 	container := restful.NewContainer()
 	if o.EnableProfiling {
@@ -351,7 +353,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
-	out.serverV2.ChainHandlers(out.server)
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -457,6 +458,10 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
+	}
+
+	if envoyv2.IsEnabled() {
+		ds.serverV2.Start()
 	}
 
 	go func() {

@@ -19,8 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"strings"
+	"net"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -34,6 +35,10 @@ import (
 
 const (
 	responseTickDuration = time.Second * 15
+)
+
+var (
+	gRPCPort string
 )
 
 // MeshDiscovery is a unified interface for Envoy's v2 xDS APIs and Pilot's older
@@ -50,30 +55,24 @@ type MeshDiscovery interface {
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	mu                sync.Mutex
-	mesh              MeshDiscovery
-	grpcServer        *grpc.Server
-	httpServerHandler http.Handler
-	pendingStreams    map[grpc.Stream]map[string]chan bool
+	mu             sync.Mutex
+	mesh           MeshDiscovery
+	grpcServer     *grpc.Server
+	pendingStreams map[grpc.Stream]map[string]chan bool
 }
 
-// ChainHandlers adds gRPC handling to DiscoveryServer for gRPC handling while defers HTTP2 handling to the supplied http server's original handler.
-func (s *DiscoveryServer) ChainHandlers(httpServer *http.Server) {
-	// TODO currently only supports EDS. CDS and other gRPC services need to be plugged-in here.
-	xdsapi.RegisterEndpointDiscoveryServiceServer(s.grpcServer, s)
-	s.httpServerHandler = httpServer.Handler
-	httpServer.Handler = s
-}
-
-// ServeHTTP implements http.Handler.
-// gRPC requests are forwarded to DiscoveryServer's gRPC server and all other requests are forwarded to the original handler obtained via ChainHandler().
-func (s *DiscoveryServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.ProtoMajor == 2 && strings.HasPrefix(
-		r.Header.Get("Content-Type"), "application/grpc") {
-		s.grpcServer.ServeHTTP(w, r)
-	} else {
-		s.httpServerHandler.ServeHTTP(w, r)
+func init() {
+	// TODO: move this to Pilot's configuration.
+	tempGRPCPort := os.Getenv("PILOT_GRPC_PORT")
+	portNum, err := strconv.Atoi(tempGRPCPort)
+	if err == nil && portNum > 1000 {
+		gRPCPort = tempGRPCPort
 	}
+}
+
+// IsEnabled returns true if EnvoyV2 APIs are enabled for Pilot.
+func IsEnabled() bool {
+	return len(gRPCPort) > 0
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -98,7 +97,23 @@ func NewDiscoveryServer(mesh MeshDiscovery) *DiscoveryServer {
 
 	grpcServer := grpc.NewServer(grpcOptions...)
 	out := &DiscoveryServer{mesh: mesh, grpcServer: grpcServer, pendingStreams: make(map[grpc.Stream]map[string]chan bool)}
+	xdsapi.RegisterEndpointDiscoveryServiceServer(out.grpcServer, out)
 	return out
+}
+
+func (s *DiscoveryServer) Start() {
+	lis, err := net.Listen("tcp", ":"+gRPCPort)
+	if err != nil {
+		log.Errorf("mesh discovery server failed to listen on port %q: %v", gRPCPort, err)
+		return
+	}
+	// Serve is a blocking call.
+	go func(gRPCServer *grpc.Server, lis net.Listener) {
+		log.Infof("attempting to start mesh discovery server on port %q", gRPCPort)
+		if err := gRPCServer.Serve(lis); err != nil {
+			log.Errorf("mesh discovery server failed to serve on port %q: %v", gRPCPort, err)
+		}
+	}(s.grpcServer, lis)
 }
 
 /***************************  Mesh EDS Implementation **********************************/
@@ -121,6 +136,9 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			continue
 		}
 		clusters := req.GetResourceNames()
+		if len(clusters) == 0 {
+			continue
+		}
 		reqKey := fmt.Sprintf("StreamEndpoints|%v", clusters)
 		if log.InfoEnabled() {
 			log.Infof("Stream requested for %q", reqKey)
