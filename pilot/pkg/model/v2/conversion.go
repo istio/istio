@@ -49,9 +49,8 @@ func EndpointFromInstance(instance *model.ServiceInstance) (*v2.LbEndpoint, erro
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints and a total count of
 // Envoy v2 Endpoints constructed from Pilot's older data structure involving model.ServiceInstance objects.
-func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) ([]*v2.LocalityLbEndpoints, int) {
+func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*v2.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*v2.LocalityLbEndpoints)
-	countEps := 0
 	for _, instance := range instances {
 		lbEp, err := EndpointFromInstance(instance)
 		if err != nil {
@@ -75,7 +74,6 @@ func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) ([]*v2
 	out := make([]*v2.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		out = append(out, locLbEps)
-		countEps++
 	}
-	return out, countEps
+	return out
 }

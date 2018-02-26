@@ -351,6 +351,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
 
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
+	out.serverV2.ChainHandlers(out.server)
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -457,8 +458,6 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	ds.serverV2.Start()
 
 	go func() {
 
@@ -902,7 +901,7 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 			if len(instances) == 0 {
 				continue
 			}
-			locEps, countEps := v2.LocalityLbEndpointsFromInstances(instances)
+			locEps := v2.LocalityLbEndpointsFromInstances(instances)
 			clAssignment := &xdsapi.ClusterLoadAssignment{
 				ClusterName: serviceCluster,
 				Endpoints:   locEps,
@@ -917,7 +916,7 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 			// will begin seeing results it deems to be good.
 			out.VersionInfo = verTs.String()
 			out.Nonce = out.VersionInfo
-			totalEndpoints += uint32(countEps)
+			totalEndpoints += uint32(len(locEps))
 		}
 		// TODO: Retained for backward compatibility wrt cache behavior
 		// Not storing a zero result in cache can negatively impact server performance

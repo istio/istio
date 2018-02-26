@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
-	"os"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,10 +34,6 @@ import (
 
 const (
 	responseTickDuration = time.Second * 15
-)
-
-var (
-	gRPCPort = "15443"
 )
 
 // MeshDiscovery is a unified interface for Envoy's v2 xDS APIs and Pilot's older
@@ -54,16 +50,29 @@ type MeshDiscovery interface {
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	mu             sync.Mutex
-	mesh           MeshDiscovery
-	grpcServer     *grpc.Server
-	pendingStreams map[grpc.Stream]map[string]*chan bool
+	mu                sync.Mutex
+	mesh              MeshDiscovery
+	grpcServer        *grpc.Server
+	httpServerHandler http.Handler
+	pendingStreams    map[grpc.Stream]map[string]chan bool
 }
 
-func init() {
-	envGRPCPort := os.Getenv("PILOT_GRPC_PORT")
-	if len(envGRPCPort) > 0 {
-		gRPCPort = envGRPCPort
+// ChainHandlers adds gRPC handling to DiscoveryServer for gRPC handling while defers HTTP2 handling to the supplied http server's original handler.
+func (s *DiscoveryServer) ChainHandlers(httpServer *http.Server) {
+	// TODO currently only supports EDS. CDS and other gRPC services need to be plugged-in here.
+	xdsapi.RegisterEndpointDiscoveryServiceServer(s.grpcServer, s)
+	s.httpServerHandler = httpServer.Handler
+	httpServer.Handler = s
+}
+
+// ServeHTTP implements http.Handler.
+// gRPC requests are forwarded to DiscoveryServer's gRPC server and all other requests are forwarded to the original handler obtained via ChainHandler().
+func (s *DiscoveryServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.ProtoMajor == 2 && strings.HasPrefix(
+		r.Header.Get("Content-Type"), "application/grpc") {
+		s.grpcServer.ServeHTTP(w, r)
+	} else {
+		s.httpServerHandler.ServeHTTP(w, r)
 	}
 }
 
@@ -88,33 +97,15 @@ func NewDiscoveryServer(mesh MeshDiscovery) *DiscoveryServer {
 	grpc.EnableTracing = true
 
 	grpcServer := grpc.NewServer(grpcOptions...)
-	out := &DiscoveryServer{mesh: mesh, grpcServer: grpcServer, pendingStreams: make(map[grpc.Stream]map[string]*chan bool)}
-
-	// TODO currently only supports EDS. CDS and other gRPC services need to be plugged-in here.
-	xdsapi.RegisterEndpointDiscoveryServiceServer(grpcServer, out)
+	out := &DiscoveryServer{mesh: mesh, grpcServer: grpcServer, pendingStreams: make(map[grpc.Stream]map[string]chan bool)}
 	return out
-}
-
-// Start runs DiscoveryServer's gRPC server on the port specified by the environment variable PILOT_GRPC_PORT.
-func (s *DiscoveryServer) Start() {
-	lis, err := net.Listen("tcp", ":"+gRPCPort)
-	if err != nil {
-		log.Errorf("mesh discovery server failed to listen on port %q: %v", gRPCPort, err)
-		return
-	}
-	// Serve is a blocking call.
-	go func(gRPCServer *grpc.Server, lis net.Listener) {
-		log.Infof("attempting to start mesh discovery server on port %q", gRPCPort)
-		if err := gRPCServer.Serve(lis); err != nil {
-			log.Errorf("mesh discovery server failed to serve on port %q: %v", gRPCPort, err)
-		}
-	}(s.grpcServer, lis)
 }
 
 /***************************  Mesh EDS Implementation **********************************/
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
 func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
+	streamMu := &sync.Mutex{}
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
@@ -137,22 +128,25 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		chanLoopDone := s.newResponseLoop(stream, reqKey)
 		// Periodically send the ClusterLoadAssignment to the stream peer until this stream is closed or the timer is
 		// closed in response to a new request with the same request key.
-		go func(clusters []string, stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer,
-			reqKey string, chanLoopDone *chan bool) {
+		go func(clusters []string, stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer, streamMu *sync.Mutex,
+			reqKey string, chanLoopDone chan bool) {
 			defer s.stopResponseLoop(stream, reqKey, chanLoopDone)
 			for {
 				select {
-				case <-*chanLoopDone:
+				case <-chanLoopDone:
 					return
 				default:
-					if err := stream.Send(s.mesh.Endpoints(clusters)); err != nil {
+					streamMu.Lock()
+					err := stream.Send(s.mesh.Endpoints(clusters))
+					streamMu.Unlock()
+					if err != nil {
 						break
 					}
 					log.Infof("Stream response sent for request %q", reqKey)
 					time.Sleep(responseTickDuration)
 				}
 			}
-		}(clusters, stream, reqKey, chanLoopDone)
+		}(clusters, stream, streamMu, reqKey, chanLoopDone)
 	}
 }
 
@@ -174,25 +168,25 @@ func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_Stream
 /***************************  Common logic used by most  **********************************
 ****************************    gRPC streaming methods   **********************************/
 
-func (s *DiscoveryServer) newResponseLoop(stream grpc.Stream, requestKey string) *chan bool {
+func (s *DiscoveryServer) newResponseLoop(stream grpc.Stream, requestKey string) chan bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resMap, found := s.pendingStreams[stream]
 	if !found {
-		resMap = map[string]*chan bool{}
+		resMap = map[string]chan bool{}
 		s.pendingStreams[stream] = resMap
 	} else {
 		respLoopDone, found := resMap[requestKey]
 		if found {
-			*respLoopDone <- true
+			respLoopDone <- true
 		}
 	}
 	chanLoopDone := make(chan bool, 1)
-	resMap[requestKey] = &chanLoopDone
-	return &chanLoopDone
+	resMap[requestKey] = chanLoopDone
+	return chanLoopDone
 }
 
-func (s *DiscoveryServer) stopResponseLoop(stream grpc.Stream, requestKey string, chanLoopDone *chan bool) {
+func (s *DiscoveryServer) stopResponseLoop(stream grpc.Stream, requestKey string, chanLoopDone chan bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resMap, found := s.pendingStreams[stream]
@@ -204,7 +198,7 @@ func (s *DiscoveryServer) stopResponseLoop(stream grpc.Stream, requestKey string
 		if chanLoopDone != prevChanLoopDone {
 			return
 		}
-		close(*chanLoopDone)
+		close(chanLoopDone)
 		delete(resMap, requestKey)
 		if len(resMap) == 0 {
 			delete(s.pendingStreams, stream)
