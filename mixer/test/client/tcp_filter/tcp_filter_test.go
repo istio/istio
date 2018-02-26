@@ -16,7 +16,6 @@ package tcpFilter
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -94,10 +93,6 @@ var expectedStats = map[string]int{
 }
 
 func TestTCPMixerFilter(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing, see issue #3211")
-	}
-
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t)
 	env.SetStatsUpdateInterval(s.V2(), 1)
 	if err := s.SetUp(); err != nil {
