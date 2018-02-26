@@ -1,0 +1,71 @@
+{{- if .Values.meshExpansion.enabled }}
+
+# Internal load balancer currently specific to GKE. Annotations specific to other providers should be added
+# after they get tested.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-zvpn
+  namespace: istio-system
+{{ if .Values.zvpn.enabled }}
+  # ZVPN enabled, this service will get an externally visible IP.
+{{ else }}
+  # Mesh expansion only enabled via VPN, setup the ingress as 'internal'.
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+{{ end }}
+  labels:
+    istio: ingress-zvpn
+spec:
+  type: LoadBalancer
+  ports:
+  # Ports for control plane, used for both VPN and ZVPN
+  - name: http-pilot-mtls
+    port: 15003
+  - name: grpc-ca-mtls
+    port: 8060
+  - port: 15006
+    name: grpc-mixer-mtls
+{{ if .Values.zvpn.enabled }}
+  # Plain http services not exposed, zvpn requires mTLS for exposed services and control plane
+{{ else }}
+  - port: 8080
+    name: http-pilot-insecure
+  # TODO: add http mixer once it has 2 ports
+{{  end }}
+  # Additional manually/custom configured ports for services exposed using zero vpn.
+  # For each service add a port here.
+{{- range $app := .Values.zvpn.apps }}
+  - port: {{ $app.externalPort }}
+    name: {{ $app.portName }}
+{{- end }}
+  selector:
+    istio: ingress-zvpn
+---
+{{- end }}
+
+{{- if .Values.meshExpansion.enabled }}
+
+# Assign an additional IP for kube-dns over UDP. It is not possible to share UDP and TCP on same port.
+# DNS over TCP is WIP, needs to be secured with mTLS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-ilb
+  namespace: kube-system
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    k8s-app: kube-dns
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 53
+    protocol: UDP
+  selector:
+    k8s-app: kube-dns
+
+---
+
+{{- end }}

@@ -46,6 +46,10 @@ const (
 	metricLabelCacheName = "cache_name"
 	metricLabelMethod    = "method"
 	metricBuildVersion   = "build_version"
+
+	// envPilotLogRequest can be set to 1 to show basic info about request (URL), status, remote and time.
+	// Used in debugging envoy timing issues.
+	envPilotLogRequest = "PILOT_LOGREQUEST"
 )
 
 var (
@@ -371,6 +375,14 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws := &restful.WebService{}
 	ws.Produces(restful.MIME_JSON)
 
+	if "1" == os.Getenv(envPilotLogRequest) {
+		ws.Filter(func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
+			t0 := time.Now()
+			chain.ProcessFilter(request, response)
+			log.Infof("Req=%s res=%d from=%s time=%v", request.Request.URL, response.StatusCode(), request.Request.RemoteAddr, time.Since(t0))
+		})
+	}
+
 	// List all known services (informational, not invoked by Envoy)
 	ws.Route(ws.
 		GET("/v1/registration").
@@ -507,6 +519,7 @@ func (ds *DiscoveryService) clearCache() {
 			clearCacheTimerSet = true
 			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
 				clearCacheTimerSet = false
+				log.Infof("Squashed update")
 				ds.clearCache() // it's after time - so will clear the cache
 			})
 		}

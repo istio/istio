@@ -154,17 +154,18 @@ function merge_files() {
       cat $SRC/istio-ingress.yaml.tmpl >> $COMPONENT_DIR/istio-ingress.yaml
   fi
 
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
-  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-config.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
+  (cd install/kubernetes; istioctl gen-deploy -o yaml ) > $ISTIO
+#  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
+#  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
+#  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
+#  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
+#  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+#  cat $SRC/istio-config.yaml.tmpl >> $ISTIO
+#  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
+#  cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
 
-  cp $ISTIO $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
+#  cp $ISTIO $ISTIO_ONE_NAMESPACE
+#  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
   execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_AUTH
@@ -176,6 +177,15 @@ function merge_files() {
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
 
   # restrict pilot controllers to a single namespace in the test file
+  # One namespace has the same initial content with istio, but with a different CA file
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_ONE_NAMESPACE
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-config.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
   execute_sed "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
@@ -358,7 +368,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
 fi
 
 mkdir -p $TEMP_DIR/templates
-cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
+cp -R $ROOT/install/kubernetes/templates-deprecated/* $TEMP_DIR/templates/
 update_version_file
 update_helm_version
 update_istio_install

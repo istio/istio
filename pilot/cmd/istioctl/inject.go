@@ -238,18 +238,13 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 			} else {
-				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:       inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:       verbosity,
-					SidecarProxyUID: sidecarProxyUID,
-					Version:         versionStr,
-					EnableCoreDump:  enableCoreDump,
-					Mesh:            meshConfig,
-					ImagePullPolicy: imagePullPolicy,
-					IncludeIPRanges: includeIPRanges,
-					DebugMode:       debugMode,
-				})
+				sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig)
+				var config inject.Config
+				if err := yaml.Unmarshal([]byte(sidecarTemplate), &config); err != nil {
+					return err
+				}
+				sidecarTemplate = config.Template
+				fmt.Println(string(sidecarTemplate))
 			}
 
 			if emitTemplate {

@@ -1,0 +1,76 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ingress-zvpn
+  namespace: {{ .Values.istioNamespace }}
+  annotations:
+    sidecar.istio.io/inject: "false"
+
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+        keel.sh/pollSchedule: "@every 30m"
+      labels:
+        istio: ingress-zvpn
+        keel.sh/policy: force
+        keel.sh/trigger: poll
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: app
+        # Manually start envoy, without using pilot-agent, so we can override the config.
+        command: ["/usr/local/bin/envoy"]
+        image: {{ .Values.istioHub }}/proxy_debug:{{ .Values.istioTag }}
+        # Configuration matching pilot-agent.
+        args: ["-c", "/etc/envoy/envoy.yaml", "-l", "debug", "--service-cluster", "istio-ingress", "--service-node" , "ingress~~istio-ingress.istio-system~istio-system.svc.cluster.local"]
+        imagePullPolicy: Always
+        ports:
+        # Ports for control plane, zero vpn
+        - containerPort: 15003
+        - containerPort: 15006
+        - containerPort: 8060
+        - containerPort: 8080
+{{- range $app := .Values.zvpn.apps }}
+        - containerPort: {{ $app.externalPort }}
+{{ end }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: VER
+          value: "1"
+        - name: RELOAD
+          value: "14"
+
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: envoyconfig
+          mountPath: /etc/envoy
+        resources:
+          requests:
+            cpu: 1500m
+            memory: "1G"
+          limits:
+            cpu: 2000m
+            memory: "2G"
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: envoyconfig
+        configMap:
+            name: zvpn-envoy-config
+---

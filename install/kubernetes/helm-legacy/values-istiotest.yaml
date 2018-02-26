@@ -1,0 +1,34 @@
+# Additional values for configuring istio-test environment for zvpn.
+
+meshExpansion:
+  enabled: true
+
+zvpn:
+  enabled: true
+
+  # "Simple" zvpn - one port per app, controlled via values.xml.
+  # This is needed to modify the ingress Service - long term / more flexible solution will use
+  # SNI and single port, but this is adequate for simpler use cases.
+  apps:
+  - portName: tcp-iperf3
+    externalPort: 5201
+    serviceKey: istio-pilot.istio-system.svc.cluster.local|http-discovery
+    internalPort: 5201
+
+  - externalPort: 80
+    portName: http
+
+  - externalPort: 443
+    portName: https
+
+  - externalPort: 5202
+    portName: tcp-iperf3-raw
+
+  - externalPort: 8081
+    portName: http-httpbin
+
+sni:
+  domains:
+  - name: httpbin.nightly.istio.io
+
+

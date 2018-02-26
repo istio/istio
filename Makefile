@@ -111,6 +111,7 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 GO_VERSION_REQUIRED:=1.9
 
+# TODO: replace this with DOCKER_ISTIO_HUB (20 lines above)
 HUB?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
@@ -534,8 +535,10 @@ endif # end of docker block that's restricted to Linux
 artifacts: docker
 	@echo 'To be added'
 
-# generate_yaml in tests/istio.mk can build without specifying a hub & tag
-installgen:
+installgen: generate_yaml
+
+# A make target to generate the install/test YAML files
+generate_yaml:
 	install/updateVersion.sh -a ${HUB},${TAG}
 
 # files genarated by the default invocation of updateVersion.sh

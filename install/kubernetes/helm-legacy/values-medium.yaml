@@ -1,0 +1,16 @@
+# Configuration for istio with larg(er) number of services / rules
+#
+
+rdsRefreshDelay: 60s
+
+discoveryRefreshDelay: 60s
+
+enableTracing: false
+
+# It seems envoy sends a lot of stats.
+enableEnvoyStatsd: false
+
+envoyAccessLog: /dev/null
+
+sidecarDebug: true
+sidecarCoreDump: true

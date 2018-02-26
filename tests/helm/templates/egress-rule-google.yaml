@@ -6,6 +6,6 @@ spec:
   destination:
       service: "*google.com"
   ports:
-      - port: 443
+      - port: 8443
         protocol: https
   use_egress_proxy: false

@@ -1,0 +1,149 @@
+################################
+# Istio ingress
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  namespace: {{ .Values.istioNamespace }}
+  labels:
+    istio: ingress
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    name: http
+  - port: 443
+    name: https
+  selector:
+    istio: ingress
+{{ if .Values.ingressNodePort }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-nodeport
+  namespace: {{ .Values.istioNamespace }}
+  labels:
+    istio: ingress
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    nodePort: {{ .Values.ingressNodePort}}
+    name: http
+  selector:
+    istio: ingress
+
+{{ end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+  namespace: {{ .Values.istioNamespace }}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress
+  namespace: {{ .Values.istioNamespace }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: ingress
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-ingress
+        image: {{ .Values.istioHub }}/{{ .Values.proxyImage }}:{{ .Values.istioTag }}
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:15003
+        - --discoveryRefreshDelay
+        - '1s' #discoveryRefreshDelay
+        - --drainDuration
+        - '45s' #drainDuration
+        - --parentShutdownDuration
+        - '1m0s' #parentShutdownDuration
+        - --connectTimeout
+        - '10s' #connectTimeout
+        - --serviceCluster
+        - istio-ingress
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-mixer:9125
+        - --proxyAdminPort
+        - "15000"
+{{ if .Values.enableControlPlaneMtls }}
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+{{ else }}
+        - --controlPlaneAuthPolicy
+        - NONE
+{{ end }}
+{{ if .Values.sni.enabled }}
+        - --customConfigFile
+        - /etc/envoy/envoy.yaml
+{{ end }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
+{{ if .Values.sni.enabled }}
+        - name: envoyconfig
+          mountPath: /etc/envoy
+{{ range $app := .Values.sni.apps }}
+        - name: secrets-{{ $app.name }}
+          readOnly: true
+          mountPath: /etc/istio/sni/{{ $app.name }}
+{{ end }}
+{{ end }}
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
+{{ if .Values.sni.enabled }}
+      - name: envoyconfig
+        configMap:
+            name: envoy-config
+{{ range $app := .Values.sni.apps }}
+      - name: secrets-{{ $app.name }}
+        secret:
+            secretName: sni-{{ $app.name }}
+            optional: true
+{{ end }}
+{{ end }}
+---

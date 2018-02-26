@@ -1,0 +1,4 @@
+# Override defaults with by default authentication.
+defaultProxyMtls: true
+enableControlPlaneMtls: true
+

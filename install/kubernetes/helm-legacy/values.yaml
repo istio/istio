@@ -1,0 +1,286 @@
+# Common configurable options.
+
+# Istio tag. The version in git defaults to nightly, releases will replace this.
+#istioTag: nightly
+istioTag: 0.5.0
+
+# Hub used to fetch istio images
+istioHub: docker.io/istio
+
+# if enabled, istio will use mtls by default for service to service, with a blacklist of
+# services and service annotation to disable.
+# if disabled, istio will not use mtls by default, but will honor annotations in the service.
+defaultProxyMtls: false
+
+# Set the following variable to true to disable policy checks by the Mixer.
+# Note that metrics will still be reported to the Mixer.
+disablePolicyChecks: false
+
+# Values need to be sett to enable stackdriver integration
+#stackdriverProjectId: my_project_id
+#stackdriverCredentials: credentials.json
+
+# mutating webhooks for automatic sidecar injection
+# In order to enable auto-inject webhook you need to set this value:
+#   kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'
+#sidecarInjectCA: BASE64
+
+# Control request tracing
+enableTracing: true
+
+# Along with discoveryRefreshDelay, this setting determines how
+# frequently should Envoy fetch and update its internal configuration
+# from Istio Pilot. Lower refresh delay results in higher CPU
+# utilization and potential performance loss in exchange for faster
+# convergence. Tweak this value according to your setup.
+rdsRefreshDelay: 1s
+
+# Controls LDS, CDS refresh. Small values result in fast update of the route, but
+# at a high CPU (and scalability) cost.
+discoveryRefreshDelay: 1s
+
+# Enable mtls for communication with pilot/mixer
+enableControlPlaneMtls: false
+
+# By default the sidecar generates an access log. If mixer is enabled, it is possible
+# to disable this and rely on mixer telemetry.
+envoyAccessLog: /dev/stdout
+
+sidecarDebug: false
+sidecarCoreDump: false
+
+# TODO: template for list of excluded services
+
+# If set, create an internal load balancer for mesh expansion with VPN support.
+# This will allocate an IP address and create a gateway, using ILB by default.
+# This setting will also enable a UDP DNS port over ILB.
+meshExpansion:
+  enabled: false
+
+# If set, will allocate an external IP and load balancer exposing the mesh expansion
+# ingress.
+zvpn:
+  enabled: false
+
+sni:
+  enabled: false
+
+# =============== Testing or special cases only ============
+
+# If running in minikube, uncomment this or run with --set ingressNodePort=30001
+# ingressNodePort: 30080
+
+# Image to use for the sidecar. Can be replaced with proxy_debug for debug version,
+# or a custom build.
+proxyImage: proxy
+
+# Configure envoy to send statsd UDP updates to mixer.
+enableEnvoyStatsd: false
+
+# Namespace where istio control plane is installed.
+istioNamespace: istio-system
+
+# create RBAC resources and rules. Should not be disable even if cluster doesn't have RBAC enabled
+rbacEnabled: true
+
+imagePullPolicy: IfNotPresent
+
+resources: {}
+nodeSelector: {}
+
+# istio ingress configuration
+ingress:
+  enabled: true
+  # By default istio ingress uses LoadBalancer type of service
+  # to use NodePort, it needs to be enabled and desired port specified
+  nodePort:
+    enabled: false
+    port: 32000
+
+#
+# sidecar-injector configuration
+#
+sidecarInjector:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+#
+# mixer configuration
+#
+mixer:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+  prometheusStatsdExporter:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+    resources: {}
+
+#
+# pilot confisidecarInguration
+#
+pilot:
+  enabled: true
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+#
+# security configuration
+#
+security:
+  # Itio CA started
+  enabled: true
+  # mutual TLS authentication
+  mtls: false
+  serviceAccountName: default # # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+
+#
+# addons configuration
+#
+grafana:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9000
+    internalPort: 9000
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - grafana.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: grafana-tls
+      #   hosts:
+      #     - grafana.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+
+prometheus:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/prom/prometheus
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: web
+    type: ClusterIP
+    externalPort: 9090
+    internalPort: 9090
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - prometheus.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: prometheus-tls
+      #   hosts:
+      #     - prometheus.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+
+servicegraph:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 8088
+    internalPort: 8088
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - servicegraph.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: servicegraph-tls
+      #   hosts:
+      #     - servicegraph.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+  # prometheus addres
+  prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/openzipkin/zipkin
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9411
+    internalPort: 9411
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - zipkin.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: zipkin-tls
+      #   hosts:
+      #     - zipkin.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
