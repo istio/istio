@@ -43,7 +43,7 @@ AIRFLOW_CONFIG = dict(
 
 
 def get_airflow_config(version, timestamp, major, minor, patch, date, rc):
-  """Return a dict of the configuration for the Pipline."""
+  """Return a dict of the configuration for the Pipeline."""
   config = dict(AIRFLOW_CONFIG)
   if version is not None:
     config['VERSION'] = version
