@@ -92,6 +92,11 @@ sidecar-injector:
   # be allowed by the sidecar
   includeIPRanges: {}
 
+  # Force admission registration webhook when using `helm template`
+  # This capability is automatically populated as a cluster capability when using `helm install`
+  # or `helm upgrade` but must be manually specified if using `helm template`
+  useAdmissionRegistration: false
+
 #
 # mixer configuration
 #

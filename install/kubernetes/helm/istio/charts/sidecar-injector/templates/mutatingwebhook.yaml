@@ -1,4 +1,4 @@
-{{- if or (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1") (not .Release.IsInstall) -}}
+{{- if or (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1") (and (not .Release.IsInstall) .Values.useAdmissionRegistration) -}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
