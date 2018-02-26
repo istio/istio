@@ -98,13 +98,14 @@ echo "Done."
 fi
 
 if [ ! -e ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/type.proto ]; then
-echo "Pull down source protos from istio api..."
-ISTIO_API_SHA=9d978d76653da8b7b4bd6421b7e8f9925d8c79ea
-ISTIO_API_URL=https://raw.githubusercontent.com/istio/api/${ISTIO_API_SHA}/
+  echo "Pull down source protos from istio api..."
+  ISTIO_API_SHA=9d978d76653da8b7b4bd6421b7e8f9925d8c79ea
+  ISTIO_API_URL=https://raw.githubusercontent.com/istio/api/${ISTIO_API_SHA}
 
-curl -sS ${ISTIO_API_URL}/policy/v1beta1/cfg.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/cfg.proto
-curl -sS ${ISTIO_API_URL}/policy/v1beta1/value_type.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/value_type.proto
-curl -sS ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/extensions.proto > ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/extensions.proto
+  curl -fsS ${ISTIO_API_URL}/policy/v1beta1/cfg.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/cfg.proto || die "can't fetch ${ISTIO_API_URL}/policy/v1beta1/cfg.proto"
+  curl -fsS ${ISTIO_API_URL}/policy/v1beta1/value_type.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/value_type.proto || die "can't fetch ${ISTIO_API_URL}/policy/v1beta1/value_type.proto"
+  curl -fsS ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/extensions.proto > ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/extensions.proto || die "can't fetch ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/extensions.proto"
+  curl -fsS ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/type.proto > ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/type.proto || die "can't fetch ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/type.proto"
 fi
 
 GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
