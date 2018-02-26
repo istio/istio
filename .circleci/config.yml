@@ -669,7 +669,14 @@ workflows:
       - e2e-pilot-auth-egress:
           requires:
             - build
-
+      - depupdate
+      - dependencies
+      - build:
+          requires:
+            - dependencies
+      - e2e-mixer:
+          requires:
+            - build
 
   all:
     jobs:
@@ -692,3 +699,6 @@ workflows:
       - e2e-simple:
           requires:
             - build
+      - racetest:
+          requires:
+            - dependencies
