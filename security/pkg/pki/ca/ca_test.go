@@ -17,9 +17,7 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
-	"io/ioutil"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -28,13 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/pki/util"
-)
-
-const (
-	certChainFile = "testdata/cert-chain.pem"
-	rootCertFile  = "testdata/root-cert.pem"
-	caCertFile    = "testdata/ca-cert.pem"
-	caKeyFile     = "testdata/ca-key.pem"
 )
 
 var (
@@ -86,55 +77,6 @@ rnhhAoGANfiSkuFuw2+WpBvTNah+wcZDNiMbvkQVhUwRvqIM6sLhRJhVZzJkTrYu
 YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
 7lGXdUBnyY8tcLhla+Rbo7Y8yOsN6pp4grT1DP+8rG4G4vnJgbk=
 -----END RSA PRIVATE KEY-----`
-
-	cert2Pem = `
------BEGIN CERTIFICATE-----
-MIIC5TCCAc2gAwIBAgIQbnMGpidD8PvetlXnYSkUHjANBgkqhkiG9w0BAQsFADAT
-MREwDwYDVQQKEwhKdWp1IG9yZzAeFw0xNzAzMTgwMDE5MDZaFw0yNzAzMDYwMDE5
-MDZaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
-MIIBCgKCAQEAoEf2+WIjOLOpVBdV6HpgdEgNklJWGNW5kpinW75F2U14/hznSqY+
-JbtEPz7MXeWIagpC3gzSNM7Khtdm/jQjdnZuRhRzbBXILCrdRykewUhXsKdtpNpw
-bUkCgy7V861zOtwFo3Wm7J7UZIrNqYK8fJrE2YZve9rMyKj1zOVPv6Lm8ioomv2r
-DANX0F72+qpEAqxrD5YCexdhv+/WeO3YoEECgqRhCLbG71OzREfN2lrgl7vGpqTA
-bUDJK2RxL4yeARU9WcHT2mXplK5w0w63IdgM8kQdodEPHTlP//lafUDq87PjrcTY
-eUehLBvtclbEo9bmmnN4JOGNMywVXCw2lQIDAQABozUwMzAOBgNVHQ8BAf8EBAMC
-BaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADANBgkqhkiG9w0B
-AQsFAAOCAQEABn9FAdcE+N7upOIU2yWalEe0YQgyTELF9MTstJAeJP/xSnCqF6TG
-/TfR0IuY/RJyXDLq2rHhrUEsRCCamlQyNkE8RSiHQD/kBf/xxSKobXQyMedXBKSC
-MHF2h+S/2HmZaOtgG4RnXplCpHegFOhcLORBLbyQJ72DPLvQcCo2A9uyboqKbZhs
-0Gh5kSgZrvphvxIerbV5T/VWLO0llhFmU55BIalVpHD7YfMCOkjVL+Y/0fYKL5ij
-68/BQAVGtO+1W1AW52eSMoH1gbvYemf+RsxdE/yKCmcTcZer8HswkQzPH03XcMwu
-V611eTJ/uJO6FTt9/5IN8G1qBj2bdNj/uA==
------END CERTIFICATE-----`
-
-	key2Pem = `
------BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEAoEf2+WIjOLOpVBdV6HpgdEgNklJWGNW5kpinW75F2U14/hzn
-SqY+JbtEPz7MXeWIagpC3gzSNM7Khtdm/jQjdnZuRhRzbBXILCrdRykewUhXsKdt
-pNpwbUkCgy7V861zOtwFo3Wm7J7UZIrNqYK8fJrE2YZve9rMyKj1zOVPv6Lm8ioo
-mv2rDANX0F72+qpEAqxrD5YCexdhv+/WeO3YoEECgqRhCLbG71OzREfN2lrgl7vG
-pqTAbUDJK2RxL4yeARU9WcHT2mXplK5w0w63IdgM8kQdodEPHTlP//lafUDq87Pj
-rcTYeUehLBvtclbEo9bmmnN4JOGNMywVXCw2lQIDAQABAoIBAFzg9uwSg2iDK9dP
-4ndiGuynKD4nOj8P8oZRsYGHZACFVVyjsR/f79l7iBPCNzkeHoucQJ1d/p2dS10S
-C1u5KOenv0Ua6ruyb5mwiSOIX4sPeckjbHUAI/AgQ7Vy+YZId6KfByFutvkdHOTa
-Tk0xNjpakUGgFpBF/S82QaGnLCxWtdSvuIZTzhC9bQGL+7TjgZknTqZUhYHLbgH3
-XUBLV/Zavce77DJ02YtcZL9UphlWbuZuOF1RESn3Rk7MM3rzLTpjrDzp+EWM9T0H
-4B1Zj4PIlVGdjEwUzHfK39KQYOGqhZE6O6Z8mm9H1V3+EaoCjFV6Nt3HwAXvJttc
-/K/HykECgYEAwg+zCnsPlfI0FuT5W7Fi4bLSRV1IxW/BueR3ct2KUVqieP9DzmZB
-NEI3ibn+/1MoUjyjAMROq8YBQ/oSpjvez/SqFbJ3xH1zQtAwhcO+3wU1GwftAah5
-ZAtSJYRd6AQr1kaj+P5ZEqdxI9MJEPzsOR0eRKiPLVLF+OoDjpb0hkUCgYEA03Ap
-mjYXiVSzo0NVEcP7f4k+t2Wwoms7O4xZfLuSmvNjhrZmukuu3TIYaCbW8x4wyBe/
-Vfe8W4HFuu5IyrHXt/7BYWtSFlKsUyc5sveSktAXuVnZePlowm/NPjJ0EE38I0WV
-aHWRlUW4H8j9ghwLKlea77+nfY/Q+pba8Ccc3BECgYEAqJD4hY8Vn7sOUiC9FU/F
-Q6WQDp6UGqQT1ARHWahkgHxJCu84l+2sj9dA5MqCXIiASsbPFFhwuba53LE5R9pT
-lbHBmC046Z3K4+txao/4mUKtuXguADW2lBddWKdc5q/Q4ETmI9/TwWde2K50fqQk
-EQxhAWSlUcpHmwqy4kXvyz0CgYBtRQDrBlthiJmRnUGAfeUigv4bb306Yupomt7A
-XHumgnQD8Y3jZyuGetYsNS5O1GJndgZW2kHIlKdoNK7/uar/FrQ/sWPpz23pR1NF
-Tza7krk/+9Qs9dAS9A6AvzhGGNdeLx7IrkG/gBloq8l/jRikGEQk9MoNVN6uMnoR
-NFVw0QKBgH2RW41bzJOJcWnArZR/qp6RT23SQeujOMcRGfH25jpoXU8fKup1Npt8
-MnMxUAuP09HIovhn841Y7p+hlh4gSpsvYjLfgX0jyzJPhOmtBu0vEY7fLN6kQLiW
-RRoQIlr5T8PG4vXwsn2/hohILCJJyHAee/4gIq42jLu6hQsQxcoy
------END RSA PRIVATE KEY-----`
 )
 
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
@@ -157,10 +99,14 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
 
-	rootCertBytes := ca.GetRootCertificate()
+	signingCert, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
 	if err != nil {
 		t.Error(err)
+	}
+	// Root cert and siging cert are the same for self-signed CA.
+	if !rootCert.Equal(signingCert) {
+		t.Error("CA root cert does not match signing cert")
 	}
 
 	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
@@ -171,18 +117,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
 	}
 
-	certChainBytes := ca.GetCertChain()
 	if len(certChainBytes) != 0 {
 		t.Errorf("Cert chain should be empty")
-	}
-
-	ca.keyCertMutex.RLock()
-	signingCert := ca.keyCert.SigningCert
-	ca.keyCertMutex.RUnlock()
-
-	// Root cert and siging cert are the same for self-signed CA.
-	if !rootCert.Equal(signingCert) {
-		t.Error("CA root cert does not match signing cert")
 	}
 
 	// Check the signing cert stored in K8s secret.
@@ -235,122 +171,18 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
 
-	ca.keyCertMutex.RLock()
-	signingCertFromCA := ca.keyCert.SigningCert
-	rootCertFromCA := ca.keyCert.RootCertBytes
-	ca.keyCertMutex.RUnlock()
+	signingCertFromCA, _, certChainBytesFromCA, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
 
 	if !signingCert.Equal(signingCertFromCA) {
 		t.Error("Signing cert does not match")
 	}
 
-	if !bytes.Equal(rootCertFromCA, []byte(rootCertPem)) {
+	if !bytes.Equal(rootCertBytesFromCA, []byte(rootCertPem)) {
 		t.Error("Root cert does not match")
 	}
 
-	certChainBytes := ca.GetCertChain()
-	if len(certChainBytes) != 0 {
+	if len(certChainBytesFromCA) != 0 {
 		t.Errorf("Cert chain should be empty")
-	}
-}
-
-func TestNewIstioCAOptions(t *testing.T) {
-	testCases := map[string]struct {
-		certChainFile string
-		caCertFile    string
-		caKeyFile     string
-		rootCertFile  string
-		expectedErr   string
-	}{
-		"Success": {
-			certChainFile: certChainFile,
-			caCertFile:    caCertFile,
-			caKeyFile:     caKeyFile,
-			rootCertFile:  rootCertFile,
-			expectedErr:   "",
-		},
-		"No cert chain file": {
-			certChainFile: "",
-			caCertFile:    caCertFile,
-			caKeyFile:     caKeyFile,
-			rootCertFile:  rootCertFile,
-			expectedErr:   "",
-		},
-		"file does not exist": {
-			certChainFile: "",
-			caCertFile:    "random/path/does/not/exist",
-			caKeyFile:     caKeyFile,
-			rootCertFile:  rootCertFile,
-			expectedErr:   "open random/path/does/not/exist: no such file or directory",
-		},
-	}
-	certTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-
-	for id, tc := range testCases {
-		caOpts, err := NewPluggedCertIstioCAOptions(
-			tc.certChainFile, tc.caCertFile, tc.caKeyFile, tc.rootCertFile, certTTL, maxCertTTL)
-		if err != nil {
-			if len(tc.expectedErr) == 0 {
-				t.Errorf("%s: Unexpected error: %v", id, err)
-			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
-				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
-			}
-		} else if len(tc.expectedErr) != 0 {
-			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
-		}
-
-		if len(tc.expectedErr) != 0 {
-			continue
-		}
-		if tc.certChainFile != "" {
-			if certChainBytes, err := ioutil.ReadFile(tc.certChainFile); err != nil {
-				t.Errorf("%s: file read error %v", id, err)
-			} else if !bytes.Equal(certChainBytes, caOpts.CertChainBytes) {
-				t.Errorf("%s: Cert chain does not match", id)
-			}
-		} else if len(caOpts.CertChainBytes) != 0 {
-			t.Errorf("%s: Cert chain is not empty", id)
-		}
-		if caCertBytes, err := ioutil.ReadFile(tc.caCertFile); err != nil {
-			t.Errorf("%s: file read error %v", id, err)
-		} else if !bytes.Equal(caCertBytes, caOpts.SigningCertBytes) {
-			t.Errorf("%s: Signing cert does not match", id)
-		}
-		if caKeyBytes, err := ioutil.ReadFile(tc.caKeyFile); err != nil {
-			t.Errorf("%s: file read error %v", id, err)
-		} else if !bytes.Equal(caKeyBytes, caOpts.SigningKeyBytes) {
-			t.Errorf("%s: Signing key does not match", id)
-		}
-		if rootCertBytes, err := ioutil.ReadFile(tc.rootCertFile); err != nil {
-			t.Errorf("%s: file read error %v", id, err)
-		} else if !bytes.Equal(rootCertBytes, caOpts.RootCertBytes) {
-			t.Errorf("%s: Root cert does not match", id)
-		}
-	}
-}
-
-// Pass in unmatched chain and cert to make sure the `verify` method yeilds an error.
-func TestInvalidIstioCAOptions(t *testing.T) {
-	rootCert := cert1Pem
-	// This signing cert is not signed by the root cert.
-	signingCert := cert2Pem
-	signingKey := key2Pem
-
-	opts := &IstioCAOptions{
-		SigningCertBytes: []byte(signingCert),
-		SigningKeyBytes:  []byte(signingKey),
-		RootCertBytes:    []byte(rootCert),
-	}
-
-	ca, err := NewIstioCA(opts)
-	if ca != nil || err == nil {
-		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
-	}
-
-	errMsg := "invalid parameters: cannot verify the signing cert with the provided root chain and cert pool"
-	if err.Error() != errMsg {
-		t.Errorf("Unexpected error message: expecting '%s' but the actual is '%s'", errMsg, err.Error())
 	}
 }
 
@@ -383,8 +215,9 @@ func TestSignCSRForWorkload(t *testing.T) {
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
+	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -437,8 +270,9 @@ func TestSignCSRForCA(t *testing.T) {
 		KeyUsage: x509.KeyUsageCertSign,
 		IsCA:     true,
 	}
+	_, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
 	if err = util.VerifyCertificate(
-		keyPEM, append(certPEM, ca.GetCertChain()...), ca.GetRootCertificate(), host, fields); err != nil {
+		keyPEM, append(certPEM, certChainBytes...), rootCertBytes, host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -530,13 +364,15 @@ func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
 		return nil, err
 	}
 
+	bundle, err := util.NewVerifiedKeyCertBundleFromPem(
+		intermediateCert, intermediateKey, intermediateCert, rootCertBytes)
+	if err != nil {
+		return nil, err
+	}
 	caOpts := &IstioCAOptions{
-		CertChainBytes:   intermediateCert,
-		CertTTL:          time.Hour,
-		MaxCertTTL:       maxTTL,
-		SigningCertBytes: intermediateCert,
-		SigningKeyBytes:  intermediateKey,
-		RootCertBytes:    rootCertBytes,
+		CertTTL:       time.Hour,
+		MaxCertTTL:    maxTTL,
+		KeyCertBundle: bundle,
 	}
 
 	return NewIstioCA(caOpts)

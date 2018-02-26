@@ -71,6 +71,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
+	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, request.ForCA)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
@@ -80,7 +81,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	response := &pb.CsrResponse{
 		IsApproved: true,
 		SignedCert: cert,
-		CertChain:  s.ca.GetCertChain(),
+		CertChain:  certChainBytes,
 	}
 	log.Info("CSR successfully signed.")
 
@@ -137,7 +138,8 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port in
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(s.ca.GetRootCertificate())
+	_, _, _, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	cp.AppendCertsFromPEM(rootCertBytes)
 
 	config := &tls.Config{
 		ClientCAs:  cp,
