@@ -1,38 +1,47 @@
+# Use --set or additional values.yaml file to configure settings.
+# This file no longer uses sed, updateVersions.sh or istio.VERSIONS
+# TODO: evaluate if we need individual overrides for each component version, istio
+# is not typically tested with a mix of versions. Only supported case is version upgrade.
+
+# Common settings.
 global:
+  # Default tag for Istio images.
+  hub: docker.io/istionightly
+
+  # Default tag for Istio images.
+  # Should track latest released version.
+  # Currently using nightly build, for testing
+  tag: circleci-nightly
   proxy:
-    repository: {PROXY_HUB}/{PROXY_IMAGE}
-    tag: {PROXY_TAG}
-  proxyInit:
-    repository: {PROXY_HUB}/proxy_init
-    tag: {PROXY_TAG}
-  sidecarInjector:
-    repository: {PILOT_HUB}/sidecar_injector
-    tag: {PILOT_TAG}
-  mixer:
-    repository: {MIXER_HUB}/mixer
-    tag: {MIXER_TAG}
-  pilot:
-    repository: {PILOT_HUB}/pilot
-    tag: {PILOT_TAG}
-  security:
-    repository: {CA_HUB}/istio-ca
-    tag: {CA_TAG}
+    image: proxy
+
+  # imagePullPolicy is applied to istio control plane components.
+  imagePullPolicy: IfNotPresent
+
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
-    repository: {HYPERKUBE_HUB}
-    tag: {HYPERKUBE_TAG}
-  # addons
-  grafana:
-    repository: {MIXER_HUB}/grafana
-    tag: {MIXER_TAG}
-  servicegraph:
-    repository: {MIXER_HUB}/servicegraph
-    tag: {MIXER_TAG}
+    repository: quay.io/coreos/hyperkube
+    tag: v1.7.6_coreos.0
 
-  # create RBAC resources
+  # Install istio CA. Needed for control plane auth, even if automatic mtls between pods is
+  # disabled. If false, you must also disable control plane security
+  securityEnabled: true
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
+    # List of fully qualified services to exclude from mtls
+    # TODO: add the templating.
+    mtlsExcludedServices:
+    - "kubernetes.default.svc.cluster.local"
+
+  # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
-  # mutual TLS authentication
-  securityEnabled: false
+
+  # Default is 1 second
+  refreshInterval: 10s
 
 #
 # ingress configuration
@@ -178,11 +187,6 @@ prometheus:
     repository: docker.io/prom/prometheus
     tag: latest
     pullPolicy: IfNotPresent
-  service:
-    name: web
-    type: ClusterIP
-    externalPort: 9090
-    internalPort: 9090
   ingress:
     enabled: false
     # Used to create an Ingress record.
