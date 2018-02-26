@@ -50,3 +50,4 @@ install/kubernetes/istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
 istio.VERSION
+/vendor/*
