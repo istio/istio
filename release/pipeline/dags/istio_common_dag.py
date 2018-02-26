@@ -239,8 +239,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
     --tag="{{ settings.VERSION }}"
     """
 
-  run_release_quilification_tests = BashOperator(
-      task_id='run_release_quilification_tests',
+  run_release_qualification_tests = BashOperator(
+      task_id='run_release_qualification_tests',
       bash_command=test_command,
       retries=0,
       dag=common_dag)
@@ -252,8 +252,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
       dag=common_dag,
   )
   generate_flow_args >> get_git_commit >> build
-  run_release_quilification_tests.set_upstream(build)
-  run_release_quilification_tests >> copy_files
+  run_release_qualification_tests.set_upstream(build)
+  run_release_qualification_tests >> copy_files
   return common_dag, copy_files
 
 
