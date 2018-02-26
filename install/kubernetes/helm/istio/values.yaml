@@ -50,6 +50,8 @@ ingress:
   enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
+  autoscaleMin: 2
+  autoscaleMax: 8
   resources: {}
 # limits:
 #  cpu: 100m
@@ -58,10 +60,7 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   nodeSelector: {}
-# istio ingress configuration
   service:
-  # By default istio ingress uses LoadBalancer type of service
-  # to use NodePort, it needs to be enabled and desired port specified
     nodePort:
       enabled: false
       port: 32000
@@ -171,6 +170,9 @@ grafana:
       # - secretName: grafana-tls
       #   hosts:
       #     - grafana.local
+  zvpn:
+    enabled: false
+
   resources: {}
     # limits:
     #  cpu: 100m
@@ -208,6 +210,10 @@ prometheus:
     #  cpu: 100m
     #  memory: 128Mi
   nodeSelector: {}
+  service:
+    nodePort:
+      enabled: false
+      port: 9090
 
 servicegraph:
   enabled: false
