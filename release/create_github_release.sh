@@ -149,7 +149,7 @@ function upload_directory() {
   # $4 is file extension
   local FILE=""
 
-  for FILE in ${2}/istio*.${4}
+  for FILE in ${2}/istio-*.${4}
   do
     local BASE_NAME=$(basename "$FILE")
 
