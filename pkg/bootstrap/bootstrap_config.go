@@ -47,7 +47,10 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 
 	cfg := config.CustomConfigFile
 	if cfg == "" {
-		cfg = DefaultCfgDir
+		cfg = config.ProxyTemplatePath
+		if cfg == "" {
+			cfg = DefaultCfgDir
+		}
 	}
 
 	cfgTmpl, err := ioutil.ReadFile(cfg)
