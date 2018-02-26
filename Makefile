@@ -100,6 +100,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 
 export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
+export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
@@ -121,9 +122,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-# Discover if user has dep installed -- prefer that
-DEP      := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-GOLINT   := $(shell which golint 2>/dev/null || echo "${ISTIO_BIN}/golint" )
 GEN_CERT := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
@@ -149,7 +147,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.ensure depend.status depend.update depend.view init
+.PHONY: depend depend.status depend.update depend.cleanlock depend.update.full init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -166,58 +164,84 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: check-go-version $(ISTIO_OUT)/istio_is_init
+init: submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
+
+# Marker for whether vendor submodule is here or not already
+GRPC_DIR:=./vendor/google.golang.org/grpc
+
+# Submodule handling when not already there
+submodule: $(GRPC_DIR)
+
+$(GRPC_DIR):
+	$(MAKE) submodule-sync
+
+# If you want to force update/sync, invoke 'make submodule-sync' directly
+submodule-sync:
+	git submodule sync
+	git submodule update --init
+
+# Short cut for pulling/updating to latest of the current branch
+pull:
+	git pull
+	$(MAKE) submodule-sync
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
+
+.PHONY: submodule pull submodule-sync git.pullmaster
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT} ${DEP}
-	@(DEP=${DEP} ISTIO_OUT=${ISTIO_OUT} bin/init.sh)
-	@touch $(ISTIO_OUT)/istio_is_init
+$(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${ISTIO_OUT}
+	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
+	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call dep.update if adding new deps or to pull recent
-# changes.
+# Developers must manually call make depend.update if adding new deps or
+# make pull to pull recent changes in the submodule.
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-depend.ensure: init
+depend.status: | $(ISTIO_OUT)
+	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
+	dep status -dot > $(ISTIO_OUT)/dep.dot
+	cp Gopkg.* vendor/
 
-# Target to update the Gopkg.lock with latest versions.
-# Should be run when adding any new dependency and periodically.
-depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
-	${DEP} ensure
-	${DEP} ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
+$(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
+	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
 
-# If CGO_ENABLED=0 then go get tries to install in system directories.
-# If -pkgdir <dir> is also used then various additional .a files are present.
-${DEP}:
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
+# https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
+depend.update.full: depend.cleanlock depend.update
 
-${GOLINT}:
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/golang/lint/golint
+depend.cleanlock:
+	-rm Gopkg.lock
+
+depend.update:
+	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
+	time dep ensure $(DEPARGS)
+	cp Gopkg.* vendor/
+	@echo "now check the diff in vendor/ and make a PR"
+
+vendor.check:
+	@echo "Checking that Gopkg.* are in sync with vendor/ submodule:"
+	@echo "if this fails, 'make pull' and/or seek on-call help"
+	diff Gopkg.toml vendor/
+	diff Gopkg.lock vendor/
+
+.PHONY: vendor.check
 
 ${GEN_CERT}:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
-
-Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
-	$(Q) ${DEP} ensure -update
-
-# Generates the current status of the dependencies. Does not update the deps.
-depend.status:
-	$(Q) ${DEP} status > vendor/dep.txt
-	$(Q) ${DEP} status -dot > vendor/dep.dot
-
-# Visualize the dep status, using 'graphviz' package. Run as user
-depend.view:
-	cat vendor/dep.dot | dot -T png > vendor/dep.png
-	display vendor/dep.png
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -284,7 +308,7 @@ $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
@@ -318,7 +342,7 @@ pilot: pilot-discovery
 
 .PHONY: multicluster_ca node_agent istio_ca
 multicluster_ca node_agent istio_ca:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -408,7 +432,7 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -430,6 +454,10 @@ galley-coverage:
 security-coverage:
 	bin/parallel-codecov.sh security/pkg
 	bin/parallel-codecov.sh security/cmd
+
+.PHONY: common-coverage
+common-coverage:
+	bin/parallel-codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -490,10 +518,18 @@ ifeq ($(GOOS),linux)
 
 include tools/istio-docker.mk
 
-endif # end of docker block that's restricted to Linux
+# if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
+$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),$(eval push: gcs.push.istioctl-all gcs.push.deb),)
+
+push: docker.push installgen
 
 gcs.push.istioctl-all: istioctl-all
 	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
+
+gcs.push.deb: deb
+	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
+
+endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'

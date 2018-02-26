@@ -33,6 +33,9 @@ and is performed during regular working hours for your time zone.
 * On Friday, notify the next on-call.
 * On Tuesday, at the end of the on-call, handoff to next on-call and send a summary to istio-oncall and istio-dev. Include the stats below, that can be obtained by querying [GitHub with dates ranges:](https://help.github.com/articles/searching-issues-and-pull-requests/)
 
+* At the begining of your on-call make sure https://goo.gl/9wjRdg is updated with current snapshot numbers (of issues, PRs, etc...)
+* At the end of your on-call, update https://goo.gl/9wjRdg - the deltas will be calculated for you (bold columns) please send an email summary
+
 ```bash
 #Issues affecting automated tests:
 0 baseline / 21 incoming / 4 fixed / 17 open

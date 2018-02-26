@@ -31,7 +31,7 @@ import (
 )
 
 type routingToEgress struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *routingToEgress) String() string {

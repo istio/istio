@@ -47,6 +47,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: PILOT_THROTTLE
+            value: "200"
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
@@ -57,22 +59,27 @@ spec:
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
           ports:
           - containerPort: 15003
+          - containerPort: 15005
+          - containerPort: 15007
           args:
           - proxy
           - pilot
           - -v
           - "2"
-          - --discoveryAddress
-          - {{ template "pilot.fullname" . }}:15003
-          - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
+          - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot_auth.json
+          - --discoveryAddress
+          - {{ template "pilot.fullname" . }}:15005
         {{- else }}
+          - --controlPlaneAuthPolicy
           - NONE #--controlPlaneAuthPolicy
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot.json
+          - --discoveryAddress
+          - {{ template "pilot.fullname" . }}:15007
         {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}

@@ -18,7 +18,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
+
+	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/caclient/grpc"
@@ -120,7 +123,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(testRoot.Name(), c.ca.GetRootCertificate(), 0644)
+	_, _, _, rootCertBytes := c.ca.GetCAKeyCertBundle().GetAll()
+	err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, 0644)
 	if err != nil {
 		return err
 	}
@@ -131,11 +135,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	// Generate csr and credential
-	pc := platform.NewOnPremClientImpl(platform.OnPremConfig{
-		RootCACertFile: testRoot.Name(),
-		KeyFile:        testKey.Name(),
-		CertChainFile:  testCert.Name(),
-	})
+	pc := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
 
 	csr, _, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
@@ -159,8 +159,10 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
 
-	// test server
 	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
+		return nil
+	}
 
 	return err
 }

@@ -32,8 +32,6 @@ spec:
           - ingress
           - -v
           - "2"
-          - --discoveryAddress
-          - {{ .Release.Name }}-pilot:15003
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration
@@ -50,11 +48,16 @@ spec:
           - {{ .Release.Name }}-mixer:9125
           - --proxyAdminPort
           - "15000"
-          - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
+          - --controlPlaneAuthPolicy
           - MUTUAL_TLS
+          - --discoveryAddress
+          - {{ .Release.Name }}-pilot:15005
         {{- else }}
+          - --controlPlaneAuthPolicy
           - NONE #--controlPlaneAuthPolicy
+          - --discoveryAddress
+          - {{ .Release.Name }}-pilot:15007
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}

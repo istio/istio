@@ -52,8 +52,8 @@ import (
 	"fmt"
 	"strings"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
-	tpb "istio.io/api/mixer/v1/template"
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"

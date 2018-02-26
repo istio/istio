@@ -23,7 +23,7 @@ import (
 )
 
 type tcp struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *tcp) String() string {
@@ -39,7 +39,7 @@ func (t *tcp) Teardown() {
 
 func (t *tcp) Run() error {
 	// TCP in Eureka is tested by the headless service test.
-	if serviceregistry.ServiceRegistry(t.Registry) == serviceregistry.EurekaRegistry {
+	if serviceregistry.ServiceRegistry(t.Config.Registry) == serviceregistry.EurekaRegistry {
 		return nil
 	}
 	// Auth is enabled for d:9090 using per-service policy. We expect request
@@ -58,7 +58,7 @@ func (t *tcp) Run() error {
 				continue
 			}
 			for _, port := range []string{":90", ":9090"} {
-				for _, domain := range []string{"", "." + t.Namespace} {
+				for _, domain := range []string{"", "." + t.Config.Namespace} {
 					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
 					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)

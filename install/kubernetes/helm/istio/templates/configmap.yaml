@@ -68,9 +68,6 @@ data:
       # for more details
       proxyAdminPort: 15000
       #
-      # Address where istio Pilot service is running
-      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15003
-      #
       # Zipkin trace collector
       zipkinAddress: {{ .Release.Name}}-zipkin.{{ .Release.Namespace }}:9411
       #
@@ -81,4 +78,14 @@ data:
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15005
+    {{- else }}
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: NONE
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: {{ .Release.Name }}-pilot.{{ .Release.Namespace }}:15007
     {{- end }}

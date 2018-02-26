@@ -22,10 +22,12 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	restful "github.com/emicklei/go-restful"
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
@@ -111,6 +113,14 @@ var (
 		}, []string{metricLabelMethod, metricBuildVersion})
 )
 
+var (
+	// Variables associated with clear cache squashing.
+	lastClearCache     time.Time
+	clearCacheTimerSet bool
+	clearCacheMutex    sync.Mutex
+	clearCacheTime     = 1
+)
+
 func init() {
 	prometheus.MustRegister(cacheSizeGauge)
 	prometheus.MustRegister(cacheHitCounter)
@@ -118,6 +128,14 @@ func init() {
 	prometheus.MustRegister(callCounter)
 	prometheus.MustRegister(errorCounter)
 	prometheus.MustRegister(resourceCounter)
+
+	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
+	if len(cacheSquash) > 0 {
+		t, err := strconv.Atoi(cacheSquash)
+		if err == nil {
+			clearCacheTime = t
+		}
+	}
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
@@ -481,6 +499,21 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	clearCacheMutex.Lock()
+	defer clearCacheMutex.Unlock()
+
+	if time.Since(lastClearCache) < time.Duration(clearCacheTime)*time.Second {
+		if !clearCacheTimerSet {
+			clearCacheTimerSet = true
+			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
+				clearCacheTimerSet = false
+				ds.clearCache() // it's after time - so will clear the cache
+			})
+		}
+		return
+	}
+	// TODO: clear the RDS few seconds after CDS !!
+	lastClearCache = time.Now()
 	log.Infof("Cleared discovery service cache")
 	ds.sdsCache.clear()
 	ds.cdsCache.clear()
@@ -554,10 +587,10 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.sdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		hostname, ports, tags := model.ParseServiceKey(request.PathParameter(ServiceKey))
+		hostname, ports, labels := model.ParseServiceKey(request.PathParameter(ServiceKey))
 		// envoy expects an empty array if no hosts are available
 		hostArray := make([]*host, 0)
-		endpoints, err := ds.Instances(hostname, ports.GetNames(), tags)
+		endpoints, err := ds.Instances(hostname, ports.GetNames(), labels)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -565,9 +598,15 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 			return
 		}
 		for _, ep := range endpoints {
+			// Only set tags if theres an AZ to set, ensures nil tags when there isnt
+			var t *tags
+			if ep.AvailabilityZone != "" {
+				t = &tags{AZ: ep.AvailabilityZone}
+			}
 			hostArray = append(hostArray, &host{
 				Address: ep.Endpoint.Address,
 				Port:    ep.Endpoint.Port,
+				Tags:    t,
 			})
 		}
 		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {
@@ -691,6 +730,7 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
+			log.Errorf("error invoking webhook: %v", err)
 			transformedOutput = out
 		}
 
