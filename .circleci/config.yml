@@ -314,31 +314,16 @@ jobs:
     steps:
       - checkout
       - run: make submodule-sync
-      - run: mkdir -p /tmp/coverage
       - run:
-          name: Running Kubernetes API Server standalone
-          command: make localTestEnv
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
-      - run:
+          name: Starting Kubernetes API Server standalone and running tests
           command: |
-            bash <(curl -s https://codecov.io/bash) -F pilot
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/pkg
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/cmd
+            make localTestEnv
+            cd /go/src/istio.io/istio
+            MAXPROCS=6 bin/codecov.sh
       - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F security
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F broker
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F mixer
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pkg
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F common
+          name: Uploading code coverage to codecov.io
+          when: always
+          command: bash <(curl -s https://codecov.io/bash)
 
   test:
     <<: *defaults
@@ -583,16 +568,12 @@ workflows:
       - build:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
       - racetest:
           requires:
             - dependencies
       - e2e-mixer:
           requires:
             - build
-
 
   all:
     jobs:
@@ -606,6 +587,9 @@ workflows:
       - test:
           requires:
             - dependencies
+      - codecov:
+           requires:
+            - build
       - e2e-pilot:
           requires:
             - build
