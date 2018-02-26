@@ -20,6 +20,8 @@ import time
 from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.dummy_operator import DummyOperator
+from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.python_operator import PythonOperator
 
 import environment_config
@@ -89,7 +91,11 @@ def MakeCommonDag(name='istio_daily_flow_test',
     if conf is None:
       conf = dict()
 
-    date = kwargs['execution_date']
+    """ Airflow gives the execution date when the job is supposed to be run,
+        however we dont backfill and only need to run one build therefore use
+        the current date instead of the date that is passed in """
+#    date = kwargs['execution_date']
+    date = datetime.datetime.now()
 
     timestamp = time.mktime(date.timetuple())
 
@@ -107,11 +113,12 @@ def MakeCommonDag(name='istio_daily_flow_test',
       patch = r_patch + 1
     else:
       patch = 0
-
-    if not monthly:
-      version = conf.get('VERSION')
-    else:
+    # If version is overriden then we should use it otherwise we use it's
+    # default or monthly value.
+    version = conf.get('VERSION')
+    if monthly and not version:
       version = '{}.{}.{}'.format(major_version, minor_version, patch)
+
     default_conf = environment_config.get_airflow_config(
         version,
         timestamp,
@@ -161,7 +168,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     config_settings['GCS_FULL_STAGING_PATH'] = '{}/{}'.format(
         config_settings['GCS_STAGING_BUCKET'], gcs_path)
     config_settings['ISTIO_REPO'] = 'https://github.com/{}/{}.git'.format(
-        config_settings['GITHUB_ORG'],  config_settings['GITHUB_REPO'])
+        config_settings['GITHUB_ORG'], config_settings['GITHUB_REPO'])
 
     return config_settings
 
@@ -214,6 +221,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
     -a {{ settings.SVC_ACCT }}
     """
+  # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 
   build = BashOperator(
       task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
@@ -250,6 +258,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
 
 def ReportDailySuccessful(task_instance, **kwargs):
+  """Set this release as the candidate if it is the latest."""
   date = kwargs['execution_date']
   latest_run = float(Variable.get('latest_daily_timestamp'))
 
@@ -264,12 +273,46 @@ def ReportDailySuccessful(task_instance, **kwargs):
     Variable.set('latest_sha', run_sha)
     Variable.set('latest_daily', latest_version)
     logging.info('latest_sha test to %s', run_sha)
+    return 'tag_daily_gcr'
+  return 'skip_tag_daily_gcr'
+
+
+gcr_tag_success = r"""
+{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
+gsutil ls gs://{{ settings.GCS_STAGING_PATH }}/docker/ | \
+  grep -Eo "docker\/(([a-z]|-)*).tar.gz" | \
+  sed -E "s/docker\/(([a-z]|-)*).tar.gz/\1/g" | \
+  while read -r docker_image;do  \
+    yes | gcloud container images add-tag \
+    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSTION }}" \
+    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_daily";
+  done
+"""
 
 
 def MakeMarkComplete(dag):
-  return PythonOperator(
+  """Make the final sequence of the daily graph."""
+  mark_complete = BranchPythonOperator(
       task_id='mark_complete',
       python_callable=ReportDailySuccessful,
       provide_context=True,
       dag=dag,
   )
+
+  tag_daily_grc = BashOperator(
+      task_id='tag_daily_gcr',
+      bash_command=gcr_tag_success,
+      dag=dag,
+  )
+  # skip_grc = DummyOperator(
+  #     task_id='skip_tag_daily_gcr',
+  #     dag=dag,
+  # )
+  # end = DummyOperator(
+  #     task_id='end',
+  #     dag=dag,
+  #     trigger_rule="one_success",
+  # )
+  mark_complete >> tag_daily_grc
+  # mark_complete >> skip_grc >> end
+  return mark_complete

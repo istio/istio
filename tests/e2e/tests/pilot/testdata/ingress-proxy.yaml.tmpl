@@ -41,7 +41,11 @@ spec:
         - -v
         - "{{.Verbosity}}"
         - --discoveryAddress
-        - istio-pilot:15003
+{{if eq .ControlPlaneAuthPolicy.String "NONE" }}
+        - istio-pilot:15007
+{{else}}
+        - istio-pilot:15005
+{{end}}
 {{if .Zipkin}}
         - --zipkinAddress
         - zipkin:9411

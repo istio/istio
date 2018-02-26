@@ -15,6 +15,10 @@
 package v1
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -626,6 +630,57 @@ type NetworkFilterConfig interface {
 	IsNetworkFilterConfig()
 }
 
+// NetworkFilterTypes maps filter names to types of structs that implement them. It is used when unmarshaling JSON data.
+// To add your own NetworkFilter types, add additional entries to this map prior to calling json.Unmarshal.
+var NetworkFilterTypes = map[string]reflect.Type{
+	RedisProxyFilter:      reflect.TypeOf(RedisProxyFilterConfig{}),
+	CORSFilter:            reflect.TypeOf(CORSFilterConfig{}),
+	MongoProxyFilter:      reflect.TypeOf(MongoProxyFilterConfig{}),
+	TCPProxyFilter:        reflect.TypeOf(TCPProxyFilterConfig{}),
+	HTTPConnectionManager: reflect.TypeOf(HTTPFilterConfig{}),
+	MixerFilter:           reflect.TypeOf(FilterMixerConfig{}),
+}
+
+// UnmarshalJSON handles custom unmarshal logic for the NetworkFilter struct. This is needed because the config field
+// depends on the filter name.
+func (nf *NetworkFilter) UnmarshalJSON(b []byte) error {
+
+	// First, unmarshal to a generic data structure so we can get the name.
+	var j interface{}
+	err := json.Unmarshal(b, &j)
+	if err != nil {
+		return err
+	}
+	m := j.(map[string]interface{})
+	n, ok := m["name"].(string)
+	if !ok {
+		return errors.New("filter missing name field")
+	}
+
+	// Once we have the name, we can look up the concrete type of the config field.
+	t, ok := NetworkFilterTypes[n]
+	if !ok {
+		return fmt.Errorf("unknown filter name: %s", n)
+	}
+	v := reflect.New(t)
+
+	// Since Unmarshal takes a []byte, we re-marshall the config and then call Unmarshal on it.
+	cfgBytes, err := json.Marshal(m["config"])
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(cfgBytes, v.Interface())
+	if err != nil {
+		return err
+	}
+
+	// Fill in the NetworkFilter
+	nf.Name = n
+	nf.Type = m["type"].(string)
+	nf.Config = v.Interface().(NetworkFilterConfig)
+	return nil
+}
+
 // Listener definition
 type Listener struct {
 	Address        string           `json:"address"`
@@ -834,7 +889,8 @@ type RDS struct {
 
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters Clusters          `json:"clusters"`
-	SDS      *DiscoveryCluster `json:"sds,omitempty"`
-	CDS      *DiscoveryCluster `json:"cds,omitempty"`
+	Clusters         Clusters          `json:"clusters"`
+	SDS              *DiscoveryCluster `json:"sds,omitempty"`
+	CDS              *DiscoveryCluster `json:"cds,omitempty"`
+	LocalClusterName string            `json:"local_cluster_name,omitempty"`
 }

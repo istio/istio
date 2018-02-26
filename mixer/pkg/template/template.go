@@ -22,14 +22,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/api/mixer/v1/config"
-	pb "istio.io/api/mixer/v1/config/descriptor"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -196,7 +194,7 @@ type (
 		ProcessQuota            ProcessQuotaFn
 		ProcessGenAttrs         ProcessGenerateAttributesFn
 
-		AttributeManifests []*config.AttributeManifest
+		AttributeManifests []*pb.AttributeManifest
 
 		DispatchReport   DispatchReportFn
 		DispatchCheck    DispatchCheckFn
@@ -287,8 +285,6 @@ func NewOutputMapperFn(expressions map[string]compiled.Expression) OutputMapperF
 			switch v := val.(type) {
 			case net.IP:
 				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-				// TODO: remove
-				log.Info("converting net.IP to []byte")
 				if v4 := v.To4(); v4 != nil {
 					resultBag.Set(attrName, []byte(v4))
 					continue

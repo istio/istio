@@ -123,14 +123,14 @@ func testInitStdIo() {
 	outC = make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		io.Copy(&buf, r) // nolint: errcheck
 		outC <- buf.String()
 	}()
 }
 
 // Will block waiting for data on the channel.
 func readStdOut() string {
-	pipeOut.Close()
+	pipeOut.Close() // nolint: errcheck
 	os.Stdout = oldOut
 	fmt.Println("Waiting for output")
 	return <-outC
@@ -363,7 +363,7 @@ func TestMountCmdCredFailure(t *testing.T) {
 		}
 	}
 
-	errPath := fmt.Sprintf(filepath.Join(testDir, "fail", opts.UID+".json"))
+	errPath := filepath.Join(testDir, "fail", opts.UID+".json")
 	var gotResp Response
 	expResp := getFailure("", "", fmt.Sprintf("Failure to create credentials: open %s: no such file or directory", errPath))
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
@@ -569,6 +569,6 @@ func TestMain(m *testing.M) {
 
 	r := m.Run()
 
-	os.RemoveAll(testDir)
+	os.RemoveAll(testDir) // nolint: errcheck
 	os.Exit(r)
 }

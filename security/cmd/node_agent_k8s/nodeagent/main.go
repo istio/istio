@@ -74,7 +74,7 @@ func MgmtAPI() {
 		os.Exit(1)
 	}(mgmtServer, sigc)
 
-	mgmtServer.Serve(true, CfgMgmtAPIPath)
+	mgmtServer.Serve(CfgMgmtAPIPath)
 }
 
 func main() {

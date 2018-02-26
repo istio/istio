@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/pkg/log"
@@ -280,6 +280,8 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
 	default:
+		// The parameters to a function (and the function itself) is expected to exist, regardless of whether
+		// we're in a nillable context. The call will either succeed or error out.
 		if f.Target != nil {
 			g.generate(f.Target, depth, nmNone, "")
 		}
@@ -287,6 +289,11 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 			g.generate(arg, depth, nmNone, "")
 		}
 		g.builder.Call(f.Name)
+		// If we're in a nillable context, then simply short-circuit to the end. The function is either
+		// guaranteed to succeed or error out.
+		if mode == nmJmpOnValue {
+			g.builder.Jmp(valueJmpLabel)
+		}
 	}
 }
 

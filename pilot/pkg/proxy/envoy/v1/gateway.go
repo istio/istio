@@ -141,23 +141,37 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 			if listenerPort != int(server.Port.Number) {
 				continue
 			}
-			for _, externalHostname := range server.Hosts {
-				routesForThisVirtualHost, err := buildDestinationHTTPRoutesForGatewayVirtualHost(allRules,
-					node, configStore, listenerPort, buildOutboundCluster,
-					gatewayName, externalHostname)
-				if err != nil {
-					return nil, err
-				}
-				if len(routesForThisVirtualHost) == 0 {
-					log.Warn("gateway-virtual-hosts", zap.String("host", externalHostname))
+
+			for _, gatewayHost := range server.Hosts {
+				allRulesWithHosts := findRulesAndMatchingHosts(allRules, gatewayName, gatewayHost)
+				if len(allRulesWithHosts) == 0 {
+					log.Warn("gateway-virtual-hosts", zap.String("host", gatewayHost))
 					continue
 				}
+				pseudoServicePort := &model.Port{
+					Protocol: model.ProtocolHTTP, // TODO: support others
+					Port:     listenerPort,
+					Name:     "http", // TODO: support other names?
+				}
+				pseudoService := &model.Service{
+					Hostname: gatewayHost,
+					Ports: []*model.Port{
+						pseudoServicePort,
+					},
+				}
+				for _, rh := range allRulesWithHosts {
+					rule := rh.Rule
+					routesForThisVirtualHost := buildHTTPRoutes(configStore, rule, pseudoService,
+						pseudoServicePort, nil, node.Domain, buildOutboundCluster)
 
-				virtualHosts = append(virtualHosts, &VirtualHost{
-					Name:    fmt.Sprintf("%s|%d|%s", gatewayName, listenerPort, externalHostname),
-					Domains: []string{fmt.Sprintf("%s:%d", externalHostname, listenerPort), externalHostname},
-					Routes:  routesForThisVirtualHost,
-				})
+					for _, host := range rh.Hosts {
+						virtualHosts = append(virtualHosts, &VirtualHost{
+							Name:    fmt.Sprintf("%s|%d|%s", gatewayName, listenerPort, host),
+							Domains: []string{fmt.Sprintf("%s:%d", host, listenerPort), host},
+							Routes:  routesForThisVirtualHost,
+						})
+					}
+				}
 			}
 		}
 	}
@@ -166,47 +180,56 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 	return configs, nil
 }
 
-func buildDestinationHTTPRoutesForGatewayVirtualHost(
-	allRules []model.Config,
-	node model.Proxy, config model.IstioConfigStore,
-	externalPort int,
-	buildCluster buildClusterFunc,
-	gatewayName string, externalHostname string) ([]*HTTPRoute, error) {
-
-	rule, found := filterRulesToGatewayAndExternalHostname(allRules, gatewayName, externalHostname)
-	if !found {
-		return nil, nil
-	}
-
-	pseudoServicePort := &model.Port{
-		Protocol: model.ProtocolHTTP, // TODO: support others
-		Port:     externalPort,
-		Name:     "http", // TODO: support other names?
-	}
-	pseudoService := &model.Service{
-		Hostname: externalHostname,
-		Ports: []*model.Port{
-			pseudoServicePort,
-		},
-	}
-	return buildHTTPRoutes(config, rule, pseudoService, pseudoServicePort, nil, node.Domain, buildCluster), nil
+type ruleWithHosts struct {
+	Rule  model.Config
+	Hosts []string
 }
 
-func filterRulesToGatewayAndExternalHostname(allRules []model.Config, gatewayName string, externalHostname string) (model.Config, bool) {
-	for _, untypedRule := range allRules {
-		rule := untypedRule.Spec.(*routing.RouteRule)
-		if stringSliceContains(rule.Hosts, externalHostname) && stringSliceContains(rule.Gateways, gatewayName) {
-			return untypedRule, true
+func findRulesAndMatchingHosts(allRuleConfigs []model.Config, gatewayName string, gatewayHost string) []ruleWithHosts {
+
+	result := []ruleWithHosts{}
+	for _, config := range allRuleConfigs {
+		rule := config.Spec.(*routing.RouteRule)
+		if stringSliceContains(gatewayName, rule.Gateways) {
+			matchingHosts := findMatchingHosts(gatewayHost, rule.Hosts)
+			if len(matchingHosts) == 0 {
+				continue
+			}
+			result = append(result, ruleWithHosts{
+				Rule:  config,
+				Hosts: matchingHosts,
+			})
 		}
 	}
-	return model.Config{}, false
+
+	return result
 }
 
-func stringSliceContains(things []string, match string) bool {
+func stringSliceContains(match string, things []string) bool {
 	for _, thing := range things {
 		if thing == match {
 			return true
 		}
 	}
 	return false
+}
+
+func findMatchingHosts(matchCriteria string, hosts []string) []string {
+	if matchCriteria == "" {
+		return nil
+	}
+
+	if matchCriteria[0] != '*' {
+		if stringSliceContains(matchCriteria, hosts) {
+			return []string{matchCriteria}
+		}
+	}
+
+	matchingHosts := []string{}
+	for _, host := range hosts {
+		if strings.HasSuffix(host, matchCriteria[1:]) {
+			matchingHosts = append(matchingHosts, host)
+		}
+	}
+	return matchingHosts
 }

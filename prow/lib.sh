@@ -23,7 +23,7 @@ function setup_and_export_git_sha() {
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
     if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-      mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+      mv ${GOPATH}/src/github.com/${REPO_OWNER:-istio} ${GOPATH}/src/istio.io
       export ROOT=${GOPATH}/src/istio.io/istio
       cd ${GOPATH}/src/istio.io/istio
     fi
@@ -36,6 +36,9 @@ function setup_and_export_git_sha() {
 
     # Use volume mount from pilot-presubmit job's pod spec.
     export KUBECONFIG="${HOME}/.kube/config"
+
+    # Set artifact dir based on checkout
+    export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   else
     # Use the current commit.
     export GIT_SHA="$(git rev-parse --verify HEAD)"
