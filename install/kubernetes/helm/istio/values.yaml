@@ -40,6 +40,8 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
+  # Default is 1 second
+  refreshInterval: 10s
 
 #
 # ingress configuration
@@ -185,11 +187,6 @@ prometheus:
     repository: docker.io/prom/prometheus
     tag: latest
     pullPolicy: IfNotPresent
-  service:
-    name: web
-    type: ClusterIP
-    externalPort: 9090
-    internalPort: 9090
   ingress:
     enabled: false
     # Used to create an Ingress record.

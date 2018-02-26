@@ -23,7 +23,7 @@ spec:
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           args:
-          - --prometheusAddr={{ .Values.prometheusAddr }}
+          - --prometheusAddr=http://prometheus:9090
 #          livenessProbe:
 #            httpGet:
 #              path: /

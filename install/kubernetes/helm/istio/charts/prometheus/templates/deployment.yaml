@@ -1,3 +1,4 @@
+# TODO: the original template has service account, roles, etc
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -19,6 +20,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.rbacEnabled }}
+      serviceAccountName: prometheus
+{{ end }}
       containers:
         - name: prometheus
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -27,16 +31,16 @@ spec:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
           ports:
-            - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: 9090
               name: http
           livenessProbe:
             httpGet:
               path: /-/healthy
-              port: {{ .Values.service.internalPort }}
+              port: 9090
           readinessProbe:
             httpGet:
               path: /-/ready
-              port: {{ .Values.service.internalPort }}
+              port: 9090
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:

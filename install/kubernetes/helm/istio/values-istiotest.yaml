@@ -2,8 +2,22 @@
 
 global:
   nodePort: true
+  proxy:
+    image: proxy_debug
 
 ingress:
   service:
     nodePort:
       enabled: true
+
+
+prometheus:
+  enabled: true
+  ingress:
+    enabled: true
+
+grafana:
+  enabled: true
+
+servicegraph:
+  enabled: true
