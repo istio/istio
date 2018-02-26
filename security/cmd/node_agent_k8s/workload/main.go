@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	sockFile string = "/tmp/udsver/nodeagent/server.sock"
+	sockFile string = "/tmp/udsver/nodeagent/socket"
 )
 
 var (

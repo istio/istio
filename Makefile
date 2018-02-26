@@ -313,7 +313,7 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume ${ISTIO_OUT}/node_agent_k8s
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -333,6 +333,10 @@ istio-ca:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: node-agent-k8s
+node-agent-k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent-k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
 
 .PHONY: flexvolume
 flexvolume: ${ISTIO_OUT}/flexvolume
