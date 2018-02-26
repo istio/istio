@@ -1,0 +1,31 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: details-test-abort-500
+spec:
+  destination:
+    name: details
+  precedence: 2
+  route:
+  - labels:
+      version: v1
+  httpFault:
+    abort:
+      percent: 100
+      httpStatus: 500
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: details-test-abort-400
+spec:
+  destination:
+    name: details
+  precedence: 2
+  route:
+  - labels:
+      version: v1
+  httpFault:
+    abort:
+      percent: 100
+      httpStatus: 400
