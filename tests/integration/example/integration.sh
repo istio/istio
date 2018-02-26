@@ -33,14 +33,14 @@ make mixs
 MIXER_BINARY=$(make where-is-out)/mixs
 ENVOY_BINARY=$(make where-is-out)/envoy
 
-PROXY_TAG=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 # Download Proxy Repo
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
 git pull
 
-git reset ${PROXY_TAG} --hard
+# A default value for ISTIO_ENVOY_VERSION is set by init.sh
+git reset ${ISTIO_ENVOY_VERSION} --hard
 #ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
 START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
 cd ../istio
