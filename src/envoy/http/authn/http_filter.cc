@@ -14,6 +14,8 @@
  */
 
 #include "src/envoy/http/authn/http_filter.h"
+#include "src/envoy/http/authn/mtls_authentication.h"
+#include "src/envoy/utils/utils.h"
 
 namespace Envoy {
 namespace Http {
@@ -39,6 +41,35 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap&, bool) {
     if (m.has_mtls()) {
       ENVOY_LOG(debug, "AuthenticationFilter: {} this connection requires mTLS",
                 __func__);
+      MtlsAuthentication mtls_authn(decoder_callbacks_->connection());
+      if (mtls_authn.IsMutualTLS() == false) {
+        // In prototype, only log the authentication policy violation.
+        ENVOY_LOG(error,
+                  "AuthenticationFilter: authn policy requires mTLS but the "
+                  "connection is not mTLS!");
+      } else {
+        ENVOY_LOG(debug, "AuthenticationFilter: the connection is mTLS.");
+        std::string user, ip;
+        int port = 0;
+        bool ret = false;
+        ret = mtls_authn.GetSourceUser(&user);
+        if (ret) {
+          ENVOY_LOG(debug, "AuthenticationFilter: the source user is {}", user);
+        } else {
+          ENVOY_LOG(error,
+                    "AuthenticationFilter: GetSourceUser() returns false!");
+        }
+        ret = mtls_authn.GetSourceIpPort(&ip, &port);
+        if (ret) {
+          ENVOY_LOG(debug,
+                    "AuthenticationFilter: the source ip is {}, the source "
+                    "port is {}",
+                    user, port);
+        } else {
+          ENVOY_LOG(error,
+                    "AuthenticationFilter: GetSourceIpPort() returns false!");
+        }
+      }
     } else {
       ENVOY_LOG(
           debug,
@@ -68,8 +99,9 @@ FilterTrailersStatus AuthenticationFilter::decodeTrailers(HeaderMap&) {
 }
 
 void AuthenticationFilter::setDecoderFilterCallbacks(
-    StreamDecoderFilterCallbacks&) {
+    StreamDecoderFilterCallbacks& callbacks) {
   ENVOY_LOG(debug, "Called AuthenticationFilter : {}", __func__);
+  decoder_callbacks_ = &callbacks;
 }
 
 }  // namespace Http

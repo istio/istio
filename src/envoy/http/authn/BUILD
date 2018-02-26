@@ -27,9 +27,11 @@ envoy_cc_library(
     srcs = [
         "http_filter_factory.cc",
         "http_filter.cc",
+        "mtls_authentication.cc",
     ],
     hdrs = [
         "http_filter.h",
+        "mtls_authentication.h"
     ],
     repository = "@envoy",
     deps = [

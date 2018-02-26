@@ -42,6 +42,7 @@ class AuthenticationFilter : public StreamDecoderFilter,
  private:
   // Store the config.
   const istio::authentication::v1alpha1::Policy& config_;
+  StreamDecoderFilterCallbacks* decoder_callbacks_;
 };
 
 }  // namespace Http
