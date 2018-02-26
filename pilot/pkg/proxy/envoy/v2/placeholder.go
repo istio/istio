@@ -25,7 +25,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/api"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"google.golang.org/grpc"
@@ -41,7 +40,7 @@ func RunXDS(ctx context.Context, config cache.Cache, port uint) {
 	if err != nil {
 		log.Errorf("failed to listen")
 	}
-	api.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
+	//api.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	log.Infof("xDS server listening on %d", port)
 	go func() {
 		if err = grpcServer.Serve(lis); err != nil {

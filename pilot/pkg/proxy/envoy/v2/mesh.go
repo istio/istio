@@ -67,7 +67,8 @@ import (
 	"strings"
 	"sync"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/api"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	types "github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -79,7 +80,7 @@ const (
 	// TODO: move istioConfigFilter to github.com/istio.io/api
 	// The internal filter name for attributes that should be used for
 	// constructing Istio attributes on the Endpoint in reverse DNS
-	// form. See xdsapi.Metadata.Name
+	// form. See core.Metadata.Name
 	istioConfigFilter = "io.istio.istio-config"
 
 	// nameValueSeparator is a separator for creating label name-value keys used for
@@ -270,7 +271,7 @@ type Mesh struct {
 // Endpoint is a environment independent representation of a Mesh Endpoints that
 // uses Envoy v2 API's LbEndpoint as its internal implementation. It also
 // provides utility methods intended for environment specific service registries.
-type Endpoint xdsapi.LbEndpoint
+type Endpoint endpoint.LbEndpoint
 
 // endpointSet is a unique set of Endpoints.
 type endpointSet map[*Endpoint]bool
@@ -296,7 +297,7 @@ type RuleChange struct {
 // EndpointChange is intended for incremental updates from service registries
 type EndpointChange struct {
 	// Endpoint the endpoint being added, deleted or updated
-	Endpoint *xdsapi.Endpoint
+	Endpoint *endpoint.Endpoint
 	// Type of config change
 	Type ConfigChangeType
 }
@@ -815,24 +816,24 @@ func NewEndpoint(address string, port uint32, socketProtocol SocketProtocol, lab
 	if errs != nil {
 		return nil, multierror.Prefix(errs, "Mesh endpoint creation errors")
 	}
-	var epSocketProtocol xdsapi.SocketAddress_Protocol
+	var epSocketProtocol core.SocketAddress_Protocol
 	switch socketProtocol {
 	case SocketProtocolTCP:
-		epSocketProtocol = xdsapi.SocketAddress_TCP
+		epSocketProtocol = core.TCP
 	case SocketProtocolUDP:
-		epSocketProtocol = xdsapi.SocketAddress_UDP
+		epSocketProtocol = core.UDP
 	}
 	miscLabels[DestinationIP.AttrName()] = ipAddr.String()
 	miscLabels[DestinationPort.AttrName()] = strconv.Itoa((int)(port))
 	ep := Endpoint{
-		Endpoint: &xdsapi.Endpoint{
-			Address: &xdsapi.Address{
-				Address: &xdsapi.Address_SocketAddress{
-					&xdsapi.SocketAddress{
+		Endpoint: &endpoint.Endpoint{
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					&core.SocketAddress{
 						Address:    address,
 						Ipv4Compat: ipAddr.To4() != nil,
 						Protocol:   epSocketProtocol,
-						PortSpecifier: &xdsapi.SocketAddress_PortValue{
+						PortSpecifier: &core.SocketAddress_PortValue{
 							PortValue: port,
 						},
 					},
@@ -914,7 +915,7 @@ func (ep *Endpoint) setMultiValuedAttrs(attrName string, attrValues []string) {
 func (ep *Endpoint) createIstioMetadata() map[string]*types.Value {
 	metadata := ep.Metadata
 	if metadata == nil {
-		metadata = &xdsapi.Metadata{}
+		metadata = &core.Metadata{}
 		ep.Metadata = metadata
 	}
 	filterMap := metadata.FilterMetadata
