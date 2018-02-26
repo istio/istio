@@ -31,4 +31,6 @@ cd ${ROOT}
 
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
-JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" make build localTestEnv test
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" \
+T="-v" \
+make build localTestEnv test
