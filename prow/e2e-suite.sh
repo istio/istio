@@ -32,9 +32,25 @@ set -x
 
 TESTS_TARGETS="e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade"
 SINGLE_MODE=false
-E2E_ARGS=()
 
-source ${ROOT}/prow/lib.sh
+# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
+# for exiting resources types
+RESOURCE_TYPE="${RESOURCE_TYPE:-'gke-e2e-test'}"
+OWNER='e2e-suite'
+INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+
+E2E_ARGS=(--mason_info="${INFO_PATH}")
+
+source "${ROOT}/prow/lib.sh"
+source "${ROOT}/prow/mason_lib.sh"
+source "${ROOT}/prow/cluster_lib.sh"
+
+function cleanup() {
+  mason_cleanup
+  cat "${FILE_LOG}"
+}
+
 setup_and_export_git_sha
 
 if [ "${CI:-}" == 'bootstrap' ]; then
@@ -49,6 +65,10 @@ export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
 make init
+
+trap cleanup EXIT
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+setup_cluster
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
