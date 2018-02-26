@@ -20,14 +20,14 @@ import (
 )
 
 const (
-	rootCertFile        = "testdata/3level/root-cert.pem"
-	rootKeyFile         = "testdata/3level/root-key.pem"
-	intCertFile         = "testdata/3level/int-cert.pem"
-	intKeyFile          = "testdata/3level/int-key.pem"
-	intCertChainFile    = "testdata/3level/int-cert-chain.pem"
-	int2CertFile        = "testdata/3level/int2-cert.pem"
-	int2KeyFile         = "testdata/3level/int2-key.pem"
-	int2CertChainFile   = "testdata/3level/int2-cert-chain.pem"
+	rootCertFile        = "testdata/multilevelpki/root-cert.pem"
+	rootKeyFile         = "testdata/multilevelpki/root-key.pem"
+	intCertFile         = "testdata/multilevelpki/int-cert.pem"
+	intKeyFile          = "testdata/multilevelpki/int-key.pem"
+	intCertChainFile    = "testdata/multilevelpki/int-cert-chain.pem"
+	int2CertFile        = "testdata/multilevelpki/int2-cert.pem"
+	int2KeyFile         = "testdata/multilevelpki/int2-key.pem"
+	int2CertChainFile   = "testdata/multilevelpki/int2-cert-chain.pem"
 	badCertFile         = "testdata/cert-bad.pem"
 	badKeyFile          = "testdata/key-bad.pem"
 	anotherKeyFile      = "testdata/key.pem"
