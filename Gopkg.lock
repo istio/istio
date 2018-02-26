@@ -340,10 +340,12 @@
     "protoc-gen-gogo/grpc",
     "protoc-gen-gogo/plugin",
     "protoc-gen-gogoslick",
+    "protoc-min-version",
     "sortkeys",
     "types",
     "vanity",
-    "vanity/command"
+    "vanity/command",
+    "version"
   ]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
   version = "v0.5"
@@ -1450,6 +1452,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b7088c9747af431bf2fddaab563f9375f5ab31c7d5a72b7fbaf2f775e452804c"
+  inputs-digest = "09fe190ee519878ce69e19d69ca3f0ac50a8dd59f38cc402db6d1143d0811205"
   solver-name = "gps-cdcl"
   solver-version = 1
