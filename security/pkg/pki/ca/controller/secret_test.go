@@ -192,23 +192,23 @@ func TestUpdateSecret(t *testing.T) {
 		"Does not update non-expiring secret": {
 			expectedActions:  []ktesting.Action{},
 			ttl:              time.Hour,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl:              defaultTTL,
+			ttl:              time.Hour,
 			gracePeriodRatio: 1, // Always in grace period
-			minGracePeriod:   defaultMinGracePeriod,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret in min grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
 			ttl:              10 * time.Minute,
-			gracePeriodRatio: defaultGracePeriodRatio,
+			gracePeriodRatio: 0.5,
 			minGracePeriod:   time.Hour, // ttl is always in minGracePeriod
 		},
 		"Update expired secret": {
@@ -216,16 +216,16 @@ func TestUpdateSecret(t *testing.T) {
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
 			ttl:              -time.Second,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl:              defaultTTL,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			ttl:              time.Hour,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 			rootCert:         []byte("Outdated root cert"),
 		},
 	}

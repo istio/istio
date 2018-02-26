@@ -338,6 +338,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			needToCreateClient = true
 		case CloudFoundryRegistry:
 			needToCreateClient = false
+		}
 	}
 
 	if needToCreateClient && args.Config.FileDir == "" {
