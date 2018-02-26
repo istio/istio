@@ -105,6 +105,7 @@ if [ ! -e ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/type.proto ]; 
 +curl -sS ${ISTIO_API_URL}/policy/v1beta1/cfg.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/cfg.proto
 +curl -sS ${ISTIO_API_URL}/policy/v1beta1/value_type.proto > ${ROOT}/vendor/istio.io/api/policy/v1beta1/value_type.proto
 +curl -sS ${ISTIO_API_URL}/mixer/adapter/model/v1beta1/extensions.proto > ${ROOT}/vendor/istio.io/api/mixer/adapter/model/v1beta1/extensions.proto
+fi
 
 GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
 GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
