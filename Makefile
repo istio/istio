@@ -378,11 +378,18 @@ istioctl-install:
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: test localTestEnv test-bins
+.PHONY: junit-parser test localTestEnv test-bins
+
+PARSER := $(shell command -v go-junit-report 2> /dev/null)
+junit-parser:
+ifndef PARSER
+	@echo "go-junit-report not found. Installing it now..."
+	go get -u github.com/jstemmer/go-junit-report
+endif
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
-test:
+test: junit-parser
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
