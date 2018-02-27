@@ -32,36 +32,34 @@ import (
 )
 
 var (
-	tls        = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
-	certFile   = flag.String("cert_file", "", "The TLS cert file")
-	keyFile    = flag.String("key_file", "", "The TLS key file")
-	port       = flag.Int("port", 10000, "The server port")
-	udsPath    = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
+	tls      = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
+	certFile = flag.String("cert_file", "", "The TLS cert file")
+	keyFile  = flag.String("key_file", "", "The TLS key file")
+	port     = flag.Int("port", 10000, "The server port")
+	udsPath  = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
 )
 
 // SDSServer implements sds.SecretDiscoveryServiceServer that listens on a
 // Unix Domain Socket.
 type SDSServer struct {
-        // Specifies the Unix Domain Socket paths the server listens on.
-        // The UDS path identifies the identity for which the workload will
-        // request X.509 key/cert from this server. This path should only be
-        // accessible by such workload.
-        // TODO: describe more details how this path identifies the workload
-        // identity once the UDS path format is settled down.
-	udsPath    string
+	// Specifies the Unix Domain Socket paths the server listens on.
+	// The UDS path identifies the identity for which the workload will
+	// request X.509 key/cert from this server. This path should only be
+	// accessible by such workload.
+	// TODO: describe more details how this path identifies the workload
+	// identity once the UDS path format is settled down.
+	udsPath string
 }
-
 
 // GetTlsCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
 func (s *SDSServer) GetTlsCertificate() *auth.TlsCertificate {
-        // TODO: Add implementation. Consider define an interface to support
-        // different implementations that can get certificate from different CA
-        // systems including Istio CA and other CAs.
+	// TODO: Add implementation. Consider define an interface to support
+	// different implementations that can get certificate from different CA
+	// systems including Istio CA and other CAs.
 	return &auth.TlsCertificate{}
 }
-
 
 // FetchSecrets fetches the X.509 key/cert for a given workload whose identity
 // can be derived from the UDS path where this call is received.
@@ -82,8 +80,8 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 	}
 	response := &api.DiscoveryResponse{
 		VersionInfo: "0",
-		Resources: resources,
-		TypeUrl: typeUrl,
+		Resources:   resources,
+		TypeUrl:     typeUrl,
 	}
 
 	return response, nil

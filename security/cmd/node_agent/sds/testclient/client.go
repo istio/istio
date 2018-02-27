@@ -19,13 +19,13 @@ import (
 	"net"
 	"time"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 	caFile             = flag.String("ca_file", "", "The file containning the CA root cert file")
 	serverAddr         = flag.String("server_addr", "127.0.0.1:10000", "The server address in the format of host:port")
 	serverHostOverride = flag.String("server_host_override", "x.test.youtube.com", "The server name use to verify the hostname returned by TLS handshake")
-	udsPath    = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
+	udsPath            = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
 )
 
 func unixDialer(target string, timeout time.Duration) (net.Conn, error) {
@@ -63,14 +63,14 @@ func main() {
 
 	var secret auth.Secret
 	resource := response.GetResources()[0]
-        bytes := resource.Value
+	bytes := resource.Value
 
-        err = proto.Unmarshal(bytes, &secret)
+	err = proto.Unmarshal(bytes, &secret)
 	if err != nil {
 		log.Fatalf("failed parse the response %v", err)
 	}
 
 	log.Println("Received secrets:")
 	log.Printf("version info: %v, TypeUrl: %v, secret name: %v, certificate: %v",
-	           response.GetVersionInfo(), response.GetTypeUrl(), secret.GetName(), secret.GetTlsCertificate())
+		response.GetVersionInfo(), response.GetTypeUrl(), secret.GetName(), secret.GetTlsCertificate())
 }
