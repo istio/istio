@@ -34,7 +34,7 @@ TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
-# for exiting resources types
+# for existing resources types
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER='e2e-suite'
 INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"

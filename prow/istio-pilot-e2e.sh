@@ -30,7 +30,7 @@ set -u
 set -x
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
-# for exiting resources types
+# for existing resources types
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER='istio-pilot-e2e'
 INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
