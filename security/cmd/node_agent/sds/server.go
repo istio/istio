@@ -54,7 +54,7 @@ type SDSServer struct {
 // GetTlsCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
-func (s *SDSServer) GetTlsCertificate() *auth.TlsCertificate {
+func (s *SDSServer) GetTLSCertificate() *auth.TlsCertificate {
 	// TODO: Add implementation. Consider define an interface to support
 	// different implementations that can get certificate from different CA
 	// systems including Istio CA and other CAs.
@@ -69,19 +69,19 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 	secret := &auth.Secret{
 		Name: "SPKI",
 		Type: &auth.Secret_TlsCertificate{
-			TlsCertificate: s.GetTlsCertificate(),
+			TlsCertificate: s.GetTLSCertificate(),
 		},
 	}
 	data, _ := proto.Marshal(secret)
-	typeUrl := "type.googleapis.com/envoy.api.v2.auth.Secret"
+	typeURL := "type.googleapis.com/envoy.api.v2.auth.Secret"
 	resources[0] = types.Any{
-		TypeUrl: typeUrl,
+		TypeUrl: typeURL,
 		Value:   data,
 	}
 	response := &api.DiscoveryResponse{
 		VersionInfo: "0",
 		Resources:   resources,
-		TypeUrl:     typeUrl,
+		TypeUrl:     typeURL,
 	}
 
 	return response, nil
@@ -103,10 +103,6 @@ func newServer(udsPath string) *SDSServer {
 
 func main() {
 	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
 	var opts []grpc.ServerOption
 	if *tls {
 		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
@@ -116,19 +112,28 @@ func main() {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	sds.RegisterSecretDiscoveryServiceServer(grpcServer, newServer(*udsPath))
 
-	_, e := os.Stat(*udsPath)
-	if e == nil {
-		e := os.RemoveAll(*udsPath)
-		if e != nil {
-			log.Fatalf("failed to %v %v", *udsPath, err)
+	var lis net.Listener
+	var err error
+	if *udsPath != "" {
+		sds.RegisterSecretDiscoveryServiceServer(grpcServer, newServer(*udsPath))
+		_, err = os.Stat(*udsPath)
+		if err == nil {
+			err = os.RemoveAll(*udsPath)
+			if err != nil {
+				log.Fatalf("failed to %v %v", *udsPath, err)
+			}
+		}
+		lis, err = net.Listen("unix", *udsPath)
+		if err != nil {
+			log.Fatalf("failed to %v", err)
+		}
+	} else {
+		lis, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
 		}
 	}
-	lis, err = net.Listen("unix", *udsPath)
-	if err != nil {
-		log.Fatalf("failed to %v", err)
-	}
 
-	grpcServer.Serve(lis)
+	_ = grpcServer.Serve(lis)
 }

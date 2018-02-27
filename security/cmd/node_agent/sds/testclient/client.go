@@ -31,7 +31,6 @@ import (
 var (
 	tls                = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
 	caFile             = flag.String("ca_file", "", "The file containning the CA root cert file")
-	serverAddr         = flag.String("server_addr", "127.0.0.1:10000", "The server address in the format of host:port")
 	serverHostOverride = flag.String("server_host_override", "x.test.youtube.com", "The server name use to verify the hostname returned by TLS handshake")
 	udsPath            = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
 )
@@ -57,9 +56,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect with server %v", err)
 	}
-	defer conn.Close()
 	client := sds.NewSecretDiscoveryServiceClient(conn)
-	response, err := client.FetchSecrets(context.Background(), &api.DiscoveryRequest{})
+	response, _ := client.FetchSecrets(context.Background(), &api.DiscoveryRequest{})
 
 	var secret auth.Secret
 	resource := response.GetResources()[0]
@@ -73,4 +71,5 @@ func main() {
 	log.Println("Received secrets:")
 	log.Printf("version info: %v, TypeUrl: %v, secret name: %v, certificate: %v",
 		response.GetVersionInfo(), response.GetTypeUrl(), secret.GetName(), secret.GetTlsCertificate())
+	_ = conn.Close()
 }
