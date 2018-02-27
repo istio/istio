@@ -43,8 +43,18 @@ const (
 // ClusterName specifies cluster name for a destination
 type ClusterName func(*routingv2.Destination) string
 
-// TranslateHost creates virtual host routes from the v1alpha2 config.
-func TranslateHost(in model.Config, name ClusterName, defaultCluster string, labels model.Labels) []route.Route {
+// GuardedRoute are routes for a destination guarded by source labels.
+type GuardedRoute struct {
+	route.Route
+
+	// SourceLabels guarding the route
+	SourceLabels map[string]string
+}
+
+// TranslateRoutes creates virtual host routes from the v1alpha2 config.
+// The rule should be adapted to destination names (outbound clusters).
+// Each rule is guarded by source labels.
+func TranslateRoutes(in model.Config, name ClusterName, defaultCluster string) []GuardedRoute {
 	rule, ok := in.Spec.(*routingv2.RouteRule)
 	if !ok {
 		return nil
@@ -53,20 +63,18 @@ func TranslateHost(in model.Config, name ClusterName, defaultCluster string, lab
 	operation := in.ConfigMeta.Name
 
 	if len(rule.Http) == 0 {
-		return []route.Route{
+		return []GuardedRoute{
 			TranslateRoute(&routingv2.HTTPRoute{}, nil, operation, name, defaultCluster),
 		}
 	}
 
-	out := make([]route.Route, 0)
+	out := make([]GuardedRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
 			out = append(out, TranslateRoute(http, nil, operation, name, defaultCluster))
 		} else {
 			for _, match := range http.Match {
-				if model.Labels(match.SourceLabels).SubsetOf(labels) {
-					out = append(out, TranslateRoute(http, match, operation, name, defaultCluster))
-				}
+				out = append(out, TranslateRoute(http, match, operation, name, defaultCluster))
 			}
 		}
 	}
@@ -80,7 +88,7 @@ func TranslateRoute(in *routingv2.HTTPRoute,
 	match *routingv2.HTTPMatchRequest,
 	operation string,
 	name ClusterName,
-	defaultCluster string) route.Route {
+	defaultCluster string) GuardedRoute {
 	out := route.Route{
 		Match: TranslateRouteMatch(match),
 		Decorator: &route.Decorator{
@@ -150,7 +158,10 @@ func TranslateRoute(in *routingv2.HTTPRoute,
 		}
 	}
 
-	return out
+	return GuardedRoute{
+		Route:        out,
+		SourceLabels: match.GetSourceLabels(),
+	}
 }
 
 // TranslateRouteMatch translates match condition
