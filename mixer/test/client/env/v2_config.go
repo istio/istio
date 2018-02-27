@@ -106,10 +106,11 @@ func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
 	if v2.Transport == nil {
 		v2.Transport = &mccpb.TransportConfig{}
 	}
+	v2.Transport.NetworkFailPolicy = &mccpb.NetworkFailPolicy{}
 	if open {
-		v2.Transport.NetworkFailPolicy = mccpb.FAIL_OPEN
+		v2.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_OPEN
 	} else {
-		v2.Transport.NetworkFailPolicy = mccpb.FAIL_CLOSE
+		v2.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_CLOSE
 	}
 }
 
