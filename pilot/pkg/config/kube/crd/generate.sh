@@ -59,7 +59,7 @@ cat << EOF
         object: &${crd}{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "${crd}",
-                APIVersion: ResourceGroup(&model.$crd) + "/" + model.$crd.Version,
+                APIVersion: apiVersion(&model.$crd),
             },
         },
         collection: &${crd}List{},

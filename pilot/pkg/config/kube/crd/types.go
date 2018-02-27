@@ -28,7 +28,7 @@ var knownTypes = map[string]schemaType{
         object: &MockConfig{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "MockConfig",
-                APIVersion: ResourceGroup(&model.MockConfig) + "/" + model.MockConfig.Version,
+                APIVersion: apiVersion(&model.MockConfig),
             },
         },
         collection: &MockConfigList{},
@@ -38,7 +38,7 @@ var knownTypes = map[string]schemaType{
         object: &RouteRule{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "RouteRule",
-                APIVersion: ResourceGroup(&model.RouteRule) + "/" + model.RouteRule.Version,
+                APIVersion: apiVersion(&model.RouteRule),
             },
         },
         collection: &RouteRuleList{},
@@ -48,7 +48,7 @@ var knownTypes = map[string]schemaType{
         object: &V1alpha2RouteRule{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "V1alpha2RouteRule",
-                APIVersion: ResourceGroup(&model.V1alpha2RouteRule) + "/" + model.V1alpha2RouteRule.Version,
+                APIVersion: apiVersion(&model.V1alpha2RouteRule),
             },
         },
         collection: &V1alpha2RouteRuleList{},
@@ -58,7 +58,7 @@ var knownTypes = map[string]schemaType{
         object: &IngressRule{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "IngressRule",
-                APIVersion: ResourceGroup(&model.IngressRule) + "/" + model.IngressRule.Version,
+                APIVersion: apiVersion(&model.IngressRule),
             },
         },
         collection: &IngressRuleList{},
@@ -68,7 +68,7 @@ var knownTypes = map[string]schemaType{
         object: &Gateway{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "Gateway",
-                APIVersion: ResourceGroup(&model.Gateway) + "/" + model.Gateway.Version,
+                APIVersion: apiVersion(&model.Gateway),
             },
         },
         collection: &GatewayList{},
@@ -78,7 +78,7 @@ var knownTypes = map[string]schemaType{
         object: &EgressRule{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "EgressRule",
-                APIVersion: ResourceGroup(&model.EgressRule) + "/" + model.EgressRule.Version,
+                APIVersion: apiVersion(&model.EgressRule),
             },
         },
         collection: &EgressRuleList{},
@@ -88,7 +88,7 @@ var knownTypes = map[string]schemaType{
         object: &ExternalService{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "ExternalService",
-                APIVersion: ResourceGroup(&model.ExternalService) + "/" + model.ExternalService.Version,
+                APIVersion: apiVersion(&model.ExternalService),
             },
         },
         collection: &ExternalServiceList{},
@@ -98,7 +98,7 @@ var knownTypes = map[string]schemaType{
         object: &DestinationPolicy{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "DestinationPolicy",
-                APIVersion: ResourceGroup(&model.DestinationPolicy) + "/" + model.DestinationPolicy.Version,
+                APIVersion: apiVersion(&model.DestinationPolicy),
             },
         },
         collection: &DestinationPolicyList{},
@@ -108,7 +108,7 @@ var knownTypes = map[string]schemaType{
         object: &DestinationRule{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "DestinationRule",
-                APIVersion: ResourceGroup(&model.DestinationRule) + "/" + model.DestinationRule.Version,
+                APIVersion: apiVersion(&model.DestinationRule),
             },
         },
         collection: &DestinationRuleList{},
@@ -118,7 +118,7 @@ var knownTypes = map[string]schemaType{
         object: &HTTPAPISpec{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "HTTPAPISpec",
-                APIVersion: ResourceGroup(&model.HTTPAPISpec) + "/" + model.HTTPAPISpec.Version,
+                APIVersion: apiVersion(&model.HTTPAPISpec),
             },
         },
         collection: &HTTPAPISpecList{},
@@ -128,7 +128,7 @@ var knownTypes = map[string]schemaType{
         object: &HTTPAPISpecBinding{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "HTTPAPISpecBinding",
-                APIVersion: ResourceGroup(&model.HTTPAPISpecBinding) + "/" + model.HTTPAPISpecBinding.Version,
+                APIVersion: apiVersion(&model.HTTPAPISpecBinding),
             },
         },
         collection: &HTTPAPISpecBindingList{},
@@ -138,7 +138,7 @@ var knownTypes = map[string]schemaType{
         object: &QuotaSpec{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "QuotaSpec",
-                APIVersion: ResourceGroup(&model.QuotaSpec) + "/" + model.QuotaSpec.Version,
+                APIVersion: apiVersion(&model.QuotaSpec),
             },
         },
         collection: &QuotaSpecList{},
@@ -148,7 +148,7 @@ var knownTypes = map[string]schemaType{
         object: &QuotaSpecBinding{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "QuotaSpecBinding",
-                APIVersion: ResourceGroup(&model.QuotaSpecBinding) + "/" + model.QuotaSpecBinding.Version,
+                APIVersion: apiVersion(&model.QuotaSpecBinding),
             },
         },
         collection: &QuotaSpecBindingList{},
@@ -158,7 +158,7 @@ var knownTypes = map[string]schemaType{
         object: &EndUserAuthenticationPolicySpec{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "EndUserAuthenticationPolicySpec",
-                APIVersion: ResourceGroup(&model.EndUserAuthenticationPolicySpec) + "/" + model.EndUserAuthenticationPolicySpec.Version,
+                APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpec),
             },
         },
         collection: &EndUserAuthenticationPolicySpecList{},
@@ -168,7 +168,7 @@ var knownTypes = map[string]schemaType{
         object: &EndUserAuthenticationPolicySpecBinding{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "EndUserAuthenticationPolicySpecBinding",
-                APIVersion: ResourceGroup(&model.EndUserAuthenticationPolicySpecBinding) + "/" + model.EndUserAuthenticationPolicySpecBinding.Version,
+                APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpecBinding),
             },
         },
         collection: &EndUserAuthenticationPolicySpecBindingList{},
