@@ -421,7 +421,7 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 	}
 	rc, ok := cl.clientset[apiVersion(&s.schema)]
 	if !ok {
-		return fmt.Errorf("unrecognized apiVersion %q", s.schema)
+		return fmt.Errorf("unrecognized apiVersion %v", s.schema)
 	}
 	schema, exists := rc.descriptor.GetByType(typ)
 	if !exists {
@@ -443,7 +443,7 @@ func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 	}
 	rc, ok := cl.clientset[apiVersion(&s.schema)]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized apiVersion %q", s.schema)
+		return nil, fmt.Errorf("unrecognized apiVersion %v", s.schema)
 	}
 	schema, exists := rc.descriptor.GetByType(typ)
 	if !exists {

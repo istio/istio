@@ -10,10 +10,10 @@ package crd
 // as declared in the Pilot config model.
 
 import (
-    meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/apimachinery/pkg/runtime"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
-    "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 type schemaType struct {
@@ -23,156 +23,156 @@ type schemaType struct {
 }
 
 var knownTypes = map[string]schemaType{
-    model.MockConfig.Type: {
-        schema: model.MockConfig,
-        object: &MockConfig{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "MockConfig",
-                APIVersion: apiVersion(&model.MockConfig),
-            },
-        },
-        collection: &MockConfigList{},
-    },
-    model.RouteRule.Type: {
-        schema: model.RouteRule,
-        object: &RouteRule{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "RouteRule",
-                APIVersion: apiVersion(&model.RouteRule),
-            },
-        },
-        collection: &RouteRuleList{},
-    },
-    model.V1alpha2RouteRule.Type: {
-        schema: model.V1alpha2RouteRule,
-        object: &V1alpha2RouteRule{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "V1alpha2RouteRule",
-                APIVersion: apiVersion(&model.V1alpha2RouteRule),
-            },
-        },
-        collection: &V1alpha2RouteRuleList{},
-    },
-    model.IngressRule.Type: {
-        schema: model.IngressRule,
-        object: &IngressRule{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "IngressRule",
-                APIVersion: apiVersion(&model.IngressRule),
-            },
-        },
-        collection: &IngressRuleList{},
-    },
-    model.Gateway.Type: {
-        schema: model.Gateway,
-        object: &Gateway{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "Gateway",
-                APIVersion: apiVersion(&model.Gateway),
-            },
-        },
-        collection: &GatewayList{},
-    },
-    model.EgressRule.Type: {
-        schema: model.EgressRule,
-        object: &EgressRule{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "EgressRule",
-                APIVersion: apiVersion(&model.EgressRule),
-            },
-        },
-        collection: &EgressRuleList{},
-    },
-    model.ExternalService.Type: {
-        schema: model.ExternalService,
-        object: &ExternalService{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "ExternalService",
-                APIVersion: apiVersion(&model.ExternalService),
-            },
-        },
-        collection: &ExternalServiceList{},
-    },
-    model.DestinationPolicy.Type: {
-        schema: model.DestinationPolicy,
-        object: &DestinationPolicy{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "DestinationPolicy",
-                APIVersion: apiVersion(&model.DestinationPolicy),
-            },
-        },
-        collection: &DestinationPolicyList{},
-    },
-    model.DestinationRule.Type: {
-        schema: model.DestinationRule,
-        object: &DestinationRule{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "DestinationRule",
-                APIVersion: apiVersion(&model.DestinationRule),
-            },
-        },
-        collection: &DestinationRuleList{},
-    },
-    model.HTTPAPISpec.Type: {
-        schema: model.HTTPAPISpec,
-        object: &HTTPAPISpec{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "HTTPAPISpec",
-                APIVersion: apiVersion(&model.HTTPAPISpec),
-            },
-        },
-        collection: &HTTPAPISpecList{},
-    },
-    model.HTTPAPISpecBinding.Type: {
-        schema: model.HTTPAPISpecBinding,
-        object: &HTTPAPISpecBinding{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "HTTPAPISpecBinding",
-                APIVersion: apiVersion(&model.HTTPAPISpecBinding),
-            },
-        },
-        collection: &HTTPAPISpecBindingList{},
-    },
-    model.QuotaSpec.Type: {
-        schema: model.QuotaSpec,
-        object: &QuotaSpec{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "QuotaSpec",
-                APIVersion: apiVersion(&model.QuotaSpec),
-            },
-        },
-        collection: &QuotaSpecList{},
-    },
-    model.QuotaSpecBinding.Type: {
-        schema: model.QuotaSpecBinding,
-        object: &QuotaSpecBinding{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "QuotaSpecBinding",
-                APIVersion: apiVersion(&model.QuotaSpecBinding),
-            },
-        },
-        collection: &QuotaSpecBindingList{},
-    },
-    model.EndUserAuthenticationPolicySpec.Type: {
-        schema: model.EndUserAuthenticationPolicySpec,
-        object: &EndUserAuthenticationPolicySpec{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "EndUserAuthenticationPolicySpec",
-                APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpec),
-            },
-        },
-        collection: &EndUserAuthenticationPolicySpecList{},
-    },
-    model.EndUserAuthenticationPolicySpecBinding.Type: {
-        schema: model.EndUserAuthenticationPolicySpecBinding,
-        object: &EndUserAuthenticationPolicySpecBinding{
-            TypeMeta: meta_v1.TypeMeta{
-                Kind:       "EndUserAuthenticationPolicySpecBinding",
-                APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpecBinding),
-            },
-        },
-        collection: &EndUserAuthenticationPolicySpecBindingList{},
-    },
+	model.MockConfig.Type: {
+		schema: model.MockConfig,
+		object: &MockConfig{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "MockConfig",
+				APIVersion: apiVersion(&model.MockConfig),
+			},
+		},
+		collection: &MockConfigList{},
+	},
+	model.RouteRule.Type: {
+		schema: model.RouteRule,
+		object: &RouteRule{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "RouteRule",
+				APIVersion: apiVersion(&model.RouteRule),
+			},
+		},
+		collection: &RouteRuleList{},
+	},
+	model.V1alpha2RouteRule.Type: {
+		schema: model.V1alpha2RouteRule,
+		object: &V1alpha2RouteRule{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "V1alpha2RouteRule",
+				APIVersion: apiVersion(&model.V1alpha2RouteRule),
+			},
+		},
+		collection: &V1alpha2RouteRuleList{},
+	},
+	model.IngressRule.Type: {
+		schema: model.IngressRule,
+		object: &IngressRule{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "IngressRule",
+				APIVersion: apiVersion(&model.IngressRule),
+			},
+		},
+		collection: &IngressRuleList{},
+	},
+	model.Gateway.Type: {
+		schema: model.Gateway,
+		object: &Gateway{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "Gateway",
+				APIVersion: apiVersion(&model.Gateway),
+			},
+		},
+		collection: &GatewayList{},
+	},
+	model.EgressRule.Type: {
+		schema: model.EgressRule,
+		object: &EgressRule{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "EgressRule",
+				APIVersion: apiVersion(&model.EgressRule),
+			},
+		},
+		collection: &EgressRuleList{},
+	},
+	model.ExternalService.Type: {
+		schema: model.ExternalService,
+		object: &ExternalService{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "ExternalService",
+				APIVersion: apiVersion(&model.ExternalService),
+			},
+		},
+		collection: &ExternalServiceList{},
+	},
+	model.DestinationPolicy.Type: {
+		schema: model.DestinationPolicy,
+		object: &DestinationPolicy{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "DestinationPolicy",
+				APIVersion: apiVersion(&model.DestinationPolicy),
+			},
+		},
+		collection: &DestinationPolicyList{},
+	},
+	model.DestinationRule.Type: {
+		schema: model.DestinationRule,
+		object: &DestinationRule{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "DestinationRule",
+				APIVersion: apiVersion(&model.DestinationRule),
+			},
+		},
+		collection: &DestinationRuleList{},
+	},
+	model.HTTPAPISpec.Type: {
+		schema: model.HTTPAPISpec,
+		object: &HTTPAPISpec{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "HTTPAPISpec",
+				APIVersion: apiVersion(&model.HTTPAPISpec),
+			},
+		},
+		collection: &HTTPAPISpecList{},
+	},
+	model.HTTPAPISpecBinding.Type: {
+		schema: model.HTTPAPISpecBinding,
+		object: &HTTPAPISpecBinding{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "HTTPAPISpecBinding",
+				APIVersion: apiVersion(&model.HTTPAPISpecBinding),
+			},
+		},
+		collection: &HTTPAPISpecBindingList{},
+	},
+	model.QuotaSpec.Type: {
+		schema: model.QuotaSpec,
+		object: &QuotaSpec{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "QuotaSpec",
+				APIVersion: apiVersion(&model.QuotaSpec),
+			},
+		},
+		collection: &QuotaSpecList{},
+	},
+	model.QuotaSpecBinding.Type: {
+		schema: model.QuotaSpecBinding,
+		object: &QuotaSpecBinding{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "QuotaSpecBinding",
+				APIVersion: apiVersion(&model.QuotaSpecBinding),
+			},
+		},
+		collection: &QuotaSpecBindingList{},
+	},
+	model.EndUserAuthenticationPolicySpec.Type: {
+		schema: model.EndUserAuthenticationPolicySpec,
+		object: &EndUserAuthenticationPolicySpec{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "EndUserAuthenticationPolicySpec",
+				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpec),
+			},
+		},
+		collection: &EndUserAuthenticationPolicySpecList{},
+	},
+	model.EndUserAuthenticationPolicySpecBinding.Type: {
+		schema: model.EndUserAuthenticationPolicySpecBinding,
+		object: &EndUserAuthenticationPolicySpecBinding{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "EndUserAuthenticationPolicySpecBinding",
+				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpecBinding),
+			},
+		},
+		collection: &EndUserAuthenticationPolicySpecBindingList{},
+	},
 }
 
 // MockConfig is the generic Kubernetes API object wrapper
