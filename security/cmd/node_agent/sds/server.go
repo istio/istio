@@ -25,7 +25,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/testdata"
 
-	"github.com/envoyproxy/go-control-plane/api"
+	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
@@ -38,7 +40,7 @@ var (
 	udsPath    = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
 )
 
-// SDSServer implements api.SecretDiscoveryServiceServer that listens on a
+// SDSServer implements sds.SecretDiscoveryServiceServer that listens on a
 // Unix Domain Socket.
 type SDSServer struct {
         // Specifies the Unix Domain Socket paths the server listens on.
@@ -54,29 +56,28 @@ type SDSServer struct {
 // GetTlsCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
-// TODO: 
-func (s *SDSServer) GetTlsCertificate() *api.TlsCertificate {
+func (s *SDSServer) GetTlsCertificate() *auth.TlsCertificate {
         // TODO: Add implementation. Consider define an interface to support
         // different implementations that can get certificate from different CA
         // systems including Istio CA and other CAs.
-	return &api.TlsCertificate{}
+	return &auth.TlsCertificate{}
 }
 
 
 // FetchSecrets fetches the X.509 key/cert for a given workload whose identity
 // can be derived from the UDS path where this call is received.
 func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
-	resources := make([]*types.Any, 1)
+	resources := make([]types.Any, 1)
 
-	secret := &api.Secret{
+	secret := &auth.Secret{
 		Name: "SPKI",
-		Type: &api.Secret_TlsCertificate{
+		Type: &auth.Secret_TlsCertificate{
 			TlsCertificate: s.GetTlsCertificate(),
 		},
 	}
 	data, _ := proto.Marshal(secret)
 	typeUrl := "type.googleapis.com/envoy.api.v2.auth.Secret"
-	resources[0] = &types.Any{
+	resources[0] = types.Any{
 		TypeUrl: typeUrl,
 		Value:   data,
 	}
@@ -90,8 +91,8 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 }
 
 // StreamSecrets is not supported.
-func (s *SDSServer) StreamSecrets(stream api.SecretDiscoveryService_StreamSecretsServer) error {
-	log.Error("StreamSecrets is not implemented.")
+func (s *SDSServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	log.Print("StreamSecrets is not implemented.")
 	return nil
 }
 
@@ -124,7 +125,7 @@ func main() {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	grpcServer := grpc.NewServer(opts...)
-	api.RegisterSecretDiscoveryServiceServer(grpcServer, newServer(*udsPath))
+	sds.RegisterSecretDiscoveryServiceServer(grpcServer, newServer(*udsPath))
 
 	_, e := os.Stat(*udsPath)
 	if e == nil {

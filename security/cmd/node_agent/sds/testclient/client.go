@@ -23,7 +23,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/testdata"
-	"github.com/envoyproxy/go-control-plane/api"
+	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -57,22 +59,22 @@ func main() {
 	opts = append(opts, grpc.WithDialer(unixDialer))
 	conn, err := grpc.Dial(*udsPath, opts...)
 	if err != nil {
-		log.Fatalf("failed to connect with server", err)
+		log.Fatalf("failed to connect with server %v", err)
 	}
 	defer conn.Close()
-	client := api.NewSecretDiscoveryServiceClient(conn)
+	client := sds.NewSecretDiscoveryServiceClient(conn)
 	response, err := client.FetchSecrets(context.Background(), &api.DiscoveryRequest{})
 
-	var secret api.Secret
+	var secret auth.Secret
 	resource := response.GetResources()[0]
         bytes := resource.Value
 
         err = proto.Unmarshal(bytes, &secret)
 	if err != nil {
-		log.Fatalf("failed parse the response", err)
+		log.Fatalf("failed parse the response %v", err)
 	}
 
 	log.Println("Received secrets:")
-	log.Println("version info: %v, TypeUrl: %v, secret name: %v, certificate: %v",
-	            response.GetVersionInfo(), response.GetTypeUrl(), secret.GetName(), secret.GetTlsCertificate())
+	log.Printf("version info: %v, TypeUrl: %v, secret name: %v, certificate: %v",
+	           response.GetVersionInfo(), response.GetTypeUrl(), secret.GetName(), secret.GetTlsCertificate())
 }

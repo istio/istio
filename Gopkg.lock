@@ -1101,6 +1101,7 @@
     "stats",
     "status",
     "tap",
+    "testdata",
     "transport"
   ]
   revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
@@ -1459,6 +1460,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "64e85d7b234617a9afbc0a95c64d1716f88ea99a3bbf475ab377c8d92f1100e4"
+  inputs-digest = "29d2c4c3d4cd0875ee211ab5e55c87a9554e4fb76b3ecec300dd055fd0014c97"
   solver-name = "gps-cdcl"
   solver-version = 1
