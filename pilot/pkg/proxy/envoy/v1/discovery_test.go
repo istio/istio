@@ -675,6 +675,7 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 	}{
 		{name: "http-none", file: externalServiceRule},
 		{name: "http-dns", file: externalServiceRuleDNS},
+		{name: "http-dns-no-endpoints", file: externalServiceRuleDNSNoEndpoints},
 		{name: "http-static", file: externalServiceRuleStatic},
 		{name: "tcp-none", file: externalServiceRuleTCP},
 		{name: "tcp-dns", file: externalServiceRuleTCPDNS},

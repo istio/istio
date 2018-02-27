@@ -227,11 +227,18 @@
 [[projects]]
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
-    "api",
+    "envoy/api/v2",
+    "envoy/api/v2/auth",
+    "envoy/api/v2/cluster",
+    "envoy/api/v2/core",
+    "envoy/api/v2/endpoint",
+    "envoy/api/v2/listener",
+    "envoy/api/v2/route",
+    "envoy/service/discovery/v2",
     "pkg/cache",
     "pkg/server"
   ]
-  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+  revision = "e0ebc95432196ce43dae88cc2822983466210656"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -340,10 +347,12 @@
     "protoc-gen-gogo/grpc",
     "protoc-gen-gogo/plugin",
     "protoc-gen-gogoslick",
+    "protoc-min-version",
     "sortkeys",
     "types",
     "vanity",
-    "vanity/command"
+    "vanity/command",
+    "version"
   ]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
   version = "v0.5"
@@ -1132,6 +1141,7 @@
   version = "v2.1.0"
 
 [[projects]]
+  branch = "master"
   name = "istio.io/api"
   packages = [
     "broker/dev",
@@ -1144,7 +1154,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "a11fc3a78b68ede57ad46fb4d1f7fe5742325489"
+  revision = "e07972e35d89890e2bad2c9e774fd6517c14ea02"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1450,6 +1460,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b7088c9747af431bf2fddaab563f9375f5ab31c7d5a72b7fbaf2f775e452804c"
+  inputs-digest = "3dfcaaccebb087099fde0083f039ac3d11db0724703016ff4b1e89a9fb12630c"
   solver-name = "gps-cdcl"
   solver-version = 1

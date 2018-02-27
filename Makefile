@@ -109,6 +109,24 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
+# Populate the git version for istio/proxy (i.e. Envoy)
+ifeq ($(PROXY_TAG),)
+  export PROXY_TAG:=$(shell grep PROXY_TAG istio.VERSION  | cut -d '=' -f2 | tr -d '"')
+endif
+
+# Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
+ISTIO_ENVOY_VERSION ?= ${PROXY_TAG}
+export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+
+# Variables for the extracted debug/release Envoy artifacts.
+export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
+export ISTIO_ENVOY_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_DEBUG_PATH ?= ${ISTIO_ENVOY_DEBUG_DIR}/${ISTIO_ENVOY_DEBUG_NAME}
+export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
+export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
+
 GO_VERSION_REQUIRED:=1.9
 
 HUB?=istio
@@ -537,6 +555,45 @@ artifacts: docker
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
+
+# A make target to generate all the YAML files
+generate_yaml:
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+
+
+istio.yaml:
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+
+istio_auth.yaml:
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+	              --set global.mtlsDefault=true \
+    			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+
+deploy/all:
+	kubectl create ns istio-system > /dev/null || true
+	helm template --set global.tag=${TAG} \
+                  --set global.hub=${HUB} \
+    		      --set sidecar-injector.enabled=true \
+     		      --set ingress.enabled=true \
+                  --set servicegraph.enabled=true \
+                  --set zipkin.enabled=true \
+                  --set grafana.enabled=true \
+                  --set prometheus.enabled=true \
+            install/kubernetes/helm/istio > install/kubernetes/istio-all.yaml
+	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
+
+
+# Generate the install files, using istioctl.
+# TODO: make sure they match, pass all tests.
+# TODO:
+generate_yaml_new:
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
+
 
 # files genarated by the default invocation of updateVersion.sh
 FILES_TO_CLEAN+=install/consul/istio.yaml \

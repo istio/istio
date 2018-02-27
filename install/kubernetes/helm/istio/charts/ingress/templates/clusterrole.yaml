@@ -7,7 +7,7 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
-  name: {{ template "istio.fullname" . }}
+  name: istio-ingress-{{ .Release.Namespace }}
 rules:
 - apiGroups: ["extensions"]
   resources: ["thirdpartyresources", "ingresses"]

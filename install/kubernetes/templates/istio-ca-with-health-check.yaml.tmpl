@@ -8,6 +8,19 @@ metadata:
   name: istio-ca-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ca
+  namespace: istio-system
+  labels:
+    istio: istio-ca
+spec:
+  ports:
+    - port: 8060
+  selector:
+    istio: istio-ca
+---
 # Istio CA watching all namespaces
 apiVersion: v1
 kind: Deployment
