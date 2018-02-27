@@ -17,13 +17,13 @@ package runtime2
 import (
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/probe"
-	"sync"
 )
 
 func TestStartWatch_Basic(t *testing.T) {
