@@ -1,0 +1,142 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"log"
+	"net"
+	"os"
+
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/testdata"
+
+	"github.com/envoyproxy/go-control-plane/api"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+)
+
+var (
+	tls        = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
+	certFile   = flag.String("cert_file", "", "The TLS cert file")
+	keyFile    = flag.String("key_file", "", "The TLS key file")
+	port       = flag.Int("port", 10000, "The server port")
+	udsPath    = flag.String("uds_path", "sock", "Unix Domain Socket file path name")
+)
+
+// SDSServer implements api.SecretDiscoveryServiceServer that listens on a
+// Unix Domain Socket.
+type SDSServer struct {
+        // Specifies the Unix Domain Socket paths the server listens on.
+        // The UDS path identifies the identity for which the workload will
+        // request X.509 key/cert from this server. This path should only be
+        // accessible by such workload.
+        // TODO: describe more details how this path identifies the workload
+        // identity once the UDS path format is settled down.
+	udsPath    string
+}
+
+
+// GetTlsCertificate generates the X.509 key/cert for the workload identity
+// derived from udsPath, which is where the FetchSecrets grpc request is
+// received.
+// TODO: 
+func (s *SDSServer) GetTlsCertificate() *api.TlsCertificate {
+        // TODO: Add implementation. Consider define an interface to support
+        // different implementations that can get certificate from different CA
+        // systems including Istio CA and other CAs.
+	return &api.TlsCertificate{}
+}
+
+
+// FetchSecrets fetches the X.509 key/cert for a given workload whose identity
+// can be derived from the UDS path where this call is received.
+func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+	resources := make([]*types.Any, 1)
+
+	secret := &api.Secret{
+		Name: "SPKI",
+		Type: &api.Secret_TlsCertificate{
+			TlsCertificate: s.GetTlsCertificate(),
+		},
+	}
+	data, _ := proto.Marshal(secret)
+	typeUrl := "type.googleapis.com/envoy.api.v2.auth.Secret"
+	resources[0] = &types.Any{
+		TypeUrl: typeUrl,
+		Value:   data,
+	}
+	response := &api.DiscoveryResponse{
+		VersionInfo: "0",
+		Resources: resources,
+		TypeUrl: typeUrl,
+	}
+
+	return response, nil
+}
+
+// StreamSecrets is not supported.
+func (s *SDSServer) StreamSecrets(stream api.SecretDiscoveryService_StreamSecretsServer) error {
+	log.Error("StreamSecrets is not implemented.")
+	return nil
+}
+
+// newServer creates a SDSServer.
+func newServer(udsPath string) *SDSServer {
+	s := &SDSServer{
+		udsPath: udsPath,
+	}
+	return s
+}
+
+func main() {
+	flag.Parse()
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	var opts []grpc.ServerOption
+	if *tls {
+		if *certFile == "" {
+			*certFile = testdata.Path("server1.pem")
+		}
+		if *keyFile == "" {
+			*keyFile = testdata.Path("server1.key")
+		}
+		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
+		if err != nil {
+			log.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	api.RegisterSecretDiscoveryServiceServer(grpcServer, newServer(*udsPath))
+
+	_, e := os.Stat(*udsPath)
+	if e == nil {
+		e := os.RemoveAll(*udsPath)
+		if e != nil {
+			log.Fatalf("failed to %v %v", *udsPath, err)
+		}
+	}
+	lis, err = net.Listen("unix", *udsPath)
+	if err != nil {
+		log.Fatalf("failed to %v", err)
+	}
+
+	grpcServer.Serve(lis)
+}
