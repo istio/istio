@@ -138,7 +138,7 @@ func TestFixedWindowAlgorithm(t *testing.T) {
 	}
 	mixerServer.Run()
 	defer func() {
-		mixerServer.Close()
+		_ = mixerServer.Close()
 	}()
 
 	// start mixer client
