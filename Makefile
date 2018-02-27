@@ -109,6 +109,24 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
+# Populate the git version for istio/proxy (i.e. Envoy)
+ifeq ($(PROXY_TAG),)
+  export PROXY_TAG:=$(shell grep PROXY_TAG istio.VERSION  | cut -d '=' -f2 | tr -d '"')
+endif
+
+# Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
+ISTIO_ENVOY_VERSION ?= ${PROXY_TAG}
+export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+
+# Variables for the extracted debug/release Envoy artifacts.
+export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
+export ISTIO_ENVOY_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_DEBUG_PATH ?= ${ISTIO_ENVOY_DEBUG_DIR}/${ISTIO_ENVOY_DEBUG_NAME}
+export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
+export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
+
 GO_VERSION_REQUIRED:=1.9
 
 HUB?=istio
