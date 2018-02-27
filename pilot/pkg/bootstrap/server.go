@@ -338,7 +338,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		}
 	}
 
-	if needToCreateClient {
+	if needToCreateClient && args.Config.FileDir == "" {
 		var client kubernetes.Interface
 		var kuberr error
 
