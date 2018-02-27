@@ -358,6 +358,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 			ConfigMeta: model.ConfigMeta{
 				Type:      c.typ,
 				Name:      name,
+				Group:     "config.istio.io",
+				Version:   "v1alpha2",
 				Namespace: namespace,
 			},
 			Spec: c.spec,

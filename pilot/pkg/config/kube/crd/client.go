@@ -111,6 +111,7 @@ func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
 			rc.types = append(rc.types, &s)
 			cl.clientset[k] = rc
 		} else {
+			v.descriptor = append(v.descriptor, typ)
 			v.types = append(v.types, &s)
 		}
 	}
