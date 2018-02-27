@@ -170,8 +170,6 @@ grafana:
       # - secretName: grafana-tls
       #   hosts:
       #     - grafana.local
-  zvpn:
-    enabled: false
 
   resources: {}
     # limits:
@@ -213,7 +211,7 @@ prometheus:
   service:
     nodePort:
       enabled: false
-      port: 9090
+      port: 32090
 
 servicegraph:
   enabled: false
