@@ -40,6 +40,7 @@ func RunXDS(ctx context.Context, config cache.Cache, port uint) {
 	if err != nil {
 		log.Errorf("failed to listen")
 	}
+	_ = server
 	//api.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	log.Infof("xDS server listening on %d", port)
 	go func() {
