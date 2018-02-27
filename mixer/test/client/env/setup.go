@@ -270,7 +270,7 @@ func (s *TestSetup) VerifyStatsGE(actualStats string, expectedStat string, expec
 		s.t.Fatalf("Stat %s does not match. Expected value >= %d, actual stat value is %d",
 			expectedStat, expectedStatVal, aStatsValue)
 	} else {
-		log.Printf("stat %s is matched. %d >= %d", aStatsValue, expectedStatVal)
+		log.Printf("stat %s is matched. %d >= %d", expectedStat, aStatsValue, expectedStatVal)
 	}
 }
 
