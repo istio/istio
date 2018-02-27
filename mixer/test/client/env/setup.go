@@ -258,6 +258,22 @@ func (s *TestSetup) VerifyStats(actualStats string, expectedStats map[string]int
 	}
 }
 
+// VerifyStatsGE verifies that Envoy stats contains stat expectedStat, whose value is larger
+// than or equal to expectedStatVal.
+func (s *TestSetup) VerifyStatsGE(actualStats string, expectedStat string, expectedStatVal int) {
+	actualStatsMap := s.unmarshalStats(actualStats)
+
+	aStatsValue, ok := actualStatsMap[expectedStat]
+	if !ok {
+		s.t.Fatalf("Failed to find expected Stat %s\n", expectedStat)
+	} else if aStatsValue < expectedStatVal {
+		s.t.Fatalf("Stat %s does not match. Expected value >= %d, actual stat value is %d",
+			expectedStat, expectedStatVal, aStatsValue)
+	} else {
+		log.Printf("stat %s is matched. %d >= %d", aStatsValue, expectedStatVal)
+	}
+}
+
 // DrainMixerAllChannels drain all channels
 func (s *TestSetup) DrainMixerAllChannels() {
 	go func() {
