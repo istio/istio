@@ -1,5 +1,6 @@
 [
 	{
+		"_comment": "This file is auto updated by a robot executing `https://github.com/istio/test-infra/blob/master/prow/test-infra-update-deps.sh`.",
 		"name": "istio.io/api",
 		"repoName": "api",
 		"prodBranch": "master",
