@@ -1,0 +1,10 @@
+hosts:
+  - "google.com"
+ports:
+  - number: 80
+    name: http-port
+    protocol: http
+  - number: 8080
+    name: http-alt-port
+    protocol: http
+discovery: DNS

@@ -1,4 +1,4 @@
-"""Airfow DAG and helpers used in one or more istio release pipline."""
+"""Airfow DAG and helpers used in one or more istio release pipeline."""
 """Copyright 2017 Istio Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,7 +34,7 @@ YESTERDAY = datetime.datetime.combine(
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
-    # This is the date to when the airlfow pipline tryes to backfil to.
+    # This is the date to when the airlfow pipeline tryes to backfil to.
     'start_date': YESTERDAY,
     'email': environment_config.EMAIL_LIST,
     'email_on_failure': True,
@@ -239,8 +239,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
     --tag="{{ settings.VERSION }}"
     """
 
-  run_release_quilification_tests = BashOperator(
-      task_id='run_release_quilification_tests',
+  run_release_qualification_tests = BashOperator(
+      task_id='run_release_qualification_tests',
       bash_command=test_command,
       retries=0,
       dag=common_dag)
@@ -252,8 +252,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
       dag=common_dag,
   )
   generate_flow_args >> get_git_commit >> build
-  run_release_quilification_tests.set_upstream(build)
-  run_release_quilification_tests >> copy_files
+  run_release_qualification_tests.set_upstream(build)
+  run_release_qualification_tests >> copy_files
   return common_dag, copy_files
 
 

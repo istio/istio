@@ -26,7 +26,7 @@ AIRFLOW_CONFIG = dict(
     MFEST_FILE='build.xml',
     MFEST_COMMIT='master@{{{timestamp}}}',
     VERSION='{major}.{minor}.{patch}-pre{date}-{rc}',
-    GCS_BUILD_BUCKET='istio-release-pipline-data',
+    GCS_BUILD_BUCKET='istio-release-pipeline-data',
     GCS_STAGING_BUCKET='istio-prerelease',
     GCS_DAILY_PATH='daily-build/{VERSION}',
     GCS_MONTHLY_STAGE_PATH='prerelease/{VERSION}',
@@ -43,7 +43,7 @@ AIRFLOW_CONFIG = dict(
 
 
 def get_airflow_config(version, timestamp, major, minor, patch, date, rc):
-  """Return a dict of the configuration for the Pipline."""
+  """Return a dict of the configuration for the Pipeline."""
   config = dict(AIRFLOW_CONFIG)
   if version is not None:
     config['VERSION'] = version
