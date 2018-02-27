@@ -43,12 +43,15 @@ const (
 // ClusterName specifies cluster name for a destination
 type ClusterName func(*routingv2.Destination) string
 
-// GuardedRoute are routes for a destination guarded by source labels.
+// GuardedRoute are routes for a destination guarded by deployment conditions.
 type GuardedRoute struct {
 	route.Route
 
 	// SourceLabels guarding the route
 	SourceLabels map[string]string
+
+	// Gateways pre-condition
+	Gateways []string
 }
 
 // TranslateRoutes creates virtual host routes from the v1alpha2 config.
@@ -161,6 +164,7 @@ func TranslateRoute(in *routingv2.HTTPRoute,
 	return GuardedRoute{
 		Route:        out,
 		SourceLabels: match.GetSourceLabels(),
+		Gateways:     match.GetGateways(),
 	}
 }
 
