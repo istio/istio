@@ -91,8 +91,8 @@ func TestQuotaCache(t *testing.T) {
 		s.VerifyStats(respStats, expectedStats)
 		// Because prefetch code may have some margin, actual number of check and quota calls are not
 		// determined.
-		s.VerifyStatsGE(respStats, "http_mixer_filter.total_remote_check_calls", 2)
-		s.VerifyStatsGE(respStats, "http_mixer_filter.total_remote_quota_calls", 2)
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_check_calls", 5)
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_calls", 5)
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
