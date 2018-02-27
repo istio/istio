@@ -22,13 +22,15 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/api"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
 )
@@ -55,10 +57,10 @@ type MeshDiscovery interface {
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	mu             sync.Mutex
-	mesh           MeshDiscovery
-	grpcServer     *grpc.Server
-	pendingStreams map[grpc.Stream]map[string]chan bool
+	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
+	mesh MeshDiscovery
+	// grpcServer supports gRPC for xDS v2 services.
+	grpcServer *grpc.Server
 }
 
 func init() {
@@ -96,11 +98,13 @@ func NewDiscoveryServer(mesh MeshDiscovery) *DiscoveryServer {
 	grpc.EnableTracing = true
 
 	grpcServer := grpc.NewServer(grpcOptions...)
-	out := &DiscoveryServer{mesh: mesh, grpcServer: grpcServer, pendingStreams: make(map[grpc.Stream]map[string]chan bool)}
+	out := &DiscoveryServer{mesh: mesh, grpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.grpcServer, out)
 	return out
 }
 
+// Start opens up a listening port for serving gRPC requests and starts up the underlying gRPC server.
+// This method is non-blocking.
 func (s *DiscoveryServer) Start() {
 	lis, err := net.Listen("tcp", ":"+gRPCPort)
 	if err != nil {
@@ -120,106 +124,96 @@ func (s *DiscoveryServer) Start() {
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
 func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	streamMu := &sync.Mutex{}
-	for {
-		req, err := stream.Recv()
-		if err == io.EOF {
-			return nil
+	ticker := time.NewTicker(responseTickDuration)
+	peerInfo, ok := peer.FromContext(stream.Context())
+	peerAddr := "Unknown peer address"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	defer ticker.Stop()
+	var discReq xdsapi.DiscoveryRequest
+	var receiveError error
+	var clusters []string
+	initialRequest := true
+	reqChannel := make(chan xdsapi.DiscoveryRequest, 1)
+	go func() {
+		defer close(reqChannel)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if status.Code(err) == codes.Canceled || err == io.EOF {
+					return
+				}
+				receiveError = err
+				log.Errorf("request loop for EDS for client %q terminated with errors %v", peerAddr, err)
+				return
+			}
+			reqChannel <- *req
 		}
+	}()
+	for {
+		// Block until either a request is received or the ticker ticks
+		select {
+		case discReq, ok = <-reqChannel:
+			if !ok {
+				return receiveError
+			}
+			if !initialRequest {
+				// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
+				// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
+				// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
+				continue
+			}
+		case <-ticker.C:
+			if !initialRequest {
+				// Ignore ticker events until the very first request is processed.
+				continue
+			}
+		}
+		if initialRequest {
+			initialRequest = false
+			clusters = discReq.GetResourceNames()
+			if len(clusters) == 0 {
+				return fmt.Errorf("no clusters specified in EDS request from %q", peerAddr)
+			}
+			if log.DebugEnabled() {
+				log.Debugf("EDS request from  %q for clusters %v received.", peerAddr, clusters)
+			}
+		}
+		response := s.mesh.Endpoints(clusters)
+		err := stream.Send(response)
 		if err != nil {
 			return err
 		}
-		// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
-		// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-		if len(req.GetVersionInfo()) > 0 || len(req.GetResponseNonce()) > 0 {
-			// This is an Envoy Ack for the previous response. We ignore this request entirely.
-			continue
+		if log.DebugEnabled() {
+			log.Debugf("\nEDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr, clusters, response.String())
 		}
-		clusters := req.GetResourceNames()
-		if len(clusters) == 0 {
-			continue
-		}
-		reqKey := fmt.Sprintf("StreamEndpoints|%v", clusters)
-		if log.InfoEnabled() {
-			log.Infof("Stream requested for %q", reqKey)
-		}
-		chanLoopDone := s.newResponseLoop(stream, reqKey)
-		// Periodically send the ClusterLoadAssignment to the stream peer until this stream is closed or the timer is
-		// closed in response to a new request with the same request key.
-		go func(clusters []string, stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer, streamMu *sync.Mutex,
-			reqKey string, chanLoopDone chan bool) {
-			defer s.stopResponseLoop(stream, reqKey, chanLoopDone)
-			for {
-				select {
-				case <-chanLoopDone:
-					return
-				default:
-					streamMu.Lock()
-					err := stream.Send(s.mesh.Endpoints(clusters))
-					streamMu.Unlock()
-					if err != nil {
-						break
-					}
-					log.Infof("Stream response sent for request %q", reqKey)
-					time.Sleep(responseTickDuration)
-				}
-			}
-		}(clusters, stream, streamMu, reqKey, chanLoopDone)
 	}
 }
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	clusters := req.GetResourceNames()
-	if log.InfoEnabled() {
-		log.Infof("Fetch requested for %v", clusters)
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "Unknown peer address"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
 	}
-	return s.mesh.Endpoints(clusters), nil
+	clusters := req.GetResourceNames()
+	if len(clusters) == 0 {
+		return nil, fmt.Errorf("no clusters specified in EDS request from %q", peerAddr)
+	}
+	if log.DebugEnabled() {
+		log.Debugf("EDS request from  %q for clusters %v received.", peerAddr, clusters)
+	}
+	response := s.mesh.Endpoints(clusters)
+	if log.DebugEnabled() {
+		log.Debugf("\nEDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr, clusters, response.String())
+	}
+	return response, nil
 }
 
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamLoadStatsServer) error {
 	// TODO: Change fake values to real load assignments
 	return errors.New("unsupported streaming method")
-}
-
-/***************************  Common logic used by most  **********************************
-****************************    gRPC streaming methods   **********************************/
-
-func (s *DiscoveryServer) newResponseLoop(stream grpc.Stream, requestKey string) chan bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	resMap, found := s.pendingStreams[stream]
-	if !found {
-		resMap = map[string]chan bool{}
-		s.pendingStreams[stream] = resMap
-	} else {
-		respLoopDone, found := resMap[requestKey]
-		if found {
-			respLoopDone <- true
-		}
-	}
-	chanLoopDone := make(chan bool, 1)
-	resMap[requestKey] = chanLoopDone
-	return chanLoopDone
-}
-
-func (s *DiscoveryServer) stopResponseLoop(stream grpc.Stream, requestKey string, chanLoopDone chan bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	resMap, found := s.pendingStreams[stream]
-	if !found {
-		return
-	}
-	prevChanLoopDone, found := resMap[requestKey]
-	if found {
-		if chanLoopDone != prevChanLoopDone {
-			return
-		}
-		close(chanLoopDone)
-		delete(resMap, requestKey)
-		if len(resMap) == 0 {
-			delete(s.pendingStreams, stream)
-		}
-	}
 }

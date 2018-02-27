@@ -888,7 +888,22 @@ func writeResponse(r *restful.Response, data []byte) {
 func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.DiscoveryResponse {
 	methodName := "v2/Endpoints"
 	incCalls(methodName)
-	out := &xdsapi.DiscoveryResponse{}
+
+	version := time.Now().String()
+	clAssignment := &xdsapi.ClusterLoadAssignment{}
+	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+	out := &xdsapi.DiscoveryResponse{
+		// All resources for EDS ought to be of the type ClusterLoadAssignment
+		TypeUrl: clAssignmentRes.GetTypeUrl(),
+
+		// Pilot does not really care for versioning. It always supplies what's currently
+		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+		// responses. Pilot believes in eventual consistency and that at some point, Envoy
+		// will begin seeing results it deems to be good.
+		VersionInfo: version,
+		Nonce:       version,
+	}
+
 	key := fmt.Sprintf("%v", serviceClusters)
 	cachedResp, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	var totalEndpoints uint32
@@ -903,24 +918,13 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 				}
 				continue
 			}
-			if len(instances) == 0 {
-				continue
-			}
 			locEps := v2.LocalityLbEndpointsFromInstances(instances)
 			clAssignment := &xdsapi.ClusterLoadAssignment{
 				ClusterName: serviceCluster,
 				Endpoints:   locEps,
 			}
-			anyResource, _ := types.MarshalAny(clAssignment)
-			out.Resources = append(out.Resources, anyResource)
-			out.TypeUrl = anyResource.GetTypeUrl()
-			verTs := time.Now()
-			// Pilot does not really care for versioning. It always supplies what's currently
-			// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-			// responses. Pilot believes in eventual consistency and that at some point, Envoy
-			// will begin seeing results it deems to be good.
-			out.VersionInfo = verTs.String()
-			out.Nonce = out.VersionInfo
+			clAssignmentRes, _ = types.MarshalAny(clAssignment)
+			out.Resources = append(out.Resources, clAssignmentRes)
 			totalEndpoints += uint32(len(locEps))
 		}
 		// TODO: Retained for backward compatibility wrt cache behavior
