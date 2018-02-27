@@ -5,7 +5,7 @@ To play with this demo, you need to:
 - Deploy the node agent as DaemonSet by
 
 ```shell
-kubectl apply -f nodeagent_test.yaml
+kubectl apply -f nodeagent.yaml
 ```
 
 - Make sure the node agent is up and running
