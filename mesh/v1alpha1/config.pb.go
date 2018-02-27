@@ -215,6 +215,8 @@ type ProxyConfig struct {
 	DiscoveryMtlsAddress string `protobuf:"bytes,18,opt,name=discovery_mtls_address,json=discoveryMtlsAddress" json:"discovery_mtls_address,omitempty"`
 	// Address of the discovery service exposing xDS with plain text connection.
 	DiscoveryPlainAddress string `protobuf:"bytes,19,opt,name=discovery_plain_address,json=discoveryPlainAddress" json:"discovery_plain_address,omitempty"`
+	// Path to template that is used to generate proxy config
+        ProxyBootstrapTemplatePath string `protobuf:"bytes,20,opt,name=proxy_bootstrap_template_path,json=proxyBootstrapTemplatePath" json:"proxy_bootstrap_template_path,omitempty"`
 }
 
 func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
@@ -234,6 +236,13 @@ func (m *ProxyConfig) GetBinaryPath() string {
 		return m.BinaryPath
 	}
 	return ""
+}
+
+func (m *ProxyConfig) GetProxyTemplatePath() string {
+        if m != nil {
+                return m.proxyTemplatePath
+        }
+        return ""
 }
 
 func (m *ProxyConfig) GetServiceCluster() string {
