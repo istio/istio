@@ -89,6 +89,8 @@ func TestQuotaCache(t *testing.T) {
 	// Check stats for Check, Quota and report calls.
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
 		s.VerifyStats(respStats, expectedStats)
+		// Because prefetch code may have some margin, actual number of check and quota calls are not
+		// determined.
 		s.VerifyStatsGE(respStats, "http_mixer_filter.total_remote_check_calls", 2)
 		s.VerifyStatsGE(respStats, "http_mixer_filter.total_remote_quota_calls", 2)
 	} else {
