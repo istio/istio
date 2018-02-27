@@ -41,11 +41,13 @@ import (
     "istio.io/istio/pilot/pkg/model"
 )
 
-var knownTypes = map[string]struct {
-    schema     model.ProtoSchema
-    object     IstioObject
-    collection IstioObjectList
-}{
+type schemaType struct {
+	schema     model.ProtoSchema
+	object     IstioObject
+	collection IstioObjectList
+}
+
+var knownTypes = map[string]schemaType{
 EOF
 
 CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule ExternalService DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"

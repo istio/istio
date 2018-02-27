@@ -40,18 +40,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
-
-// IstioAPIGroupVersion defines schema.GroupVersion for Istio configuration
-// resources.
-// TODO(xiaolanz) Client can only write to one apiVersion until https://github.com/istio/istio/issues/3586
-// is fully completed.
-var IstioAPIGroupVersion = schema.GroupVersion{
-	Group:   "config.istio.io",
-	Version: "v1alpha2",
-}
 
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
@@ -70,20 +62,72 @@ type IstioObjectList interface {
 
 // Client is a basic REST client for CRDs implementing config store
 type Client struct {
-	descriptor model.ConfigDescriptor
+	// Map of apiVersion to restClient.
+	clientset map[string]*restClient
+
+	// domainSuffix for the config metadata
+	domainSuffix string
+}
+
+type restClient struct {
+	apiVersion *schema.GroupVersion
+
+	// descriptor from the same apiVerion.
+	types []*schemaType
 
 	// restconfig for REST type descriptors
 	restconfig *rest.Config
 
 	// dynamic REST client for accessing config CRDs
 	dynamic *rest.RESTClient
+}
 
-	// domainSuffix for the config metadata
-	domainSuffix string
+func apiVersion(schema *model.ProtoSchema) string {
+	return ResourceGroup(schema) + "/" + schema.Version
+}
+
+func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
+	for _, typ := range descriptor {
+		s, exists := knownTypes[typ.Type]
+		if !exists {
+			return fmt.Errorf("missing known type for %q", typ.Type)
+		}
+
+		k := apiVersion(&typ)
+		if v, ok := cl.clientset[k]; !ok {
+			rc := new(restClient)
+			rc.apiVersion = &schema.GroupVersion{
+				ResourceGroup(&typ),
+				typ.Version,
+			}
+
+			rc.types = append(rc.types, &s)
+			cl.clientset[k] = rc
+		} else {
+			v.types = append(v.types, &s)
+		}
+	}
+	return nil
+}
+
+func (rc *restClient) init(kubeconfig string) error {
+	restconfig, err := CreateRESTConfig(kubeconfig, rc.apiVersion, rc.types)
+	if err != nil {
+		return err
+	}
+
+	dynamic, err := rest.RESTClientFor(restconfig)
+	if err != nil {
+		return err
+	}
+
+	rc.restconfig = restconfig
+	rc.dynamic = dynamic
+	return nil
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
-func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
+func CreateRESTConfig(kubeconfig string, apiVersion *schema.GroupVersion, schemaTypes []*schemaType) (config *rest.Config, err error) {
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
 	} else {
@@ -94,17 +138,17 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 		return
 	}
 
-	config.GroupVersion = &IstioAPIGroupVersion
+	config.GroupVersion = apiVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
 	types := runtime.NewScheme()
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
-			for _, kind := range knownTypes {
-				scheme.AddKnownTypes(IstioAPIGroupVersion, kind.object, kind.collection)
+			for _, kind := range schemaTypes {
+				scheme.AddKnownTypes(*apiVersion, kind.object, kind.collection)
 			}
-			meta_v1.AddToGroupVersion(scheme, IstioAPIGroupVersion)
+			meta_v1.AddToGroupVersion(scheme, *apiVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
@@ -117,32 +161,22 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
-	for _, typ := range descriptor {
-		if _, exists := knownTypes[typ.Type]; !exists {
-			return nil, fmt.Errorf("missing known type for %q", typ.Type)
-		}
-	}
-
 	kubeconfig, err := kube.ResolveConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
-	restconfig, err := CreateRESTConfig(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	dynamic, err := rest.RESTClientFor(restconfig)
-	if err != nil {
-		return nil, err
-	}
-
 	out := &Client{
-		descriptor:   descriptor,
-		restconfig:   restconfig,
-		dynamic:      dynamic,
+		clientset:    make(map[string]*restClient),
 		domainSuffix: domainSuffix,
+	}
+
+	if err := out.newClientSet(descriptor); err != nil {
+		return nil, err
+	}
+
+	for _, v := range out.clientset {
+		v.init(kubeconfig)
 	}
 
 	return out, nil
