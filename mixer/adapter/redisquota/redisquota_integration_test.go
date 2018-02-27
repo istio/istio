@@ -60,7 +60,7 @@ spec:
     maxAmount: 50
     validDuration: 30s
     bucketDuration: 1s
-    rateLimitAlgorithm: __RATE_LIMIT_ALGORITHM__
+    rateLimitAlgorithm: FIXED_WINDOW
     overrides:
     # The following override applies to 'ratings' when
     # the source is 'reviews'.
@@ -107,149 +107,93 @@ spec:
 `
 )
 
-func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
-	cases := map[string]struct {
-		attrs      map[string]interface{}
-		quotas     map[string]istio_mixer_v1.CheckRequest_QuotaParams
-		statusCode int32
-		expected   map[string]int64
-	}{
-		"Request 30 when 50 is available": {
-			attrs: map[string]interface{}{},
-			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key1": {
-					Amount:     30,
-					BestEffort: true,
-				},
-			},
-			expected: map[string]int64{
-				"key1": 30,
-			},
-			statusCode: 0,
-		},
-		"Exceed allocation request with bestEffort": {
-			attrs: map[string]interface{}{},
-			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key2": {
-					Amount:     60,
-					BestEffort: true,
-				},
-			},
-			expected: map[string]int64{
-				"key2": 50,
-			},
-			statusCode: 0,
-		},
-		"Exceed allocation request without bestEffort": {
-			attrs: map[string]interface{}{},
-			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key3": {
-					Amount:     60,
-					BestEffort: false,
-				},
-			},
-			expected: map[string]int64{
-				"key3": 0,
-			},
-			statusCode: 0,
-		},
-		"Dimension override with best effort": {
-			attrs: map[string]interface{}{
-				"source.service":      "reviews",
-				"destination.service": "ratings",
-			},
-			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"overridden": {
-					Amount:     15,
-					BestEffort: true,
-				},
-			},
-			expected: map[string]int64{
-				"overridden": 12,
-			},
-			statusCode: 0,
-		},
-	}
-
-	for id, c := range cases {
-		// start mock redis server
-		mockRedis, err := miniredis.Run()
-		if err != nil {
-			t.Fatalf("Unable to start mock redis server: %v", err)
-		}
-		defer mockRedis.Close()
-
-		// start mixer with redisquota adapter
-		args := server.NewArgs()
-
-		args.APIPort = 0
-		args.MonitoringPort = 0
-		args.Templates = template.SupportedTmplInfo
-		args.Adapters = []adapter.InfoFn{
-			GetInfo,
-		}
-
-		serviceCfg := adapterConfig
-		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
-		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
-		var cerr error
-		if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalConfig, serviceCfg); cerr != nil {
-			t.Fatal(cerr)
-		}
-
-		mixerServer, err := server.New(args)
-		if err != nil {
-			t.Fatalf("Unable to create server: %v", err)
-		}
-		mixerServer.Run()
-
-		// start mixer client
-		conn, err := grpc.Dial(mixerServer.Addr().String(), grpc.WithInsecure())
-		if err != nil {
-			t.Errorf("Creating client failed: %v", err)
-		}
-		mixerClient := istio_mixer_v1.NewMixerClient(conn)
-
-		requestBag := attribute.GetMutableBag(nil)
-		requestBag.Set(args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
-
-		for k, v := range c.attrs {
-			requestBag.Set(k, v)
-		}
-		var attrProto istio_mixer_v1.CompressedAttributes
-		requestBag.ToProto(&attrProto, nil, 0)
-
-		req := &istio_mixer_v1.CheckRequest{
-			Attributes: attrProto,
-			Quotas:     c.quotas,
-		}
-
-		res, err := mixerClient.Check(context.Background(), req)
-		if err != nil {
-			t.Errorf("%v: Got error during Check: %v", id, err)
-		}
-
-		if res.Precondition.Status.Code != c.statusCode {
-			t.Errorf("%v: Expected status: %v, Got: %v", id, c.statusCode, res.Precondition.Status.Code)
-		}
-
-		if len(c.expected) != len(res.Quotas) {
-			t.Errorf("%v: Expected response size: %v, Got: %v", id, len(c.expected), len(res.Quotas))
-		}
-
-		for name, allocated := range c.expected {
-			if quota, ok := res.Quotas[name]; ok {
-				if quota.GrantedAmount != allocated {
-					t.Errorf("%v: Expected Grant amount: %v, Got: %v", id, allocated, quota.GrantedAmount)
-				}
-			} else {
-				t.Errorf("%v: Required quota not allocated: %v", id, name)
-			}
-		}
-	}
-}
-
 func TestFixedWindowAlgorithm(t *testing.T) {
-	runServerWithSelectedAlgorithm(t, "ROLLING_WINDOW")
-	runServerWithSelectedAlgorithm(t, "FIXED_WINDOW")
+	// start mock redis server
+	mockRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("Unable to start mock redis server: %v", err)
+	}
+	defer mockRedis.Close()
+
+	// start mixer with redisquota adapter
+	args := server.NewArgs()
+
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.Templates = template.SupportedTmplInfo
+	args.Adapters = []adapter.InfoFn{
+		GetInfo,
+	}
+
+	serviceCfg := adapterConfig
+	serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
+	var cerr error
+	if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalConfig, serviceCfg); cerr != nil {
+		t.Fatal(cerr)
+	}
+
+	mixerServer, err := server.New(args)
+	if err != nil {
+		t.Fatalf("Unable to create server: %v", err)
+	}
+	mixerServer.Run()
+	defer func() {
+		mixerServer.Close()
+	}()
+
+	// start mixer client
+	conn, err := grpc.Dial(mixerServer.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Errorf("Creating client failed: %v", err)
+	}
+	mixerClient := istio_mixer_v1.NewMixerClient(conn)
+
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
+
+	attrs := map[string]interface{}{}
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+
+	quotas := map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+		"key1": {
+			Amount:     30,
+			BestEffort: true,
+		},
+	}
+
+	req := &istio_mixer_v1.CheckRequest{
+		Attributes: attrProto,
+		Quotas:     quotas,
+	}
+
+	res, err := mixerClient.Check(context.Background(), req)
+	if err != nil {
+		t.Errorf("Got error during Check: %v", err)
+	}
+
+	if res.Precondition.Status.Code != 0 {
+		t.Errorf("Expected status: %v, Got: %v", 0, res.Precondition.Status.Code)
+	}
+
+	expected := map[string]int64{
+		"key1": 30,
+	}
+
+	if len(expected) != len(res.Quotas) {
+		t.Errorf("Expected response size: %v, Got: %v", len(expected), len(res.Quotas))
+	}
+
+	for name, allocated := range expected {
+		if quota, ok := res.Quotas[name]; ok {
+			if quota.GrantedAmount != allocated {
+				t.Errorf("Expected Grant amount: %v, Got: %v", allocated, quota.GrantedAmount)
+			}
+		} else {
+			t.Errorf("Required quota not allocated: %v", name)
+		}
+	}
 }
