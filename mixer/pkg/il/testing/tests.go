@@ -305,49 +305,48 @@ end`,
 		R:    true,
 		conf: exprEvalAttrs,
 	},
-	// use request.header (without "s" at the end), as it is the one in the original attributeset.
 	{
-		E:    `match(request.header["user-agent"], "curl*")`,
+		E:    `match(request.headers["user-agent"], "curl*")`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"request.header": map[string]string{
+			"request.headers": map[string]string{
 				"user-agent": "curlish",
 			},
 		},
 		R:    true,
-		conf: exprEvalAttrs,
+		conf: istio06AttributeSet,
 	},
 	{
-		E:    `match(request.header["user-agent"], "curl*")`,
+		E:    `match(request.headers["user-agent"], "curl*")`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"request.header": map[string]string{
+			"request.headers": map[string]string{
 				"user-agent": "ishcurl",
 			},
 		},
 		R:    false,
-		conf: exprEvalAttrs,
+		conf: istio06AttributeSet,
 	},
 	{
-		E:    `match(request.header["user-agent"], "curl*")`,
+		E:    `match(request.headers["user-agent"], "curl*")`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
-			"request.header": map[string]string{},
+			"request.headers": map[string]string{},
 		},
 		R:    false,
-		conf: exprEvalAttrs,
+		conf: istio06AttributeSet,
 	},
 	{
-		E:    `match(request.header["user-agent"], "curl*")`,
+		E:    `match(request.headers["user-agent"], "curl*")`,
 		Type: descriptor.BOOL,
 		I:    map[string]interface{}{},
-		Err:  "lookup failed: 'request.header'",
-		conf: exprEvalAttrs,
+		Err:  "lookup failed: 'request.headers'",
+		conf: istio06AttributeSet,
 	},
 	{
-		E:          `match(request.headersss["user-agent"], "curl*")`,
-		CompileErr: "unknown attribute request.headersss",
-		conf:       exprEvalAttrs,
+		E:          `match(request.headerzzzz["user-agent"], "curl*")`,
+		CompileErr: "unknown attribute request.headerzzzz",
+		conf:       istio06AttributeSet,
 	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
@@ -2701,6 +2700,7 @@ func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
 	return reflect.DeepEqual(actual, t.Referenced)
 }
 
+// Attribute set from the original expression tests
 var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"a": {
 		ValueType: descriptor.INT64,
@@ -2761,6 +2761,7 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 }
 
+// made up attribute set.
 var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"ai": {
 		ValueType: descriptor.INT64,
@@ -2825,4 +2826,59 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"sm": {
 		ValueType: descriptor.STRING_MAP,
 	},
+}
+
+var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
+	"origin.ip":                       {ValueType: descriptor.IP_ADDRESS},
+	"origin.uid":                      {ValueType: descriptor.STRING},
+	"origin.user":                     {ValueType: descriptor.STRING},
+	"request.headers":                 {ValueType: descriptor.STRING_MAP},
+	"request.id":                      {ValueType: descriptor.STRING},
+	"request.host":                    {ValueType: descriptor.STRING},
+	"request.method":                  {ValueType: descriptor.STRING},
+	"request.path":                    {ValueType: descriptor.STRING},
+	"request.reason":                  {ValueType: descriptor.STRING},
+	"request.referer":                 {ValueType: descriptor.STRING},
+	"request.scheme":                  {ValueType: descriptor.STRING},
+	"request.size":                    {ValueType: descriptor.INT64},
+	"request.time":                    {ValueType: descriptor.TIMESTAMP},
+	"request.useragent":               {ValueType: descriptor.STRING},
+	"response.code":                   {ValueType: descriptor.INT64},
+	"response.duration":               {ValueType: descriptor.DURATION},
+	"response.headers":                {ValueType: descriptor.STRING_MAP},
+	"response.size":                   {ValueType: descriptor.INT64},
+	"response.time":                   {ValueType: descriptor.TIMESTAMP},
+	"source.uid":                      {ValueType: descriptor.STRING},
+	"source.user":                     {ValueType: descriptor.STRING},
+	"destination.uid":                 {ValueType: descriptor.STRING},
+	"connection.id":                   {ValueType: descriptor.STRING},
+	"connection.received.bytes":       {ValueType: descriptor.INT64},
+	"connection.received.bytes_total": {ValueType: descriptor.INT64},
+	"connection.sent.bytes":           {ValueType: descriptor.INT64},
+	"connection.sent.bytes_total":     {ValueType: descriptor.INT64},
+	"connection.duration":             {ValueType: descriptor.DURATION},
+	"connection.mtls":                 {ValueType: descriptor.BOOL},
+	"context.protocol":                {ValueType: descriptor.STRING},
+	"context.timestamp":               {ValueType: descriptor.TIMESTAMP},
+	"context.time":                    {ValueType: descriptor.TIMESTAMP},
+	"api.service":                     {ValueType: descriptor.STRING},
+	"api.version":                     {ValueType: descriptor.STRING},
+	"api.operation":                   {ValueType: descriptor.STRING},
+	"api.protocol":                    {ValueType: descriptor.STRING},
+	"request.auth.principal":          {ValueType: descriptor.STRING},
+	"request.auth.audiences":          {ValueType: descriptor.STRING},
+	"request.auth.presenter":          {ValueType: descriptor.STRING},
+	"request.api_key":                 {ValueType: descriptor.STRING},
+	"source.ip":                       {ValueType: descriptor.IP_ADDRESS},
+	"source.labels":                   {ValueType: descriptor.STRING_MAP},
+	"source.name":                     {ValueType: descriptor.STRING},
+	"source.namespace":                {ValueType: descriptor.STRING},
+	"source.service":                  {ValueType: descriptor.STRING},
+	"source.serviceAccount":           {ValueType: descriptor.STRING},
+	"destination.ip":                  {ValueType: descriptor.IP_ADDRESS},
+	"destination.labels":              {ValueType: descriptor.STRING_MAP},
+	"destination.name":                {ValueType: descriptor.STRING},
+	"destination.namespace":           {ValueType: descriptor.STRING},
+	"destination.service":             {ValueType: descriptor.STRING},
+	"destination.serviceAccount":      {ValueType: descriptor.STRING},
 }
