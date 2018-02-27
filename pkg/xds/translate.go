@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	routingv2 "istio.io/api/routing/v1alpha2"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -42,12 +43,50 @@ const (
 // ClusterName specifies cluster name for a destination
 type ClusterName func(*routingv2.Destination) string
 
+// TranslateHost creates virtual host routes from the v1alpha2 config.
+func TranslateHost(in model.Config, name ClusterName, defaultCluster string, labels model.Labels) []route.Route {
+	rule, ok := in.Spec.(*routingv2.RouteRule)
+	if !ok {
+		return nil
+	}
+
+	operation := in.ConfigMeta.Name
+
+	if len(rule.Http) == 0 {
+		return []route.Route{
+			TranslateRoute(&routingv2.HTTPRoute{}, nil, operation, name, defaultCluster),
+		}
+	}
+
+	out := make([]route.Route, 0)
+	for _, http := range rule.Http {
+		if len(http.Match) == 0 {
+			out = append(out, TranslateRoute(http, nil, operation, name, defaultCluster))
+		} else {
+			for _, match := range http.Match {
+				if model.Labels(match.SourceLabels).SubsetOf(labels) {
+					out = append(out, TranslateRoute(http, match, operation, name, defaultCluster))
+				}
+			}
+		}
+	}
+
+	return out
+}
+
 // TranslateRoute translates HTTP routes
-// TODO: no decorator
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
-// TODO: no source labels -- https://github.com/istio/api/issues/389
-func TranslateRoute(in *routingv2.HTTPRoute, name ClusterName, defaultCluster string, match *routingv2.HTTPMatchRequest) route.Route {
-	out := route.Route{Match: TranslateRouteMatch(match)}
+func TranslateRoute(in *routingv2.HTTPRoute,
+	match *routingv2.HTTPMatchRequest,
+	operation string,
+	name ClusterName,
+	defaultCluster string) route.Route {
+	out := route.Route{
+		Match: TranslateRouteMatch(match),
+		Decorator: &route.Decorator{
+			Operation: operation,
+		},
+	}
 
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
