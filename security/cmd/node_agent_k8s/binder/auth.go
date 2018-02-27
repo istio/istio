@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	fvcreds "github.com/colabsaumoh/proto-udsuspver/flexvol/creds"
+	fvcreds "istio.io/istio/security/pkg/flexvolume"
 )
 
 const (
@@ -28,24 +28,24 @@ const (
 )
 
 type Credentials struct {
-	WorkloadCredentials fvcreds.Credentials
+	WorkloadCredentials fvcreds.Credential
 }
 
 func (c Credentials) AuthType() string {
 	return authType
 }
 
-func CallerFromContext(ctx context.Context) (fvcreds.Credentials, bool) {
+func CallerFromContext(ctx context.Context) (fvcreds.Credential, bool) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
-		return fvcreds.Credentials{}, false
+		return fvcreds.Credential{}, false
 	}
 	return CallerFromAuthInfo(peer.AuthInfo)
 }
 
-func CallerFromAuthInfo(ainfo credentials.AuthInfo) (fvcreds.Credentials, bool) {
+func CallerFromAuthInfo(ainfo credentials.AuthInfo) (fvcreds.Credential, bool) {
 	if ci, ok := ainfo.(Credentials); ok {
 		return ci.WorkloadCredentials, true
 	}
-	return fvcreds.Credentials{}, false
+	return fvcreds.Credential{}, false
 }
