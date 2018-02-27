@@ -23,7 +23,7 @@ package v2
 import (
 	"strconv"
 
-	v2 "github.com/envoyproxy/go-control-plane/api"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/model"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"

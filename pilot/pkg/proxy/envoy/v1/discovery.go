@@ -30,7 +30,7 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
-	xdsapi "github.com/envoyproxy/go-control-plane/api"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"

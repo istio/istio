@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/api"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"google.golang.org/grpc"
