@@ -29,14 +29,27 @@ set -u
 # Print commands
 set -x
 
-source ${ROOT}/prow/lib.sh
-setup_and_export_git_sha
+# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
+# for existing resources types
+RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+OWNER='istio-pilot-e2e'
+INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-export NUM_NODES=4
+source "${ROOT}/prow/lib.sh"
+source "${ROOT}/prow/mason_lib.sh"
 source "${ROOT}/prow/cluster_lib.sh"
 
-trap delete_cluster EXIT
-create_cluster 'e2e-pilot'
+function cleanup() {
+  mason_cleanup
+  cat "${FILE_LOG}"
+}
+
+setup_and_export_git_sha
+
+trap cleanup EXIT
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+setup_cluster
 
 HUB="gcr.io/istio-testing"
 
