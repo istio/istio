@@ -51,7 +51,7 @@ type SDSServer struct {
 	udsPath string
 }
 
-// GetTlsCertificate generates the X.509 key/cert for the workload identity
+// GetTLSCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
 func (s *SDSServer) GetTLSCertificate() *auth.TlsCertificate {
