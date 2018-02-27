@@ -22,7 +22,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/testdata"
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -45,9 +44,6 @@ func main() {
 	flag.Parse()
 	var opts []grpc.DialOption
 	if *tls {
-		if *caFile == "" {
-			*caFile = testdata.Path("ca.pem")
-		}
 		creds, err := credentials.NewClientTLSFromFile(*caFile, *serverHostOverride)
 		if err != nil {
 			log.Fatalf("Failed to create TLS credentials %v", err)

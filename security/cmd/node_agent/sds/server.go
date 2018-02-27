@@ -23,7 +23,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/testdata"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -112,12 +111,6 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	if *tls {
-		if *certFile == "" {
-			*certFile = testdata.Path("server1.pem")
-		}
-		if *keyFile == "" {
-			*keyFile = testdata.Path("server1.key")
-		}
 		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
 		if err != nil {
 			log.Fatalf("Failed to generate credentials %v", err)
