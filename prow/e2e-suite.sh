@@ -30,7 +30,7 @@ set -u
 # Print commands
 set -x
 
-TESTS_TARGETS="e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade"
+TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
@@ -88,14 +88,14 @@ if ${SINGLE_MODE}; then
 
     # Check if it's a valid test file
     VALID_TEST=false
-    for T in ${TESTS_TARGETS[@]}; do
+    for T in ${TEST_TARGETS[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make "${SINGLE_TEST}"
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
-      echo "Invalid e2e test target, must be one of ${TESTSPATH}"
+      echo "Invalid e2e test target, must be one of ${TEST_TARGETS}"
       # Fail if it's not a valid test file
       process_result 1 'Invalid test target'
     fi
