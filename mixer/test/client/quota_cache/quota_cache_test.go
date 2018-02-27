@@ -28,8 +28,6 @@ var expectedStats = map[string]int{
 	"http_mixer_filter.total_blocking_remote_quota_calls": 1,
 	"http_mixer_filter.total_check_calls":                 20,
 	"http_mixer_filter.total_quota_calls":                 20,
-	"http_mixer_filter.total_remote_check_calls":          2,
-	"http_mixer_filter.total_remote_quota_calls":          2,
 	"http_mixer_filter.total_remote_report_calls":         1,
 	"http_mixer_filter.total_report_calls":                20,
 }
@@ -91,6 +89,10 @@ func TestQuotaCache(t *testing.T) {
 	// Check stats for Check, Quota and report calls.
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
 		s.VerifyStats(respStats, expectedStats)
+		// Because prefetch code may have some margin, actual number of check and quota calls are not
+		// determined.
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_check_calls", 5)
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_calls", 5)
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
