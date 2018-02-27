@@ -42,9 +42,10 @@ const (
 // ClusterName specifies cluster name for a destination
 type ClusterName func(*routingv2.Destination) string
 
-// TranslateRoute translates HTTP routes for SERVICE:PORT
+// TranslateRoute translates HTTP routes
 // TODO: no decorator
-// TODO: fault filters
+// TODO: fault filters -- issue https://github.com/istio/api/issues/388
+// TODO: no source labels -- https://github.com/istio/api/issues/389
 func TranslateRoute(in *routingv2.HTTPRoute, name ClusterName, defaultCluster string, match *routingv2.HTTPMatchRequest) route.Route {
 	out := route.Route{Match: TranslateRouteMatch(match)}
 
