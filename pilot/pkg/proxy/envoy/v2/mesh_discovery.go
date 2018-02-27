@@ -213,7 +213,7 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 }
 
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
-func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamLoadStatsServer) error {
+func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	// TODO: Change fake values to real load assignments
 	return errors.New("unsupported streaming method")
 }

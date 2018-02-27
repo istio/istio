@@ -908,7 +908,7 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 	cachedResp, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	var totalEndpoints uint32
 	if !cached {
-		out.Resources = make([]*types.Any, 0, len(serviceClusters))
+		out.Resources = make([]types.Any, 0, len(serviceClusters))
 		for _, serviceCluster := range serviceClusters {
 			hostname, ports, labels := model.ParseServiceKey(serviceCluster)
 			instances, err := ds.Instances(hostname, ports.GetNames(), labels)
@@ -924,7 +924,7 @@ func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.Discover
 				Endpoints:   locEps,
 			}
 			clAssignmentRes, _ = types.MarshalAny(clAssignment)
-			out.Resources = append(out.Resources, clAssignmentRes)
+			out.Resources = append(out.Resources, *clAssignmentRes)
 			totalEndpoints += uint32(len(locEps))
 		}
 		// TODO: Retained for backward compatibility wrt cache behavior

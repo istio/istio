@@ -23,7 +23,8 @@ package v2
 import (
 	"strconv"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	"istio.io/istio/pilot/pkg/model"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -31,7 +32,7 @@ import (
 )
 
 // EndpointFromInstance returns an Envoy v2 Endpoint from Pilot's older data structure model.ServiceInstance.
-func EndpointFromInstance(instance *model.ServiceInstance) (*v2.LbEndpoint, error) {
+func EndpointFromInstance(instance *model.ServiceInstance) (*endpoint.LbEndpoint, error) {
 	labels := make([]envoyv2.EndpointLabel, 0, len(instance.Labels)+2)
 	for n, v := range instance.Labels {
 		labels = append(labels, envoyv2.EndpointLabel{Name: n, Value: v})
@@ -44,13 +45,13 @@ func EndpointFromInstance(instance *model.ServiceInstance) (*v2.LbEndpoint, erro
 		envoyv2.EndpointLabel{Name: envoyv2.DestinationUID.AttrName(), Value: epUID},
 		envoyv2.EndpointLabel{Name: envoyv2.DestinationService.AttrName(), Value: instance.Service.Hostname})
 	out, err := envoyv2.NewEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port), envoyv2.SocketProtocolTCP, labels)
-	return (*v2.LbEndpoint)(out), err
+	return (*endpoint.LbEndpoint)(out), err
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints and a total count of
 // Envoy v2 Endpoints constructed from Pilot's older data structure involving model.ServiceInstance objects.
-func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*v2.LocalityLbEndpoints {
-	localityEpMap := make(map[string]*v2.LocalityLbEndpoints)
+func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
+	localityEpMap := make(map[string]endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		lbEp, err := EndpointFromInstance(instance)
 		if err != nil {
@@ -62,16 +63,16 @@ func LocalityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*v2.
 		locality := instance.AvailabilityZone
 		locLbEps, found := localityEpMap[locality]
 		if !found {
-			locLbEps = &v2.LocalityLbEndpoints{
-				Locality: &v2.Locality{
+			locLbEps = endpoint.LocalityLbEndpoints{
+				Locality: &core.Locality{
 					Zone: instance.AvailabilityZone,
 				},
 			}
 			localityEpMap[locality] = locLbEps
 		}
-		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, lbEp)
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
 	}
-	out := make([]*v2.LocalityLbEndpoints, 0, len(localityEpMap))
+	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		out = append(out, locLbEps)
 	}
