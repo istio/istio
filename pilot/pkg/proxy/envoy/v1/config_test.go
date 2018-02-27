@@ -387,6 +387,11 @@ var (
 		file: "testdata/external-service-rule-dns.yaml.golden",
 	}
 
+	externalServiceRuleDNSNoEndpoints = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns-no-endpoints.yaml.golden",
+	}
+
 	externalServiceRuleStatic = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-static.yaml.golden",
