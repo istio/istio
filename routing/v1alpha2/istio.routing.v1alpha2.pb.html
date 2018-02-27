@@ -647,7 +647,7 @@ spec:
   - number: 443
     name: example-http
     protocol: http # not HTTPS.
-  discovery: dns
+  discovery: DNS
 </code></pre>
 
 <p>and a destination rule to initiate TLS connections to the external service.</p>
@@ -678,7 +678,7 @@ spec:
   - number: 27018
     name: mongodb
     protocol: mongo
-  discovery: static
+  discovery: STATIC
   endpoints:
   - address: 2.2.2.2
   - address: 3.3.3.3
@@ -716,7 +716,7 @@ spec:
   - number: 80
     name: http
     protocol: http
-  discovery: none
+  discovery: NONE
 </code></pre>
 
 <p>For HTTP based services, it is possible to create a virtual service
@@ -738,7 +738,7 @@ spec:
   - number: 443
     name: https
     protocol: http
-  discovery: dns
+  discovery: DNS
   endpoints:
   - address: us.foo.bar.com
     ports:

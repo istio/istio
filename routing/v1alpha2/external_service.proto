@@ -43,7 +43,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //       - number: 443
 //         name: example-http
 //         protocol: http # not HTTPS.
-//       discovery: dns
+//       discovery: DNS
 //
 // and a destination rule to initiate TLS connections to the external service.
 //
@@ -72,7 +72,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //       - number: 27018
 //         name: mongodb
 //         protocol: mongo
-//       discovery: static
+//       discovery: STATIC
 //       endpoints:
 //       - address: 2.2.2.2
 //       - address: 3.3.3.3
@@ -108,7 +108,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //       - number: 80
 //         name: http
 //         protocol: http
-//       discovery: none
+//       discovery: NONE
 //
 // For HTTP based services, it is possible to create a virtual service
 // backed by multiple DNS addressible endpoints. In such a scenario, the
@@ -129,7 +129,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //       - number: 443
 //         name: https
 //         protocol: http
-//       discovery: dns
+//       discovery: DNS
 //       endpoints:
 //       - address: us.foo.bar.com
 //         ports:

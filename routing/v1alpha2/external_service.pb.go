@@ -73,7 +73,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) { return fileD
 //       - number: 443
 //         name: example-http
 //         protocol: http # not HTTPS.
-//       discovery: dns
+//       discovery: DNS
 //
 // and a destination rule to initiate TLS connections to the external service.
 //
@@ -102,7 +102,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) { return fileD
 //       - number: 27018
 //         name: mongodb
 //         protocol: mongo
-//       discovery: static
+//       discovery: STATIC
 //       endpoints:
 //       - address: 2.2.2.2
 //       - address: 3.3.3.3
@@ -138,7 +138,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) { return fileD
 //       - number: 80
 //         name: http
 //         protocol: http
-//       discovery: none
+//       discovery: NONE
 //
 // For HTTP based services, it is possible to create a virtual service
 // backed by multiple DNS addressible endpoints. In such a scenario, the
@@ -159,7 +159,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) { return fileD
 //       - number: 443
 //         name: https
 //         protocol: http
-//       discovery: dns
+//       discovery: DNS
 //       endpoints:
 //       - address: us.foo.bar.com
 //         ports:
