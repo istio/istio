@@ -15,9 +15,9 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-package istio.routing.v1alpha2;
+package istio.networking.v1alpha3;
 
-option go_package = "istio.io/api/routing/v1alpha2";
+option go_package = "istio.io/api/networking/v1alpha3";
 
 // $title: Destination Rules
 // $overview: Configuration affecting client connectivity to a service
@@ -29,7 +29,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // balancing pool. For example, a simple load balancing policy for the
 // ratings service would look as follows:
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
@@ -39,13 +39,13 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //         loadBalancer:
 //           simple: LEAST_CONN
 //
-// Version specific DestinationRule can be specified by defining a named
+// Version specific policies can be specified by defining a named
 // subset and overriding the settings specified at the service level. The
 // following rule uses a round robin load balancing policy for all traffic
 // going to a subset named testversion that is composed of endpoints (e.g.,
 // pods) with labels (version:v3).
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
@@ -115,14 +115,14 @@ message TrafficPolicy {
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
 // like A/B testing, or routing to a specific version of a service. Refer
-// to Route Rules documentation for examples on using subsets in these
+// to VirtualService documentation for examples of using subsets in these
 // scenarios. In addition, traffic policies defined at the service-level
 // can be overridden at a subset-level. The following rule uses a round
 // robin load balancing policy for all traffic going to a subset named
 // testversion that is composed of endpoints (e.g., pods) with labels
 // (version:v3).
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
@@ -165,7 +165,7 @@ message Subset {
 // For example, the following rule uses a round robin load balancing policy
 // for all traffic going to the ratings service.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
@@ -178,7 +178,7 @@ message Subset {
 // The following example uses the consistent hashing based load balancer
 // for the same ratings service using the Cookie header as the hash key.
 // 
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
@@ -253,7 +253,7 @@ message LoadBalancerSettings {
 // For example, the following rule sets a limit of 100 connections to redis
 // service called myredissrv with a connect timeout of 30ms
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-redis
@@ -314,7 +314,7 @@ message ConnectionPoolSettings {
 // scanned every 5 mins, such that any host that fails 7 consecutive times
 // with 5XX error code will be ejected for 15 minutes.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: reviews-cb-policy
@@ -368,7 +368,7 @@ message OutlierDetection {
 // For example, the following rule configures a client to use mutual TLS
 // for connections to upstream database cluster.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: db-mtls
@@ -383,7 +383,7 @@ message OutlierDetection {
 //
 // The following rule configures a client to use TLS when talking to a foreign service whose domain matches *.foo.com.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: tls-foo

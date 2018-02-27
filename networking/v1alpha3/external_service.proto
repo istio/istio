@@ -14,11 +14,11 @@
 
 syntax = "proto3";
 
-import "routing/v1alpha2/gateway.proto";
+import "networking/v1alpha3/gateway.proto";
 
-package istio.routing.v1alpha2;
+package istio.networking.v1alpha3;
 
-option go_package = "istio.io/api/routing/v1alpha2";
+option go_package = "istio.io/api/networking/v1alpha3";
 
 // $title: Istio External Services
 // $overview: Defining external service dependencies of the mesh
@@ -32,7 +32,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // plaintext http (i.e. http://example.com:443), with the sidecar originating
 // TLS.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
 //     metadata:
 //       name: external-svc-example
@@ -47,7 +47,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //
 // and a destination rule to initiate TLS connections to the external service.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: tls-example
@@ -61,7 +61,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // a MongoDB cluster behind a set of virtual IPs, and sets up a destination
 // rule to initiate mTLS connections upstream.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
 //     metadata:
 //       name: external-svc-mongocluster
@@ -79,7 +79,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //
 // and the associated destination rule
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: mtls-mongocluster
@@ -97,7 +97,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // application (i.e. application resolves DNS and attempts to connect to a
 // specific IP), the discovery mode must be set to "none".
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
 //     metadata:
 //       name: external-svc-wildcard-example
@@ -118,7 +118,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // called foo.bar.com backed by three domains: us.foo.bar.com:8443,
 // uk.foo.bar.com:9443, and in.foo.bar.com:7443
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
 //     metadata:
 //       name: external-svc-dns
@@ -143,7 +143,7 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //
 // and a destination rule to initiate TLS connections to the external service.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: tls-foobar

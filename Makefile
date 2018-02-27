@@ -282,24 +282,24 @@ routing_v1alpha1_protos := $(shell find $(routing_v1alpha1_path) -type f -name '
 routing_v1alpha1_pb_gos := $(routing_v1alpha1_protos:.proto=.pb.go)
 routing_v1alpha1_pb_doc := $(routing_v1alpha1_path)/istio.routing.v1alpha1.pb.html
 
-routing_v1alpha2_path := routing/v1alpha2
-routing_v1alpha2_protos := $(shell find routing/v1alpha2 -type f -name '*.proto' | sort)
-routing_v1alpha2_pb_gos := $(routing_v1alpha2_protos:.proto=.pb.go)
-routing_v1alpha2_pb_doc := $(routing_v1alpha2_path)/istio.routing.v1alpha2.pb.html
+routing_v1alpha3_path := networking/v1alpha3
+routing_v1alpha3_protos := $(shell find networking/v1alpha3 -type f -name '*.proto' | sort)
+routing_v1alpha3_pb_gos := $(routing_v1alpha3_protos:.proto=.pb.go)
+routing_v1alpha3_pb_doc := $(routing_v1alpha3_path)/istio.routing.v1alpha3.pb.html
 
-generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha2_pb_gos) $(routing_v1alpha2_pb_doc)
+generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
 
 $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate routing/v1alpha1/*.pb.go +
 	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
 
-$(routing_v1alpha2_pb_gos) $(routing_v1alpha2_pb_doc): $(routing_v1alpha2_protos) | depend $(protoc_gen_go) $(protoc_bin)
-	## Generate routing/v1alpha2/*.pb.go
-	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha2_path) $^
+$(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos) | depend $(protoc_gen_go) $(protoc_bin)
+	## Generate networking/v1alpha3/*.pb.go
+	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
 clean-routing-generated:
-	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha2_pb_gos)
-	rm -f $(routing_v1alpha1_pb_doc) $(routing_v1alpha2_pb_doc)
+	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
+	rm -f $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_doc)
 
 #####################
 # rbac/...

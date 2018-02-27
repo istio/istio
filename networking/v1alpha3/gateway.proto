@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package istio.routing.v1alpha2;
+package istio.networking.v1alpha3;
 
-option go_package = "istio.io/api/routing/v1alpha2";
+option go_package = "istio.io/api/networking/v1alpha3";
 
 // $title: Istio Gateway
 // $overview: Configuration of a generic load balancer
@@ -69,10 +69,10 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //           protocol: MONGO
 //
 // The gateway specification above describes the L4-L6 properties of a load
-// balancer. Routing rules can then be bound to a gateway to control 
+// balancer. A VirtualService can then be bound to a gateway to control
 // the forwarding of traffic arriving at a particular host or gateway port.
 //
-// The following sample route rule splits traffic for
+// For example, the following VirtualService splits traffic for
 // https://uk.bookinfo.com/reviews, https://eu.bookinfo.com/reviews,
 // http://uk.bookinfo.com:9080/reviews, http://eu.bookinfo.com:9080/reviews
 // into two versions (prod and qa) of an internal reviews service on port
@@ -83,8 +83,8 @@ option go_package = "istio.io/api/routing/v1alpha2";
 // http://uk.bookinfo.com gets redirected to https://uk.bookinfo.com
 // (i.e. 80 redirects to 443).
 //
-//     apiVersion: config.istio.io/v1alpha2
-//     kind: RouteRule
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
 //     metadata:
 //       name: bookinfo-rule
 //     spec:
@@ -118,13 +118,13 @@ option go_package = "istio.io/api/routing/v1alpha2";
 //             name: reviews.qa
 //           weight: 20
 //
-// The following routing rule forwards traffic arriving at (external) port
+// The following VirtualService forwards traffic arriving at (external) port
 // 2379 from 172.17.16.0/24 subnet to internal Mongo server on port 5555. This
 // rule is not applicable internally in the mesh as the gateway list omits
 // the reserved name "mesh".
 //
-//     apiVersion: config.istio.io/v1alpha2
-//     kind: RouteRule
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
 //     metadata:
 //       name: bookinfo-Mongo
 //     spec:
@@ -155,7 +155,7 @@ message Gateway {
 // Server describes the properties of the proxy on a given load balancer port.
 // For example,
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: Gateway
 //     metadata:
 //       name: my-ingress
@@ -169,7 +169,7 @@ message Gateway {
 //
 // Another example
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: Gateway
 //     metadata:
 //       name: my-tcp-ingress
@@ -183,7 +183,7 @@ message Gateway {
 //
 // The following is an example of TLS configuration for port 443
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: Gateway
 //     metadata:
 //       name: my-tls-ingress
@@ -209,10 +209,10 @@ message Server {
   // services using TLS with SNI. Standard DNS wildcard prefix syntax
   // is permitted.
   //
-  // RouteRules that are bound to a gateway must having a matching host
-  // in their default destination. Specifically one of the route rule
+  // A VirtualService that is bound to a gateway must having a matching host
+  // in its default destination. Specifically one of the VirtualService
   // destination hosts is a strict suffix of a gateway host or
-  // a gateway host is a suffix of one of the route rule hosts.
+  // a gateway host is a suffix of one of the VirtualService hosts.
   repeated string hosts = 2;
 
   message TLSOptions {
