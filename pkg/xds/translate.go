@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
@@ -38,8 +39,82 @@ const (
 	HeaderScheme    = ":scheme"
 )
 
-// TranslateRoute creates a route from match condition
-func TranslateRoute(in *routingv2.HTTPMatchRequest) route.RouteMatch {
+// ClusterName specifies cluster name for a destination
+type ClusterName func(*routingv2.Destination) string
+
+// TranslateRoute translates HTTP routes for SERVICE:PORT
+// TODO: no decorator
+// TODO: fault filters
+func TranslateRoute(in *routingv2.HTTPRoute, name ClusterName, defaultCluster string, match *routingv2.HTTPMatchRequest) route.Route {
+	out := route.Route{Match: TranslateRouteMatch(match)}
+
+	if redirect := in.Redirect; redirect != nil {
+		out.Action = &route.Route_Redirect{
+			Redirect: &route.RedirectAction{
+				HostRedirect: redirect.Authority,
+				PathRedirect: redirect.Uri,
+			}}
+	} else {
+		action := &route.RouteAction{
+			Cors:         TranslateCORSPolicy(in.CorsPolicy),
+			RetryPolicy:  TranslateRetryPolicy(in.Retries),
+			Timeout:      TranslateTime(in.Timeout),
+			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
+		}
+		out.Action = &route.Route_Route{Route: action}
+
+		if rewrite := in.Rewrite; rewrite != nil {
+			action.PrefixRewrite = rewrite.Uri
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewrite{
+				HostRewrite: rewrite.Authority,
+			}
+		}
+
+		if len(in.AppendHeaders) > 0 {
+			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, len(in.AppendHeaders))
+			for key, value := range in.AppendHeaders {
+				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
+			}
+		}
+
+		if in.Mirror != nil {
+			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: name(in.Mirror)}
+		}
+
+		if len(in.Route) == 0 { // build default cluster
+			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: defaultCluster}
+		} else {
+			weighted := make([]*route.WeightedCluster_ClusterWeight, len(in.Route))
+			for _, dst := range in.Route {
+				weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
+					Name:   name(dst.Destination),
+					Weight: &types.UInt32Value{Value: uint32(dst.Weight)},
+				})
+			}
+
+			// rewrite to a single cluster if there is only weighted cluster
+			if len(weighted) == 1 {
+				action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+			} else {
+				action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
+					WeightedClusters: &route.WeightedCluster{
+						Clusters: weighted,
+					},
+				}
+			}
+		}
+	}
+
+	return out
+}
+
+// TranslateRouteMatch translates match condition
+func TranslateRouteMatch(in *routingv2.HTTPMatchRequest) route.RouteMatch {
 	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -114,12 +189,10 @@ func TranslateHeaderMatcher(name string, in *routingv2.StringMatch) route.Header
 // TranslateRetryPolicy translates retry policy
 func TranslateRetryPolicy(in *routingv2.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
-		out := &route.RouteAction_RetryPolicy{
-			NumRetries: &types.UInt32Value{Value: uint32(in.GetAttempts())},
-			RetryOn:    "5xx,connect-failure,refused-stream",
-		}
-		if timeout := convertTime(in.PerTryTimeout); timeout > 0 {
-			out.PerTryTimeout = &timeout
+		return &route.RouteAction_RetryPolicy{
+			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
+			RetryOn:       "5xx,connect-failure,refused-stream",
+			PerTryTimeout: TranslateTime(in.PerTryTimeout),
 		}
 	}
 	return nil
@@ -136,7 +209,7 @@ func TranslateCORSPolicy(in *routingv2.CorsPolicy) *route.CorsPolicy {
 		Enabled:     &types.BoolValue{Value: true},
 	}
 	if in.AllowCredentials != nil {
-		out.AllowCredentials = convertBool(in.AllowCredentials)
+		out.AllowCredentials = TranslateBool(in.AllowCredentials)
 	}
 	if len(in.AllowHeaders) > 0 {
 		out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
@@ -153,20 +226,22 @@ func TranslateCORSPolicy(in *routingv2.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
-func convertBool(in *wrappers.BoolValue) *types.BoolValue {
+// TranslateBool converts bool wrapper.
+func TranslateBool(in *wrappers.BoolValue) *types.BoolValue {
 	if in == nil {
 		return nil
 	}
 	return &types.BoolValue{Value: in.Value}
 }
 
-func convertTime(in *duration.Duration) time.Duration {
+// TranslateTime converts time protos.
+func TranslateTime(in *duration.Duration) *time.Duration {
 	if in == nil {
-		return 0
+		return nil
 	}
 	out, err := ptypes.Duration(in)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
-	return out
+	return &out
 }
