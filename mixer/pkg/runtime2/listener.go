@@ -15,7 +15,6 @@
 package runtime2
 
 import (
-	"context"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -28,12 +27,11 @@ import (
 func startWatch(s store.Store, kinds map[string]proto.Message) (
 	map[store.Key]*store.Resource, <-chan store.Event, error) {
 
-	ctx := context.Background()
-	if err := s.Init(ctx, kinds); err != nil {
+	if err := s.Init(kinds); err != nil {
 		return nil, nil, err
 	}
 	// create channel before listing.
-	watchChan, err := s.Watch(ctx)
+	watchChan, err := s.Watch()
 	if err != nil {
 		return nil, nil, err
 	}

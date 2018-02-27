@@ -17,7 +17,6 @@
 package storetest
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -27,18 +26,23 @@ import (
 )
 
 type memstore struct {
-	data map[store.Key]*store.BackEndResource
+	data  map[store.Key]*store.BackEndResource
+	donec chan struct{}
 }
 
-func (m *memstore) Init(ctx context.Context, kinds []string) error {
+func (m *memstore) Stop() {
+	close(m.donec)
+}
+
+func (m *memstore) Init(kinds []string) error {
 	return nil
 }
 
-func (m *memstore) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
+func (m *memstore) Watch() (<-chan store.BackendEvent, error) {
 	// Watch is not supported in the memstore, but sometimes it needs to be invoked.
 	c := make(chan store.BackendEvent)
 	go func() {
-		<-ctx.Done()
+		<-m.donec
 		close(c)
 	}()
 	return c, nil
@@ -60,7 +64,7 @@ func (m *memstore) List() map[store.Key]*store.BackEndResource {
 // data with the specified specs, and returns a new store with the backend.
 // Note that this store can't change, Watch does not emit any events.
 func SetupStoreForTest(data ...string) (store.Store, error) {
-	m := &memstore{data: map[store.Key]*store.BackEndResource{}}
+	m := &memstore{data: map[store.Key]*store.BackEndResource{}, donec: make(chan struct{})}
 	var errs error
 	for i, d := range data {
 		for j, chunk := range strings.Split(d, "\n---\n") {

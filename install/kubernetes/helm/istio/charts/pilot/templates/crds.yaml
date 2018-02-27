@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: destinationpolicies.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -19,7 +19,7 @@ kind: CustomResourceDefinition
 metadata:
   name: egressrules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -35,7 +35,7 @@ kind: CustomResourceDefinition
 metadata:
   name: routerules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -51,7 +51,7 @@ kind: CustomResourceDefinition
 metadata:
   name: v1alpha2routerules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -67,7 +67,7 @@ kind: CustomResourceDefinition
 metadata:
   name: destinationrules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -83,7 +83,7 @@ kind: CustomResourceDefinition
 metadata:
   name: externalservices.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:

@@ -287,6 +287,16 @@ var (
 		file: "testdata/gateway-route.yaml",
 	}
 
+	gatewayWildcardRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-wildcard-simple"},
+		file: "testdata/gateway-wildcard-route.yaml",
+	}
+
+	gatewayRouteRule2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-simple-2"},
+		file: "testdata/gateway-route-2.yaml",
+	}
+
 	gatewayConfig = fileConfig{
 		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway"},
 		file: "testdata/gateway.yaml",
@@ -295,6 +305,11 @@ var (
 	gatewayConfig2 = fileConfig{
 		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-2"},
 		file: "testdata/gateway2.yaml",
+	}
+
+	gatewayWildcardConfig = fileConfig{
+		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-wildcard"},
+		file: "testdata/gateway-wildcard.yaml",
 	}
 
 	faultRouteRule = fileConfig{
@@ -370,6 +385,11 @@ var (
 	externalServiceRuleDNS = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-dns.yaml.golden",
+	}
+
+	externalServiceRuleDNSNoEndpoints = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns-no-endpoints.yaml.golden",
 	}
 
 	externalServiceRuleStatic = fileConfig{

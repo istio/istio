@@ -23,9 +23,9 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 
-	cfgpb "istio.io/api/mixer/v1/config"
-	configpb "istio.io/api/mixer/v1/config"
-	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cfgpb "istio.io/api/policy/v1beta1"
+	configpb "istio.io/api/policy/v1beta1"
+	dpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"

@@ -15,7 +15,7 @@
 package expr
 
 import (
-	config "istio.io/api/mixer/v1/config/descriptor"
+	config "istio.io/api/policy/v1beta1"
 )
 
 // FunctionMetadata contains type metadata for functions.

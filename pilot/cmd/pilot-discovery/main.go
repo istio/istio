@@ -110,7 +110,7 @@ func init() {
 	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
 	// enable webhook for specific xDS config (cds/lds/etc).
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports DNS, IP, and unix domain socket.")
+		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.Config, "consulconfig", "",
 		"Consul Config file for discovery")

@@ -27,6 +27,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/pki/ca"
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -44,9 +46,10 @@ hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
 -----END CERTIFICATE REQUEST-----`
 
 type mockCA struct {
-	cert   string
-	root   string
-	errMsg string
+	cert      string
+	root      string
+	certChain string
+	errMsg    string
 }
 
 func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
@@ -58,6 +61,10 @@ func (ca *mockCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, er
 
 func (ca *mockCA) GetRootCertificate() []byte {
 	return []byte(ca.root)
+}
+
+func (ca *mockCA) GetCertChain() []byte {
+	return []byte(ca.certChain)
 }
 
 type mockAuthenticator struct {
@@ -95,6 +102,7 @@ func TestSign(t *testing.T) {
 		ca             ca.CertificateAuthority
 		csr            string
 		cert           string
+		certChain      string
 		code           codes.Code
 	}{
 		"Unauthenticated request": {
@@ -103,22 +111,26 @@ func TestSign(t *testing.T) {
 			}},
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
-			ca:         &mockCA{errMsg: "cannot sign"},
+			ca:         &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
 			authenticators: []authenticator{&mockAuthenticator{}},
-			ca:             &mockCA{errMsg: "cannot sign"},
+			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
 			csr:            csr,
 			code:           codes.Internal,
 		},
 		"Successful signing": {
 			authenticators: []authenticator{&mockAuthenticator{}},
 			authorizer:     &mockAuthorizer{},
-			ca:             &mockCA{cert: "generated cert"},
-			csr:            csr,
-			cert:           "generated cert",
-			code:           codes.OK,
+			ca: &mockca.FakeCA{
+				SignedCert:    []byte("generated cert"),
+				KeyCertBundle: &mockutil.FakeKeyCertBundle{CertChainBytes: []byte("cert chain")},
+			},
+			csr:       csr,
+			cert:      "generated cert",
+			certChain: "cert chain",
+			code:      codes.OK,
 		},
 	}
 
@@ -137,8 +149,14 @@ func TestSign(t *testing.T) {
 		code := s.Code()
 		if c.code != code {
 			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, code)
-		} else if c.code == codes.OK && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
-			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
+		} else if c.code == codes.OK {
+			if !bytes.Equal(response.SignedCert, []byte(c.cert)) {
+				t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCert)
+			}
+			if !bytes.Equal(response.CertChain, []byte(c.certChain)) {
+				t.Errorf("Case %s: expecting cert chain to be (%s) but got (%s)", id, c.certChain, response.CertChain)
+			}
+
 		}
 	}
 }
@@ -183,7 +201,7 @@ func TestShouldRefresh(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	testCases := map[string]struct {
-		ca                          *mockCA
+		ca                          *mockca.FakeCA
 		hostname                    string
 		port                        int
 		expectedErr                 string
@@ -191,12 +209,12 @@ func TestRun(t *testing.T) {
 		expectedAuthenticatorsLen   int
 	}{
 		"Invalid listening port number": {
-			ca:          &mockCA{cert: csr},
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"Random listening port number": {
-			ca:                        &mockCA{cert: csr},
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  "localhost",
 			port:                      0,
 			expectedErr:               "",

@@ -140,6 +140,7 @@ func (c *Runtime) StopListening() {
 		c.shutdown <- struct{}{}
 		c.shutdown = nil
 		c.waitQuiesceListening.Wait()
+		c.store.Stop()
 
 		c.Probe.SetAvailable(errNotListening)
 	}

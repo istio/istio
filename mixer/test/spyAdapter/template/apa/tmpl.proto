@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package SampleApa;
 
-import "mixer/v1/template/standard_types.proto";
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
-option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
 message Template {
     int64 int64Primitive = 1;

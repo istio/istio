@@ -128,6 +128,12 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 		}
 	}
 
+	// Use host address if discovery type DNS and no endpoints are provided
+	if discovery == routingv2.ExternalService_DNS && len(endpoints) == 0 {
+		url := fmt.Sprintf("tcp://%s:%d", address, port.Port)
+		hosts = append(hosts, Host{URL: url})
+	}
+
 	var clusterType, lbType string
 	switch discovery {
 	case routingv2.ExternalService_NONE:
@@ -187,7 +193,7 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *routin
 	// every route here belongs to the same destination.service, ie serviceName
 	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
 	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-		oc := buildMixerConfig(node, serviceName, service, config, mesh.DisablePolicyChecks, false)
+		oc := buildMixerConfig(node, serviceName, service, proxyInstances, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
 		}

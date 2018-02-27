@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	istio_mixer_v1_template "istio.io/api/mixer/v1/template"
+	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
@@ -153,6 +153,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 		DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, instance interface{},
 			attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 			l.writeFormat(name, "DispatchGenAttrs => instance: '%+v'", instance)
+			l.writeFormat(name, "DispatchGenAttrs => attrs:    '%+v'", attrs.DebugString())
+			l.writeFormat(name, "DispatchGenAttrs => mapper(exists):   '%+v'", mapper != nil)
 
 			signalCallAndWait(s)
 

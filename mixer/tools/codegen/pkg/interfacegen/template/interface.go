@@ -22,7 +22,7 @@ package {{.GoPackageName}}
 
 import (
   "context"
-  "istio.io/istio/mixer/pkg/adapter"
+  "strings"
   "istio.io/istio/mixer/pkg/adapter"
   $$additional_imports$$
 )
@@ -62,7 +62,7 @@ func NewOutput() (*Output) {
 
 {{range .OutputTemplateMessage.Fields}}
 func (o *Output) Set{{.GoName}}(val {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}) { 
-   o.fieldsSet["{{.GoName}}"] = true
+   o.fieldsSet["{{.ProtoName}}"] = true
    o.{{.GoName}} = val
 }
 {{end}}

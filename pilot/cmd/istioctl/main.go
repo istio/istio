@@ -615,8 +615,8 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
 			crd.KabobCaseToCamelCase(c.Type),
-			model.IstioAPIVersion,
-			model.IstioAPIGroup,
+			c.Group,
+			c.Version,
 		)
 		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
 	}
