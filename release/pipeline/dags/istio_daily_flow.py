@@ -1,4 +1,4 @@
-"""Airfow DAG used is the daily release pipline.
+"""Airfow DAG used is the daily release pipeline.
 
 Copyright 2017 Istio Authors. All Rights Reserved.
 
