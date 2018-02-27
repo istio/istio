@@ -227,11 +227,18 @@
 [[projects]]
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
-    "api",
+    "envoy/api/v2",
+    "envoy/api/v2/auth",
+    "envoy/api/v2/cluster",
+    "envoy/api/v2/core",
+    "envoy/api/v2/endpoint",
+    "envoy/api/v2/listener",
+    "envoy/api/v2/route",
+    "envoy/service/discovery/v2",
     "pkg/cache",
     "pkg/server"
   ]
-  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+  revision = "e0ebc95432196ce43dae88cc2822983466210656"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -1452,6 +1459,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "09fe190ee519878ce69e19d69ca3f0ac50a8dd59f38cc402db6d1143d0811205"
+  inputs-digest = "64e85d7b234617a9afbc0a95c64d1716f88ea99a3bbf475ab377c8d92f1100e4"
   solver-name = "gps-cdcl"
   solver-version = 1
