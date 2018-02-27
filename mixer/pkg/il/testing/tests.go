@@ -305,6 +305,50 @@ end`,
 		R:    true,
 		conf: exprEvalAttrs,
 	},
+	// use request.header (without "s" at the end), as it is the one in the original attributeset.
+	{
+		E:    `match(request.header["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.header": map[string]string{
+				"user-agent": "curlish",
+			},
+		},
+		R:    true,
+		conf: exprEvalAttrs,
+	},
+	{
+		E:    `match(request.header["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.header": map[string]string{
+				"user-agent": "ishcurl",
+			},
+		},
+		R:    false,
+		conf: exprEvalAttrs,
+	},
+	{
+		E:    `match(request.header["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.header": map[string]string{},
+		},
+		R:    false,
+		conf: exprEvalAttrs,
+	},
+	{
+		E:    `match(request.header["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		Err:  "lookup failed: 'request.header'",
+		conf: exprEvalAttrs,
+	},
+	{
+		E:          `match(request.headersss["user-agent"], "curl*")`,
+		CompileErr: "unknown attribute request.headersss",
+		conf:       exprEvalAttrs,
+	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
 		Type: descriptor.BOOL,
