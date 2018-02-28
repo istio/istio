@@ -335,7 +335,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
 
-	if envoyv2.IsEnabled() {
+	if envoyv2.Enabled() {
 		// For now we create the gRPC server sourcing data from Pilot's older data model.
 		out.serverV2 = envoyv2.NewDiscoveryServer(out)
 	}
@@ -460,7 +460,7 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 		return nil, err
 	}
 
-	if envoyv2.IsEnabled() {
+	if envoyv2.Enabled() {
 		ds.serverV2.Start()
 	}
 
@@ -474,6 +474,9 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 
 		// Wait for the stop notification and shutdown the server.
 		<-stop
+		if envoyv2.Enabled() {
+			ds.serverV2.Start()
+		}
 		err := ds.server.Close()
 		if err != nil {
 			log.Warna(err)

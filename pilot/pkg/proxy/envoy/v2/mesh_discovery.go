@@ -72,8 +72,8 @@ func init() {
 	}
 }
 
-// IsEnabled returns true if EnvoyV2 APIs are enabled for Pilot.
-func IsEnabled() bool {
+// Enabled returns true if EnvoyV2 APIs are enabled for Pilot.
+func Enabled() bool {
 	return len(gRPCPort) > 0
 }
 
@@ -120,6 +120,12 @@ func (s *DiscoveryServer) Start() {
 	}(s.grpcServer, lis)
 }
 
+// Stop performs a hard shutsdown the underlying gRPC server.
+// TODO: We may need to make a distinction between gracefully shutting down Pilot vs hard shutdown
+func (s *DiscoveryServer) Stop() {
+	s.grpcServer.Stop()
+}
+
 /***************************  Mesh EDS Implementation **********************************/
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
@@ -131,11 +137,11 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		peerAddr = peerInfo.Addr.String()
 	}
 	defer ticker.Stop()
-	var discReq xdsapi.DiscoveryRequest
+	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
 	var clusters []string
 	initialRequest := true
-	reqChannel := make(chan xdsapi.DiscoveryRequest, 1)
+	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	go func() {
 		defer close(reqChannel)
 		for {
@@ -148,7 +154,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				log.Errorf("request loop for EDS for client %q terminated with errors %v", peerAddr, err)
 				return
 			}
-			reqChannel <- *req
+			reqChannel <- req
 		}
 	}()
 	for {
@@ -162,6 +168,10 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 				// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
 				// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
+				if log.DebugEnabled() {
+					log.Debugf("EDS ACK from Envoy for client %q has version %q and Nonce %q for request for clusters %v",
+						discReq.GetVersionInfo(), discReq.GetResponseNonce(), clusters)
+				}
 				continue
 			}
 		case <-ticker.C:
