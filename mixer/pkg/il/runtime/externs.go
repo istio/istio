@@ -32,6 +32,7 @@ var Externs = map[string]interpreter.Extern{
 	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
+	"timestampNow":    interpreter.ExternFromFn("timestampNow", externTimestampNow),
 	"match":           interpreter.ExternFromFn("match", externMatch),
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -50,6 +51,11 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 		Name:          "timestamp",
 		ReturnType:    config.TIMESTAMP,
 		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "timestampNow",
+		ReturnType:    config.TIMESTAMP,
+		ArgumentTypes: []config.ValueType{},
 	},
 	{
 		Name:          "match",
@@ -109,6 +115,10 @@ func externTimestamp(in string) (time.Time, error) {
 
 func externTimestampEqual(t1 time.Time, t2 time.Time) bool {
 	return t1.Equal(t2)
+}
+
+func externTimestampNow() (time.Time, error) {
+	return time.Now(), nil
 }
 
 func externMatch(str string, pattern string) bool {
