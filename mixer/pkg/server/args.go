@@ -121,6 +121,7 @@ func NewArgs() *Args {
 		TracingOptions:                tracing.NewOptions(),
 		LivenessProbeOptions:          &probe.Options{},
 		ReadinessProbeOptions:         &probe.Options{},
+		EnableProfiling:               true,
 	}
 }
 
