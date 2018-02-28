@@ -56,9 +56,6 @@ spec:
         args:
         - --configStoreURL=k8s://?ns={{.IstioNamespace}}
         - --configDefaultNamespace={{.IstioNamespace}}
-        - --logtostderr
-        - -v
-        - "2"
         - --log_callers
         - --log_output_level
         - debug # pilot verification required debug output
@@ -70,8 +67,6 @@ spec:
         args:
         - proxy
         - mixer
-        - -v
-        - "{{.Verbosity}}"
         - --controlPlaneAuthPolicy
         - "{{.ControlPlaneAuthPolicy.String}}"
         - --customConfigFile

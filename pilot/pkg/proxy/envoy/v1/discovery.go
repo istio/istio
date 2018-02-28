@@ -30,7 +30,6 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
-	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 

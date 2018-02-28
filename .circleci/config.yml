@@ -54,7 +54,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -95,7 +95,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -133,7 +133,7 @@ jobs:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -226,7 +226,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -262,7 +262,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 

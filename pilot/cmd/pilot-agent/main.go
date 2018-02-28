@@ -20,8 +20,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
@@ -299,9 +298,6 @@ func init() {
 }
 
 func main() {
-	// Needed to avoid "logging before flag.Parse" error with glog.
-	cmd.SupressGlogWarnings()
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

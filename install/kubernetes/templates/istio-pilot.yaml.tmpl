@@ -136,7 +136,7 @@ spec:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
+        args: ["discovery", "--admission-service", "istio-pilot"]
         ports:
         - containerPort: 8080
         - containerPort: 443
@@ -166,8 +166,6 @@ spec:
         args:
         - proxy
         - pilot
-        - -v
-        - "2"
         - --discoveryAddress
         - istio-pilot:15007
         - --controlPlaneAuthPolicy

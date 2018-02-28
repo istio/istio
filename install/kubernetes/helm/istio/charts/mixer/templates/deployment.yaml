@@ -58,8 +58,6 @@ spec:
           args:
           - proxy
           - mixer
-          - -v
-          - "2"
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS

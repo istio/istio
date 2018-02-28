@@ -17,8 +17,6 @@ package framework
 import (
 	"flag"
 	"path/filepath"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
