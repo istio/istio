@@ -32,12 +32,14 @@ import (
 
 func TestConfigDescriptor(t *testing.T) {
 	a := model.ProtoSchema{Type: "a", MessageName: "proxy.A"}
+	z := model.ProtoSchema{Type: "longtypename", MessageName: "proxy.LongTypeName", ShortName: "ltn"}
 	descriptor := model.ConfigDescriptor{
 		a,
 		model.ProtoSchema{Type: "b", MessageName: "proxy.B"},
 		model.ProtoSchema{Type: "c", MessageName: "proxy.C"},
+		z,
 	}
-	want := []string{"a", "b", "c"}
+	want := []string{"a", "b", "c", "longtypename"}
 	got := descriptor.Types()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("descriptor.Types() => got %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
@@ -58,6 +60,15 @@ func TestConfigDescriptor(t *testing.T) {
 	_, aSchemaNotExist := descriptor.GetByMessageName("blah")
 	if aSchemaNotExist {
 		t.Errorf("descriptor.GetByMessageName(blah) => got true, want false")
+	}
+
+	zSchema, zShortNameExists := descriptor.GetByShortName(z.ShortName)
+	if !zShortNameExists || !reflect.DeepEqual(zSchema, z) {
+		t.Errorf("descriptor.GetByShortName(ltn) => got %+v, want %+v", zSchema, z)
+	}
+	_, zSchemaNotExist := descriptor.GetByShortName("z")
+	if zSchemaNotExist {
+		t.Errorf("descriptor.GetByShortName(z) => got true, want false")
 	}
 }
 

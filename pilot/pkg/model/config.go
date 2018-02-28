@@ -200,6 +200,9 @@ type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
 
+	// ShortName refers to the short name (alias) for this resource
+	ShortName string
+
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(config proto.Message) error
@@ -228,6 +231,16 @@ func (descriptor ConfigDescriptor) GetByMessageName(name string) (ProtoSchema, b
 func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
 	for _, schema := range descriptor {
 		if schema.Type == name {
+			return schema, true
+		}
+	}
+	return ProtoSchema{}, false
+}
+
+// GetByShortName finds a schema by short name if it is available
+func (descriptor ConfigDescriptor) GetByShortName(name string) (ProtoSchema, bool) {
+	for _, schema := range descriptor {
+		if schema.ShortName == name {
 			return schema, true
 		}
 	}
@@ -325,6 +338,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.RouteRule",
+		ShortName:   "rr",
 		Validate:    ValidateRouteRule,
 	}
 
@@ -365,6 +379,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.EgressRule",
+		ShortName:   "er",
 		Validate:    ValidateEgressRule,
 	}
 
@@ -375,6 +390,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.ExternalService",
+		ShortName:   "es",
 		Validate:    ValidateExternalService,
 	}
 
@@ -385,6 +401,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
+		ShortName:   "dp",
 		Validate:    ValidateDestinationPolicy,
 	}
 
@@ -395,6 +412,7 @@ var (
 		Group:       "config",
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		ShortName:   "dr",
 		Validate:    ValidateDestinationRule,
 	}
 

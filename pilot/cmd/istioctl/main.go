@@ -270,11 +270,18 @@ and destination policies.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
+		Long: `
+Retrieve policies and rules.
+
+Some types allow usage of a short name, in order to ease the typing.
+For instance, you can use "istioctl get rr" instead of "istioctl get routerules".
+
+To see all valid types and their short aliases, type "istioctl get".`,
 		Example: `# List all route rules
-istioctl get routerules
+istioctl get routerules # or, using the short name: istioctl get rr
 
 # List all destination policies
-istioctl get destinationpolicies
+istioctl get destinationpolicies # or, using the short name: istioctl get dp
 
 # Get a specific rule named productpage-default
 istioctl get routerule productpage-default
@@ -564,7 +571,7 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural), desc.ShortName:
 			return desc, nil
 		}
 	}
@@ -660,9 +667,15 @@ func newClient() (*crd.Client, error) {
 }
 
 func supportedTypes(configClient *crd.Client) []string {
-	types := configClient.ConfigDescriptor().Types()
-	for i := range types {
-		types[i] = crd.ResourceName(types[i])
+	cd := configClient.ConfigDescriptor()
+	types := make([]string, 0, len(cd))
+
+	for _, ps := range cd {
+		entry := crd.ResourceName(ps.Type)
+		if len(ps.ShortName) > 0 {
+			entry += fmt.Sprintf("(%s)", ps.ShortName)
+		}
+		types = append(types, entry)
 	}
 	return types
 }
