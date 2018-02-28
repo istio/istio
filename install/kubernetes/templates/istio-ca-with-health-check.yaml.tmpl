@@ -51,9 +51,6 @@ spec:
           - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
           - --liveness-probe-interval=60s # interval for health check file update
           - --probe-check-interval=15s    # interval for health status check
-          - --logtostderr
-          - --stderrthreshold
-          - INFO
         livenessProbe:
           exec:
             command:
