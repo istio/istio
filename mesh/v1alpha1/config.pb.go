@@ -238,9 +238,9 @@ func (m *ProxyConfig) GetBinaryPath() string {
 	return ""
 }
 
-func (m *ProxyConfig) GetProxyTemplatePath() string {
+func (m *ProxyConfig) GetProxyBootstrapTemplatePath() string {
         if m != nil {
-                return m.proxyTemplatePath
+                return m.ProxyBootstrapTemplatePath
         }
         return ""
 }
