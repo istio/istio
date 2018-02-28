@@ -32,8 +32,8 @@ type Options struct {
 	LogTraceSpans bool
 }
 
-// NewOptions returns a new set of options, initialized to the defaults
-func NewOptions() *Options {
+// DefaultOptions returns a new set of options, initialized to the defaults
+func DefaultOptions() *Options {
 	return &Options{}
 }
 

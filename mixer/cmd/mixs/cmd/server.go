@@ -25,7 +25,7 @@ import (
 )
 
 func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
-	sa := server.NewArgs()
+	sa := server.DefaultArgs()
 	sa.Templates = info
 	sa.Adapters = adapters
 
@@ -39,17 +39,23 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	// TODO: need to pick appropriate defaults for all these settings below
 
-	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", sa.APIPort, "TCP port to use for Mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", sa.APIPort,
+		"TCP port to use for Mixer's gRPC API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", sa.MonitoringPort,
 		"HTTP port to use for the exposing mixer self-monitoring information")
-	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize, "Maximum size of individual gRPC messages")
-	serverCmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams, "Maximum number of outstanding RPCs per connection")
-	serverCmd.PersistentFlags().IntVarP(&sa.APIWorkerPoolSize, "apiWorkerPoolSize", "", sa.APIWorkerPoolSize, "Max number of goroutines in the API worker pool")
-	serverCmd.PersistentFlags().IntVarP(&sa.AdapterWorkerPoolSize, "adapterWorkerPoolSize", "", sa.AdapterWorkerPoolSize, "Max number of goroutines in the adapter worker pool")
+	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize,
+		"Maximum size of individual gRPC messages")
+	serverCmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams,
+		"Maximum number of outstanding RPCs per connection")
+	serverCmd.PersistentFlags().IntVarP(&sa.APIWorkerPoolSize, "apiWorkerPoolSize", "", sa.APIWorkerPoolSize,
+		"Max number of goroutines in the API worker pool")
+	serverCmd.PersistentFlags().IntVarP(&sa.AdapterWorkerPoolSize, "adapterWorkerPoolSize", "", sa.AdapterWorkerPoolSize,
+		"Max number of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
 	serverCmd.PersistentFlags().IntVarP(&sa.ExpressionEvalCacheSize, "expressionEvalCacheSize", "", sa.ExpressionEvalCacheSize,
 		"Number of entries in the expression cache")
-	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", sa.UseNewRuntime, "Use the new runtime code for processing requests.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.UseNewRuntime, "useNewRuntime", "", sa.UseNewRuntime,
+		"Use the new runtime code for processing requests.")
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", sa.SingleThreaded,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 
@@ -80,7 +86,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Path to the file for the readiness probe.")
 	serverCmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", sa.ReadinessProbeOptions.UpdateInterval,
 		"Interval of updating file for the readiness probe.")
-	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling, "Enable profiling via web interface host:port/debug/pprof")
+	serverCmd.PersistentFlags().BoolVar(&sa.EnableProfiling, "profile", sa.EnableProfiling,
+		"Enable profiling via web interface host:port/debug/pprof")
 
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 	sa.TracingOptions.AttachCobraFlags(serverCmd)

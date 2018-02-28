@@ -19,7 +19,7 @@ import (
 )
 
 func TestValidation(t *testing.T) {
-	a := NewArgs()
+	a := DefaultArgs()
 
 	if err := a.validate(); err != nil {
 		t.Errorf("Expecting to validate but failed with: %v", err)
@@ -30,13 +30,13 @@ func TestValidation(t *testing.T) {
 		t.Errorf("Got unexpected success")
 	}
 
-	a = NewArgs()
+	a = DefaultArgs()
 	a.APIWorkerPoolSize = -1
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
 	}
 
-	a = NewArgs()
+	a = DefaultArgs()
 	a.ExpressionEvalCacheSize = -1
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
@@ -44,7 +44,7 @@ func TestValidation(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	a := NewArgs()
+	a := DefaultArgs()
 
 	// just make sure this doesn't crash
 	s := a.String()
