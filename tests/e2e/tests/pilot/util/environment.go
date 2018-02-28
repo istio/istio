@@ -112,11 +112,11 @@ type TemplateData struct {
 	Ingress                bool
 	Zipkin                 bool
 	UseAdmissionWebhook    bool
+	RDSv2                  bool
 	ControlPlaneAuthPolicy meshconfig.AuthenticationPolicy
 	PilotCustomConfigFile  string
 	MixerCustomConfigFile  string
 	CABundle               string
-	RDSv2                  bool
 }
 
 // NewEnvironment creates a new test environment based on the configuration.
