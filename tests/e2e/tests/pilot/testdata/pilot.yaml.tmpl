@@ -142,6 +142,8 @@ spec:
         - "{{.ControlPlaneAuthPolicy.String}}"
         - --customConfigFile
         - "{{.PilotCustomConfigFile}}"
+        - --rdsv2
+        - "{{.RDSv2}}"
         env:
         - name: POD_NAME
           valueFrom:

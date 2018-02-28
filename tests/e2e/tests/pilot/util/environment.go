@@ -98,6 +98,7 @@ const (
 
 // TemplateData is a container for common fields accessed from yaml templates.
 type TemplateData struct {
+	// nolint: maligned
 	Hub                    string
 	Tag                    string
 	Namespace              string
@@ -115,6 +116,7 @@ type TemplateData struct {
 	PilotCustomConfigFile  string
 	MixerCustomConfigFile  string
 	CABundle               string
+	RDSv2                  bool
 }
 
 // NewEnvironment creates a new test environment based on the configuration.
@@ -179,6 +181,7 @@ func (e *Environment) ToTemplateData() TemplateData {
 		PilotCustomConfigFile:  e.PilotCustomConfigFile,
 		MixerCustomConfigFile:  e.MixerCustomConfigFile,
 		CABundle:               e.CABundle,
+		RDSv2:                  e.Config.RDSv2,
 	}
 }
 
@@ -236,8 +239,10 @@ func (e *Environment) Setup() error {
 		return nil
 	}
 
-	if err = deploy("rbac-beta.yaml.tmpl", e.Config.IstioNamespace); err != nil {
-		return err
+	if !e.Config.NoRBAC {
+		if err = deploy("rbac-beta.yaml.tmpl", e.Config.IstioNamespace); err != nil {
+			return err
+		}
 	}
 
 	if err = deploy("config.yaml.tmpl", e.Config.IstioNamespace); err != nil {
