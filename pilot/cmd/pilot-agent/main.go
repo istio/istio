@@ -61,6 +61,7 @@ var (
 	proxyLogLevel          string
 	concurrency            int
 	bootstrapv2            bool
+	proxyBootstrapTemplatePath string
 
 	loggingOptions = log.NewOptions()
 
@@ -137,6 +138,8 @@ var (
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
+			proxyConfig.ProxyBootstrapTemplatePath = proxyBootstrapTemplatePath
+
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
@@ -282,6 +285,8 @@ func init() {
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
+	proxyCmd.PersistentFlags().StringVar(&proxyBootstrapTemplatePath, "proxyBootstrapTemplatePath", values.ProxyBootstrapTemplatePath,
+                "Path to custom Bootstrap template file")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
