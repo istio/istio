@@ -34,6 +34,7 @@ var (
 	outFilename string
 )
 
+// Command for converting v1alpha1 configs to v1alpha2
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "convert",
@@ -49,7 +50,7 @@ func Command() *cobra.Command {
 		Example: "istioctl convert -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(inFilenames) == 0 {
-				return fmt.Errorf("No input files provided")
+				return fmt.Errorf("no input files provided")
 			}
 
 			readers := make([]io.Reader, 0)
@@ -154,7 +155,7 @@ func readConfigs(readers []io.Reader) ([]model.Config, error) {
 			return nil, err
 		}
 		if len(kinds) != 0 {
-			return nil, fmt.Errorf("Unsupported kinds: %v", kinds)
+			return nil, fmt.Errorf("unsupported kinds: %v", kinds)
 		}
 
 		out = append(out, configs...)
@@ -179,9 +180,9 @@ func writeYAMLOutput(descriptor model.ConfigDescriptor, configs []model.Config, 
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		writer.Write(bytes)
+		writer.Write(bytes) // nolint: errcheck
 		if i+1 < len(configs) {
-			writer.Write([]byte("---"))
+			writer.Write([]byte("---")) // nolint: errcheck
 		}
 	}
 }
@@ -206,7 +207,7 @@ func validateConfigs(configs []model.Config) (errs error) {
 			err = model.ValidateDestinationRule(config.Spec)
 		}
 		if err != nil {
-			multierror.Append(err, errs)
+			errs = multierror.Append(err, errs)
 		}
 	}
 	return
