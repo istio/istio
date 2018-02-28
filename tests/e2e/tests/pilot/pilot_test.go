@@ -54,7 +54,7 @@ func init() {
 	flag.StringVar(&config.Tag, "tag", config.Tag, "Docker tag")
 	flag.StringVar(&config.IstioNamespace, "ns", config.IstioNamespace,
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
-	flag.StringVar(&config.Namespace, "namespace", config.Namespace,
+	flag.StringVar(&config.Namespace, "n", config.Namespace,
 		"Namespace in which to install the applications (empty to create/delete temporary one)")
 	flag.StringVar(&config.Registry, "registry", config.Registry, "Pilot registry")
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
