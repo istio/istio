@@ -65,7 +65,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       name: my-gateway
 //     spec:
 //       selector:
-//       - app: my-gatweway-controller
+//         app: my-gatweway-controller
 //       servers:
 //       - port:
 //           number: 80
@@ -205,7 +205,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       name: my-ingress
 //     spec:
 //       selector:
-//       - app: my-ingress-controller
+//         app: my-ingress-controller
 //       servers:
 //       - port:
 //           number: 80
@@ -219,7 +219,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       name: my-tcp-ingress
 //     spec:
 //       selector:
-//       - app: my-tcp-ingress-controller
+//         app: my-tcp-ingress-controller
 //       servers:
 //       - port:
 //           number: 27018
@@ -233,7 +233,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       name: my-tls-ingress
 //     spec:
 //       selector:
-//       - app: my-tls-ingress-controller
+//         app: my-tls-ingress-controller
 //       servers:
 //       - port:
 //           number: 443
