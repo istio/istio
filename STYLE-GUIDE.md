@@ -41,6 +41,25 @@ conventions:
 
 ## Versioning
 
+### API Versioning
+
+Istio APIs should use a simple versioning strategy based on
+major versions and releases, such as `v1alpha`, `v2beta`, or
+`v3`. Within each release, there should not be any breaking
+change to released features, such as changing the type of
+a field type, renaming a field, or changing a field number.
+Breaking changes are allowed between different releases,
+such as `v1alpha1` and `v1alpha2`.
+
+Deprecating a feature in an API release is allowed by following
+the applicable deprecation process. The reason to allow
+deprecation of individual features in a release is that it is
+significantly cheaper and simpler for everyone involved. In
+practice, it works out much better than deprecating an entire
+API version.
+
+### CRD Versioning
+
 When defining Kubernetes Custom Resource Definition (CRD) using
 `proto3`, follow these guidelines:
 
