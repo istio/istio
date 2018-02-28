@@ -16,9 +16,9 @@ package convert
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
-	"io"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
@@ -36,10 +36,17 @@ var (
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "convert",
-		Short:   "Convert configs from v1alpha1 to v1alpha2",
-		Long:    "Disclaimer disclaimer disclaimer",
-		Example: "",
+		Use:   "convert",
+		Short: "Convert configs from v1alpha1 to v1alpha2",
+		Long: "Converts sets of v1alpha1 configs to v1alpha2 equivalents on a best effort basis. " +
+			"The output should be considered a starting point for your v1alpha2 configs and probably " +
+			"require some minor modification. " +
+			"Warnings will (hopefully) be generated where configs cannot be converted perfectly, " +
+			"or in certain edge cases. " +
+			"The input must be the set of configs that would be in place in an environment at a given " +
+			"time. " +
+			"This allows the command to attempt to create and merge output configs intelligently.",
+		Example: "istioctl convert -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			configDescriptor := model.ConfigDescriptor{
 				model.RouteRule,
