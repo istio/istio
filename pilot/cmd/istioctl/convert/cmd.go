@@ -48,22 +48,6 @@ func Command() *cobra.Command {
 			"This allows the command to attempt to create and merge output configs intelligently.",
 		Example: "istioctl convert -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
-			configDescriptor := model.ConfigDescriptor{
-				model.RouteRule,
-				model.V1alpha2RouteRule,
-				model.Gateway,
-				model.EgressRule,
-				model.ExternalService,
-				model.DestinationPolicy,
-				model.DestinationRule,
-				model.HTTPAPISpec,
-				model.HTTPAPISpecBinding,
-				model.QuotaSpec,
-				model.QuotaSpecBinding,
-				model.EndUserAuthenticationPolicySpec,
-				model.EndUserAuthenticationPolicySpecBinding,
-			}
-
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("No input files provided")
 			}
@@ -102,30 +86,7 @@ func Command() *cobra.Command {
 				writer = file
 			}
 
-			configs, err := readConfigs(readers)
-			if err != nil {
-				return err
-			}
-
-			if err := validateConfigs(configs); err != nil {
-				return err
-			}
-
-			out := make([]model.Config, 0)
-			out = append(out, convertDestinationPolicies(configs)...)
-			out = append(out, convertRouteRules(configs)...)
-			out = append(out, convertEgressRules(configs)...)
-			// TODO: k8s ingress -> gateway?
-			// TODO: create missing destination rules/subsets?
-
-			writeYAMLOutput(configDescriptor, out, writer)
-
-			// sanity check that the outputs are valid
-			if err := validateConfigs(out); err != nil {
-				log.Warnf("Output config(s) are invalid: %v", err)
-			}
-
-			return nil
+			return convertConfigs(readers, writer)
 		},
 	}
 
@@ -135,6 +96,49 @@ func Command() *cobra.Command {
 		"-", "Output filename")
 
 	return cmd
+}
+
+func convertConfigs(readers []io.Reader, writer io.Writer) error {
+	configDescriptor := model.ConfigDescriptor{
+		model.RouteRule,
+		model.V1alpha2RouteRule,
+		model.Gateway,
+		model.EgressRule,
+		model.ExternalService,
+		model.DestinationPolicy,
+		model.DestinationRule,
+		model.HTTPAPISpec,
+		model.HTTPAPISpecBinding,
+		model.QuotaSpec,
+		model.QuotaSpecBinding,
+		model.EndUserAuthenticationPolicySpec,
+		model.EndUserAuthenticationPolicySpecBinding,
+	}
+
+	configs, err := readConfigs(readers)
+	if err != nil {
+		return err
+	}
+
+	if err := validateConfigs(configs); err != nil {
+		return err
+	}
+
+	out := make([]model.Config, 0)
+	out = append(out, convertDestinationPolicies(configs)...)
+	out = append(out, convertRouteRules(configs)...)
+	out = append(out, convertEgressRules(configs)...)
+	// TODO: k8s ingress -> gateway?
+	// TODO: create missing destination rules/subsets?
+
+	writeYAMLOutput(configDescriptor, out, writer)
+
+	// sanity check that the outputs are valid
+	if err := validateConfigs(out); err != nil {
+		log.Warnf("Output config(s) are invalid: %v", err)
+	}
+
+	return nil
 }
 
 func readConfigs(readers []io.Reader) ([]model.Config, error) {
