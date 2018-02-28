@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -119,7 +119,7 @@ func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
 }
 
 func (rc *restClient) init(kubeconfig string) error {
-	cfg, err := CreateRESTConfig(kubeconfig, rc.apiVersion, rc.types)
+	cfg, err := rc.createRESTConfig(kubeconfig)
 	if err != nil {
 		return err
 	}
@@ -134,8 +134,8 @@ func (rc *restClient) init(kubeconfig string) error {
 	return nil
 }
 
-// CreateRESTConfig for cluster API server, pass empty config file for in-cluster
-func CreateRESTConfig(kubeconfig string, apiVersion *schema.GroupVersion, schemaTypes []*schemaType) (config *rest.Config, err error) {
+// createRESTConfig for cluster API server, pass empty config file for in-cluster
+func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
 	} else {
@@ -146,17 +146,17 @@ func CreateRESTConfig(kubeconfig string, apiVersion *schema.GroupVersion, schema
 		return
 	}
 
-	config.GroupVersion = apiVersion
+	config.GroupVersion = rc.apiVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
 	types := runtime.NewScheme()
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
-			for _, kind := range schemaTypes {
-				scheme.AddKnownTypes(*apiVersion, kind.object, kind.collection)
+			for _, kind := range rc.types {
+				scheme.AddKnownTypes(*rc.apiVersion, kind.object, kind.collection)
 			}
-			meta_v1.AddToGroupVersion(scheme, *apiVersion)
+			meta_v1.AddToGroupVersion(scheme, *rc.apiVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
