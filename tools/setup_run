@@ -9,7 +9,6 @@ cd istio; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 # Need to have go installed and GOPATH/bin in the path
 fortio server &
 ( cd proxy/src/envoy/http/mixer; ./start_envoy > /tmp/envoy.log ) &
-# add -v=5 for verbose/debug
 ./istio/bazel-bin/mixer/cmd/mixs/mixs server --configStoreURL=fs://$(pwd)/mixerconfig --configStoreURL=fs://$(pwd)/emptydir 2> /tmp/mixs.2.log > /tmp/mixs.1.log &
 echo "starting everything..."
 sleep 3

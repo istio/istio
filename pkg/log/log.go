@@ -25,6 +25,11 @@ import (
 var logger = zap.NewNop()
 var sugar = logger.Sugar()
 
+func init() {
+	// use our defaults for starters so that logging works even before everything is fully configured
+	_ = Configure(NewOptions())
+}
+
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
 	year, month, day := t.Date()

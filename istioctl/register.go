@@ -16,8 +16,7 @@ package main
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"

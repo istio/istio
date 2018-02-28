@@ -15,10 +15,10 @@
 /*
 Simple test - first time:
 source istio.VERSION
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_cleanup --auth_enable --namespace=e2e
 After which to Retest:
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_setup --skip_cleanup --auth_enable --namespace=e2e
 */
 
@@ -32,8 +32,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/fortio/fhttp"
 	"istio.io/istio/pkg/log"

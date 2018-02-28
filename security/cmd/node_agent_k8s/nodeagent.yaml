@@ -40,4 +40,4 @@ spec:
         - name: flexvol-driver-host
           hostPath:
             type: DirectoryOrCreate
-            path: /home/kubernetes/flexvolume
+            path: /home/kubernetes/flexvolume/nodeagent~uds
