@@ -98,6 +98,7 @@ const (
 
 // TemplateData is a container for common fields accessed from yaml templates.
 type TemplateData struct {
+	// nolint: maligned
 	Hub                    string
 	Tag                    string
 	Namespace              string
