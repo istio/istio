@@ -15,42 +15,40 @@
 
 #pragma once
 
-#include "envoy/json/json_object.h"
 #include "mixer/v1/config/client/client_config.pb.h"
-#include "src/envoy/utils/config.h"
 
 namespace Envoy {
 namespace Http {
 namespace Mixer {
 
 // Config for http filter.
-class HttpMixerConfig {
+class Config {
  public:
-  // Load from envoy filter config in JSON format.
-  void Load(const Json::Object& json) {
-    Utils::ReadV2Config(json, &http_config_);
-
-    Utils::SetDefaultMixerClusters(http_config_.mutable_transport());
-  }
+  Config(const ::istio::mixer::v1::config::client::HttpClientConfig& config_pb);
 
   // The Http client config.
-  const ::istio::mixer::v1::config::client::HttpClientConfig& http_config()
+  const ::istio::mixer::v1::config::client::HttpClientConfig& config_pb()
       const {
-    return http_config_;
+    return config_pb_;
   }
 
   // check cluster
   const std::string& check_cluster() const {
-    return http_config_.transport().check_cluster();
+    return config_pb_.transport().check_cluster();
   }
   // report cluster
   const std::string& report_cluster() const {
-    return http_config_.transport().report_cluster();
+    return config_pb_.transport().report_cluster();
   }
+
+  // Extract all AuthSpec from all service config.
+  std::unique_ptr<
+      ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec>
+  auth_config();
 
  private:
   // The Http client config.
-  ::istio::mixer::v1::config::client::HttpClientConfig http_config_;
+  ::istio::mixer::v1::config::client::HttpClientConfig config_pb_;
 };
 
 }  // namespace Mixer

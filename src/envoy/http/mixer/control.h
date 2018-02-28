@@ -29,47 +29,26 @@ namespace Envoy {
 namespace Http {
 namespace Mixer {
 
-class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
+// The control object created per-thread.
+class Control final : public ThreadLocal::ThreadLocalObject {
  public:
   // The constructor.
-  HttpMixerControl(const HttpMixerConfig& mixer_config,
-                   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-                   Runtime::RandomGenerator& random,
-                   Utils::MixerFilterStats& stats)
-      : config_(mixer_config),
-        cm_(cm),
-        stats_obj_(dispatcher, stats,
-                   config_.http_config().transport().stats_update_interval(),
-                   [this](::istio::mixerclient::Statistics* stat) -> bool {
-                     return GetStats(stat);
-                   }) {
-    ::istio::control::http::Controller::Options options(config_.http_config());
+  Control(const Config& config, Upstream::ClusterManager& cm,
+          Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
+          Utils::MixerFilterStats& stats);
 
-    Utils::CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
-                             config_.report_cluster(), &options.env);
-
-    controller_ = ::istio::control::http::Controller::Create(options);
-  }
-
+  // Get low-level controller object.
   ::istio::control::http::Controller* controller() { return controller_.get(); }
 
-  Utils::CheckTransport::Func GetCheckTransport(const HeaderMap* headers) {
-    return Utils::CheckTransport::GetFunc(cm_, config_.check_cluster(),
-                                          headers);
-  }
+  // Create a per-request Check transport function.
+  Utils::CheckTransport::Func GetCheckTransport(const HeaderMap* headers);
 
  private:
   // Call controller to get statistics.
-  bool GetStats(::istio::mixerclient::Statistics* stat) {
-    if (!controller_) {
-      return false;
-    }
-    controller_->GetStatistics(stat);
-    return true;
-  }
+  bool GetStats(::istio::mixerclient::Statistics* stat);
 
   // The mixer config.
-  const HttpMixerConfig& config_;
+  const Config& config_;
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer control
