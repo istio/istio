@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	routing "istio.io/api/routing/v1alpha2"
+	routing "istio.io/api/networking/v1alpha3"
 )
 
 var (
