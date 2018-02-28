@@ -1,22 +1,25 @@
 # Use the JDK image to avoid installing it again.
-FROM    circleci/openjdk:latest
+FROM circleci/openjdk:latest
 
 # this will install the latest version of bazel - unfortunately it won't
 # work, since they break backward compat on every single release.
-# Proxy is currently requiring 0.7.
+# Proxy is currently requiring 0.11.
 #RUN \
 #    sudo sh -c 'echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" > /etc/apt/sources.list.d/bazel.list ' && \
 #    curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
 
+# clang is used for TSAN and ASAN tests
+RUN sudo sh -c 'curl http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -'
+RUN sudo sh -c 'echo "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-5.0 main" > /etc/apt/sources.list.d/llvm.list'
 
 RUN sudo apt-get update && \
     sudo apt-get -y install \
     wget software-properties-common make cmake python python-pip \
     zlib1g-dev bash-completion bc libtool automake zip time g++-6 gcc-6 \
-    rsync
+    clang-5.0 rsync
 
 # ~100M, depends on g++, zlib1g-dev, bash-completions
-RUN curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.7.0/bazel_0.7.0-linux-x86_64.deb && \
+RUN curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.11.0/bazel_0.11.0-linux-x86_64.deb && \
     sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
 
 
