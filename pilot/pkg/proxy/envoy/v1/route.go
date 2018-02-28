@@ -60,21 +60,21 @@ func buildClusterSSLContext(certsDir string, serviceAccounts []string) *SSLConte
 	}
 }
 
-func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
+func BuildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	return &HTTPRoute{
 		Prefix:   "/",
 		Cluster:  cluster.Name,
-		clusters: []*Cluster{cluster},
+		Clusters: []*Cluster{cluster},
 		Decorator: &Decorator{
 			Operation: "default-route",
 		},
 	}
 }
 
-func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
+func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
 	route := buildHTTPRouteMatch(rule.Match)
 	route.Cluster = cluster.Name
-	route.clusters = []*Cluster{cluster}
+	route.Clusters = []*Cluster{cluster}
 	route.WebsocketUpgrade = rule.WebsocketUpgrade
 	if rule.Rewrite != nil && rule.Rewrite.GetUri() != "" {
 		// overwrite the computed prefix with the rewritten prefix,
@@ -90,7 +90,7 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
@@ -112,7 +112,7 @@ func buildInboundRouteV2(config model.Config, cluster *Cluster, http *routingv2.
 	route := buildHTTPRouteMatchV2(match)
 
 	route.Cluster = cluster.Name
-	route.clusters = []*Cluster{cluster}
+	route.Clusters = []*Cluster{cluster}
 	route.WebsocketUpgrade = http.WebsocketUpgrade
 	if http.Rewrite != nil && http.Rewrite.Uri != "" {
 		// overwrite the computed prefix with the rewritten prefix,
@@ -128,7 +128,7 @@ func buildInboundRouteV2(config model.Config, cluster *Cluster, http *routingv2.
 	return route
 }
 
-func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
+func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
 	cluster := &Cluster{
 		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
 		Type:             ClusterTypeStatic,
@@ -142,7 +142,7 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 	return cluster
 }
 
-func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
+func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
 	name := truncateClusterName(OutboundClusterPrefix + key)
@@ -164,8 +164,8 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		LbType:      DefaultLbType,
 		Hosts:       hosts,
 		outbound:    !isExternal, // outbound means outbound-in-mesh. The name to be refactored later.
-		hostname:    hostname,
-		port:        port,
+		Hostname:    hostname,
+		Port:        port,
 		labels:      labels,
 	}
 
@@ -175,9 +175,9 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
-// buildHTTPRoutes translates a route rule to an Envoy route
-func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+// BuildHTTPRoutes translates a route rule to an Envoy route
+func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
+	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
@@ -223,8 +223,8 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			if dst.Destination != nil {
 				actualDestination = model.ResolveHostname(config.ConfigMeta, dst.Destination)
 			}
-			cluster := buildOutboundCluster(actualDestination, port, dst.Labels, service.External())
-			route.clusters = append(route.clusters, cluster)
+			cluster := BuildOutboundCluster(actualDestination, port, dst.Labels, service.External())
+			route.Clusters = append(route.Clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters, &WeightedClusterEntry{
 				Name:   cluster.Name,
 				Weight: int(dst.Weight),
@@ -238,9 +238,9 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		}
 	} else {
 		// default route for the destination
-		cluster := buildOutboundCluster(destination, port, nil, service.External())
+		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
+		route.Clusters = append(route.Clusters, cluster)
 	}
 
 	if rule.Redirect != nil {
@@ -256,8 +256,8 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if rule.HttpFault != nil {
-		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
-		for _, c := range route.clusters {
+		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
+		for _, c := range route.Clusters {
 			if fault := buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
@@ -266,8 +266,8 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 
 	if rule.Mirror != nil {
 		fqdnDest := model.ResolveHostname(config.ConfigMeta, rule.Mirror)
-		cluster := buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External())
-		route.clusters = append(route.clusters, cluster)
+		cluster := BuildOutboundCluster(fqdnDest, port, rule.Mirror.Labels, service.External())
+		route.Clusters = append(route.Clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{
 			//TODO support shadowing between internal and external kubernetes services
 			// currently only shadowing between internal kubernetes services is supported
@@ -314,7 +314,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
@@ -339,7 +339,7 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 		// default route for the destination
 		cluster := buildCluster(service.Hostname, port, nil, service.External())
 		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
+		route.Clusters = append(route.Clusters, cluster)
 		routes = append(routes, route)
 	}
 
@@ -347,21 +347,21 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 }
 
 func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string, buildCluster buildClusterFunc) *HTTPRoute {
+	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
 
 	if len(http.Route) == 0 { // build default cluster
 		cluster := buildCluster(service.Hostname, port, nil, service.External())
 		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
+		route.Clusters = append(route.Clusters, cluster)
 	} else {
 		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 		for _, dst := range http.Route {
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
-			route.clusters = append(route.clusters, cluster)
+			route.Clusters = append(route.Clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 				&WeightedClusterEntry{
 					Name:   cluster.Name,
@@ -388,8 +388,8 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if http.Fault != nil {
-		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
-		for _, cluster := range route.clusters {
+		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
+		for _, cluster := range route.Clusters {
 			if fault := buildHTTPFaultFilterV2(cluster.Name, http.Fault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
@@ -400,7 +400,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
 		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
 		cluster := buildCluster(fqdn, port, labels, false)
-		route.clusters = append(route.clusters, cluster)
+		route.Clusters = append(route.Clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
 	}
 
@@ -544,12 +544,12 @@ func buildZipkinTracing() *Tracing {
 	}
 }
 
-// buildVirtualHost constructs an entry for VirtualHost for a destination service.
+// BuildVirtualHost constructs an entry for VirtualHost for a destination service.
 // The unique name for a virtual host is a combination of the destination service and the port, e.g.
 // "svc.ns.svc.cluster.local:http".
 // Suffix provides the proxy context information - it is the shared sub-domain between co-located
 // service instances (e.g. "namespace", "svc", "cluster", "local")
-func buildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*HTTPRoute) *VirtualHost {
+func BuildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*HTTPRoute) *VirtualHost {
 	hosts := make([]string, 0)
 	domains := make([]string, 0)
 	parts := strings.Split(svc.Hostname, ".")
@@ -629,7 +629,7 @@ func sharedHost(parts ...[]string) []string {
 	}
 }
 
-func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
+func BuildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
 	route := &TCPRoute{
@@ -647,7 +647,7 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 	return route
 }
 
-func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
+func BuildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
 		Name:             truncateClusterName(OutboundClusterPrefix + name),
 		Type:             ClusterTypeOriginalDST,
