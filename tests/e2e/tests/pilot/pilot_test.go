@@ -54,7 +54,7 @@ func init() {
 	flag.StringVar(&config.Tag, "tag", config.Tag, "Docker tag")
 	flag.StringVar(&config.IstioNamespace, "ns", config.IstioNamespace,
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
-	flag.StringVar(&config.Namespace, "n", config.Namespace,
+	flag.StringVar(&config.Namespace, "namespace", config.Namespace,
 		"Namespace in which to install the applications (empty to create/delete temporary one)")
 	flag.StringVar(&config.Registry, "registry", config.Registry, "Pilot registry")
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
@@ -69,6 +69,8 @@ func init() {
 	flag.BoolVar(&config.Mixer, "mixer", config.Mixer, "Enable / disable mixer.")
 	flag.BoolVar(&config.V1alpha1, "v1alpha1", config.V1alpha1, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&config.V1alpha2, "v1alpha2", config.V1alpha2, "Enable / disable v1alpha2 routing rules.")
+	flag.BoolVar(&config.RDSv2, "rdsv2", false, "Enable RDSv2 for v1alpha2")
+	flag.BoolVar(&config.NoRBAC, "norbac", false, "Disable RBAC YAML")
 	flag.StringVar(&config.ErrorLogsDir, "errorlogsdir", config.ErrorLogsDir,
 		"Store per pod logs as individual files in specific directory instead of writing to stderr.")
 	flag.StringVar(&config.CoreFilesDir, "core-files-dir", config.CoreFilesDir,
