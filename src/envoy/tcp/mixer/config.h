@@ -15,42 +15,68 @@
 
 #pragma once
 
-#include "envoy/json/json_object.h"
 #include "mixer/v1/config/client/client_config.pb.h"
 #include "src/envoy/utils/config.h"
 
 namespace Envoy {
 namespace Tcp {
 namespace Mixer {
+namespace {
+
+// Default time interval for periodical report is 10 seconds.
+const std::chrono::milliseconds kDefaultReportIntervalMs(10000);
+
+// Minimum time interval for periodical report is 1 seconds.
+const std::chrono::milliseconds kMinReportIntervalMs(1000);
+
+}  // namespace
 
 // Config for tcp filter.
-class TcpMixerConfig {
+class Config {
  public:
-  // Load from envoy filter config in JSON format.
-  void Load(const Json::Object& json) {
-    Utils::ReadV2Config(json, &tcp_config_);
+  Config(const ::istio::mixer::v1::config::client::TcpClientConfig& config_pb)
+      : config_pb_(config_pb) {
+    Utils::SetDefaultMixerClusters(config_pb_.mutable_transport());
 
-    Utils::SetDefaultMixerClusters(tcp_config_.mutable_transport());
+    if (config_pb_.has_report_interval() &&
+        config_pb_.report_interval().seconds() >= 0 &&
+        config_pb_.report_interval().nanos() >= 0) {
+      report_interval_ms_ = std::chrono::milliseconds(
+          config_pb_.report_interval().seconds() * 1000 +
+          config_pb_.report_interval().nanos() / 1000000);
+      // If configured time interval is less than 1 second, then set report
+      // interval to 1 second.
+      if (report_interval_ms_ < kMinReportIntervalMs) {
+        report_interval_ms_ = kMinReportIntervalMs;
+      }
+    } else {
+      report_interval_ms_ = kDefaultReportIntervalMs;
+    }
   }
 
   // The Tcp client config.
-  const ::istio::mixer::v1::config::client::TcpClientConfig& tcp_config()
-      const {
-    return tcp_config_;
+  const ::istio::mixer::v1::config::client::TcpClientConfig& config_pb() const {
+    return config_pb_;
   }
 
   // check cluster
   const std::string& check_cluster() const {
-    return tcp_config_.transport().check_cluster();
+    return config_pb_.transport().check_cluster();
   }
   // report cluster
   const std::string& report_cluster() const {
-    return tcp_config_.transport().report_cluster();
+    return config_pb_.transport().report_cluster();
+  }
+
+  std::chrono::milliseconds report_interval_ms() const {
+    return report_interval_ms_;
   }
 
  private:
   // The Tcp client config.
-  ::istio::mixer::v1::config::client::TcpClientConfig tcp_config_;
+  ::istio::mixer::v1::config::client::TcpClientConfig config_pb_;
+  // Time interval in milliseconds for sending periodical delta reports.
+  std::chrono::milliseconds report_interval_ms_;
 };
 
 }  // namespace Mixer
