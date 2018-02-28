@@ -44,10 +44,8 @@ spec:
           volumeMounts:
           - name: data
             mountPath: /data/grafana
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       volumes:
       - name: data
         emptyDir: {}
