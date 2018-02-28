@@ -184,7 +184,9 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 	}
 
 	for _, v := range out.clientset {
-		v.init(kubeconfig)
+		if err := v.init(kubeconfig); err != nil {
+			return nil, err
+		}
 	}
 
 	return out, nil
