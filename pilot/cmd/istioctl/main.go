@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/istioctl/convert"
 	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -539,6 +540,7 @@ func init() {
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
+	rootCmd.AddCommand(convert.Command())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

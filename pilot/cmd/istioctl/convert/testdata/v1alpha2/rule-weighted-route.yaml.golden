@@ -1,0 +1,20 @@
+apiVersion: config.istio.io/v1alpha2
+kind: V1alpha2RouteRule
+metadata:
+  creationTimestamp: null
+  name: FIXME
+  namespace: FIXME
+  resourceVersion: FIXME
+spec:
+  hosts:
+  - c
+  http:
+  - route:
+    - destination:
+        name: c
+        subset: version-v1
+      weight: 75
+    - destination:
+        name: c
+        subset: version-v2
+      weight: 25
