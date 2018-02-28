@@ -297,8 +297,8 @@ lint: buildcache
 # Params: OUT VERSION_PKG SRC
 
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
-               ${ISTIO_OUT}/istioctl ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent istioctl sidecar-injector
+               ${ISTIO_OUT}/sidecar-injector
+PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
 define pilotbuild
 $(1):
 	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
@@ -308,13 +308,17 @@ ${ISTIO_OUT}/$(1):
 endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
+.PHONY: istioctl
+istioctl:
+	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl
+
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./pilot/cmd/istioctl
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
@@ -336,7 +340,7 @@ $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca istioctl
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -390,7 +394,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
 istioctl-install:
-	go install istio.io/istio/pilot/cmd/istioctl
+	go install istio.io/istio/istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test
