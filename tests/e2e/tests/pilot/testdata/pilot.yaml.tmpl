@@ -84,7 +84,6 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - discovery
-        - --v={{.Verbosity}}
         - -a
         - {{.Namespace}}
         - --registries
@@ -133,8 +132,6 @@ spec:
         args:
         - proxy
         - pilot
-        - -v
-        - "{{.Verbosity}}"
         - "--discoveryAddress"
 {{if eq .ControlPlaneAuthPolicy.String "NONE"}}
         - "istio-pilot:15007"

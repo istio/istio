@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -152,9 +151,6 @@ func init() {
 }
 
 func main() {
-	// Needed to avoid "logging before flag.Parse" error with glog.
-	cmd.SupressGlogWarnings()
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

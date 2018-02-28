@@ -19,7 +19,7 @@ Note that `source.ip` is an ip address specified as 4 `:` separated bytes.
 `192.0.0.2` is encoded as `c0:0:0:2` in the example.
 
 ```shell
-bazel-bin/mixer/cmd/mixc/mixc check -v 2 --string_attributes destination.service=abc.ns.svc.cluster.local,source.name=myservice,target.port=8080 --stringmap_attributes "request.headers=clnt:abcd;source:abcd,destination.labels=app:ratings,source.labels=version:v2"   --timestamp_attributes request.time="2017-07-04T00:01:10Z" --bytes_attributes source.ip=c0:0:0:2
+bazel-bin/mixer/cmd/mixc/mixc check --string_attributes destination.service=abc.ns.svc.cluster.local,source.name=myservice,target.port=8080 --stringmap_attributes "request.headers=clnt:abcd;source:abcd,destination.labels=app:ratings,source.labels=version:v2"   --timestamp_attributes request.time="2017-07-04T00:01:10Z" --bytes_attributes source.ip=c0:0:0:2
 
 Check RPC completed successfully. Check status was OK
   Valid use count: 10000, valid duration: 5m0s
@@ -27,7 +27,7 @@ Check RPC completed successfully. Check status was OK
 
 The following command sends a `report` request to Mixer.
 ```shell
-bazel-bin/mixer/cmd/mixc/mixc report -v 2 --string_attributes destination.service=abc.ns.svc.cluster.local,source.name=myservice,target.port=8080 --stringmap_attributes "request.headers=clnt:abc;source:abcd,destination.labels=app:ratings,source.labels=version:v2"  --int64_attributes response.duration=2003,response.size=1024 --timestamp_attributes  request.time="2017-07-04T00:01:10Z" --bytes_attributes source.ip=c0:0:0:2
+bazel-bin/mixer/cmd/mixc/mixc report --string_attributes destination.service=abc.ns.svc.cluster.local,source.name=myservice,target.port=8080 --stringmap_attributes "request.headers=clnt:abc;source:abcd,destination.labels=app:ratings,source.labels=version:v2"  --int64_attributes response.duration=2003,response.size=1024 --timestamp_attributes  request.time="2017-07-04T00:01:10Z" --bytes_attributes source.ip=c0:0:0:2
 
 Report RPC returned OK
 ```

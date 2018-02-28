@@ -55,16 +55,13 @@ fi
 
 # Run integration tests
 go test -v istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
--kube-config=$HOME/.kube/config \
--stderrthreshold=INFO --alsologtostderr
+-kube-config=$HOME/.kube/config
 
 go test -v istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
--kube-config=$HOME/.kube/config \
--stderrthreshold=INFO --alsologtostderr
+-kube-config=$HOME/.kube/config
 
 #See issue #3181 test below fails automated tests
 #go test -v istio.io/istio/security/tests/integration/nodeAgentTest $ARGS  \
 #-kube-config=$HOME/.kube/config \
 #-root-cert=${CERT_DIR}/istio_ca.crt \
-#-cert-chain=${CERT_DIR}/node_agent.crt \
-#-stderrthreshold=INFO --alsologtostderr
+#-cert-chain=${CERT_DIR}/node_agent.crt

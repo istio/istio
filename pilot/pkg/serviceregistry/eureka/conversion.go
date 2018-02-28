@@ -16,8 +16,6 @@ package eureka
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"

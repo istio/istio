@@ -38,8 +38,6 @@ spec:
         args:
         - proxy
         - ingress
-        - -v
-        - "{{.Verbosity}}"
         - --discoveryAddress
 {{if eq .ControlPlaneAuthPolicy.String "NONE" }}
         - istio-pilot:15007
