@@ -25,7 +25,7 @@ import (
 
 type watcher interface {
 	// Returns a channel that sends events whenever workload mounts are created or removed
-	watch() <-chan workloadEvent
+	watch(stop <-chan bool) <-chan workloadEvent
 }
 
 type Operation int
@@ -53,17 +53,25 @@ type pollWatcher struct {
 	path string
 }
 
-func (p *pollWatcher) watch() <-chan workloadEvent {
+func (p *pollWatcher) watch(stop <-chan bool) <-chan workloadEvent {
 	c := make(chan workloadEvent)
-	go p.poll(c)
+	go p.poll(c, stop)
 	return c
 }
 
-func (p *pollWatcher) poll(events chan<- workloadEvent) {
+func (p *pollWatcher) poll(events chan<- workloadEvent, stop <-chan bool) {
 	// The workloads we know about.
 	known := make(map[string]bool)
 	credPath := filepath.Join(p.path, CredentialsSubdir)
 	for {
+		// check if we need to stop polling.
+		select {
+		case <-stop:
+			close(events)
+			return
+		default:
+			//continue
+		}
 		if _, err := os.Stat(credPath); err != nil {
 			time.Sleep(PollSleepTime)
 		} else {
@@ -72,6 +80,15 @@ func (p *pollWatcher) poll(events chan<- workloadEvent) {
 	}
 	log.Println("Ready to parse credential directory")
 	for {
+		// check if we need to stop polling.
+		select {
+		case <-stop:
+			close(events)
+			return
+		default:
+			//continue
+		}
+
 		// list the contents of the directory
 		files, err := ioutil.ReadDir(credPath)
 		if err != nil {
