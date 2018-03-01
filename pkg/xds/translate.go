@@ -82,11 +82,11 @@ func TranslateVirtualHosts(
 	out := make([]GuardedHost, 0)
 
 	serviceByName := func(host string, contextNamespace string) *model.Service {
-		if strings.Index(host, ".") >= 0 {
+		if strings.Contains(host, ".") {
 			return services[host]
-		} else {
-			return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
 		}
+
+		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
 	}
 
 	// translate all virtual service configs
