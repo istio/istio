@@ -12,7 +12,7 @@
 set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent,node-agent-test"
+DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent,node-agent-test,flexvolumedriver"
 
 ARGS=""
 HUB=""
