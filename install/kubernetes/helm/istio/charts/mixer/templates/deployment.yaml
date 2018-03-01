@@ -82,7 +82,5 @@ spec:
       - name: config-volume
         configMap:
           name: istio-mixer
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

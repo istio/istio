@@ -86,7 +86,5 @@ spec:
         secret:
           secretName: istio-ingress-certs
           optional: true
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

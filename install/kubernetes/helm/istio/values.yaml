@@ -59,11 +59,20 @@ ingress:
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
-  nodeSelector: {}
   service:
     nodePort:
       enabled: false
       port: 32000
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
 #
 # sidecar-injector configuration
@@ -80,7 +89,16 @@ sidecar-injector:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
   # istio egress capture whitelist
   # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -104,7 +122,16 @@ mixer:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
@@ -127,7 +154,16 @@ pilot:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
 #
 # security configuration
@@ -143,7 +179,16 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
 #
 # addons configuration
@@ -178,7 +223,16 @@ grafana:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
 prometheus:
   enabled: false
@@ -207,11 +261,20 @@ prometheus:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
   service:
     nodePort:
       enabled: false
       port: 32090
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
 
 servicegraph:
   enabled: false
@@ -242,7 +305,16 @@ servicegraph:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -278,4 +350,13 @@ zipkin:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
