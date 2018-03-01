@@ -19,7 +19,7 @@ EOF
 
 SRCDIR=/usr/local/bin
 DSTDIR=/host/driver
-IMAGE=flexvololumedriver
+IMAGE=flexvolumedriver
 DSTIMAGE=uds
 
 while getopts s:t:i:d: arg; do
