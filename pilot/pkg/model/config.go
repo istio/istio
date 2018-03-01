@@ -334,7 +334,7 @@ var (
 		Plural:      "virtual-services",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha3.VirtualService",
+		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
 	}
 
@@ -344,7 +344,7 @@ var (
 		Plural:      "gateways",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.Gateway",
+		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
 	}
 
@@ -374,7 +374,7 @@ var (
 		Plural:      "external-services",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.ExternalService",
+		MessageName: "istio.networking.v1alpha3.ExternalService",
 		Validate:    ValidateExternalService,
 	}
 
@@ -394,7 +394,7 @@ var (
 		Plural:      "destination-rules",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
 	}
 
