@@ -915,6 +915,11 @@ func appendPortToDomains(domains []string, port int) []string {
 	return domainsWithPorts
 }
 
+// TruncateClusterName to a fixed size string using SHA if necessary
+func TruncateClusterName(name string) string {
+	return truncateClusterName(name)
+}
+
 func truncateClusterName(name string) string {
 	if len(name) > MaxClusterNameLength {
 		prefix := name[:MaxClusterNameLength-sha1.Size*2]

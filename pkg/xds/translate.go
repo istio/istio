@@ -30,6 +30,7 @@ import (
 
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -40,8 +41,187 @@ const (
 	HeaderScheme    = ":scheme"
 )
 
-// ClusterName specifies cluster name for a destination
-type ClusterName func(*routingv2.Destination) string
+const (
+	// UnresolvedCluster for destinations pointing to unknown clusters.
+	UnresolvedCluster = "unresolved-cluster"
+
+	// DefaultOperation is the default decorator
+	DefaultOperation = "default-operation"
+)
+
+// ServiceByName claims a service entry from the registry using a host name.
+type ServiceByName func(host string, contextNamespace string) *model.Service
+
+// SubsetSelector resolves a subset to labels.
+type SubsetSelector func(service *model.Service, subset string) map[string]string
+
+// GuardedHost is a context-dependent virtual host entry with guarded routes.
+type GuardedHost struct {
+	// Port is the capture port (e.g. service port)
+	Port int
+
+	// Services are the services matching the virtual host.
+	// The service host names need to be contextualized by the source.
+	Services []*model.Service
+
+	// Hosts is a list of alternative literal host names for the host.
+	Hosts []string
+
+	// Routes in the virtual host
+	Routes []GuardedRoute
+}
+
+// TranslateVirtualHosts creates the entire routing table for Istio v1alpha2 configs.
+// Services are indexed by FQDN hostnames.
+// Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
+func TranslateVirtualHosts(
+	serviceConfigs []model.Config,
+	services map[string]*model.Service,
+	subsetSelector SubsetSelector,
+	clusterDomain string) []GuardedHost {
+	out := make([]GuardedHost, 0)
+
+	serviceByName := func(host string, contextNamespace string) *model.Service {
+		if strings.Index(host, ".") >= 0 {
+			return services[host]
+		} else {
+			return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
+		}
+	}
+
+	// translate all virtual service configs
+	for _, config := range serviceConfigs {
+		out = append(out, TranslateVirtualHost(config, serviceByName, subsetSelector)...)
+	}
+
+	// compute services missing service configs
+	missing := make(map[string]bool)
+	for fqdn := range services {
+		missing[fqdn] = true
+	}
+	for _, config := range serviceConfigs {
+		_, matching := MatchServiceHosts(config, serviceByName)
+		for _, service := range matching {
+			delete(missing, service.Hostname)
+		}
+	}
+
+	// append default hosts for the service missing virtual services
+	for fqdn := range missing {
+		svc := services[fqdn]
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() {
+				key := svc.Key(port, nil)
+				cluster := v1.TruncateClusterName(v1.OutboundClusterPrefix + key)
+				out = append(out, GuardedHost{
+					Port:     port.Port,
+					Services: []*model.Service{svc},
+					Routes: []GuardedRoute{{
+						Route: route.Route{
+							Match:     TranslateRouteMatch(nil),
+							Decorator: &route.Decorator{Operation: DefaultOperation},
+							Action: &route.Route_Route{
+								Route: &route.RouteAction{
+									ClusterSpecifier: &route.RouteAction_Cluster{Cluster: cluster},
+								},
+							},
+						},
+					}},
+				})
+			}
+		}
+	}
+
+	return out
+}
+
+// MatchServiceHosts splits the virtual service hosts into services and literal hosts
+func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, []*model.Service) {
+	rule := in.Spec.(*routingv2.RouteRule)
+	hosts := make([]string, 0)
+	services := make([]*model.Service, 0)
+	for _, host := range rule.Hosts {
+		if svc := serviceByName(host, in.ConfigMeta.Namespace); svc != nil {
+			services = append(services, svc)
+		} else {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts, services
+}
+
+// TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
+func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSelector SubsetSelector) []GuardedHost {
+	hosts, services := MatchServiceHosts(in, serviceByName)
+	serviceByPort := make(map[int][]*model.Service)
+	for _, svc := range services {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() {
+				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
+			}
+		}
+	}
+
+	// if no services matched, then we have no port information -- default to 80 for now
+	// TODO: use match condition ports
+	if len(serviceByPort) == 0 {
+		serviceByPort[80] = nil
+	}
+
+	out := make([]GuardedHost, len(serviceByPort))
+	for port, services := range serviceByPort {
+		clusterNaming := TranslateDestination(serviceByName, subsetSelector, in.ConfigMeta.Namespace, port)
+		routes := TranslateRoutes(in, clusterNaming)
+		out = append(out, GuardedHost{
+			Port:     port,
+			Services: services,
+			Hosts:    hosts,
+			Routes:   routes,
+		})
+	}
+
+	return out
+}
+
+// TranslateDestination produces a cluster naming function using the config context.
+func TranslateDestination(
+	serviceByName ServiceByName,
+	subsetSelector SubsetSelector,
+	contextNamespace string,
+	defaultPort int) ClusterNaming {
+	return func(destination *routingv2.Destination) string {
+		// detect if it is a service
+		svc := serviceByName(destination.Name, contextNamespace)
+
+		// TODO: create clusters for non-service hostnames/IPs
+		if svc == nil {
+			return UnresolvedCluster
+		}
+
+		// default port uses port number
+		svcPort, _ := svc.Ports.GetByPort(defaultPort)
+		if destination.Port != nil {
+			switch selector := destination.Port.Port.(type) {
+			case *routingv2.PortSelector_Name:
+				svcPort, _ = svc.Ports.Get(selector.Name)
+			case *routingv2.PortSelector_Number:
+				svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
+			}
+		}
+
+		if svcPort == nil {
+			return UnresolvedCluster
+		}
+
+		// use subsets if it is a service
+		labels := subsetSelector(svc, destination.Subset)
+		key := svc.Key(svcPort, labels)
+		return v1.TruncateClusterName(v1.OutboundClusterPrefix + key)
+	}
+}
+
+// ClusterNaming specifies cluster name for a destination
+type ClusterNaming func(*routingv2.Destination) string
 
 // GuardedRoute are routes for a destination guarded by deployment conditions.
 type GuardedRoute struct {
@@ -57,7 +237,7 @@ type GuardedRoute struct {
 // TranslateRoutes creates virtual host routes from the v1alpha2 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, name ClusterName, defaultCluster string) []GuardedRoute {
+func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 	rule, ok := in.Spec.(*routingv2.RouteRule)
 	if !ok {
 		return nil
@@ -65,19 +245,13 @@ func TranslateRoutes(in model.Config, name ClusterName, defaultCluster string) [
 
 	operation := in.ConfigMeta.Name
 
-	if len(rule.Http) == 0 {
-		return []GuardedRoute{
-			TranslateRoute(&routingv2.HTTPRoute{}, nil, operation, name, defaultCluster),
-		}
-	}
-
 	out := make([]GuardedRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			out = append(out, TranslateRoute(http, nil, operation, name, defaultCluster))
+			out = append(out, TranslateRoute(http, nil, operation, name))
 		} else {
 			for _, match := range http.Match {
-				out = append(out, TranslateRoute(http, match, operation, name, defaultCluster))
+				out = append(out, TranslateRoute(http, match, operation, name))
 			}
 		}
 	}
@@ -90,8 +264,7 @@ func TranslateRoutes(in model.Config, name ClusterName, defaultCluster string) [
 func TranslateRoute(in *routingv2.HTTPRoute,
 	match *routingv2.HTTPMatchRequest,
 	operation string,
-	name ClusterName,
-	defaultCluster string) GuardedRoute {
+	name ClusterNaming) GuardedRoute {
 	out := route.Route{
 		Match: TranslateRouteMatch(match),
 		Decorator: &route.Decorator{
@@ -137,26 +310,22 @@ func TranslateRoute(in *routingv2.HTTPRoute,
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: name(in.Mirror)}
 		}
 
-		if len(in.Route) == 0 { // build default cluster
-			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: defaultCluster}
-		} else {
-			weighted := make([]*route.WeightedCluster_ClusterWeight, len(in.Route))
-			for _, dst := range in.Route {
-				weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
-					Name:   name(dst.Destination),
-					Weight: &types.UInt32Value{Value: uint32(dst.Weight)},
-				})
-			}
+		weighted := make([]*route.WeightedCluster_ClusterWeight, len(in.Route))
+		for _, dst := range in.Route {
+			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
+				Name:   name(dst.Destination),
+				Weight: &types.UInt32Value{Value: uint32(dst.Weight)},
+			})
+		}
 
-			// rewrite to a single cluster if there is only weighted cluster
-			if len(weighted) == 1 {
-				action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-			} else {
-				action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
-					WeightedClusters: &route.WeightedCluster{
-						Clusters: weighted,
-					},
-				}
+		// rewrite to a single cluster if there is only weighted cluster
+		if len(weighted) == 1 {
+			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+		} else {
+			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
+				WeightedClusters: &route.WeightedCluster{
+					Clusters: weighted,
+				},
 			}
 		}
 	}
