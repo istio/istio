@@ -19,8 +19,8 @@ package v1
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -125,7 +125,7 @@ func applyClusterPolicy(cluster *Cluster,
 	}
 }
 
-func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSettings) {
+func applyLoadBalancePolicy(cluster *Cluster, policy *networking.LoadBalancerSettings) {
 	if policy == nil || cluster.Type == ClusterTypeOriginalDST {
 		return
 	}
@@ -137,11 +137,11 @@ func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSett
 		log.Warn("Consistent hash load balancing type is not currently supported")
 	} else {
 		switch policy.GetSimple() {
-		case routingv2.LoadBalancerSettings_LEAST_CONN:
+		case networking.LoadBalancerSettings_LEAST_CONN:
 			cluster.LbType = LbTypeLeastRequest
-		case routingv2.LoadBalancerSettings_RANDOM:
+		case networking.LoadBalancerSettings_RANDOM:
 			cluster.LbType = LbTypeRandom
-		case routingv2.LoadBalancerSettings_PASSTHROUGH:
+		case networking.LoadBalancerSettings_PASSTHROUGH:
 			cluster.LbType = LbTypeOriginalDST // FIXME: double-check
 		default:
 			cluster.LbType = LbTypeRoundRobin
@@ -149,7 +149,7 @@ func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSett
 	}
 }
 
-func buildOutlierDetection(outlier *routingv2.OutlierDetection) *OutlierDetection {
+func buildOutlierDetection(outlier *networking.OutlierDetection) *OutlierDetection {
 	if outlier != nil && outlier.Http != nil {
 		out := &OutlierDetection{
 			ConsecutiveErrors:  5,
@@ -176,7 +176,7 @@ func buildOutlierDetection(outlier *routingv2.OutlierDetection) *OutlierDetectio
 	return nil
 }
 
-func applyConnectionPool(cluster *Cluster, settings *routingv2.ConnectionPoolSettings) {
+func applyConnectionPool(cluster *Cluster, settings *networking.ConnectionPoolSettings) {
 	cluster.MaxRequestsPerConnection = 1024 // TODO: set during cluster construction?
 
 	if settings == nil {
@@ -226,7 +226,7 @@ func applyConnectionPool(cluster *Cluster, settings *routingv2.ConnectionPoolSet
 }
 
 // TODO: write unit tests for sub-functions
-func applyTrafficPolicy(cluster *Cluster, policy *routingv2.TrafficPolicy) {
+func applyTrafficPolicy(cluster *Cluster, policy *networking.TrafficPolicy) {
 	if policy == nil {
 		return
 	}
@@ -238,7 +238,7 @@ func applyTrafficPolicy(cluster *Cluster, policy *routingv2.TrafficPolicy) {
 func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domain string) {
 	destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
 	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
 
 		applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
 		for _, subset := range destinationRule.Subsets {

@@ -22,8 +22,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -413,12 +413,12 @@ func TestRouteRules(t *testing.T) {
 			},
 		},
 		{
-			configType: model.V1alpha2RouteRule.Type,
-			spec: &routingv2.RouteRule{
+			configType: model.VirtualService.Type,
+			spec: &networking.VirtualService{
 				Hosts: []string{"world"},
-				Http: []*routingv2.HTTPRoute{
+				Http: []*networking.HTTPRoute{
 					{
-						Match: []*routingv2.HTTPMatchRequest{
+						Match: []*networking.HTTPMatchRequest{
 							{
 								SourceLabels: instance.Labels,
 							},

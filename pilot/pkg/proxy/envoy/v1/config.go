@@ -29,8 +29,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -837,8 +837,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 							host.Routes = append(host.Routes, route)
 						}
-					case *routingv2.RouteRule:
-						rule := config.Spec.(*routingv2.RouteRule)
+					case *networking.VirtualService:
+						rule := config.Spec.(*networking.VirtualService)
 
 						// if no routes are returned, it is a TCP RouteRule
 						routes := buildInboundRoutesV2(proxyInstances, config, rule, cluster)

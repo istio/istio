@@ -69,7 +69,7 @@ var (
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
-		model.V1alpha2RouteRule,
+		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
 		model.ExternalService,
