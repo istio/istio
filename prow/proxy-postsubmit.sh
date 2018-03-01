@@ -43,5 +43,4 @@ cd $ROOT
 
 echo 'Create and push artifacts'
 script/release-binary
-script/release-docker
 ARTIFACTS_DIR="gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs" make artifacts

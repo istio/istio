@@ -6,8 +6,6 @@ steps:
   - "-c"
   - "cp tools/bazel.rc.cloudbuilder \"$${HOME}/.bazelrc\" && ./script/release-binary"
   entrypoint: bash
-- name: gcr.io/istio-io/istio-builder:0.4.4
-  args: ['./script/release-docker' ]
 options:
   machineType: N1_HIGHCPU_32
 timeout: 1800s

@@ -30,7 +30,7 @@ UID is typically kubernetes://$PODNAME.$NAMESPACE
 
 There are few types.
  
-1. The main bound listener on 15001 - this is where iptables redirects
+1. The main bound listener on 15001
  
 2. For each HTTP port in the cluster, there is one listener on tcp://0.0.0.0/port - defining mixer attributes
 and asking for route config. This is for outbound requests.

@@ -1,9 +1,0 @@
-#!/bin/sh
-
-set -e
-
-fname=/tmp/saved-iptable-rules
-if [ -r $fname ]; then
-  iptables-restore < $fname
-  echo "iptable rules restored from $fname"
-fi

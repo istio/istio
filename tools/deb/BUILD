@@ -22,8 +22,6 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 pkg_tar(
     name = "envoy-bin",
     files = [
-        "istio-iptables.sh",
-        "istio-start.sh",
         "//src/envoy",
     ],
     mode = "0755",
@@ -41,19 +39,11 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "istio-systemd",
-    files = ["istio.service"],
-    mode = "644",
-    package_dir = "/lib/systemd/system",
-)
-
-pkg_tar(
     name = "debian-data",
     extension = "tar.gz",
     deps = [
         ":envoy-bin",
         ":istio-conf",
-        ":istio-systemd",
     ],
 )
 
