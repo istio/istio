@@ -28,6 +28,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routing2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/util"
@@ -40,6 +41,17 @@ var (
 
 	// ExampleRouteRule is an example route rule
 	ExampleRouteRule = &routing.RouteRule{
+		Destination: &routing.IstioService{
+			Name: "world",
+		},
+		Route: []*routing.DestinationWeight{
+			{Weight: 80, Labels: map[string]string{"version": "v1"}},
+			{Weight: 20, Labels: map[string]string{"version": "v2"}},
+		},
+	}
+
+	// ExampleV1Alpha2RouteRule is an example route rule
+	ExampleV1Alpha2RouteRule = &network{
 		Destination: &routing.IstioService{
 			Name: "world",
 		},
@@ -344,6 +356,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		spec proto.Message
 	}{
 		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
+		{"V1Alpha2RouteRule", model.V1alpha2RouteRule.Type, ExampleRouteRule},
 		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
 		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
