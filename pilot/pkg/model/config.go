@@ -308,7 +308,7 @@ var (
 		Type:        "mock-config",
 		Plural:      "mock-configs",
 		Group:       "test",
-		Version:     "v1stable",
+		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
