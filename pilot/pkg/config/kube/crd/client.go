@@ -298,8 +298,7 @@ func (rc *restClient) deregisterResources() error {
 
 // ConfigDescriptor for the store
 func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
-	d := make(model.ConfigDescriptor, 0)
-	//d := make(model.ConfigDescriptor, 0, len(cl.clientset))
+	d := make(model.ConfigDescriptor, 0, len(cl.clientset))
 	for _, rc := range cl.clientset {
 		d = append(d, rc.descriptor...)
 	}
