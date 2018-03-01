@@ -41,7 +41,7 @@
           "api_type": "GRPC",
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
-            "eds-grpc"
+            "xds-grpc"
           ]
         }
       }
@@ -85,7 +85,7 @@
         ]
     },
     {
-        "name": "eds-grpc",
+        "name": "xds-grpc",
         "type": "STRICT_DNS",
         "connect_timeout": {{ .connect_timeout }},
         "lb_policy": "ROUND_ROBIN",
