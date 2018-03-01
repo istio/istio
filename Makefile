@@ -335,7 +335,7 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolumedriver
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -356,8 +356,9 @@ istio-ca:
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
-.PHONY: flexvolume
-flexvolume: ${ISTIO_OUT}/flexvolume
+.PHONY: flexvolumedriver
+flexvolumedriver:
+	bin/gobuild.sh ${ISTIO_OUT}/flexvolumedriver istio.io/istio/pkg/version ./security/cmd/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
