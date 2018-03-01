@@ -31,17 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
 // IstioObject is a k8s wrapper interface for config objects
@@ -301,6 +299,7 @@ func (rc *restClient) deregisterResources() error {
 // ConfigDescriptor for the store
 func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
 	d := make(model.ConfigDescriptor, 0)
+	//d := make(model.ConfigDescriptor, 0, len(cl.clientset))
 	for _, rc := range cl.clientset {
 		d = append(d, rc.descriptor...)
 	}

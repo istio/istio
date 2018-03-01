@@ -29,8 +29,7 @@ func kubeconfig(t *testing.T) string {
 	return kubeconfig
 }
 
-func makeClient(t *testing.T) *Client {
-	desc := append(model.IstioConfigTypes, mock.Types...)
+func makeClient(t *testing.T, desc model.ConfigDescriptor) *Client {
 	cl, err := NewClient(kubeconfig(t), desc, "")
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +57,8 @@ func makeTempClient(t *testing.T) (*Client, string, func()) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	cl := makeClient(t)
+	desc := append(model.IstioConfigTypes, mock.Types...)
+	cl := makeClient(t, desc)
 
 	// the rest of the test can run in parallel
 	t.Parallel()
@@ -75,4 +75,19 @@ func TestIstioConfig(t *testing.T) {
 	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	mock.CheckIstioConfigTypes(client, ns, t)
+}
+
+func TestUnknownConfig(t *testing.T) {
+	desc := model.ConfigDescriptor{model.ProtoSchema{
+		Type:        "unknown-config",
+		Plural:      "unknown-configs",
+		Group:       "test",
+		Version:     "v1stable",
+		MessageName: "test.MockConfig",
+		Validate:    nil,
+	}}
+	cl := makeClient(t, desc)
+	if cl != nil {
+		t.Fatalf("expect client to fail with unknown types")
+	}
 }
