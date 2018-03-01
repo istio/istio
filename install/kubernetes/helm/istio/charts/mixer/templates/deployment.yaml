@@ -6,9 +6,8 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-    {{- if $.Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml $.Values.nodeSelector | indent 8 }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
     {{- end }}
       containers:
       - name: mixer
