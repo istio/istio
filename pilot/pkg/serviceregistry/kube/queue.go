@@ -15,13 +15,12 @@
 package kube
 
 import (
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"k8s.io/client-go/util/flowcontrol"
-
-	"os"
-	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"

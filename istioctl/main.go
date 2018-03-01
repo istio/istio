@@ -29,14 +29,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"istio.io/istio/istioctl/gendeployment"
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,6 +40,15 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
+
+	"istio.io/istio/istioctl/gendeployment"
+	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
