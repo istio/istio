@@ -99,7 +99,7 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 		TypeUrl: SecretTypeURL,
 		Value:   data,
 	}
-	// TODO: Set VersionInfo
+	// TODO: Set VersionInfo.
 	response := &api.DiscoveryResponse{
 		Resources: resources,
 		TypeUrl:   SecretTypeURL,
