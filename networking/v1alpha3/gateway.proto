@@ -33,7 +33,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // proxy to listen on these ports, it is the responsibility of the user to
 // ensure that external traffic to these ports are allowed into the mesh.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: Gateway
 //     metadata:
 //       name: my-gateway

@@ -59,7 +59,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // proxy to listen on these ports, it is the responsibility of the user to
 // ensure that external traffic to these ports are allowed into the mesh.
 //
-//     apiVersion: config.istio.io/v1alpha2
+//     apiVersion: networking.istio.io/v1alpha3
 //     kind: Gateway
 //     metadata:
 //       name: my-gateway
