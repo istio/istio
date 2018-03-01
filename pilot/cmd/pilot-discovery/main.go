@@ -72,6 +72,8 @@ var (
 )
 
 func init() {
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.RDSv2, "rdsv2", false, "Enable RDS v2")
+
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(bootstrap.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
