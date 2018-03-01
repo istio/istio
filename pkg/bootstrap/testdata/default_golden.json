@@ -1,9 +1,4 @@
 {
-
-
-  "comment": "For variable substitutions in this file please see: pkg/bootstrap/bootstrap_config.go",
-
-
   "stats_config": {
     "use_all_default_tags": false
   },
