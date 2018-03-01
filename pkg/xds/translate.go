@@ -99,9 +99,8 @@ func TranslateVirtualHosts(
 	for fqdn := range services {
 		missing[fqdn] = true
 	}
-	for _, config := range serviceConfigs {
-		_, matching := MatchServiceHosts(config, serviceByName)
-		for _, service := range matching {
+	for _, host := range out {
+		for _, service := range host.Services {
 			delete(missing, service.Hostname)
 		}
 	}
