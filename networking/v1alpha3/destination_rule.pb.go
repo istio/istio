@@ -388,9 +388,7 @@ func (m *LoadBalancerSettings) String() string            { return proto.Compact
 func (*LoadBalancerSettings) ProtoMessage()               {}
 func (*LoadBalancerSettings) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-type isLoadBalancerSettings_LbPolicy interface {
-	isLoadBalancerSettings_LbPolicy()
-}
+type isLoadBalancerSettings_LbPolicy interface{ isLoadBalancerSettings_LbPolicy() }
 
 type LoadBalancerSettings_Simple struct {
 	Simple LoadBalancerSettings_SimpleLB `protobuf:"varint,1,opt,name=simple,enum=istio.networking.v1alpha3.LoadBalancerSettings_SimpleLB,oneof"`

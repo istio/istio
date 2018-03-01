@@ -181,7 +181,7 @@ metadata:
   name: mTLS-enable
   namespace: frod
 spec:
-  match:
+  destinations:
   peers:
   - mtls: &lbrace;}
 </code></pre>
@@ -194,7 +194,7 @@ metadata:
   name: mTLS-enable
   namespace: frod
 spec:
-  match:
+  destinations:
   - name: productpage
     port:
       number: 9000
@@ -221,7 +221,7 @@ spec:
 <tbody>
 <tr id="Policy.destinations">
 <td><code>destinations</code></td>
-<td><code><a href="#istio.routing.v1alpha2.Destination">istio.routing.v1alpha2.Destination[]</a></code></td>
+<td><code><a href="#istio.networking.v1alpha3.Destination">istio.networking.v1alpha3.Destination[]</a></code></td>
 <td>
 <p>List of destinations (workloads) that the policy should be applied on.
 If empty, policy will be used on all destinations in the same namespace.</p>
@@ -252,7 +252,7 @@ request.auth.principal/audiences/presenter if authentication succeed.</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.routing.v1alpha2.Destination">istio.routing.v1alpha2.Destination</h2>
+<h2 id="istio.networking.v1alpha3.Destination">istio.networking.v1alpha3.Destination</h2>
 <section>
 <p>Destination indicates the network addressable service to which the
 request/connection will be sent after processing a routing rule. The
@@ -280,14 +280,14 @@ the DNS and load balance requests appropriately. See Envoy&rsquo;s strict_dns
 for details.</p></li>
 </ol>
 
-<p>For example, the following rule routes all traffic by default to pods of
-reviews service with label &ldquo;version: v1&rdquo; on a subset named v1, and some
+<p>The following example routes all traffic by default to pods of the
+reviews service with label &ldquo;version: v1&rdquo; (i.e., subset v1), and some
 to subset v2, in a kubernetes environment.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: my-rule
+  name: reviews-route
 spec:
   hosts:
   - reviews # namespace is same as the client/caller's namespace
@@ -311,10 +311,10 @@ spec:
 
 <p>And the associated DestinationRule</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
+<pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: my-destination-rule
+  name: reviews-destination
 spec:
   name: reviews
   subsets:
@@ -326,14 +326,14 @@ spec:
       version: v2
 </code></pre>
 
-<p>The following rule sets a timeout of 5s for all calls to
+<p>The following VirtualService sets a timeout of 5s for all calls to
 productpage.prod service.  Notice that there are no subsets defined in
 this rule. Istio will fetch all instances of productpage.prod service
 from the service registry and populate the sidecar&rsquo;s load balancing
 pool.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
   name: my-productpage-rule
 spec:
@@ -346,11 +346,11 @@ spec:
         name: productpage.prod
 </code></pre>
 
-<p>The following rule sets a timeout of 5s for all calls to the external
+<p>The following sets a timeout of 5s for all calls to the external
 service wikipedia.org, as there is no internal service of that name.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
   name: my-wiki-rule
 spec:
@@ -372,7 +372,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="istio.routing.v1alpha2.Destination.name">
+<tr id="istio.networking.v1alpha3.Destination.name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -381,10 +381,10 @@ name from the service registry, a resolvable DNS name, or an IP
 address.</p>
 
 <p>If short names are used, the FQDN of the service will be resolved in a
-platform specific manner.  For example in Kubernetes, when a rule with
+platform specific manner.  For example in Kubernetes, when a route with
 a short name &ldquo;reviews&rdquo; in the destination is applied to a client in
 the &ldquo;bookinfo&rdquo; namespace, the final destination is resolved to
-reviews.bookinfo.svc.cluster.local. If the rule refers to the
+reviews.bookinfo.svc.cluster.local. If the route refers to the
 destination as &ldquo;reviews.sales&rdquo;, the resolution process first looks for
 a &ldquo;reviews&rdquo; service in the &ldquo;sales&rdquo; namespace. In both cases, the
 sidecar will route to the IP addresses of the pods constituting the
@@ -395,19 +395,19 @@ returned by the DNS.</p>
 
 </td>
 </tr>
-<tr id="istio.routing.v1alpha2.Destination.subset">
+<tr id="istio.networking.v1alpha3.Destination.subset">
 <td><code>subset</code></td>
 <td><code>string</code></td>
 <td>
 <p>The name of a subset within the service. Applicable only to services
-within the mesh. The subset must be defined in the corresponding
+within the mesh. The subset must be defined in a corresponding
 DestinationRule.</p>
 
 </td>
 </tr>
-<tr id="istio.routing.v1alpha2.Destination.port">
+<tr id="istio.networking.v1alpha3.Destination.port">
 <td><code>port</code></td>
-<td><code><a href="#istio.routing.v1alpha2.PortSelector">istio.routing.v1alpha2.PortSelector</a></code></td>
+<td><code><a href="#istio.networking.v1alpha3.PortSelector">istio.networking.v1alpha3.PortSelector</a></code></td>
 <td>
 <p>Specifies the port on the destination. Many services only expose a
 single port or label ports with the protocols they support, in these

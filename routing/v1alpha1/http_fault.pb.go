@@ -88,9 +88,7 @@ func (m *HTTPFaultInjection_Delay) String() string            { return proto.Com
 func (*HTTPFaultInjection_Delay) ProtoMessage()               {}
 func (*HTTPFaultInjection_Delay) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
 
-type isHTTPFaultInjection_Delay_HttpDelayType interface {
-	isHTTPFaultInjection_Delay_HttpDelayType()
-}
+type isHTTPFaultInjection_Delay_HttpDelayType interface{ isHTTPFaultInjection_Delay_HttpDelayType() }
 
 type HTTPFaultInjection_Delay_FixedDelay struct {
 	FixedDelay *google_protobuf1.Duration `protobuf:"bytes,2,opt,name=fixed_delay,json=fixedDelay,oneof"`
@@ -250,9 +248,7 @@ func (m *HTTPFaultInjection_Abort) String() string            { return proto.Com
 func (*HTTPFaultInjection_Abort) ProtoMessage()               {}
 func (*HTTPFaultInjection_Abort) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 1} }
 
-type isHTTPFaultInjection_Abort_ErrorType interface {
-	isHTTPFaultInjection_Abort_ErrorType()
-}
+type isHTTPFaultInjection_Abort_ErrorType interface{ isHTTPFaultInjection_Abort_ErrorType() }
 
 type HTTPFaultInjection_Abort_GrpcStatus struct {
 	GrpcStatus string `protobuf:"bytes,2,opt,name=grpc_status,json=grpcStatus,oneof"`

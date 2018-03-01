@@ -57,9 +57,7 @@ func (m *IngressRule) String() string            { return proto.CompactTextStrin
 func (*IngressRule) ProtoMessage()               {}
 func (*IngressRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
 
-type isIngressRule_DestinationServicePort interface {
-	isIngressRule_DestinationServicePort()
-}
+type isIngressRule_DestinationServicePort interface{ isIngressRule_DestinationServicePort() }
 
 type IngressRule_DestinationPort struct {
 	DestinationPort int32 `protobuf:"varint,6,opt,name=destination_port,json=destinationPort,oneof"`

@@ -212,9 +212,7 @@ func (m *LoadBalancing) String() string            { return proto.CompactTextStr
 func (*LoadBalancing) ProtoMessage()               {}
 func (*LoadBalancing) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
-type isLoadBalancing_LbPolicy interface {
-	isLoadBalancing_LbPolicy()
-}
+type isLoadBalancing_LbPolicy interface{ isLoadBalancing_LbPolicy() }
 
 type LoadBalancing_Name struct {
 	Name LoadBalancing_SimpleLBPolicy `protobuf:"varint,1,opt,name=name,enum=istio.routing.v1alpha1.LoadBalancing_SimpleLBPolicy,oneof"`
@@ -337,9 +335,7 @@ func (m *CircuitBreaker) String() string            { return proto.CompactTextSt
 func (*CircuitBreaker) ProtoMessage()               {}
 func (*CircuitBreaker) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-type isCircuitBreaker_CbPolicy interface {
-	isCircuitBreaker_CbPolicy()
-}
+type isCircuitBreaker_CbPolicy interface{ isCircuitBreaker_CbPolicy() }
 
 type CircuitBreaker_SimpleCb struct {
 	SimpleCb *CircuitBreaker_SimpleCircuitBreakerPolicy `protobuf:"bytes,1,opt,name=simple_cb,json=simpleCb,oneof"`

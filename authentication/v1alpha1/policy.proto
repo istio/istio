@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-import "routing/v1alpha2/route_rule.proto";
+import "networking/v1alpha3/virtual_service.proto";
 
 // $title: Authentication Policy
 // $overview: Authentication policy for Istio services.
@@ -146,7 +146,7 @@ message Mechanism {
 //   name: mTLS-enable
 //   namespace: frod
 // spec:
-//   match:
+//   destinations:
 //   peers:
 //   - mtls: {}
 // ```
@@ -159,7 +159,7 @@ message Mechanism {
 //   name: mTLS-enable
 //   namespace: frod
 // spec:
-//   match:
+//   destinations:
 //   - name: productpage
 //     port:
 //       number: 9000
@@ -177,7 +177,7 @@ message Mechanism {
 message Policy {
   // List of destinations (workloads) that the policy should be applied on.
   // If empty, policy will be used on all destinations in the same namespace.
-  repeated istio.routing.v1alpha2.Destination destinations = 1;
+  repeated istio.networking.v1alpha3.Destination destinations = 1;
 
   // List of credential that should be checked by peer authentication. They
   // will be validated in sequence, until the first one satisfied. If none of

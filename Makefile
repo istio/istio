@@ -12,7 +12,7 @@ docs_version := master
 # protoc args
 ########################
 
-proto_path := --proto_path=. --proto_path=vendor/github.com/gogo/protobuf --proto_path=vendor/istio.io/gogo-genproto/googleapis
+proto_path := --proto_path=. --proto_path=./vendor/github.com/gogo/protobuf --proto_path=./vendor/istio.io/gogo-genproto/googleapis
 out_path = :$(GOPATH)/src
 
 ########################
@@ -103,7 +103,7 @@ endif
 #         that tool prevents warnings from protoc-gen-docs from being
 #         displayed. If protoc_min_version gets fixed to allow this
 #         data though, then remove this override
-protoc := $(shell which protoc)
+protoc := /usr/local/bin/protoc
 
 ###################
 # Deps
@@ -160,7 +160,8 @@ generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
 
 $(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos) | depend $(protoc_gen_go) $(protoc_bin)
 	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
-	@$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
+	echo $(protoc)
+	$(protoc) $(proto_path) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
 
 clean-broker-generated:
 	rm -f $(broker_v1_pb_gos)

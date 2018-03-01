@@ -3,4 +3,4 @@
 set -o errexit
 set -o nounset
 
-make clean generate
+make clean clean-generated generate

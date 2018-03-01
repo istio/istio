@@ -72,9 +72,7 @@ func (m *L4FaultInjection_Throttle) String() string            { return proto.Co
 func (*L4FaultInjection_Throttle) ProtoMessage()               {}
 func (*L4FaultInjection_Throttle) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 0} }
 
-type isL4FaultInjection_Throttle_ThrottleAfter interface {
-	isL4FaultInjection_Throttle_ThrottleAfter()
-}
+type isL4FaultInjection_Throttle_ThrottleAfter interface{ isL4FaultInjection_Throttle_ThrottleAfter() }
 
 type L4FaultInjection_Throttle_ThrottleAfterPeriod struct {
 	ThrottleAfterPeriod *google_protobuf1.Duration `protobuf:"bytes,4,opt,name=throttle_after_period,json=throttleAfterPeriod,oneof"`

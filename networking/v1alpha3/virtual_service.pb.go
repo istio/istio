@@ -921,9 +921,7 @@ func (m *StringMatch) String() string            { return proto.CompactTextStrin
 func (*StringMatch) ProtoMessage()               {}
 func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{9} }
 
-type isStringMatch_MatchType interface {
-	isStringMatch_MatchType()
-}
+type isStringMatch_MatchType interface{ isStringMatch_MatchType() }
 
 type StringMatch_Exact struct {
 	Exact string `protobuf:"bytes,1,opt,name=exact,oneof"`
@@ -1277,9 +1275,7 @@ func (m *HTTPFaultInjection_Delay) String() string            { return proto.Com
 func (*HTTPFaultInjection_Delay) ProtoMessage()               {}
 func (*HTTPFaultInjection_Delay) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{12, 0} }
 
-type isHTTPFaultInjection_Delay_HttpDelayType interface {
-	isHTTPFaultInjection_Delay_HttpDelayType()
-}
+type isHTTPFaultInjection_Delay_HttpDelayType interface{ isHTTPFaultInjection_Delay_HttpDelayType() }
 
 type HTTPFaultInjection_Delay_FixedDelay struct {
 	FixedDelay *google_protobuf.Duration `protobuf:"bytes,2,opt,name=fixed_delay,json=fixedDelay,oneof"`
@@ -1433,9 +1429,7 @@ func (m *HTTPFaultInjection_Abort) String() string            { return proto.Com
 func (*HTTPFaultInjection_Abort) ProtoMessage()               {}
 func (*HTTPFaultInjection_Abort) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{12, 1} }
 
-type isHTTPFaultInjection_Abort_ErrorType interface {
-	isHTTPFaultInjection_Abort_ErrorType()
-}
+type isHTTPFaultInjection_Abort_ErrorType interface{ isHTTPFaultInjection_Abort_ErrorType() }
 
 type HTTPFaultInjection_Abort_HttpStatus struct {
 	HttpStatus int32 `protobuf:"varint,2,opt,name=http_status,json=httpStatus,oneof"`
@@ -1580,9 +1574,7 @@ func (m *PortSelector) String() string            { return proto.CompactTextStri
 func (*PortSelector) ProtoMessage()               {}
 func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{13} }
 
-type isPortSelector_Port interface {
-	isPortSelector_Port()
-}
+type isPortSelector_Port interface{ isPortSelector_Port() }
 
 type PortSelector_Number struct {
 	Number uint32 `protobuf:"varint,1,opt,name=number,oneof"`
