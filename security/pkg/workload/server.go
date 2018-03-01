@@ -76,7 +76,7 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 	// Get the uds path where this call is received.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok || len(md[udsPathKey]) == 0 {
-		errMessage := "Unknown UDS path."
+		errMessage := "unknown UDS path."
 		log.Error(errMessage)
 		return nil, status.Errorf(codes.Internal, errMessage)
 	}
