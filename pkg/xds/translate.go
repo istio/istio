@@ -58,7 +58,7 @@ type GuardedRoute struct {
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 func TranslateRoutes(in model.Config, name ClusterName, defaultCluster string) []GuardedRoute {
-	rule, ok := in.Spec.(*networking.RouteRule)
+	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
 		return nil
 	}
