@@ -30,10 +30,15 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/protobuf/types"
+	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/v2"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
@@ -140,6 +145,8 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
+	// gRPC server serving envoy v2 EDS APIs
+	serverV2        *envoyv2.DiscoveryServer
 	server          *http.Server
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -328,6 +335,11 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
 
+	if envoyv2.Enabled() {
+		// For now we create the gRPC server sourcing data from Pilot's older data model.
+		out.serverV2 = envoyv2.NewDiscoveryServer(out)
+	}
+
 	container := restful.NewContainer()
 	if o.EnableProfiling {
 		container.ServeMux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -448,7 +460,12 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 		return nil, err
 	}
 
+	if envoyv2.Enabled() {
+		ds.serverV2.Start()
+	}
+
 	go func() {
+
 		go func() {
 			if err := ds.server.Serve(listener); err != nil {
 				log.Warna(err)
@@ -457,6 +474,9 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 
 		// Wait for the stop notification and shutdown the server.
 		<-stop
+		if envoyv2.Enabled() {
+			ds.serverV2.Stop()
+		}
 		err := ds.server.Close()
 		if err != nil {
 			log.Warna(err)
@@ -862,4 +882,67 @@ func writeResponse(r *restful.Response, data []byte) {
 	if _, err := r.Write(data); err != nil {
 		log.Warna(err)
 	}
+}
+
+/************ Forward compatibility of older pilot data model with Envoy v2 APIs ****************************/
+// MeshDiscovery interfaces are declared in pilot/pkg/proxy/envoy/v2
+
+// Endpoints implements MeshDiscovery.Endpoints()
+func (ds *DiscoveryService) Endpoints(serviceClusters []string) *xdsapi.DiscoveryResponse {
+	methodName := "v2/Endpoints"
+	incCalls(methodName)
+
+	version := time.Now().String()
+	clAssignment := &xdsapi.ClusterLoadAssignment{}
+	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+	out := &xdsapi.DiscoveryResponse{
+		// All resources for EDS ought to be of the type ClusterLoadAssignment
+		TypeUrl: clAssignmentRes.GetTypeUrl(),
+
+		// Pilot does not really care for versioning. It always supplies what's currently
+		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+		// responses. Pilot believes in eventual consistency and that at some point, Envoy
+		// will begin seeing results it deems to be good.
+		VersionInfo: version,
+		Nonce:       version,
+	}
+
+	key := fmt.Sprintf("%v", serviceClusters)
+	cachedResp, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
+	var totalEndpoints uint32
+	if !cached {
+		out.Resources = make([]types.Any, 0, len(serviceClusters))
+		for _, serviceCluster := range serviceClusters {
+			hostname, ports, labels := model.ParseServiceKey(serviceCluster)
+			instances, err := ds.Instances(hostname, ports.GetNames(), labels)
+			if err != nil {
+				if log.WarnEnabled() {
+					log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
+				}
+				continue
+			}
+			locEps := v2.LocalityLbEndpointsFromInstances(instances)
+			clAssignment := &xdsapi.ClusterLoadAssignment{
+				ClusterName: serviceCluster,
+				Endpoints:   locEps,
+			}
+			clAssignmentRes, _ = types.MarshalAny(clAssignment)
+			out.Resources = append(out.Resources, *clAssignmentRes)
+			totalEndpoints += uint32(len(locEps))
+		}
+		// TODO: Retained for backward compatibility wrt cache behavior
+		// Not storing a zero result in cache can negatively impact server performance
+		// up until the ds begins to see instances!!!
+		if totalEndpoints > 0 {
+			bytes, err := out.Marshal()
+			if err != nil {
+				ds.sdsCache.updateCachedDiscoveryResponse(key, totalEndpoints, bytes)
+			}
+		}
+		return out
+	}
+	// Given marshall was successful, we ought not to expect errors.
+	_ = out.Unmarshal(cachedResp)
+	observeResources(methodName, resourceCount)
+	return out
 }

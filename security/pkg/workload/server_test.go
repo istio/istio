@@ -68,34 +68,32 @@ func VerifySecrets(t *testing.T, response *api.DiscoveryResponse) {
 }
 
 func TestSingleUdsPath(t *testing.T) {
+	server := NewSDSServer()
+
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath := filepath.Join(tmpdir, "test_path")
-	server, err := NewSDSServer(udsPath)
+
+	err := server.RegisterUdsPath(udsPath)
 	if err != nil {
 		t.Fatalf("Unexpected Error: %v", err)
-	}
-	if server == nil {
-		t.Fatalf("Fail to create SDSServer")
 	}
 
 	VerifySecrets(t, FetchSecrets(t, udsPath))
 }
 
 func TestMultipleUdsPaths(t *testing.T) {
+	server := NewSDSServer()
+
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath1 := filepath.Join(tmpdir, "test_path1")
 	udsPath2 := filepath.Join(tmpdir, "test_path2")
 	udsPath3 := filepath.Join(tmpdir, "test_path3")
 
-	server1, err1 := NewSDSServer(udsPath1)
-	server2, err2 := NewSDSServer(udsPath2)
-	server3, err3 := NewSDSServer(udsPath3)
-
+	err1 := server.RegisterUdsPath(udsPath1)
+	err2 := server.RegisterUdsPath(udsPath2)
+	err3 := server.RegisterUdsPath(udsPath3)
 	if err1 != nil || err2 != nil || err3 != nil {
 		t.Fatalf("Unexpected Error: %v %v %v", err1, err2, err3)
-	}
-	if server1 == nil || server2 == nil || server3 == nil {
-		t.Fatalf("Fail to create all SDSServer")
 	}
 
 	VerifySecrets(t, FetchSecrets(t, udsPath1))
@@ -104,16 +102,15 @@ func TestMultipleUdsPaths(t *testing.T) {
 }
 
 func TestDuplicateUdsPaths(t *testing.T) {
+	server := NewSDSServer()
+
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath := filepath.Join(tmpdir, "test_path")
-	_, _ = NewSDSServer(udsPath)
 
-	server, err := NewSDSServer(udsPath)
+	_ = server.RegisterUdsPath(udsPath)
+	err := server.RegisterUdsPath(udsPath)
 	expectedErr := fmt.Sprintf("UDS path %v already exists", udsPath)
 	if err == nil || err.Error() != expectedErr {
 		t.Fatalf("Expect error: %v, Actual error: %v", expectedErr, err)
-	}
-	if server != nil {
-		t.Fatalf("Unexpectedly created SDSServer.")
 	}
 }
