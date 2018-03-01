@@ -40,7 +40,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/util/homedir"
 
-	"istio.io/istio/istioctl/gendeployment"
+	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
