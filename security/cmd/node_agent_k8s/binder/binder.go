@@ -73,12 +73,13 @@ func (b *binder) SearchAndBind(stop <-chan interface{}) {
 	w := NewWatcher(b.searchPath)
 	events := w.watch()
 	var event workloadEvent
+EventLoop:
 	for {
 		select {
 		case event = <-events:
 			b.handleEvent(event)
 		case <-stop:
-			break
+			break EventLoop
 		}
 	}
 	// Got stop signal! Close any open sockets
