@@ -1,4 +1,9 @@
 {
+
+
+  "comment": "For variable substitutions in this file please see: pkg/bootstrap/bootstrap_config.go",
+
+
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -33,10 +38,10 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
-          "api_type": "REST_LEGACY",
+          "api_type": "GRPC",
           "refresh_delay": {"seconds": 1, "nanos": 0},
           "cluster_names": [
-            "rds"
+            "eds-grpc"
           ]
         }
       }
@@ -55,7 +60,19 @@
             "socket_address": {"address": "istio-pilot", "port_value": 15003}
           }
         ]
+    },
+    {
+        "name": "eds-grpc",
+        "type": "STRICT_DNS",
+        "connect_timeout": {"seconds": 1, "nanos": 0},
+        "lb_policy": "ROUND_ROBIN",
 
+      "hosts": [
+          {
+            "socket_address": {"address": "istio-pilot", "port_value": 15443}
+          }
+        ],
+	  "http2_protocol_options": { }
     }
     
     ]
