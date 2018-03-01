@@ -14,10 +14,11 @@
 #
 ################################################################################
 #
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 def protobuf_repositories(load_repo=True, bind=True):
     if load_repo:
-        native.git_repository(
+        git_repository(
             name = "com_google_protobuf",
             commit = "2761122b810fe8861004ae785cc3ab39f384d342",  # v3.5.0
             remote = "https://github.com/google/protobuf.git",

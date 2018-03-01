@@ -14,6 +14,9 @@
 #
 ################################################################################
 #
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+
 def cc_gogoproto_repositories(bind=True):
     BUILD = """
 # Copyright 2017 Istio Authors. All Rights Reserved.
@@ -53,7 +56,7 @@ cc_proto_library(
     ],
 )
 """
-    native.new_git_repository(
+    new_git_repository(
         name = "gogoproto_git",
         commit = "100ba4e885062801d56799d78530b73b178a78f3",
         remote = "https://github.com/gogo/protobuf",

@@ -15,6 +15,8 @@
 ################################################################################
 #
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+
 def googleapis_repositories(bind=True):
     GOOGLEAPIS_BUILD_FILE = """
 package(default_visibility = ["//visibility:public"])
@@ -35,7 +37,7 @@ cc_proto_library(
 )
 
 """
-    native.new_git_repository(
+    new_git_repository(
         name = "com_github_googleapis_googleapis",
         build_file_content = GOOGLEAPIS_BUILD_FILE,
         commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)

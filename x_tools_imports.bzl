@@ -14,6 +14,7 @@
 #
 ################################################################################
 #
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 def go_x_tools_imports_repositories():
     BUILD_FILE = """
@@ -45,8 +46,8 @@ go_binary(
     # simple build rule that will build the binary for usage (and avoid
     # the need to project a more complicated BUILD file over the entire
     # tools repo.)
-    native.new_git_repository(
-	name = "org_golang_x_tools_imports",
+    new_git_repository(
+        name = "org_golang_x_tools_imports",
         build_file_content = BUILD_FILE,
         commit = "e6cb469339aef5b7be0c89de730d5f3cc8e47e50",  # Jun 23, 2017 (no releases)
         remote = "https://github.com/golang/tools.git",

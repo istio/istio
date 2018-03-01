@@ -14,8 +14,10 @@
 #
 ################################################################################
 #
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 def boringssl_repositories(bind=True):
-    native.git_repository(
+    git_repository(
         name = "boringssl",
         commit = "12c35d69008ae6b8486e435447445240509f7662",  # 2016-10-24
         remote = "https://boringssl.googlesource.com/boringssl",
