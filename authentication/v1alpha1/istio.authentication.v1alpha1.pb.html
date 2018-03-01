@@ -2,11 +2,90 @@
 title: Authentication Policy
 overview: Authentication policy for Istio services.
 layout: protoc-gen-docs
-number_of_entries: 6
+number_of_entries: 9
 ---
-<p>This package defines user-facing authentication policy as well as configs that
-the sidecar proxy uses to perform authentication.</p>
+<p>This package defines user-facing authentication policy as well as configs
+that the sidecar proxy uses to perform authentication.</p>
 
+<h2 id="CredentialRule">CredentialRule</h2>
+<section>
+<p>CredentialRule defines which identity (e.g from peer or end-user
+authentication) will be used as request principal. The rule can be activated
+conditionally, based on matching condition (currently use only peer identity)</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CredentialRule.binding">
+<td><code>binding</code></td>
+<td><code><a href="#CredentialRule.Binding">CredentialRule.Binding</a></code></td>
+<td>
+<p>Defines which authentication (peer vs origin) will be binded to
+request principal.</p>
+
+</td>
+</tr>
+<tr id="CredentialRule.origins">
+<td><code>origins</code></td>
+<td><code><a href="#OriginAuthenticationMethod">OriginAuthenticationMethod[]</a></code></td>
+<td>
+<p>This list of origin authentication methods that should be
+considered for the rule.
+At run time, each method will be evaluated in order, until the first valid
+(if none success, request should be rejected).
+If binding is USE_ORIGIN, request.auth.principal attribute will be set to
+the identity extracted from that valid certificate.</p>
+
+</td>
+</tr>
+<tr id="CredentialRule.matching_peers">
+<td><code>matchingPeers</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Condition to activate the rule. If not empty, the rule will be activated
+if the request comes from one of these peers (identity).
+Leave blank to activate the rule unconditionally.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CredentialRule.Binding">CredentialRule.Binding</h2>
+<section>
+<p>Associates authentication with request principal.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CredentialRule.Binding.USE_PEER">
+<td><code>USE_PEER</code></td>
+<td>
+<p>Principal will be set to the identity from peer authentication.</p>
+
+</td>
+</tr>
+<tr id="CredentialRule.Binding.USE_ORIGIN">
+<td><code>USE_ORIGIN</code></td>
+<td>
+<p>Principal will be set to the identity from origin authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Jwt">Jwt</h2>
 <section>
 <p>JSON Web Token (JWT) token format for authentication as defined by
@@ -110,10 +189,48 @@ query parameter name.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Mechanism">Mechanism</h2>
+<h2 id="MutualTls">MutualTls</h2>
 <section>
-<p>Mechanism defines one particular type of authentication, e.g
-mutual TLS, JWT etc, (no authentication is one type by itsefl).
+<p>Placeholder for mTLS authentication params.</p>
+
+</section>
+<h2 id="None">None</h2>
+<section>
+<p>Placeholder for None authentication params.</p>
+
+</section>
+<h2 id="OriginAuthenticationMethod">OriginAuthenticationMethod</h2>
+<section>
+<p>OriginAuthenticationMethod defines authentication method/params for origin
+authentication. Origin could be end-user, device, delegate service etc.
+Method should have unique name so they can be referred later in credential
+rules. Currently, only JWT is supported for origin authentication.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OriginAuthenticationMethod.jwt">
+<td><code>jwt</code></td>
+<td><code><a href="#Jwt">Jwt</a></code></td>
+<td>
+<p>Jwt params for the method.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="PeerAuthenticationMethod">PeerAuthenticationMethod</h2>
+<section>
+<p>PeerAuthenticationMethod defines one particular type of authentication, e.g
+mutual TLS, JWT etc, (no authentication is one type by itself) that can
+be used for peer authentication.
 The type can be progammatically determine by checking the type of the
 &ldquo;params&rdquo; field.</p>
 
@@ -126,15 +243,16 @@ The type can be progammatically determine by checking the type of the
 </tr>
 </thead>
 <tbody>
-<tr id="Mechanism.none" class="oneof oneof-start">
+<tr id="PeerAuthenticationMethod.none" class="oneof oneof-start">
 <td><code>none</code></td>
 <td><code><a href="#None">None (oneof)</a></code></td>
 <td>
-<p>Set if authentication is not required.</p>
+<p>Set if authentication is not required. This is typically used to indicate
+other methods are optional.</p>
 
 </td>
 </tr>
-<tr id="Mechanism.mtls" class="oneof">
+<tr id="PeerAuthenticationMethod.mtls" class="oneof">
 <td><code>mtls</code></td>
 <td><code><a href="#MutualTls">MutualTls (oneof)</a></code></td>
 <td>
@@ -142,7 +260,7 @@ The type can be progammatically determine by checking the type of the
 
 </td>
 </tr>
-<tr id="Mechanism.jwt" class="oneof">
+<tr id="PeerAuthenticationMethod.jwt" class="oneof">
 <td><code>jwt</code></td>
 <td><code><a href="#Jwt">Jwt (oneof)</a></code></td>
 <td>
@@ -153,24 +271,23 @@ The type can be progammatically determine by checking the type of the
 </tbody>
 </table>
 </section>
-<h2 id="MutualTls">MutualTls</h2>
-<section>
-<p>Placeholder for mTLS authentication params.</p>
-
-</section>
-<h2 id="None">None</h2>
-<section>
-<p>Placeholder for None authentication params</p>
-
-</section>
 <h2 id="Policy">Policy</h2>
 <section>
-<p>Policy binds credentials to workload(s).
-Authentication policy is composed of 2-part authentication:
-- peer: verify caller service credentials.
-- end_user: verify end-user credentials.
-For each part, if it&rsquo;s not empty, at least one of those listed credential
-must be provided and  (successfully) verified for the authentication to pass.</p>
+<p>Policy defines what authentication methods can be accepted on workload(s),
+and if authenticated, which method/certificate will set the request principal
+(i.e request.auth.principal attribute).</p>
+
+<p>Authentication policy is composed of 2-part authentication:
+- peer: verify caller service credentials. This part will set source.user
+(peer identity).
+- origin: verify the origin credentials. This part will set request.auth.user
+(origin identity), as well as other attributes like request.auth.presenter,
+request.auth.audiences and raw claims. Note that the identity could be
+end-user, service account, device etc.</p>
+
+<p>request.auth.principal will be assigned follow the credential rules. The
+rule also dictates which origin authentication method(s) should run, based
+on peer identity.</p>
 
 <p>Examples:
 Policy to enable mTLS for all services in namespace frod</p>
@@ -178,20 +295,33 @@ Policy to enable mTLS for all services in namespace frod</p>
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS-enable
+  name: mTLS_enable
   namespace: frod
 spec:
   destinations:
   peers:
-  - mtls: &lbrace;}
+  - mtls: null
 </code></pre>
 
-<p>Policy to enable mTLS, and use JWT for productpage:9000</p>
+<p>Policy to disable mTLS for &ldquo;productpage&rdquo; service</p>
 
 <pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: mTLS-enable
+  name: mTLS_disable
+  namespace: frod
+spec:
+  destinations:
+  - name: productpage
+  peers:
+</code></pre>
+
+<p>Policy to enable mTLS, and use JWT for productpage:9000.</p>
+
+<pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: mTLS_enable
   namespace: frod
 spec:
   destinations:
@@ -199,15 +329,104 @@ spec:
     port:
       number: 9000
   peers:
-  - mtls:
-  endUsers:
+  - mtls: null
+  credentialRules:
+  - binding: USE_ORIGIN
+    origins:
+      jwt:
+        issuer: &quot;https://securetoken.google.com&quot;
+        audiences:
+        - &quot;productpage&quot;
+        jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
+        locations:
+        - header: x-goog-iap-jwt-assertion
+</code></pre>
+
+<p>Policy to enable mTLS, and use JWT for productpage:9000 only when caller is
+frontend.serviceaccount.</p>
+
+<pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: mTLS_enable
+  namespace: frod
+spec:
+  destinations:
+  - name: productpage
+    port:
+      number: 9000
+  peers:
+  - mtls: null
+  credentialRules:
+  - binding: USE_ORIGIN
+    matchingSources:
+    - frontend.serviceaccount
+    origins:
+    - jwt:
+        issuer: &quot;https://securetoken.google.com&quot;
+        audiences:
+        - &quot;productpage&quot;
+        jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
+        locations:
+        - header: x-goog-iap-jwt-assertion
+</code></pre>
+
+<p>Note that a credential rule that unconditional-use-peer (identity)  is
+implicitly check if no rule match, so the above credentialRules is the same
+as this:</p>
+
+<pre><code>credentialRules:
+- binding: USE_ORIGIN
+  selectedOriginMethods:
+  - google_jwt
+  matchingSources:
+  - productpage.serviceaccount
+  origins:
   - jwt:
-      issuer: &quot;https://securetoken.google.com&quot;
-      audiences:
-      - &quot;productpage&quot;
-      jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
-      locations:
-      - header: x-goog-iap-jwt-assertion
+    ...
+- binding: USE_PEER
+</code></pre>
+
+<p>Policy that enable mTLS, requires google JWT if caller is
+frontend.serviceaccount, no JWT (i.e peer authentication only) if caller
+is admin, and istio JWT in all other cases.</p>
+
+<pre><code class="language-yaml">apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: mTLS_enable
+  namespace: frod
+spec:
+  destinations:
+  - name: productpage
+    port:
+      number: 9000
+  peers:
+  - mtls: null
+  origins:
+  - name: google_jwt
+  - name: istio_jwt
+  credentialRules:
+  - binding: USE_ORIGIN
+    orgins:
+    - jwt:
+        issuer: &quot;https://securetoken.google.com&quot;
+        audiences:
+        - &quot;productpage&quot;
+        jwksUri: &quot;https://www.googleapis.com/oauth2/v1/certs&quot;
+        locations:
+        - header: x-goog-iap-jwt-assertion
+    matchingSources:
+    - productpage.serviceaccount
+  - binding: USE_PEER
+    matchingSource:
+    - admin
+  - binding: USE_ORIGIN
+    origins:
+    - jwt:
+        issuer: &quot;https://securetoken.istio.io&quot;
+        locations:
+        - header: x-istio-jwt-assertion
 </code></pre>
 
 <table class="message-fields">
@@ -230,22 +449,30 @@ If empty, policy will be used on all destinations in the same namespace.</p>
 </tr>
 <tr id="Policy.peers">
 <td><code>peers</code></td>
-<td><code><a href="#Mechanism">Mechanism[]</a></code></td>
+<td><code><a href="#PeerAuthenticationMethod">PeerAuthenticationMethod[]</a></code></td>
 <td>
-<p>List of credential that should be checked by peer authentication. They
-will be validated in sequence, until the first one satisfied. If none of
-the specified mechanism valid, the whole authentication should fail.
-On the other hand, the first valid credential will be used to extract
-peer identity (i.e the source.user attribute in the request to Mixer).</p>
+<p>List of authentication methods that can be used for peer authentication.
+They will be evaluated in order, until the first one satisfied; peer
+identity is then extracted from the associated certificate. On the other
+hand, if none of these methods pass, request should be rejected with
+authentication failed error (401).
+Leave the list empty if no peer authentication is required, or have single
+entry of method &lsquo;None&rsquo;. The source.user attribute will not be set in that
+case.</p>
 
 </td>
 </tr>
-<tr id="Policy.end_users">
-<td><code>endUsers</code></td>
-<td><code><a href="#Mechanism">Mechanism[]</a></code></td>
+<tr id="Policy.credential_rules">
+<td><code>credentialRules</code></td>
+<td><code><a href="#CredentialRule">CredentialRule[]</a></code></td>
 <td>
-<p>Similar to above, but for end_user authentication, which will extract
-request.auth.principal/audiences/presenter if authentication succeed.</p>
+<p>Rules to define how request principal will be set. Each rule can have
+conditions that determine if the rule should be applied or not. The rule
+will be checked for matching conditions at runtime, in order, and stop at
+the first match. If there are no rule matching condtion, peer identity
+will be used as principal (in other words, the credential rule with
+USE_PEER with no matching condition is implicitly added to the end
+of the list.)</p>
 
 </td>
 </tr>
