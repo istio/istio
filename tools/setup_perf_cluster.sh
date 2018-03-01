@@ -94,7 +94,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.8-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.8/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.9-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
@@ -108,7 +108,7 @@ function delete_vm_firewall() {
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && make pull install && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go install -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
@@ -140,9 +140,9 @@ function kubectl_setup() {
 
 function install_non_istio_svc() {
  Execute kubectl create namespace $FORTIO_NAMESPACE
- Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio:latest_release --port=8080
  Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
- Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio:latest_release --port=8080
  Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
 }
 
