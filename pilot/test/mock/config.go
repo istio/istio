@@ -51,13 +51,46 @@ var (
 	}
 
 	// ExampleV1Alpha2RouteRule is an example route rule
-	ExampleV1Alpha2RouteRule = &network{
-		Destination: &routing.IstioService{
-			Name: "world",
+	ExampleV1Alpha2RouteRule = &routing2.RouteRule{
+		Hosts: []string{"prod", "test"},
+		Http: []*routing2.HTTPRoute{
+			{
+				Route: []*routing2.DestinationWeight{
+					{
+						Destination: &routing2.Destination{
+							Name: "job",
+						},
+						Weight: 80,
+					},
+				},
+			},
 		},
-		Route: []*routing.DestinationWeight{
-			{Weight: 80, Labels: map[string]string{"version": "v1"}},
-			{Weight: 20, Labels: map[string]string{"version": "v2"}},
+	}
+
+	//     apiVersion: config.istio.io/v1alpha2
+	//     kind: DestinationRule
+	//     metadata:
+	//       name: bookinfo-ratings
+	//     spec:
+	//       name: ratings
+	//       trafficPolicy:
+	//         loadBalancer:
+	//           simple: LEAST_CONN
+	//       subsets:
+	//       - name: testversion
+	//         labels:
+	//           version: v3
+	//         trafficPolicy:
+	//           loadBalancer:
+	//             simple: ROUND_ROBIN
+
+	// ExampleDestinationRule is an example route rule
+	ExampleDestinationRule = &routing2.DestinationRule{
+		Name: "ratings",
+		TrafficPolicy: &routing2.TrafficPolicy{
+			LoadBalancer: &routing2.LoadBalancerSettings{
+				new(routing2.LoadBalancerSettings_Simple),
+			},
 		},
 	}
 
@@ -356,7 +389,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		spec proto.Message
 	}{
 		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
-		{"V1Alpha2RouteRule", model.V1alpha2RouteRule.Type, ExampleRouteRule},
+		{"V1Alpha2RouteRule", model.V1alpha2RouteRule.Type, ExampleV1Alpha2RouteRule},
+		{"DestinationRule", model.DestinationRule.Type, ExampleDestinationRule},
 		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
 		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
