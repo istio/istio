@@ -112,13 +112,12 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.7.1"
+  revision = "latest_release"
 
-### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
-### as we cache dep ensure.
+# TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  revision = "e07972e35d89890e2bad2c9e774fd6517c14ea02"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"

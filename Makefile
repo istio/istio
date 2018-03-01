@@ -309,7 +309,7 @@ endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
-istioctl:
+istioctl ${ISTIO_OUT}/istioctl:
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl
 
 # Non-static istioctls. These are typically a build artifact.
@@ -576,14 +576,14 @@ istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
-    			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
-    		      --set sidecar-injector.enabled=true \
-     		      --set ingress.enabled=true \
+		      --set sidecar-injector.enabled=true \
+		      --set ingress.enabled=true \
                   --set servicegraph.enabled=true \
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \
