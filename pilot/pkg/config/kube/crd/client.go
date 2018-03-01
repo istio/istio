@@ -193,7 +193,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 // RegisterResources sends a request to create CRDs and waits for them to initialize
 func (cl *Client) RegisterResources() error {
 	for k, rc := range cl.clientset {
-		log.Infof("registering for apiVersion ", k)
+		log.Infof("registering for apiVersion %v", k)
 		if err := rc.registerResources(); err != nil {
 			return err
 		}
