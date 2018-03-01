@@ -475,7 +475,7 @@ func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 		// Wait for the stop notification and shutdown the server.
 		<-stop
 		if envoyv2.Enabled() {
-			ds.serverV2.Start()
+			ds.serverV2.Stop()
 		}
 		err := ds.server.Close()
 		if err != nil {
