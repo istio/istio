@@ -112,10 +112,9 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.7.1"
+  revision = "latest_release"
 
-### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
-### as we cache dep ensure.
+# TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
   revision = "a2d2077b668d34c849d2efeb951da628cb83c466"

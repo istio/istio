@@ -266,15 +266,9 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in.AllowCredentials != nil {
 		out.AllowCredentials = TranslateBool(in.AllowCredentials)
 	}
-	if len(in.AllowHeaders) > 0 {
-		out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
-	}
-	if len(in.AllowMethods) > 0 {
-		out.AllowMethods = strings.Join(in.AllowMethods, ",")
-	}
-	if len(in.ExposeHeaders) > 0 {
-		out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
-	}
+	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
+	out.AllowMethods = strings.Join(in.AllowMethods, ",")
+	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
 	if in.MaxAge != nil {
 		out.MaxAge = in.MaxAge.String()
 	}

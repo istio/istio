@@ -162,6 +162,7 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	Admission        AdmissionArgs
+	RDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
