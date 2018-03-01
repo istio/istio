@@ -33,6 +33,7 @@ import (
 	"github.com/howeyc/fsnotify"
 	"github.com/stretchr/testify/assert"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -99,6 +100,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 		name        string
 		az          string
 		retries     int
+		auth        bool
 		nodeType    model.NodeType
 		wantReload  bool
 		wantAZ      string
@@ -155,6 +157,12 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			wantReload: false,
 		},
 		{
+			name:       "do nothing if mtls is on",
+			auth:       true,
+			nodeType:   "mixer",
+			wantReload: false,
+		},
+		{
 			name:     "give up after retry count is reached",
 			nodeType: model.Ingress,
 			retries:  2,
@@ -183,6 +191,9 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			}
 			config := model.DefaultProxyConfig()
 			config.AvailabilityZone = tt.az
+			if tt.auth {
+				config.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+			}
 			pilotStub := httptest.NewServer(
 				&pilotStubHandler{States: tt.pilotStates},
 			)
