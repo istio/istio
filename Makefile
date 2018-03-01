@@ -309,7 +309,7 @@ endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
-istioctl:
+istioctl ${ISTIO_OUT}/istioctl:
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl
 
 # Non-static istioctls. These are typically a build artifact.
@@ -335,7 +335,7 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolumedriver
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
@@ -356,8 +356,9 @@ istio-ca:
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
-.PHONY: flexvolume
-flexvolume: ${ISTIO_OUT}/flexvolume
+.PHONY: flexvolumedriver
+flexvolumedriver:
+	bin/gobuild.sh ${ISTIO_OUT}/flexvolumedriver istio.io/istio/pkg/version ./security/cmd/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
@@ -575,14 +576,14 @@ istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
-    			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
                   --set global.hub=${HUB} \
-    		      --set sidecar-injector.enabled=true \
-     		      --set ingress.enabled=true \
+		      --set sidecar-injector.enabled=true \
+		      --set ingress.enabled=true \
                   --set servicegraph.enabled=true \
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \
