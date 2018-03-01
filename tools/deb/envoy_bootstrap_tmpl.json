@@ -1,4 +1,9 @@
 {
+
+
+  "comment": "For variable substitutions in this file please see: pkg/bootstrap/bootstrap_config.go",
+
+
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -33,10 +38,10 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
-          "api_type": "REST_LEGACY",
+          "api_type": "GRPC",
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
-            "rds"
+            "eds-grpc"
           ]
         }
       }
@@ -78,7 +83,42 @@
             "socket_address": {{ .pilot_address }}
           }
         ]
-
+    },
+    {
+        "name": "eds-grpc",
+        "type": "STRICT_DNS",
+        "connect_timeout": {{ .connect_timeout }},
+        "lb_policy": "ROUND_ROBIN",
+{{ if eq .config.ControlPlaneAuthPolicy 1 }}
+      "tls_context": {
+        "common_tls_context": {
+          "tls_certificates": {
+            "certificate_chain": {
+              "filename": "/etc/certs/cert-chain.pem"
+            },
+            "private_key": {
+              "filename": "/etc/certs/key.pem"
+            }
+          },
+          "validation_context": {
+            "trusted_ca": {
+              "filename": "/etc/certs/root-cert.pem"
+            },
+            "verify_subject_alt_name": [
+            {{- range $a, $s := .pilot_SAN }}
+              "{{$s}}"
+            {{- end}}
+            ]
+          }
+        }
+      },
+{{ end }}
+      "hosts": [
+          {
+            "socket_address": {{ .pilot_grpc_address }}
+          }
+        ],
+	  "http2_protocol_options": { }
     }
     {{ if .zipkin }}
     ,
