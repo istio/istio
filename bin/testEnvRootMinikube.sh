@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 export K8S_VER=${K8S_VER:-v1.9.2}
+set -x
 
 if [ ! -f /usr/local/bin/minikube ]; then
    curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
@@ -24,6 +25,12 @@ function waitMinikube() {
       sleep 2
     done
     kubectl get svc --all-namespaces
+    if [ $? -ne 1 ]; then
+        echo "Kubernetes failed to start"
+        ps ax
+        netstat -an
+        exit 1
+    fi
     echo "Minikube is running"
 }
 
