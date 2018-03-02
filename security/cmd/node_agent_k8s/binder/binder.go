@@ -16,6 +16,7 @@ package binder
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -93,7 +94,9 @@ EventLoop:
 func (b *binder) handleEvent(e workloadEvent) {
 	switch e.op {
 	case Added:
-		b.addListener(e.uid)
+		if e := b.addListener(e.uid); e != nil {
+			log.Printf(e.Error())
+		}
 	case Removed:
 		b.removeListener(e.uid)
 	default:
@@ -101,13 +104,12 @@ func (b *binder) handleEvent(e workloadEvent) {
 	}
 }
 
-func (b *binder) addListener(uid string) {
+func (b *binder) addListener(uid string) error {
 	w := workload{uid: uid}
 	credPath := filepath.Join(b.searchPath, CredentialsSubdir, uid+CredentialsExtension)
 	err := readCredentials(credPath, &w.creds)
 	if err != nil {
-		log.Printf("failed to read credentials at %s %v", credPath, err)
-		return
+		return fmt.Errorf("failed to read credentials at %s %v", credPath, err)
 	}
 	sockPath := filepath.Join(b.searchPath, MountSubdir, uid, SocketFilename)
 	_, err = os.Stat(sockPath)
@@ -115,15 +117,13 @@ func (b *binder) addListener(uid string) {
 		// file exists, try to delete it.
 		err := os.Remove(sockPath)
 		if err != nil {
-			log.Printf("File %s exists and unable to remove.", sockPath)
-			return
+			return fmt.Errorf("File %s exists and unable to remove.", sockPath)
 		}
 	}
 	lis, err := net.Listen("unix", sockPath)
 	if err != nil {
 		// TODO: consider adding retries
-		log.Printf("failed to listen at %s %v", sockPath, err)
-		return
+		return fmt.Errorf("failed to listen at %s error %s", sockPath, err.Error())
 	}
 	w.listener = lis
 	b.workloads.store(uid, w)
@@ -134,7 +134,7 @@ func (b *binder) addListener(uid string) {
 			log.Printf("stopped listening on %s %v", sockPath, err)
 		}
 	}()
-
+	return nil
 }
 
 func readCredentials(path string, c *Credentials) error {
