@@ -116,7 +116,11 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if !model.IsApplicationNodeType(w.role.Type) {
+	// Not currently supported see - https://github.com/istio/istio/issues/2916
+	if w.config.GetControlPlaneAuthPolicy() == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		log.Infof("Zone aware routing is not currently supported with mutual TLS enabled")
+		return
+	} else if !model.IsApplicationNodeType(w.role.Type) {
 		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
 		return
 	}
