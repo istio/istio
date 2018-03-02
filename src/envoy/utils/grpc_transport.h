@@ -32,7 +32,7 @@ namespace Utils {
 // An object to use Envoy::Grpc::AsyncClient to make grpc call.
 template <class RequestType, class ResponseType>
 class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
-                      public Logger::Loggable<Logger::Id::http> {
+                      public Logger::Loggable<Logger::Id::grpc> {
  public:
   using Func = std::function<istio::mixerclient::CancelFunc(
       const RequestType& request, ResponseType* response,

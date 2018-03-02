@@ -25,7 +25,7 @@ namespace Http {
 namespace Mixer {
 
 class HeaderUpdate : public ::istio::control::http::HeaderUpdate,
-                     public Logger::Loggable<Logger::Id::http> {
+                     public Logger::Loggable<Logger::Id::filter> {
   HeaderMap* headers_;
 
  public:

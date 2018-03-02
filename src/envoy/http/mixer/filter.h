@@ -26,7 +26,7 @@ namespace Mixer {
 
 class Filter : public Http::StreamDecoderFilter,
                public AccessLog::Instance,
-               public Logger::Loggable<Logger::Id::http> {
+               public Logger::Loggable<Logger::Id::filter> {
  public:
   Filter(Control& control);
 

@@ -28,7 +28,7 @@ namespace JwtAuth {
 
 // A per-request JWT authenticator to handle all JWT authentication:
 // * fetch remote public keys and cache them.
-class JwtAuthenticator : public Logger::Loggable<Logger::Id::http>,
+class JwtAuthenticator : public Logger::Loggable<Logger::Id::filter>,
                          public AsyncClient::Callbacks {
  public:
   JwtAuthenticator(Upstream::ClusterManager& cm, JwtAuthStore& store);

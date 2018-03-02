@@ -25,7 +25,7 @@ namespace Http {
 namespace Mixer {
 
 class CheckData : public ::istio::control::http::CheckData,
-                  public Logger::Loggable<Logger::Id::http> {
+                  public Logger::Loggable<Logger::Id::filter> {
  public:
   CheckData(const HeaderMap& headers, const Network::Connection* connection);
 

@@ -31,7 +31,7 @@ const std::string kHttpStatsPrefix("http_mixer_filter.");
 
 // This object is globally per listener.
 // HttpMixerControl is created per-thread by this object.
-class ControlFactory : public Logger::Loggable<Logger::Id::http> {
+class ControlFactory : public Logger::Loggable<Logger::Id::config> {
  public:
   ControlFactory(std::unique_ptr<Config> config,
                  Server::Configuration::FactoryContext& context)

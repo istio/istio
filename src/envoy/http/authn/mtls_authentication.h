@@ -19,7 +19,7 @@ namespace Envoy {
 namespace Http {
 
 // A class to handle mTLS authentication policy related operations.
-class MtlsAuthentication : public Logger::Loggable<Logger::Id::http> {
+class MtlsAuthentication : public Logger::Loggable<Logger::Id::filter> {
  public:
   MtlsAuthentication(const Network::Connection* connection);
   // This function gets the source IP and port.

@@ -26,7 +26,7 @@ namespace Http {
 // The Envoy filter to process JWT auth.
 class JwtVerificationFilter : public StreamDecoderFilter,
                               public JwtAuth::JwtAuthenticator::Callbacks,
-                              public Logger::Loggable<Logger::Id::http> {
+                              public Logger::Loggable<Logger::Id::filter> {
  public:
   JwtVerificationFilter(Upstream::ClusterManager& cm,
                         JwtAuth::JwtAuthStore& store);

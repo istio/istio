@@ -29,7 +29,7 @@ const std::string kAuthnFactoryName("istio_authn");
 }  // namespace
 
 class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
-                          public Logger::Loggable<Logger::Id::http> {
+                          public Logger::Loggable<Logger::Id::filter> {
  public:
   HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
                                           const std::string&,
