@@ -421,7 +421,7 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error)
 		useSSL = true
 	}
 
-	return truncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
+	return TruncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
 }
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
