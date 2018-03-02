@@ -37,6 +37,8 @@ function setup_and_export_git_sha() {
     # Use volume mount from pilot-presubmit job's pod spec.
     export KUBECONFIG="${HOME}/.kube/config"
 
+    gcloud config unset container/use_client_certificate
+
     # Set artifact dir based on checkout
     export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   else
