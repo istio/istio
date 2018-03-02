@@ -36,7 +36,9 @@ cd $ROOT
 make init
 
 echo 'Running Unit Tests'
-time make localTestEnv test
+time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" \
+T="-v" \
+make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
