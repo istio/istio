@@ -369,8 +369,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
 		configController = memory.NewController(store)
-		fileSnapshotter := configmonitor.NewFileSnapshotter(args.Config.FileDir, configDescriptor)
-		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshotter.ReadFile)
+		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
 
 		// Defer starting the file monitor until after the service is created.
 		s.addStartFunc(func(stop chan struct{}) error {

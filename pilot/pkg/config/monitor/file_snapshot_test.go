@@ -22,13 +22,13 @@ import (
 
 	"github.com/onsi/gomega"
 
-	v2routing "istio.io/api/networking/v1alpha3"
+	v3routing "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 var gatewayYAML = `
-apiVersion: config.istio.io/v1alpha2
+apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: some-ingress
@@ -42,8 +42,8 @@ spec:
 `
 
 var routeRuleYAML = `
-apiVersion: config.istio.io/v1alpha2
-kind: V1alpha2RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
   name: route-for-myapp
 spec:
@@ -67,19 +67,18 @@ func TestFileSnapshotterNoFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshotter(ts.rootPath, nil)
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
 	configs := fileWatcher.ReadFile()
 
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	gateway := configs[0].Spec.(*v2routing.Gateway)
+	gateway := configs[0].Spec.(*v3routing.Gateway)
 	g.Expect(gateway.Servers[0].Port.Number).To(gomega.Equal(uint32(80)))
 	g.Expect(gateway.Servers[0].Port.Protocol).To(gomega.Equal("http"))
 	g.Expect(gateway.Servers[0].Hosts).To(gomega.Equal([]string{"*.example.com"}))
 }
 
 func TestFileSnapshotterWithFilter(t *testing.T) {
-	t.Skip("TODO: Broken test, PLEASE FIX ME")
 	g := gomega.NewGomegaWithT(t)
 
 	ts := &testState{
@@ -92,17 +91,16 @@ func TestFileSnapshotterWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshotter(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
 	configs := fileWatcher.ReadFile()
 
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	routeRule := configs[0].Spec.(*v2routing.VirtualService)
+	routeRule := configs[0].Spec.(*v3routing.VirtualService)
 	g.Expect(routeRule.Hosts).To(gomega.Equal([]string{"some.example.com"}))
 }
 
 func TestFileSnapshotterSorting(t *testing.T) {
-	t.Skip("TODO: Broken test, PLEASE FIX ME")
 	g := gomega.NewGomegaWithT(t)
 
 	ts := &testState{
@@ -115,14 +113,14 @@ func TestFileSnapshotterSorting(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshotter(ts.rootPath, nil)
+	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
 
 	configs := fileWatcher.ReadFile()
 
 	g.Expect(configs).To(gomega.HaveLen(2))
 
-	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&v2routing.Gateway{}))
-	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&v2routing.VirtualService{}))
+	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&v3routing.Gateway{}))
+	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&v3routing.VirtualService{}))
 }
 
 type testState struct {
