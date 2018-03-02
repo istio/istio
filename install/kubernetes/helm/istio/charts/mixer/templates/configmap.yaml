@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-mixer
+  name: stasd-prom-bridge
   labels:
-    app: istio-mixer
+    app: stasd-prom-bridge
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}

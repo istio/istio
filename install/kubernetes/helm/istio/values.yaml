@@ -101,13 +101,13 @@ mixer:
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
-  # limits:
-  #  cpu: 100m
   #  memory: 128Mi
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
   nodeSelector: {}
+
+  splitCheckAndReport: false
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
