@@ -30,6 +30,13 @@ import (
 	"istio.io/istio/tests/integration/framework"
 )
 
+// This sample shows how to reuse a test cases in different test environments
+// The test case tries to do simple request to a echo server and verify response.
+// With appOnlyEnv, the test case directly hits the echo(fortio) server endpoint.
+// With mixerEnvoyEnv, the test case hits proxy(envoy) endpoint and verify if it can route to backend service (echo server)
+// The framework first brings up one environment, kicks off test case against this environment and then tears it down
+// before brings up another environment.
+
 const (
 	appOnlyEnvName    = "app_only_env"
 	mixerEnvoyEnvName = "mixer_envoy_env"
