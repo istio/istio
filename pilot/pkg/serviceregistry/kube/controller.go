@@ -38,6 +38,8 @@ const (
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
+	// IstioConfigMap is used by default
+	IstioConfigMap = "istio"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
