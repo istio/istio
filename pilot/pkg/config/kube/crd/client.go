@@ -310,6 +310,7 @@ func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
 func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 	s, ok := knownTypes[typ]
 	if !ok {
+		log.Warn("unknown type " + typ)
 		return nil, false
 	}
 	rc, ok := cl.clientset[apiVersion(&s.schema)]
@@ -320,6 +321,7 @@ func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 
 	schema, exists := rc.descriptor.GetByType(typ)
 	if !exists {
+		log.Warn("cannot find proto schema for type " + typ)
 		return nil, false
 	}
 
