@@ -21,7 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
+	istio_mixer_v1_config_descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"

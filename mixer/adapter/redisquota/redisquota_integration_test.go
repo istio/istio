@@ -116,7 +116,7 @@ func TestFixedWindowAlgorithm(t *testing.T) {
 	defer mockRedis.Close()
 
 	// start mixer with redisquota adapter
-	args := server.NewArgs()
+	args := server.DefaultArgs()
 
 	args.APIPort = 0
 	args.MonitoringPort = 0
@@ -125,7 +125,7 @@ func TestFixedWindowAlgorithm(t *testing.T) {
 		GetInfo,
 	}
 
-	serviceCfg := adapterConfig
+  serviceCfg := adapterConfig
 	serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 	var cerr error
 	if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalConfig, serviceCfg); cerr != nil {

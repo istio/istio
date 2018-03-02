@@ -4,7 +4,6 @@ Default:20
 #Package requirement
 #Package name, coverage requirement, actually coverage at specific SHA
 istio.io/istio/pilot/cmd:0 [0]
-istio.io/istio/pilot/cmd/istioctl:0 [0]
 istio.io/istio/pilot/cmd/pilot-agent:0 [0]
 istio.io/istio/pilot/cmd/pilot-discovery:0 [0]
 istio.io/istio/pilot/cmd/sidecar-injector:0 [0]

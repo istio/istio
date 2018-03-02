@@ -22,13 +22,12 @@ import (
 
 // BatchMeasurements reads slices of Measurement types off a channel populated by the web handler
 // and packages them into batches conforming to the limitations imposed by the API.
-func BatchMeasurements(loopFactor *bool, prepChan <-chan []*Measurement,
+func BatchMeasurements(prepChan <-chan []*Measurement,
 	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int, logger adapter.Logger) {
 	var currentBatch []*Measurement
-	dobrk := false
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
-	for *loopFactor {
+	for {
 		select {
 		case mslice := <-prepChan:
 			currentBatch = append(currentBatch, mslice...)
@@ -49,22 +48,20 @@ func BatchMeasurements(loopFactor *bool, prepChan <-chan []*Measurement,
 				}
 			}
 		case <-stopChan:
-			dobrk = true
-		}
-		if dobrk {
-			break
+			return
+		default:
+			continue
 		}
 	}
 }
 
 // PersistBatches reads maximal slices of Measurement types off a channel and persists them to the remote AppOptics
 // API. Errors are placed on the error channel.
-func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Measurement,
+func PersistBatches(lc ServiceAccessor, pushChan <-chan []*Measurement,
 	stopChan <-chan struct{}, logger adapter.Logger) {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
-	dobrk := false
-	for *loopFactor {
+	for {
 		select {
 		case <-ticker.C:
 			batch := <-pushChan
@@ -72,10 +69,9 @@ func PersistBatches(loopFactor *bool, lc ServiceAccessor, pushChan <-chan []*Mea
 				_ = logger.Errorf("metric persistence errors: %v", err)
 			}
 		case <-stopChan:
-			dobrk = true
-		}
-		if dobrk {
-			break
+			return
+		default:
+			continue
 		}
 	}
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/golang/protobuf/proto"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/dogstatsd/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"

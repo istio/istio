@@ -25,8 +25,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -49,10 +48,14 @@ const (
 )
 
 var (
-	tc              *testConfig
-	testRetryTimes  = 5
-	defaultRules    = []string{allRule, testRule}
-	flagBaseVersion = flag.String("base_version", "0.4.0", "Base version to use for upgrade.")
+	tc                *testConfig
+	baseConfig        *framework.CommonConfig
+	targetConfig      *framework.CommonConfig
+	testRetryTimes    = 5
+	defaultRules      = []string{allRule, testRule}
+	flagBaseVersion   = flag.String("base_version", "0.4.0", "Base version to upgrade from.")
+	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
+	flagSmoothCheck   = flag.Bool("smooth_check", false, "Whether to check the upgrade is smooth.")
 )
 
 type testConfig struct {
@@ -228,8 +231,11 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
-func checkRouting(t *testing.T) {
-	var err error
+func checkTraffic(t *testing.T) {
+	// Check whether gateway is reachable
+	err := probeGateway()
+	inspect(err, "Failed to reach Gateway after upgrade", "", t)
+	// Check whether routes are correct.
 	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 	_, err = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
@@ -243,49 +249,61 @@ func checkRouting(t *testing.T) {
 }
 
 func upgradeControlPlane() error {
-	k, err := framework.NewCommonConfig("upgrade_test")
-	if err != nil {
-		return err
-	}
 	// Generate and deploy Isito yaml files.
-	err = k.Kube.Setup()
+	err := targetConfig.Kube.Setup()
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunning(k.Kube.Namespace) {
+	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
 		return fmt.Errorf("can't get all pods running")
 	}
-	if _, err = util.Shell("kubectl get all -n %s -o wide", k.Kube.Namespace); err != nil {
+	if _, err = util.Shell("kubectl get all -n %s -o wide", targetConfig.Kube.Namespace); err != nil {
 		return err
 	}
+	// TODO: Check control plane version.
 	// Update gateway address
-	tc.gateway = "http://" + k.Kube.Ingress
+	tc.gateway = "http://" + targetConfig.Kube.Ingress
+	return nil
+}
+
+func upgradeSidecars() error {
+	err := targetConfig.Kube.Istioctl.Setup()
+	if err != nil {
+		return err
+	}
+	err = targetConfig.Kube.AppManager.Setup()
+	if err != nil {
+		return err
+	}
+	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
+	// TODO: Check sidecar version.
 	return nil
 }
 
 func TestUpgrade(t *testing.T) {
-	checkRouting(t)
+	checkTraffic(t)
 	err := upgradeControlPlane()
 	inspect(err, "Failed to upgrade control plane", "Control plane upgraded.", t)
 	if err != nil {
 		return
 	}
-	err = probeGateway()
-	inspect(err, "Failed to reach Gateway after upgrade", "", t)
-	if err != nil {
-		return
+	if *flagSmoothCheck {
+		checkTraffic(t)
 	}
-	checkRouting(t)
+	err = upgradeSidecars()
+	inspect(err, "Failed to upgrade sidecars.", "Sidecar upgraded.", t)
+	checkTraffic(t)
 }
 
 func setTestConfig() error {
-	cc, err := framework.NewTestConfig("upgrade_test", *flagBaseVersion)
+	var err error
+	baseConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagBaseVersion)
 	if err != nil {
 		return err
 	}
-	tc = new(testConfig)
-	tc.CommonConfig = cc
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
+	targetConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagTargetVersion)
 	if err != nil {
 		return err
 	}
@@ -306,9 +324,13 @@ func setTestConfig() error {
 		},
 	}
 	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
+		baseConfig.Kube.AppManager.AddApp(&demoApps[i])
+		targetConfig.Kube.AppManager.AddApp(&demoApps[i])
 	}
-	return nil
+	tc = new(testConfig)
+	tc.CommonConfig = baseConfig
+	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
+	return err
 }
 
 func TestMain(m *testing.M) {

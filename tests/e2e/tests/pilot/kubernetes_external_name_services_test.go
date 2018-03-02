@@ -22,7 +22,7 @@ import (
 )
 
 type kubernetesExternalNameServices struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *kubernetesExternalNameServices) String() string {
@@ -54,7 +54,7 @@ func (t *kubernetesExternalNameServices) Run() error {
 	funcs := make(map[string]func() tutil.Status)
 	for src, withIstioProxy := range srcPods {
 		for dst, externalHost := range dstServices {
-			for _, domain := range []string{"", "." + t.Namespace} {
+			for _, domain := range []string{"", "." + t.Config.Namespace} {
 				name := fmt.Sprintf("HTTP connection from %s to %s%s", src, dst, domain)
 				funcs[name] = (func(src, dst, domain string) func() tutil.Status {
 					url := fmt.Sprintf("http://%s%s", dst, domain)

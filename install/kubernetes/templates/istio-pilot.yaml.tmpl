@@ -47,14 +47,14 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: v1alpha2routerules.config.istio.io
+  name: virtualservices.config.istio.io
 spec:
   group: config.istio.io
   names:
-    kind: V1alpha2RouteRule
-    listKind: V1alpha2RouteRuleList
-    plural: v1alpha2routerules
-    singular: v1alpha2routerule
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    singular: virtualservice
   scope: Namespaced
   version: v1alpha2
 ---
@@ -97,6 +97,10 @@ metadata:
 spec:
   ports:
   - port: 15003
+    name: discovery
+  - port: 15005
+    name: https-discovery
+  - port: 15007
     name: http-discovery
   - port: 8080
     name: http-legacy-discovery
@@ -132,7 +136,7 @@ spec:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
+        args: ["discovery", "--admission-service", "istio-pilot"]
         ports:
         - containerPort: 8080
         - containerPort: 443
@@ -157,13 +161,13 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
+        - containerPort: 15005
+        - containerPort: 15007
         args:
         - proxy
         - pilot
-        - -v
-        - "2"
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:15007
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile

@@ -17,11 +17,10 @@ package store
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/api/mixer/v1/config"
+	cfg "istio.io/api/policy/v1beta1"
 )
 
 func TestQueue(t *testing.T) {
@@ -121,36 +120,4 @@ func TestQueueCancelClosesOutputChannel(t *testing.T) {
 	}()
 	close(q.closec)
 	<-donec
-}
-
-func TestQueueCancelSync(t *testing.T) {
-	chin := make(chan BackendEvent)
-	q := newQueue(chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	for i := 0; i < choutBufSize+5; i++ {
-		chin <- BackendEvent{
-			Type:  Update,
-			Key:   Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)},
-			Value: &BackEndResource{},
-		}
-	}
-	close(q.closec)
-	// Wait for the queue's run loop to end.
-	time.Sleep(time.Millisecond)
-	// Read the bufferred events.
-	for i := 0; i < choutBufSize; i++ {
-		ev, ok := <-q.chout
-		if !ok {
-			// Sometimes items less than 'choutBufSize' are stored into the queue, but that's
-			// acceptable. That can happen due to goroutine scheduling.
-			break
-		}
-		if ev.Name != fmt.Sprintf("%d", i) {
-			t.Errorf("Got name %s Want %d", ev.Name, i)
-		}
-	}
-	// After the buffer runs out, it should return an empty since it's closed due to cancel.
-
-	if ev, ok := <-q.chout; ok {
-		t.Errorf("Got %+v, Want empty", ev)
-	}
 }

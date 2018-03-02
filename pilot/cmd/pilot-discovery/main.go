@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -35,7 +34,7 @@ import (
 var (
 	serverArgs bootstrap.PilotArgs
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-discovery",
@@ -73,6 +72,8 @@ var (
 )
 
 func init() {
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.RDSv2, "rdsv2", false, "Enable RDS v2")
+
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(bootstrap.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
@@ -110,7 +111,7 @@ func init() {
 	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
 	// enable webhook for specific xDS config (cds/lds/etc).
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports DNS, IP, and unix domain socket.")
+		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.Config, "consulconfig", "",
 		"Consul Config file for discovery")
@@ -152,9 +153,6 @@ func init() {
 }
 
 func main() {
-	// Needed to avoid "logging before flag.Parse" error with glog.
-	cmd.SupressGlogWarnings()
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

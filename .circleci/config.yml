@@ -47,6 +47,7 @@ jobs:
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
+            ls -l /go/bin
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
@@ -54,11 +55,13 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
 
   e2e-mixer:
     <<: *integrationDefaults
@@ -95,7 +98,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -133,7 +136,7 @@ jobs:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -173,7 +176,7 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
-            trap "/go/bin/go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             # Run the tests in env similar with recommended setup.
             make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
                | tee -a /go/out/tests/go-test-report.out
@@ -226,7 +229,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -250,9 +253,9 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+#      - restore_cache:
+#          keys:
+#            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -262,30 +265,27 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
-  # Run nightly, to verify 'dep update' works and prime the cache
+  # Run nightly, to verify 'dep update' works
   depupdate:
     <<: *defaults
     steps:
       - checkout
       - run: make submodule-sync
-      - run: make depend.update init
-      - run: make build
+      - run: make depend.status # check before any change
+      - run: make depend.update
+      - run: ( cd vendor ; git status  ) # just to see what changes
+      - run: make init build
       - run:
           name: Status and artifacts
-          command: |
-            mkdir -p $/go/out
-            make depend.status
-            tar cfz /go/out/istio-vendor.tgz vendor
-      - store_artifacts:
-          path: /go/out/istio-vendor.tgz
+          command: make depend.status ISTIO_OUT=/go/out
       - store_artifacts:
           path: vendor/Gopkg.lock
       - store_artifacts:
-          path: vendor/dep.dot
+          path: /go/out/dep.dot
       # TODO: auto-commit Gopkg.lock if test is successful
 
   # Runs first, will download any dependencies - currently envoy, and do any work
@@ -317,27 +317,16 @@ jobs:
     steps:
       - checkout
       - run: make submodule-sync
-      - run: mkdir -p /tmp/coverage
       - run:
-          name: Running Kubernetes API Server standalone
-          command: make localTestEnv
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
-      - run:
+          name: Starting Kubernetes API Server standalone and running tests
           command: |
-            bash <(curl -s https://codecov.io/bash) -F pilot
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/pkg
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/cmd
+            make localTestEnv
+            cd /go/src/istio.io/istio
+            MAXPROCS=6 bin/codecov.sh
       - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F security
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F broker
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F mixer
+          name: Uploading code coverage to codecov.io
+          when: always
+          command: bash <(curl -s https://codecov.io/bash)
 
   test:
     <<: *defaults
@@ -347,9 +336,9 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - test_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - test_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git.pullmaster
       #- run: make submodule-sync
@@ -361,10 +350,10 @@ jobs:
             make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
-      - save_cache:
-          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
 
 
   racetest:
@@ -405,9 +394,9 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - build_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - build_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git.pullmaster
       #- run: make submodule-sync
@@ -423,10 +412,10 @@ jobs:
             - bin
             - out
       - run:  make sidecar.deb
-      - save_cache:
-          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
@@ -438,17 +427,17 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
 
       #- checkout
       #- run: make submodule-sync
       - run: make lint
-      - save_cache:
-          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
 
   docker-push:
     <<: *defaults
@@ -456,8 +445,8 @@ jobs:
     environment:
       TAG: circleci-nightly
     steps:
-      - checkout
-      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -582,16 +571,12 @@ workflows:
       - build:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
       - racetest:
           requires:
             - dependencies
       - e2e-mixer:
           requires:
             - build
-
 
   all:
     jobs:
@@ -605,7 +590,13 @@ workflows:
       - test:
           requires:
             - dependencies
+      - codecov:
+           requires:
+            - build
       - e2e-pilot:
+          requires:
+            - build
+      - e2e-pilot-noauth:
           requires:
             - build
       - e2e-simple:

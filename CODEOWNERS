@@ -14,6 +14,8 @@
 /tools/     @costinm @ldemailly
 /pkg/       @istio/reviewers-istio-pkg
 /tests/     @istio/reviewers-istio-tests
+/pkg/xds/   @kyessenov
+/istioctl/  @istio/reviewers-istio-istioctl
 
 # Do not enable this. Seems to cause the parsers to fail and not trigger auto review requests
 #/.circleci/ @istio/reviewers-istio-circleci

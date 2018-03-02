@@ -16,7 +16,6 @@ package tcpFilter
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -33,7 +32,8 @@ const checkAttributesOkPost = `
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-  "connection.mtls": false
+  "connection.mtls": false,
+  "connection.id": "*"
 }
 `
 
@@ -54,7 +54,8 @@ const reportAttributesOkPost = `
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
-  "connection.duration": "*"
+  "connection.duration": "*",
+  "connection.id": "*"
 }
 `
 
@@ -69,13 +70,16 @@ const reportAttributesFailPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.received.bytes": 0,
-  "connection.received.bytes_total": 0,
+  "connection.received.bytes": 178,
+  "connection.received.bytes_total": 178,
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.duration": "*",
   "check.error_code": 16,
-  "check.error_message": "UNAUTHENTICATED"
+  "check.error_message": "UNAUTHENTICATED",
+  "connection.id": "*"
 }
 `
 
@@ -92,10 +96,6 @@ var expectedStats = map[string]int{
 }
 
 func TestTCPMixerFilter(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing, see issue #3211")
-	}
-
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t)
 	env.SetStatsUpdateInterval(s.V2(), 1)
 	if err := s.SetUp(); err != nil {

@@ -43,6 +43,10 @@ spec:
 {{end}}
   ports:
   - port: 15003
+    name: discovery
+  - port: 15005
+    name: https-discovery
+  - port: 15007
     name: http-discovery
 {{if .DebugPort}}
   - port: {{.DebugPort}}
@@ -80,7 +84,6 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - discovery
-        - --v={{.Verbosity}}
         - -a
         - {{.Namespace}}
         - --registries
@@ -90,6 +93,8 @@ spec:
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
+        - --rdsv2
+        - "{{.RDSv2}}"
         ports:
         - containerPort: 8080
 {{if .DebugPort}}
@@ -124,13 +129,17 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
+        - containerPort: 15005
+        - containerPort: 15007
         args:
         - proxy
         - pilot
-        - -v
-        - "{{.Verbosity}}"
         - "--discoveryAddress"
-        - "istio-pilot:15003"
+{{if eq .ControlPlaneAuthPolicy.String "NONE"}}
+        - "istio-pilot:15007"
+{{else}}
+        - "istio-pilot:15005"
+{{end}}
         - "--controlPlaneAuthPolicy"
         - "{{.ControlPlaneAuthPolicy.String}}"
         - --customConfigFile

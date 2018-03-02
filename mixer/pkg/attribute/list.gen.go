@@ -3,7 +3,7 @@
 
 package attribute
 
-func GlobalList() ([]string) {
+func GlobalList() []string {
 	tmp := make([]string, len(globalList))
 	copy(tmp, globalList)
 	return tmp

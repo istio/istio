@@ -25,8 +25,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -90,7 +90,7 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
@@ -108,7 +108,7 @@ func buildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.
 	return routes
 }
 
-func buildInboundRouteV2(config model.Config, cluster *Cluster, http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest) *HTTPRoute {
+func buildInboundRouteV2(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
 	route := buildHTTPRouteMatchV2(match)
 
 	route.Cluster = cluster.Name
@@ -145,7 +145,7 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
-	name := truncateClusterName(OutboundClusterPrefix + key)
+	name := TruncateClusterName(OutboundClusterPrefix + key)
 	clusterType := ClusterTypeSDS
 
 	if isExternal {
@@ -182,7 +182,7 @@ func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
-	case *routingv2.RouteRule:
+	case *networking.VirtualService:
 		return buildHTTPRoutesV2(store, config, service, port, proxyInstances, domain, buildCluster)
 	default:
 		panic("unsupported rule")
@@ -316,7 +316,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	proxyInstances []*model.ServiceInstance, domain string, buildCluster buildClusterFunc) []*HTTPRoute {
 
-	rule := config.Spec.(*routingv2.RouteRule)
+	rule := config.Spec.(*networking.VirtualService)
 	routes := make([]*HTTPRoute, 0)
 
 	for _, http := range rule.Http {
@@ -347,7 +347,7 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 }
 
 func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string, buildCluster buildClusterFunc) *HTTPRoute {
+	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster buildClusterFunc) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
 
@@ -422,7 +422,7 @@ func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain st
 
 	destinationRuleConfig := store.DestinationRule(name, domain)
 	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
 
 		var found bool
 		for _, subset := range destinationRule.Subsets {
@@ -441,7 +441,7 @@ func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain st
 	return
 }
 
-func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
+func applyRedirect(route *HTTPRoute, redirect *networking.HTTPRedirect) {
 	if redirect != nil {
 		route.HostRedirect = redirect.Authority
 		route.PathRedirect = redirect.Uri
@@ -449,7 +449,7 @@ func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
 	}
 }
 
-func buildRetryPolicy(retries *routingv2.HTTPRetry) (policy *RetryPolicy) {
+func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 	if retries != nil && retries.Attempts > 0 {
 		policy = &RetryPolicy{
 			NumRetries: int(retries.GetAttempts()),
@@ -462,7 +462,7 @@ func buildRetryPolicy(retries *routingv2.HTTPRetry) (policy *RetryPolicy) {
 	return
 }
 
-func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
+func applyRewrite(route *HTTPRoute, rewrite *networking.HTTPRewrite) {
 	if rewrite != nil {
 		route.HostRewrite = rewrite.Authority
 		route.PrefixRewrite = rewrite.Uri
@@ -480,7 +480,7 @@ func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
 	return out
 }
 
-func buildCORSPolicy(policy *routingv2.CorsPolicy) *CORSPolicy {
+func buildCORSPolicy(policy *networking.CorsPolicy) *CORSPolicy {
 	if policy == nil {
 		return nil
 	}
@@ -649,7 +649,7 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 
 func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
-		Name:             truncateClusterName(OutboundClusterPrefix + name),
+		Name:             TruncateClusterName(OutboundClusterPrefix + name),
 		Type:             ClusterTypeOriginalDST,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
 		LbType:           LbTypeOriginalDST,

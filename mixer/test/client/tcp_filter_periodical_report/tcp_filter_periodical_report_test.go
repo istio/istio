@@ -37,7 +37,8 @@ const deltaReportAttributesOkPost = `
   "connection.received.bytes": 191,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 0,
-  "connection.sent.bytes_total": 0
+  "connection.sent.bytes_total": 0,
+  "connection.id": "*"
 }
 `
 const finalReportAttributesOkPost = `
@@ -56,7 +57,8 @@ const finalReportAttributesOkPost = `
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 138,
   "connection.sent.bytes_total": 138,
-  "connection.duration": "*"
+  "connection.duration": "*",
+  "connection.id": "*"
 }
 `
 

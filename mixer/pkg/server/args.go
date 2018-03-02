@@ -103,8 +103,8 @@ type Args struct {
 	SingleThreaded bool
 }
 
-// NewArgs allocates an Args struct initialized with Mixer's default configuration.
-func NewArgs() *Args {
+// DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
+func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
 		MonitoringPort:                9093,
@@ -116,11 +116,12 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 false,
-		LoggingOptions:                log.NewOptions(),
-		TracingOptions:                tracing.NewOptions(),
+		UseNewRuntime:                 true,
+		LoggingOptions:                log.DefaultOptions(),
+		TracingOptions:                tracing.DefaultOptions(),
 		LivenessProbeOptions:          &probe.Options{},
 		ReadinessProbeOptions:         &probe.Options{},
+		EnableProfiling:               true,
 	}
 }
 

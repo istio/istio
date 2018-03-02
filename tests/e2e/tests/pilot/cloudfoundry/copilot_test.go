@@ -49,10 +49,13 @@ const (
 	pilotPort   = 5555
 	copilotPort = 5556
 
-	internalAppName = "example-app-guid.apps.cloudfoundry.internal"
-	publicRouteName = "public.example.com"
-	publicPort      = 10080
-	backendPort     = 61005
+	internalAppName  = "example-app-guid.apps.cloudfoundry.internal"
+	internalAppName2 = "example2-app-guid.apps.cloudfoundry.internal"
+	publicRouteName  = "public.example.com"
+	publicRouteName2 = "public2.example.com"
+	publicPort       = 10080
+	backendPort      = 61005
+	backendPort2     = 61006
 )
 
 func pilotURL(path string) string {
@@ -65,7 +68,7 @@ func pilotURL(path string) string {
 
 var routeRule = fmt.Sprintf(`
 apiVersion: config.istio.io/v1alpha2
-kind: V1alpha2RouteRule
+kind: VirtualService
 metadata:
   name: route-for-myapp
 spec:
@@ -79,6 +82,22 @@ spec:
         name: example-app-guid.apps.cloudfoundry.internal
 `, publicRouteName)
 
+var routeRule2 = fmt.Sprintf(`
+apiVersion: config.istio.io/v1alpha2
+kind: VirtualService
+metadata:
+  name: route-for-other-app
+spec:
+  hosts:
+  - %s
+  gateways:
+  - cloudfoundry-ingress
+  http:
+  - route:
+    - destination:
+        name: example2-app-guid.apps.cloudfoundry.internal
+`, publicRouteName2)
+
 var gatewayConfig = fmt.Sprintf(`
 apiVersion: config.istio.io/v1alpha2
 kind: Gateway
@@ -90,14 +109,17 @@ spec:
       number: %d  # load balancer will forward traffic here
       protocol: http
     hosts:
-    - %s
-`, publicPort, publicRouteName)
+    - "*.example.com"
+`, publicPort)
 
-func TestEdgeRouterWithMockCopilot(t *testing.T) {
+func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	runFakeApp(backendPort)
-	t.Logf("fake app is running on port %d", backendPort)
+	t.Logf("1st backend is running on port %d", backendPort)
+
+	runFakeApp(backendPort2)
+	t.Logf("2nd backend is running on port %d", backendPort2)
 
 	copilotAddr := fmt.Sprintf("127.0.0.1:%d", copilotPort)
 	testState := newTestState(copilotAddr)
@@ -111,6 +133,7 @@ func TestEdgeRouterWithMockCopilot(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	mockCopilot.PopulateRoute(internalAppName, "127.0.0.1", backendPort)
+	mockCopilot.PopulateRoute(internalAppName2, "127.0.0.1", backendPort2)
 
 	err = testState.copilotConfig.Save(testState.copilotConfigFilePath)
 	g.Expect(err).To(gomega.BeNil())
@@ -118,8 +141,9 @@ func TestEdgeRouterWithMockCopilot(t *testing.T) {
 	t.Log("saving istio config...")
 
 	for name, config := range map[string][]byte{
-		"gateway.yml":    []byte(gatewayConfig),
-		"route-rule.yml": []byte(routeRule)} {
+		"gateway.yml":     []byte(gatewayConfig),
+		"route-rule.yml":  []byte(routeRule),
+		"route-rule2.yml": []byte(routeRule2)} {
 
 		err = ioutil.WriteFile(filepath.Join(testState.istioConfigDir, name), config, 0600)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -163,8 +187,25 @@ func TestEdgeRouterWithMockCopilot(t *testing.T) {
 		if !strings.Contains(respData, "hello") {
 			return fmt.Errorf("unexpected response data: %s", respData)
 		}
+		if !strings.Contains(respData, publicRouteName) {
+			return fmt.Errorf("unexpected response data: %s", respData)
+		}
 		return nil
-	}, "3000s", "1s").Should(gomega.Succeed())
+	}, "300s", "1s").Should(gomega.Succeed())
+
+	g.Eventually(func() error {
+		respData, err := curlApp(fmt.Sprintf("http://127.0.0.1:%d", publicPort), publicRouteName2)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(respData, "hello") {
+			return fmt.Errorf("unexpected response data: %s", respData)
+		}
+		if !strings.Contains(respData, publicRouteName2) {
+			return fmt.Errorf("unexpected response data: %s", respData)
+		}
+		return nil
+	}, "300s", "1s").Should(gomega.Succeed())
 }
 
 type testState struct {
@@ -303,7 +344,7 @@ func runPilot(copilotConfigFile, istioConfigDir string, port int) (*gexec.Sessio
 		"--meshConfig", "/dev/null",
 		"--port", fmt.Sprintf("%d", port),
 	)
-	return gexec.Start(pilotCmd, nil, nil)
+	return gexec.Start(pilotCmd, nil, nil) // change these to os.Stdout when debugging
 }
 
 func curlPilot(apiEndpoint string) (string, error) {

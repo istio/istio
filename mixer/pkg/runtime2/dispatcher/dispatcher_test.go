@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	tpb "istio.io/api/mixer/v1/template"
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -416,6 +416,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (SUCCESS)
 `,
 	},
@@ -443,6 +447,10 @@ ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
 [tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (ERROR)
 
 `,
@@ -524,7 +532,7 @@ ident                         : dest.istio-system
 }
 
 func TestDispatcher(t *testing.T) {
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	if err := log.Configure(o); err != nil {
 		t.Fatal(err)
 	}

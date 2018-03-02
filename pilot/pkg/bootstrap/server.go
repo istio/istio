@@ -23,10 +23,8 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-	multierror "github.com/hashicorp/go-multierror"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -34,9 +32,9 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/kube/crd/file"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
+	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -71,7 +69,7 @@ var (
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
-		model.V1alpha2RouteRule,
+		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
 		model.ExternalService,
@@ -164,6 +162,7 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	Admission        AdmissionArgs
+	RDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -338,7 +337,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		}
 	}
 
-	if needToCreateClient {
+	if needToCreateClient && args.Config.FileDir == "" {
 		var client kubernetes.Interface
 		var kuberr error
 
@@ -370,7 +369,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
 		configController = memory.NewController(store)
-		fileMonitor := file.NewMonitor(configController, args.Config.FileDir, configDescriptor)
+		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
 
 		// Defer starting the file monitor until after the service is created.
 		s.addStartFunc(func(stop chan struct{}) error {

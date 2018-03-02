@@ -26,8 +26,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -462,10 +461,11 @@ func TestDbRoutingMysql(t *testing.T) {
 func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
-		vm := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		inspect(err, "unable to configure VM", "VM configured correctly", t)
 		// VM setup and teardown is manual for now
 		// will be replaced with preprovision server calls
-		err := vm.Setup()
+		err = vm.Setup()
 		inspect(err, "VM setup failed", "VM setup succeeded", t)
 		_, err = vm.SecureShell("curl -v istio-pilot:8080")
 		inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)

@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	pb "istio.io/api/mixer/v1/config/descriptor"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
@@ -129,7 +129,7 @@ func TestReport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 
-			args := testEnv.NewArgs()
+			args := testEnv.DefaultArgs()
 			args.APIPort = 0
 			args.MonitoringPort = 0
 			args.Templates = tt.templates

@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -117,6 +115,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err = os.Chmod(i.localPath, 0755); err != nil {
 			return nil, err
 		}
+		i.defaultProxy = true
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}

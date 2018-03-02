@@ -15,10 +15,10 @@
 /*
 Simple test - first time:
 source istio.VERSION
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_cleanup --auth_enable --namespace=e2e
 After which to Retest:
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_setup --skip_cleanup --auth_enable --namespace=e2e
 */
 
@@ -32,8 +32,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/fortio/fhttp"
 	"istio.io/istio/pkg/log"
@@ -66,15 +64,17 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+// TODO: need an "is cluster ready" before running any tests
+
 func TestSimpleIngress(t *testing.T) {
 	// Tests the rewrite/dropping of the /fortio/ prefix as fortio only replies
 	// with "echo debug server ..." on the /debug uri.
 	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	log.Infof("Fetching '%s'", url)
-	attempts := 7 // should not take more than 70s to be live...
+	attempts := 7 // should not take more than 1min45s to be live...
 	for i := 1; i <= attempts; i++ {
 		if i > 1 {
-			time.Sleep(10 * time.Second) // wait between retries
+			time.Sleep(15 * time.Second) // wait between retries
 		}
 		resp, err := http.Get(url)
 		if err != nil {
@@ -97,7 +97,7 @@ func TestSimpleIngress(t *testing.T) {
 		}
 		return // success
 	}
-	t.Errorf("Unable to find expected output after %d attempts", attempts)
+	t.Errorf("Unable to find expected output after %d attempts - ingress issue", attempts)
 }
 
 func TestSvc2Svc(t *testing.T) {
@@ -173,7 +173,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest" // TODO: change
+		image = "istio/fortio:latest_release"
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{

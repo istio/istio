@@ -1,10 +1,10 @@
 ---
 
-- include_tasks: set_implicitly_disabled_addons.yml
-
 - name: Is istio.addon be iterable
   set_fact:
     is_istioaddon_iterable: "{{ istio.addon is defined and istio.addon is iterable }}"
+
+- include_tasks: set_implicitly_disabled_addons.yml
 
 - name: Determine addons that need ServiceAccounts
   set_fact:

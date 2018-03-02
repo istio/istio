@@ -1,0 +1,167 @@
+---
+title: Datadog
+overview: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
+location: https://istio.io/docs/reference/config/adapters/datadog.html
+layout: protoc-gen-docs
+number_of_entries: 3
+---
+<p>The <code>dogstatsd</code> adapter is designed to deliver Istio metric instances to a
+listening <a href="https://www.datadoghq.com/">DataDog</a> agent.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration parameter for the DataDog adapter. These params control how Mixer telemetry is transformed and sent to a dogstatsd agent.</p>
+
+<p>The adapter assumes that a dogstatsd agent is running as a sidecar or at some other endpoint that the Mixer can reach.
+Any dimension that is a part of the metric is converted to a tag automatically. The configuration of the DataDog agent/daemon is outside the scope of the adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>Address of the dogstatsd server.
+Default: localhost:8125</p>
+
+</td>
+</tr>
+<tr id="Params.prefix">
+<td><code>prefix</code></td>
+<td><code>string</code></td>
+<td>
+<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog.
+Default: &ldquo;&rdquo;</p>
+
+</td>
+</tr>
+<tr id="Params.buffer_length">
+<td><code>bufferLength</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.
+When buffer is 0, metrics are not buffered.
+Default: 0</p>
+
+</td>
+</tr>
+<tr id="Params.global_tags">
+<td><code>globalTags</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Tags to add to every metric. &ldquo;global&rdquo;: &ldquo;tag&rdquo; becomes &ldquo;global:tag&rdquo; in DataDog
+Default: []</p>
+
+</td>
+</tr>
+<tr id="Params.sample_rate">
+<td><code>sampleRate</code></td>
+<td><code>double</code></td>
+<td>
+<p>Chance that any particular metric is sampled when emitted; can take the range [0, 1].
+Default: 1</p>
+
+</td>
+</tr>
+<tr id="Params.metrics">
+<td><code>metrics</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td>
+<p>Map of a specific metric instance name -&gt; info. If a metric&rsquo;s instnace name is not in the map then the metric will not be exported to DataDog.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<section>
+<p>Describes how to represent this metric in DataDog</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the metric in DataDog</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.type">
+<td><code>type</code></td>
+<td><code><a href="#Params.MetricInfo.Type">Params.MetricInfo.Type</a></code></td>
+<td>
+<p>The type of metric</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.tags">
+<td><code>tags</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Tags to add to the metric in addition to the dimensions. &ldquo;tag&rdquo;: &ldquo;val&rdquo; becomes &ldquo;tag:val&rdquo; in DataDog
+Default: []</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricInfo.Type">Params.MetricInfo.Type</h2>
+<section>
+<p>Describes the type of metric</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricInfo.Type.UNKNOWN_TYPE">
+<td><code>UNKNOWN_TYPE</code></td>
+<td>
+<p>Default Unknown Type</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.COUNTER">
+<td><code>COUNTER</code></td>
+<td>
+<p>Increments a DataDog counter</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.GAUGE">
+<td><code>GAUGE</code></td>
+<td>
+<p>Sets the new value of a DataDog gauge</p>
+
+</td>
+</tr>
+<tr id="Params.MetricInfo.Type.DISTRIBUTION">
+<td><code>DISTRIBUTION</code></td>
+<td>
+<p>DISTRIBUTION is converted to a Timing Histogram for metrics with a time unit and a Histogram for all other units</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

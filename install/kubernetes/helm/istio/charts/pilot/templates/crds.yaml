@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: destinationpolicies.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -19,7 +19,7 @@ kind: CustomResourceDefinition
 metadata:
   name: egressrules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -35,7 +35,7 @@ kind: CustomResourceDefinition
 metadata:
   name: routerules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -49,16 +49,16 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: v1alpha2routerules.config.istio.io
+  name: virtualservices.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
-    kind: V1alpha2RouteRule
-    listKind: V1alpha2RouteRuleList
-    plural: v1alpha2routerules
-    singular: v1alpha2routerule
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    singular: virtualservice
   scope: Namespaced
   version: v1alpha2
 ---
@@ -67,7 +67,7 @@ kind: CustomResourceDefinition
 metadata:
   name: destinationrules.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:
@@ -83,7 +83,7 @@ kind: CustomResourceDefinition
 metadata:
   name: externalservices.config.istio.io
   labels:
-    app: {{ template "pilot.name" . }}
+    app: istio-pilot
 spec:
   group: config.istio.io
   names:

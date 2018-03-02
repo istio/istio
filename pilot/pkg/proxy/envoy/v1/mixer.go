@@ -21,8 +21,6 @@ import (
 	"encoding/base64"
 	"net"
 	"net/url"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -163,10 +161,6 @@ func buildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN 
 	}
 
 	if mesh.MixerReportServer != "" {
-		// if both fields point to same server, reuse the cluster
-		if mesh.MixerReportServer == mesh.MixerCheckServer {
-			return mixerClusters
-		}
 		mixerClusters = append(mixerClusters, buildMixerCluster(mesh, mixerSAN, mesh.MixerReportServer, MixerReportClusterName))
 	}
 
@@ -223,9 +217,6 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	transport := &mccpb.TransportConfig{
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
-	}
-	if mesh.MixerCheckServer == mesh.MixerReportServer {
-		transport.ReportCluster = transport.CheckCluster
 	}
 
 	v2 := &mccpb.HttpClientConfig{
@@ -370,9 +361,6 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 		CheckCluster:  MixerCheckClusterName,
 		ReportCluster: MixerReportClusterName,
 	}
-	if mesh.MixerCheckServer == mesh.MixerReportServer {
-		transport.ReportCluster = transport.CheckCluster
-	}
 
 	v2 := &mccpb.TcpClientConfig{
 
@@ -433,7 +421,7 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error)
 		useSSL = true
 	}
 
-	return truncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
+	return TruncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
 }
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
