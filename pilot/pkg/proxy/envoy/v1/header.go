@@ -19,8 +19,8 @@ import (
 	"regexp"
 	"sort"
 
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -59,7 +59,7 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 	}
 }
 
-func buildHTTPRouteMatchV2(match *routingv2.HTTPMatchRequest) *HTTPRoute {
+func buildHTTPRouteMatchV2(match *networking.HTTPMatchRequest) *HTTPRoute {
 	if match == nil {
 		return &HTTPRoute{Prefix: "/"}
 	}
@@ -79,11 +79,11 @@ func buildHTTPRouteMatchV2(match *routingv2.HTTPMatchRequest) *HTTPRoute {
 
 	if match.Uri != nil {
 		switch m := match.Uri.MatchType.(type) {
-		case *routingv2.StringMatch_Exact:
+		case *networking.StringMatch_Exact:
 			route.Path = m.Exact
-		case *routingv2.StringMatch_Prefix:
+		case *networking.StringMatch_Prefix:
 			route.Prefix = m.Prefix
-		case *routingv2.StringMatch_Regex:
+		case *networking.StringMatch_Regex:
 			route.Regex = m.Regex
 		}
 	} else {
@@ -126,18 +126,18 @@ func buildHeader(name string, match *routing.StringMatch) Header {
 	return header
 }
 
-func buildHeaderV2(name string, match *routingv2.StringMatch) Header {
+func buildHeaderV2(name string, match *networking.StringMatch) Header {
 	header := Header{Name: name}
 
 	switch m := match.MatchType.(type) {
-	case *routingv2.StringMatch_Exact:
+	case *networking.StringMatch_Exact:
 		header.Value = m.Exact
-	case *routingv2.StringMatch_Prefix:
+	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
 		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
 		header.Regex = true
-	case *routingv2.StringMatch_Regex:
+	case *networking.StringMatch_Regex:
 		header.Value = m.Regex
 		header.Regex = true
 	}
