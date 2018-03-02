@@ -12,5 +12,3 @@ ENTRYPOINT [ "/usr/local/bin/istio_ca", \
 "--root-cert", "/usr/local/bin/istio_ca.crt", \
 "--grpc-hostname", "istio-ca", \
 "--grpc-port", "8060" ]
-
-

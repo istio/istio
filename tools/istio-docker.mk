@@ -31,7 +31,7 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-FLEXVOLUMEDRIVER_FILES:=security/docker/flexvolumedriver.sh
+FLEXVOLUMEDRIVER_FILES:=security/docker/start_flexvolumedriver.sh
 
 GRAFANA_FILES:=addons/grafana/dashboards.yaml \
                addons/grafana/datasources.yaml \
