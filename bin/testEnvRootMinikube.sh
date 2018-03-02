@@ -5,10 +5,10 @@ export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}
 set -x
 
 if [ ! -f /usr/local/bin/minikube ]; then
-   curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+   time curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 fi
 if [ ! -f /usr/local/bin/kubectl ]; then
-   curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+   time curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 
 
@@ -19,7 +19,7 @@ function waitMinikube() {
     kubectl cluster-info
     # this for loop waits until kubectl can access the api server that Minikube has created
     for i in {1..30}; do # timeout for 1 minutes
-       kubectl get po #&> /dev/null
+       kubectl get po --all-namespaces #&> /dev/null
        if [ $? -ne 1 ]; then
           break
       fi
@@ -32,7 +32,9 @@ function waitMinikube() {
         netstat -an
         docker images
         cat /var/lib/localkube/localkube.err
-        exit 1
+        echo "\n\n\n"
+        kubectl cluster-info dump
+        #exit 1
     fi
     echo "Minikube is running"
 }
@@ -45,8 +47,8 @@ function startMinikubeNone() {
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
     sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
             --kubernetes-version=v1.9.0 --vm-driver=none
+#--extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
     sudo -E minikube update-context
     sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
 }
