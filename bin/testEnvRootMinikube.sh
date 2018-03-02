@@ -25,7 +25,7 @@ function waitMinikube() {
       sleep 2
     done
     kubectl get svc --all-namespaces
-    if [ $? -ne 1 ]; then
+    if [ $? -ne 0 ]; then
         echo "Kubernetes failed to start"
         ps ax
         netstat -an
