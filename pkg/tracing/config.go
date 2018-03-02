@@ -21,7 +21,7 @@
 //
 //		func main() {
 //			// get the default tracing options
-//			options := tracing.NewOptions()
+//			options := tracing.DefaultOptions()
 //
 //			rootCmd := &cobra.Command{
 //				Run: func(cmd *cobra.Command, args []string) {
