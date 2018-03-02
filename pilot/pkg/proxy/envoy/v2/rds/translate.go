@@ -28,7 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	routingv2 "istio.io/api/routing/v1alpha2"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
@@ -265,8 +265,8 @@ func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 
 // TranslateRoute translates HTTP routes
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
-func TranslateRoute(in *routingv2.HTTPRoute,
-	match *routingv2.HTTPMatchRequest,
+func TranslateRoute(in *networking.HTTPRoute,
+	match *networking.HTTPMatchRequest,
 	operation string,
 	name ClusterNaming) GuardedRoute {
 	out := route.Route{
@@ -342,7 +342,7 @@ func TranslateRoute(in *routingv2.HTTPRoute,
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(in *routingv2.HTTPMatchRequest) route.RouteMatch {
+func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -363,11 +363,11 @@ func TranslateRouteMatch(in *routingv2.HTTPMatchRequest) route.RouteMatch {
 
 	if in.Uri != nil {
 		switch m := in.Uri.MatchType.(type) {
-		case *routingv2.StringMatch_Exact:
+		case *networking.StringMatch_Exact:
 			out.PathSpecifier = &route.RouteMatch_Path{Path: m.Exact}
-		case *routingv2.StringMatch_Prefix:
+		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
-		case *routingv2.StringMatch_Regex:
+		case *networking.StringMatch_Regex:
 			out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
 		}
 	}
@@ -393,20 +393,20 @@ func TranslateRouteMatch(in *routingv2.HTTPMatchRequest) route.RouteMatch {
 }
 
 // TranslateHeaderMatcher translates to HeaderMatcher
-func TranslateHeaderMatcher(name string, in *routingv2.StringMatch) route.HeaderMatcher {
+func TranslateHeaderMatcher(name string, in *networking.StringMatch) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
 	}
 
 	switch m := in.MatchType.(type) {
-	case *routingv2.StringMatch_Exact:
+	case *networking.StringMatch_Exact:
 		out.Value = m.Exact
-	case *routingv2.StringMatch_Prefix:
+	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
 		out.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
 		out.Regex = &types.BoolValue{Value: true}
-	case *routingv2.StringMatch_Regex:
+	case *networking.StringMatch_Regex:
 		out.Value = m.Regex
 		out.Regex = &types.BoolValue{Value: true}
 	}
@@ -415,7 +415,7 @@ func TranslateHeaderMatcher(name string, in *routingv2.StringMatch) route.Header
 }
 
 // TranslateRetryPolicy translates retry policy
-func TranslateRetryPolicy(in *routingv2.HTTPRetry) *route.RouteAction_RetryPolicy {
+func TranslateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
@@ -427,7 +427,7 @@ func TranslateRetryPolicy(in *routingv2.HTTPRetry) *route.RouteAction_RetryPolic
 }
 
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *routingv2.CorsPolicy) *route.CorsPolicy {
+func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
