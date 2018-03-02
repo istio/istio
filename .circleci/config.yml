@@ -445,7 +445,6 @@ jobs:
     environment:
       TAG: circleci-nightly
     steps:
-      - checkout
       - attach_workspace:
           at:  /go
       - setup_remote_docker:
