@@ -30,6 +30,7 @@ function waitMinikube() {
         ps ax
         netstat -an
         docker images
+        cat /var/lib/localkube/localkube.err
         exit 1
     fi
     echo "Minikube is running"

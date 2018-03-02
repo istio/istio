@@ -59,6 +59,8 @@ jobs:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
 
   e2e-mixer:
     <<: *integrationDefaults
