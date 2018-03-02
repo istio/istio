@@ -34,9 +34,9 @@ To configure and run a monitor that watches for file changes to update an in-mem
 store := memory.Make(configDescriptor)
 controller = memory.NewController(store)
 // Create an object that will take snapshots of config
-fileSnapshotter := configmonitor.NewFileSnapshotter(args.Config.FileDir, configDescriptor)
+fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
 // Provide snapshot func to monitor
-fileMonitor := configmonitor.NewMonitor(controller, 100*time.Millisecond, fileSnapshotter.ReadFile)
+fileMonitor := configmonitor.NewMonitor(controller, 100*time.Millisecond, fileSnapshot.ReadFile)
 
 // Run the controller and monitor
 stop := make(chan struct{})
@@ -44,7 +44,7 @@ go controller.run(stop)
 monitor.Start(stop)
 ```
 
-See `monitor_test.go` and `file_snapshotter_test.go` for more examples.
+See `monitor_test.go` and `file_snapshot_test.go` for more examples.
 # Notes
 ## Always use a Controller
 While the API supports any `model.ConfigStore`, it is recommended to always use a `crd.Controller` so that other
