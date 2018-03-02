@@ -1,5 +1,27 @@
-# keep Dockerfile.proxy and Dockerfile.proxy_debug consistent for proxy sha
-FROM gcr.io/istio-testing/envoy-debug:54077a0c8486b6db7b2fc5d10619b6813bb40767
+FROM ubuntu:xenial
+# Do not add more stuff to this list that isn't small or critically useful.
+# If you occasionally need something on the container do
+# sudo apt-get update && apt-get whichever
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+      curl \
+      iptables \
+      iproute2 \
+      iputils-ping \
+      dnsutils \
+      netcat \
+      tcpdump \
+      net-tools \
+      libc6-dbg gdb \
+      elvis-tiny \
+      lsof \
+      busybox \
+      sudo && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Envoy.
+ADD envoy-debug /usr/local/bin/envoy
+
 ADD pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
@@ -9,4 +31,10 @@ COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
 # Use the same file as the deb file.
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+# Sudoers used to allow tcpdump and other debug utilities.
+RUN useradd -m --uid 1337 istio-proxy && \
+    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
+    chown -R istio-proxy /var/lib/istio
+
+# The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

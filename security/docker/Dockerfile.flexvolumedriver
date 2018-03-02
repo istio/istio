@@ -1,0 +1,9 @@
+FROM ubuntu:xenial
+
+RUN mkdir -p /usr/local/bin
+ADD flexvolumedriver.sh /usr/local/bin/
+ADD flexvolumedriver /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/flexvolumedriver.sh
+
+ENTRYPOINT ["/usr/local/bin/flexvolumedriver.sh"]

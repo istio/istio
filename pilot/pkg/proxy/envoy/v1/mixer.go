@@ -21,8 +21,6 @@ import (
 	"encoding/base64"
 	"net"
 	"net/url"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"

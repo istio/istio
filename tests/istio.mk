@@ -57,17 +57,6 @@ EXTRA_E2E_ARGS += --pilot_hub ${HUB}
 EXTRA_E2E_ARGS += --proxy_hub ${HUB}
 EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-
-# Generate the install files, using istioctl.
-# TODO: make sure they match, pass all tests.
-# TODO:
-generate_yaml_new:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
-
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
@@ -84,8 +73,12 @@ e2e_bookinfo: istioctl generate_yaml
 e2e_upgrade: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_all:
-	set -o pipefail; $(MAKE) e2e_simple e2e_mixer e2e_bookinfo |& tee >(go-junit-report > junit.xml)
+JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e_all.xml
+e2e_all: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_E2E_XML))
+	set -o pipefail; \
+	$(MAKE) e2e_simple e2e_mixer e2e_bookinfo \
+	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG}

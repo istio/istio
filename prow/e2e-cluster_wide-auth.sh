@@ -28,25 +28,7 @@ set -u
 # Print commands
 set -x
 
-# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
-# for exiting resources types
-RESOURCE_TYPE='gke-e2e-test'
-OWNER="$(basename "${BASH_SOURCE[0]}")"
-INFO_PATH="$(mktemp)"
-FILE_LOG="$(mktemp)"
 ROOT=$(cd $(dirname $0)/..; pwd)
 
-function cleanup() {
-  mason_cleanup
-  cat "${FILE_LOG}"
-}
-
-source "${ROOT}/prow/mason_lib.sh"
-source "${ROOT}/prow/cluster_lib.sh"
-
-trap mason_cleanup EXIT
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-setup_cluster
-
 echo 'Running cluster-wide e2e rbac, auth Tests'
-${ROOT}/prow/e2e-suite.sh --test_vm --auth_enable --cluster_wide --mason_info="${INFO_PATH}" "$@"
+${ROOT}/prow/e2e-suite.sh --test_vm --auth_enable --cluster_wide "$@"

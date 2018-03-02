@@ -253,7 +253,7 @@ var (
 	}
 
 	cbRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
 	}
 
@@ -263,7 +263,7 @@ var (
 	}
 
 	timeoutRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "timeout"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "timeout"},
 		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
 	}
 
@@ -273,27 +273,27 @@ var (
 	}
 
 	weightedRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "weighted"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "weighted"},
 		file: "testdata/weighted-route-v1alpha2.yaml.golden",
 	}
 
 	gatewayWeightedRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-weighted"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-weighted"},
 		file: "testdata/gateway-weighted-route.yaml",
 	}
 
 	gatewayRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-simple"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple"},
 		file: "testdata/gateway-route.yaml",
 	}
 
 	gatewayWildcardRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-wildcard-simple"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-wildcard-simple"},
 		file: "testdata/gateway-wildcard-route.yaml",
 	}
 
 	gatewayRouteRule2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-simple-2"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple-2"},
 		file: "testdata/gateway-route-2.yaml",
 	}
 
@@ -318,12 +318,12 @@ var (
 	}
 
 	faultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "fault"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "fault"},
 		file: "testdata/fault-route-v1alpha2.yaml.golden",
 	}
 
 	multiMatchFaultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-fault"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-fault"},
 		file: "testdata/multi-match-fault-v1alpha2.yaml.golden",
 	}
 
@@ -333,7 +333,7 @@ var (
 	}
 
 	redirectRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "redirect"},
 		file: "testdata/redirect-route-v1alpha2.yaml.golden",
 	}
 
@@ -348,17 +348,17 @@ var (
 	}
 
 	rewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "rewrite"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "rewrite"},
 		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
 	}
 
 	multiMatchRewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-rewrite"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-rewrite"},
 		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
 	}
 
 	googleTimeoutRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
 		file: "testdata/google-timeout-rule-v1alpha2.yaml.golden",
 	}
 
@@ -368,7 +368,7 @@ var (
 	}
 
 	websocketRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "websocket"},
 		file: "testdata/websocket-route-v1alpha2.yaml.golden",
 	}
 
@@ -385,6 +385,11 @@ var (
 	externalServiceRuleDNS = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-dns.yaml.golden",
+	}
+
+	externalServiceRuleDNSNoEndpoints = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns-no-endpoints.yaml.golden",
 	}
 
 	externalServiceRuleStatic = fileConfig{
@@ -408,7 +413,7 @@ var (
 	}
 
 	externalServiceRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "ext-route"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "ext-route"},
 		file: "testdata/external-service-route-rule.yaml.golden",
 	}
 
@@ -448,7 +453,7 @@ var (
 	}
 
 	addHeaderRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "append-headers"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "append-headers"},
 		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
 	}
 
@@ -458,7 +463,7 @@ var (
 	}
 
 	corsPolicyRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "cors-policy"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "cors-policy"},
 		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
 	}
 
@@ -468,7 +473,7 @@ var (
 	}
 
 	mirrorRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route-v1alpha2.yaml.golden",
 	}
 

@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "mixer.fullname" . }}
+  name: istio-mixer
   labels:
     app: {{ template "mixer.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -15,13 +15,11 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "mixer.name" . }}
-        release: {{ .Release.Name }}
         istio: mixer
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: {{ template "mixer.serviceAccountName" . }}
+      serviceAccountName: istio-mixer-service-account
       containers:
         - name: statsd-to-prometheus
           image: "{{ .Values.prometheusStatsdExporter.repository }}:{{ .Values.prometheusStatsdExporter.tag}}"
@@ -38,7 +36,7 @@ spec:
           - name: config-volume
             mountPath: /etc/statsd
         - name: {{ template "mixer.name" . }}
-          image: "{{ .Values.global.mixer.repository }}:{{ .Values.global.mixer.tag }}"
+          image: "{{ .Values.global.hub }}/mixer:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
           - containerPort: 9091
@@ -49,18 +47,17 @@ spec:
             - --configStoreURL=k8s://
             - --configDefaultNamespace={{ .Release.Namespace }}
             - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+            - --logtostderr
           resources:
 {{ toYaml .Values.resources | indent 12 }}
         - name: {{ template "mixer.name" . }}-proxy
-          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15004
           args:
           - proxy
           - mixer
-          - -v
-          - "2"
           - --controlPlaneAuthPolicy
         {{- if .Values.global.securityEnabled }}
           - MUTUAL_TLS
@@ -80,11 +77,11 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: istio.{{ template "mixer.serviceAccountName" . }}
+          secretName: istio.istio-mixer-service-account
           optional: true
       - name: config-volume
         configMap:
-          name: {{ template "mixer.fullname" . }}
+          name: istio-mixer
     {{- if .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}

@@ -30,6 +30,7 @@ required = [
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/gogoproto",
   "github.com/istio/tools/protoc-gen-docs",
+  "github.com/gogo/protobuf/protoc-min-version",
   ### END Mixer codegen deps
   # fortio binary (main) is used by the testing framework and should not be
   # pruned
@@ -111,17 +112,16 @@ required = [
 
 [[constraint]]
   name = "istio.io/fortio"
-  version = ">= v0.7.1"
+  revision = "latest_release"
 
-### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
-### as we cache dep ensure.
+# TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  revision = "a11fc3a78b68ede57ad46fb4d1f7fe5742325489"
+  revision = "0cb6ca9f2a06370b8734f4e4c0d62b77ec5975d3"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+  revision = "e0ebc95432196ce43dae88cc2822983466210656"
 
 ### Begin Mixer codegen dep pinning
 
@@ -158,3 +158,7 @@ required = [
 [[constraint]]
   name = "github.com/openshift/api"
   revision = "0d921e363e951d89f583292c60d013c318df64dc"
+
+[[override]]
+  name = "github.com/golang/glog"
+  source = "github.com/istio/glog"

@@ -1,15 +1,10 @@
 {{- if .Values.ingress.enabled -}}
-{{- $serviceName := include "prometheus.fullname" . -}}
-{{- $servicePort := .Values.service.externalPort -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "prometheus.fullname" . }}
+  name: prometheus
   labels:
-    app: {{ template "prometheus.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app: prometheus
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}
@@ -22,8 +17,8 @@ spec:
         paths:
           - path: /
             backend:
-              serviceName: {{ $serviceName }}
-              servicePort: {{ $servicePort }}
+              serviceName: prometheus
+              servicePort: 9090
     {{- end -}}
   {{- if .Values.ingress.tls }}
   tls:

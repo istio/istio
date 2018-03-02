@@ -4,11 +4,17 @@
    "hosts": [
     {
      "ip_address": "10.1.1.0",
-     "port": 1090
+     "port": 1090,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.1.1.1",
-     "port": 1090
+     "port": 1090,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -17,11 +23,17 @@
    "hosts": [
     {
      "ip_address": "10.1.1.0",
-     "port": 80
+     "port": 80,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.1.1.1",
-     "port": 80
+     "port": 80,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -30,11 +42,17 @@
    "hosts": [
     {
      "ip_address": "10.1.1.0",
-     "port": 1081
+     "port": 1081,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.1.1.1",
-     "port": 1081
+     "port": 1081,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -43,11 +61,17 @@
    "hosts": [
     {
      "ip_address": "10.1.1.0",
-     "port": 1100
+     "port": 1100,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.1.1.1",
-     "port": 1100
+     "port": 1100,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -56,11 +80,17 @@
    "hosts": [
     {
      "ip_address": "10.1.1.0",
-     "port": 1110
+     "port": 1110,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.1.1.1",
-     "port": 1110
+     "port": 1110,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -69,11 +99,17 @@
    "hosts": [
     {
      "ip_address": "10.2.1.0",
-     "port": 1090
+     "port": 1090,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.2.1.1",
-     "port": 1090
+     "port": 1090,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -82,11 +118,17 @@
    "hosts": [
     {
      "ip_address": "10.2.1.0",
-     "port": 80
+     "port": 80,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.2.1.1",
-     "port": 80
+     "port": 80,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -95,11 +137,17 @@
    "hosts": [
     {
      "ip_address": "10.2.1.0",
-     "port": 1081
+     "port": 1081,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.2.1.1",
-     "port": 1081
+     "port": 1081,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -108,11 +156,17 @@
    "hosts": [
     {
      "ip_address": "10.2.1.0",
-     "port": 1100
+     "port": 1100,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.2.1.1",
-     "port": 1100
+     "port": 1100,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   },
@@ -121,11 +175,17 @@
    "hosts": [
     {
      "ip_address": "10.2.1.0",
-     "port": 1110
+     "port": 1110,
+     "tags": {
+      "az": "zone/region"
+     }
     },
     {
      "ip_address": "10.2.1.1",
-     "port": 1110
+     "port": 1110,
+     "tags": {
+      "az": "zone/region"
+     }
     }
    ]
   }

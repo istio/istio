@@ -16,17 +16,16 @@ package probe
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc/balancer"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/pkg/probe"
 	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
 )
@@ -46,22 +45,16 @@ func (c *FakeCAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, c
 	return c.resp, c.err
 }
 
-func readFile(filename string) []byte {
-	bs, err := ioutil.ReadFile(filename)
-	if err != nil {
-		shared.Fatalf("Failed to read file %s (error: %v)", filename, err)
-	}
-	return bs
-}
-
 func TestGcpGetServiceIdentity(t *testing.T) {
+	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
+		"./testdata/ca.crt", "./testdata/ca.key", "", "./testdata/root.crt")
+	if err != nil {
+		t.Error(err)
+	}
 	istioCA, err := ca.NewIstioCA(&ca.IstioCAOptions{
-		SigningCertBytes: readFile("./testdata/ca.crt"),
-		SigningKeyBytes:  readFile("./testdata/ca.key"),
-		RootCertBytes:    readFile("./testdata/root.crt"),
-		CertChainBytes:   []byte(""),
-		CertTTL:          time.Minute * time.Duration(2),
-		MaxCertTTL:       time.Minute * time.Duration(4),
+		CertTTL:       time.Minute * time.Duration(2),
+		MaxCertTTL:    time.Minute * time.Duration(4),
+		KeyCertBundle: bundle,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create a CA instances: %v", err)

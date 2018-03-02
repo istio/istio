@@ -84,7 +84,6 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - discovery
-        - --v={{.Verbosity}}
         - -a
         - {{.Namespace}}
         - --registries
@@ -94,6 +93,8 @@ spec:
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
+        - --rdsv2
+        - "{{.RDSv2}}"
         ports:
         - containerPort: 8080
 {{if .DebugPort}}
@@ -133,8 +134,6 @@ spec:
         args:
         - proxy
         - pilot
-        - -v
-        - "{{.Verbosity}}"
         - "--discoveryAddress"
 {{if eq .ControlPlaneAuthPolicy.String "NONE"}}
         - "istio-pilot:15007"
