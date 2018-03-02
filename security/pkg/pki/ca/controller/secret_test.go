@@ -24,13 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
-	//"k8s.io/client-go/discovery/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
-	//"istio.io/istio/broker/pkg/controller"
 	"github.com/pkg/errors"
 )
 
