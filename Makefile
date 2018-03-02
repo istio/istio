@@ -221,6 +221,8 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
+${ISTIO_ENVOY_DEBUG_PATH}: init
+${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call make depend.update if adding new deps or
