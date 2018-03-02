@@ -91,6 +91,7 @@ cat "${COVERAGEDIR}"/*.report > codecov.report
 popd
 echo "Repors are stored in ${FINAL_CODECOV_DIR}"
 
+
 if [[ -n ${FAILED_TESTS:-} ]]; then
   echo "The following tests failed"
   for T in ${FAILED_TESTS[@]}; do
@@ -98,3 +99,11 @@ if [[ -n ${FAILED_TESTS:-} ]]; then
   done
   exit 1
 fi
+
+echo 'Checking package coverage'
+go get -u istio.io/test-infra/toolbox/pkg_check
+pkg_check \
+  --bucket= \
+  --report_file=/go/out/codecov/codecov.report \
+  --requirement_file=codecov.requirement
+
