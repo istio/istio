@@ -300,6 +300,10 @@ const (
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
+
+	configGroup = "config"
+
+	networkingGroup = "networking"
 )
 
 var (
@@ -307,7 +311,7 @@ var (
 	MockConfig = ProtoSchema{
 		Type:        "mock-config",
 		Plural:      "mock-configs",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
@@ -322,7 +326,7 @@ var (
 	RouteRule = ProtoSchema{
 		Type:        "route-rule",
 		Plural:      "route-rules",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.RouteRule",
 		Validate:    ValidateRouteRule,
@@ -332,7 +336,7 @@ var (
 	VirtualService = ProtoSchema{
 		Type:        "virtual-service",
 		Plural:      "virtual-services",
-		Group:       "config",
+		Group:       networkingGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
@@ -342,7 +346,7 @@ var (
 	Gateway = ProtoSchema{
 		Type:        "gateway",
 		Plural:      "gateways",
-		Group:       "config",
+		Group:       networkingGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
@@ -352,7 +356,7 @@ var (
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.IngressRule",
 		Validate:    ValidateIngressRule,
@@ -362,7 +366,7 @@ var (
 	EgressRule = ProtoSchema{
 		Type:        "egress-rule",
 		Plural:      "egress-rules",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.EgressRule",
 		Validate:    ValidateEgressRule,
@@ -372,7 +376,7 @@ var (
 	ExternalService = ProtoSchema{
 		Type:        "external-service",
 		Plural:      "external-services",
-		Group:       "config",
+		Group:       networkingGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.networking.v1alpha3.ExternalService",
 		Validate:    ValidateExternalService,
@@ -382,7 +386,7 @@ var (
 	DestinationPolicy = ProtoSchema{
 		Type:        "destination-policy",
 		Plural:      "destination-policies",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
@@ -392,7 +396,7 @@ var (
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
 		Plural:      "destination-rules",
-		Group:       "config",
+		Group:       networkingGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
@@ -402,7 +406,7 @@ var (
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
 		Plural:      "http-api-specs",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
 		Validate:    ValidateHTTPAPISpec,
@@ -412,7 +416,7 @@ var (
 	HTTPAPISpecBinding = ProtoSchema{
 		Type:        "http-api-spec-binding",
 		Plural:      "http-api-spec-bindings",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
 		Validate:    ValidateHTTPAPISpecBinding,
@@ -422,7 +426,7 @@ var (
 	QuotaSpec = ProtoSchema{
 		Type:        "quota-spec",
 		Plural:      "quota-specs",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
 		Validate:    ValidateQuotaSpec,
@@ -432,7 +436,7 @@ var (
 	QuotaSpecBinding = ProtoSchema{
 		Type:        "quota-spec-binding",
 		Plural:      "quota-spec-bindings",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
 		Validate:    ValidateQuotaSpecBinding,
@@ -442,7 +446,7 @@ var (
 	EndUserAuthenticationPolicySpec = ProtoSchema{
 		Type:        "end-user-authentication-policy-spec",
 		Plural:      "end-user-authentication-policy-specs",
-		Group:       "config",
+		Group:       configGroup,
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
 		Validate:    ValidateEndUserAuthenticationPolicySpec,

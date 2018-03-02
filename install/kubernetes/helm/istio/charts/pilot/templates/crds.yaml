@@ -49,11 +49,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualservices.config.istio.io
+  name: virtualservices.networking.istio.io
   labels:
     app: istio-pilot
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: VirtualService
     listKind: VirtualServiceList
@@ -65,11 +65,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: destinationrules.config.istio.io
+  name: destinationrules.networking.istio.io
   labels:
     app: istio-pilot
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: DestinationRule
     listKind: DestinationRuleList
@@ -81,11 +81,11 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: externalservices.config.istio.io
+  name: externalservices.networking.istio.io
   labels:
     app: istio-pilot
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: ExternalService
     listKind: ExternalServiceList

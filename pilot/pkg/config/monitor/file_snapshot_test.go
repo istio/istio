@@ -22,7 +22,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	v3routing "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -72,7 +72,7 @@ func TestFileSnapshotterNoFilter(t *testing.T) {
 
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	gateway := configs[0].Spec.(*v3routing.Gateway)
+	gateway := configs[0].Spec.(*networking.Gateway)
 	g.Expect(gateway.Servers[0].Port.Number).To(gomega.Equal(uint32(80)))
 	g.Expect(gateway.Servers[0].Port.Protocol).To(gomega.Equal("http"))
 	g.Expect(gateway.Servers[0].Hosts).To(gomega.Equal([]string{"*.example.com"}))
@@ -96,7 +96,7 @@ func TestFileSnapshotterWithFilter(t *testing.T) {
 
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	routeRule := configs[0].Spec.(*v3routing.VirtualService)
+	routeRule := configs[0].Spec.(*networking.VirtualService)
 	g.Expect(routeRule.Hosts).To(gomega.Equal([]string{"some.example.com"}))
 }
 
@@ -119,8 +119,8 @@ func TestFileSnapshotterSorting(t *testing.T) {
 
 	g.Expect(configs).To(gomega.HaveLen(2))
 
-	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&v3routing.Gateway{}))
-	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&v3routing.VirtualService{}))
+	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&networking.Gateway{}))
+	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&networking.VirtualService{}))
 }
 
 type testState struct {

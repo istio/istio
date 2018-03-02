@@ -72,7 +72,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	route "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -247,7 +247,7 @@ type Mesh struct {
 
 	// subsetDefinitions holds the metadata of the subset i.e. the combination of
 	// the destination address and the subset name supplied during configuration.
-	subsetDefinitions map[string]*route.Subset
+	subsetDefinitions map[string]*networking.Subset
 
 	// subsetEndpoints allows for look-ups from the Subset name to a set of Endpoints.
 	// The endpoints in the set are guaranteed to exist in allEndpoints and the
@@ -289,7 +289,7 @@ type subsetEndpoints map[string]endpointSet
 // RuleChange encapsulates changes to Route Destination Rules
 type RuleChange struct {
 	// Rule routing/v1alpha2/destination_rule.proto
-	Rule *route.DestinationRule
+	Rule *networking.DestinationRule
 	// Type of destination rule config change
 	Type ConfigChangeType
 }
@@ -312,7 +312,7 @@ type EndpointLabel struct {
 func NewMesh() *Mesh {
 	return &Mesh{
 		allEndpoints:      map[string]*Endpoint{},
-		subsetDefinitions: map[string]*route.Subset{},
+		subsetDefinitions: map[string]*networking.Subset{},
 		subsetEndpoints:   subsetEndpoints{},
 		reverseAttrMap:    labelEndpoints{},
 		reverseEpSubsets:  endpointSubsets{},
