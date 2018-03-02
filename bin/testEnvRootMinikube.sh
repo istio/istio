@@ -29,6 +29,7 @@ function waitMinikube() {
         echo "Kubernetes failed to start"
         ps ax
         netstat -an
+        docker images
         exit 1
     fi
     echo "Minikube is running"

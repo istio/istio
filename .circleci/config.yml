@@ -173,7 +173,7 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
-            trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             # Run the tests in env similar with recommended setup.
             make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
                | tee -a /go/out/tests/go-test-report.out
