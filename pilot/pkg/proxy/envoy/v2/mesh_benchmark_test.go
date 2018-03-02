@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"testing"
 
-	route "istio.io/api/routing/v1alpha2"
+	route "istio.io/api/networking/v1alpha3"
 )
 
 // samplePoint stores the index to the rule, index to the subset and the count of endpoints in that subset.
