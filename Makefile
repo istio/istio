@@ -310,15 +310,15 @@ $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl
+	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
@@ -395,16 +395,27 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
 istioctl-install:
-	go install istio.io/istio/istioctl
+	go install istio.io/istio/istioctl/cmd/istioctl
 
 #-----------------------------------------------------------------------------
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: test localTestEnv test-bins
+.PHONY: junit-parser test localTestEnv test-bins
+
+JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+
+${ISTIO_BIN}/go-junit-report:
+	@echo "go-junit-report not found. Installing it now..."
+	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-test: pilot-test mixer-test security-test broker-test galley-test common-test
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
+test: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
+	|& tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1

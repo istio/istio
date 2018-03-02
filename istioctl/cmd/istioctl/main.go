@@ -42,7 +42,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
-	"istio.io/istio/istioctl/gendeployment"
+	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -653,7 +653,7 @@ func newClient() (*crd.Client, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
-		model.V1alpha2RouteRule,
+		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
 		model.ExternalService,

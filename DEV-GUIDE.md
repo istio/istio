@@ -269,7 +269,7 @@ Note: for other images, check Makefile for more info.
 
 And move this file to docker_temp repo
 ```shell
-cp istio_ca /usr/local/google/home/lita/Desktop/out/linux_amd64/release/docker_temp
+cp istio_ca $GOPATH/out/linux_amd64/release/docker_temp
 ```
 
 Push docker image

@@ -50,7 +50,7 @@ type schemaType struct {
 var knownTypes = map[string]schemaType{
 EOF
 
-CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule Gateway EgressRule ExternalService DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"
+CRDS="MockConfig RouteRule VirtualService IngressRule Gateway EgressRule ExternalService DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"
 
 for crd in $CRDS; do
 cat << EOF
