@@ -125,7 +125,7 @@ func TestFixedWindowAlgorithm(t *testing.T) {
 		GetInfo,
 	}
 
-  serviceCfg := adapterConfig
+	serviceCfg := adapterConfig
 	serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 	var cerr error
 	if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalConfig, serviceCfg); cerr != nil {
