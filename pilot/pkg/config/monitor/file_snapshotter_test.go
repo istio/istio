@@ -22,7 +22,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	v2routing "istio.io/api/routing/v1alpha2"
+	v2routing "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -91,12 +91,12 @@ func TestFileSnapshotterWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshotter(ts.rootPath, model.ConfigDescriptor{model.V1alpha2RouteRule})
+	fileWatcher := monitor.NewFileSnapshotter(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
 	configs := fileWatcher.ReadFile()
 
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	routeRule := configs[0].Spec.(*v2routing.RouteRule)
+	routeRule := configs[0].Spec.(*v2routing.VirtualService)
 	g.Expect(routeRule.Hosts).To(gomega.Equal([]string{"some.example.com"}))
 }
 
@@ -120,7 +120,7 @@ func TestFileSnapshotterSorting(t *testing.T) {
 	g.Expect(configs).To(gomega.HaveLen(2))
 
 	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&v2routing.Gateway{}))
-	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&v2routing.RouteRule{}))
+	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&v2routing.VirtualService{}))
 }
 
 type testState struct {
