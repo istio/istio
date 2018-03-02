@@ -124,6 +124,13 @@ minikube start \
 
 To enable RBAC, add `--bootstrapper kubeadm --extra-config=apiserver.Authorization.Mode=RBAC` to `minikube start` command, in addition to the flags above.
 
+Note: If you're using newer kubernetes (>= v1.8.0) with kubeadm, the extra-config
+works differently for kubeadm and you also don't need the RBAC flag and the plugin
+names since they should all be enabled by default. Instead use the following command:
+```bash
+minikube start --bootstrapper kubeadm
+```
+
 ### Setting up environment variables
 
 Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
