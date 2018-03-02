@@ -25,10 +25,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
-	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -49,6 +45,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
