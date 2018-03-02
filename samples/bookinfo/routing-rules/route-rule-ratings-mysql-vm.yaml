@@ -1,0 +1,50 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        name: reviews
+        subset: v3
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+spec:
+  name: reviews
+  subsets:
+  - name: v3
+    labels:
+      version: v3
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings
+  http:
+  - route:
+    - destination:
+        name: ratings
+        subset: v2-mysql-vm
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ratings-destination
+spec:
+  name: ratings
+  subsets:
+  - name: v2-mysql-vm
+    labels:
+      version: v2-mysql-vm
+---

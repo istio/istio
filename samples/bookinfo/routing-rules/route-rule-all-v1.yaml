@@ -1,0 +1,103 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: productpage-route
+spec:
+  hosts:
+  - productpage
+  gateways:
+  - bookinfo-gateway
+  - mesh #TODO remove this if not needed
+  http:
+  - route:
+    - destination:
+        name: productpage
+        subset: v1
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage-destination
+spec:
+  name: productpage
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route
+spec:
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        name: reviews
+        subset: v1
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-destination
+spec:
+  name: reviews
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings-route
+spec:
+  hosts:
+  - ratings
+  http:
+  - route:
+    - destination:
+        name: ratings
+        subset: v1
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ratings-destination
+spec:
+  name: ratings
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: details-route
+spec:
+  hosts:
+  - details
+  http:
+  - route:
+    - destination:
+        name: details
+        subset: v1
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: details-destination
+spec:
+  name: details
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
