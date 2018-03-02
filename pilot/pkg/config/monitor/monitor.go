@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,99 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package file
+package monitor
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	defaultDuration = time.Second / 2
-)
-
-var (
-	supportedExtensions = map[string]bool{
-		".yaml": true,
-		".yml":  true,
-	}
-)
-
-// compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
-// 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
-func compareIds(a, b *model.Config) int {
-	// Compare Namespace
-	if v := strings.Compare(a.Namespace, b.Namespace); v != 0 {
-		return v
-	}
-	// Compare Type
-	if v := strings.Compare(a.Type, b.Type); v != 0 {
-		return v
-	}
-	// Compare Name
-	return strings.Compare(a.Name, b.Name)
-}
-
-// byKey is an array of config objects that is capable or sorting by Namespace, Type, and Name.
-type byKey []*model.Config
-
-func (rs byKey) Len() int {
-	return len(rs)
-}
-
-func (rs byKey) Swap(i, j int) {
-	rs[i], rs[j] = rs[j], rs[i]
-}
-
-func (rs byKey) Less(i, j int) bool {
-	return compareIds(rs[i], rs[j]) < 0
-}
-
-// Monitor will monitor a directory containing yaml files for changes, updating a ConfigStore as changes are
-// detected.
+// Monitor will poll a config function in order to update a ConfigStore as
+// changes are found.
 type Monitor struct {
-	store         model.ConfigStore
-	root          string
-	types         map[string]bool
-	checkDuration time.Duration
-	configs       []*model.Config
+	store           model.ConfigStore
+	checkDuration   time.Duration
+	configs         []*model.Config
+	getSnapshotFunc func() []*model.Config
 }
 
-// NewMonitor creates a new config store that monitors files under the given root directory for changes to config.
-// If no types are provided in the descriptor, all IstioConfigTypes will be allowed.
-func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, descriptor model.ConfigDescriptor) *Monitor {
+// NewMonitor creates a Monitor and will delegate to a passed in controller.
+// The controller holds a reference to the actual store.
+// Any func that returns a []*model.Config can be used with the Monitor
+func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() []*model.Config) *Monitor {
 	monitor := &Monitor{
-		store:         delegateStore,
-		root:          rootDirectory,
-		types:         map[string]bool{},
-		checkDuration: defaultDuration,
-	}
-
-	types := descriptor.Types()
-	if len(types) == 0 {
-		types = model.IstioConfigTypes.Types()
-	}
-
-	for _, k := range types {
-		if schema, ok := model.IstioConfigTypes.GetByType(k); ok {
-			monitor.types[schema.Type] = true
-		}
+		store:           delegateStore,
+		getSnapshotFunc: getSnapshotFunc,
+		checkDuration:   checkInterval,
 	}
 	return monitor
 }
 
-// Start starts the file monitor. Immediately checks the root dir to gather all files that are currently present
-// and updates the controller. It then kicks off an asynchronous event loop that periodically looks for changes to the
-// root dir (as well as the channel close event) and returns.
+// Start starts a new Monitor. Immediately checks the Monitor getSnapshotFunc
+// and updates the controller. It then kicks off an asynchronous event loop that
+// periodically polls the getSnapshotFunc for changes until a close event is sent.
 func (m *Monitor) Start(stop chan struct{}) {
 	m.checkAndUpdate()
 	tick := time.NewTicker(m.checkDuration)
@@ -123,29 +65,8 @@ func (m *Monitor) Start(stop chan struct{}) {
 	}()
 }
 
-// parseInputs is identical to crd.ParseInputs, except that it returns an array of config pointers.
-func parseInputs(data []byte) ([]*model.Config, error) {
-	configs, _, err := crd.ParseInputs(string(data))
-
-	// Convert to an array of pointers.
-	refs := make([]*model.Config, len(configs))
-	for i := range configs {
-		refs[i] = &configs[i]
-	}
-	return refs, err
-}
-
-// ParseYaml is a utility method used for testing purposes. It parses the given yaml file into an array of config
-// objects sorted them according to their keys.
-func ParseYaml(data []byte) ([]*model.Config, error) {
-	configs, err := parseInputs(data)
-	sort.Sort(byKey(configs))
-	return configs, err
-}
-
 func (m *Monitor) checkAndUpdate() {
-	// Read all of the files under the directory and sort them based on their type, name, and namespace.
-	newConfigs := m.readFiles()
+	newConfigs := m.getSnapshotFunc()
 
 	// Compare the new list to the previous one and detect changes.
 	oldLen := len(m.configs)
@@ -206,40 +127,17 @@ func (m *Monitor) deleteConfig(c *model.Config) {
 	}
 }
 
-func (m *Monitor) readFiles() []*model.Config {
-	var result []*model.Config
-
-	err := filepath.Walk(m.root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		} else if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
-			return nil
-		}
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Warnf("Failed to read %s: %v", path, err)
-			return err
-		}
-		configs, err := parseInputs(data)
-		if err != nil {
-			log.Warnf("Failed to parse %s: %v", path, err)
-			return err
-		}
-
-		// Filter any unsupported types before appending to the result.
-		for _, cfg := range configs {
-			if !m.types[cfg.Type] {
-				continue
-			}
-			result = append(result, cfg)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Warnf("failure during filepath.Walk: %v", err)
+// compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
+// 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
+func compareIds(a, b *model.Config) int {
+	// Compare Namespace
+	if v := strings.Compare(a.Namespace, b.Namespace); v != 0 {
+		return v
 	}
-
-	// Sort by the config IDs.
-	sort.Sort(byKey(result))
-	return result
+	// Compare Type
+	if v := strings.Compare(a.Type, b.Type); v != 0 {
+		return v
+	}
+	// Compare Name
+	return strings.Compare(a.Name, b.Name)
 }

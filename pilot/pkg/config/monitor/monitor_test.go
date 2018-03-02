@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,243 +12,122 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package file_test
+package monitor_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
-	"reflect"
+	"errors"
 	"testing"
+	"time"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd/file"
+	"github.com/onsi/gomega"
+
+	v2routing "istio.io/api/routing/v1alpha2"
+
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 )
 
-var (
-	files = []string{
-		"cb-policy.yaml",
-		"egress-rule.yaml",
-		"egress-rule-cb-policy.yaml",
-		"egress-rule-timeout-route-rule.yaml",
-		"fault-route.yaml",
-		"ingress-route-foo.yaml",
-		"ingress-route-world.yaml",
-		"multi-rule.yaml",
-		"redirect-route.yaml",
-		"rewrite-route.yaml",
-		"timeout-route-rule.yaml",
-		"websocket-route.yaml",
-		"weighted-route.yaml",
-	}
-)
+const checkInterval = 100 * time.Millisecond
 
-func createTempDir() string {
-	// Make the temporary directory
-	dir, _ := ioutil.TempDir("/tmp/", "monitor")
-	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
-	return dir
+var createConfigSet = []*model.Config{
+	{
+		ConfigMeta: model.ConfigMeta{
+			Name: "magic",
+			Type: "gateway",
+		},
+		Spec: &v2routing.Gateway{
+			Servers: []*v2routing.Server{
+				{
+					Port: &v2routing.Port{
+						Number:   80,
+						Protocol: "HTTP",
+					},
+					Hosts: []string{"*.example.com"},
+				},
+			},
+		},
+	},
 }
 
-type event struct {
-	config model.Config
-	event  model.Event
+var updateConfigSet = []*model.Config{
+	{
+		ConfigMeta: model.ConfigMeta{
+			Name: "magic",
+			Type: "gateway",
+		},
+		Spec: &v2routing.Gateway{
+			Servers: []*v2routing.Server{
+				{
+					Port: &v2routing.Port{
+						Number:   80,
+						Protocol: "HTTPS",
+					},
+					Hosts: []string{"*.example.com"},
+				},
+			},
+		},
+	},
 }
 
-type controllerManager struct {
-	controller model.ConfigStoreCache
-}
+func TestMonitorForChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-func (cm *controllerManager) setup(events chan event, stop chan struct{}) {
-	store := memory.Make(model.IstioConfigTypes)
-	cm.controller = memory.NewBufferedController(store, 100)
+	configDescriptor := model.ConfigDescriptor{model.Gateway}
 
-	// Register changes to the repository
-	for _, s := range model.IstioConfigTypes.Types() {
-		cm.controller.RegisterEventHandler(s, func(config model.Config, ev model.Event) {
-			events <- event{
-				config: config,
-				event:  ev,
-			}
-		})
-	}
+	store := memory.Make(configDescriptor)
 
-	// Run the controller.
-	go cm.controller.Run(stop)
-}
+	var (
+		callCount int
+		configs   []*model.Config
+	)
 
-type env struct {
-	stop              chan struct{}
-	controllerManager controllerManager
-	events            chan event
-	fsroot            string
-	monitor           *file.Monitor
-}
-
-func (e *env) setup(tempDir string) {
-	e.events = make(chan event)
-	e.stop = make(chan struct{})
-
-	// Create and setup the controller.
-	e.controllerManager = controllerManager{}
-	e.controllerManager.setup(e.events, e.stop)
-
-	e.fsroot = tempDir
-
-	// Make all of the updates go through the controller so that the events are triggered.
-	e.monitor = file.NewMonitor(e.controllerManager.controller, e.fsroot, nil)
-
-	// Start the monitor. This will immediately check fsroot and update the controller accordingly.
-	e.monitor.Start(e.stop)
-}
-
-func (e *env) teardown() {
-	close(e.stop)
-
-	// Remove the temp dir.
-	_ = os.RemoveAll(e.fsroot)
-}
-
-func (e *env) watchFor(eventType model.Event) event {
-	var ev event
-	for ev = range e.events {
-		if ev.event == eventType {
-			break
+	someConfigFunc := func() []*model.Config {
+		switch callCount {
+		case 0:
+			configs = createConfigSet
+		case 3:
+			configs = updateConfigSet
+		case 8:
+			configs = []*model.Config{}
 		}
+
+		callCount++
+		return configs
 	}
-	return ev
-}
+	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }() // shut it down
+	mon.Start(stop)
 
-func copyTestFile(fileName string, toDir string) error {
-	return copyFile(path.Join("testdata", fileName), path.Join(toDir, fileName))
-}
+	g.Eventually(func() error {
+		c, err := store.List("gateway", "")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-func copyFile(src, dst string) error {
-	data, err := ioutil.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(dst, data, os.ModePerm)
-}
-
-func parseFile(path string) ([]*model.Config, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return file.ParseYaml(data)
-}
-
-func TestAdd(t *testing.T) {
-	e := env{}
-	e.setup(createTempDir())
-	defer e.teardown()
-
-	for _, fileName := range files {
-		t.Run(fileName, func(t *testing.T) {
-			// Get the configuration that we expect to be added.
-			expectedCfgs, err := parseFile("testdata/" + fileName)
-			if err != nil {
-				t.Fatalf("Unable to parse config: %s", fileName)
-			}
-
-			// Add the configuration.
-			if err := copyTestFile(fileName, e.fsroot); err != nil {
-				t.Fatalf("Failed adding config file: %s", fileName)
-			}
-
-			// Need to clear the resource version before comparing.
-			for _, expectedCfg := range expectedCfgs {
-				// Wait for the add to occur.
-				event := <-e.events
-
-				// Verify that the configuration was added properly.
-				if event.event != model.EventAdd {
-					t.Fatalf("event: %s wanted: %s", event.event, model.EventAdd)
-				}
-
-				if !reflect.DeepEqual(*expectedCfg, event.config) {
-					t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
-				}
-			}
-		})
-	}
-}
-
-func TestDelete(t *testing.T) {
-	// Copy all of the files over to the temp dir before initializing the environment.
-	tempDir := createTempDir()
-	for _, fileName := range files {
-		if err := copyTestFile(fileName, tempDir); err != nil {
-			t.Fatalf("Failed adding config file: %s", fileName)
-			return
+		if len(c) != 1 {
+			return errors.New("no configs")
 		}
-	}
 
-	e := env{}
-	e.setup(tempDir)
-	defer e.teardown()
-
-	for _, fileName := range files {
-		t.Run(fileName, func(t *testing.T) {
-			// Get the configuration that we expect to be deleted
-			expectedCfgs, err := parseFile("testdata/" + fileName)
-			if err != nil {
-				t.Fatalf("Unable to parse config: %s", fileName)
-			}
-
-			err = os.Remove(path.Join(e.fsroot, fileName))
-			if err != nil {
-				t.Fatalf("Unable to remove file: %s", fileName)
-			}
-
-			// Need to clear the resource version before comparing.
-			for _, expectedCfg := range expectedCfgs {
-				event := e.watchFor(model.EventDelete)
-
-				// Need to clear the resource version before comparing.
-				event.config.ResourceVersion = ""
-				if !reflect.DeepEqual(*expectedCfg, event.config) {
-					t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
-				}
-			}
-		})
-	}
-}
-
-func TestUpdate(t *testing.T) {
-	// Copy all of the files over to the temp dir before initializing the environment.
-	tempDir := createTempDir()
-	for _, fileName := range files {
-		if err := copyTestFile(fileName, tempDir); err != nil {
-			t.Fatalf("Failed adding config file: %s", fileName)
-			return
+		if c[0].ConfigMeta.Name != "magic" {
+			return errors.New("wrong config")
 		}
-	}
 
-	e := env{}
-	e.setup(tempDir)
-	defer e.teardown()
+		return nil
+	}).Should(gomega.Succeed())
 
-	// Overwrite the original file with the updated.
-	updateFilePath := "testdata/cb-policy.yaml.update"
-	_ = copyFile(updateFilePath, path.Join(e.fsroot, "cb-policy.yaml"))
+	g.Eventually(func() error {
+		c, err := store.List("gateway", "")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	// Get the configuration that we expect to be deleted
-	expectedCfgs, err := parseFile(updateFilePath)
-	if err != nil {
-		t.Fatalf("Unable to parse config: %s", updateFilePath)
-	}
-
-	// Need to clear the resource version before comparing.
-	for _, expectedCfg := range expectedCfgs {
-		event := e.watchFor(model.EventUpdate)
-
-		// Need to clear the resource version before comparing.
-		event.config.ResourceVersion = ""
-		if !reflect.DeepEqual(*expectedCfg, event.config) {
-			t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
+		gateway := c[0].Spec.(*v2routing.Gateway)
+		if gateway.Servers[0].Port.Protocol != "HTTPS" {
+			return errors.New("Protocol has not been updated")
 		}
-	}
+
+		return nil
+	}).Should(gomega.Succeed())
+
+	g.Eventually(func() ([]model.Config, error) {
+		return store.List("gateway", "")
+	}).Should(gomega.HaveLen(0))
 }
