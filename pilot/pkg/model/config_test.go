@@ -570,7 +570,7 @@ func TestPolicy(t *testing.T) {
 	}
 }
 
-func TestAuthenticationPolicy(t *testing.T) {
+func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{

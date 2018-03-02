@@ -451,8 +451,8 @@ var (
 	AuthenticationPolicy = ProtoSchema{
 		Type:        "policy",
 		Plural:      "policies",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "authentication",
+		Version:     "v1alpha1",
 		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
 	}
