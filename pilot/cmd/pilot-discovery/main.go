@@ -34,7 +34,7 @@ import (
 var (
 	serverArgs bootstrap.PilotArgs
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-discovery",

@@ -70,7 +70,7 @@ var (
 	// output format (yaml or short)
 	outputFormat string
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",

@@ -27,7 +27,7 @@ var sugar = logger.Sugar()
 
 func init() {
 	// use our defaults for starters so that logging works even before everything is fully configured
-	_ = Configure(NewOptions())
+	_ = Configure(DefaultOptions())
 }
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
