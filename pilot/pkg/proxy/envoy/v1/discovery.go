@@ -823,7 +823,12 @@ func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodNam
 		incWebhookErrors(methodName)
 		return nil, err
 	}
-
+	
+	if resp.StatusCode != 200 {
+		incWebhookErrors(methodName)
+		return nil, fmt.Errorf("statusCode: %v - %v", resp.StatusCode, resp.Status)
+	}
+	
 	defer resp.Body.Close() // nolint: errcheck
 
 	out, err := ioutil.ReadAll(resp.Body)
