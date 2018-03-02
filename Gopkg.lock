@@ -234,11 +234,15 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/service/discovery/v2",
     "pkg/cache",
-    "pkg/server"
+    "pkg/log",
+    "pkg/server",
+    "pkg/util"
   ]
-  revision = "e0ebc95432196ce43dae88cc2822983466210656"
+  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -1462,6 +1466,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "42fa1dac062355b577abc8383825b73c29b79fcfae9631a2a63f824a29c0d069"
+  inputs-digest = "a141285fea5a60d06e0e07507e7482df7a08229ed66e389e9a0b5184ddaa8751"
   solver-name = "gps-cdcl"
   solver-version = 1
