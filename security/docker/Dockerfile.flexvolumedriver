@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM alpine:3.7
 
 RUN mkdir -p /usr/local/bin
 ADD flexvolumedriver.sh /usr/local/bin/

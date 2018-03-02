@@ -1,0 +1,27 @@
+# This file is to test flexvolume feature
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ubuntu
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ubuntu
+        version: v1
+    spec:
+      containers:
+      - name: ubuntu
+        image: ubuntu
+        imagePullPolicy: IfNotPresent
+        command:
+         - sleep
+         - infinity
+        volumeMounts:
+        - mountPath: /tmp/udsver
+          name: test-volume
+      volumes:
+        - name: test-volume
+          flexVolume:
+            driver: nodeagent/uds
