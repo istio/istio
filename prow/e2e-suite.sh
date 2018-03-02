@@ -91,7 +91,9 @@ if ${SINGLE_MODE}; then
     for T in ${TEST_TARGETS[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
-            time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make "${SINGLE_TEST}"
+            time ISTIO_DOCKER_HUB=$HUB \
+              E2E_ARGS="${E2E_ARGS[@]}" \
+              make "${SINGLE_TEST}"
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
@@ -102,10 +104,8 @@ if ${SINGLE_MODE}; then
 
 else
     echo "Executing e2e test suite"
-    time ISTIO_DOCKER_HUB=$HUB E2E_ARGS="${E2E_ARGS[@]}" make e2e_all
-fi
-
-if [ "${CI:-}" == 'bootstrap' ] && [ -f junit.xml ]; then
-  # allow bootsrap to upload junit results
-  mv junit.xml ${ARTIFACTS_DIR}
+    time ISTIO_DOCKER_HUB=$HUB \
+      E2E_ARGS="${E2E_ARGS[@]}" \
+      JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e_all.xml" \
+      make e2e_all
 fi
