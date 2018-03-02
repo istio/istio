@@ -69,7 +69,7 @@ type Client struct {
 }
 
 type restClient struct {
-	apiVersion *schema.GroupVersion
+	apiVersion schema.GroupVersion
 
 	// descriptor from the same apiVerion.
 	descriptor model.ConfigDescriptor
@@ -99,21 +99,19 @@ func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
 			return fmt.Errorf("missing known type for %q", typ.Type)
 		}
 
-		k := apiVersion(&typ)
-		if v, ok := cl.clientset[k]; !ok {
-			rc := new(restClient)
-			rc.apiVersion = &schema.GroupVersion{
-				ResourceGroup(&typ),
-				typ.Version,
+		rc, ok := cl.clientset[apiVersion(&typ)]
+		if !ok {
+			// create a new client if one doesn't already exist
+			rc = &restClient{
+				apiVersion: schema.GroupVersion{
+					ResourceGroup(&typ),
+					typ.Version,
+				},
 			}
-
-			rc.descriptor = append(rc.descriptor, typ)
-			rc.types = append(rc.types, &s)
-			cl.clientset[k] = rc
-		} else {
-			v.descriptor = append(v.descriptor, typ)
-			v.types = append(v.types, &s)
+			cl.clientset[apiVersion(&typ)] = rc
 		}
+		rc.descriptor = append(rc.descriptor, typ)
+		rc.types = append(rc.types, &s)
 	}
 	return nil
 }
@@ -146,7 +144,7 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 		return
 	}
 
-	config.GroupVersion = rc.apiVersion
+	config.GroupVersion = &rc.apiVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
@@ -154,9 +152,9 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
 			for _, kind := range rc.types {
-				scheme.AddKnownTypes(*rc.apiVersion, kind.object, kind.collection)
+				scheme.AddKnownTypes(rc.apiVersion, kind.object, kind.collection)
 			}
-			meta_v1.AddToGroupVersion(scheme, *rc.apiVersion)
+			meta_v1.AddToGroupVersion(scheme, rc.apiVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
@@ -315,6 +313,7 @@ func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 	}
 	rc, ok := cl.clientset[apiVersion(&s.schema)]
 	if !ok {
+		log.Warn("cannot find client for type " + typ)
 		return nil, false
 	}
 

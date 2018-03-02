@@ -27,8 +27,8 @@ import (
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routing2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/util"
@@ -50,14 +50,14 @@ var (
 		},
 	}
 
-	// ExampleV1Alpha2RouteRule is an example V2 route rule
-	ExampleV1Alpha2RouteRule = &routing2.RouteRule{
+	// ExampleVirtualService is an example V2 route rule
+	ExampleVirtualService = &networking.VirtualService{
 		Hosts: []string{"prod", "test"},
-		Http: []*routing2.HTTPRoute{
+		Http: []*networking.HTTPRoute{
 			{
-				Route: []*routing2.DestinationWeight{
+				Route: []*networking.DestinationWeight{
 					{
-						Destination: &routing2.Destination{
+						Destination: &networking.Destination{
 							Name: "job",
 						},
 						Weight: 80,
@@ -68,11 +68,11 @@ var (
 	}
 
 	// ExampleDestinationRule is an example destination rule
-	ExampleDestinationRule = &routing2.DestinationRule{
+	ExampleDestinationRule = &networking.DestinationRule{
 		Name: "ratings",
-		TrafficPolicy: &routing2.TrafficPolicy{
-			LoadBalancer: &routing2.LoadBalancerSettings{
-				new(routing2.LoadBalancerSettings_Simple),
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				new(networking.LoadBalancerSettings_Simple),
 			},
 		},
 	}
@@ -420,7 +420,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		spec proto.Message
 	}{
 		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
-		{"V1Alpha2RouteRule", model.V1alpha2RouteRule.Type, ExampleV1Alpha2RouteRule},
+		{"VirtualService", model.VirtualService.Type, ExampleVirtualService},
 		{"DestinationRule", model.DestinationRule.Type, ExampleDestinationRule},
 		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
 		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
