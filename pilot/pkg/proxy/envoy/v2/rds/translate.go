@@ -141,7 +141,7 @@ func TranslateVirtualHosts(
 
 // MatchServiceHosts splits the virtual service hosts into services and literal hosts
 func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, []*model.Service) {
-	rule := in.Spec.(*routingv2.RouteRule)
+	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
@@ -193,7 +193,7 @@ func TranslateDestination(
 	subsetSelector SubsetSelector,
 	contextNamespace string,
 	defaultPort int) ClusterNaming {
-	return func(destination *routingv2.Destination) string {
+	return func(destination *networking.Destination) string {
 		// detect if it is a service
 		svc := serviceByName(destination.Name, contextNamespace)
 
@@ -206,9 +206,9 @@ func TranslateDestination(
 		svcPort, _ := svc.Ports.GetByPort(defaultPort)
 		if destination.Port != nil {
 			switch selector := destination.Port.Port.(type) {
-			case *routingv2.PortSelector_Name:
+			case *networking.PortSelector_Name:
 				svcPort, _ = svc.Ports.Get(selector.Name)
-			case *routingv2.PortSelector_Number:
+			case *networking.PortSelector_Number:
 				svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
 			}
 		}
@@ -225,7 +225,7 @@ func TranslateDestination(
 }
 
 // ClusterNaming specifies cluster name for a destination
-type ClusterNaming func(*routingv2.Destination) string
+type ClusterNaming func(*networking.Destination) string
 
 // GuardedRoute are routes for a destination guarded by deployment conditions.
 type GuardedRoute struct {
@@ -242,7 +242,7 @@ type GuardedRoute struct {
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
-	rule, ok := in.Spec.(*routingv2.RouteRule)
+	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
 		return nil
 	}
