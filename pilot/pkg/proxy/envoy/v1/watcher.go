@@ -81,6 +81,10 @@ const (
 	azRetryAttempts = 10
 )
 
+// pilotListenerAddress is the proxy listener to pilot
+// It allows code running in the istio-proxy container (UID) to make a request to pilot even with mtls enabled
+var pilotListenerAddress = "127.0.0.1:15005"
+
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
 	go w.agent.Run(ctx)
@@ -123,7 +127,7 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:15005/v1/az/%v/%v", w.config.ServiceCluster, w.role.ServiceNode()))
+		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", pilotListenerAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
