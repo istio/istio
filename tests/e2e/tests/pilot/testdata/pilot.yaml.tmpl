@@ -81,7 +81,7 @@ spec:
       containers:
       - name: discovery
         image: {{.Hub}}/pilot:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         args:
         - discovery
         - -a
@@ -126,7 +126,7 @@ spec:
 {{end}}
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 15003
         - containerPort: 15005
