@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package rds
 
 import (
 	"fmt"
@@ -71,6 +71,18 @@ type GuardedHost struct {
 	Routes []GuardedRoute
 }
 
+// TranslateServiceHostname matches a host against a model service.
+// This cannot be externalized to core model until the registries understand namespaces.
+func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
+	return func(host string, contextNamespace string) *model.Service {
+		if strings.Contains(host, ".") {
+			return services[host]
+		}
+
+		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
+	}
+}
+
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha2 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
@@ -80,14 +92,7 @@ func TranslateVirtualHosts(
 	subsetSelector SubsetSelector,
 	clusterDomain string) []GuardedHost {
 	out := make([]GuardedHost, 0)
-
-	serviceByName := func(host string, contextNamespace string) *model.Service {
-		if strings.Contains(host, ".") {
-			return services[host]
-		}
-
-		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
-	}
+	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {

@@ -99,7 +99,7 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 
 	service := model.Service{Hostname: address}
 	key := service.Key(port, labels)
-	clusterName := truncateClusterName(OutboundClusterPrefix + key)
+	clusterName := TruncateClusterName(OutboundClusterPrefix + key)
 
 	// will only be populated with discovery type dns or static
 	hosts := make([]Host, 0)

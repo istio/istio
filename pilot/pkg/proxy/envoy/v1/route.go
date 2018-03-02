@@ -145,7 +145,7 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
-	name := truncateClusterName(OutboundClusterPrefix + key)
+	name := TruncateClusterName(OutboundClusterPrefix + key)
 	clusterType := ClusterTypeSDS
 
 	if isExternal {
@@ -649,7 +649,7 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 
 func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
-		Name:             truncateClusterName(OutboundClusterPrefix + name),
+		Name:             TruncateClusterName(OutboundClusterPrefix + name),
 		Type:             ClusterTypeOriginalDST,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
 		LbType:           LbTypeOriginalDST,
