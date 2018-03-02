@@ -13,7 +13,8 @@ spec:
     spec:
       initContainers:
       - name: flexvol-driver
-        image: gcr.io/istio-testing/flexvol:latest
+        image: gcr.io/kubernetes-1-151323/flexvolumedriver:yongggg
+        #image: gcr.io/istio-testing/flexvol:latest
         volumeMounts:
         - name: flexvol-driver-host
           mountPath: /host/driver
