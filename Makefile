@@ -643,6 +643,7 @@ show.goenv: ; $(info $(H) go environment...)
 	$(Q) $(GO) version
 	$(Q) $(GO) env
 
+# tickle
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
