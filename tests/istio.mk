@@ -93,3 +93,18 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
          --ns istio-system \
         -n istio-test \
            ${TESTOPTS}
+
+# Target for running e2e pilot in a minikube env. Used by CI
+test/minikube/noauth/e2e_pilot: istioctl generate_yaml
+	mkdir -p ${OUT_DIR}/logs
+	kubectl create ns istio-system || true
+	kubectl create ns istio-test || true
+	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+		-hub ${HUB} -tag ${TAG} \
+		--skip-cleanup --mixer=true \
+		-errorlogsdir=${OUT_DIR}/logs \
+		--use-sidecar-injector=false \
+		--core-files-dir=${OUT_DIR}/logs \
+         --ns istio-system \
+        -n istio-test \
+           ${TESTOPTS}
