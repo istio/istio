@@ -50,7 +50,7 @@ var (
 		},
 	}
 
-	// ExampleV1Alpha2RouteRule is an example route rule
+	// ExampleV1Alpha2RouteRule is an example V2 route rule
 	ExampleV1Alpha2RouteRule = &routing2.RouteRule{
 		Hosts: []string{"prod", "test"},
 		Http: []*routing2.HTTPRoute{
@@ -67,24 +67,7 @@ var (
 		},
 	}
 
-	//     apiVersion: config.istio.io/v1alpha2
-	//     kind: DestinationRule
-	//     metadata:
-	//       name: bookinfo-ratings
-	//     spec:
-	//       name: ratings
-	//       trafficPolicy:
-	//         loadBalancer:
-	//           simple: LEAST_CONN
-	//       subsets:
-	//       - name: testversion
-	//         labels:
-	//           version: v3
-	//         trafficPolicy:
-	//           loadBalancer:
-	//             simple: ROUND_ROBIN
-
-	// ExampleDestinationRule is an example route rule
+	// ExampleDestinationRule is an example destination rule
 	ExampleDestinationRule = &routing2.DestinationRule{
 		Name: "ratings",
 		TrafficPolicy: &routing2.TrafficPolicy{
@@ -147,6 +130,22 @@ var (
 		}},
 	}
 
+	// ExampleHTTPAPISpecBinding is an example HTTPAPISpecBinding
+	ExampleHTTPAPISpecBinding = &mccpb.HTTPAPISpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		ApiSpecs: []*mccpb.HTTPAPISpecReference{
+			{
+				Name:      "petstore",
+				Namespace: "default",
+			},
+		},
+	}
+
 	// ExampleQuotaSpec is an example QuotaSpec
 	ExampleQuotaSpec = &mccpb.QuotaSpec{
 		Rules: []*mccpb.QuotaRule{{
@@ -166,6 +165,22 @@ var (
 		}},
 	}
 
+	// ExampleQuotaSpecBinding is an example QuotaSpecBinding
+	ExampleQuotaSpecBinding = &mccpb.QuotaSpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+			{
+				Name:      "fooQuota",
+				Namespace: "default",
+			},
+		},
+	}
+
 	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
 	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
 		Jwts: []*mccpb.JWT{
@@ -183,6 +198,22 @@ var (
 						Header: "x-goog-iap-jwt-assertion",
 					},
 				}},
+			},
+		},
+	}
+
+	// ExampleEndUserAuthenticationPolicySpecBinding is an example EndUserAuthenticationPolicySpecBinding
+	ExampleEndUserAuthenticationPolicySpecBinding = &mccpb.EndUserAuthenticationPolicySpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{
+			{
+				Name:      "fooPolicy",
+				Namespace: "default",
 			},
 		},
 	}
@@ -395,9 +426,13 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
 		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding.Type, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
+		{"QuotaSpecBinding", model.QuotaSpecBinding.Type, ExampleQuotaSpecBinding},
 		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
 			ExampleEndUserAuthenticationPolicySpec},
+		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding.Type,
+			ExampleEndUserAuthenticationPolicySpecBinding},
 	}
 
 	for _, c := range cases {

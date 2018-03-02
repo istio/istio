@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,14 +34,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 )
 
 // IstioObject is a k8s wrapper interface for config objects
