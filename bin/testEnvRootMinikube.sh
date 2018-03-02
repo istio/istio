@@ -46,7 +46,7 @@ function startMinikubeNone() {
     export CHANGE_MINIKUBE_NONE_USER=true
     sudo -E minikube start \
             --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=${K8S_VER} --vm-driver=none
+            --kubernetes-version=v1.9.0 --vm-driver=none
     sudo -E minikube update-context
     sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
 }
