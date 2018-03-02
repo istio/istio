@@ -446,7 +446,8 @@ jobs:
       TAG: circleci-nightly
     steps:
       - checkout
-      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
