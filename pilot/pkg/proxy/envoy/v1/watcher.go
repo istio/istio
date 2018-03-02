@@ -123,7 +123,7 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:15005/v1/az/%v/%v", w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
