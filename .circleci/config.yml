@@ -47,6 +47,7 @@ jobs:
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
+            ls -l /go/bin
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
