@@ -3,10 +3,10 @@
 export K8S_VER=${K8S_VER:-v1.9.2}
 
 if [ ! -f /usr/local/bin/minikube ]; then
-   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 fi
 if [ ! -f /usr/local/bin/kubectl ]; then
-   curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+   curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.9.1/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 
 
@@ -35,8 +35,8 @@ function startMinikubeNone() {
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
     sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
+           --extra-config=apiserver.Admission.PluginNames=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota \
+            --kubernetes-version=v1.9.0 --vm-driver=none 
     sudo -E minikube update-context
     sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
 }
