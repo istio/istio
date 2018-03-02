@@ -22,7 +22,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pilot/cmd"

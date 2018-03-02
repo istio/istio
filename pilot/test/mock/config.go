@@ -27,6 +27,7 @@ import (
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
@@ -46,6 +47,33 @@ var (
 		Route: []*routing.DestinationWeight{
 			{Weight: 80, Labels: map[string]string{"version": "v1"}},
 			{Weight: 20, Labels: map[string]string{"version": "v2"}},
+		},
+	}
+
+	// ExampleVirtualService is an example V2 route rule
+	ExampleVirtualService = &networking.VirtualService{
+		Hosts: []string{"prod", "test"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Name: "job",
+						},
+						Weight: 80,
+					},
+				},
+			},
+		},
+	}
+
+	// ExampleDestinationRule is an example destination rule
+	ExampleDestinationRule = &networking.DestinationRule{
+		Name: "ratings",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				new(networking.LoadBalancerSettings_Simple),
+			},
 		},
 	}
 
@@ -102,6 +130,22 @@ var (
 		}},
 	}
 
+	// ExampleHTTPAPISpecBinding is an example HTTPAPISpecBinding
+	ExampleHTTPAPISpecBinding = &mccpb.HTTPAPISpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		ApiSpecs: []*mccpb.HTTPAPISpecReference{
+			{
+				Name:      "petstore",
+				Namespace: "default",
+			},
+		},
+	}
+
 	// ExampleQuotaSpec is an example QuotaSpec
 	ExampleQuotaSpec = &mccpb.QuotaSpec{
 		Rules: []*mccpb.QuotaRule{{
@@ -119,6 +163,22 @@ var (
 				Charge: 2,
 			}},
 		}},
+	}
+
+	// ExampleQuotaSpecBinding is an example QuotaSpecBinding
+	ExampleQuotaSpecBinding = &mccpb.QuotaSpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+			{
+				Name:      "fooQuota",
+				Namespace: "default",
+			},
+		},
 	}
 
 	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
@@ -141,6 +201,22 @@ var (
 			},
 		},
 	}
+
+	// ExampleEndUserAuthenticationPolicySpecBinding is an example EndUserAuthenticationPolicySpecBinding
+	ExampleEndUserAuthenticationPolicySpecBinding = &mccpb.EndUserAuthenticationPolicySpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{
+			{
+				Name:      "fooPolicy",
+				Namespace: "default",
+			},
+		},
+	}
 )
 
 // Make creates a mock config indexed by a number
@@ -149,8 +225,8 @@ func Make(namespace string, i int) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.MockConfig.Type,
-			Group:     "config.istio.io",
-			Version:   "v1alpha2",
+			Group:     "test.istio.io",
+			Version:   "v1",
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
@@ -344,13 +420,19 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		spec proto.Message
 	}{
 		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
+		{"VirtualService", model.VirtualService.Type, ExampleVirtualService},
+		{"DestinationRule", model.DestinationRule.Type, ExampleDestinationRule},
 		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
 		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
 		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding.Type, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
+		{"QuotaSpecBinding", model.QuotaSpecBinding.Type, ExampleQuotaSpecBinding},
 		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
 			ExampleEndUserAuthenticationPolicySpec},
+		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding.Type,
+			ExampleEndUserAuthenticationPolicySpecBinding},
 	}
 
 	for _, c := range cases {
@@ -358,6 +440,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 			ConfigMeta: model.ConfigMeta{
 				Type:      c.typ,
 				Name:      name,
+				Group:     "config.istio.io",
+				Version:   "v1alpha2",
 				Namespace: namespace,
 			},
 			Spec: c.spec,

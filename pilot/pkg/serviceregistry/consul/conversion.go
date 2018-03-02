@@ -20,10 +20,9 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 const (
