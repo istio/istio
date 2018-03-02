@@ -18,16 +18,21 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"log"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	//"k8s.io/client-go/discovery/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	//"istio.io/istio/broker/pkg/controller"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -82,10 +87,103 @@ func TestSecretController(t *testing.T) {
 			saToAdd:         createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{},
 		},
+		"adding service account retries when failed": {
+			saToAdd: createServiceAccount("test", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
+		// TODO(jianfeih): maybe like this to inject the error?
+		f := client.Fake
+		callCount := 0
+
+		// PrependReactor to ensure action handled by our handler.
+		f.PrependReactor("get", "resource", func(ktesting.Action) (bool, runtime.Object, error) {
+			callCount++
+			if callCount < secretCreationRetry {
+				return true, nil, errors.New("failed to create secret deliberately")
+			}
+			//f.Resources[0].APIResources = append(
+			//	f.Resources[0].APIResources,
+			//	metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
+			//)
+			return true, nil, nil
+		})
+
+		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+			client.CoreV1(), metav1.NamespaceAll)
+		if err != nil {
+			t.Errorf("failed to create secret controller: %v", err)
+		}
+
+		if tc.existingSecret != nil {
+			err := controller.scrtStore.Add(tc.existingSecret)
+			if err != nil {
+				t.Errorf("Failed to add a secret (error %v)", err)
+			}
+		}
+
+		if tc.saToAdd != nil {
+			controller.saAdded(tc.saToAdd)
+		}
+		if tc.saToDelete != nil {
+			controller.saDeleted(tc.saToDelete)
+		}
+		if tc.sasToUpdate != nil {
+			controller.saUpdated(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
+		}
+
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Case %q: %s", k, err.Error())
+		}
+	}
+}
+
+func TestRetry(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+	testCases := map[string]struct {
+		existingSecret  *v1.Secret
+		saToAdd         *v1.ServiceAccount
+		saToDelete      *v1.ServiceAccount
+		sasToUpdate     *updatedSas
+		expectedActions []ktesting.Action
+	}{
+		"adding service account retries when failed": {
+			saToAdd: createServiceAccount("test", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		client := fake.NewSimpleClientset()
+
+		f := &client.Fake
+		callCount := 0
+		f.ReactionChain = []ktesting.Reactor{}
+
+		// PrependReactor to ensure action handled by our handler.
+		f.PrependReactor("*", "*", func(a ktesting.Action) (bool, runtime.Object, error) {
+			callCount++
+			log.Printf("jianfeih debug, reactor called, action")
+			if callCount < secretCreationRetry {
+				return true, nil, errors.New("failed to create secret deliberately")
+			}
+			return true, nil, nil
+		})
+
+		//log.Printf("jianfeih debug fake's reactor chain len %v, %v", len(f.ReactionChain), f.ReactionChain)
+
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
 			client.CoreV1(), metav1.NamespaceAll)
 		if err != nil {
