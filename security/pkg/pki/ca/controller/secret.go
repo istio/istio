@@ -56,6 +56,9 @@ const (
 
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
+
+	// The number of retries when requesting to create secret.
+	secretCreationRetry = 3
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -207,9 +210,21 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		PrivateKeyID: key,
 		RootCertID:   rootCert,
 	}
-	_, err = sc.core.Secrets(saNamespace).Create(secret)
+
+	// We retry several times when create secret to mitigate transient network failures.
+	for i := 0; i < secretCreationRetry; i++ {
+		_, err = sc.core.Secrets(saNamespace).Create(secret)
+		if err == nil {
+			break
+		} else {
+			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		}
+		time.Sleep(time.Second)
+	}
+
 	if err != nil {
-		log.Errorf("Failed to create secret (error: %s)", err)
+		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
+			saName, err, secretCreationRetry)
 		return
 	}
 
