@@ -35,8 +35,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 )
 
 const (
@@ -885,7 +885,7 @@ func ValidateIngressRule(msg proto.Message) error {
 
 // ValidateGateway checks gateway specifications
 func ValidateGateway(msg proto.Message) (errs error) {
-	value, ok := msg.(*routingv2.Gateway)
+	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
 		return
@@ -901,7 +901,7 @@ func ValidateGateway(msg proto.Message) (errs error) {
 	return errs
 }
 
-func validateServer(server *routingv2.Server) (errs error) {
+func validateServer(server *networking.Server) (errs error) {
 	if len(server.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
@@ -918,7 +918,7 @@ func validateServer(server *routingv2.Server) (errs error) {
 	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
 }
 
-func validateServerPort(port *routingv2.Port) (errs error) {
+func validateServerPort(port *networking.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
@@ -933,16 +933,16 @@ func validateServerPort(port *routingv2.Port) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
+func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == routingv2.Server_TLSOptions_SIMPLE {
+	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
-	} else if tls.Mode == routingv2.Server_TLSOptions_MUTUAL {
+	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -1080,7 +1080,7 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 
 // ValidateDestinationRule checks proxy policies
 func ValidateDestinationRule(msg proto.Message) (errs error) {
-	rule, ok := msg.(*routingv2.DestinationRule)
+	rule, ok := msg.(*networking.DestinationRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to destination rule")
 	}
@@ -1096,7 +1096,7 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 	return
 }
 
-func validateTrafficPolicy(policy *routingv2.TrafficPolicy) error {
+func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
@@ -1109,7 +1109,7 @@ func validateTrafficPolicy(policy *routingv2.TrafficPolicy) error {
 		validateLoadBalancer(policy.LoadBalancer))
 }
 
-func validateOutlierDetection(outlier *routingv2.OutlierDetection) (errs error) {
+func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
 	if outlier == nil {
 		return
 	}
@@ -1132,7 +1132,7 @@ func validateOutlierDetection(outlier *routingv2.OutlierDetection) (errs error) 
 	return
 }
 
-func validateConnectionPool(settings *routingv2.ConnectionPoolSettings) (errs error) {
+func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs error) {
 	if settings == nil {
 		return
 	}
@@ -1167,7 +1167,7 @@ func validateConnectionPool(settings *routingv2.ConnectionPoolSettings) (errs er
 	return
 }
 
-func validateLoadBalancer(settings *routingv2.LoadBalancerSettings) (errs error) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error) {
 	if settings == nil {
 		return
 	}
@@ -1178,7 +1178,7 @@ func validateLoadBalancer(settings *routingv2.LoadBalancerSettings) (errs error)
 	return
 }
 
-func validateSubset(subset *routingv2.Subset) error {
+func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		Labels(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
@@ -1728,9 +1728,9 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 	return errs
 }
 
-// ValidateRouteRuleV2 checks that a v1alpha2 route rule is well-formed.
-func ValidateRouteRuleV2(msg proto.Message) (errs error) {
-	routeRule, ok := msg.(*routingv2.RouteRule)
+// ValidateVirtualService checks that a v1alpha2 route rule is well-formed.
+func ValidateVirtualService(msg proto.Message) (errs error) {
+	routeRule, ok := msg.(*networking.VirtualService)
 	if !ok {
 		return errors.New("cannot cast to v1alpha2 routing rule")
 	}
@@ -1767,7 +1767,7 @@ func validateHost(host string) error {
 	return nil
 }
 
-func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
+func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	// check for conflicts
 	if http.Redirect != nil {
 		if len(http.Route) > 0 {
@@ -1823,7 +1823,7 @@ func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
 	return
 }
 
-func validateCORSPolicy(policy *routingv2.CorsPolicy) (errs error) {
+func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	if policy == nil {
 		return
 	}
@@ -1861,7 +1861,7 @@ func validateHTTPMethod(method string) error {
 	return nil
 }
 
-func validateHTTPFaultInjection(fault *routingv2.HTTPFaultInjection) (errs error) {
+func validateHTTPFaultInjection(fault *networking.HTTPFaultInjection) (errs error) {
 	if fault == nil {
 		return
 	}
@@ -1876,7 +1876,7 @@ func validateHTTPFaultInjection(fault *routingv2.HTTPFaultInjection) (errs error
 	return
 }
 
-func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) (errs error) {
+func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs error) {
 	if abort == nil {
 		return
 	}
@@ -1884,13 +1884,13 @@ func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) 
 	errs = appendErrors(errs, ValidatePercent(abort.Percent))
 
 	switch abort.ErrorType.(type) {
-	case *routingv2.HTTPFaultInjection_Abort_GrpcStatus:
+	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
 		// TODO: gRPC status validation
 		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
-	case *routingv2.HTTPFaultInjection_Abort_Http2Error:
+	case *networking.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
 		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
-	case *routingv2.HTTPFaultInjection_Abort_HttpStatus:
+	case *networking.HTTPFaultInjection_Abort_HttpStatus:
 		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
 	}
 
@@ -1904,23 +1904,23 @@ func validateHTTPStatus(status int32) error {
 	return nil
 }
 
-func validateHTTPFaultInjectionDelay(delay *routingv2.HTTPFaultInjection_Delay) (errs error) {
+func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay) (errs error) {
 	if delay == nil {
 		return
 	}
 
 	errs = appendErrors(errs, ValidatePercent(delay.Percent))
 	switch v := delay.HttpDelayType.(type) {
-	case *routingv2.HTTPFaultInjection_Delay_FixedDelay:
+	case *networking.HTTPFaultInjection_Delay_FixedDelay:
 		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
-	case *routingv2.HTTPFaultInjection_Delay_ExponentialDelay:
+	case *networking.HTTPFaultInjection_Delay_ExponentialDelay:
 		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
 	return
 }
 
-func validateDestination(destination *routingv2.Destination) (errs error) {
+func validateDestination(destination *networking.Destination) (errs error) {
 	if destination == nil {
 		return
 	}
@@ -1946,7 +1946,7 @@ func validateSubsetName(name string) error {
 	return nil
 }
 
-func validatePortSelector(selector *routingv2.PortSelector) error {
+func validatePortSelector(selector *networking.PortSelector) error {
 	if selector == nil {
 		return nil
 	}
@@ -1963,7 +1963,7 @@ func validatePortSelector(selector *routingv2.PortSelector) error {
 	return validateSubsetName(name)
 }
 
-func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
+func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries == nil {
 		return
 	}
@@ -1977,14 +1977,14 @@ func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
 	return
 }
 
-func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) error {
+func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
 	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
 		return errors.New("redirect must specify URI, authority, or both")
 	}
 	return nil
 }
 
-func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
+func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
 		return errors.New("rewrite must specify URI, authority, or both")
 	}
@@ -1993,7 +1993,7 @@ func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
 
 // ValidateExternalService validates a external service.
 func ValidateExternalService(config proto.Message) (errs error) {
-	externalService, ok := config.(*routingv2.ExternalService)
+	externalService, ok := config.(*networking.ExternalService)
 	if !ok {
 		return fmt.Errorf("cannot cast to external service")
 	}
@@ -2019,11 +2019,11 @@ func ValidateExternalService(config proto.Message) (errs error) {
 	}
 
 	switch externalService.Discovery {
-	case routingv2.ExternalService_NONE:
+	case networking.ExternalService_NONE:
 		if len(externalService.Endpoints) != 0 {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
 		}
-	case routingv2.ExternalService_STATIC:
+	case networking.ExternalService_STATIC:
 		if len(externalService.Endpoints) == 0 {
 			errs = appendErrors(errs,
 				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
@@ -2043,7 +2043,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 					ValidatePort(int(port)))
 			}
 		}
-	case routingv2.ExternalService_DNS:
+	case networking.ExternalService_DNS:
 		if len(externalService.Endpoints) == 0 {
 			for _, host := range externalService.Hosts {
 				if err := ValidateFQDN(host); err != nil {
@@ -2069,7 +2069,7 @@ func ValidateExternalService(config proto.Message) (errs error) {
 		}
 	default:
 		errs = appendErrors(errs, fmt.Errorf("unsupported discovery type %s",
-			routingv2.ExternalService_Discovery_name[int32(externalService.Discovery)]))
+			networking.ExternalService_Discovery_name[int32(externalService.Discovery)]))
 	}
 
 	for _, port := range externalService.Ports {

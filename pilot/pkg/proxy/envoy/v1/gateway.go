@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	routing "istio.io/api/routing/v1alpha2"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -40,9 +40,9 @@ func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
 		return Listeners{}, nil
 	}
 
-	gateway := &routing.Gateway{}
+	gateway := &networking.Gateway{}
 	for _, spec := range gateways {
-		err := model.MergeGateways(gateway, spec.Spec.(*routing.Gateway))
+		err := model.MergeGateways(gateway, spec.Spec.(*networking.Gateway))
 		if err != nil {
 			return nil, fmt.Errorf("merge gateways: %s", err)
 		}
@@ -68,7 +68,7 @@ func buildPhysicalGatewayListener(
 	mesh *meshconfig.MeshConfig,
 	node model.Proxy,
 	config model.IstioConfigStore,
-	server *routing.Server,
+	server *networking.Server,
 ) *Listener {
 
 	opts := buildHTTPListenerOpts{
@@ -111,12 +111,12 @@ func buildPhysicalGatewayListener(
 // TODO: this isn't really correct: we need xDS v2 APIs to really configure this correctly.
 // Our TLS options align with SDSv2 DownstreamTlsContext, but the v1 API's SSLContext is split
 // into three pieces; we need at least two of the pieces here.
-func tlsToSSLContext(tls *routing.Server_TLSOptions, protocol string) *SSLContext {
+func tlsToSSLContext(tls *networking.Server_TLSOptions, protocol string) *SSLContext {
 	return &SSLContext{
 		CertChainFile:            tls.ServerCertificate,
 		PrivateKeyFile:           tls.PrivateKey,
 		CaCertFile:               tls.CaCertificates,
-		RequireClientCertificate: tls.Mode == routing.Server_TLSOptions_MUTUAL,
+		RequireClientCertificate: tls.Mode == networking.Server_TLSOptions_MUTUAL,
 		ALPNProtocols:            strings.Join(ListenersALPNProtocols, ","),
 	}
 }
@@ -128,7 +128,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 		return nil, err
 	}
 
-	allRules, err := configStore.List(model.V1alpha2RouteRule.Type, model.NamespaceAll)
+	allRules, err := configStore.List(model.VirtualService.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, fmt.Errorf("getting all rules: %s", err)
 	}
@@ -136,7 +136,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 	virtualHosts := []*VirtualHost{}
 	for _, gwConfig := range gateways {
 		gatewayName := gwConfig.Name
-		gateway := gwConfig.Spec.(*routing.Gateway)
+		gateway := gwConfig.Spec.(*networking.Gateway)
 		for _, server := range gateway.Servers {
 			if listenerPort != int(server.Port.Number) {
 				continue
@@ -189,7 +189,7 @@ func findRulesAndMatchingHosts(allRuleConfigs []model.Config, gatewayName string
 
 	result := []ruleWithHosts{}
 	for _, config := range allRuleConfigs {
-		rule := config.Spec.(*routing.RouteRule)
+		rule := config.Spec.(*networking.VirtualService)
 		if stringSliceContains(gatewayName, rule.Gateways) {
 			matchingHosts := findMatchingHosts(gatewayHost, rule.Hosts)
 			if len(matchingHosts) == 0 {
