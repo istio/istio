@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 
 	v2routing "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"

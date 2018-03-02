@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -92,14 +91,15 @@ func apiVersionFromConfig(config *model.Config) string {
 	return config.Group + "/" + config.Version
 }
 
-func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
+func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, error) {
+	cs := make(map[string]*restClient)
 	for _, typ := range descriptor {
 		s, exists := knownTypes[typ.Type]
 		if !exists {
-			return fmt.Errorf("missing known type for %q", typ.Type)
+			return nil, fmt.Errorf("missing known type for %q", typ.Type)
 		}
 
-		rc, ok := cl.clientset[apiVersion(&typ)]
+		rc, ok := cs[apiVersion(&typ)]
 		if !ok {
 			// create a new client if one doesn't already exist
 			rc = &restClient{
@@ -108,12 +108,12 @@ func (cl *Client) newClientSet(descriptor model.ConfigDescriptor) error {
 					typ.Version,
 				},
 			}
-			cl.clientset[apiVersion(&typ)] = rc
+			cs[apiVersion(&typ)] = rc
 		}
 		rc.descriptor = append(rc.descriptor, typ)
 		rc.types = append(rc.types, &s)
 	}
-	return nil
+	return cs, nil
 }
 
 func (rc *restClient) init(kubeconfig string) error {
@@ -172,13 +172,14 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 		return nil, err
 	}
 
-	out := &Client{
-		clientset:    make(map[string]*restClient),
-		domainSuffix: domainSuffix,
+	cs, err := newClientSet(descriptor)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := out.newClientSet(descriptor); err != nil {
-		return nil, err
+	out := &Client{
+		clientset:    cs,
+		domainSuffix: domainSuffix,
 	}
 
 	for _, v := range out.clientset {
