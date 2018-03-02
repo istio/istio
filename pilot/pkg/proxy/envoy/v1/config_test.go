@@ -623,17 +623,17 @@ func TestTruncateClusterName(t *testing.T) {
 
 	var trunc string
 	less := s[:MaxClusterNameLength-1]
-	trunc = truncateClusterName(less)
+	trunc = TruncateClusterName(less)
 	if trunc != less {
 		t.Errorf("Cluster name modified when truncating short cluster name:\nwant %s,\ngot %s", less, trunc)
 	}
 	eq := s[:MaxClusterNameLength]
-	trunc = truncateClusterName(eq)
+	trunc = TruncateClusterName(eq)
 	if trunc != eq {
 		t.Errorf("Cluster name modified when truncating cluster name:\nwant %s,\ngot %s", eq, trunc)
 	}
 	gt := s[:MaxClusterNameLength+1]
-	trunc = truncateClusterName(gt)
+	trunc = TruncateClusterName(gt)
 	if len(trunc) != MaxClusterNameLength {
 		t.Errorf("Cluster name length is not expected: want %d, got %d", MaxClusterNameLength, len(trunc))
 	}

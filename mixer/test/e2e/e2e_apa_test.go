@@ -206,7 +206,7 @@ func TestApa(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
 
-			args := testEnv.NewArgs()
+			args := testEnv.DefaultArgs()
 			args.APIPort = 0
 			args.MonitoringPort = 0
 			args.Templates = tt.templates

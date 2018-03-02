@@ -110,7 +110,7 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 }
 
 func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
-	a := NewArgs()
+	a := DefaultArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
@@ -166,7 +166,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	a := NewArgs()
+	a := DefaultArgs()
 	a.APIWorkerPoolSize = -1
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
@@ -180,7 +180,7 @@ func TestErrors(t *testing.T) {
 		t.Errorf("Got success, expecting error")
 	}
 
-	a = NewArgs()
+	a = DefaultArgs()
 	a.UseNewRuntime = false
 	a.APIPort = 0
 	a.MonitoringPort = 0

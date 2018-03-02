@@ -60,7 +60,7 @@ var (
 	concurrency            int
 	bootstrapv2            bool
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",

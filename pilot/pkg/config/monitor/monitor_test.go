@@ -21,7 +21,8 @@ import (
 
 	"github.com/onsi/gomega"
 
-	v2routing "istio.io/api/networking/v1alpha3"
+	v3routing "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
@@ -35,10 +36,10 @@ var createConfigSet = []*model.Config{
 			Name: "magic",
 			Type: "gateway",
 		},
-		Spec: &v2routing.Gateway{
-			Servers: []*v2routing.Server{
+		Spec: &v3routing.Gateway{
+			Servers: []*v3routing.Server{
 				{
-					Port: &v2routing.Port{
+					Port: &v3routing.Port{
 						Number:   80,
 						Protocol: "HTTP",
 					},
@@ -55,10 +56,10 @@ var updateConfigSet = []*model.Config{
 			Name: "magic",
 			Type: "gateway",
 		},
-		Spec: &v2routing.Gateway{
-			Servers: []*v2routing.Server{
+		Spec: &v3routing.Gateway{
+			Servers: []*v3routing.Server{
 				{
-					Port: &v2routing.Port{
+					Port: &v3routing.Port{
 						Number:   80,
 						Protocol: "HTTPS",
 					},
@@ -118,7 +119,7 @@ func TestMonitorForChange(t *testing.T) {
 		c, err := store.List("gateway", "")
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
-		gateway := c[0].Spec.(*v2routing.Gateway)
+		gateway := c[0].Spec.(*v3routing.Gateway)
 		if gateway.Servers[0].Port.Protocol != "HTTPS" {
 			return errors.New("Protocol has not been updated")
 		}

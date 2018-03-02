@@ -68,7 +68,7 @@ type cliOptions struct {
 
 var (
 	opts = cliOptions{
-		loggingOptions: log.NewOptions(),
+		loggingOptions: log.DefaultOptions(),
 	}
 
 	rootCmd = &cobra.Command{

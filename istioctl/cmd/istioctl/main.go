@@ -71,7 +71,7 @@ var (
 	// output format (yaml or short)
 	outputFormat string
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.

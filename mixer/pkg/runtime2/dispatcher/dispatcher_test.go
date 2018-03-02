@@ -532,7 +532,7 @@ ident                         : dest.istio-system
 }
 
 func TestDispatcher(t *testing.T) {
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	if err := log.Configure(o); err != nil {
 		t.Fatal(err)
 	}
