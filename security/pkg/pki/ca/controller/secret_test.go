@@ -21,10 +21,12 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"github.com/pkg/errors"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -47,6 +49,7 @@ func TestSecretController(t *testing.T) {
 		saToDelete      *v1.ServiceAccount
 		sasToUpdate     *updatedSas
 		expectedActions []ktesting.Action
+		injectFailure   bool
 	}{
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
@@ -82,10 +85,32 @@ func TestSecretController(t *testing.T) {
 			saToAdd:         createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{},
 		},
+		"adding service account retries when failed": {
+			saToAdd: createServiceAccount("test", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			injectFailure: true,
+		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
+
+		if tc.injectFailure {
+			callCount := 0
+			// PrependReactor to ensure action handled by our handler.
+			client.Fake.PrependReactor("*", "*", func(a ktesting.Action) (bool, runtime.Object, error) {
+				callCount++
+				if callCount < secretCreationRetry {
+					return true, nil, errors.New("failed to create secret deliberately")
+				}
+				return true, nil, nil
+			})
+		}
+
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
 			client.CoreV1(), metav1.NamespaceAll)
 		if err != nil {
