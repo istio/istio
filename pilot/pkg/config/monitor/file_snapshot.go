@@ -32,17 +32,17 @@ var (
 	}
 )
 
-// FileSnapshotter holds a reference to a file directory that contains crd
+// FileSnapshot holds a reference to a file directory that contains crd
 // config and filter criteria for which of those configs will be parsed.
-type FileSnapshotter struct {
+type FileSnapshot struct {
 	root             string
 	configTypeFilter map[string]bool
 }
 
-// NewFileSnapshotter returns a snapshotter.
+// NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all IstioConfigTypes will be allowed.
-func NewFileSnapshotter(root string, descriptor model.ConfigDescriptor) *FileSnapshotter {
-	snapshotter := &FileSnapshotter{
+func NewFileSnapshot(root string, descriptor model.ConfigDescriptor) *FileSnapshot {
+	snapshot := &FileSnapshot{
 		root:             root,
 		configTypeFilter: make(map[string]bool),
 	}
@@ -54,16 +54,16 @@ func NewFileSnapshotter(root string, descriptor model.ConfigDescriptor) *FileSna
 
 	for _, k := range types {
 		if schema, ok := model.IstioConfigTypes.GetByType(k); ok {
-			snapshotter.configTypeFilter[schema.Type] = true
+			snapshot.configTypeFilter[schema.Type] = true
 		}
 	}
 
-	return snapshotter
+	return snapshot
 }
 
 // ReadFile parses files in the root directory and returns a sorted slice of
 // eligible model.Config. This can be used as a configFunc when creating a Monitor.
-func (f *FileSnapshotter) ReadFile() []*model.Config {
+func (f *FileSnapshot) ReadFile() []*model.Config {
 	var result []*model.Config
 
 	err := filepath.Walk(f.root, func(path string, info os.FileInfo, err error) error {
