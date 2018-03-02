@@ -259,3 +259,41 @@ func TestPollAddAndRemoveFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestParseFilename(t *testing.T) {
+	var fileNameTests = []struct {
+		name           string
+		expectedIsCred bool
+	}{{"name.json", true},
+		{"foo.bar", false},
+		{"noname", false},
+	}
+
+	for _, f := range fileNameTests {
+		ok, _ := parseFilename(f.name)
+		if ok != f.expectedIsCred {
+			t.Errorf("Expected to get %t for filename \"%s\"", f.expectedIsCred, f.name)
+		}
+	}
+}
+
+func TestCopyStringSet(t *testing.T) {
+	checks := make(map[string]bool)
+	checks["1111-1111-1111"] = true
+	checks["1111-1111-1112"] = false
+	checks["1111-1111-1113"] = true
+
+	got := copyStringSet(checks)
+	if len(got) != len(checks) {
+		t.Errorf("Expected %v got %v", checks, got)
+	}
+	for k, v := range checks {
+		g, o := got[k]
+		if !o {
+			t.Errorf("Expected to find %s in %v", k, got)
+		}
+		if g != v {
+			t.Errorf("Expected to match for key %s, expected %t got %t", k, v, g)
+		}
+	}
+}
