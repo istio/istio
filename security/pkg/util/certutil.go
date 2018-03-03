@@ -24,16 +24,24 @@ import (
 // CertUtil is an interface for utility functions on certificate.
 type CertUtil interface {
 	// GetWaitTime returns the waiting time before renewing the certificate.
-	GetWaitTime([]byte, time.Time, int) (time.Duration, error)
+	GetWaitTime([]byte, time.Time) (time.Duration, error)
 }
 
 // CertUtilImpl is the implementation of CertUtil, for production use.
 type CertUtilImpl struct {
+	gracePeriodPercentage int
+}
+
+// NewCertUtil returns a new CertUtilImpl
+func NewCertUtil(gracePeriodPercentage int) CertUtilImpl {
+	return CertUtilImpl{
+		gracePeriodPercentage: gracePeriodPercentage,
+	}
 }
 
 // GetWaitTime returns the waititng time before renewing the cert, based on current time, the timestamps in cert and
 // graceperiod.
-func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPercentage int) (time.Duration, error) {
+func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time) (time.Duration, error) {
 	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
 	if certErr != nil {
 		return time.Duration(0), certErr
@@ -43,7 +51,7 @@ func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, gracePeriodP
 		return time.Duration(0), fmt.Errorf("certificate already expired at %s, but now is %s",
 			cert.NotAfter, now)
 	}
-	gracePeriod := cert.NotAfter.Sub(cert.NotBefore) * time.Duration(gracePeriodPercentage) / time.Duration(100)
+	gracePeriod := cert.NotAfter.Sub(cert.NotBefore) * time.Duration(cu.gracePeriodPercentage) / time.Duration(100)
 	// waitTime is the duration between now and the grace period starts.
 	// It is the time until cert expiration minus the length of grace period.
 	waitTime := timeToExpire - gracePeriod
