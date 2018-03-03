@@ -415,33 +415,33 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 	name := "example"
 
 	cases := []struct {
-		name string
-		typ  string
-		spec proto.Message
+		name   string
+		schema model.ProtoSchema
+		spec   proto.Message
 	}{
-		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
-		{"VirtualService", model.VirtualService.Type, ExampleVirtualService},
-		{"DestinationRule", model.DestinationRule.Type, ExampleDestinationRule},
-		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
-		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
-		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
-		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
-		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding.Type, ExampleHTTPAPISpecBinding},
-		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
-		{"QuotaSpecBinding", model.QuotaSpecBinding.Type, ExampleQuotaSpecBinding},
-		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
+		{"RouteRule", model.RouteRule, ExampleRouteRule},
+		{"VirtualService", model.VirtualService, ExampleVirtualService},
+		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
+		{"IngressRule", model.IngressRule, ExampleIngressRule},
+		{"EgressRule", model.EgressRule, ExampleEgressRule},
+		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
+		{"HTTPAPISpec", model.HTTPAPISpec, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
+		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
+		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
+		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec,
 			ExampleEndUserAuthenticationPolicySpec},
-		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding.Type,
+		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
 			ExampleEndUserAuthenticationPolicySpecBinding},
 	}
 
 	for _, c := range cases {
 		if _, err := store.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      c.typ,
+				Type:      c.schema.Type,
 				Name:      name,
-				Group:     "config.istio.io",
-				Version:   "v1alpha2",
+				Group:     c.schema.Group + model.IstioAPIGroupDomain,
+				Version:   c.schema.Version, //"v1alpha2",
 				Namespace: namespace,
 			},
 			Spec: c.spec,
