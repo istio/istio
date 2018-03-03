@@ -40,7 +40,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
-		certUtil: util.CertUtilImpl{},
+		certUtil: util.NewCertUtil(cfg.CSRGracePeriodPercentage),
 	}
 
 	env := determinePlatform(cfg)
