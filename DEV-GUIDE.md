@@ -116,6 +116,15 @@ from
 [minikube release page](https://github.com/kubernetes/minikube/releases)
 for your platform.
 
+If you are using kubernetes with version >= v1.8.0 for kubeadm, the
+extra-config and RBAC flags will be enabled by default. Explicitly
+enabling them will actually cause errors. Please run:
+```bash
+minikube start --bootstrapper kubeadm
+```
+
+If you are using kubernetes with version < v1.8.0, you need to specify
+the extra-config and RBAC flags explicitly, Please run:
 ```bash
 minikube start \
     --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
@@ -123,13 +132,6 @@ minikube start \
 ```
 
 To enable RBAC, add `--bootstrapper kubeadm --extra-config=apiserver.Authorization.Mode=RBAC` to `minikube start` command, in addition to the flags above.
-
-Note: If you're using newer kubernetes (>= v1.8.0) with kubeadm, the extra-config
-works differently for kubeadm and you also don't need the RBAC flag and the plugin
-names since they should all be enabled by default. Instead use the following command:
-```bash
-minikube start --bootstrapper kubeadm
-```
 
 ### Setting up environment variables
 
