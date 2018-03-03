@@ -147,4 +147,38 @@ message AuthFilterConfig {
   // JWT validation is skipped if the user's traffic request does not
   // include a JWT.
   repeated JWT jwts = 2;
+
+  // This message defines a pattern to match a HTTP request.
+  // A pattern is matched only if both http_method and path_match are matched.
+  message HttpPattern {
+    // Define a HTTP method.
+    string http_method = 1;
+
+    // Defines a path match
+    oneof path_match {
+      // Defines an exact path match
+      string path_exact = 2;
+
+      // Defines an path prefix match
+      string path_prefix = 3;
+    }
+  }
+
+  // If a request doesn't have JWT, it will be rejected.
+  // But some requests can be forwarded without JWT, such as OPTIONS for CORS
+  // and some health checking paths.
+  //
+  // Examples: bypass all CORS options requests.
+  //
+  //   bypass_jwt:
+  //      http_method: OPTIONS
+  //      path_prefix: /
+  //
+  // Examples: bypass /healthz check
+  //
+  //   bypass_jwt:
+  //      http_method: GET
+  //      path_exact: /healthz
+  //
+  repeated HttpPattern bypass_jwt = 3;
 }

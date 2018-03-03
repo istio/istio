@@ -65,8 +65,11 @@ void JwtAuthenticator::Verify(HeaderMap& headers,
   ENVOY_LOG(debug, "Jwt authentication starts");
   const HeaderEntry* entry = headers_->Authorization();
   if (!entry) {
-    // TODO: excludes some health checking paths
-    DoneWithStatus(Status::JWT_MISSED);
+    if (OkToBypass()) {
+      DoneWithStatus(Status::OK);
+    } else {
+      DoneWithStatus(Status::JWT_MISSED);
+    }
     return;
   }
 
@@ -196,6 +199,25 @@ void JwtAuthenticator::VerifyKey(const JwtAuth::Pubkeys& pubkey) {
   // Remove JWT from headers.
   headers_->removeAuthorization();
   DoneWithStatus(Status::OK);
+}
+
+bool JwtAuthenticator::OkToBypass() {
+  for (const auto& bypass : store_.config().bypass_jwt()) {
+    if (headers_->Method() && headers_->Path() &&
+        // Http method should always match
+        bypass.http_method() == headers_->Method()->value().c_str()) {
+      if (!bypass.path_exact().empty() &&
+          bypass.path_exact() == headers_->Path()->value().c_str()) {
+        return true;
+      }
+      if (!bypass.path_prefix().empty() &&
+          StringUtil::startsWith(headers_->Path()->value().c_str(),
+                                 bypass.path_prefix())) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void JwtAuthenticator::DoneWithStatus(const Status& status) {

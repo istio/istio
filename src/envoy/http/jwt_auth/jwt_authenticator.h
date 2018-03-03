@@ -63,6 +63,9 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::filter>,
   // Calls the callback with status.
   void DoneWithStatus(const Status& status);
 
+  // Return true if it is OK to forward this request without JWT.
+  bool OkToBypass();
+
   // The cluster manager object to make HTTP call.
   Upstream::ClusterManager& cm_;
   // The cache object.

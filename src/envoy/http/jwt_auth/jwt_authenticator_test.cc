@@ -83,6 +83,22 @@ const char kOtherIssuerConfig[] = R"(
 }
 )";
 
+// A config with bypass
+const char kBypassConfig[] = R"(
+{
+  "bypass_jwt": [
+     {
+       "http_method": "OPTIONS",
+       "path_prefix": "/"
+     },
+     {
+       "http_method": "GET",
+       "path_exact": "/healthz"
+     }
+  ]
+}
+)";
+
 // expired token
 const std::string kExpiredToken =
     "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
@@ -207,6 +223,36 @@ TEST_F(JwtAuthenticatorTest, TestMissedJWT) {
   // Empty headers.
   auto headers = TestHeaderMapImpl{};
   auth_->Verify(headers, &mock_cb_);
+}
+
+TEST_F(JwtAuthenticatorTest, TestBypassJWT) {
+  SetupConfig(kBypassConfig);
+
+  EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
+  EXPECT_CALL(mock_cb_, onDone(_))
+      .WillOnce(Invoke(
+          // Empty header, rejected.
+          [](const Status& status) { ASSERT_EQ(status, Status::JWT_MISSED); }))
+      .WillOnce(Invoke(
+          // CORS header, OK
+          [](const Status& status) { ASSERT_EQ(status, Status::OK); }))
+      .WillOnce(Invoke(
+          // healthz header, OK
+          [](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+
+  // Empty headers.
+  auto empty_headers = TestHeaderMapImpl{};
+  auth_->Verify(empty_headers, &mock_cb_);
+
+  // CORS headers
+  auto cors_headers =
+      TestHeaderMapImpl{{":method", "OPTIONS"}, {":path", "/any/path"}};
+  auth_->Verify(cors_headers, &mock_cb_);
+
+  // healthz headers
+  auto healthz_headers =
+      TestHeaderMapImpl{{":method", "GET"}, {":path", "/healthz"}};
+  auth_->Verify(healthz_headers, &mock_cb_);
 }
 
 TEST_F(JwtAuthenticatorTest, TestInvalidJWT) {
