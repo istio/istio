@@ -441,7 +441,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 				Type:      c.schema.Type,
 				Name:      name,
 				Group:     c.schema.Group + model.IstioAPIGroupDomain,
-				Version:   c.schema.Version, //"v1alpha2",
+				Version:   c.schema.Version,
 				Namespace: namespace,
 			},
 			Spec: c.spec,
