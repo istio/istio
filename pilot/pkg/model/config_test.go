@@ -612,6 +612,8 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			ConfigMeta: model.ConfigMeta{
 				Type:      model.AuthenticationPolicy.Type,
 				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha1",
 				Namespace: "default",
 				Domain:    "cluster.local",
 			},
