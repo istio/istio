@@ -20,6 +20,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/server"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -77,7 +78,7 @@ func (cache *ConfigCache) OnStreamRequest(int64, *v2.DiscoveryRequest) {
 // OnStreamResponse ...
 func (cache *ConfigCache) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
 
-// OnFetchRequest...
+// OnFetchRequest ...
 func (cache *ConfigCache) OnFetchRequest(*v2.DiscoveryRequest) {}
 
 // OnFetchResponse ...

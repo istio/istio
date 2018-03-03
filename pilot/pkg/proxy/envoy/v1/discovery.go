@@ -381,7 +381,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 
 	if out.rds2 != nil {
-		ctl.AppendServiceHandler(out.rds2.OnServiceEvent)
+		if err := ctl.AppendServiceHandler(out.rds2.OnServiceEvent); err != nil {
+			return nil, err
+		}
 		configCache.RegisterEventHandler(model.VirtualService.Type, out.rds2.OnConfigEvent)
 	}
 
