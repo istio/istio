@@ -50,6 +50,7 @@ func (cache *ConfigCache) Register(grpcServer *grpc.Server) {
 	// v2.RegisterListenerDiscoveryServiceServer(grpcServer, cache.server)
 }
 
+// ID ...
 func (cache *ConfigCache) ID(node *core.Node) string { return node.GetId() }
 
 // OnServiceEvent ...
@@ -62,11 +63,22 @@ func (cache *ConfigCache) OnConfigEvent(svc model.Config, event model.Event) {
 	// TODO
 }
 
+// OnStreamOpen ...
 func (cache *ConfigCache) OnStreamOpen(int64, string) {}
-func (cache *ConfigCache) OnStreamClosed(int64)       {}
+
+// OnStreamClosed ...
+func (cache *ConfigCache) OnStreamClosed(int64) {}
+
+// OnStreamRequest ...
 func (cache *ConfigCache) OnStreamRequest(int64, *v2.DiscoveryRequest) {
 	// TODO
 }
+
+// OnStreamResponse ...
 func (cache *ConfigCache) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
-func (cache *ConfigCache) OnFetchRequest(*v2.DiscoveryRequest)                                 {}
-func (cache *ConfigCache) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)         {}
+
+// OnFetchRequest...
+func (cache *ConfigCache) OnFetchRequest(*v2.DiscoveryRequest) {}
+
+// OnFetchResponse ...
+func (cache *ConfigCache) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
