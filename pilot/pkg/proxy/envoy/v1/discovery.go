@@ -146,7 +146,9 @@ func init() {
 type DiscoveryService struct {
 	model.Environment
 	// gRPC server serving envoy v2 EDS APIs
-	serverV2        *envoyv2.DiscoveryServer
+	serverV2 *envoyv2.DiscoveryServer
+	rds2     *envoyv2.ConfigCache
+
 	server          *http.Server
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -326,7 +328,7 @@ type DiscoveryServiceOptions struct {
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	environment model.Environment, o DiscoveryServiceOptions, rds2 bool) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
@@ -338,6 +340,10 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	if envoyv2.Enabled() {
 		// For now we create the gRPC server sourcing data from Pilot's older data model.
 		out.serverV2 = envoyv2.NewDiscoveryServer(out)
+	}
+
+	if envoyv2.Enabled() && rds2 {
+		out.rds2 = envoyv2.NewConfigCache(environment.ServiceDiscovery, configCache)
 	}
 
 	container := restful.NewContainer()
@@ -372,6 +378,11 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		for _, descriptor := range model.IstioConfigTypes {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
+	}
+
+	if out.rds2 != nil {
+		ctl.AppendServiceHandler(out.rds2.OnServiceEvent)
+		configCache.RegisterEventHandler(model.VirtualService.Type, out.rds2.OnConfigEvent)
 	}
 
 	return out, nil
