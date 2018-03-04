@@ -62,4 +62,7 @@
   },
   
   
+  "runtime": {
+    "symlink_root": "/etc/istio/proxy/runtime"
+  }
 }
