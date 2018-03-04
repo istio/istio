@@ -1,0 +1,45 @@
+{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1" -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-sidecar-injector-create-signed-cert
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      name: istio-sidecar-injector-create-signed-cert
+      labels:
+        app: {{ template "sidecar-injector.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: istio-sidecar-injector-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          command:
+            - /tmp/webhook/webhook-create-signed-cert.sh
+            - --service
+            - istio-sidecar-injector
+            - --namespace
+            - {{ .Release.Namespace }}
+            - --secret
+            - sidecar-injector-certs
+          volumeMounts:
+            - mountPath: "/tmp/webhook"
+              name: webhook-create-signed-cert-script
+      volumes:
+        - name: webhook-create-signed-cert-script
+          configMap:
+            name: istio-sidecar-injector-cm-create-signed-cert-script
+            defaultMode: 0744
+      restartPolicy: Never
+{{- end -}}

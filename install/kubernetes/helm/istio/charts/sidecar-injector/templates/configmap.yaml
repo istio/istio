@@ -102,3 +102,41 @@ data:
           {{ "{{ else -}}" }}
           secretName: {{ "{{ printf \"istio.%s\" .Spec.ServiceAccountName }}"  }}
           {{ "{{ end -}}" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector-cm-create-signed-cert-script
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels: 
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: sidecar-injector
+data:
+  webhook-create-signed-cert.sh: |
+{{ .Files.Get "webhook-create-signed-cert.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector-cm-patch-ca-bundle-script
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels: 
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: sidecar-injector
+data:
+  webhook-patch-ca-bundle.sh: |
+{{ .Files.Get "webhook-patch-ca-bundle.sh" | indent 4 }}

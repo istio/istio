@@ -16,7 +16,7 @@ webhooks:
         name: {{ .Release.Name }}-sidecar-injector
         namespace: {{ .Release.Namespace }}
         path: "/inject"
-      caBundle: ${CA_BUNDLE}
+      caBundle: ""
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

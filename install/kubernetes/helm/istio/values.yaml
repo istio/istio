@@ -70,7 +70,6 @@ ingress:
 #
 sidecar-injector:
   enabled: false
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   imagePullPolicy: IfNotPresent
   resources: {}
