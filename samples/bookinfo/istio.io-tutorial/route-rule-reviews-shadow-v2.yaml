@@ -1,0 +1,19 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-shadow
+spec:
+  destination:
+    name: reviews
+  precedence: 3
+  route:
+  - labels:
+      version: v1
+    weight: 100
+  - labels:
+      version: v2
+    weight: 0
+  mirror:
+    name: reviews
+    labels:
+      version: v2
