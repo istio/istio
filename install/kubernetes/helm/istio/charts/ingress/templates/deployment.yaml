@@ -53,9 +53,9 @@ spec:
           - istio-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
-          - NONE #--controlPlaneAuthPolicy
+          - NONE
           - --discoveryAddress
-          - istio-pilot:15007
+          - istio-pilot:8080
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
