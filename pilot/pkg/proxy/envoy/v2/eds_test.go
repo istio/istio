@@ -87,7 +87,12 @@ func TestEds(t *testing.T) {
 	}
 	log.Println(srv)
 
-	go startEnvoy()
+	go func(t *testing.T) {
+		err := startEnvoy()
+		if err != nil {
+			t.Fatal("Failed to start envoy", err)
+		}
+	}(t)
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(t)
@@ -96,9 +101,5 @@ func TestEds(t *testing.T) {
 
 func startEnvoy() error {
 	err := util.RunEnvoy("xds", "tests/testdata/envoy_local.json")
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// Package v2 implements envoy v2 API.
+
 /************ Forward compatibility of older pilot data model with Envoy v2 APIs ****************************/
 // MeshDiscovery interfaces are declared in pilot/pkg/proxy/envoy/v2
 

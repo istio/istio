@@ -187,8 +187,8 @@ type Server struct {
 	clusterStore      *clusterregistry.ClusterStore
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
-	HttpServer       *http.Server
-	GrpcServer       *grpc.Server
+	HTTPServer       *http.Server
+	GRPCServer       *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
@@ -617,13 +617,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GrpcServer)
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer)
 
-	s.HttpServer = &http.Server{
+	s.HTTPServer = &http.Server{
 		Addr:    ":" + strconv.Itoa(args.DiscoveryOptions.Port),
 		Handler: discovery.RestContainer}
 
-	addr := s.HttpServer.Addr
+	addr := s.HTTPServer.Addr
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
@@ -640,7 +640,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
-			if err = s.HttpServer.Serve(listener); err != nil {
+			if err = s.HTTPServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
@@ -652,7 +652,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		go func() {
 			<-stop
-			err = s.HttpServer.Close()
+			err = s.HTTPServer.Close()
 			if err != nil {
 				log.Warna(err)
 			}
@@ -721,7 +721,7 @@ func (s *Server) initGrpcServer() {
 	// get the grpc server wired up
 	grpc.EnableTracing = true
 
-	s.GrpcServer = grpc.NewServer(grpcOptions...)
+	s.GRPCServer = grpc.NewServer(grpcOptions...)
 }
 
 func (s *Server) addStartFunc(fn startFunc) {

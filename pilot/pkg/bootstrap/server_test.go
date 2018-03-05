@@ -33,7 +33,7 @@ func TestListServices(t *testing.T) {
 
 	s.MemoryServiceDiscovery.AddService(helloService.Hostname, helloService)
 	s.MemoryServiceDiscovery.AddService(worldService.Hostname, worldService)
-	url := util.MockPilotUrl + "/v1/registration"
+	url := util.MockPilotURL + "/v1/registration"
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Error(err)

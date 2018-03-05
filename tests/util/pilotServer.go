@@ -32,8 +32,8 @@ var (
 	// end of the suite.
 	MockTestServer *bootstrap.Server
 
-	// MockPilotUrl is the URL for the pilot http endpoint
-	MockPilotUrl      string
+	// MockPilotURL is the URL for the pilot http endpoint
+	MockPilotURL string
 
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
@@ -97,7 +97,7 @@ func setup() error {
 	if err != nil {
 		return err
 	}
-	MockPilotUrl = "http://localhost:" + port
+	MockPilotURL = "http://localhost:" + port
 	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
 	if err != nil {
 		return err
