@@ -52,7 +52,7 @@ class XDS(object):
         print url
         try:
             if post:
-                return requests.post(url, headers=self.headers).json()
+                return requests.post(url, headers=self.headers)
             else:
                 return requests.get(url, headers=self.headers).json()
         except Exception as ex:
@@ -128,7 +128,7 @@ class XDS(object):
         return self.query("/cache_stats")
 
     def clear_cache_stats(self):
-        return self.query("/clear_cache_stats", post=True)
+        return self.query("/cache_stats_delete", post=True)
 
 # Class XDS end
 
