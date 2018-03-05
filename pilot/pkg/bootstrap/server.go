@@ -25,9 +25,14 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
+<<<<<<< HEAD
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+=======
+	//	"k8s.io/api/core/v1"
+	//	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+>>>>>>> Fix goimports
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -269,6 +274,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
+/*
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) { // nolint: lll
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
@@ -287,7 +293,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, nil, err
 	}
 	return config, mesh, nil
-}
+}*/
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
@@ -303,12 +309,17 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	}
 
 	if mesh == nil {
-		var err error
+		/*
+			var err error
+			// Config file either wasn't specified or failed to load - use a default mesh.
+			if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
+				log.Warnf("failed to read mesh configuration: %v", err)
+				return err
+			}*/
+
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
-			log.Warnf("failed to read mesh configuration: %v", err)
-			return err
-		}
+		defaultMesh := model.DefaultMeshConfig()
+		mesh = &defaultMesh
 
 		// Allow some overrides for testing purposes.
 		if args.Mesh.MixerAddress != "" {
