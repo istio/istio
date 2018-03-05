@@ -15,10 +15,11 @@
 package crd
 
 import (
-	"sync"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cache"
 )
+
+const LRU_NUM_ENTRIES = 3000
 
 // ObjectConverter describes a function that can convert a k8s API object into an Istio model object.
 type ObjectConverter func(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error)
@@ -26,7 +27,7 @@ type ObjectConverter func(schema model.ProtoSchema, object IstioObject, domain s
 // CachingConverter implements an ObjectConverter that consults a cache before performing (expensive) marshalling.
 // This struct is threadsafe, but cannot be copied.
 type CachingConverter struct {
-	cache sync.Map
+	cache cache.Cache
 	inner ObjectConverter
 }
 
@@ -46,7 +47,7 @@ func newKeyFunc(typ, domain string) keyFunc {
 // objects change.
 func NewCachingConverter(converter ObjectConverter) *CachingConverter {
 	return &CachingConverter{
-		cache: sync.Map{},
+		cache: cache.SimpleLRU(LRU_NUM_ENTRIES),
 		inner: converter,
 	}
 }
@@ -66,18 +67,18 @@ func (c *CachingConverter) ConvertObject(schema model.ProtoSchema, object IstioO
 	// NB: we don't cache negative results (i.e. we don't cache the result when c.inner returns an err).
 	// We should evaluate if that's worthwhile, given we implement evictions and a conversion should fail consistently
 	// until the resource is updated.
-	c.cache.Store(key, item)
+	c.cache.Set(key, item)
 	return item, nil
 }
 
 // Evict removes an entry from the cache.
 func (c *CachingConverter) Evict(key string) {
-	c.cache.Delete(key)
+	c.cache.Remove(key)
 }
 
 // returns the cached config object and whether the object was found; if !found, the returned config is nil
 func (c *CachingConverter) get(key string) (*model.Config, bool) {
-	item, found := c.cache.Load(key)
+	item, found := c.cache.Get(key)
 	if !found {
 		return nil, false
 	}
