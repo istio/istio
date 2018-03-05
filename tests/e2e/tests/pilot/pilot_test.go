@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -27,26 +26,11 @@ import (
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
-const (
-	authTestName   = "Auth"
-	noAuthTestName = "NoAuth"
-)
-
-// AuthMode is an enumeration for the auth mode flag.
-type authMode string
-
-const (
-	authModeEnable  authMode = "enable"
-	authModeDisable authMode = "disable"
-	authModeBoth    authMode = "both"
-)
-
 var (
 	config = tutil.NewConfig()
 
 	// Enable/disable auth, or run both for the tests.
-	authmode string
-	verbose  bool
+	verbose bool
 )
 
 func init() {
@@ -66,8 +50,7 @@ func init() {
 	flag.StringVar(&config.KubeConfig, "kubeconfig", config.KubeConfig,
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&config.TestCount, "count", config.TestCount, "Number of times to run each test")
-	flag.StringVar(&authmode, "auth", string(authModeBoth),
-		fmt.Sprintf("Auth mode for the tests (Choose from %s, %s, %s)", authModeEnable, authModeDisable, authModeBoth))
+	flag.BoolVar(&config.Auth, "auth_enable", config.Auth, "Whether to use mTLS for all traffic within the mesh.")
 	flag.BoolVar(&config.Mixer, "mixer", config.Mixer, "Enable / disable mixer.")
 	flag.BoolVar(&config.V1alpha1, "v1alpha1", config.V1alpha1, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&config.V1alpha3, "v1alpha3", config.V1alpha3, "Enable / disable v1alpha3 routing rules.")
@@ -129,77 +112,52 @@ func TestPilot(t *testing.T) {
 		t.Skip("TAG not specified. Skipping tests")
 	}
 
-	if config.Namespace != "" && authMode(authmode) == authModeBoth {
-		t.Skipf("When namespace(=%s) is specified, auth mode(=%s) must be one of enable or disable. Skipping tests.",
-			config.Namespace, authmode)
+	env := tutil.NewEnvironment(*config)
+	defer teardown(env)
+	setup(env, t)
+
+	tests := []tutil.Test{
+		&http{Environment: env},
+		&grpc{Environment: env},
+		&tcp{Environment: env},
+		&headless{Environment: env},
+		&ingress{Environment: env},
+		&egressRules{Environment: env},
+		&routing{Environment: env},
+		&routingToEgress{Environment: env},
+		&zipkin{Environment: env},
+		&authExclusion{Environment: env},
+		&kubernetesExternalNameServices{Environment: env},
 	}
 
-	noAuthConfig := config
-	authConfig := config
-	authConfig.Auth = true
+	for _, test := range tests {
+		// Run the test the configured number of times.
+		for i := 0; i < config.TestCount; i++ {
+			testName := test.String()
 
-	switch authMode(authmode) {
-	case authModeEnable:
-		doTest(authTestName, authConfig, t)
-	case authModeDisable:
-		doTest(noAuthTestName, noAuthConfig, t)
-	case authModeBoth:
-		doTest(noAuthTestName, noAuthConfig, t)
-		doTest(authTestName, authConfig, t)
-	default:
-		t.Fatalf("Unknown auth mode(=%s).", authmode)
-	}
-}
-
-func doTest(testName string, config *tutil.Config, t *testing.T) {
-	t.Run(testName, func(t *testing.T) {
-		env := tutil.NewEnvironment(*config)
-		defer teardown(env)
-		setup(env, t)
-
-		tests := []tutil.Test{
-			&http{Environment: env},
-			&grpc{Environment: env},
-			&tcp{Environment: env},
-			&headless{Environment: env},
-			&ingress{Environment: env},
-			&egressRules{Environment: env},
-			&routing{Environment: env},
-			&routingToEgress{Environment: env},
-			&zipkin{Environment: env},
-			&authExclusion{Environment: env},
-			&kubernetesExternalNameServices{Environment: env},
-		}
-
-		for _, test := range tests {
-			// Run the test the configured number of times.
-			for i := 0; i < config.TestCount; i++ {
-				testName := test.String()
-
-				// User specified test doesn't match this test ... skip it.
-				if len(config.SelectedTest) > 0 && config.SelectedTest != testName {
-					t.Run(testName, func(t *testing.T) {
-						t.Skipf("Skipping test [%v] due to user-specified test: %v", t.Name(), config.SelectedTest)
-					})
-					continue
-				}
-
-				if config.TestCount > 1 {
-					testName = testName + "_attempt_" + strconv.Itoa(i+1)
-				}
+			// User specified test doesn't match this test ... skip it.
+			if len(config.SelectedTest) > 0 && config.SelectedTest != testName {
 				t.Run(testName, func(t *testing.T) {
-					if env.Err = test.Setup(); env.Err != nil {
-						t.Fatal(env.Err)
-					}
-					defer test.Teardown()
-
-					if env.Err = test.Run(); env.Err != nil {
-						t.Error(env.Err)
-					}
+					t.Skipf("Skipping test [%v] due to user-specified test: %v", t.Name(), config.SelectedTest)
 				})
+				continue
 			}
+
+			if config.TestCount > 1 {
+				testName = testName + "_attempt_" + strconv.Itoa(i+1)
+			}
+			t.Run(testName, func(t *testing.T) {
+				if env.Err = test.Setup(); env.Err != nil {
+					t.Fatal(env.Err)
+				}
+				defer test.Teardown()
+
+				if env.Err = test.Run(); env.Err != nil {
+					t.Error(env.Err)
+				}
+			})
 		}
-	})
+	}
 }
 
 // TODO(nmittler): convert individual tests over to pure golang tests
