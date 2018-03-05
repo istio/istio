@@ -91,6 +91,8 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 var (
 	hub             string
 	tag             string
+	alpineHub	string
+	alpineTag	string
 	sidecarProxyUID uint64
 	verbosity       int
 	versionStr      string // override build version
@@ -241,6 +243,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:       inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
+					BaseImage:	 inject.BaseImageName(alpineHub,alpineTag),
 					Verbosity:       verbosity,
 					SidecarProxyUID: sidecarProxyUID,
 					Version:         versionStr,
@@ -275,6 +278,8 @@ func init() {
 
 	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
+	injectCmd.PersistentFlags().StringVar(&alpineHub, "alpineHub", "docker.io", "The base image docker hub")
+	injectCmd.PersistentFlags().StringVar(&alpineTag, "alpineTag", "latest", "The base image docker tag")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
