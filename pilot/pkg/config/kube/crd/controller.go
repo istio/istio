@@ -34,9 +34,10 @@ import (
 // controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
 type controller struct {
-	client *Client
-	queue  kube.Queue
-	kinds  map[string]cacheHandler
+	client    *Client
+	queue     kube.Queue
+	kinds     map[string]cacheHandler
+	converter *CachingConverter
 }
 
 type cacheHandler struct {
@@ -51,9 +52,10 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
-		client: client,
-		queue:  kube.NewQueue(1 * time.Second),
-		kinds:  make(map[string]cacheHandler),
+		client:    client,
+		queue:     kube.NewQueue(1 * time.Second),
+		kinds:     make(map[string]cacheHandler),
+		converter: NewCachingConverter(ConvertObject),
 	}
 
 	// add stores for CRD kinds
@@ -65,7 +67,8 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 }
 
 func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
-	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
+	keyf := newKeyFunc(schema.Type, namespace)
+	c.kinds[schema.Type] = c.createInformer(keyf, knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
 			rc, ok := c.client.clientset[apiVersion(&schema)]
@@ -108,12 +111,24 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 }
 
 func (c *controller) createInformer(
+	keyf keyFunc,
 	o runtime.Object,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
 	wf cache.WatchFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
+	// Write up cache eviction as a handler function
+	handler.Append(func(obj interface{}, event model.Event) error {
+		switch event {
+		// We don't care about Add events since we're doing cache eviction
+		case model.EventUpdate, model.EventDelete:
+			if item, ok := obj.(IstioObject); ok {
+				c.converter.Evict(keyf(item.GetObjectMeta().Name))
+			}
+		}
+		return nil
+	})
 
 	// TODO: finer-grained index (perf)
 	informer := cache.NewSharedIndexInformer(
@@ -147,7 +162,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
 		item, ok := object.(IstioObject)
 		if ok {
-			config, err := ConvertObject(schema, item, c.client.domainSuffix)
+			config, err := c.converter.ConvertObject(schema, item, c.client.domainSuffix)
 			if err != nil {
 				log.Warnf("error translating object %#v", object)
 			} else {
@@ -205,7 +220,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	config, err := ConvertObject(schema, obj, c.client.domainSuffix)
+	config, err := c.converter.ConvertObject(schema, obj, c.client.domainSuffix)
 	if err != nil {
 		return nil, false
 	}
@@ -243,7 +258,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := ConvertObject(schema, item, c.client.domainSuffix)
+		config, err := c.converter.ConvertObject(schema, item, c.client.domainSuffix)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {
