@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"istio.io/istio/pkg/bootstrap"
 
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 
@@ -36,6 +38,15 @@ var (
 	IstioSrc = os.Getenv("ISTIO_GO")
 	IstioBin = os.Getenv("ISTIO_BIN")
 	IstioOut = os.Getenv("ISTIO_OUT")
+
+	// EnvoyOutWriter captures envoy output
+	// Redirect out and err from envoy to buffer - coverage tests get confused if we write to out.
+	// TODO: use files
+	EnvoyOutWriter bytes.Buffer
+
+	// EnvoyErrWriter captures envoy errors
+	EnvoyErrWriter bytes.Buffer
+
 )
 
 func init() {
@@ -90,7 +101,19 @@ func RunEnvoy(base string, template string) error {
 	abortCh := make(chan error, 1)
 
 	cfg := &envoy.Config{}
-	// done channel will get termination events.
+
+	// Note: the cert checking still works, the generated file is updated if certs are changed.
+	// We just don't save the generated file, but use a custom one instead. Pilot will keep
+	// monitoring the certs and restart if the content of the certs changes.
+	fname, err := bootstrap.WriteBootstrap(&config, 0, nil, map[string]interface{}{
+		"pilot_grpc": "localhost:" + grpcPort,
+	})
+	if err != nil {
+		return err
+	}
+
+	bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, &EnvoyOutWriter, &EnvoyErrWriter)
+
 	if err = envoyProxy.Run(cfg, 0, abortCh); err != nil {
 		fmt.Println("Failed to start envoy", err)
 	}

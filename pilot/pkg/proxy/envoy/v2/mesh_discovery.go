@@ -117,11 +117,11 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
 			// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
 			if discReq.ResponseNonce != "" {
-				log.Infof("EDS ACK req %s from Envoy, existing clusters %v ",
+				log.Infof("EDS ACK %s from Envoy, existing clusters %v ",
 					discReq.String(), clusters)
 				continue
 			} else {
-				log.Infof("EDS req %s from Envoy, existing clusters %v ",
+				log.Infof("EDS REQ %s from Envoy, existing clusters %v ",
 					discReq.String(), clusters)
 			}
 			clusters = clusters2
@@ -135,7 +135,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if err != nil {
 				return err
 			}
-			log.Infof("EDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr,
+
+			log.Infof("EDS RES for %q clusters %v, Response: \n%s %s \n", peerAddr,
 				clusters, response.String())
 		}
 	}

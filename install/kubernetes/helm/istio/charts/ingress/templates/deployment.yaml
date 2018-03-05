@@ -46,7 +46,7 @@ spec:
           - istio-mixer:9125
           - --proxyAdminPort
           - "15000"
-        {{- if .Values.global.securityEnabled }}
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress

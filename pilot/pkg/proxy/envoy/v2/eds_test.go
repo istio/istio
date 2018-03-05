@@ -20,8 +20,8 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -62,8 +62,18 @@ func directRequest(t *testing.T) {
 	}
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
-	t.Log(res1.String())
-	t.Log(cla.String())
+	ep := cla.Endpoints
+	if len(ep) == 0 {
+		t.Fatal("No endpoints")
+	}
+	lbe := ep[0].LbEndpoints
+	if len(lbe) == 0 {
+		t.Fatal("No lb endpoints")
+	}
+	if "10.1.1.0"	!= lbe[0].Endpoint.Address.GetSocketAddress().Address {
+		t.Error("Expecting 10.1.1.10 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+	}
+	t.Log(cla.String(), res1.String())
 
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
@@ -79,7 +89,8 @@ func directRequest(t *testing.T) {
 func TestEds(t *testing.T) {
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("mysvc", &model.Service{})
+	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
+		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
 
 	// Verify services are set
 	srv, err := server.ServiceController.Services()

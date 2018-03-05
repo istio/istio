@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -38,6 +39,11 @@ const (
 
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+)
+
+var (
+	defaultPilotSan = []string{
+		"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
 )
 
 func configFile(config string, epoch int) string {
@@ -79,27 +85,17 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []strin
 // RunProxy will run sidecar with a v2 config generated from template according with the config.
 // The doneChan will be notified if the envoy process dies.
 // The returned process can be killed by the caller to terminate the proxy.
-func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int,
-	pilotSAN []string, opts map[string]interface{}, doneChan chan error) (*os.Process, error) {
-
-	var fname string
-	// Note: the cert checking still works, the generated file is updated if certs are changed.
-	// We just don't save the generated file, but use a custom one instead. Pilot will keep
-	// monitoring the certs and restart if the content of the certs changes.
-	out, err := WriteBootstrap(config, epoch, pilotSAN, opts)
-	if err != nil {
-		return nil, err
-	}
-	fname = out
+func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFname string, doneChan chan error,
+	outWriter io.Writer, errWriter io.Writer) (*os.Process, error) {
 
 	// spin up a new Envoy process
-	args := args(config, node, fname, epoch)
+	args := args(config, node, configFname, epoch)
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
 	cmd := exec.Command(config.BinaryPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = outWriter
+	cmd.Stderr = errWriter
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -148,9 +144,11 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 
 	opts["config"] = config
 
-	if pilotSAN != nil {
-		opts["pilot_SAN"] = pilotSAN
-	}
+	if pilotSAN == nil {
+		pilotSAN = defaultPilotSan
+		}
+	opts["pilot_SAN"] = pilotSAN
+
 
 	// Simplify the template
 	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)

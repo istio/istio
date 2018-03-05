@@ -55,16 +55,18 @@ func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.Discov
 		hostname, ports, labels := model.ParseServiceKey(serviceCluster)
 		instances, err := ds.Instances(hostname, ports.GetNames(), labels)
 		if err != nil {
-			if log.WarnEnabled() {
-				log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
-			}
+			log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
 			continue
 		}
 		locEps := localityLbEndpointsFromInstances(instances)
+		if len(instances) == 0 {
+			log.Infoa("EDS: no instances ", serviceCluster, hostname, ports, labels)
+		}
 		clAssignment := &xdsapi.ClusterLoadAssignment{
 			ClusterName: serviceCluster,
 			Endpoints:   locEps,
 		}
+		//log.Infof("EDS: %v %s", serviceCluster, clAssignment.String())
 		clAssignmentRes, _ = types.MarshalAny(clAssignment)
 		out.Resources = append(out.Resources, *clAssignmentRes)
 		totalEndpoints += uint32(len(locEps))
@@ -78,7 +80,7 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 	if ipAddr == nil {
 		return nil, errors.New("Invalid IP address " + address)
 	}
-	ep := endpoint.LbEndpoint{
+	ep := &endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
@@ -95,17 +97,20 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 		},
 	}
 
-	return &ep, nil
+	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
+	return ep, nil
 }
 
-// LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints and a total count of
-// Envoy v2 Endpoints constructed from Pilot's older data structure involving model.ServiceInstance objects.
+// LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
+// Envoy v2 Endpoints are constructed from Pilot's older data structure involving
+// model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
+// a map is created - in new data structures this should be part of the model.
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
-	localityEpMap := make(map[string]endpoint.LocalityLbEndpoints)
+	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port))
 		if err != nil {
-			log.Errorf("unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			log.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			continue
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
@@ -113,18 +118,22 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		locality := instance.AvailabilityZone
 		locLbEps, found := localityEpMap[locality]
 		if !found {
-			locLbEps = endpoint.LocalityLbEndpoints{
+			locLbEps = &endpoint.LocalityLbEndpoints{
 				Locality: &core.Locality{
 					Zone: instance.AvailabilityZone,
 				},
 			}
 			localityEpMap[locality] = locLbEps
 		}
+		log.Infoa("EDS LOCALITY ep: ", (*lbEp).String(), localityEpMap)
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
 	}
+	log.Infoa("EDS LOCALITY: ", localityEpMap)
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
-		out = append(out, locLbEps)
+		out = append(out, *locLbEps)
+		log.Infoa("EDS LOCALITY add: ", locLbEps.String())
 	}
 	return out
 }
+
