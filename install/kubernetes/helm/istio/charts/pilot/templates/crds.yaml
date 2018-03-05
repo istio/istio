@@ -60,7 +60,7 @@ spec:
     plural: virtualservices
     singular: virtualservice
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -76,7 +76,7 @@ spec:
     plural: destinationrules
     singular: destinationrule
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -92,5 +92,5 @@ spec:
     plural: externalservices
     singular: externalservice
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 

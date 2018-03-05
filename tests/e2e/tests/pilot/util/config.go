@@ -53,8 +53,8 @@ type Config struct {
 	DebugImagesAndMode    bool
 	UseAutomaticInjection bool
 	V1alpha1              bool
-	V1alpha2              bool
-	RDSv2                 bool
+	V1alpha3              bool
+	RDSv3                 bool
 	NoRBAC                bool
 	UseAdmissionWebhook   bool
 	APIVersions           []string
@@ -87,6 +87,6 @@ func NewConfig() *Config {
 		UseAdmissionWebhook:   false,
 		AdmissionServiceName:  defaultAdmissionServiceName,
 		V1alpha1:              false,
-		V1alpha2:              true,
+		V1alpha3:              true,
 	}
 }

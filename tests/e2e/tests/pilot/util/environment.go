@@ -112,7 +112,7 @@ type TemplateData struct {
 	Ingress                bool
 	Zipkin                 bool
 	UseAdmissionWebhook    bool
-	RDSv2                  bool
+	RDSv3                  bool
 	ControlPlaneAuthPolicy meshconfig.AuthenticationPolicy
 	PilotCustomConfigFile  string
 	MixerCustomConfigFile  string
@@ -181,7 +181,7 @@ func (e *Environment) ToTemplateData() TemplateData {
 		PilotCustomConfigFile:  e.PilotCustomConfigFile,
 		MixerCustomConfigFile:  e.MixerCustomConfigFile,
 		CABundle:               e.CABundle,
-		RDSv2:                  e.Config.RDSv2,
+		RDSv3:                  e.Config.RDSv3,
 	}
 }
 
