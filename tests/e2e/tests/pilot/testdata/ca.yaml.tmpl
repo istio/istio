@@ -21,4 +21,4 @@ spec:
       containers:
       - name: istio-ca-container
         image: {{.Hub}}/istio-ca:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}

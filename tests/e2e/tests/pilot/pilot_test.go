@@ -52,6 +52,8 @@ var (
 func init() {
 	flag.StringVar(&config.Hub, "hub", config.Hub, "Docker hub")
 	flag.StringVar(&config.Tag, "tag", config.Tag, "Docker tag")
+	flag.StringVar(&config.ImagePullPolicy, "image-pull-policy", config.ImagePullPolicy,
+		"Pull policy for Docker images")
 	flag.StringVar(&config.IstioNamespace, "ns", config.IstioNamespace,
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&config.Namespace, "n", config.Namespace,
@@ -170,14 +172,18 @@ func doTest(testName string, config *tutil.Config, t *testing.T) {
 		}
 
 		for _, test := range tests {
-			// If the user has specified a test, skip all other tests
-			if len(config.SelectedTest) > 0 && config.SelectedTest != test.String() {
-				continue
-			}
-
 			// Run the test the configured number of times.
 			for i := 0; i < config.TestCount; i++ {
 				testName := test.String()
+
+				// User specified test doesn't match this test ... skip it.
+				if len(config.SelectedTest) > 0 && config.SelectedTest != testName {
+					t.Run(testName, func(t *testing.T) {
+						t.Skipf("Skipping test [%v] due to user-specified test: %v", t.Name(), config.SelectedTest)
+					})
+					continue
+				}
+
 				if config.TestCount > 1 {
 					testName = testName + "_attempt_" + strconv.Itoa(i+1)
 				}

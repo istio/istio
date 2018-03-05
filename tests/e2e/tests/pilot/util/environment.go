@@ -64,6 +64,8 @@ type Environment struct {
 	Name   string
 	Config Config
 
+	sidecarTemplate string
+
 	KubeClient kubernetes.Interface
 
 	// Directory where test data files are located.
@@ -105,6 +107,7 @@ type TemplateData struct {
 	IstioNamespace         string
 	Registry               string
 	AdmissionServiceName   string
+	ImagePullPolicy        string
 	Verbosity              int
 	DebugPort              int
 	Auth                   meshconfig.MeshConfig_AuthPolicy
@@ -138,6 +141,7 @@ func NewEnvironment(config Config) *Environment {
 		e.MixerCustomConfigFile = mixerConfigAuthFile
 		e.PilotCustomConfigFile = pilotConfigAuthFile
 	}
+
 	return &e
 }
 
@@ -182,6 +186,7 @@ func (e *Environment) ToTemplateData() TemplateData {
 		MixerCustomConfigFile:  e.MixerCustomConfigFile,
 		CABundle:               e.CABundle,
 		RDSv2:                  e.Config.RDSv2,
+		ImagePullPolicy:        e.Config.ImagePullPolicy,
 	}
 }
 
@@ -255,7 +260,7 @@ func (e *Environment) Setup() error {
 	debugMode := e.Config.DebugImagesAndMode
 	log.Infof("mesh %s", spew.Sdump(e.meshConfig))
 
-	e.Config.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+	e.sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 		InitImage:       inject.InitImageName(e.Config.Hub, e.Config.Tag, debugMode),
 		ProxyImage:      inject.ProxyImageName(e.Config.Hub, e.Config.Tag, debugMode),
 		Verbosity:       e.Config.Verbosity,
@@ -264,6 +269,7 @@ func (e *Environment) Setup() error {
 		Version:         "integration-test",
 		Mesh:            e.meshConfig,
 		DebugMode:       debugMode,
+		ImagePullPolicy: e.Config.ImagePullPolicy,
 	})
 	if err != nil {
 		return err
@@ -383,21 +389,22 @@ func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3,
 	}
 
 	w, err := e.Fill("app.yaml.tmpl", map[string]string{
-		"Hub":            e.Config.Hub,
-		"Tag":            e.Config.Tag,
-		"service":        svcName,
-		"perServiceAuth": strconv.FormatBool(perServiceAuth),
-		"deployment":     deployment,
-		"port1":          strconv.Itoa(port1),
-		"port2":          strconv.Itoa(port2),
-		"port3":          strconv.Itoa(port3),
-		"port4":          strconv.Itoa(port4),
-		"port5":          strconv.Itoa(port5),
-		"port6":          strconv.Itoa(port6),
-		"version":        version,
-		"istioNamespace": e.Config.IstioNamespace,
-		"injectProxy":    strconv.FormatBool(injectProxy),
-		"healthPort":     healthPort,
+		"Hub":             e.Config.Hub,
+		"Tag":             e.Config.Tag,
+		"service":         svcName,
+		"perServiceAuth":  strconv.FormatBool(perServiceAuth),
+		"deployment":      deployment,
+		"port1":           strconv.Itoa(port1),
+		"port2":           strconv.Itoa(port2),
+		"port3":           strconv.Itoa(port3),
+		"port4":           strconv.Itoa(port4),
+		"port5":           strconv.Itoa(port5),
+		"port6":           strconv.Itoa(port6),
+		"version":         version,
+		"istioNamespace":  e.Config.IstioNamespace,
+		"injectProxy":     strconv.FormatBool(injectProxy),
+		"healthPort":      healthPort,
+		"ImagePullPolicy": e.Config.ImagePullPolicy,
 	})
 	if err != nil {
 		return err
@@ -406,7 +413,7 @@ func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3,
 	writer := new(bytes.Buffer)
 
 	if injectProxy && !e.Config.UseAutomaticInjection {
-		if err := inject.IntoResourceFile(e.Config.SidecarTemplate, e.meshConfig, strings.NewReader(w), writer); err != nil {
+		if err := inject.IntoResourceFile(e.sidecarTemplate, e.meshConfig, strings.NewReader(w), writer); err != nil {
 			return err
 		}
 	} else {
@@ -762,7 +769,7 @@ func (e *Environment) deleteAdmissionWebhookSecret() error {
 func (e *Environment) createSidecarInjector() error {
 	configData, err := yaml.Marshal(&inject.Config{
 		Policy:   inject.InjectionPolicyEnabled,
-		Template: e.Config.SidecarTemplate,
+		Template: e.sidecarTemplate,
 	})
 	if err != nil {
 		return err
