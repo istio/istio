@@ -95,7 +95,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 					return
 				}
 				receiveError = err
-				log.Errorf("request loop for EDS for client %q terminated with errors %v", peerAddr, err)
+				log.Errorf("EDS close for client %q terminated with errors %v", peerAddr, err)
 				return
 			}
 			reqChannel <- req
@@ -108,10 +108,10 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if !ok {
 				return receiveError
 			}
-			// TODO: is it additive ?
 			clusters2 := discReq.GetResourceNames()
-			if len(clusters2) == 0 {
-				log.Infof("no clusters specified in EDS request from %q", peerAddr)
+			// TODO: is it additive ? Does override ever happens ?
+			if len(clusters) > 0 && len(clusters2) > 0 {
+				log.Infof("Clusters override %v -> %v %s", clusters, clusters2, discReq.String())
 			}
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
@@ -121,10 +121,16 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 					discReq.String(), clusters)
 				continue
 			} else {
-				log.Infof("EDS REQ %s from Envoy, existing clusters %v ",
-					discReq.String(), clusters)
+				if len(clusters) > 0 {
+					log.Infof("EDS REQ %s from Envoy, existing clusters %v ",
+						discReq.String(), clusters)
+				} else {
+					log.Infof("EDS REQ %s %v", discReq.String(), peerAddr)
+				}
 			}
-			clusters = clusters2
+			if len(clusters2) > 0 {
+				clusters = clusters2
+			}
 
 		case <-ticker.C:
 		}
@@ -138,6 +144,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 
 			log.Infof("EDS RES for %q clusters %v, Response: \n%s %s \n", peerAddr,
 				clusters, response.String())
+		} else {
+			log.Infof("EDS empty clusters %v \n", peerAddr)
 		}
 	}
 }
