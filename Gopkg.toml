@@ -121,7 +121,7 @@ required = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "e0ebc95432196ce43dae88cc2822983466210656"
+  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
 
 ### Begin Mixer codegen dep pinning
 

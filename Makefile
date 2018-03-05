@@ -335,12 +335,12 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolumedriver
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca istioctl
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -358,13 +358,13 @@ node-agent:
 
 .PHONY: flexvolumedriver
 flexvolumedriver:
-	bin/gobuild.sh ${ISTIO_OUT}/flexvolumedriver istio.io/istio/pkg/version ./security/cmd/flexvolume
+	bin/gobuild.sh ${ISTIO_OUT}/flexvolume istio.io/istio/pkg/version ./security/cmd/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca node_agent istio_ca
-multicluster_ca node_agent istio_ca:
+.PHONY: multicluster_ca node_agent istio_ca flexvolume
+multicluster_ca node_agent istio_ca flexvolume:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
@@ -470,28 +470,28 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley
 
 .PHONY: pilot-coverage
 pilot-coverage:
-	bin/parallel-codecov.sh pilot
+	bin/codecov.sh pilot
 
 .PHONY: mixer-coverage
 mixer-coverage:
-	bin/parallel-codecov.sh mixer
+	bin/codecov.sh mixer
 
 .PHONY: broker-coverage
 broker-coverage:
-	bin/parallel-codecov.sh broker
+	bin/codecov.sh broker
 
 .PHONY: galley-coverage
 galley-coverage:
-	bin/parallel-codecov.sh galley
+	bin/codecov.sh galley
 
 .PHONY: security-coverage
 security-coverage:
-	bin/parallel-codecov.sh security/pkg
-	bin/parallel-codecov.sh security/cmd
+	bin/codecov.sh security/pkg
+	bin/codecov.sh security/cmd
 
 .PHONY: common-coverage
 common-coverage:
-	bin/parallel-codecov.sh pkg
+	bin/codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -643,6 +643,7 @@ show.goenv: ; $(info $(H) go environment...)
 	$(Q) $(GO) version
 	$(Q) $(GO) env
 
+# tickle
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true

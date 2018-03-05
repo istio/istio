@@ -41,11 +41,13 @@ import (
     "istio.io/istio/pilot/pkg/model"
 )
 
-var knownTypes = map[string]struct {
-    schema     model.ProtoSchema
-    object     IstioObject
-    collection IstioObjectList
-}{
+type schemaType struct {
+	schema     model.ProtoSchema
+	object     IstioObject
+	collection IstioObjectList
+}
+
+var knownTypes = map[string]schemaType{
 EOF
 
 CRDS="MockConfig RouteRule VirtualService IngressRule Gateway EgressRule ExternalService DestinationPolicy DestinationRule HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding EndUserAuthenticationPolicySpec EndUserAuthenticationPolicySpecBinding"
@@ -57,7 +59,7 @@ cat << EOF
         object: &${crd}{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "${crd}",
-                APIVersion: ResourceGroup(&model.$crd) + "/" + model.$crd.Version,
+                APIVersion: apiVersion(&model.$crd),
             },
         },
         collection: &${crd}List{},

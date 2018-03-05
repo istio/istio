@@ -199,7 +199,7 @@ func doTest(testName string, config *tutil.Config, t *testing.T) {
 // TODO(nmittler): convert individual tests over to pure golang tests
 func TestMain(m *testing.M) {
 	flag.Parse()
-	_ = log.Configure(log.NewOptions())
+	_ = log.Configure(log.DefaultOptions())
 
 	// Run all tests.
 	os.Exit(m.Run())

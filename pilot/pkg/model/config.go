@@ -311,8 +311,8 @@ var (
 	MockConfig = ProtoSchema{
 		Type:        "mock-config",
 		Plural:      "mock-configs",
-		Group:       configGroup,
-		Version:     istioAPIVersion,
+		Group:       "test",
+		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {

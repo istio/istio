@@ -30,7 +30,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"

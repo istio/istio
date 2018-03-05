@@ -101,7 +101,7 @@ type cliOptions struct { // nolint: maligned
 
 var (
 	opts = cliOptions{
-		loggingOptions:       log.NewOptions(),
+		loggingOptions:       log.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
 	}
 
