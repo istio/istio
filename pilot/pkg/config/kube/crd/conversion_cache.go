@@ -30,10 +30,10 @@ type CachingConverter struct {
 	inner ObjectConverter
 }
 
-// Accepts an objects name and returns its key; produced by calling newKeyFunc.
+// keyFunc accepts an objects name and returns its key; produced by calling newKeyFunc.
 type keyFunc func(string) string
 
-// KeyFunc curries the application of model.Key by accepting the object type and domain. The returned function accepts
+// newKeyFunc curries the application of model.Key by accepting the object type and domain. The returned function accepts
 // the `name` of an object of type `typ` in config domain `domain` and returns its full key.
 func newKeyFunc(typ, domain string) keyFunc {
 	return func(name string) string {
@@ -41,8 +41,9 @@ func newKeyFunc(typ, domain string) keyFunc {
 	}
 }
 
-// Returns a CachingConverter: an ObjectConverter wrapped in a cache. The cache is not bounded in size, nor does it
-// implement cache size based eviction. Instead, it relies on the underlying store calling Evict.
+// NewCachingConverter returns a CachingConverter: an ObjectConverter wrapped in a cache. The cache is not bounded in
+// size, nor does it implement cache size based eviction. Instead, it relies on the underlying store calling Evict as
+// objects change.
 func NewCachingConverter(converter ObjectConverter) *CachingConverter {
 	return &CachingConverter{
 		cache: sync.Map{},
@@ -50,7 +51,7 @@ func NewCachingConverter(converter ObjectConverter) *CachingConverter {
 	}
 }
 
-// ConvertObjects consults a cache of model.Config objects before deferring to c's underlying ObjectConverter.
+// ConvertObject consults a cache of model.Config objects before deferring to c's underlying ObjectConverter.
 func (c *CachingConverter) ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error) {
 	key := model.Key(schema.Type, object.GetObjectMeta().Name, domain)
 	if item, exists := c.get(key); exists {

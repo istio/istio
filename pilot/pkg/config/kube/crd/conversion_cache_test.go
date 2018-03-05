@@ -19,9 +19,10 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func oneCallConversion(key string, out *model.Config) ObjectConverter {
