@@ -40,7 +40,7 @@ $ make docker push HUB=localhost:5000 TAG=latest
 If you're running e2e tests, you can set the test flags:
 
 ```shell
-$ go test <TEST_PATH> -hub=localhost:5001 -tag=latest
+$ go test <TEST_PATH> -hub=localhost:5000 -tag=latest
 ```
 
 #### Hard-coding the Image URL
@@ -48,6 +48,6 @@ $ go test <TEST_PATH> -hub=localhost:5001 -tag=latest
 You can also modify the image URLs in your deployment yaml files directly:
 
 ```yaml
-image: localhost:50001/<APP_NAME>:latest
+image: localhost:5000/<APP_NAME>:latest
 ```
 
