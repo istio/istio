@@ -22,8 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/security/cmd/node_agent_k8s/binder"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
+	"istio.io/istio/security/pkg/flexvolume/binder"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -60,9 +60,9 @@ func Run() {
 	// create the binder
 	b := binder.NewBinder(CfgWorkloadHome)
 
-    pb.RegisterWorkloadServiceServer(b.Server(), wl)
+	pb.RegisterWorkloadServiceServer(b.Server(), wl)
 
-    // Register for system signals
+	// Register for system signals
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 
@@ -73,7 +73,7 @@ func Run() {
 
 	// Shut down the binder
 	bstop <- nil
-	}
+}
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
