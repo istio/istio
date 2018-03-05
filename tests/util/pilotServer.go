@@ -28,16 +28,21 @@ import (
 )
 
 var (
-	// TestServer is used for the unit tests. Will be started once, terminated at the
+	// MockTestServer is used for the unit tests. Will be started once, terminated at the
 	// end of the suite.
 	MockTestServer *bootstrap.Server
 
+	// MockPilotUrl is the URL for the pilot http endpoint
 	MockPilotUrl      string
+
+	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 	fsRoot            string
 	stop              chan struct{}
 )
 
+// EnsureTestServer will ensure a pilot server is running in process and initializes
+// the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
 func EnsureTestServer() *bootstrap.Server {
 	if MockTestServer == nil {
 		err := setup()

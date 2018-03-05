@@ -74,9 +74,9 @@ func RunEnvoy(base string, template string) error {
 	// Template to use
 	config.ProxyBootstrapTemplatePath = IstioSrc + "/" + template
 
-	_, port, err := net.SplitHostPort(pilot.HTTPListeningAddr.String())
+	_, port, _ := net.SplitHostPort(pilot.HTTPListeningAddr.String())
 	config.DiscoveryAddress = "localhost:" + port
-	_, grpcPort, err := net.SplitHostPort(pilot.GRPCListeningAddr.String())
+	_, grpcPort, _ := net.SplitHostPort(pilot.GRPCListeningAddr.String())
 
 	done := make(chan error, 1)
 
