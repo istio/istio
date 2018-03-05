@@ -2,12 +2,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-sidecar-injector-patch-ca-bundle
+  name: istio-sidecar-injector-delete-signed-cert
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-delete
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -16,24 +16,30 @@ metadata:
 spec:
   template:
     metadata:
-      name: istio-sidecar-injector-patch-ca-bundle
+      name: istio-sidecar-injector-delete-signed-cert
       labels:
         app: {{ template "sidecar-injector.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: istio-sidecar-injector-service-account
+      serviceAccountName: istio-sidecar-injector-signed-cert-service-account
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
           command:
-            - /tmp/webhook/webhook-patch-ca-bundle.sh
+            - /tmp/webhook/webhook-delete-signed-cert.sh
+            - --service
+            - istio-sidecar-injector
+            - --namespace
+            - {{ .Release.Namespace }}
+            - --secret
+            - sidecar-injector-certs
           volumeMounts:
             - mountPath: "/tmp/webhook"
-              name: webhook-patch-ca-bundle-script
+              name: webhook-delete-signed-cert-script
       volumes:
-        - name: webhook-patch-ca-bundle-script
+        - name: webhook-delete-signed-cert-script
           configMap:
-            name: istio-sidecar-injector-cm-patch-ca-bundle-script
+            name: istio-sidecar-injector-cm-delete-signed-cert-script
             defaultMode: 0744
       restartPolicy: Never
 {{- end -}}

@@ -2,11 +2,11 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-sidecar-injector-admin-role-binding-{{ .Release.Namespace }}
+  name: istio-sidecar-injector-signed-cert-admin-role-binding-{{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "-2"
-    "helm.sh/hook-delete-policy": keep
+    "helm.sh/hook": pre-install,post-delete
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -18,6 +18,6 @@ roleRef:
   name: cluster-admin #To-do: replace cluster-admin with other role that has less privileges.
 subjects:
   - kind: ServiceAccount
-    name: istio-sidecar-injector-service-account
+    name: istio-sidecar-injector-signed-cert-service-account
     namespace: {{ .Release.Namespace }}
 {{- end }}

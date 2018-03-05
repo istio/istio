@@ -2,10 +2,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-sidecar-injector-create-signed-cert
+  name: istio-sidecar-injector-patch-ca-bundle
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
   labels:
@@ -16,30 +16,24 @@ metadata:
 spec:
   template:
     metadata:
-      name: istio-sidecar-injector-create-signed-cert
+      name: istio-sidecar-injector-patch-ca-bundle
       labels:
         app: {{ template "sidecar-injector.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: istio-sidecar-injector-signed-cert-service-account
+      serviceAccountName: istio-sidecar-injector-ca-bundle-service-account
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
           command:
-            - /tmp/webhook/webhook-create-signed-cert.sh
-            - --service
-            - istio-sidecar-injector
-            - --namespace
-            - {{ .Release.Namespace }}
-            - --secret
-            - sidecar-injector-certs
+            - /tmp/webhook/webhook-patch-ca-bundle.sh
           volumeMounts:
             - mountPath: "/tmp/webhook"
-              name: webhook-create-signed-cert-script
+              name: webhook-patch-ca-bundle-script
       volumes:
-        - name: webhook-create-signed-cert-script
+        - name: webhook-patch-ca-bundle-script
           configMap:
-            name: istio-sidecar-injector-cm-create-signed-cert-script
+            name: istio-sidecar-injector-cm-patch-ca-bundle-script
             defaultMode: 0744
       restartPolicy: Never
 {{- end -}}
