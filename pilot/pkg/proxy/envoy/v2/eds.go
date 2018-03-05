@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package v2
 
 import (
@@ -29,11 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
-
-// Package v2 implements envoy v2 API.
-
-/************ Forward compatibility of older pilot data model with Envoy v2 APIs ****************************/
-// MeshDiscovery interfaces are declared in pilot/pkg/proxy/envoy/v2
 
 // Endpoints implements MeshDiscovery.Endpoints()
 func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {

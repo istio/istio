@@ -91,7 +91,7 @@ func TestEds(t *testing.T) {
 	go func(t *testing.T) {
 		err := startEnvoy()
 		if err != nil {
-			t.Fatal("Failed to start envoy", err)
+			t.Error("Failed to start envoy", err)
 		}
 	}(t)
 
