@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -470,7 +471,7 @@ func testDenials(t *testing.T, rule string) {
 func TestIngressCheckCache(t *testing.T) {
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
-	t.Logf("Denials: block request through ingress if x-user header is missing")
+	t.Logf("block request through ingress if x-user header is missing")
 	if err := applyMixerRule(ingressDenialRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
@@ -488,7 +489,7 @@ func TestIngressCheckCache(t *testing.T) {
 
 	prior, err := getCachedCheckCalls(promAPI)
 	if err != nil {
-		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
 
 	// Visit product page for 5 times. All of them should be denied.
@@ -504,7 +505,7 @@ func TestIngressCheckCache(t *testing.T) {
 	// At least 4 check calls should be cache hit.
 	want := float64(4)
 	if (got - prior) < want {
-		errorf(t, "Check cache hit: %v is less than expected: %v", got - prior, want)
+		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
 	}
 }
 
@@ -533,7 +534,7 @@ func TestCheckCache(t *testing.T) {
 	// 4 cache hit from Ingress and 4 from productpage.
 	want := float64(8)
 	if (got - prior) < want {
-		errorf(t, "Check cache hit: %v is less than expected: %v", got - prior, want)
+		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
 	}
 }
 
@@ -828,6 +829,7 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
+// visitProductsAPI visit the products API endpoint of productpage service.
 func visitProductsAPI(timeout time.Duration, wantStatus int, headers ...*header) error {
 	start := time.Now()
 	clnt := &http.Client{
@@ -858,8 +860,9 @@ func visitProductsAPI(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
+// getCachedCheckCalls returned the total number of check cache hits in this cluster.
 func getCachedCheckCalls(promAPI v1.API) (float64, error) {
-	log.Info("Get number of cached check calls.")
+	log.Info("Get number of cached check calls")
 	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
@@ -879,9 +882,12 @@ func getCachedCheckCalls(promAPI v1.API) (float64, error) {
 	remoteCheck, err := vectorValue(value, map[string]string{})
 
 	if remoteCheck > totalCheck {
-		return 0, fmt.Errorf("Remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+		// Remote check calls should always be less than or equal to total check calls.
+		return 0, fmt.Errorf("Check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
 	}
-	return totalCheck-remoteCheck, nil
+
+	// number of cached check call is the gap between total check calls and remote check calls.
+	return totalCheck - remoteCheck, nil
 }
 
 func fqdn(service string) string {
