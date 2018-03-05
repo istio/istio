@@ -13,7 +13,7 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       service:
-        name: {{ .Release.Name }}-sidecar-injector
+        name: istio-sidecar-injector
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
