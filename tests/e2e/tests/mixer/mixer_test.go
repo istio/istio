@@ -28,7 +28,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -466,7 +465,76 @@ func testDenials(t *testing.T, rule string) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
+}
 
+func TestIngressCheckCache(t *testing.T) {
+	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
+	// This is to make the test focus on ingress check cache.
+	t.Logf("Denials: block request through ingress if x-user header is missing")
+	if err := applyMixerRule(ingressDenialRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := deleteMixerRule(ingressDenialRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+
+	prior, err := getCachedCheckCalls(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+	}
+
+	// Visit product page for 5 times. All of them should be denied.
+	for i := 0; i < 5; i++ {
+		if err := visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
+			fatalf(t, "Test app setup failure, or product page was not denied: %v", err)
+		}
+	}
+
+	allowPrometheusSync()
+	got, err := getCachedCheckCalls(promAPI)
+
+	// At least 4 check calls should be cache hit.
+	want := float64(4)
+	if (got - prior) < want {
+		errorf(t, "Check cache hit: %v is less than expected: %v", got - prior, want)
+	}
+}
+
+func TestCheckCache(t *testing.T) {
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+
+	prior, err := getCachedCheckCalls(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+	}
+
+	// Visit products api for 5 times, which should only touch productpage service through ingress.
+	for i := 0; i < 5; i++ {
+		if err := visitProductsAPI(productPageTimeout, http.StatusOK); err != nil {
+			fatalf(t, "Cannot finish visiting product page: %v", err)
+		}
+	}
+
+	allowPrometheusSync()
+	got, err := getCachedCheckCalls(promAPI)
+
+	// At least 8 check calls should be cache hit.
+	// 4 cache hit from Ingress and 4 from productpage.
+	want := float64(8)
+	if (got - prior) < want {
+		errorf(t, "Check cache hit: %v is less than expected: %v", got - prior, want)
+	}
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
@@ -758,6 +826,62 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 		time.Sleep(3 * time.Second)
 	}
+}
+
+func visitProductsAPI(timeout time.Duration, wantStatus int, headers ...*header) error {
+	start := time.Now()
+	clnt := &http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	url := tc.gateway + "/api/v1/products"
+
+	for {
+		status, _, err := get(clnt, url, headers...)
+		if err != nil {
+			log.Warnf("Unable to connect to products api: %v", err)
+		}
+
+		if status == wantStatus {
+			log.Infof("Got %d response from products api!", wantStatus)
+			return nil
+		}
+
+		if time.Since(start) > timeout {
+			dumpMixerMetrics()
+			return fmt.Errorf("could not call products api in %v: Last status: %v", timeout, status)
+		}
+
+		// see what is happening
+		dumpK8Env()
+
+		time.Sleep(3 * time.Second)
+	}
+}
+
+func getCachedCheckCalls(promAPI v1.API) (float64, error) {
+	log.Info("Get number of cached check calls.")
+	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	totalCheck, err := vectorValue(value, map[string]string{})
+
+	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	remoteCheck, err := vectorValue(value, map[string]string{})
+
+	if remoteCheck > totalCheck {
+		return 0, fmt.Errorf("Remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+	}
+	return totalCheck-remoteCheck, nil
 }
 
 func fqdn(service string) string {
