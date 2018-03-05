@@ -33,7 +33,7 @@ spec:
   template:
     metadata:
       labels:
-        istio: stasd-prom-bridge
+        istio: istio-statsd-prom-bridge
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -41,7 +41,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: stasd-prom-bridge
+          name: istio-statsd-prom-bridge
     {{- if $.Values.nodeSelector }}
       nodeSelector:
 {{ toYaml $.Values.nodeSelector | indent 8 }}
