@@ -32,8 +32,8 @@ func testUnixAddr(prefix string) string {
 		panic(err)
 	}
 	addr := f.Name()
-	f.Close()
-	os.Remove(addr)
+	f.Close()       //nolint: errcheck
+	os.Remove(addr) //nolint: errcheck
 	return addr
 }
 
@@ -47,16 +47,14 @@ func newLocalServer(prefix string) (*localServer, error) {
 
 type localServer struct {
 	net.Listener
-	//done chan bool // signal that indicates server stopped
 }
 
 func (ls *localServer) teardown() error {
 	if ls.Listener != nil {
 		address := ls.Listener.Addr().String()
-		ls.Listener.Close()
-		//<-ls.done
+		ls.Listener.Close() //nolint: errcheck
 		ls.Listener = nil
-		os.Remove(address)
+		os.Remove(address) //nolint: errcheck
 	}
 	return nil
 }

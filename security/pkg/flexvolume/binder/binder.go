@@ -24,11 +24,19 @@ import (
 	"path/filepath"
 
 	"google.golang.org/grpc"
+
+	fv "istio.io/istio/security/pkg/flexvolume"
 )
 
+// MountSubdir is where the nodeagent set's up the socket for the workload pod
 const MountSubdir = "mount"
+
+// SocketFilename is the name of the socket file in the MountSubdir
 const SocketFilename = "socket"
 
+// Binder interface is used to have a gRPC server (node agent) to be notified of
+// workload(s) credentials and create or delete per workload socket when notified
+// of workloads.
 type Binder interface {
 
 	// Returns the gRPC server for this Binder. Used to register the service to be provided to workloads.
@@ -54,6 +62,7 @@ type workload struct {
 	creds    Credentials
 }
 
+// NewBinder creates a new binder for use by node agent.
 func NewBinder(searchPath string) Binder {
 	ws := newWorkloadStore()
 	return &binder{
@@ -71,7 +80,7 @@ func (b *binder) SearchPath() string {
 }
 
 func (b *binder) SearchAndBind(stop <-chan interface{}) {
-	w := NewWatcher(b.searchPath)
+	w := newWatcher(b.searchPath)
 	stopWatch := make(chan bool)
 	events := w.watch(stopWatch)
 	var event workloadEvent
@@ -87,17 +96,17 @@ EventLoop:
 	// Got stop signal! Close any open sockets
 	stopWatch <- true
 	for _, wl := range b.workloads.getAll() {
-		wl.listener.Close()
+		wl.listener.Close() //nolint: errcheck
 	}
 }
 
 func (b *binder) handleEvent(e workloadEvent) {
 	switch e.op {
-	case Added:
+	case added:
 		if e := b.addListener(e.uid); e != nil {
 			log.Printf(e.Error())
 		}
-	case Removed:
+	case removed:
 		b.removeListener(e.uid)
 	default:
 		panic("Unknown workloadEvent op")
@@ -106,7 +115,7 @@ func (b *binder) handleEvent(e workloadEvent) {
 
 func (b *binder) addListener(uid string) error {
 	w := workload{uid: uid}
-	credPath := filepath.Join(b.searchPath, CredentialsSubdir, uid+CredentialsExtension)
+	credPath := filepath.Join(b.searchPath, credentialsSubdir, uid+fv.CredentialFileExtension)
 	err := readCredentials(credPath, &w.creds)
 	if err != nil {
 		return fmt.Errorf("failed to read credentials at %s %v", credPath, err)
@@ -117,12 +126,11 @@ func (b *binder) addListener(uid string) error {
 		// file exists, try to delete it.
 		err := os.Remove(sockPath)
 		if err != nil {
-			return fmt.Errorf("File %s exists and unable to remove.", sockPath)
+			return fmt.Errorf("file %s exists and unable to remove", sockPath)
 		}
 	}
 	lis, err := net.Listen("unix", sockPath)
 	if err != nil {
-		// TODO: consider adding retries
 		return fmt.Errorf("failed to listen at %s error %s", sockPath, err.Error())
 	}
 	w.listener = lis
@@ -152,6 +160,6 @@ func readCredentials(path string, c *Credentials) error {
 func (b *binder) removeListener(uid string) {
 	w := b.workloads.get(uid)
 	// Closing the listener automatically removes it from the gRPC server.
-	w.listener.Close()
+	w.listener.Close() ////nolint: errcheck
 	b.workloads.delete(uid)
 }

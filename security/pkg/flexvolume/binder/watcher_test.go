@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	fv "istio.io/istio/security/pkg/flexvolume"
 )
 
 // testCredentialDir uses ioutil.TempDirectory to create a directory
@@ -32,12 +34,12 @@ func testCredentialDir() string {
 }
 
 func mkCredentialFile(path, uid string) string {
-	credFile := filepath.Join(path, uid+CredentialsExtension)
+	credFile := filepath.Join(path, uid+fv.CredentialFileExtension)
 	f, err := os.OpenFile(credFile, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		panic(err)
 	}
-	f.Close()
+	f.Close() //nolint: errcheck
 	return credFile
 }
 
@@ -46,7 +48,7 @@ func TestPollEmptyDir(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	stopWatch := make(chan bool)
-	rxChan := NewWatcher(dir).watch(stopWatch)
+	rxChan := newWatcher(dir).watch(stopWatch)
 	defer func() {
 		stopWatch <- true
 	}()
@@ -55,7 +57,7 @@ func TestPollEmptyDir(t *testing.T) {
 		case m := <-rxChan:
 			t.Errorf("Did not expect to receive a message %v", m)
 		default:
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		}
 	}
 }
@@ -65,30 +67,32 @@ func TestPollCreateFile(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	//create credentials directory
-	credDir := filepath.Join(dir, CredentialsSubdir)
-	os.MkdirAll(credDir, 0777)
+	credDir := filepath.Join(dir, credentialsSubdir)
+	if err := os.MkdirAll(credDir, 0777); err != nil {
+		panic(err)
+	}
 
 	mkCredentialFile(credDir, "1111-1111-1111")
 
-	rxChan := NewWatcher(dir).watch(make(chan bool))
+	rxChan := newWatcher(dir).watch(make(chan bool))
 	got := false
 	for i := 0; i < 3; i++ {
 		select {
 		case m := <-rxChan:
-			if m.op != Added || m.uid != "1111-1111-1111" {
-				t.Errorf("Expected Added event got %v", m)
+			if m.op != added || m.uid != "1111-1111-1111" {
+				t.Errorf("Expected added event got %v", m)
 			} else {
 				got = true
 			}
 		default:
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		}
 		if got == true {
 			break
 		}
 	}
 	if got == false {
-		t.Errorf("Expected to get a Added event got none")
+		t.Errorf("Expected to get a added event got none")
 	}
 }
 
@@ -97,32 +101,37 @@ func TestPollDeleteFile(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	//create credentials directory
-	credDir := filepath.Join(dir, CredentialsSubdir)
-	os.MkdirAll(credDir, 0777)
+	credDir := filepath.Join(dir, credentialsSubdir)
+	if err := os.MkdirAll(credDir, 0777); err != nil {
+		panic(err)
+	}
 
 	mkCredentialFile(credDir, "1111-1111-1111")
-	rmUid := "1111-1111-1112"
-	rmFile := mkCredentialFile(credDir, rmUid)
+	rmUID := "1111-1111-1112"
+	rmFile := mkCredentialFile(credDir, rmUID)
 
-	rxChan := NewWatcher(dir).watch(make(chan bool))
+	rxChan := newWatcher(dir).watch(make(chan bool))
 	got := false
 	for i := 0; i < 5; i++ {
 		select {
 		case m := <-rxChan:
 			switch m.op {
-			case Removed:
-				if m.uid == rmUid {
+			case removed:
+				if m.uid == rmUID {
 					got = true
 				}
-			case Added:
-				if m.uid == rmUid {
-					os.Remove(rmFile)
+			case added:
+				if m.uid == rmUID {
+					if err := os.Remove(rmFile); err != nil {
+						// Cannot test in this case! not that it would ever happen.
+						panic(err)
+					}
 					i = 0 // give the watcher a chance to catch up.
 				}
 			default:
 			}
 		default:
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		}
 		if got == true {
 			break
@@ -146,20 +155,22 @@ func TestPollSeededFiles(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	//create credentials directory
-	credDir := filepath.Join(dir, CredentialsSubdir)
-	os.MkdirAll(credDir, 0777)
+	credDir := filepath.Join(dir, credentialsSubdir)
+	if err := os.MkdirAll(credDir, 0777); err != nil {
+		panic(err)
+	}
 
-	for uid, _ := range addedChecks {
+	for uid := range addedChecks {
 		mkCredentialFile(credDir, uid)
 	}
 
-	rxChan := NewWatcher(dir).watch(make(chan bool))
+	rxChan := newWatcher(dir).watch(make(chan bool))
 	gotCount := len(addedChecks)
 	for i := 0; i < 7; i++ {
 		select {
 		case m := <-rxChan:
 			switch m.op {
-			case Added:
+			case added:
 				if _, ok := addedChecks[m.uid]; !ok {
 					t.Errorf("Unexpected added %v", m)
 				}
@@ -167,14 +178,14 @@ func TestPollSeededFiles(t *testing.T) {
 					t.Errorf("Unexpected added again %v", m)
 				}
 				addedChecks[m.uid] = true
-				gotCount -= 1
-			case Removed:
+				gotCount--
+			case removed:
 				t.Errorf("Unexpected removed %v", m)
 			default:
 				t.Errorf("Unexpected op %v", m)
 			}
 		default:
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		}
 		if gotCount == 0 {
 			break
@@ -205,20 +216,22 @@ func TestPollAddAndRemoveFiles(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	//create credentials directory
-	credDir := filepath.Join(dir, CredentialsSubdir)
-	os.MkdirAll(credDir, 0777)
+	credDir := filepath.Join(dir, credentialsSubdir)
+	if err := os.MkdirAll(credDir, 0777); err != nil {
+		panic(err)
+	}
 
 	for uid, c := range checks {
 		c.fileName = mkCredentialFile(credDir, uid)
 		checks[uid] = c
 	}
 
-	rxChan := NewWatcher(dir).watch(make(chan bool))
+	rxChan := newWatcher(dir).watch(make(chan bool))
 	for i := 0; i < 8; i++ {
 		select {
 		case m := <-rxChan:
 			switch m.op {
-			case Added:
+			case added:
 				if _, ok := checks[m.uid]; !ok {
 					t.Errorf("Unexpected added %v", m)
 				}
@@ -226,27 +239,29 @@ func TestPollAddAndRemoveFiles(t *testing.T) {
 				c.added = true
 				checks[m.uid] = c
 				if c.expectedBoth == true {
-					os.Remove(c.fileName)
+					if err := os.Remove(c.fileName); err != nil {
+						panic(err)
+					}
 					i = 0 // give watcher some more time.
 				}
-			case Removed:
+			case removed:
 				if _, ok := checks[m.uid]; !ok {
 					t.Errorf("Unexpected delete %v", m)
 				}
 				c := checks[m.uid]
 				if c.added == false {
-					t.Errorf("Removed called before add for %s", m.uid)
+					t.Errorf("removed called before add for %s", m.uid)
 				}
 				c.removed = true
 				checks[m.uid] = c
 				if c.expectedBoth && (c.added && c.removed) {
-					gotCount -= 1
+					gotCount--
 				}
 			default:
 				t.Errorf("Unexpected op %v", m)
 			}
 		default:
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		}
 		if gotCount == 0 {
 			break

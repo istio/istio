@@ -27,14 +27,17 @@ const (
 	authType = "udsuspver"
 )
 
+// Credentials of the client connecting to the gRPC server
 type Credentials struct {
 	WorkloadCredentials fvcreds.Credential
 }
 
+// AuthType to support credentials interface of gRPC
 func (c Credentials) AuthType() string {
 	return authType
 }
 
+// CallerFromContext extracts the credentials from the context
 func CallerFromContext(ctx context.Context) (fvcreds.Credential, bool) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -43,6 +46,7 @@ func CallerFromContext(ctx context.Context) (fvcreds.Credential, bool) {
 	return CallerFromAuthInfo(peer.AuthInfo)
 }
 
+// CallerFromAuthInfo return credentials of client
 func CallerFromAuthInfo(ainfo credentials.AuthInfo) (fvcreds.Credential, bool) {
 	if ci, ok := ainfo.(Credentials); ok {
 		return ci.WorkloadCredentials, true

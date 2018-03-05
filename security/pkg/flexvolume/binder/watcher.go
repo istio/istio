@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	fv "istio.io/istio/security/pkg/flexvolume"
 )
 
 type watcher interface {
@@ -28,24 +30,25 @@ type watcher interface {
 	watch(stop <-chan bool) <-chan workloadEvent
 }
 
-type Operation int
+type operation int
 
 const (
-	Added Operation = iota
-	Removed
+	added operation = iota
+	removed
 )
 
-const CredentialsSubdir = "creds"
-const CredentialsExtension = ".json"
-const PollSleepTime = 100 * time.Millisecond
+// credentialsSubdir is where the credential files are created by flex volume driver
+const credentialsSubdir = "creds"
+const pollSleepTime = 100 * time.Millisecond
 
 type workloadEvent struct {
-	// What happended to the workload mount?
-	op  Operation
+	// What happened to the workload mount?
+	op  operation
 	uid string
 }
 
-func NewWatcher(path string) watcher {
+// newWatcher watches path's CredentialSubdir for workload creation/deletion
+func newWatcher(path string) watcher {
 	return &pollWatcher{path}
 }
 
@@ -62,7 +65,7 @@ func (p *pollWatcher) watch(stop <-chan bool) <-chan workloadEvent {
 func (p *pollWatcher) poll(events chan<- workloadEvent, stop <-chan bool) {
 	// The workloads we know about.
 	known := make(map[string]bool)
-	credPath := filepath.Join(p.path, CredentialsSubdir)
+	credPath := filepath.Join(p.path, credentialsSubdir)
 	for {
 		// check if we need to stop polling.
 		select {
@@ -73,7 +76,7 @@ func (p *pollWatcher) poll(events chan<- workloadEvent, stop <-chan bool) {
 			//continue
 		}
 		if _, err := os.Stat(credPath); err != nil {
-			time.Sleep(PollSleepTime)
+			time.Sleep(pollSleepTime)
 		} else {
 			break
 		}
@@ -97,32 +100,31 @@ func (p *pollWatcher) poll(events chan<- workloadEvent, stop <-chan bool) {
 			return
 		}
 		// This set will contain all previously known UIDs that are now absent.
-		removed := copyStringSet(known)
+		removedWls := copyStringSet(known)
 		for _, file := range files {
 			isCred, uid := parseFilename(file.Name())
 			if isCred {
 				if !known[uid] {
-					events <- workloadEvent{op: Added, uid: uid}
+					events <- workloadEvent{op: added, uid: uid}
 					known[uid] = true
 				}
-				delete(removed, uid)
+				delete(removedWls, uid)
 			}
 		}
 		// Send updates for UIDs we no longer know about.
-		for uid := range removed {
-			events <- workloadEvent{op: Removed, uid: uid}
+		for uid := range removedWls {
+			events <- workloadEvent{op: removed, uid: uid}
 			delete(known, uid)
 		}
-		time.Sleep(PollSleepTime)
+		time.Sleep(pollSleepTime)
 	}
 }
 
 func parseFilename(name string) (isCred bool, uid string) {
-	if strings.HasSuffix(name, CredentialsExtension) {
-		return true, strings.TrimSuffix(name, CredentialsExtension)
-	} else {
-		return false, ""
+	if strings.HasSuffix(name, fv.CredentialFileExtension) {
+		return true, strings.TrimSuffix(name, fv.CredentialFileExtension)
 	}
+	return false, ""
 }
 
 func copyStringSet(original map[string]bool) map[string]bool {

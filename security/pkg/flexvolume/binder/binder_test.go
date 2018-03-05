@@ -42,7 +42,7 @@ func testWriteCredentials(path, file string, creds fvcreds.Credential) (string, 
 }
 
 func testWriteDefaultCredentials(path, UID string) string {
-	credDir := filepath.Join(path, CredentialsSubdir)
+	credDir := filepath.Join(path, credentialsSubdir)
 	if err := os.MkdirAll(credDir, 0777); err != nil {
 		panic(err)
 	}
@@ -52,7 +52,7 @@ func testWriteDefaultCredentials(path, UID string) string {
 		ServiceAccount: "sa",
 		Namespace:      "default",
 	}
-	fileName, err := testWriteCredentials(credDir, UID+CredentialsExtension, expectedCred)
+	fileName, err := testWriteCredentials(credDir, UID+fvcreds.CredentialFileExtension, expectedCred)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +130,9 @@ func TestReadCredentialErrContent(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
 
 	var gotCred Credentials
 	gotErr := readCredentials(credFile, &gotCred)
@@ -207,7 +209,9 @@ func TestAddListenerSockFileExists(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
 
 	testWriteDefaultCredentials(dir, UID)
 
@@ -292,17 +296,17 @@ func TestHandleEvent(t *testing.T) {
 		server:     grpc.NewServer(grpc.Creds(ws)),
 		workloads:  ws}
 
-	var workloadEvents = []workloadEvent{{op: Added, uid: UID},
-		{op: Removed, uid: UID}}
+	var workloadEvents = []workloadEvent{{op: added, uid: UID},
+		{op: removed, uid: UID}}
 	for _, e := range workloadEvents {
 		b.handleEvent(e)
 		switch e.op {
-		case Added:
+		case added:
 			wGot := ws.get(e.uid)
 			if wGot.uid != e.uid {
 				t.Errorf("Expected workload store to have UID %s", e.uid)
 			}
-		case Removed:
+		case removed:
 			wGot := ws.get(e.uid)
 			if wGot.uid != "" {
 				t.Errorf("Expected workload store to not have UID %s", e.uid)
