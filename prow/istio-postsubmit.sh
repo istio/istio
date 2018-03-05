@@ -36,7 +36,7 @@ cd $ROOT
 make init
 
 echo 'Running Unit Tests'
-time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit_tests.xml" \
+time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
 T="-v" \
 make localTestEnv test
 

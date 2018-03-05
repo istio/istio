@@ -410,7 +410,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
