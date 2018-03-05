@@ -20,11 +20,11 @@ const CredentialFileExtension = ".json"
 // Credential of the workload published by the Flex volume driver
 type Credential struct {
 	// UID is the unique identifier for the workload.
-	UID            string
+	UID string
 	// Workload is the name of the workload.
-	Workload       string
+	Workload string
 	// Namespace is the namespace of the workload.
-	Namespace      string
+	Namespace string
 	// ServiceAccount is the service account of the workload.
 	ServiceAccount string
 }

@@ -28,7 +28,7 @@ import (
 	"testing"
 
 	fv "istio.io/istio/security/pkg/flexvolume"
-//	pb "istio.io/istio/security/proto"
+	//	pb "istio.io/istio/security/proto"
 )
 
 var (
@@ -257,7 +257,7 @@ func TestMountBasic(t *testing.T) {
 	}
 
 	// Check if credential file created & has the correct content.
-	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, opts.UID+ fv.CredentialFileExtension)
+	credsFile := filepath.Join(configuration.NodeAgentCredentialsHomeDir, opts.UID+fv.CredentialFileExtension)
 	if _, err = os.Stat(credsFile); err != nil {
 		t.Errorf("Credentail file %s not created", credsFile)
 	}
@@ -364,7 +364,7 @@ func TestMountCmdCredFailure(t *testing.T) {
 		}
 	}
 
-	errPath := filepath.Join(testDir, "fail", opts.UID + fv.CredentialFileExtension)
+	errPath := filepath.Join(testDir, "fail", opts.UID+fv.CredentialFileExtension)
 	var gotResp Response
 	expResp := getFailure("", "", fmt.Sprintf("Failure to create credentials: open %s: no such file or directory", errPath))
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
@@ -399,7 +399,7 @@ func TestUnmount(t *testing.T) {
 
 	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, testUID)
 	credsDir := configuration.NodeAgentCredentialsHomeDir
-	credsFile := filepath.Join(credsDir, testUID + fv.CredentialFileExtension)
+	credsFile := filepath.Join(credsDir, testUID+fv.CredentialFileExtension)
 
 	for _, dir := range []string{delDir, credsDir} {
 		if err := os.MkdirAll(dir, 0777); err != nil {
@@ -470,7 +470,8 @@ func TestUnmountCmdCredFailure(t *testing.T) {
 	}
 
 	//"Failure to delete credentials file: remove /tmp/testFlexvolumeDriver410006374/creds/1111-1111-1111.json
-	expectedErrMessage := fmt.Sprintf("Failure to delete credentials file: remove %s: no such file or directory", filepath.Join(credsDir, testUID+ fv.CredentialFileExtension))
+	expectedErrMessage := fmt.Sprintf("Failure to delete credentials file: remove %s: no such file or directory",
+		filepath.Join(credsDir, testUID+fv.CredentialFileExtension))
 	var gotResp Response
 	expResp := getGenericResp("", "", expectedErrMessage)
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {

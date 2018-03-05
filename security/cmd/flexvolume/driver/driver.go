@@ -92,13 +92,12 @@ type FlexVolumeInputs struct {
 }
 
 const (
-	versionK8s         string = "1.8"
-	configFileName     string = "/etc/flexvolume/nodeagent.json"
-	nodeAgentHome      string = "/var/run/nodeagent"
-	mountDir           string = "/mount"
-	credentialDirHome  string = "/creds"
-	managementSockHome string = "/mgmt.sock"
-	logLevelWarn       string = "WARNING"
+	versionK8s        string = "1.8"
+	configFileName    string = "/etc/flexvolume/nodeagent.json"
+	nodeAgentHome     string = "/var/run/nodeagent"
+	mountDir          string = "/mount"
+	credentialDirHome string = "/creds"
+	logLevelWarn      string = "WARNING"
 )
 
 var (
@@ -141,10 +140,10 @@ func produceWorkloadCredential(opts string) (*fv.Credential, error) {
 	}
 
 	wlInfo := fv.Credential{
-			UID:            ninputs.UID,
-			Workload:       ninputs.Name,
-			Namespace:      ninputs.Namespace,
-			ServiceAccount: ninputs.ServiceAccount,
+		UID:            ninputs.UID,
+		Workload:       ninputs.Name,
+		Namespace:      ninputs.Namespace,
+		ServiceAccount: ninputs.ServiceAccount,
 	}
 	return &wlInfo, nil
 }
@@ -238,7 +237,7 @@ func Unmount(dir string) error {
 	// TBD: Check if uid is the correct format.
 	naInp := &fv.Credential{
 		UID: uid,
-		}
+	}
 	if err := removeCredentialFile(naInp); err != nil {
 		// Go ahead and finish the unmount; no need to hold up kubelet.
 		emsgs = append(emsgs, "Failure to delete credentials file: "+err.Error())
