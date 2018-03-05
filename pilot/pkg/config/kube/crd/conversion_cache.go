@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/pkg/cache"
 )
 
-const LRU_NUM_ENTRIES = 3000
+const cacheSize = 3000
 
 // ObjectConverter describes a function that can convert a k8s API object into an Istio model object.
 type ObjectConverter func(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error)
@@ -47,7 +47,7 @@ func newKeyFunc(typ, domain string) keyFunc {
 // objects change.
 func NewCachingConverter(converter ObjectConverter) *CachingConverter {
 	return &CachingConverter{
-		cache: cache.SimpleLRU(LRU_NUM_ENTRIES),
+		cache: cache.SimpleLRU(cacheSize),
 		inner: converter,
 	}
 }
