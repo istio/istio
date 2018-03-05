@@ -85,11 +85,11 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int,
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-		out, err := WriteBootstrap(config, epoch, pilotSAN, opts)
-		if err != nil {
-			return nil, err
-		}
-		fname = out
+	out, err := WriteBootstrap(config, epoch, pilotSAN, opts)
+	if err != nil {
+		return nil, err
+	}
+	fname = out
 
 	// spin up a new Envoy process
 	args := args(config, node, fname, epoch)
@@ -145,7 +145,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 		return "", err
 	}
 
-	opts["config"] =config
+	opts["config"] = config
 
 	if pilotSAN != nil {
 		opts["pilot_SAN"] = pilotSAN
@@ -160,7 +160,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	pilotPort := addPort[1]
 	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", pilotHost, pilotPort)
 
-	grpcAddress, _ := opts["pilot_grpc"]
+	grpcAddress := opts["pilot_grpc"]
 	// Default values for the grpc address.
 	grpcPort := "15010"
 	grpcHost := pilotHost

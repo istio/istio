@@ -38,8 +38,6 @@ var (
 	stop              chan struct{}
 )
 
-
-
 func EnsureTestServer() *bootstrap.Server {
 	if MockTestServer == nil {
 		err := setup()
@@ -90,12 +88,12 @@ func setup() error {
 	}
 
 	// Extract the port from the network address.
-	_, port, err := net.SplitHostPort(s.HttpListeningAddr.String())
+	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
 	if err != nil {
 		return err
 	}
 	MockPilotUrl = "http://localhost:" + port
-	_, port, err = net.SplitHostPort(s.GrpcListeningAddr.String())
+	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
 	if err != nil {
 		return err
 	}

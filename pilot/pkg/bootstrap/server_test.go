@@ -29,7 +29,7 @@ func TestListServices(t *testing.T) {
 	s := util.EnsureTestServer()
 	// We are not interested in teardown - this test server will be used for all tests.
 	helloService := mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	worldService   := mock.MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	worldService := mock.MakeService("world.default.svc.cluster.local", "10.2.0.0")
 
 	s.MemoryServiceDiscovery.AddService(helloService.Hostname, helloService)
 	s.MemoryServiceDiscovery.AddService(worldService.Hostname, worldService)

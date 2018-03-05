@@ -72,15 +72,13 @@ func directRequest(t *testing.T) {
 	}
 	t.Log(res1.String())
 
-	edsstr.CloseSend()
+	_ = edsstr.CloseSend()
 }
 
 func TestEds(t *testing.T) {
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("mysvc", &model.Service{
-
-	})
+	server.MemoryServiceDiscovery.AddService("mysvc", &model.Service{})
 
 	// Verify services are set
 	srv, err := server.ServiceController.Services()

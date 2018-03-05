@@ -91,8 +91,6 @@ var (
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
 	}
-
-
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -184,8 +182,8 @@ type Server struct {
 	mixerSAN          []string
 	kubeClient        kubernetes.Interface
 	startFuncs        []startFunc
-	HttpListeningAddr net.Addr
-	GrpcListeningAddr net.Addr
+	HTTPListeningAddr net.Addr
+	GRPCListeningAddr net.Addr
 	clusterStore      *clusterregistry.ClusterStore
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
@@ -195,7 +193,7 @@ type Server struct {
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
-	MemoryServiceDiscovery   *mock.ServiceDiscovery
+	MemoryServiceDiscovery *mock.ServiceDiscovery
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -250,7 +248,7 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 		}
 	}
 
-	return s.HttpListeningAddr, nil
+	return s.HTTPListeningAddr, nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
@@ -570,14 +568,14 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
-//			mock.HelloService.Hostname: mock.HelloService,
+			//			mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	s.MemoryServiceDiscovery = discovery1
 
 	discovery2 := mock.NewDiscovery(
 		map[string]*model.Service{
-//			mock.WorldService.Hostname: mock.WorldService,
+			//			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -630,31 +628,31 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.HttpListeningAddr = listener.Addr()
+	s.HTTPListeningAddr = listener.Addr()
 
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err
 	}
-	s.GrpcListeningAddr = grpcListener.Addr()
+	s.GRPCListeningAddr = grpcListener.Addr()
 
 	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
-			if err := s.HttpServer.Serve(listener); err != nil {
+			if err = s.HttpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err := s.EnvoyXdsServer.GrpcServer.Serve(grpcListener); err != nil {
+			if err = s.EnvoyXdsServer.GrpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
 
 		go func() {
 			<-stop
-			err := s.HttpServer.Close()
+			err = s.HttpServer.Close()
 			if err != nil {
 				log.Warna(err)
 			}

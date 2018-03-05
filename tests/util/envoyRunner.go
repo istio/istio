@@ -43,11 +43,11 @@ func init() {
 		current, _ := os.Getwd()
 		idx := strings.Index(current, "/src/istio.io/istio")
 		if idx > 0 {
-			IstioTop = current[0: idx]
+			IstioTop = current[0:idx]
 		}
 	}
 	if IstioSrc == "" {
-			IstioSrc = IstioTop + "/src/istio.io/istio"
+		IstioSrc = IstioTop + "/src/istio.io/istio"
 	}
 	if IstioOut == "" {
 		IstioOut = IstioTop + "/out"
@@ -74,15 +74,15 @@ func RunEnvoy(base string, template string) error {
 	// Template to use
 	config.ProxyBootstrapTemplatePath = IstioSrc + "/" + template
 
-	_, port, err := net.SplitHostPort(pilot.HttpListeningAddr.String())
+	_, port, err := net.SplitHostPort(pilot.HTTPListeningAddr.String())
 	config.DiscoveryAddress = "localhost:" + port
-	_, grpcPort, err := net.SplitHostPort(pilot.GrpcListeningAddr.String())
+	_, grpcPort, err := net.SplitHostPort(pilot.GRPCListeningAddr.String())
 
 	done := make(chan error, 1)
 
 	envoyProxy := envoy.NewV2ProxyCustom(config, "router~x~x~x", "info", []string{
 		"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
-		map[string]interface{} {
+		map[string]interface{}{
 			"pilot_grpc": "localhost:" + grpcPort,
 		}, done)
 
@@ -90,9 +90,9 @@ func RunEnvoy(base string, template string) error {
 
 	cfg := &envoy.Config{}
 	// done channel will get termination events.
-		if err = envoyProxy.Run(cfg, 0, abortCh); err != nil {
-			fmt.Println("Failed to start envoy", err)
-		}
+	if err = envoyProxy.Run(cfg, 0, abortCh); err != nil {
+		fmt.Println("Failed to start envoy", err)
+	}
 
 	return nil
 }

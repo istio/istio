@@ -244,9 +244,9 @@ type envoy struct {
 	extraArgs []string
 	v2        bool
 	pilotSAN  []string
-	opts  	  map[string]interface{}
+	opts      map[string]interface{}
 	errChan   chan error
-	}
+}
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy.Proxy {

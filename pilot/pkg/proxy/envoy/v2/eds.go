@@ -14,13 +14,12 @@
 package v2
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/hashicorp/go-multierror"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -75,12 +74,10 @@ func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.Discov
 	return out
 }
 
-
 func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
-	var errs error
 	ipAddr := net.ParseIP(address)
 	if ipAddr == nil {
-		errs = multierror.Append(errs, fmt.Errorf("invalid IP address %q", address))
+		return nil, errors.New("Invalid IP address " + address)
 	}
 	ep := endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
