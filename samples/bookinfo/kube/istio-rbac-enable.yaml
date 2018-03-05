@@ -27,7 +27,7 @@ metadata:
   namespace: istio-system
 spec:
   config_store_url: "k8s://"
-  cache_duration: "0s"
+#  cache_duration: "0s"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
