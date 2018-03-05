@@ -132,12 +132,16 @@ func TestPersistBatches(t *testing.T) {
 			var count int32
 			var testWg sync.WaitGroup
 			testWg.Add(1)
+
+			var action sync.WaitGroup
+			action.Add(1)
 			go func() {
 				PersistBatches(&MockServiceAccessor{
 					MockMeasurementsService: func() MeasurementsCommunicator {
 						return &MockMeasurementsService{
 							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
 								atomic.AddInt32(&count, 1)
+								action.Done()
 								return test.response, test.error
 							},
 						}
@@ -146,8 +150,6 @@ func TestPersistBatches(t *testing.T) {
 				testWg.Done()
 			}()
 
-			var action sync.WaitGroup
-			action.Add(1)
 			if test.sendOnStopChan {
 				go func() {
 					time.Sleep(time.Millisecond)
@@ -160,14 +162,13 @@ func TestPersistBatches(t *testing.T) {
 					pushChan <- []*Measurement{
 						{}, {}, {},
 					}
-					action.Done()
 				}()
 			}
 
 			logger.Infof("%s - waiting...\n", t.Name())
 			action.Wait()
-			if atomic.LoadInt32(&count) != test.expectedCount {
-				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
+			if c := atomic.LoadInt32(&count); c != test.expectedCount {
+				t.Errorf("Count %d did not match the expected count: %d", c, test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
 			if !test.sendOnStopChan {
