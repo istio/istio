@@ -281,7 +281,7 @@ func TestOpts(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := NewOptions()
+			o := DefaultOptions()
 			cmd := &cobra.Command{}
 			o.AttachCobraFlags(cmd)
 			cmd.SetArgs(strings.Split(c.cmdLine, " "))
@@ -313,7 +313,7 @@ func TestLevel(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := NewOptions()
+			o := DefaultOptions()
 
 			oldLevel, _ := o.GetOutputLevel()
 			err := o.SetOutputLevel(c.outputLevel)
@@ -331,14 +331,14 @@ func TestLevel(t *testing.T) {
 
 	// Now test setting the underlying field directly. This simulates what would
 	// happen if an invalid CLI flag was provided.
-	o := NewOptions()
+	o := DefaultOptions()
 	o.outputLevel = "foobar"
 	_, err := o.GetOutputLevel()
 	if err == nil {
 		t.Errorf("Got nil, expecting error")
 	}
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.stackTraceLevel = "foobar"
 	_, err = o.GetStackTraceLevel()
 	if err == nil {

@@ -74,6 +74,6 @@ func NewConfig() *Config {
 		CSRInitialRetrialInterval: defaultCSRInitialRetrialInterval,
 		CSRMaxRetries:             defaultCSRMaxRetries,
 		CSRGracePeriodPercentage:  defaultCSRGracePeriodPercentage,
-		LoggingOptions:            log.NewOptions(),
+		LoggingOptions:            log.DefaultOptions(),
 	}
 }

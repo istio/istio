@@ -47,6 +47,7 @@ jobs:
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
+            ls -l /go/bin
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
@@ -59,6 +60,8 @@ jobs:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
 
   e2e-mixer:
     <<: *integrationDefaults
@@ -173,7 +176,7 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
-            trap "/go/bin/go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             # Run the tests in env similar with recommended setup.
             make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
                | tee -a /go/out/tests/go-test-report.out
@@ -250,9 +253,9 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+#      - restore_cache:
+#          keys:
+#            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -323,7 +326,9 @@ jobs:
       - run:
           name: Uploading code coverage to codecov.io
           when: always
-          command: bash <(curl -s https://codecov.io/bash)
+          command: cd /go/out/codecov && bash <(curl -s https://codecov.io/bash)
+      - store_artifacts:
+          path: /go/out/codecov
 
   test:
     <<: *defaults
@@ -333,9 +338,9 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - test_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - test_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git.pullmaster
       #- run: make submodule-sync
@@ -347,10 +352,10 @@ jobs:
             make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
-      - save_cache:
-          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
 
 
   racetest:
@@ -391,9 +396,9 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - build_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - build_cache_{{ checksum "/go/out/cache.stamp" }}
       #- checkout
       #- run: make git.pullmaster
       #- run: make submodule-sync
@@ -409,10 +414,10 @@ jobs:
             - bin
             - out
       - run:  make sidecar.deb
-      - save_cache:
-          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
@@ -424,17 +429,17 @@ jobs:
     steps:
       - attach_workspace:
           at:  /go
-      - restore_cache:
-          keys:
-            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
+#      - restore_cache:
+#          keys:
+#            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
 
       #- checkout
       #- run: make submodule-sync
       - run: make lint
-      - save_cache:
-          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
-          paths:
-            - /go/pkg
+#      - save_cache:
+#          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
+#          paths:
+#            - /go/pkg
 
   docker-push:
     <<: *defaults
@@ -442,8 +447,8 @@ jobs:
     environment:
       TAG: circleci-nightly
     steps:
-      - checkout
-      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -591,6 +596,9 @@ workflows:
            requires:
             - build
       - e2e-pilot:
+          requires:
+            - build
+      - e2e-pilot-noauth:
           requires:
             - build
       - e2e-simple:

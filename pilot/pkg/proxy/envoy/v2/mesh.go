@@ -72,7 +72,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	route "istio.io/api/routing/v1alpha2"
+	route "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 

@@ -32,8 +32,8 @@ type Options struct {
 	LogTraceSpans bool
 }
 
-// NewOptions returns a new set of options, initialized to the defaults
-func NewOptions() *Options {
+// DefaultOptions returns a new set of options, initialized to the defaults
+func DefaultOptions() *Options {
 	return &Options{}
 }
 
@@ -58,12 +58,12 @@ func (o *Options) TracingEnabled() bool {
 // the necessary set of flags to expose a CLI to let the user control all
 // tracing options.
 func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "trace_zipkin_url", "", "",
+	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "trace_zipkin_url", "", o.ZipkinURL,
 		"URL of Zipkin collector (example: 'http://zipkin:9411/api/v1/spans').")
 
-	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "trace_jaeger_url", "", "",
+	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "trace_jaeger_url", "", o.JaegerURL,
 		"URL of Jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift').")
 
-	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", false,
+	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", o.LogTraceSpans,
 		"Whether or not to log trace spans.")
 }

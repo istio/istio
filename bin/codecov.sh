@@ -30,18 +30,21 @@ declare -a PKGS
 
 function code_coverage() {
   local filename="$(echo ${1} | tr '/' '-')"
-    go test -coverprofile=${COVERAGEDIR}/${filename}.txt ${1} &
-    local pid=$!
-    PKGS[${pid}]=${1}
-    PIDS+=(${pid})
+  ( go test \
+    -coverprofile=${COVERAGEDIR}/${filename}.txt \
+    -covermode=atomic ${1} \
+    | tee ${COVERAGEDIR}/${filename}.report ) &
+  local pid=$!
+  PKGS[${pid}]=${1}
+  PIDS+=(${pid})
 }
 
 function wait_for_proc() {
-    local num=$(jobs -p | wc -l)
-    while [ ${num} -gt ${MAXPROCS} ]; do
-      sleep 2
-      num=$(jobs -p|wc -l)
-    done
+  local num=$(jobs -p | wc -l)
+  while [ ${num} -gt ${MAXPROCS} ]; do
+    sleep 2
+    num=$(jobs -p|wc -l)
+  done
 }
 
 function join_procs() {
@@ -68,19 +71,26 @@ parse_skipped_tests
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
 for P in $(go list ${DIR} | grep -v vendor); do
-    #FIXME remove mixer tools exclusion after tests can be run without bazel
-    if echo ${P} | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
-      echo "Skipped ${P}"
-      continue
-    fi
-    code_coverage "${P}"
-    wait_for_proc
+  #FIXME remove mixer tools exclusion after tests can be run without bazel
+  if echo ${P} | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
+    echo "Skipped ${P}"
+    continue
+  fi
+  code_coverage "${P}"
+  wait_for_proc
 done
 
 join_procs
 
 touch "${COVERAGEDIR}/empty"
-cat "${COVERAGEDIR}"/* > coverage.txt
+FINAL_CODECOV_DIR="${GOPATH}/out/codecov"
+mkdir -p "${FINAL_CODECOV_DIR}"
+pushd "${FINAL_CODECOV_DIR}"
+cat "${COVERAGEDIR}"/*.txt > coverage.txt
+cat "${COVERAGEDIR}"/*.report > codecov.report
+popd
+echo "Repors are stored in ${FINAL_CODECOV_DIR}"
+
 
 if [[ -n ${FAILED_TESTS:-} ]]; then
   echo "The following tests failed"
@@ -89,3 +99,11 @@ if [[ -n ${FAILED_TESTS:-} ]]; then
   done
   exit 1
 fi
+
+echo 'Checking package coverage'
+go get -u istio.io/test-infra/toolbox/pkg_check
+pkg_check \
+  --bucket= \
+  --report_file=/go/out/codecov/codecov.report \
+  --requirement_file=codecov.requirement
+

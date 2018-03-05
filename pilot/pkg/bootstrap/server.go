@@ -32,9 +32,9 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/kube/crd/file"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
+	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -69,7 +69,7 @@ var (
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
-		model.V1alpha2RouteRule,
+		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
 		model.ExternalService,
@@ -369,7 +369,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
 		configController = memory.NewController(store)
-		fileMonitor := file.NewMonitor(configController, args.Config.FileDir, configDescriptor)
+		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
 
 		// Defer starting the file monitor until after the service is created.
 		s.addStartFunc(func(stop chan struct{}) error {

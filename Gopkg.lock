@@ -234,11 +234,15 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/service/discovery/v2",
     "pkg/cache",
-    "pkg/server"
+    "pkg/log",
+    "pkg/server",
+    "pkg/util"
   ]
-  revision = "e0ebc95432196ce43dae88cc2822983466210656"
+  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -1152,12 +1156,12 @@
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
     "mixer/v1/config/client",
+    "networking/v1alpha3",
     "policy/v1beta1",
     "rbac/v1alpha1",
-    "routing/v1alpha1",
-    "routing/v1alpha2"
+    "routing/v1alpha1"
   ]
-  revision = "e07972e35d89890e2bad2c9e774fd6517c14ea02"
+  revision = "0cb6ca9f2a06370b8734f4e4c0d62b77ec5975d3"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1462,6 +1466,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d4b3d9a6b40660b75af56d7f0ac66fa798ebc4e6824963153d5a19e3ddd63581"
+  inputs-digest = "a141285fea5a60d06e0e07507e7482df7a08229ed66e389e9a0b5184ddaa8751"
   solver-name = "gps-cdcl"
   solver-version = 1

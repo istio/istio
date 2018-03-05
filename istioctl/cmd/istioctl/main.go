@@ -21,23 +21,25 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"path"
-
-	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
@@ -70,7 +72,14 @@ var (
 	// output format (yaml or short)
 	outputFormat string
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
+
+	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	legacyIstioAPIGroupVersion = schema.GroupVersion{
+		Group:   "config.istio.io",
+		Version: "v1alpha2",
+	}
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",
@@ -291,7 +300,7 @@ istioctl get routerule productpage-default
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := schema(configClient, args[0])
+			typ, err := protoSchema(configClient, args[0])
 			if err != nil {
 				c.Println(c.UsageString())
 				return err
@@ -352,7 +361,7 @@ istioctl delete routerule productpage-default
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := schema(configClient, args[0])
+				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -557,8 +566,8 @@ func main() {
 	}
 }
 
-// The schema is based on the kind (for example "routerule" or "destinationpolicy")
-func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
+// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
@@ -644,7 +653,7 @@ func newClient() (*crd.Client, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
-		model.V1alpha2RouteRule,
+		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
 		model.ExternalService,
@@ -674,11 +683,37 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 			return err
 		}
 		if config.APIVersion == "" {
-			configs[i].APIVersion = crd.IstioAPIGroupVersion.String()
+			configs[i].APIVersion = legacyIstioAPIGroupVersion.String()
 		}
 		// TODO: invokes the mixer validation webhook.
 	}
 	return nil
+}
+
+func restConfig() (config *rest.Config, err error) {
+	if kubeconfig == "" {
+		config, err = rest.InClusterConfig()
+	} else {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
+
+	if err != nil {
+		return
+	}
+
+	config.GroupVersion = &legacyIstioAPIGroupVersion
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+
+	types := runtime.NewScheme()
+	schemeBuilder := runtime.NewSchemeBuilder(
+		func(scheme *runtime.Scheme) error {
+			metav1.AddToGroupVersion(scheme, legacyIstioAPIGroupVersion)
+			return nil
+		})
+	err = schemeBuilder.AddToScheme(types)
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
+	return
 }
 
 func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]metav1.APIResource, error) {
@@ -686,10 +721,11 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 	if err != nil {
 		return nil, err
 	}
-	resources, err := client.ServerResourcesForGroupVersion(crd.IstioAPIGroupVersion.String())
+	resources, err := client.ServerResourcesForGroupVersion(legacyIstioAPIGroupVersion.String())
 	if err != nil {
 		return nil, err
 	}
+
 	kindsSet := map[string]bool{}
 	for _, config := range configs {
 		if !kindsSet[config.Kind] {
@@ -708,12 +744,12 @@ func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]meta
 func restClientForOthers(config *rest.Config) (*rest.RESTClient, error) {
 	configCopied := *config
 	configCopied.ContentConfig = dynamic.ContentConfig()
-	configCopied.GroupVersion = &crd.IstioAPIGroupVersion
+	configCopied.GroupVersion = &legacyIstioAPIGroupVersion
 	return rest.RESTClientFor(config)
 }
 
 func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[string]metav1.APIResource, error) {
-	restConfig, err := crd.CreateRESTConfig(kubeconfig)
+	restConfig, err := restConfig()
 	if err != nil {
 		return nil, nil, err
 	}

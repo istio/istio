@@ -111,7 +111,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
 	rootArgs := &rootArgs{
-		tracingOptions: tracing.NewOptions(),
+		tracingOptions: tracing.DefaultOptions(),
 	}
 
 	cc := checkCmd(rootArgs, printf, fatalf)

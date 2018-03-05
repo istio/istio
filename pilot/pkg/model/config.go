@@ -23,8 +23,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model/test"
 )
 
@@ -307,8 +307,8 @@ var (
 	MockConfig = ProtoSchema{
 		Type:        "mock-config",
 		Plural:      "mock-configs",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "test",
+		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
@@ -328,14 +328,14 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
-	// V1alpha2RouteRule describes v1alpha2 route rules
-	V1alpha2RouteRule = ProtoSchema{
-		Type:        "v1alpha2-route-rule",
-		Plural:      "v1alpha2-route-rules",
+	// VirtualService describes v1alpha2 route rules
+	VirtualService = ProtoSchema{
+		Type:        "virtual-service",
+		Plural:      "virtual-services",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.RouteRule",
-		Validate:    ValidateRouteRuleV2,
+		MessageName: "istio.networking.v1alpha3.VirtualService",
+		Validate:    ValidateVirtualService,
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
@@ -344,7 +344,7 @@ var (
 		Plural:      "gateways",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.Gateway",
+		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
 	}
 
@@ -374,7 +374,7 @@ var (
 		Plural:      "external-services",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.ExternalService",
+		MessageName: "istio.networking.v1alpha3.ExternalService",
 		Validate:    ValidateExternalService,
 	}
 
@@ -394,7 +394,7 @@ var (
 		Plural:      "destination-rules",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
 	}
 
@@ -461,7 +461,7 @@ var (
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
-		V1alpha2RouteRule,
+		VirtualService,
 		IngressRule,
 		Gateway,
 		EgressRule,
@@ -597,13 +597,13 @@ func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destinat
 
 func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
 	out := make([]Config, 0)
-	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.RouteRule)
+		rule := config.Spec.(*networking.VirtualService)
 		for _, host := range rule.Hosts {
 			if ResolveFQDN(host, domain) == destination {
 				out = append(out, config)
@@ -645,13 +645,13 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 // This logic assumes there is at most one route rule for a given host.
 // If there is more than one the output may be non-deterministic.
 func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.RouteRule)
+		rule := config.Spec.(*networking.VirtualService)
 		for _, host := range rule.Hosts {
 			for _, instance := range instances {
 				if ResolveFQDN(host, domain) == instance.Service.Hostname {
@@ -726,7 +726,7 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 
 	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.DestinationRule)
+		rule := config.Spec.(*networking.DestinationRule)
 		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
 		}

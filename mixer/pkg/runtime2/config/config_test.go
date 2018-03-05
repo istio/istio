@@ -1406,7 +1406,7 @@ func TestConfigs(t *testing.T) {
 	runTests(t)
 
 	// enable debug logging and run again to ensure debug logging won't cause a crash.
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	_ = o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 	runTests(t)

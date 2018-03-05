@@ -20,8 +20,8 @@ package v1
 import (
 	"github.com/golang/protobuf/ptypes"
 
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route
@@ -86,7 +86,7 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter 
 	}
 }
 
-func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInjection, headers Headers) *HTTPFilter {
+func buildHTTPFaultFilterV2(cluster string, faultRule *networking.HTTPFaultInjection, headers Headers) *HTTPFilter {
 	abort := buildAbortConfigV2(faultRule.Abort)
 	delay := buildDelayConfigV2(faultRule.Delay)
 	if abort == nil && delay == nil {
@@ -105,7 +105,7 @@ func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInject
 	}
 }
 
-func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFilter {
+func buildAbortConfigV2(abortRule *networking.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
 		return nil
 	}
@@ -121,7 +121,7 @@ func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFil
 	}
 }
 
-func buildDelayConfigV2(delayRule *routingv2.HTTPFaultInjection_Delay) *DelayFilter {
+func buildDelayConfigV2(delayRule *networking.HTTPFaultInjection_Delay) *DelayFilter {
 	if delayRule == nil {
 		return nil
 	}
