@@ -1,0 +1,121 @@
+package v2
+
+import (
+	"fmt"
+	"net"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/hashicorp/go-multierror"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
+)
+
+/************ Forward compatibility of older pilot data model with Envoy v2 APIs ****************************/
+// MeshDiscovery interfaces are declared in pilot/pkg/proxy/envoy/v2
+
+// Endpoints implements MeshDiscovery.Endpoints()
+func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {
+	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
+	version := time.Now().String()
+	clAssignment := &xdsapi.ClusterLoadAssignment{}
+	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+	out := &xdsapi.DiscoveryResponse{
+		// All resources for EDS ought to be of the type ClusterLoadAssignment
+		TypeUrl: clAssignmentRes.GetTypeUrl(),
+
+		// Pilot does not really care for versioning. It always supplies what's currently
+		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+		// responses. Pilot believes in eventual consistency and that at some point, Envoy
+		// will begin seeing results it deems to be good.
+		VersionInfo: version,
+		Nonce:       version,
+	}
+
+	var totalEndpoints uint32
+	out.Resources = make([]types.Any, 0, len(serviceClusters))
+	for _, serviceCluster := range serviceClusters {
+		hostname, ports, labels := model.ParseServiceKey(serviceCluster)
+		instances, err := ds.Instances(hostname, ports.GetNames(), labels)
+		if err != nil {
+			if log.WarnEnabled() {
+				log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
+			}
+			continue
+		}
+		locEps := localityLbEndpointsFromInstances(instances)
+		clAssignment := &xdsapi.ClusterLoadAssignment{
+			ClusterName: serviceCluster,
+			Endpoints:   locEps,
+		}
+		clAssignmentRes, _ = types.MarshalAny(clAssignment)
+		out.Resources = append(out.Resources, *clAssignmentRes)
+		totalEndpoints += uint32(len(locEps))
+	}
+
+	return out
+}
+
+
+func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
+	var errs error
+	ipAddr := net.ParseIP(address)
+	if ipAddr == nil {
+		errs = multierror.Append(errs, fmt.Errorf("invalid IP address %q", address))
+	}
+	ep := endpoint.LbEndpoint{
+		Endpoint: &endpoint.Endpoint{
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					&core.SocketAddress{
+						Address:    address,
+						Ipv4Compat: ipAddr.To4() != nil,
+						Protocol:   core.TCP,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: port,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return &ep, nil
+}
+
+// LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints and a total count of
+// Envoy v2 Endpoints constructed from Pilot's older data structure involving model.ServiceInstance objects.
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
+	localityEpMap := make(map[string]endpoint.LocalityLbEndpoints)
+	for _, instance := range instances {
+		lbEp, err := newEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port))
+		if err != nil {
+			log.Errorf("unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			continue
+		}
+		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
+		// Once we do that, the key must be a | separated tupple.
+		locality := instance.AvailabilityZone
+		locLbEps, found := localityEpMap[locality]
+		if !found {
+			locLbEps = endpoint.LocalityLbEndpoints{
+				Locality: &core.Locality{
+					Zone: instance.AvailabilityZone,
+				},
+			}
+			localityEpMap[locality] = locLbEps
+		}
+		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
+	}
+	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
+	for _, locLbEps := range localityEpMap {
+		out = append(out, locLbEps)
+	}
+	return out
+}
