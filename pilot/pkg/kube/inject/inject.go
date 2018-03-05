@@ -113,6 +113,10 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 	return hub + "/proxy:" + tag
 }
 
+func BaseImageName(hub string, tag string) string {
+	return hub + "/alpine:" + tag
+}
+
 // Params describes configurable parameters for injecting istio proxy
 // into a kubernetes resource.
 type Params struct {
