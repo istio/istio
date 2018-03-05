@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// Node Agent directory where:
+	// WorkloadHome directory is where:
 	// * Flexvolume posts credentials and
 	// * Node Agent listens for workload's connecting to it
 	// WorkloadAPIUdsHome is the path for workload

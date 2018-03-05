@@ -20,10 +20,11 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc/peer"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
-	"istio.io/istio/security/cmd/node_agent_k8s/binder"
 	"istio.io/istio/security/pkg/flexvolume"
+	"istio.io/istio/security/pkg/flexvolume/binder"
 	pb "istio.io/istio/security/proto"
 )
 
