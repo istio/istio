@@ -300,8 +300,6 @@ const (
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
-
-	networkingGroup = "networking"
 )
 
 var (
