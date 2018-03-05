@@ -383,7 +383,7 @@ var (
 		Type:        "destination-policy",
 		Plural:      "destination-policies",
 		Group:       "config",
-		Version:     "v1alpha3",
+		Version:     istioAPIVersion,
 		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
 	}
