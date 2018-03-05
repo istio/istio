@@ -89,7 +89,7 @@ pushd "${FINAL_CODECOV_DIR}"
 cat "${COVERAGEDIR}"/*.txt > coverage.txt
 cat "${COVERAGEDIR}"/*.report > codecov.report
 popd
-echo "Repors are stored in ${FINAL_CODECOV_DIR}"
+echo "Reports are stored in ${FINAL_CODECOV_DIR}"
 
 
 if [[ -n ${FAILED_TESTS:-} ]]; then
@@ -104,6 +104,6 @@ echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
 pkg_check \
   --bucket= \
-  --report_file=/go/out/codecov/codecov.report \
+  --report_file=${FINAL_CODECOV_DIR}/codecov.report \
   --requirement_file=codecov.requirement
 
