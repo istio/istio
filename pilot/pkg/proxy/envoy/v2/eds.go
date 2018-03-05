@@ -23,6 +23,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 
 	"istio.io/istio/pilot/pkg/model"

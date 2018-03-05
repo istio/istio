@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 
 	"istio.io/istio/pilot/pkg/model"

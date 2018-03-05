@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	PortHTTPName   = "http"
+	PortHTTPName = "http"
 	// Mock values
 	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
@@ -68,7 +68,6 @@ var (
 		ID:        "router.default",
 		Domain:    "default.svc.cluster.local",
 	}
-
 )
 
 // NewDiscovery builds a mock ServiceDiscovery
