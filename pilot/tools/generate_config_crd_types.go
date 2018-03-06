@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"go/format"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"log"
 	"text/template"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 type ConfigData struct {
