@@ -410,7 +410,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
@@ -470,28 +470,28 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley
 
 .PHONY: pilot-coverage
 pilot-coverage:
-	bin/parallel-codecov.sh pilot
+	bin/codecov.sh pilot
 
 .PHONY: mixer-coverage
 mixer-coverage:
-	bin/parallel-codecov.sh mixer
+	bin/codecov.sh mixer
 
 .PHONY: broker-coverage
 broker-coverage:
-	bin/parallel-codecov.sh broker
+	bin/codecov.sh broker
 
 .PHONY: galley-coverage
 galley-coverage:
-	bin/parallel-codecov.sh galley
+	bin/codecov.sh galley
 
 .PHONY: security-coverage
 security-coverage:
-	bin/parallel-codecov.sh security/pkg
-	bin/parallel-codecov.sh security/cmd
+	bin/codecov.sh security/pkg
+	bin/codecov.sh security/cmd
 
 .PHONY: common-coverage
 common-coverage:
-	bin/parallel-codecov.sh pkg
+	bin/codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -579,12 +579,14 @@ generate_yaml:
 
 istio.yaml:
 	helm template --set global.tag=${TAG} \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
+		  		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
 			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
@@ -592,9 +594,10 @@ istio_auth.yaml:
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
+		          --namespace=istio-system \
                   --set global.hub=${HUB} \
-		      --set sidecar-injector.enabled=true \
-		      --set ingress.enabled=true \
+		      	  --set sidecar-injector.enabled=true \
+		      	  --set ingress.enabled=true \
                   --set servicegraph.enabled=true \
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \

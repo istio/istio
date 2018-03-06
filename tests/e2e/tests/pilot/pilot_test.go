@@ -52,6 +52,8 @@ var (
 func init() {
 	flag.StringVar(&config.Hub, "hub", config.Hub, "Docker hub")
 	flag.StringVar(&config.Tag, "tag", config.Tag, "Docker tag")
+	flag.StringVar(&config.ImagePullPolicy, "image-pull-policy", config.ImagePullPolicy,
+		"Pull policy for Docker images")
 	flag.StringVar(&config.IstioNamespace, "ns", config.IstioNamespace,
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&config.Namespace, "n", config.Namespace,
@@ -68,8 +70,8 @@ func init() {
 		fmt.Sprintf("Auth mode for the tests (Choose from %s, %s, %s)", authModeEnable, authModeDisable, authModeBoth))
 	flag.BoolVar(&config.Mixer, "mixer", config.Mixer, "Enable / disable mixer.")
 	flag.BoolVar(&config.V1alpha1, "v1alpha1", config.V1alpha1, "Enable / disable v1alpha1 routing rules.")
-	flag.BoolVar(&config.V1alpha2, "v1alpha2", config.V1alpha2, "Enable / disable v1alpha2 routing rules.")
-	flag.BoolVar(&config.RDSv2, "rdsv2", false, "Enable RDSv2 for v1alpha2")
+	flag.BoolVar(&config.V1alpha3, "v1alpha3", config.V1alpha3, "Enable / disable v1alpha3 routing rules.")
+	flag.BoolVar(&config.RDSv2, "rdsv2", false, "Enable RDSv2 for v1alpha3")
 	flag.BoolVar(&config.NoRBAC, "norbac", false, "Disable RBAC YAML")
 	flag.StringVar(&config.ErrorLogsDir, "errorlogsdir", config.ErrorLogsDir,
 		"Store per pod logs as individual files in specific directory instead of writing to stderr.")
@@ -170,14 +172,18 @@ func doTest(testName string, config *tutil.Config, t *testing.T) {
 		}
 
 		for _, test := range tests {
-			// If the user has specified a test, skip all other tests
-			if len(config.SelectedTest) > 0 && config.SelectedTest != test.String() {
-				continue
-			}
-
 			// Run the test the configured number of times.
 			for i := 0; i < config.TestCount; i++ {
 				testName := test.String()
+
+				// User specified test doesn't match this test ... skip it.
+				if len(config.SelectedTest) > 0 && config.SelectedTest != testName {
+					t.Run(testName, func(t *testing.T) {
+						t.Skipf("Skipping test [%v] due to user-specified test: %v", t.Name(), config.SelectedTest)
+					})
+					continue
+				}
+
 				if config.TestCount > 1 {
 					testName = testName + "_attempt_" + strconv.Itoa(i+1)
 				}

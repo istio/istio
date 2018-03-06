@@ -18,19 +18,16 @@ package kube
 import (
 	"fmt"
 	"os"
+	"os/user"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"os/user"
-
 	"istio.io/istio/pkg/log"
-
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )

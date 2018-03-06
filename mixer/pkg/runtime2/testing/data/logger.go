@@ -24,26 +24,29 @@ type Logger struct {
 	b bytes.Buffer
 }
 
-func (l *Logger) write(name string, s string) {
+// Write s to the log, with a prefix of name. A newline character is added.
+func (l *Logger) Write(name string, s string) {
 	if l != nil {
 		fmt.Fprintf(&l.b, "[%s] %s\n", name, s)
 	}
 }
 
-func (l *Logger) writeFormat(name string, format string, args ...interface{}) {
+// WriteFormat writes a formatted string to the log, with a prefix of name. A newline character is added.
+func (l *Logger) WriteFormat(name string, format string, args ...interface{}) {
 	if l != nil {
 		s := fmt.Sprintf(format, args...)
-		l.write(name, s)
+		l.Write(name, s)
 	}
 }
 
-// Clear the contents of this logger. Useful for reducing the event output to write more readable tests.
+// Clear the contents of this logger. Useful for reducing the event output to Write more readable tests.
 func (l *Logger) Clear() {
 	if l != nil {
 		l.b.Reset()
 	}
 }
 
+// String returns the current contents of the log.
 func (l *Logger) String() string {
 	if l == nil {
 		return ""

@@ -29,23 +29,22 @@ func kubeconfig(t *testing.T) string {
 	return kubeconfig
 }
 
-func makeClient(t *testing.T) *Client {
-	desc := append(model.IstioConfigTypes, mock.Types...)
+func makeClient(t *testing.T, desc model.ConfigDescriptor) (*Client, error) {
 	cl, err := NewClient(kubeconfig(t), desc, "")
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	err = cl.RegisterResources()
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	// TODO(kuat) initial watch always fails, takes time to register, keep
 	// around as a work-around
 	// kr.DeregisterResources()
 
-	return cl
+	return cl, nil
 }
 
 // makeTempClient allocates a namespace and cleans it up on test completion
@@ -58,7 +57,11 @@ func makeTempClient(t *testing.T) (*Client, string, func()) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	cl := makeClient(t)
+	desc := append(model.IstioConfigTypes, mock.Types...)
+	cl, err := makeClient(t, desc)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	// the rest of the test can run in parallel
 	t.Parallel()
@@ -75,4 +78,19 @@ func TestIstioConfig(t *testing.T) {
 	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	mock.CheckIstioConfigTypes(client, ns, t)
+}
+
+func TestUnknownConfig(t *testing.T) {
+	desc := model.ConfigDescriptor{model.ProtoSchema{
+		Type:        "unknown-config",
+		Plural:      "unknown-configs",
+		Group:       "test",
+		Version:     "v1",
+		MessageName: "test.MockConfig",
+		Validate:    nil,
+	}}
+	_, err := makeClient(t, desc)
+	if err == nil {
+		t.Fatalf("expect client to fail with unknown types")
+	}
 }
