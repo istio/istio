@@ -288,6 +288,12 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
+
+	if kube == nil {
+		defaultMesh := model.DefaultMeshConfig()
+		return nil, &defaultMesh, nil
+	}
+
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
