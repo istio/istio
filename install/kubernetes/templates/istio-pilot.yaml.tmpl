@@ -108,6 +108,8 @@ spec:
     name: http-monitoring
   - port: 443
     name: admission-webhook
+  - port: 15443
+    name: grpc-discovery
   selector:
     istio: pilot
 ---
@@ -153,6 +155,8 @@ spec:
               fieldPath: metadata.namespace
         - name: PILOT_THROTTLE
           value: "200"
+        - name: PILOT_GRPC_PORT
+          value: "15443"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
@@ -163,6 +167,7 @@ spec:
         - containerPort: 15003
         - containerPort: 15005
         - containerPort: 15007
+        - containerPort: 15443
         args:
         - proxy
         - pilot

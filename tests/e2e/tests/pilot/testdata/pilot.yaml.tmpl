@@ -48,6 +48,8 @@ spec:
     name: https-discovery
   - port: 15007
     name: http-discovery
+  - port: 15443
+    name: grpc-discovery
 {{if .DebugPort}}
   - port: {{.DebugPort}}
     name: tcp-debug
@@ -117,6 +119,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_GRPC_PORT
+          value: "15443"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
@@ -131,6 +135,7 @@ spec:
         - containerPort: 15003
         - containerPort: 15005
         - containerPort: 15007
+        - containerPort: 15443
         args:
         - proxy
         - pilot
