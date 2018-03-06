@@ -858,11 +858,11 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
 		// Bad hostname, return no policy.
-		// TODO(diemtvu): may be change to return error and/or log this.
 		return nil
 	}
 	namespace := parts[1]
 	// TODO(diemtvu): check for 'global' policy first, when available.
+	// Tracking issue https://github.com/istio/istio/issues/4027
 	specs, err := store.List(AuthenticationPolicy.Type, namespace)
 	if err != nil {
 		return nil
