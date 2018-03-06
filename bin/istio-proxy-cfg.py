@@ -52,7 +52,7 @@ class XDS(object):
         print url
         try:
             if post:
-                return requests.post(url, headers=self.headers).json()
+                return requests.post(url, headers=self.headers)
             else:
                 return requests.get(url, headers=self.headers).json()
         except Exception as ex:
@@ -128,7 +128,7 @@ class XDS(object):
         return self.query("/cache_stats")
 
     def clear_cache_stats(self):
-        return self.query("/clear_cache_stats", post=True)
+        return self.query("/cache_stats_delete", post=True)
 
 # Class XDS end
 
@@ -294,7 +294,10 @@ def main(args):
     if not args.skip_pilot:
         pilot_url = args.pilot_url
         pilot_port_forward_pid = ""
-        if not pilot_url:
+        if pilot_url:
+            if not pilot_url.startswith("http://") and not pilot_url.startswith("https://"):
+                pilot_url = "http://" + pilot_url
+        else:
             pilot_url, pilot_port_forward_pid = find_pilot_url()
 
         output_file = output_dir + "/" + "pilot_xds.json"
