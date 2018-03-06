@@ -100,12 +100,10 @@ func TestEds(t *testing.T) {
 	}
 	log.Println(srv)
 
-	go func(t *testing.T) {
-		err := startEnvoy()
-		if err != nil {
-			t.Error("Failed to start envoy", err)
-		}
-	}(t)
+	err = startEnvoy()
+	if err != nil {
+		t.Error("Failed to start envoy", err)
+	}
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(t)

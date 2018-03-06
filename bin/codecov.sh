@@ -102,8 +102,15 @@ fi
 
 echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
+
+if [ "CODECOV_NO_ENFORCE" == true ] ; then
+pkg_check \
+  --bucket= \
+  --report_file=/go/out/codecov/codecov.report \
+  --requirement_file=codecov.requirement || true
+else
 pkg_check \
   --bucket= \
   --report_file=/go/out/codecov/codecov.report \
   --requirement_file=codecov.requirement
-
+fi
