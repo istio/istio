@@ -12,7 +12,7 @@ A `DestinationRule` configures the set of policies to be applied at a destinatio
 
 Note that the `apiVersion` of these resources is also changed:
 
-`apiVersion: config.istio.io/v1alpha2` -> `apiVersion: networking.istio.io/v1alpha3`.
+`apiVersion: config.istio.io/v1alpha2` -> `apiVersion: networking.istio.io/v1alpha3`
 
 ### Creating and deleting Route Rules
 
@@ -22,13 +22,13 @@ list in a single `VirtualService` resource. Therefore, adding a second and subse
 is no longer done by creating a new `RouteRule` resource, but instead by updating the one-and-only `VirtualService` resource
 for the destination.
 
-v1 routing rules:
+old routing rules:
 ```
 istioctl create -f my-second-rule-for-destination-abc.yaml
 ```
-v2 routing rules:
+v1alpha3 routing rules:
 ```
-istioctl replace -f my-updated-rule-for-destination-abc.yaml
+istioctl replace -f my-updated-rules-for-destination-abc.yaml
 ```
 
 >>> Proposal: we should add an `istioctl patch` command, to allow users to only provide the second rule

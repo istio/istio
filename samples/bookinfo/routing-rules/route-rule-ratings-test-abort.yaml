@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: config.istio.io/v1alpha2 # TODO: change to networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ratings-route
@@ -11,7 +11,7 @@ spec:
         cookie:
           regex: "^(.*?;)?(user=jason)(;.*)?$"
     fault:
-      delay:
+      abort:
         percent: 100
         httpStatus: 500
   - route:
@@ -20,12 +20,12 @@ spec:
         subset: v1
       weight: 100
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: config.istio.io/v1alpha2 # TODO: change to networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: reviews-destination
+  name: ratings-destination
 spec:
-  name: reviews
+  name: ratings
   subsets:
   - name: v1
     labels:
