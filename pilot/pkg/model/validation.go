@@ -1654,7 +1654,7 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 func ValidateAuthenticationPolicy(msg proto.Message) error {
 	in, ok := msg.(*authn.Policy)
 	if !ok {
-		return errors.New("Cannot cast to AuthenticationPolicy")
+		return errors.New("cannot cast to AuthenticationPolicy")
 	}
 	var errs error
 
@@ -1670,7 +1670,7 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 		if rule.Binding == authn.CredentialRule_USE_ORIGIN {
 			if len(rule.Origins) == 0 {
 				errs = multierror.Append(
-					errs, errors.New("Credential use origin must define at least one method."))
+					errs, errors.New("credential use origin must define at least one method"))
 			}
 		}
 		for _, method := range rule.Origins {

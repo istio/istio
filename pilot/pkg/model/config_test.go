@@ -574,12 +574,12 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		"all": &authn.Policy{
+		"all": {
 			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_None{},
 			}},
 		},
-		"hello": &authn.Policy{
+		"hello": {
 			Destinations: []*networking.Destination{{
 				Name: "hello",
 			}},
@@ -587,7 +587,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 				Params: &authn.PeerAuthenticationMethod_Mtls{},
 			}},
 		},
-		"world": &authn.Policy{
+		"world": {
 			Destinations: []*networking.Destination{{
 				Name: "world",
 				Port: &networking.PortSelector{
