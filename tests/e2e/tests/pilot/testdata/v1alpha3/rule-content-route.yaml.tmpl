@@ -1,4 +1,4 @@
-apiVersion: config.istio.io/v1alpha2
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default-route
@@ -17,10 +17,8 @@ spec:
           name: c
           subset: v2
         weight: 100
-      fault:
-        delay:
-          percent: 100
-          fixedDelay: 5s
-        abort:
-          percent: 100
-          httpStatus: 503
+    - route:
+      - destination:
+          name: c
+          subset: v1
+        weight: 100

@@ -47,8 +47,8 @@ func (t *routing) Run() error {
 	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")
 	}
-	if t.Config.V1alpha2 {
-		versions = append(versions, "v1alpha2")
+	if t.Config.V1alpha3 {
+		versions = append(versions, "v1alpha3")
 	}
 
 	cases := []struct {
@@ -137,8 +137,8 @@ func (t *routing) Run() error {
 
 	var errs error
 	for _, version := range versions {
-		if version == "v1alpha2" {
-			if err := t.ApplyConfig("v1alpha2/destination-rule-c.yaml.tmpl", nil); err != nil {
+		if version == "v1alpha3" {
+			if err := t.ApplyConfig("v1alpha3/destination-rule-c.yaml.tmpl", nil); err != nil {
 				errs = multierror.Append(errs, err)
 				continue
 			}

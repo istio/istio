@@ -332,8 +332,8 @@ var (
 	VirtualService = ProtoSchema{
 		Type:        "virtual-service",
 		Plural:      "virtual-services",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "networking",
+		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
 	}
@@ -342,8 +342,8 @@ var (
 	Gateway = ProtoSchema{
 		Type:        "gateway",
 		Plural:      "gateways",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "networking",
+		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
 	}
@@ -372,8 +372,8 @@ var (
 	ExternalService = ProtoSchema{
 		Type:        "external-service",
 		Plural:      "external-services",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "networking",
+		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ExternalService",
 		Validate:    ValidateExternalService,
 	}
@@ -392,8 +392,8 @@ var (
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
 		Plural:      "destination-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "networking",
+		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
 	}
