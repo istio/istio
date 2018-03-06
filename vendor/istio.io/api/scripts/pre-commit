@@ -15,6 +15,9 @@ fi
 # Not running under git commit
 # install handler
 if [[ -z ${GIT_AUTHOR_DATE} ]];then
+  if [ ! -d "$ROOT/.git/hooks" ]; then
+    mkdir -p $ROOT/.git/hooks
+  fi
   cd $ROOT/.git/hooks/
   if !([[ -e pre-commit ]] || [[ -h pre-commit ]]); then
     echo "Installing pre-commit hook"
