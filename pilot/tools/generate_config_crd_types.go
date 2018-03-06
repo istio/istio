@@ -26,7 +26,8 @@ func MakeConfigData(schema model.ProtoSchema) ConfigData {
 		IstioKind: crd.KabobCaseToCamelCase(schema.Type),
 		CrdKind:   crd.KabobCaseToCamelCase(schema.Type),
 	}
-	// Tweak to match current naming. This can be changed to meet the new naming convention.
+	// Tweak to match current naming.
+	// TODO(xiaolanz): change to meet the new naming convention.
 	if schema.Group == "authenticaiton" {
 		out.IstioKind = crd.KabobCaseToCamelCase(schema.Group + "-" + schema.Type)
 	}
@@ -35,7 +36,7 @@ func MakeConfigData(schema model.ProtoSchema) ConfigData {
 }
 
 func main() {
-	templateFile := flag.String("template", "types.go.tmpl", "Template file")
+	templateFile := flag.String("template", "pilot/tools/types.go.tmpl", "Template file")
 	outputFile := flag.String("output", "", "Output file. Leave blank to go to stdout")
 	flag.Parse()
 
