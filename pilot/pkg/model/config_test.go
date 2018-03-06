@@ -654,9 +654,18 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	for _, testCase := range cases {
 		port := &model.Port{Port: testCase.port}
 		expected := authNPolicies[testCase.expected]
-		if out := store.AuthenticationPolicyByDestination(testCase.hostname, port); !reflect.DeepEqual(expected, out) {
-			t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
-				testCase.hostname, testCase.port, expected, out)
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		if out == nil {
+			if expected != nil {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
+					testCase.hostname, testCase.port, expected)
+			}
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(expected, policy) {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
+					testCase.hostname, testCase.port, expected, out)
+			}
 		}
 	}
 }

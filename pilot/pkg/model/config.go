@@ -284,7 +284,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(hostname string, port *Port) *authn.Policy
+	AuthenticationPolicyByDestination(hostname string, port *Port) *Config
 }
 
 const (
@@ -853,7 +853,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *authn.Policy {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *Config {
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
@@ -867,7 +867,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 	if err != nil {
 		return nil
 	}
-	var out *authn.Policy
+	var out Config
 	currentMatchLevel := 0
 	for _, spec := range specs {
 		policy := spec.Spec.(*authn.Policy)
@@ -897,10 +897,14 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// Swap output policy that is match in more specific scope.
 		if matchLevel > currentMatchLevel {
 			currentMatchLevel = matchLevel
-			out = policy
+			out = spec
 		}
 	}
-	return out
+	// Zero-currentMatchLevel implies no config matching the destination found.
+	if currentMatchLevel == 0 {
+		return nil
+	}
+	return &out
 }
 
 // EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
