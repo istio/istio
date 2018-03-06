@@ -43,7 +43,7 @@ var (
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
-	releaseMode   = flag.Bool("release_mode", false, "release mode uses different artifacts URL")
+	proxyURL      = flag.String("proxy_url", "", "The URL where `istio-sidecar.deb` can be accessed")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -191,18 +191,12 @@ func (vm *GCPRawVM) Setup() error {
 }
 
 func buildIstioVersion() error {
-	proxyURL := fmt.Sprintf(debURL, "pilot", *pilotTag)
-	if *releaseMode {
-		if *remotePath == "" {
-			return fmt.Errorf("istioctl_url cannot be empty")
-		}
-		// remove trailing slash
-		base := strings.Trim(*remotePath, "/")
-		// replace either `/istioctl` or `/istioctl-stage` with `/deb`
-		base = base[0:strings.LastIndex(base, "/")]
-		proxyURL = base + "/deb"
+	if *proxyURL == "" {
+		*proxyURL = fmt.Sprintf(debURL, "pilot", *pilotTag)
 	}
-	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
+	// `install/tools/setupIstioVM.sh` sources istio.VERSION to
+	// get `istio-sidecar.deb` from PILOT_DEBIAN_URL
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, *proxyURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 
