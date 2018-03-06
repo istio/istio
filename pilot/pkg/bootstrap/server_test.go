@@ -36,7 +36,11 @@ type env struct {
 }
 
 func (e *env) setup() (int, error) {
-	e.fsRoot = createTempDir()
+	var err error
+	e.fsRoot, err = createTempDir()
+	if err != nil {
+		return 0, err
+	}
 	e.stop = make(chan struct{})
 
 	// Create a test pilot discovery service configured to watch the tempDir.
@@ -88,11 +92,17 @@ func (e *env) teardown() {
 	_ = os.RemoveAll(e.fsRoot)
 }
 
-func createTempDir() string {
+func createTempDir() (string, error) {
 	// Make the temporary directory
-	dir, _ := ioutil.TempDir("/tmp/", "monitor")
-	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
-	return dir
+	dir, err := ioutil.TempDir("/tmp/", "monitor")
+	if err != nil {
+		return "", err
+	}
+	err = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 // TestListServices verifies that the mock services are available on the Pilot discovery service
