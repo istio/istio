@@ -166,8 +166,8 @@ func cmpStdOutput(expected, got interface{}) error {
 func TestInitCommandVer1_8(t *testing.T) {
 	var gotResp InitResponse
 	expResp := InitResponse{Status: "Success",
-		Message: "Init ok.",
-		Attach:  false}
+		Message:      "Init ok.",
+		Capabilities: &Capabilities{Attach: false}}
 
 	testInitStdIo()
 	if err := InitCommand(); err != nil {
