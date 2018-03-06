@@ -19,7 +19,11 @@ import (
 	"istio.io/istio/pkg/cache"
 )
 
-const cacheSize = 3000
+// TODO: figure out how we want to size the cache. We alloc size_of(cache.lruEntry) == 32 bytes per entry,
+// for a (constant, startup-allocated) total of 192 KiB today. Number is derived from current cluster size
+// targets of 2k services, endpoints, ingresses = 6k resources total. This only includes the cache itself,
+// not the size of the objects in the cache which we're also holding refs to.
+const numCacheEntries = 6000
 
 // ObjectConverter describes a function that can convert a k8s API object into an Istio model object.
 type ObjectConverter func(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error)
@@ -42,12 +46,10 @@ func newKeyFunc(typ, domain string) keyFunc {
 	}
 }
 
-// NewCachingConverter returns a CachingConverter: an ObjectConverter wrapped in a cache. The cache is not bounded in
-// size, nor does it implement cache size based eviction. Instead, it relies on the underlying store calling Evict as
-// objects change.
+// NewCachingConverter returns a CachingConverter: an ObjectConverter wrapped in a fixed-size LRU cache.
 func NewCachingConverter(converter ObjectConverter) *CachingConverter {
 	return &CachingConverter{
-		cache: cache.SimpleLRU(cacheSize),
+		cache: cache.SimpleLRU(numCacheEntries),
 		inner: converter,
 	}
 }

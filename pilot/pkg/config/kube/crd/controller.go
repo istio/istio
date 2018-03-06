@@ -118,7 +118,7 @@ func (c *controller) createInformer(
 	wf cache.WatchFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
-	// Write up cache eviction as a handler function
+	// Wire up cache eviction as a handler function
 	handler.Append(func(obj interface{}, event model.Event) error {
 		switch event {
 		// We don't care about Add events since we're doing cache eviction
