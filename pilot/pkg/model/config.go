@@ -449,8 +449,8 @@ var (
 
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
-		Type:        "authentication-policy",
-		Plural:      "authentication-policies",
+		Type:        "policy",
+		Plural:      "policies",
 		Group:       "authentication",
 		Version:     "v1alpha1",
 		MessageName: "istio.authentication.v1alpha1.Policy",
