@@ -17,6 +17,8 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
+	"fmt"
+	"io/ioutil"
 	"reflect"
 	"testing"
 	"time"
@@ -183,6 +185,41 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 
 	if len(certChainBytesFromCA) != 0 {
 		t.Errorf("Cert chain should be empty")
+	}
+}
+
+func TestCreatePluggedCertCA(t *testing.T) {
+	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
+	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
+	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
+	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
+
+	defaultWorkloadCertTTL := 30 * time.Minute
+	maxWorkloadCertTTL := time.Hour
+
+	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
+		defaultWorkloadCertTTL, maxWorkloadCertTTL)
+	if err != nil {
+		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Failed to create a plugged-cert CA: %v", err)
+	}
+
+	signingCertBytes, signingKeyBytes, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAllPem()
+	if err = comparePem(signingCertBytes, signingCertFile); err != nil {
+		t.Errorf("Failed to verify signing cert: %v", err)
+	}
+	if err = comparePem(signingKeyBytes, signingKeyFile); err != nil {
+		t.Errorf("Failed to verify signing key: %v", err)
+	}
+	if err = comparePem(certChainBytes, certChainFile); err != nil {
+		t.Errorf("Failed to verify cert chain: %v", err)
+	}
+	if err = comparePem(rootCertBytes, rootCertFile); err != nil {
+		t.Errorf("Failed to verify root cert: %v", err)
 	}
 }
 
@@ -391,4 +428,15 @@ func createSecret(namespace, signingCert, signingKey, rootCert string) *v1.Secre
 		},
 		Type: istioCASecretType,
 	}
+}
+
+func comparePem(expectedBytes []byte, file string) error {
+	fileBytes, err := ioutil.ReadFile(file)
+	if err != nil {
+		return fmt.Errorf("file read error: %v", err)
+	}
+	if !bytes.Equal(fileBytes, expectedBytes) {
+		return fmt.Errorf("pem does not match the file content")
+	}
+	return nil
 }
