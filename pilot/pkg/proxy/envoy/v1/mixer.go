@@ -286,6 +286,12 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 	}
 }
 
+func standardNodeAttributes(prefix string, IPAddress string, ID string, labels map[string]string) map[string]*mpb.Attributes_AttributeValue {
+	attrs := make(map[string]*mpb.Attributes_AttributeValue)
+	addStandardNodeAttributes(attrs, prefix, IPAddress, ID, labels)
+	return attrs
+}
+
 // generate serviceConfig for a given instance
 func serviceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
@@ -357,24 +363,19 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 		},
 	}
 
-	transport := &mccpb.TransportConfig{
-		CheckCluster:  MixerCheckClusterName,
-		ReportCluster: MixerReportClusterName,
-	}
+	attrs := standardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
 
 	v2 := &mccpb.TcpClientConfig{
-
 		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrDestinationIP:      {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
-				AttrDestinationUID:     {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-				AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}},
-			},
+			Attributes: attrs,
 		},
-		Transport: transport,
+		Transport: &mccpb.TransportConfig{
+			CheckCluster:  MixerCheckClusterName,
+			ReportCluster: MixerReportClusterName,
+		},
+		DisableCheckCalls: mesh.DisablePolicyChecks,
 	}
-
-	v2.DisableCheckCalls = mesh.DisablePolicyChecks
 
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
 		log.Warnf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
