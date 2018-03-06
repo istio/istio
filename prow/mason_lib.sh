@@ -24,7 +24,7 @@ function mason_cleanup() {
 }
 
 function get_resource() {
-  wget https://storage.googleapis.com/istio-tools/mason_client/mason_client
+  go get istio.io/test-infra/boskos/cmd/mason_client
   chmod a+x mason_client
   # TODO: Remove once submitted
   # go install istio.io/test-infra/boskos/cmd/mason_client
