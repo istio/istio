@@ -27,24 +27,23 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 )
 
 // EndpointFromInstance returns an Envoy v2 Endpoint from Pilot's older data structure model.ServiceInstance.
 func EndpointFromInstance(instance *model.ServiceInstance) (*endpoint.LbEndpoint, error) {
-	labels := make([]envoyv2.EndpointLabel, 0, len(instance.Labels)+2)
+	labels := make([]EndpointLabel, 0, len(instance.Labels)+2)
 	for n, v := range instance.Labels {
-		labels = append(labels, envoyv2.EndpointLabel{Name: n, Value: v})
+		labels = append(labels, EndpointLabel{Name: n, Value: v})
 	}
 	// TODO: remove the following comment once Envoy's REST APIs are deprecated in Istio.
 	// The following labels will be inconsequentil to Envoy, but is forward compatible with Istio's use of Envoy v2 APIs
 	// particularly in Istio environments involving remote Pilot discovery.
 	epUID := instance.Service.Hostname + "|" + instance.Endpoint.Address + ":" + strconv.Itoa(instance.Endpoint.Port)
 	labels = append(labels,
-		envoyv2.EndpointLabel{Name: envoyv2.DestinationUID.AttrName(), Value: epUID},
-		envoyv2.EndpointLabel{Name: envoyv2.DestinationService.AttrName(), Value: instance.Service.Hostname})
-	out, err := envoyv2.NewEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port), envoyv2.SocketProtocolTCP, labels)
+		EndpointLabel{Name: DestinationUID.AttrName(), Value: epUID},
+		EndpointLabel{Name: DestinationService.AttrName(), Value: instance.Service.Hostname})
+	out, err := NewEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port), SocketProtocolTCP, labels)
 	return (*endpoint.LbEndpoint)(out), err
 }
 

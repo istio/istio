@@ -102,8 +102,17 @@ fi
 
 echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
+
+if [ "$CODECOV_NO_ENFORCE" == "true" ] ; then
+# Coverage doesn't yet take into account files used for or covered by integration tests,
+# only looks for unit test coverage. It can be enforced once real coverage can be measured.
+pkg_check \
+  --bucket= \
+  --report_file=/go/out/codecov/codecov.report \
+  --requirement_file=codecov.requirement || true
+else
 pkg_check \
   --bucket= \
   --report_file=${FINAL_CODECOV_DIR}/codecov.report \
   --requirement_file=codecov.requirement
-
+fi

@@ -74,7 +74,7 @@ data:
       # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.{{ .Release.Namespace }}:9125
-    {{- if .Values.global.securityEnabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
@@ -87,5 +87,6 @@ data:
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
+      # Port 15007 is captured by envoy, but is not yet tuned (max connections, etc)
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:8080
     {{- end }}
