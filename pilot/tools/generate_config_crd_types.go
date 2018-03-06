@@ -30,11 +30,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+// ConfigData is data sturct to feed to types.go template.
 type ConfigData struct {
 	IstioKind string
 	CrdKind   string
 }
 
+// MakeConfigData prepare data for code generation for the given schema.
 func MakeConfigData(schema model.ProtoSchema) ConfigData {
 	out := ConfigData{
 		IstioKind: crd.KabobCaseToCamelCase(schema.Type),
@@ -42,7 +44,7 @@ func MakeConfigData(schema model.ProtoSchema) ConfigData {
 	}
 	// Tweak to match current naming.
 	// TODO(xiaolanz): change to meet the new naming convention.
-	if schema.Group == "authenticaiton" {
+	if schema.Group == "authentication" {
 		out.IstioKind = crd.KabobCaseToCamelCase(schema.Group + "-" + schema.Type)
 	}
 	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
