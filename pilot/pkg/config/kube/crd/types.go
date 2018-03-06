@@ -27,7 +27,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.MockConfig,
 		object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "MockConfig",
+				Kind:       model.MockConfig.Type,
 				APIVersion: apiVersion(&model.MockConfig),
 			},
 		},
@@ -37,7 +37,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.RouteRule,
 		object: &RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "RouteRule",
+				Kind:       model.RouteRule.Type,
 				APIVersion: apiVersion(&model.RouteRule),
 			},
 		},
@@ -47,7 +47,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.VirtualService,
 		object: &VirtualService{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "VirtualService",
+				Kind:       model.VirtualService.Type,
 				APIVersion: apiVersion(&model.VirtualService),
 			},
 		},
@@ -57,7 +57,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.IngressRule,
 		object: &IngressRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "IngressRule",
+				Kind:       model.IngressRule.Type,
 				APIVersion: apiVersion(&model.IngressRule),
 			},
 		},
@@ -67,7 +67,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.Gateway,
 		object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "Gateway",
+				Kind:       model.Gateway.Type,
 				APIVersion: apiVersion(&model.Gateway),
 			},
 		},
@@ -77,7 +77,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EgressRule,
 		object: &EgressRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "EgressRule",
+				Kind:       model.EgressRule.Type,
 				APIVersion: apiVersion(&model.EgressRule),
 			},
 		},
@@ -87,7 +87,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.ExternalService,
 		object: &ExternalService{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "ExternalService",
+				Kind:       model.ExternalService.Type,
 				APIVersion: apiVersion(&model.ExternalService),
 			},
 		},
@@ -97,7 +97,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.DestinationPolicy,
 		object: &DestinationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "DestinationPolicy",
+				Kind:       model.DestinationPolicy.Type,
 				APIVersion: apiVersion(&model.DestinationPolicy),
 			},
 		},
@@ -107,7 +107,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.DestinationRule,
 		object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "DestinationRule",
+				Kind:       model.DestinationRule.Type,
 				APIVersion: apiVersion(&model.DestinationRule),
 			},
 		},
@@ -117,7 +117,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.HTTPAPISpec,
 		object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "HTTPAPISpec",
+				Kind:       model.HTTPAPISpec.Type,
 				APIVersion: apiVersion(&model.HTTPAPISpec),
 			},
 		},
@@ -127,7 +127,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.HTTPAPISpecBinding,
 		object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "HTTPAPISpecBinding",
+				Kind:       model.HTTPAPISpecBinding.Type,
 				APIVersion: apiVersion(&model.HTTPAPISpecBinding),
 			},
 		},
@@ -137,7 +137,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.QuotaSpec,
 		object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "QuotaSpec",
+				Kind:       model.QuotaSpec.Type,
 				APIVersion: apiVersion(&model.QuotaSpec),
 			},
 		},
@@ -147,7 +147,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.QuotaSpecBinding,
 		object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "QuotaSpecBinding",
+				Kind:       model.QuotaSpecBinding.Type,
 				APIVersion: apiVersion(&model.QuotaSpecBinding),
 			},
 		},
@@ -157,7 +157,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EndUserAuthenticationPolicySpec,
 		object: &EndUserAuthenticationPolicySpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "EndUserAuthenticationPolicySpec",
+				Kind:       model.EndUserAuthenticationPolicySpec.Type,
 				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpec),
 			},
 		},
@@ -167,7 +167,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EndUserAuthenticationPolicySpecBinding,
 		object: &EndUserAuthenticationPolicySpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       "EndUserAuthenticationPolicySpecBinding",
+				Kind:       model.EndUserAuthenticationPolicySpecBinding.Type,
 				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpecBinding),
 			},
 		},
