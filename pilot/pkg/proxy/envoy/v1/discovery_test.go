@@ -66,7 +66,7 @@ func makeDiscoveryService(t *testing.T, r model.ConfigStore, mesh *meshconfig.Me
 		DiscoveryServiceOptions{
 			EnableCaching:   true,
 			EnableProfiling: true, // increase code coverage stats
-		}, false)
+		})
 	if err != nil {
 		t.Fatalf("NewDiscoveryService failed: %v", err)
 	}
