@@ -80,7 +80,6 @@ spec:
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          - --log_output_level=debug
       - name: istio-proxy
         image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent

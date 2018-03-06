@@ -77,7 +77,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule} //, detailsRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
 )
 
 func (t *testConfig) Setup() (err error) {
