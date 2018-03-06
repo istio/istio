@@ -418,6 +418,11 @@ func TestRouteRules(t *testing.T) {
 				Hosts: []string{"world"},
 				Http: []*networking.HTTPRoute{
 					{
+						Route: []*networking.DestinationWeight{{
+							Destination: &networking.Destination{
+								Name: "world",
+							},
+						}},
 						Match: []*networking.HTTPMatchRequest{
 							{
 								SourceLabels: instance.Labels,
