@@ -23,9 +23,12 @@ global:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
 
-  # Install istio CA. Needed for control plane auth, even if automatic mtls between pods is
-  # disabled. If false, you must also disable control plane security
+  # Install istio CA.
   securityEnabled: true
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: false
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:

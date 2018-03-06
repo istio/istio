@@ -1,4 +1,7 @@
-{
+{ {{/*
+  Envoy config used for local unit and integration tests.
+
+*/}}
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -15,7 +18,7 @@
     "lds_config": {
       "api_config_source": {
         "api_type": "REST_LEGACY",
-        "refresh_delay": {"seconds": 1, "nanos": 0},
+        "refresh_delay": {{ .refresh_delay }},
         "cluster_names": [
           "rds"
         ]
@@ -24,7 +27,7 @@
     "cds_config": {
       "api_config_source": {
         "api_type": "REST_LEGACY",
-        "refresh_delay": {"seconds": 1, "nanos": 0},
+        "refresh_delay": {{ .refresh_delay }},
         "cluster_names": [
           "rds"
         ]
@@ -34,7 +37,7 @@
       "sds_config": {
         "api_config_source": {
           "api_type": "GRPC",
-          "refresh_delay": {"seconds": 1, "nanos": 0},
+          "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
             "xds-grpc"
           ]
@@ -47,32 +50,27 @@
       {
         "name": "rds",
         "type": "STRICT_DNS",
-        "connect_timeout": {"seconds": 1, "nanos": 0},
+        "connect_timeout": {{ .connect_timeout }},
         "lb_policy": "ROUND_ROBIN",
-
-      "hosts": [
+        "hosts": [
           {
-            "socket_address": {"address": "istio-pilot", "port_value": 15003}
+            "socket_address": {{ .pilot_address }}
           }
         ]
 
     },
-    {
-    "name": "xds-grpc",
-    "type": "STRICT_DNS",
-    "connect_timeout": {"seconds": 1, "nanos": 0},
-    "lb_policy": "ROUND_ROBIN",
-    "hosts": [
-    {
-    "socket_address": {"address": "istio-pilot", "port_value": 15010}
-    }
-    ],
-    "http2_protocol_options": { }
-    }
-
-    
+      {
+        "name": "xds-grpc",
+        "type": "STRICT_DNS",
+        "connect_timeout": {{ .connect_timeout }},
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .pilot_grpc_address }}
+        }
+        ],
+        "http2_protocol_options": { }
+      }
     ]
-  },
-  
-  
+  }
 }

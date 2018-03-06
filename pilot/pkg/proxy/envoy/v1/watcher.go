@@ -244,6 +244,8 @@ type envoy struct {
 	extraArgs []string
 	v2        bool
 	pilotSAN  []string
+	opts      map[string]interface{}
+	errChan   chan error
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -267,6 +269,19 @@ func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pil
 	e := proxy.(envoy)
 	e.v2 = true
 	e.pilotSAN = pilotSAN
+	return e
+}
+
+// NewV2ProxyCustom creates a proxy runner with custom options that can be injected in
+// template
+func NewV2ProxyCustom(config meshconfig.ProxyConfig, node string, logLevel string,
+	pilotSAN []string, opts map[string]interface{}, errChan chan error) proxy.Proxy {
+	proxy := NewProxy(config, node, logLevel)
+	e := proxy.(envoy)
+	e.v2 = true
+	e.pilotSAN = pilotSAN
+	e.errChan = errChan
+	e.opts = opts
 	return e
 }
 
@@ -307,7 +322,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
 	} else if proxy.v2 {
-		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN)
+		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN, proxy.opts)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
@@ -329,7 +344,9 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 
 	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
-
+	if proxy.v2 && len(proxy.config.CustomConfigFile) == 0 {
+		args = append(args, "--v2-config-only")
+	}
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
@@ -338,6 +355,16 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return err
+	}
+
+	// Set if the caller is monitoring envoy, for example in tests or if envoy runs in same
+	// container with the app.
+	if proxy.errChan != nil {
+		// Caller passed a channel, will wait itself for termination
+		go func() {
+			proxy.errChan <- cmd.Wait()
+		}()
+		return nil
 	}
 
 	done := make(chan error, 1)
