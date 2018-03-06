@@ -67,6 +67,24 @@ var (
 		},
 	}
 
+	ExampleExternalService = &networking.ExternalService{
+		Hosts:     []string{"*.google.com"},
+		Discovery: networking.ExternalService_NONE,
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-name", Protocol: "http"},
+			{Number: 8080, Name: "http2-name", Protocol: "http2"},
+		},
+	}
+
+	ExampleGateway = &networking.Gateway{
+		Servers: []*networking.Server{
+			{
+				Hosts: []string{"google.com"},
+				Port:  &networking.Port{Name: "http", Protocol: "http", Number: 10080},
+			},
+		},
+	}
+
 	// ExampleDestinationRule is an example destination rule
 	ExampleDestinationRule = &networking.DestinationRule{
 		Name: "ratings",
@@ -422,6 +440,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"RouteRule", model.RouteRule, ExampleRouteRule},
 		{"VirtualService", model.VirtualService, ExampleVirtualService},
 		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
+		{"ExternalService", model.ExternalService, ExampleExternalService},
+		{"Gatway", model.Gateway, ExampleGateway},
 		{"IngressRule", model.IngressRule, ExampleIngressRule},
 		{"EgressRule", model.EgressRule, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
