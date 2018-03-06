@@ -32,7 +32,7 @@ function get_resource() {
   local info_path="${3}"
   local file_log="${4}"
 
-  ./mason_client \
+  mason_client \
     --type="${type}" \
     --boskos-url='http://boskos.boskos.svc.cluster.local' \
     --owner="${owner}" \
