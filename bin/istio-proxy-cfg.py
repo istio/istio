@@ -294,7 +294,10 @@ def main(args):
     if not args.skip_pilot:
         pilot_url = args.pilot_url
         pilot_port_forward_pid = ""
-        if not pilot_url:
+        if pilot_url:
+            if not pilot_url.startswith("http://") and not pilot_url.startswith("https://"):
+                pilot_url = "http://" + pilot_url
+        else:
             pilot_url, pilot_port_forward_pid = find_pilot_url()
 
         output_file = output_dir + "/" + "pilot_xds.json"
