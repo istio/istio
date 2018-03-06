@@ -61,6 +61,10 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
+				if len(m) != 2 {
+					errorf("Invalid argument '%s'. Argument should contain one colon."+
+						"Example: -m google/protobuf/descriptor.proto:github.com/golang/protobuf/protoc-gen-go/descriptor", maps)
+				}
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 			fdsFiles := make(map[string]string) // FDS and their package import path
