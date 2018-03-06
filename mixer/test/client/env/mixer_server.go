@@ -61,6 +61,7 @@ func (h *Handler) run(bag attribute.Bag) rpc.Status {
 	return h.rStatus
 }
 
+// Count get the called counter
 func (h *Handler) Count() int {
 	h.mutex.Lock()
 	c := h.count
