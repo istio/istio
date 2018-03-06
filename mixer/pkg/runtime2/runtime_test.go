@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/gogo/protobuf/types"
 
 	cfgpb "istio.io/api/policy/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
@@ -159,6 +159,7 @@ Instances:
 Rules:
 Attributes:
   foo: STRING
+  prefix.generated.string: STRING
 `
 	if strings.TrimSpace(expected) != strings.TrimSpace(snapshot.String()) {
 		t.Fatalf("snapshot mismatch. got:\n%v\n, wanted:\n%v\n", snapshot, expected)
@@ -210,14 +211,14 @@ func TestRuntime2_InFlightRequestsDuringConfigChange(t *testing.T) {
 			Type: store.Update,
 			Key:  store.Key{Kind: "acheck", Name: "hcheck", Namespace: "istio-system"},
 			Value: &store.Resource{
-				Spec: &empty.Empty{},
+				Spec: &types.Struct{},
 			},
 		},
 		{
 			Type: store.Update,
 			Key:  store.Key{Kind: "tcheck", Name: "icheck", Namespace: "istio-system"},
 			Value: &store.Resource{
-				Spec: &empty.Empty{},
+				Spec: &types.Struct{},
 			},
 		},
 		{
