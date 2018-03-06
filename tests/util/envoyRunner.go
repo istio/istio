@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/pkg/bootstrap"
 
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -46,7 +47,6 @@ var (
 
 	// EnvoyErrWriter captures envoy errors
 	EnvoyErrWriter bytes.Buffer
-
 )
 
 func init() {
@@ -89,19 +89,7 @@ func RunEnvoy(base string, template string) error {
 	_, port, _ := net.SplitHostPort(pilot.HTTPListeningAddr.String())
 	config.DiscoveryAddress = "localhost:" + port
 	_, grpcPort, _ := net.SplitHostPort(pilot.GRPCListeningAddr.String())
-
-	done := make(chan error, 1)
-
-	envoyProxy := envoy.NewV2ProxyCustom(config, "router~x~x~x", "info", []string{
-		"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
-		map[string]interface{}{
-			"pilot_grpc": "localhost:" + grpcPort,
-		}, done)
-
-	abortCh := make(chan error, 1)
-
-	cfg := &envoy.Config{}
-
+	
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
@@ -112,9 +100,9 @@ func RunEnvoy(base string, template string) error {
 		return err
 	}
 
-	bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, &EnvoyOutWriter, &EnvoyErrWriter)
+	_, err = bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, &EnvoyOutWriter, &EnvoyErrWriter)
 
-	if err = envoyProxy.Run(cfg, 0, abortCh); err != nil {
+	if err != nil {
 		fmt.Println("Failed to start envoy", err)
 	}
 

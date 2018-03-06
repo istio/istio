@@ -133,7 +133,7 @@ type ServiceArgs struct {
 }
 
 // AdmissionArgs provides configuration options for the admission controller. This is a partial duplicate of
-// admito.ControllerOptions (other fields are filled out before constructing the admission controller). Only
+// admit.ControllerOptions (other fields are filled out before constructing the admission controller). Only
 // used if running with k8s, Consul, or Eureka (not in a mock environment).
 type AdmissionArgs struct {
 	// ExternalAdmissionWebhookName is the name of the

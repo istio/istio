@@ -136,4 +136,3 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	}
 	return out
 }
-

@@ -579,14 +579,14 @@ generate_yaml:
 
 istio.yaml:
 	helm template --set global.tag=${TAG} \
-		  --namespace=istio-system \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
-		  --namespace=istio-system \
+		  		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
 			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
@@ -594,10 +594,10 @@ istio_auth.yaml:
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
-		  --namespace=istio-system \
+		          --namespace=istio-system \
                   --set global.hub=${HUB} \
-		      --set sidecar-injector.enabled=true \
-		      --set ingress.enabled=true \
+		      	  --set sidecar-injector.enabled=true \
+		      	  --set ingress.enabled=true \
                   --set servicegraph.enabled=true \
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \

@@ -20,6 +20,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
 	"istio.io/istio/tests/util"
@@ -70,7 +71,7 @@ func directRequest(t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.1.1.0"	!= lbe[0].Endpoint.Address.GetSocketAddress().Address {
+	if "10.1.1.0" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
 		t.Error("Expecting 10.1.1.10 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
 	t.Log(cla.String(), res1.String())

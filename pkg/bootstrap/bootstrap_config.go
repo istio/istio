@@ -146,9 +146,8 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 
 	if pilotSAN == nil {
 		pilotSAN = defaultPilotSan
-		}
+	}
 	opts["pilot_SAN"] = pilotSAN
-
 
 	// Simplify the template
 	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
