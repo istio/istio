@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/syslog"
 
 	"github.com/spf13/cobra"
 
@@ -24,18 +25,22 @@ import (
 )
 
 const (
-	version   string = "0.1"
-	syslogTag string = "FlexVolNodeAgent"
+	// TODO(wattli): make it configurable.
+	ver string = "1.8"
 )
 
 var (
-	rootCmd = &cobra.Command{
-		Use:           "flexvoldrv",
-		SilenceErrors: true,
-		SilenceUsage:  true,
+	logWrt *syslog.Writer
+
+	// RootCmd defines the root command for the driver.
+	RootCmd = &cobra.Command{
+		Use:   "flexvoldrv",
+		Short: "Flex volume driver interface for Node Agent.",
+		Long:  "Flex volume driver interface for Node Agent.",
 	}
 
-	initCmd = &cobra.Command{
+	// InitCmd defines the init command for the driver.
+	InitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Flex volume init command.",
 		Long:  "Flex volume init command.",
@@ -43,29 +48,25 @@ var (
 			if len(args) != 0 {
 				return fmt.Errorf("init takes no arguments")
 			}
-
-			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.InitCommand() //nolint: errcheck
-			return nil
+			return driver.Init(ver)
 		},
 	}
 
-	mountCmd = &cobra.Command{
+	// MountCmd defines the mount command
+	MountCmd = &cobra.Command{
 		Use:   "mount",
-		Short: "Flex volume mount command.",
-		Long:  "Flex volume mount command.",
+		Short: "Flex volume unmount command.",
+		Long:  "Flex volume unmount command.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 2 {
 				return fmt.Errorf("mount takes 2 args")
 			}
-
-			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.Mount(args[0], args[1]) //nolint: errcheck
-			return nil
+			return driver.Mount(args[0], args[1])
 		},
 	}
 
-	unmountCmd = &cobra.Command{
+	// UnmountCmd defines the unmount command
+	UnmountCmd = &cobra.Command{
 		Use:   "unmount",
 		Short: "Flex volume unmount command.",
 		Long:  "Flex volume unmount command.",
@@ -73,41 +74,29 @@ var (
 			if len(args) < 1 {
 				return fmt.Errorf("mount takes 1 args")
 			}
-
-			// Absorb the error from the driver. The failure is indicated to kubelet via stdout.
-			driver.Unmount(args[0]) //nolint: errcheck
-			return nil
-		},
-	}
-
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		Long:  "Flex volume driver version",
-		RunE: func(c *cobra.Command, args []string) error {
-			fmt.Printf("Version is %s\n", version)
-			return nil
+			return driver.Unmount(args[0])
 		},
 	}
 )
 
 func init() {
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(mountCmd)
-	rootCmd.AddCommand(unmountCmd)
+	RootCmd.AddCommand(InitCmd)
+	RootCmd.AddCommand(MountCmd)
+	RootCmd.AddCommand(UnmountCmd)
 }
 
 func main() {
-	driver.InitConfiguration()
-
-	logWriter, err := driver.InitLog(syslogTag)
+	var err error
+	logWrt, err = syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "FlexVolNodeAgent")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer logWriter.Close() //nolint: errcheck
+	defer logWrt.Close() // nolint: errcheck
 
-	if err = rootCmd.Execute(); err != nil {
-		driver.GenericUnsupported("not supported", "", err.Error()) //nolint: errcheck
+	if logWrt == nil {
+		fmt.Println("am Logwrt is nil")
+	}
+	if err = RootCmd.Execute(); err != nil {
+		log.Fatal(err)
 	}
 }
