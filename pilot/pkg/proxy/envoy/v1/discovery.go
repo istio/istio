@@ -160,6 +160,7 @@ type DiscoveryService struct {
 	cdsCache *discoveryCache
 	rdsCache *discoveryCache
 	ldsCache *discoveryCache
+	azCache  *discoveryCache
 }
 
 type discoveryCacheStatEntry struct {
@@ -333,6 +334,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		cdsCache:    newDiscoveryCache("cds", o.EnableCaching),
 		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
 		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
+		azCache:     newDiscoveryCache("az", o.EnableCaching),
 	}
 
 	if envoyv2.Enabled() {
@@ -427,7 +429,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	// This route retrieves the Availability Zone of the service node requested
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/az/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.AvailabilityZone).
+		To(ds.RetrieveAvailabilityZone).
 		Doc("AZ for service node").
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
@@ -502,6 +504,9 @@ func (ds *DiscoveryService) GetCacheStats(_ *restful.Request, response *restful.
 	for k, v := range ds.ldsCache.stats() {
 		stats[k] = v
 	}
+	for k, v := range ds.azCache.stats() {
+		stats[k] = v
+	}
 	if err := response.WriteEntity(discoveryCacheStats{stats}); err != nil {
 		log.Warna(err)
 	}
@@ -513,6 +518,7 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.cdsCache.resetStats()
 	ds.rdsCache.resetStats()
 	ds.ldsCache.resetStats()
+	ds.azCache.resetStats()
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
@@ -538,6 +544,7 @@ func (ds *DiscoveryService) clearCache() {
 	ds.cdsCache.clear()
 	ds.rdsCache.clear()
 	ds.ldsCache.clear()
+	ds.azCache.clear()
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
@@ -650,27 +657,46 @@ func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (mod
 	return svcNode, nil
 }
 
-// AvailabilityZone responds to requests for an AZ for the given cluster node
-func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response *restful.Response) {
+// RetrieveAvailabilityZone responds to requests for an AZ for the given cluster node
+func (ds *DiscoveryService) RetrieveAvailabilityZone(request *restful.Request, response *restful.Response) {
 	methodName := "AvailabilityZone"
 	incCalls(methodName)
 
-	svcNode, err := ds.parseDiscoveryRequest(request)
-	if err != nil {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
-		return
+	key := request.Request.URL.String()
+	out, resourceCount, cached := ds.azCache.cachedDiscoveryResponse(key)
+	transformedOutput := out
+
+	if !cached {
+		svcNode, err := ds.parseDiscoveryRequest(request)
+		if err != nil {
+			errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
+			return
+		}
+		proxyInstances, err := ds.GetProxyServiceInstances(svcNode)
+		if err != nil {
+			errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
+			return
+		}
+		if len(proxyInstances) <= 0 {
+			errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
+			return
+		}
+
+		out = []byte(proxyInstances[0].AvailabilityZone)
+		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
+		if err != nil {
+			transformedOutput = out
+		}
+
+		resourceCount = uint32(len(proxyInstances))
+		if resourceCount > 0 {
+			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
+		}
 	}
-	proxyInstances, err := ds.GetProxyServiceInstances(svcNode)
-	if err != nil {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
-		return
-	}
-	if len(proxyInstances) <= 0 {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
-		return
-	}
+
+	observeResources(methodName, resourceCount)
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(proxyInstances[0].AvailabilityZone))
+	writeResponse(response, transformedOutput)
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
