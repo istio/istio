@@ -366,36 +366,4 @@ func TestEnvoyArgs(t *testing.T) {
 	}
 }
 
-func TestEnvoyRun(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	dir := os.Getenv("ISTIO_BIN")
-	var err error
-	if len(dir) == 0 {
-		t.Fatalf("envoy binary dir empty")
-	}
-	config.BinaryPath = path.Join(dir, "envoy")
-
-	config.ConfigPath = "tmp"
-
-	envoyConfig := BuildConfig(config, nil)
-	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
-	abortCh := make(chan error, 1)
-
-	if err = envoyProxy.Run(nil, 0, abortCh); err == nil {
-		t.Error("expected error on nil config")
-	}
-
-	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err != nil {
-		t.Error(err)
-	}
-
-	envoyProxy.Cleanup(0)
-
-	badConfig := config
-	badConfig.ConfigPath = ""
-	envoyProxy.config = badConfig
-
-	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err == nil {
-		t.Errorf("expected error on bad config path")
-	}
-}
+// TestEnvoyRun is no longer used - we are now using v2 bootstrap API.

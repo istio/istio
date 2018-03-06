@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pkg/bootstrap"
-	
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
