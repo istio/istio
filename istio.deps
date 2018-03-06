@@ -5,7 +5,7 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "Gopkg.toml",
-		"lastStableSHA": "9d978d76653da8b7b4bd6421b7e8f9925d8c79ea"
+		"lastStableSHA": "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
 	},
 	{
 		"name": "PROXY_TAG",
