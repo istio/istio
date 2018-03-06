@@ -53,7 +53,7 @@ var (
 )
 
 const (
-	debURL = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
+	debURLFmt = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
 )
 
 // GCPRawVM is hosted on Google Cloud Platform
@@ -192,7 +192,7 @@ func (vm *GCPRawVM) Setup() error {
 
 func buildIstioVersion() error {
 	if *debURL == "" {
-		*debURL = fmt.Sprintf(debURL, "pilot", *pilotTag)
+		*debURL = fmt.Sprintf(debURLFmt, "pilot", *pilotTag)
 	}
 	// `install/tools/setupIstioVM.sh` sources istio.VERSION to
 	// get `istio-sidecar.deb` from PILOT_DEBIAN_URL
