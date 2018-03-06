@@ -101,6 +101,7 @@ export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
 export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
+export HELM=$(ISTIO_OUT)/helm
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -597,14 +598,14 @@ generate_yaml:
 
 
 istio.yaml:
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 istio_auth.yaml:
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 		  		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
@@ -612,7 +613,7 @@ istio_auth.yaml:
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 		          --namespace=istio-system \
                   --set global.hub=${HUB} \
 		      	  --set sidecar-injector.enabled=true \
