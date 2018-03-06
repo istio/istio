@@ -494,13 +494,16 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Visit product page for 5 times. All of them should be denied.
 	for i := 0; i < 5; i++ {
-		if err := visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
+		if err = visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
 			fatalf(t, "Test app setup failure, or product page was not denied: %v", err)
 		}
 	}
 
 	allowPrometheusSync()
 	got, err := getCachedCheckCalls(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	}
 
 	// At least 4 check calls should be cache hit.
 	want := float64(4)
@@ -522,13 +525,16 @@ func TestCheckCache(t *testing.T) {
 
 	// Visit products api for 5 times, which should only touch productpage service through ingress.
 	for i := 0; i < 5; i++ {
-		if err := visitProductsAPI(productPageTimeout, http.StatusOK); err != nil {
+		if err = visitProductsAPI(productPageTimeout, http.StatusOK); err != nil {
 			fatalf(t, "Cannot finish visiting product page: %v", err)
 		}
 	}
 
 	allowPrometheusSync()
 	got, err := getCachedCheckCalls(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+	}
 
 	// At least 8 check calls should be cache hit.
 	// 4 cache hit from Ingress and 4 from productpage.
@@ -871,6 +877,10 @@ func getCachedCheckCalls(promAPI v1.API) (float64, error) {
 		return 0, nil
 	}
 	totalCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		totalCheck = 0
+	}
 
 	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
 	log.Infof("prometheus query: %s", query)
@@ -880,10 +890,14 @@ func getCachedCheckCalls(promAPI v1.API) (float64, error) {
 		return 0, nil
 	}
 	remoteCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		remoteCheck = 0
+	}
 
 	if remoteCheck > totalCheck {
 		// Remote check calls should always be less than or equal to total check calls.
-		return 0, fmt.Errorf("Check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
 	}
 
 	// number of cached check call is the gap between total check calls and remote check calls.
