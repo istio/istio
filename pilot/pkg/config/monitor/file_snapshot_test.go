@@ -41,7 +41,7 @@ spec:
     - "*.example.com"
 `
 
-var routeRuleYAML = `
+var virtualServiceYAML = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -57,7 +57,7 @@ spec:
         name: some.example.internal
 `
 
-func TestFileSnapshotterNoFilter(t *testing.T) {
+func TestFileSnapshotNoFilter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ts := &testState{
@@ -68,8 +68,8 @@ func TestFileSnapshotterNoFilter(t *testing.T) {
 	defer ts.testTeardown(t)
 
 	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
-	configs := fileWatcher.ReadFile()
-
+	configs, err := fileWatcher.ReadConfigFiles()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
 
 	gateway := configs[0].Spec.(*networking.Gateway)
@@ -78,13 +78,13 @@ func TestFileSnapshotterNoFilter(t *testing.T) {
 	g.Expect(gateway.Servers[0].Hosts).To(gomega.Equal([]string{"*.example.com"}))
 }
 
-func TestFileSnapshotterWithFilter(t *testing.T) {
+func TestFileSnapshotWithFilter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
-			"gateway.yml":    []byte(gatewayYAML),
-			"route_rule.yml": []byte(routeRuleYAML),
+			"gateway.yml":         []byte(gatewayYAML),
+			"virtual_service.yml": []byte(virtualServiceYAML),
 		},
 	}
 
@@ -92,21 +92,23 @@ func TestFileSnapshotterWithFilter(t *testing.T) {
 	defer ts.testTeardown(t)
 
 	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
-	configs := fileWatcher.ReadFile()
-
+	configs, err := fileWatcher.ReadConfigFiles()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
 
 	routeRule := configs[0].Spec.(*networking.VirtualService)
 	g.Expect(routeRule.Hosts).To(gomega.Equal([]string{"some.example.com"}))
+	virtualService := configs[0].Spec.(*v3routing.VirtualService)
+	g.Expect(virtualService.Hosts).To(gomega.Equal([]string{"some.example.com"}))
 }
 
-func TestFileSnapshotterSorting(t *testing.T) {
+func TestFileSnapshotSorting(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
 			"z.yml": []byte(gatewayYAML),
-			"a.yml": []byte(routeRuleYAML),
+			"a.yml": []byte(virtualServiceYAML),
 		},
 	}
 
@@ -115,8 +117,8 @@ func TestFileSnapshotterSorting(t *testing.T) {
 
 	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
 
-	configs := fileWatcher.ReadFile()
-
+	configs, err := fileWatcher.ReadConfigFiles()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(2))
 
 	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&networking.Gateway{}))

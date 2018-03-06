@@ -429,13 +429,38 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		store := memory.Make(configDescriptor)
 		configController = memory.NewController(store)
 		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
-		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
+		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadConfigFiles)
 
 		// Defer starting the file monitor until after the service is created.
 		s.addStartFunc(func(stop chan struct{}) error {
 			fileMonitor.Start(stop)
 			return nil
 		})
+
+		if args.Config.CFConfig != "" {
+			// create copilot client
+			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			if err != nil {
+				return multierror.Prefix(err, "loading cloud foundry config")
+			}
+			tlsConfig, err := cfConfig.ClientTLSConfig()
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client tls config")
+			}
+			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client")
+			}
+
+			copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"})
+			copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
+
+			s.addStartFunc(func(stop chan struct{}) error {
+				copilotMonitor.Start(stop)
+				return nil
+			})
+		}
+
 	} else {
 		kubeCfgFile := s.getKubeCfgFile(args)
 		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
