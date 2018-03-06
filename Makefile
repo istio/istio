@@ -588,10 +588,12 @@ artifacts: docker
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
+	$(make) istio.yaml
 
 # A make target to generate all the YAML files
 generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	$(make) istio.yaml
 
 
 istio.yaml:
