@@ -30,6 +30,29 @@ import (
 	"google.golang.org/grpc"
 )
 
+type MockSecretFileServer struct {
+	certificate []byte
+	privateKey  []byte
+}
+
+func (sf *MockSecretFileServer) SetServiceIdentityPrivateKey(content []byte) error {
+	sf.certificate = content
+	return nil
+}
+
+func (sf *MockSecretFileServer) SetServiceIdentityCert(content []byte) error {
+	sf.privateKey = content
+	return nil
+}
+
+func (sf *MockSecretFileServer) GetServiceIdentityPrivateKey() ([]byte, error) {
+	return sf.privateKey, nil
+}
+
+func (sf *MockSecretFileServer) GetServiceIdentityCert() ([]byte, error) {
+	return sf.certificate, nil
+}
+
 func unixDialer(target string, timeout time.Duration) (net.Conn, error) {
 	return net.DialTimeout("unix", target, timeout)
 }
@@ -52,7 +75,7 @@ func FetchSecrets(t *testing.T, udsPath string) *api.DiscoveryResponse {
 	return response
 }
 
-func VerifySecrets(t *testing.T, response *api.DiscoveryResponse) {
+func VerifySecrets(t *testing.T, response *api.DiscoveryResponse, certficateChain string, privateKey string) {
 	var secret auth.Secret
 	resource := response.GetResources()[0]
 	bytes := resource.Value
@@ -65,10 +88,23 @@ func VerifySecrets(t *testing.T, response *api.DiscoveryResponse) {
 		t.Fatalf("Unexpected response. Expected: type %s, name %s; Actual: type %s, name %s",
 			SecretTypeURL, SecretName, response.GetTypeUrl(), secret.GetName())
 	}
+
+	if certficateChain != string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()) {
+		t.Errorf("Certificates mismatch. Expected: %v, Got: %v",
+			certficateChain, string(secret.GetTlsCertificate().CertificateChain.GetInlineBytes()))
+	}
+
+	if privateKey != string(secret.GetTlsCertificate().PrivateKey.GetInlineBytes()) {
+		t.Errorf("Private key mismatch. Expected: %v, Got: %v",
+			privateKey, string(secret.GetTlsCertificate().PrivateKey.GetInlineBytes()))
+	}
 }
 
 func TestSingleUdsPath(t *testing.T) {
-	server := NewSDSServer()
+	server := NewSDSServer(&MockSecretFileServer{
+		certificate: []byte("certificate"),
+		privateKey:  []byte("private key"),
+	})
 
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath := filepath.Join(tmpdir, "test_path")
@@ -78,11 +114,14 @@ func TestSingleUdsPath(t *testing.T) {
 		t.Fatalf("Unexpected Error: %v", err)
 	}
 
-	VerifySecrets(t, FetchSecrets(t, udsPath))
+	VerifySecrets(t, FetchSecrets(t, udsPath), "certificate", "private key")
 }
 
 func TestMultipleUdsPaths(t *testing.T) {
-	server := NewSDSServer()
+	server := NewSDSServer(&MockSecretFileServer{
+		certificate: []byte("certificate"),
+		privateKey:  []byte("private key"),
+	})
 
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath1 := filepath.Join(tmpdir, "test_path1")
@@ -96,13 +135,16 @@ func TestMultipleUdsPaths(t *testing.T) {
 		t.Fatalf("Unexpected Error: %v %v %v", err1, err2, err3)
 	}
 
-	VerifySecrets(t, FetchSecrets(t, udsPath1))
-	VerifySecrets(t, FetchSecrets(t, udsPath2))
-	VerifySecrets(t, FetchSecrets(t, udsPath3))
+	VerifySecrets(t, FetchSecrets(t, udsPath1), "certificate", "private key")
+	VerifySecrets(t, FetchSecrets(t, udsPath2), "certificate", "private key")
+	VerifySecrets(t, FetchSecrets(t, udsPath3), "certificate", "private key")
 }
 
 func TestDuplicateUdsPaths(t *testing.T) {
-	server := NewSDSServer()
+	server := NewSDSServer(&MockSecretFileServer{
+		certificate: []byte("certificate"),
+		privateKey:  []byte("private key"),
+	})
 
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath := filepath.Join(tmpdir, "test_path")

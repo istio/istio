@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -46,6 +48,9 @@ type SDSServer struct {
 
 	// The grpc server that listens on the above udsPaths.
 	grpcServer *grpc.Server
+
+	// secret service that serves certificate and private key
+	secretServer SecretServer
 }
 
 const (
@@ -62,11 +67,27 @@ const (
 // GetTLSCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
-func (s *SDSServer) GetTLSCertificate(udsPath string) *auth.TlsCertificate {
-	// TODO: Add implementation. Consider define an interface to support
-	// different implementations that can get certificate from different CA
-	// systems including Istio CA and other CAs.
-	return &auth.TlsCertificate{}
+// SecretServer implementations could have diffent implementation
+func (s *SDSServer) GetTLSCertificate(udsPath string) (*auth.TlsCertificate, error) {
+	privateKey, err := s.secretServer.GetServiceIdentityPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	certificateChain, err := s.secretServer.GetServiceIdentityCert()
+	if err != nil {
+		return nil, err
+	}
+
+	tlsSecret := &auth.TlsCertificate{
+		CertificateChain: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{certificateChain},
+		},
+		PrivateKey: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{privateKey},
+		},
+	}
+	return tlsSecret, nil
 }
 
 // FetchSecrets fetches the X.509 key/cert for a given workload whose identity
@@ -81,11 +102,16 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 	}
 
 	udsPath := md[udsPathKey][0]
+	tlsCertificate, err := s.GetTLSCertificate(udsPath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read TLS certificate (%v)", err)
+	}
+
 	resources := make([]types.Any, 1)
 	secret := &auth.Secret{
 		Name: SecretName,
 		Type: &auth.Secret_TlsCertificate{
-			TlsCertificate: s.GetTLSCertificate(udsPath),
+			TlsCertificate: tlsCertificate,
 		},
 	}
 	data, err := proto.Marshal(secret)
@@ -98,10 +124,12 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 		TypeUrl: SecretTypeURL,
 		Value:   data,
 	}
-	// TODO: Set VersionInfo.
+
+	// TODO(jaebong) for now we are using timestamp in miliseconds. It needs to be updated once we have a new design
 	response := &api.DiscoveryResponse{
-		Resources: resources,
-		TypeUrl:   SecretTypeURL,
+		Resources:   resources,
+		TypeUrl:     SecretTypeURL,
+		VersionInfo: fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond)),
 	}
 
 	return response, nil
@@ -116,11 +144,12 @@ func (s *SDSServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 // NewSDSServer creates the SDSServer that registers
 // SecretDiscoveryServiceServer, a gRPC server.
-func NewSDSServer() *SDSServer {
+func NewSDSServer(secretServer SecretServer) *SDSServer {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	s := &SDSServer{
-		grpcServer: grpcServer,
+		grpcServer:   grpcServer,
+		secretServer: secretServer,
 	}
 
 	sds.RegisterSecretDiscoveryServiceServer(grpcServer, s)

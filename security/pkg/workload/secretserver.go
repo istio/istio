@@ -24,6 +24,10 @@ type SecretServer interface {
 	SetServiceIdentityPrivateKey([]byte) error
 	// SetServiceIdentityCert sets the service identity cert to the channel accessible to the workload.
 	SetServiceIdentityCert([]byte) error
+	// GetServiceIdentityPrivateKey returns the service identity private key.
+	GetServiceIdentityPrivateKey() ([]byte, error)
+	// SetServiceIdentityCert returns the service identity cert.
+	GetServiceIdentityCert() ([]byte, error)
 }
 
 // NewSecretServer instantiates a SecretServer according to the configuration.
