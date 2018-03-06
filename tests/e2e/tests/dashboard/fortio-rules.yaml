@@ -9,17 +9,6 @@ spec:
   selector:
     app: echosrv
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: tcpechosrv
-spec:
-  ports:
-  - port: 9999
-    name: tcp-echo
-  selector:
-    app: tcpechosrv
----
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -53,21 +42,6 @@ spec:
               prefix: /fortio/ # prefix
     rewrite:
         uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
----
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
-metadata:
-  name: tcp-fortio-redir
-spec:
-    destination:
-      name: tcpechosrv
-    match:
-        request:
-          headers:
-            uri:
-              prefix: /tcp/ # prefix
-    rewrite:
-        uri: /
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
