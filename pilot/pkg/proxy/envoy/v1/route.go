@@ -332,16 +332,6 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 			}
 		}
 	}
-	if len(rule.Http) == 0 {
-		route := &HTTPRoute{
-			Prefix: "/",
-		}
-		// default route for the destination
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
-		routes = append(routes, route)
-	}
 
 	return routes
 }
@@ -350,30 +340,33 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster buildClusterFunc) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
-
-	if len(http.Route) == 0 { // build default cluster
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
+	if http.Redirect != nil {
+		route.HostRedirect = http.Redirect.Authority
+		route.PathRedirect = http.Redirect.Uri
 	} else {
-		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
+		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
 			route.clusters = append(route.clusters, cluster)
-			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
+			clusters = append(clusters,
 				&WeightedClusterEntry{
 					Name:   cluster.Name,
 					Weight: int(dst.Weight),
 				})
 		}
 
-		// rewrite to a single cluster if there is only weighted cluster
-		if len(route.WeightedClusters.Clusters) == 1 {
-			route.Cluster = route.WeightedClusters.Clusters[0].Name
-			route.WeightedClusters = nil
+		if len(clusters) == 1 {
+			route.Cluster = clusters[0].Name
+		} else {
+			route.WeightedClusters = &WeightedCluster{Clusters: clusters}
 		}
+	}
+
+	if http.Rewrite != nil {
+		route.HostRewrite = http.Rewrite.Authority
+		route.PrefixRewrite = http.Rewrite.Uri
 	}
 
 	if http.Timeout != nil &&
@@ -382,9 +375,6 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	}
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
-
-	applyRedirect(route, http.Redirect)
-	applyRewrite(route, http.Rewrite)
 
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if http.Fault != nil {
@@ -415,17 +405,17 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 // TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
 // In v1alpha2, cluster names will be built using the subset name instead of labels.
 // This will allow us to remove this function, which is very inefficient.
-func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
+func fetchSubsetLabels(store model.IstioConfigStore, fqdn, subsetName, domain string) (labels model.Labels) {
 	if subsetName == "" {
 		return
 	}
 
-	destinationRuleConfig := store.DestinationRule(name, domain)
-	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
+	config := store.DestinationRule(fqdn, domain)
+	if config != nil {
+		rule := config.Spec.(*networking.DestinationRule)
 
 		var found bool
-		for _, subset := range destinationRule.Subsets {
+		for _, subset := range rule.Subsets {
 			if subset.Name == subsetName {
 				labels = model.Labels(subset.Labels)
 				found = true
@@ -441,14 +431,6 @@ func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain st
 	return
 }
 
-func applyRedirect(route *HTTPRoute, redirect *networking.HTTPRedirect) {
-	if redirect != nil {
-		route.HostRedirect = redirect.Authority
-		route.PathRedirect = redirect.Uri
-		route.Cluster = ""
-	}
-}
-
 func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 	if retries != nil && retries.Attempts > 0 {
 		policy = &RetryPolicy{
@@ -460,13 +442,6 @@ func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 		}
 	}
 	return
-}
-
-func applyRewrite(route *HTTPRoute, rewrite *networking.HTTPRewrite) {
-	if rewrite != nil {
-		route.HostRewrite = rewrite.Authority
-		route.PrefixRewrite = rewrite.Uri
-	}
 }
 
 func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
@@ -486,20 +461,14 @@ func buildCORSPolicy(policy *networking.CorsPolicy) *CORSPolicy {
 	}
 
 	out := &CORSPolicy{
-		AllowOrigin: policy.AllowOrigin,
-		Enabled:     true,
+		AllowOrigin:   policy.AllowOrigin,
+		AllowHeaders:  strings.Join(policy.AllowHeaders, ","),
+		AllowMethods:  strings.Join(policy.AllowMethods, ","),
+		ExposeHeaders: strings.Join(policy.ExposeHeaders, ","),
+		Enabled:       true,
 	}
 	if policy.AllowCredentials != nil {
 		out.AllowCredentials = policy.AllowCredentials.Value
-	}
-	if len(policy.AllowHeaders) > 0 {
-		out.AllowHeaders = strings.Join(policy.AllowHeaders, ",")
-	}
-	if len(policy.AllowMethods) > 0 {
-		out.AllowMethods = strings.Join(policy.AllowMethods, ",")
-	}
-	if len(policy.ExposeHeaders) > 0 {
-		out.ExposeHeaders = strings.Join(policy.ExposeHeaders, ",")
 	}
 	if policy.MaxAge != nil {
 		out.MaxAge = policy.MaxAge.String()

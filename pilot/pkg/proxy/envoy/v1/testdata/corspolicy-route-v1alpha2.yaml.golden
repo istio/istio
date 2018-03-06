@@ -1,7 +1,10 @@
 hosts:
   - world
 http:
-  - corsPolicy:
+  - route:
+    - destination:
+        name: world
+    corsPolicy:
       allowOrigin:
         - http://foo.example
       allowMethods:

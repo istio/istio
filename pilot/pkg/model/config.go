@@ -507,10 +507,8 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 // non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
 // FQDN and is returned unchanged.
 func ResolveFQDN(host, domain string) string {
-	if strings.Count(host, ".") == 0 { // host is a shortname
-		if len(domain) > 0 {
-			return fmt.Sprintf("%s.%s", host, domain)
-		}
+	if len(domain) > 0 && strings.Count(host, ".") == 0 { // host is a shortname
+		return fmt.Sprintf("%s.%s", host, domain)
 	}
 	return host
 }
