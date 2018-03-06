@@ -17,7 +17,6 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
-	"fmt"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -98,7 +97,10 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Failed to create a self-signed CA: %v", err)
+		t.Errorf("Got error while createing self-signed CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a self-signed CA.")
 	}
 
 	signingCert, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
@@ -164,8 +166,11 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	}
 
 	ca, err := NewIstioCA(caopts)
-	if ca == nil || err != nil {
-		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
+	if err != nil {
+		t.Errorf("Got error while createing self-signed CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a self-signed CA.")
 	}
 
 	signingCert, err := util.ParsePemEncodedCertificate([]byte(signingCertPem))
@@ -205,21 +210,24 @@ func TestCreatePluggedCertCA(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Failed to create a plugged-cert CA: %v", err)
+		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a plugged-cert CA.")
 	}
 
 	signingCertBytes, signingKeyBytes, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAllPem()
-	if err = comparePem(signingCertBytes, signingCertFile); err != nil {
-		t.Errorf("Failed to verify signing cert: %v", err)
+	if !comparePem(signingCertBytes, signingCertFile) {
+		t.Errorf("Failed to verify loading of signing cert pem.")
 	}
-	if err = comparePem(signingKeyBytes, signingKeyFile); err != nil {
-		t.Errorf("Failed to verify signing key: %v", err)
+	if !comparePem(signingKeyBytes, signingKeyFile) {
+		t.Errorf("Failed to verify loading of signing key pem.")
 	}
-	if err = comparePem(certChainBytes, certChainFile); err != nil {
-		t.Errorf("Failed to verify cert chain: %v", err)
+	if !comparePem(certChainBytes, certChainFile) {
+		t.Errorf("Failed to verify loading of cert chain pem.")
 	}
-	if err = comparePem(rootCertBytes, rootCertFile); err != nil {
-		t.Errorf("Failed to verify root cert: %v", err)
+	if !comparePem(rootCertBytes, rootCertFile) {
+		t.Errorf("Failed to verify loading of root cert pem.")
 	}
 }
 
@@ -430,13 +438,13 @@ func createSecret(namespace, signingCert, signingKey, rootCert string) *v1.Secre
 	}
 }
 
-func comparePem(expectedBytes []byte, file string) error {
+func comparePem(expectedBytes []byte, file string) bool {
 	fileBytes, err := ioutil.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("file read error: %v", err)
+		return false
 	}
 	if !bytes.Equal(fileBytes, expectedBytes) {
-		return fmt.Errorf("pem does not match the file content")
+		return false
 	}
-	return nil
+	return true
 }
