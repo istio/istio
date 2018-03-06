@@ -27,9 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pkg/bootstrap"
-
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
-
+	
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -89,7 +87,7 @@ func RunEnvoy(base string, template string) error {
 	_, port, _ := net.SplitHostPort(pilot.HTTPListeningAddr.String())
 	config.DiscoveryAddress = "localhost:" + port
 	_, grpcPort, _ := net.SplitHostPort(pilot.GRPCListeningAddr.String())
-	
+
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
