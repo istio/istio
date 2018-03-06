@@ -535,6 +535,7 @@ func ResolveFQDN(host, domain string) string {
 	return host
 }
 
+// ResolveFQDNFromDestination returns FQDN for destination, in namespace and domain defines by config meta.
 func ResolveFQDNFromDestination(meta ConfigMeta, destination *networking.Destination) string {
 	return ResolveFQDN(destination.Name, meta.Namespace+".svc."+meta.Domain)
 }
