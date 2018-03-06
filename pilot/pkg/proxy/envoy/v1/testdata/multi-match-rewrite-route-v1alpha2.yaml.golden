@@ -1,0 +1,11 @@
+hosts:
+  - world
+http:
+  - match:
+      - uri:
+          prefix: /old/path
+      - uri:
+          exact: /old
+    rewrite:
+      uri: /new/path
+      authority: foo.bar.com

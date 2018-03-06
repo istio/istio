@@ -19,9 +19,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/istio/pkg/version"
 )
 
 type rootArgs struct {
@@ -55,13 +58,37 @@ type rootArgs struct {
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
-	// enableTracing controls whether client-side traces are generated for calls to Mixer.
-	enableTracing bool
-
 	// # times to repeat the operation
 	repeat int
 
 	tracingOptions *tracing.Options
+}
+
+func addAttributeFlags(cmd *cobra.Command, rootArgs *rootArgs) {
+	cmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
+		"Address and port of a running Mixer instance")
+	cmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
+		"Sends the specified number of requests in quick succession")
+
+	cmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
+		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "",
+		"List of name/value string attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "",
+		"List of name/value int64 attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "",
+		"List of name/value float64 attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.boolAttributes, "bool_attributes", "b", "",
+		"List of name/value bool attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "",
+		"List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.durationAttributes, "duration_attributes", "", "",
+		"List of name/value duration attributes specified as name1=value1,name2=value2,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "",
+		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
+	cmd.PersistentFlags().StringVarP(&rootArgs.stringMapAttributes, "stringmap_attributes", "", "",
+		"List of name/value string map attributes specified as name1=k1:v1;k2:v2,name2=k3:v3...")
+
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -94,33 +121,20 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		tracingOptions: tracing.NewOptions(),
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
-		"Address and port of a running Mixer instance")
-	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
-		"Sends the specified number of requests in quick succession")
+	cc := checkCmd(rootArgs, printf, fatalf)
+	rc := reportCmd(rootArgs, printf, fatalf)
 
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
-		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "",
-		"List of name/value string attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "",
-		"List of name/value int64 attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "",
-		"List of name/value float64 attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.boolAttributes, "bool_attributes", "b", "",
-		"List of name/value bool attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "",
-		"List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.durationAttributes, "duration_attributes", "", "",
-		"List of name/value duration attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "",
-		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringMapAttributes, "stringmap_attributes", "", "",
-		"List of name/value string map attributes specified as name1=k1:v1;k2:v2,name2=k3:v3...")
+	addAttributeFlags(cc, rootArgs)
+	addAttributeFlags(rc, rootArgs)
 
-	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
-	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
-	rootCmd.AddCommand(shared.VersionCmd(printf))
+	rootCmd.AddCommand(cc)
+	rootCmd.AddCommand(rc)
+	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Mixer Client",
+		Section: "mixc CLI",
+		Manual:  "Istio Mixer Client",
+	}))
 
 	rootArgs.tracingOptions.AttachCobraFlags(rootCmd)
 

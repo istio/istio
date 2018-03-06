@@ -20,33 +20,35 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/mock/gomock"
 
-	brokerconfig "istio.io/api/broker/v1/config"
+	brokerconfig "istio.io/api/broker/dev"
 )
 
 type testStore struct {
-	ctrl  gomock.Controller
-	mock  *MockStore
+	mock  *mockStore
 	store BrokerConfigStore
 }
 
-func initTestStore(t *testing.T) *testStore {
-	ctrl := gomock.NewController(t)
-	mock := NewMockStore(ctrl)
+type mockStore struct {
+	Store
+	entries []Entry
+	err     error
+}
+
+func (m mockStore) List(typ, namespace string) ([]Entry, error) {
+	return m.entries, m.err
+}
+
+func newTestStore() *testStore {
+	ms := &mockStore{}
 	return &testStore{
-		mock:  mock,
-		store: MakeBrokerConfigStore(mock),
+		mock:  ms,
+		store: MakeBrokerConfigStore(ms),
 	}
 }
 
-func (r *testStore) shutdown() {
-	r.ctrl.Finish()
-}
-
 func TestServiceClasses(t *testing.T) {
-	r := initTestStore(t)
-	defer r.shutdown()
+	r := newTestStore()
 
 	sc := &brokerconfig.ServiceClass{
 		Deployment: &brokerconfig.Deployment{
@@ -85,7 +87,8 @@ func TestServiceClasses(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		r.mock.EXPECT().List(ServiceClass.Type, "").Return(c.mockEntries, c.mockError)
+		r.mock.entries = c.mockEntries
+		r.mock.err = c.mockError
 		if got := r.store.ServiceClasses(); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}
@@ -93,8 +96,7 @@ func TestServiceClasses(t *testing.T) {
 }
 
 func TestServicePlans(t *testing.T) {
-	r := initTestStore(t)
-	defer r.shutdown()
+	r := newTestStore()
 
 	sp := &brokerconfig.ServicePlan{
 		Plan: &brokerconfig.CatalogPlan{
@@ -133,7 +135,8 @@ func TestServicePlans(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		r.mock.EXPECT().List(ServicePlan.Type, "").Return(c.mockEntries, c.mockError)
+		r.mock.entries = c.mockEntries
+		r.mock.err = c.mockError
 		if got := r.store.ServicePlans(); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}
@@ -141,8 +144,7 @@ func TestServicePlans(t *testing.T) {
 }
 
 func TestServicePlansByService(t *testing.T) {
-	r := initTestStore(t)
-	defer r.shutdown()
+	r := newTestStore()
 
 	sp := &brokerconfig.ServicePlan{
 		Plan: &brokerconfig.CatalogPlan{
@@ -193,7 +195,8 @@ func TestServicePlansByService(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		r.mock.EXPECT().List(ServicePlan.Type, "").Return(c.mockEntries, c.mockError)
+		r.mock.entries = c.mockEntries
+		r.mock.err = c.mockError
 		if got := r.store.ServicePlansByService(c.input); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}

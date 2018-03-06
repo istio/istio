@@ -1,0 +1,95 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "mixer.fullname" . }}
+  labels:
+    app: {{ template "mixer.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: mixer
+  annotations:    
+    checksum/config-volume: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "mixer.name" . }}
+        release: {{ .Release.Name }}
+        istio: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ template "mixer.serviceAccountName" . }}
+      containers:
+        - name: statsd-to-prometheus
+          image: "{{ .Values.prometheusStatsdExporter.repository }}:{{ .Values.prometheusStatsdExporter.tag}}"
+          imagePullPolicy: {{ .Values.prometheusStatsdExporter.imagePullPolicy }}
+          ports:
+          - containerPort: 9102
+          - containerPort: 9125
+            protocol: UDP
+          args:
+          - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+          resources:
+{{ toYaml .Values.prometheusStatsdExporter.resources | indent 12 }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/statsd
+        - name: {{ template "mixer.name" . }}
+          image: "{{ .Values.global.mixer.repository }}:{{ .Values.global.mixer.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+          - containerPort: 9091
+          - containerPort: 9093
+          - containerPort: 9094
+          - containerPort: 42422
+          args:
+            - --configStoreURL=fs:///etc/opt/mixer/configroot
+            - --configStore2URL=k8s://
+            - --configDefaultNamespace={{ .Release.Namespace }}
+            - --zipkinURL=http://zipkin:9411/api/v1/spans
+            - --logtostderr
+            - -v
+            - "2"
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+        - name: {{ template "mixer.name" . }}-proxy
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+          - containerPort: 15004
+          args:
+          - proxy
+          - mixer
+          - -v
+          - "2"
+          - --controlPlaneAuthPolicy
+        {{- if .Values.global.securityEnabled }}
+          - MUTUAL_TLS
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_mixer_auth.json
+        {{- else }}
+          - NONE #--controlPlaneAuthPolicy
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_mixer.json
+  {{- end }}
+          resources:
+{{ toYaml .Values.global.proxy.resources | indent 12 }}
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.{{ template "mixer.serviceAccountName" . }}
+          optional: true
+      - name: config-volume
+        configMap:
+          name: {{ template "mixer.fullname" . }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

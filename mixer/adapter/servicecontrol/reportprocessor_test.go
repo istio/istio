@@ -87,7 +87,9 @@ func TestReport(t *testing.T) {
 			HTTPStatusCode: 200,
 		},
 	})
-	test.processor.ProcessReport(context.Background(), []*servicecontrolreport.Instance{test.inst})
+	if err := test.processor.ProcessReport(context.Background(), []*servicecontrolreport.Instance{test.inst}); err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
 	<-test.env.GetDoneChan()
 	if test.client.reportRequest == nil {
 		t.Error("report request failed")

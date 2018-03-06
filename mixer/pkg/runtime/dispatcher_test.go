@@ -24,12 +24,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	cpb "istio.io/api/mixer/v1/config"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
@@ -105,7 +104,7 @@ func TestReport(t *testing.T) {
 			}
 		})
 	}
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestCheck(t *testing.T) {
@@ -158,7 +157,7 @@ func TestCheck(t *testing.T) {
 			}
 		})
 	}
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestQuota(t *testing.T) {
@@ -193,7 +192,7 @@ func TestQuota(t *testing.T) {
 			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
 
 			cr, err := m.Quota(context.Background(), attribute.GetMutableBag(nil),
-				&aspect.QuotaMethodArgs{
+				&QuotaMethodArgs{
 					Quota: "i1",
 				})
 
@@ -217,7 +216,7 @@ func TestQuota(t *testing.T) {
 		})
 	}
 
-	gp.Close()
+	_ = gp.Close()
 }
 
 func TestPreprocess(t *testing.T) {
@@ -242,7 +241,7 @@ func TestPreprocess(t *testing.T) {
 		{name: "errFromTmpl", tn: tname, callErr: err1},
 		{name: "resolverErr", tn: tname, callErr: err1, resolveErr: true},
 	} {
-		t.Run(fmt.Sprintf("%s", s.name), func(t *testing.T) {
+		t.Run(s.name, func(t *testing.T) {
 			fp := &fakeProc{
 				err:              s.callErr,
 				mutableBagResult: s.aBag,

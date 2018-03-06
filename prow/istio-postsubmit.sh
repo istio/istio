@@ -29,34 +29,16 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI:-}" == 'bootstrap' ]; then
-  export USER=Prow
+source ${ROOT}/prow/lib.sh
+setup_and_export_git_sha
 
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio
-
-  # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_BASE_SHA}"
-
-  # Use volume mount from pilot-presubmit job's pod spec.
-  # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
-fi
 cd $ROOT
-
-# Build
-${ROOT}/bin/init.sh
+make init
 
 echo 'Running Unit Tests'
-time make localTestEnv go-test
+time make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
-time make push HUB="${HUB}" TAG="${TAG}"
+time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"

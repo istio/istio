@@ -75,7 +75,7 @@ func InitLogging() error {
 	if err != nil {
 		return err
 	}
-	o.OutputPaths = []string{tmpLogFile.Name()}
+	o.OutputPaths = []string{tmpLogFile.Name(), "stdout"}
 	if err := log.Configure(o); err != nil {
 		return err
 	}
@@ -84,13 +84,13 @@ func InitLogging() error {
 	return nil
 }
 
-// NewCommonConfig creates a full config will all supported configs.
-func NewCommonConfig(testID string) (*CommonConfig, error) {
+// NewTestConfig creates a full config will all supported configs.
+func NewTestConfig(testID, baseVersion string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID)
+	k, err := newKubeInfo(t.TempDir, t.RunID, baseVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +107,11 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	return c, nil
+}
+
+// NewCommonConfig creates a full config will all supported configs.
+func NewCommonConfig(testID string) (*CommonConfig, error) {
+	return NewTestConfig(testID, "")
 }
 
 func (t *testCleanup) RegisterCleanable(c Cleanable) {
@@ -180,15 +185,9 @@ func (t *testCleanup) cleanup() {
 // Fetch and save cluster pod logs using kuebctl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
-	if c.Cleanup.skipCleanup {
-		log.Info("Dev mode (--skip_cleanup), skipping log fetching")
-		return nil
-	}
+	// Logs are fetched even if skip_cleanup is called - the namespace is left around.
 	if c.Info == nil {
 		log.Warn("Skipping log saving as Info is not initialized")
-		return nil
-	}
-	if c.Info.LogBucketPath == "" {
 		return nil
 	}
 	log.Info("Saving logs")

@@ -19,36 +19,45 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/mock/gomock"
 
-	brokerconfig "istio.io/api/broker/v1/config"
+	brokerconfig "istio.io/api/broker/dev"
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/model/osb"
 )
 
 type testStore struct {
-	ctrl       *gomock.Controller
-	mock       *config.MockBrokerConfigStore
+	mockStore  *mockStore
 	controller *Controller
 }
 
-func initTestStore(t *testing.T) *testStore {
-	ctrl := gomock.NewController(t)
-	mock := config.NewMockBrokerConfigStore(ctrl)
+type mockStore struct {
+	config.BrokerConfigStore
+	services map[string]*brokerconfig.ServiceClass
+	plans    map[string]*brokerconfig.ServicePlan
+}
+
+func (m mockStore) ServiceClasses() map[string]*brokerconfig.ServiceClass {
+	return m.services
+}
+
+func (m mockStore) ServicePlans() map[string]*brokerconfig.ServicePlan {
+	return m.plans
+}
+
+func (m mockStore) ServicePlansByService(service string) map[string]*brokerconfig.ServicePlan {
+	return m.plans
+}
+
+func newTestStore(t *testing.T) *testStore {
+	ms := &mockStore{}
 	return &testStore{
-		ctrl,
-		mock,
-		&Controller{mock},
+		ms,
+		&Controller{ms},
 	}
 }
 
-func (r *testStore) shutdown() {
-	r.ctrl.Finish()
-}
-
 func TestCatalog(t *testing.T) {
-	r := initTestStore(t)
-	defer r.shutdown()
+	r := newTestStore(t)
 
 	sc := &brokerconfig.ServiceClass{
 		Deployment: &brokerconfig.Deployment{
@@ -100,8 +109,8 @@ func TestCatalog(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		r.mock.EXPECT().ServiceClasses().Return(c.mockServices)
-		r.mock.EXPECT().ServicePlansByService("service-class/default/productpage-service-class").Return(c.mockPlans)
+		r.mockStore.services = c.mockServices
+		r.mockStore.plans = c.mockPlans
 		if got := r.controller.catalog(); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}

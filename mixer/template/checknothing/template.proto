@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: Check Nothing
+// $overview: A template that carries no data, useful for testing.
+// $location: https://istio.io/docs/reference/config/template/checknothing.html
+
+// The `checknothing` template represents an empty block of data, which can useful
+// in different testing scenarios.
 package checkNothing;
 
 import "mixer/v1/template/extensions.proto";
@@ -25,7 +31,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // scenarios.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: checknothing
 // metadata:

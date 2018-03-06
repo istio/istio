@@ -15,31 +15,35 @@
 # limitations under the License.
 #
 # This script builds and link stamps the output
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-OUT=${1:?"output path"}
-VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
-BUILDPATH=${3:?"path to build"}
-
-set -e
 
 VERBOSE=${VERBOSE:-"0"}
 V=""
 if [[ "${VERBOSE}" == "1" ]];then
     V="-x"
+    set -x
 fi
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+OUT=${1:?"output path"}
+VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version
+BUILDPATH=${3:?"path to build"}
+
+set -e
 
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
-GOBIN=${GOBIN:-go}
+GOBINARY=${GOBINARY:-go}
+GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
+GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+GCFLAGS=${GCFLAGS:-}
+export CGO_ENABLED=0
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
-else
-    export CGO_ENABLED=0
 fi
 
 # gather buildinfo if not already provided
@@ -58,5 +62,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} -o ${OUT} \
-	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
+       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"

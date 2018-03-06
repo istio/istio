@@ -13,8 +13,8 @@ To that end, we present here a few general guidelines and pointers.
 Other docs you may enjoy:
 
   - [Writing High Performance Go](http://go-talks.appspot.com/github.com/davecheney/presentations/writing-high-performance-go.slide#1)
-  - [Handling 1 Million Requests per Minute with Golang](http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang)
-  - [So You Wanna Go Fast](http://bravenewgeek.com/so-you-wanna-go-fast/)
+  - [Handling 1 Million Requests per Minute with Golang](http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang/)
+  - [So You Wanna Go Fast](https://bravenewgeek.com/so-you-wanna-go-fast/)
 
 ## Memory usage
 
@@ -77,4 +77,4 @@ Human beings have proven incapable of predicting the real-world performance of c
 
 - *Measure* before doing an optimization
 - *Measure* after doing an optimization
-- *Measure* continuously as part of every checkin
+- *Measure* continuously as part of every check-in

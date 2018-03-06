@@ -30,7 +30,6 @@ type mockSvcctrlClient struct {
 	reportResponse        *sc.ReportResponse
 	allocateQuotaRequest  *sc.AllocateQuotaRequest
 	allocateQuotaResponse *sc.AllocateQuotaResponse
-	done                  chan struct{}
 }
 
 func (c *mockSvcctrlClient) Check(serviceName string, request *sc.CheckRequest) (*sc.CheckResponse, error) {

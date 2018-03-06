@@ -17,9 +17,6 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["*"]
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs", "istioconfigs.istio.io"]
-  verbs: ["*"]
 - apiGroups: ["extensions"]
   resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
   verbs: ["*"]
@@ -39,11 +36,8 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-initializer-{ISTIO_NAMESPACE}
+  name: istio-sidecar-injector-{ISTIO_NAMESPACE}
 rules:
-- apiGroups: ["*"]
-  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
-  verbs: ["initialize", "patch", "watch", "list"]
 - apiGroups: ["*"]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
@@ -87,9 +81,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-sidecar-{ISTIO_NAMESPACE}
 rules:
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs"]
-  verbs: ["get", "watch", "list"]
 - apiGroups: ["extensions"]
   resources: ["thirdpartyresources", "ingresses"]
   verbs: ["get", "watch", "list", "update"]
@@ -111,18 +102,18 @@ roleRef:
   name: istio-pilot-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Sidecar initializer
+# Grant permissions to the Sidecar sidecar-injector
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-initializer-admin-role-binding-{ISTIO_NAMESPACE}
+  name: istio-sidecar-injector-admin-role-binding-{ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
-  name: istio-initializer-service-account
+  name: istio-sidecar-injector-service-account
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-initializer-{ISTIO_NAMESPACE}
+  name: istio-sidecar-injector-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.

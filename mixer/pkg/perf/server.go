@@ -85,24 +85,25 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 	args.MonitoringPort = 0
 	args.Templates = templates
 	args.Adapters = adapters
-	args.ConfigStore2URL = `fs://` + serverDir
+	args.ConfigStoreURL = `fs://` + serverDir
 	args.ConfigDefaultNamespace = "istio-system"
 	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
 	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
 	args.SingleThreaded = setup.Config.SingleThreaded
+	args.UseNewRuntime = setup.Config.UseRuntime2
 
 	if setup.Config.EnableDebugLog {
 		// Override enableLog. This should skip the next if conditional
 		setup.Config.EnableLog = true
 
 		o := log.NewOptions()
-		o.SetOutputLevel(log.DebugLevel)
+		_ = o.SetOutputLevel(log.DebugLevel)
 		args.LoggingOptions = o
 	}
 
 	if !setup.Config.EnableLog {
 		o := log.NewOptions()
-		o.SetOutputLevel(log.NoneLevel)
+		_ = o.SetOutputLevel(log.NoneLevel)
 		args.LoggingOptions = o
 	}
 
@@ -110,12 +111,12 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 }
 
 func (s *server) shutdown() {
-	if s != nil {
+	if s.s != nil {
 		if err := s.s.Close(); err != nil {
 			log.Error(err.Error())
-			log.Sync()
+			_ = log.Sync()
 		}
-		s = nil
+		s.s = nil
 	}
 }
 

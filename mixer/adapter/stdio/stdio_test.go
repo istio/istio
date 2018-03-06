@@ -17,7 +17,9 @@ package stdio
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -83,60 +85,68 @@ func contains(s []string, e string) bool {
 func TestBuilder(t *testing.T) {
 	env := test.NewEnv(t)
 
+	tf, _ := ioutil.TempFile("", "TestBuilder")
+	name := tf.Name()
+
 	cases := []struct {
 		config      config.Params
-		outputPath  string
-		encoding    string
 		metricLevel zapcore.Level
 		induceError bool
 		success     bool
 	}{
 		{config.Params{
 			LogStream: config.STDOUT,
-		}, "stdout", "console", zapcore.InfoLevel, false, true},
+		}, zapcore.InfoLevel, false, true},
 
 		{config.Params{
 			LogStream: config.STDERR,
-		}, "stderr", "console", zapcore.InfoLevel, false, true},
+		}, zapcore.InfoLevel, false, true},
+
+		{config.Params{
+			LogStream:  config.FILE,
+			OutputPath: name,
+		}, zapcore.InfoLevel, false, true},
+
+		{config.Params{
+			LogStream:  config.FILE,
+			OutputPath: "/",
+		}, zapcore.InfoLevel, false, false},
+
+		{config.Params{
+			LogStream:  config.ROTATED_FILE,
+			OutputPath: name,
+		}, zapcore.InfoLevel, false, true},
 
 		{config.Params{
 			MetricLevel: config.INFO,
-		}, "stdout", "console", zapcore.InfoLevel, false, true},
+		}, zapcore.InfoLevel, false, true},
 
 		{config.Params{
 			MetricLevel: config.WARNING,
-		}, "stdout", "console", zapcore.WarnLevel, false, true},
+		}, zapcore.WarnLevel, false, true},
 
 		{config.Params{
 			MetricLevel: config.ERROR,
-		}, "stdout", "console", zapcore.ErrorLevel, false, true},
+		}, zapcore.ErrorLevel, false, true},
 
 		{config.Params{
 			MetricLevel: config.ERROR,
-		}, "stdout", "console", zapcore.ErrorLevel, true, false},
+		}, zapcore.ErrorLevel, true, false},
 
 		{config.Params{
 			SeverityLevels: map[string]config.Params_Level{"WARNING": config.WARNING},
 			OutputAsJson:   true,
-		}, "stdout", "json", zapcore.InfoLevel, false, true},
+		}, zapcore.InfoLevel, false, true},
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			zb := func(outputPath string, encoding string) (*zap.Logger, error) {
-				if outputPath != c.outputPath {
-					t.Errorf("Got output path %s, expecting %s", outputPath, c.outputPath)
-				}
-
-				if encoding != c.encoding {
-					t.Errorf("Got encoding %s, expecting %s", encoding, c.encoding)
-				}
-
+			zb := func(options *config.Params) (*zap.Logger, func(), error) {
 				if c.induceError {
-					return nil, errors.New("expected")
+					return nil, func() {}, errors.New("expected")
 				}
 
-				return newZapLogger(outputPath, encoding)
+				return newZapLogger(options)
 			}
 
 			info := GetInfo()
@@ -164,38 +174,9 @@ func TestBuilder(t *testing.T) {
 			}
 		})
 	}
-}
 
-type testZap struct {
-	zapcore.Core
-	enc          zapcore.Encoder
-	lines        []string
-	errorOnWrite bool
-}
-
-func newTestZap() *testZap {
-	return &testZap{
-		enc: zapcore.NewJSONEncoder(newZapEncoderConfig()),
-	}
-}
-
-func (tz *testZap) Write(e zapcore.Entry, f []zapcore.Field) error {
-	if tz.errorOnWrite {
-		return errors.New("write error")
-	}
-
-	buf, err := tz.enc.EncodeEntry(e, f)
-	if err != nil {
-		return err
-	}
-
-	tz.lines = append(tz.lines, strings.Trim(buf.String(), "\n"))
-	return nil
-}
-
-func (tz *testZap) reset(errorOnWrite bool) {
-	tz.errorOnWrite = errorOnWrite
-	tz.lines = tz.lines[:0]
+	_ = tf.Close()
+	_ = os.Remove(name)
 }
 
 func TestLogEntry(t *testing.T) {
@@ -211,27 +192,19 @@ func TestLogEntry(t *testing.T) {
 				"StringMap": descriptor.STRING_MAP,
 				"IPAddress": descriptor.IP_ADDRESS,
 				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
+				"DNSName":   descriptor.DNS_NAME,
+				"URL":       descriptor.STRING,
+				"EmailAddr": descriptor.EMAIL_ADDRESS,
 			},
 		},
 	}
 
-	info := GetInfo()
-	cfg := info.DefaultConfig
-	b := info.NewBuilder().(*builder)
-	b.SetAdapterConfig(cfg)
-	env := test.NewEnv(t)
-	b.SetLogEntryTypes(types)
-	h, _ := b.Build(context.Background(), env)
-	handler := h.(*handler)
-	tz := newTestZap()
-	handler.logger = zap.New(tz)
-
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
 
 	cases := []struct {
-		instances  []*logentry.Instance
-		failWrites bool
-		expected   []string
+		instances []*logentry.Instance
+		json      bool
+		expected  []string
 	}{
 		{
 			[]*logentry.Instance{
@@ -239,12 +212,39 @@ func TestLogEntry(t *testing.T) {
 					Name:     "Foo",
 					Severity: "WARNING",
 					Variables: map[string]interface{}{
-						"String": "a string",
+						"String":    "a string",
+						"Int64":     int64(123),
+						"Double":    1.23,
+						"Bool":      true,
+						"Time":      tm,
+						"Duration":  1 * time.Second,
+						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"Bytes":     []byte{'b'},
+						"DNSName":   "foo.bar.com",
+						"URL":       "http://foo.com",
+						"EmailAddr": "foo@bar.com",
 					},
 				},
 			},
 			true,
-			[]string{},
+			[]string{
+				`{"level":"warn",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Bool":true,` +
+					`"Bytes":"Yg==",` +
+					`"DNSName":"foo.bar.com",` +
+					`"Double":1.23,` +
+					`"Duration":"1s",` +
+					`"EmailAddr":"foo@bar.com",` +
+					`"IPAddress":"0.0.0.0",` +
+					`"Int64":123,` +
+					`"String":"a string",` +
+					`"StringMap":{"A":"B","C":"D"},` +
+					`"Time":"2017-08-21T10:04:00.000000Z",` +
+					`"URL":"http://foo.com"}`,
+			},
 		},
 
 		{
@@ -262,42 +262,161 @@ func TestLogEntry(t *testing.T) {
 						"StringMap": map[string]string{"A": "B", "C": "D"},
 						"IPAddress": net.IPv4zero,
 						"Bytes":     []byte{'b'},
+						"DNSName":   "foo.bar.com",
+						"URL":       "http://foo.com",
+						"EmailAddr": "foo@bar.com",
 					},
 				},
 			},
 			false,
 			[]string{
-				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","Bool":true,"Bytes":"Yg==","Double":1.23,"Duration":"1s",` +
-					`"IPAddress":"0.0.0.0","Int64":123,"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
+				"0001-01-01T00:00:00.000000Z\twarn\tFoo\t" +
+					`{"Bool": true, ` +
+					`"Bytes": "Yg==", ` +
+					`"DNSName": "foo.bar.com", ` +
+					`"Double": 1.23, ` +
+					`"Duration": "1s", ` +
+					`"EmailAddr": "foo@bar.com", ` +
+					`"IPAddress": "0.0.0.0", ` +
+					`"Int64": 123, ` +
+					`"String": "a string", ` +
+					`"StringMap": {"A":"B","C":"D"}, ` +
+					`"Time": "2017-08-21T10:04:00.000000Z", ` +
+					`"URL": "http://foo.com"}`,
+			},
+		},
+
+		{
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "INFO",
+					Variables: map[string]interface{}{
+						"Double": 1.23,
+					},
+				},
+			},
+			true,
+			[]string{
+				`{"level":"info",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Double":1.23}`,
+			},
+		},
+
+		{
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "informational",
+					Variables: map[string]interface{}{
+						"Double": 1.23,
+					},
+				},
+			},
+			true,
+			[]string{
+				`{"level":"info",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Double":1.23}`,
+			},
+		},
+
+		{
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "ERROR",
+					Variables: map[string]interface{}{
+						"Double": 1.23,
+					},
+				},
+			},
+			true,
+			[]string{
+				`{"level":"error",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Double":1.23}`,
+			},
+		},
+
+		{
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "error",
+					Variables: map[string]interface{}{
+						"Double": 1.23,
+					},
+				},
+			},
+			true,
+			[]string{
+				`{"level":"error",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Double":1.23}`,
+			},
+		},
+
+		{
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "BOGUS",
+					Variables: map[string]interface{}{
+						"Double": 1.23,
+					},
+				},
+			},
+			true,
+			[]string{
+				`{"level":"info",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"Double":1.23}`,
 			},
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			tz.reset(c.failWrites)
 
-			err := handler.HandleLogEntry(context.Background(), c.instances)
-			if err != nil && !c.failWrites {
-				t.Errorf("Got %v, expecting success", err)
-			} else if err == nil && c.failWrites {
-				t.Errorf("Got success, expected failure")
-			}
+			lines, _ := captureStdout(func() {
 
-			if len(tz.lines) != len(c.expected) {
-				t.Errorf("Got %d lines of output, expected %d", len(tz.lines), len(c.expected))
+				info := GetInfo()
+				cfg := *info.DefaultConfig.(*config.Params)
+				cfg.OutputAsJson = c.json
+				b := info.NewBuilder().(*builder)
+				b.SetAdapterConfig(&cfg)
+				env := test.NewEnv(t)
+				b.SetLogEntryTypes(types)
+				h, _ := b.Build(context.Background(), env)
+				handler := h.(*handler)
+				handler.getTime = func() time.Time { return time.Time{} }
+
+				if err := handler.HandleLogEntry(context.Background(), c.instances); err != nil {
+					t.Errorf("Got %v, expecting success", err)
+				}
+
+				if err := handler.Close(); err != nil {
+					t.Errorf("Got error %v, expecting success", err)
+				}
+			})
+
+			if len(lines) != len(c.expected) {
+				t.Errorf("Got %d lines of output, expected %d", len(lines), len(c.expected))
 			}
 
 			for i, l := range c.expected {
-				if tz.lines[i] != l {
-					t.Errorf("Got %s for output line %d, expected %s", tz.lines[i], i, l)
+				if lines[i] != l {
+					t.Errorf("Output line %d\nGot      : %s\nExpecting: %s", i, lines[i], l)
 				}
 			}
 		})
-	}
-
-	if err := handler.Close(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
 	}
 }
 
@@ -314,42 +433,21 @@ func TestMetricEntry(t *testing.T) {
 				"StringMap": descriptor.STRING_MAP,
 				"IPAddress": descriptor.IP_ADDRESS,
 				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
+				"DNSName":   descriptor.DNS_NAME,
+				"URL":       descriptor.STRING,
+				"EmailAddr": descriptor.EMAIL_ADDRESS,
 			},
 		},
 	}
 
-	info := GetInfo()
-	cfg := info.DefaultConfig
-	b := info.NewBuilder().(*builder)
-	b.SetAdapterConfig(cfg)
-	env := test.NewEnv(t)
-	b.SetMetricTypes(types)
-	h, _ := b.Build(context.Background(), env)
-	handler := h.(*handler)
-	tz := newTestZap()
-	handler.logger = zap.New(tz)
-	handler.getTime = func() time.Time { return time.Time{} }
-
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
 
 	cases := []struct {
-		instances  []*metric.Instance
-		failWrites bool
-		expected   []string
+		instances   []*metric.Instance
+		metricLevel config.Params_Level
+		json        bool
+		expected    []string
 	}{
-		{
-			[]*metric.Instance{
-				{
-					Name: "Foo",
-					Dimensions: map[string]interface{}{
-						"String": "a string",
-					},
-				},
-			},
-			true,
-			[]string{},
-		},
-
 		{
 			[]*metric.Instance{
 				{
@@ -365,41 +463,273 @@ func TestMetricEntry(t *testing.T) {
 						"StringMap": map[string]string{"A": "B", "C": "D"},
 						"IPAddress": net.IPv4zero,
 						"Bytes":     []byte{'b'},
+						"DNSName":   "foo.bar.com",
+						"URL":       "http://foo.com",
+						"EmailAddr": "foo@bar.com",
 					},
 				},
 			},
+			config.INFO,
+			true,
+			[]string{
+				`{"level":"info",` +
+					`"time":"0001-01-01T00:00:00.000000Z",` +
+					`"instance":"Foo",` +
+					`"value":123,` +
+					`"Bool":true,` +
+					`"Bytes":"Yg==",` +
+					`"DNSName":"foo.bar.com",` +
+					`"Double":1.23,` +
+					`"Duration":"1s",` +
+					`"EmailAddr":"foo@bar.com",` +
+					`"IPAddress":"0.0.0.0",` +
+					`"Int64":123,` +
+					`"String":"a string",` +
+					`"StringMap":{"A":"B","C":"D"},` +
+					`"Time":"2017-08-21T10:04:00.000000Z",` +
+					`"URL":"http://foo.com"}`,
+			},
+		},
+		{
+			[]*metric.Instance{
+				{
+					Name:  "Foo",
+					Value: int64(123),
+					Dimensions: map[string]interface{}{
+						"String":    "a string",
+						"Int64":     int64(123),
+						"Double":    1.23,
+						"Bool":      true,
+						"Time":      tm,
+						"Duration":  1 * time.Second,
+						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"DNSName":   "foo.bar.com",
+						"Bytes":     []byte{'b'},
+						"URL":       "http://foo.com",
+						"EmailAddr": "foo@bar.com",
+					},
+				},
+			},
+			config.INFO,
 			false,
 			[]string{
-				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","value":123,"Bool":true,"Bytes":"Yg==","Double":1.23,` +
-					`"Duration":"1s","IPAddress":"0.0.0.0","Int64":123,"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
+				"0001-01-01T00:00:00.000000Z\tinfo\tFoo\t" +
+					`{"value": 123, ` +
+					`"Bool": true, ` +
+					`"Bytes": "Yg==", ` +
+					`"DNSName": "foo.bar.com", ` +
+					`"Double": 1.23, ` +
+					`"Duration": "1s", ` +
+					`"EmailAddr": "foo@bar.com", ` +
+					`"IPAddress": "0.0.0.0", ` +
+					`"Int64": 123, ` +
+					`"String": "a string", ` +
+					`"StringMap": {"A":"B","C":"D"}, ` +
+					`"Time": "2017-08-21T10:04:00.000000Z", ` +
+					`"URL": "http://foo.com"}`,
+			},
+		},
+		{
+			[]*metric.Instance{
+				{
+					Name:  "Foo",
+					Value: int64(123),
+					Dimensions: map[string]interface{}{
+						"String":    "a string",
+						"Int64":     int64(123),
+						"Double":    1.23,
+						"Bool":      true,
+						"Time":      tm,
+						"Duration":  1 * time.Second,
+						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"DNSName":   "foo.bar.com",
+						"Bytes":     []byte{'b'},
+						"URL":       "http://foo.com",
+						"EmailAddr": "foo@bar.com",
+					},
+				},
+			},
+			config.WARNING,
+			false,
+			[]string{
+				"0001-01-01T00:00:00.000000Z\twarn\tFoo\t" +
+					`{"value": 123, ` +
+					`"Bool": true, ` +
+					`"Bytes": "Yg==", ` +
+					`"DNSName": "foo.bar.com", ` +
+					`"Double": 1.23, ` +
+					`"Duration": "1s", ` +
+					`"EmailAddr": "foo@bar.com", ` +
+					`"IPAddress": "0.0.0.0", ` +
+					`"Int64": 123, ` +
+					`"String": "a string", ` +
+					`"StringMap": {"A":"B","C":"D"}, ` +
+					`"Time": "2017-08-21T10:04:00.000000Z", ` +
+					`"URL": "http://foo.com"}`,
 			},
 		},
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			tz.reset(c.failWrites)
 
-			err := handler.HandleMetric(context.Background(), c.instances)
-			if err != nil && !c.failWrites {
-				t.Errorf("Got %v, expecting success", err)
-			} else if err == nil && c.failWrites {
-				t.Errorf("Got success, expected failure")
-			}
+			lines, _ := captureStdout(func() {
 
-			if len(tz.lines) != len(c.expected) {
-				t.Errorf("Got %d lines of output, expected %d", len(tz.lines), len(c.expected))
+				info := GetInfo()
+				cfg := *info.DefaultConfig.(*config.Params)
+				cfg.OutputAsJson = c.json
+				cfg.MetricLevel = c.metricLevel
+				b := info.NewBuilder().(*builder)
+				b.SetAdapterConfig(&cfg)
+				env := test.NewEnv(t)
+				b.SetMetricTypes(types)
+				h, _ := b.Build(context.Background(), env)
+				handler := h.(*handler)
+				handler.getTime = func() time.Time { return time.Time{} }
+
+				if err := handler.HandleMetric(context.Background(), c.instances); err != nil {
+					t.Errorf("Got %v, expecting success", err)
+				}
+
+				if err := handler.Close(); err != nil {
+					t.Errorf("Got error %v, expecting success", err)
+				}
+			})
+
+			if len(lines) != len(c.expected) {
+				t.Errorf("Got %d lines of output, expected %d", len(lines), len(c.expected))
 			}
 
 			for i, l := range c.expected {
-				if tz.lines[i] != l {
-					t.Errorf("Got %s for output line %d, expected %s", tz.lines[i], i, l)
+				if lines[i] != l {
+					t.Errorf("Output line %d\nGot      : %s\nExpecting: %s", i, lines[i], l)
 				}
 			}
 		})
+	}
+}
+
+func TestValidate(t *testing.T) {
+	info := GetInfo()
+	cfg := *info.DefaultConfig.(*config.Params)
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
+
+	cases := []struct {
+		outputPath string
+		stream     config.Params_Stream
+		result     bool
+	}{
+		{"123", config.STDOUT, false},
+		{"123", config.STDERR, false},
+		{"", config.FILE, false},
+		{"", config.ROTATED_FILE, false},
+	}
+
+	for i, c := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+
+			cfg.OutputPath = c.outputPath
+			cfg.LogStream = c.stream
+			err := b.Validate()
+			if err != nil && c.result {
+				t.Errorf("Got %v, expected success", err)
+			} else if err == nil && !c.result {
+				t.Error("Got success, expected failure")
+			}
+		})
+	}
+}
+
+func TestWriteErrors(t *testing.T) {
+	logEntryTypes := map[string]*logentry.Type{
+		"Foo": {
+			Variables: map[string]descriptor.ValueType{
+				"String": descriptor.STRING,
+			},
+		},
+	}
+
+	metricTypes := map[string]*metric.Type{
+		"Foo": {
+			Dimensions: map[string]descriptor.ValueType{
+				"String": descriptor.STRING,
+			},
+		},
+	}
+
+	logEntries := []*logentry.Instance{
+		{
+			Name:     "Foo",
+			Severity: "WARNING",
+			Variables: map[string]interface{}{
+				"String": "a string",
+			},
+		},
+	}
+
+	metrics := []*metric.Instance{
+		{
+			Name:  "Foo",
+			Value: 123,
+			Dimensions: map[string]interface{}{
+				"String": "a string",
+			},
+		},
+	}
+
+	info := GetInfo()
+	cfg := info.DefaultConfig
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
+	env := test.NewEnv(t)
+	b.SetLogEntryTypes(logEntryTypes)
+	b.SetMetricTypes(metricTypes)
+	h, _ := b.Build(context.Background(), env)
+	handler := h.(*handler)
+
+	// force I/O errors
+	handler.write = func(entry zapcore.Entry, field []zapcore.Field) error { return errors.New("BAD") }
+
+	if err := handler.HandleLogEntry(context.Background(), logEntries); err == nil {
+		t.Errorf("Got success, expecting failure")
+	}
+
+	if err := handler.HandleMetric(context.Background(), metrics); err == nil {
+		t.Errorf("Got success, expecting failure")
 	}
 
 	if err := handler.Close(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
+}
+
+// Runs the given function while capturing everything sent to stdout
+func captureStdout(f func()) ([]string, error) {
+	tf, err := ioutil.TempFile("", "tracing_test")
+	if err != nil {
+		return nil, err
+	}
+
+	old := os.Stdout
+	os.Stdout = tf
+
+	f()
+
+	os.Stdout = old
+	path := tf.Name()
+	_ = tf.Sync()
+	_ = tf.Close()
+
+	content, err := ioutil.ReadFile(path)
+	_ = os.Remove(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	s := strings.Trim(string(content), "\n")
+	return strings.Split(s, "\n"), nil
 }

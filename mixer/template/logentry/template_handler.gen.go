@@ -23,19 +23,21 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `logentry` template represents an individual entry within a log.
+
 // Fully qualified name of the template
 const TemplateName = "logentry"
 
 // Instance is constructed by Mixer for the 'logentry' template.
 //
-// LogEntry represents an individual entry within a log.
+// The `logentry` template represents an individual entry within a log.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: logentry
 // metadata:

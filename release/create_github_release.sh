@@ -88,7 +88,7 @@ cat << EOF > ${REQUEST_FILE}
 {
   "tag_name": "${VERSION}",
   "target_commitsh": "${SHA}",
-  "body": "[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n* [istio-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-agent.deb)\\n* [istio-auth-node-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-auth-node-agent.deb)\\n* [istio-proxy](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-proxy.deb)\\n\\n[RELEASE NOTES](http://github.com/istio/istio/wiki/v${VERSION})",
+  "body": "[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n* [istio-sidecar.deb](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-sidecar.deb)\\n\\n[RELEASE NOTES](https://istio.io/about/notes/${VERSION}.html)",
   "draft": true,
   "prerelease": true
 }

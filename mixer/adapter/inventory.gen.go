@@ -19,13 +19,17 @@ package adapter
 import (
 	circonus "istio.io/istio/mixer/adapter/circonus"
 	denier "istio.io/istio/mixer/adapter/denier"
+	dogstatsd "istio.io/istio/mixer/adapter/dogstatsd"
+	fluentd "istio.io/istio/mixer/adapter/fluentd"
 	kubernetesenv "istio.io/istio/mixer/adapter/kubernetesenv"
 	list "istio.io/istio/mixer/adapter/list"
 	memquota "istio.io/istio/mixer/adapter/memquota"
 	noop "istio.io/istio/mixer/adapter/noop"
 	opa "istio.io/istio/mixer/adapter/opa"
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
+	rbac "istio.io/istio/mixer/adapter/rbac"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
+	solarwinds "istio.io/istio/mixer/adapter/solarwinds"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
 	statsd "istio.io/istio/mixer/adapter/statsd"
 	stdio "istio.io/istio/mixer/adapter/stdio"
@@ -37,13 +41,17 @@ func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 		circonus.GetInfo,
 		denier.GetInfo,
+		dogstatsd.GetInfo,
+		fluentd.GetInfo,
 		kubernetesenv.GetInfo,
 		list.GetInfo,
 		memquota.GetInfo,
 		noop.GetInfo,
 		opa.GetInfo,
 		prometheus.GetInfo,
+		rbac.GetInfo,
 		servicecontrol.GetInfo,
+		solarwinds.GetInfo,
 		stackdriver.GetInfo,
 		statsd.GetInfo,
 		stdio.GetInfo,

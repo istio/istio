@@ -1,0 +1,17 @@
+- include_tasks: add_serviceaccount_to_addon.yml
+    add_on_name="{{item}}"
+  with_items: "{{ selected_addons_needing_sa }}"
+  when: cluster_flavour == 'ocp'
+
+- include_tasks: install_istio_addons.yml
+  when: is_istioaddon_iterable
+
+- name: Install Jaeger on Openshift
+  shell: |
+    {{ cmd_path }} process -f https://raw.githubusercontent.com/jaegertracing/jaeger-openshift/master/all-in-one/jaeger-all-in-one-template.yml | {{ cmd_path }} create -n istio-system -f -
+  when: istio.jaeger == true and cluster_flavour == 'ocp'
+
+- name: Install Jaeger on Kubernetes
+  shell: |
+    {{ cmd_path }} create -f https://raw.githubusercontent.com/jaegertracing/jaeger-kubernetes/master/all-in-one/jaeger-all-in-one-template.yml -n istio-system
+  when: istio.jaeger == true and cluster_flavour == 'k8s'

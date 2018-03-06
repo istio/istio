@@ -18,33 +18,94 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/platform/kube/inject"
-	"istio.io/istio/pilot/tools/version"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
-var (
-	hub               string
-	tag               string
-	sidecarProxyUID   int64
-	verbosity         int
-	versionStr        string // override build version
-	enableCoreDump    bool
-	meshConfigMapName string
-	imagePullPolicy   string
-	includeIPRanges   string
-	debugMode         bool
+const (
+	configMapKey       = "mesh"
+	injectConfigMapKey = "config"
+)
 
-	inFilename  string
-	outFilename string
+func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
+	_, client, err := kube.CreateInterface(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
+			"Use --meshConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+			meshConfigMapName, istioNamespace, err)
+	}
+	// values in the data are strings, while proto might use a
+	// different data type.  therefore, we have to get a value by a
+	// key
+	yaml, exists := config.Data[configMapKey]
+	if !exists {
+		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
+	}
+	return model.ApplyMeshConfigDefaults(yaml)
+}
+
+func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
+	_, client, err := kube.CreateInterface(kubeconfig)
+	if err != nil {
+		return "", err
+	}
+	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
+			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-inject configmap exists",
+			injectConfigMapName, istioNamespace, err)
+	}
+	// values in the data are strings, while proto might use a
+	// different data type.  therefore, we have to get a value by a
+	// key
+	injectData, exists := config.Data[injectConfigMapKey]
+	if !exists {
+		return "", fmt.Errorf("missing configuration map key %q in %q",
+			injectConfigMapKey, injectConfigMapName)
+	}
+	var injectConfig inject.Config
+	if err := yaml.Unmarshal([]byte(injectData), &injectConfig); err != nil {
+		return "", fmt.Errorf("unable to convert data from configmap %q: %v",
+			injectConfigMapName, err)
+	}
+	log.Debugf("using inject template from configmap %q", injectConfigMapName)
+	return injectConfig.Template, nil
+}
+
+var (
+	hub             string
+	tag             string
+	sidecarProxyUID uint64
+	verbosity       int
+	versionStr      string // override build version
+	enableCoreDump  bool
+	imagePullPolicy string
+	includeIPRanges string
+	debugMode       bool
+	emitTemplate    bool
+
+	inFilename          string
+	outFilename         string
+	meshConfigFile      string
+	meshConfigMapName   string
+	injectConfigFile    string
+	injectConfigMapName string
 )
 
 var (
@@ -53,13 +114,11 @@ var (
 		Short: "Inject Envoy sidecar into Kubernetes pod resources",
 		Long: `
 
-Automatic Envoy sidecar injection via k8s admission controller is not
-ready yet. Instead, use kube-inject to manually inject Envoy sidecar
-into Kubernetes resource files. Unsupported resources are left
-unmodified so it is safe to run kube-inject over a single file that
-contains multiple Service, ConfigMap, Deployment, etc. definitions for
-a complex application. Its best to do this when the resource is
-initially created.
+kube-inject manually injects envoy sidecar into kubernetes
+workloads. Unsupported resources are left unmodified so it is safe to
+run kube-inject over a single file that contains multiple Service,
+ConfigMap, Deployment, etc. definitions for a complex application. Its
+best to do this when the resource is initially created.
 
 k8s.io/docs/concepts/workloads/pods/pod-overview/#pod-templates is
 updated for Job, DaemonSet, ReplicaSet, and Deployment YAML resource
@@ -69,43 +128,62 @@ added as necessary.
 The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
+
+To override the sidecar injection template built into istioctl, the
+parameters --injectConfigFile or --injectConfigMapName can be used.
+Both options override any other template configuration parameters, eg.
+--hub and --tag.  These options would typically be used with the
+file/configmap created with a new Istio release.
 `,
 		Example: `
 # Update resources on the fly before applying.
 kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
 # Create a persistent version of the deployment with Envoy sidecar
-# injected. This is particularly useful to understand what is
-# being injected before committing to Kubernetes API server.
-istioctl kube-inject -f deployment.yaml -o deployment-with-istio.yaml
+# injected.
+istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
 # Update an existing deployment.
 kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+
+# Create a persistent version of the deployment with Envoy sidecar
+# injected configuration from kubernetes configmap 'istio-inject'
+istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
-			if inFilename == "" {
+			switch {
+			case inFilename != "" && emitTemplate:
+				return errors.New("--filename and --emitTemplate are mutually exclusive")
+			case inFilename == "" && !emitTemplate:
 				return errors.New("filename not specified (see --filename or -f)")
+			case meshConfigFile == "" && meshConfigMapName == "":
+				return errors.New("--meshConfigFile or --meshConfigMapName must be set")
+			case injectConfigFile != "" && injectConfigMapName != "":
+				return errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive")
 			}
 
 			var reader io.Reader
-			if inFilename == "-" {
-				reader = os.Stdin
-			} else {
-				var in *os.File
-				if in, err = os.Open(inFilename); err != nil {
-					return err
-				}
-				reader = in
-				defer func() {
-					if errClose := in.Close(); errClose != nil {
-						log.Errorf("Error: close file from %s, %s", inFilename, errClose)
-
-						// don't overwrite the previous error
-						if err == nil {
-							err = errClose
-						}
+			if !emitTemplate {
+				if inFilename == "-" {
+					reader = os.Stdin
+				} else {
+					var in *os.File
+					if in, err = os.Open(inFilename); err != nil {
+						return err
 					}
-				}()
+					reader = in
+					defer func() {
+						if errClose := in.Close(); errClose != nil {
+							log.Errorf("Error: close file from %s, %s", inFilename, errClose)
+
+							// don't overwrite the previous error
+							if err == nil {
+								err = errClose
+							}
+						}
+					}()
+				}
 			}
 
 			var writer io.Writer
@@ -130,25 +208,37 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 			}
 
 			if versionStr == "" {
-				versionStr = version.Line()
+				versionStr = version.Info.String()
 			}
 
-			_, client, err := kube.CreateInterface(kubeconfig)
-			if err != nil {
-				return err
+			var meshConfig *meshconfig.MeshConfig
+			if meshConfigFile != "" {
+				if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
+					return err
+				}
+			} else {
+				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
 			}
 
-			_, meshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
-			if err != nil {
-				return fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-					"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-					meshConfigMapName, istioNamespace, err)
-			}
-
-			config := &inject.Config{
-				Policy:            inject.DefaultInjectionPolicy,
-				IncludeNamespaces: []string{v1.NamespaceAll},
-				Params: inject.Params{
+			var sidecarTemplate string
+			if injectConfigFile != "" {
+				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
+				if err != nil {
+					return err
+				}
+				var config inject.Config
+				if err := yaml.Unmarshal(injectionConfig, &config); err != nil {
+					return err
+				}
+				sidecarTemplate = config.Template
+			} else if injectConfigMapName != "" {
+				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
+					return err
+				}
+			} else {
+				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:       inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
 					Verbosity:       verbosity,
@@ -159,9 +249,23 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					ImagePullPolicy: imagePullPolicy,
 					IncludeIPRanges: includeIPRanges,
 					DebugMode:       debugMode,
-				},
+				})
 			}
-			return inject.IntoResourceFile(config, reader, writer)
+
+			if emitTemplate {
+				config := inject.Config{
+					Policy:   inject.InjectionPolicyEnabled,
+					Template: sidecarTemplate,
+				}
+				out, err := yaml.Marshal(&config)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(out))
+				return nil
+			}
+
+			return inject.IntoResourceFile(sidecarTemplate, meshConfig, reader, writer)
 		},
 	}
 )
@@ -169,8 +273,15 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", inject.DefaultHub, "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
+
+	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
+		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
+		"injection configuration filename. Cannot be used with --injectConfigMapName")
+
+	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
@@ -178,13 +289,10 @@ func init() {
 		"", "Modified output Kubernetes resource filename")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")
-	injectCmd.PersistentFlags().Int64Var(&sidecarProxyUID, "sidecarProxyUID",
+	injectCmd.PersistentFlags().Uint64Var(&sidecarProxyUID, "sidecarProxyUID",
 		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
-	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", inject.ConfigMapKey))
-
 	// Default --coreDump=true for pre-alpha development. Core dump
 	// settings (i.e. sysctl kernel.*) affect all pods in a node and
 	// require privileges. This option should only be used by the cluster
@@ -198,5 +306,12 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
-	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", true, "Use debug images and settings for the sidecar")
+	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
+
+	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
+	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "",
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
+			"This option overrides any other sidecar injection config options, eg. --hub",
+			injectConfigMapKey))
 }

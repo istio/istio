@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"

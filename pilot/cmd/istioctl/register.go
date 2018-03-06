@@ -16,20 +16,20 @@ package main
 
 import (
 	"fmt"
-
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
 var (
 	registerCmd = &cobra.Command{
-		Use:   "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
-		Short: "Registers a service instance (e.g. VM) joining the mesh",
-		Args:  cobra.MinimumNArgs(3),
+		Use:              "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
+		Short:            "Registers a service instance (e.g. VM) joining the mesh",
+		Args:             cobra.MinimumNArgs(3),
+		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]

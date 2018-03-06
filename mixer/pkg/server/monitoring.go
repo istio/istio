@@ -18,16 +18,19 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"istio.io/istio/mixer/pkg/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 type monitor struct {
 	monitoringServer *http.Server
-	shutdown         chan struct{}
+	// This channel is closed after the server stops serving requests.
+	closed chan struct{}
 }
 
 const (
@@ -35,9 +38,9 @@ const (
 	versionPath = "/version"
 )
 
-func startMonitor(port uint16) (*monitor, error) {
+func startMonitor(port uint16, enableProfiling bool) (*monitor, error) {
 	m := &monitor{
-		shutdown: make(chan struct{}),
+		closed: make(chan struct{}),
 	}
 
 	// get the network stuff setup
@@ -59,26 +62,43 @@ func startMonitor(port uint16) (*monitor, error) {
 		}
 	})
 
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
+
 	m.monitoringServer = &http.Server{
 		Handler: mux,
 	}
 
 	go func() {
-		m.shutdown <- struct{}{}
 		_ = m.monitoringServer.Serve(listener)
-		m.shutdown <- struct{}{}
+		close(m.closed)
 	}()
-
-	// This is here to work around (mostly) a race condition in the Serve
-	// function. If the Close method is called before or during the execution of
-	// Serve, the call may be ignored and Serve never returns.
-	<-m.shutdown
 
 	return m, nil
 }
 
 func (m *monitor) Close() error {
-	err := m.monitoringServer.Close()
-	<-m.shutdown
+	var err error
+
+	// This works around a race condition between Serve() and Close() functions.
+	// If Close() is called before Serve(), Serve() never returns.
+	// m.closed channel is used by Serve() to indicate that is has processed the Close signal
+	// and exited the function. Until Serve() exists, Close() periodically issues monitoringServer.Close().
+
+L:
+	for {
+		err = m.monitoringServer.Close()
+		select {
+		case <-m.closed:
+			break L
+		default:
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
 	return err
 }

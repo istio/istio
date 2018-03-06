@@ -877,17 +877,17 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			ip++
 			frames[fp].save(&registers, sp-typesStackAllocSize(fn.Parameters), ip, fn)
 			fp++
-			fn := in.program.Functions.GetByID(t1)
+			fn2 := in.program.Functions.GetByID(t1)
 
-			if fn == nil {
+			if fn2 == nil {
 				tErr = fmt.Errorf("function not found: '%s'", strings.GetString(t1))
 				goto RETURN_ERR
 			}
-			if fn.Address == 0 {
+			if fn2.Address == 0 {
 				fp--
 
 				ext := in.externs[strings.GetString(t1)]
-				t2 = typesStackAllocSize(fn.Parameters)
+				t2 = typesStackAllocSize(fn2.Parameters)
 				if sp < t2 {
 					goto STACK_UNDERFLOW
 				}
@@ -898,11 +898,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 
 				opstack[sp-t2] = t1
 				opstack[sp-t2+1] = t3
-				sp -= t2 - typeStackAllocSize(fn.ReturnType)
+				sp -= t2 - typeStackAllocSize(fn2.ReturnType)
 				break
 			}
 
-			ip = fn.Address
+			ip = fn2.Address
 
 		case il.Ret:
 			if fp == 0 {

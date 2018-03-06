@@ -18,15 +18,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	pb "istio.io/api/mixer/v1/config"
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/descriptor"
-	pb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
@@ -69,6 +70,11 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 		return
 	}
 
+	if !test.CheckReferenced(bag) {
+		t.Errorf("Referenced attribute mismatch: '%v' != '%v'", bag.ReferencedList(), test.Referenced)
+		return
+	}
+
 	// Depending on the type, try testing specialized methods as well.
 
 	switch test.R.(type) {
@@ -89,7 +95,7 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 }
 
 func TestEvalString_WrongType(t *testing.T) {
-	e := initEvaluator(t, &configInt)
+	e := initEvaluator(t, configInt)
 	bag := initBag(int64(23))
 	r, err := e.EvalString("attr", bag)
 	if err != nil {
@@ -101,7 +107,7 @@ func TestEvalString_WrongType(t *testing.T) {
 }
 
 func TestEvalString_Error(t *testing.T) {
-	e := initEvaluator(t, &configString)
+	e := initEvaluator(t, configString)
 	bag := initBag("foo")
 	_, err := e.EvalString("bar", bag)
 	if err == nil {
@@ -110,7 +116,7 @@ func TestEvalString_Error(t *testing.T) {
 }
 
 func TestEvalPredicate_WrongType(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	bag := initBag(int64(23))
 	_, err := e.EvalPredicate("attr", bag)
 	if err == nil {
@@ -119,7 +125,7 @@ func TestEvalPredicate_WrongType(t *testing.T) {
 }
 
 func TestEvalPredicate_Error(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	bag := initBag(true)
 	_, err := e.EvalPredicate("boo", bag)
 	if err == nil {
@@ -155,7 +161,7 @@ func TestConcurrent(t *testing.T) {
 	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
 	maxThreads := 10
 
-	e := initEvaluator(t, &configString)
+	e := initEvaluator(t, configString)
 	errChan := make(chan error, len(bags)*maxThreads)
 
 	wg := sync.WaitGroup{}
@@ -183,7 +189,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestEvalType(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	ty, err := e.EvalType("attr", e.getAttrContext().finder)
 	if err != nil {
 		t.Fatalf("error: %s", err)
@@ -194,7 +200,7 @@ func TestEvalType(t *testing.T) {
 }
 
 func TestEvalType_WrongType(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	_, err := e.EvalType("boo", e.getAttrContext().finder)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -202,7 +208,7 @@ func TestEvalType_WrongType(t *testing.T) {
 }
 
 func TestAssertType_WrongType(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -210,7 +216,7 @@ func TestAssertType_WrongType(t *testing.T) {
 }
 
 func TestAssertType_EvaluationError(t *testing.T) {
-	e := initEvaluator(t, &configBool)
+	e := initEvaluator(t, configBool)
 	err := e.AssertType("boo", e.getAttrContext().finder, pbv.BOOL)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -218,7 +224,7 @@ func TestAssertType_EvaluationError(t *testing.T) {
 }
 
 func TestConfigChange(t *testing.T) {
-	e := initEvaluator(t, &configInt)
+	e := initEvaluator(t, configInt)
 	bag := initBag(int64(23))
 
 	// Prime the cache
@@ -227,9 +233,9 @@ func TestConfigChange(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	f := descriptor.NewFinder(&configBool)
+	f := expr.NewFinder(configBool)
 	e.ChangeVocabulary(f)
-	if e.getAttrContext().finder != f {
+	if !reflect.DeepEqual(e.getAttrContext().finder, f) {
 		t.Fatal("Finder is not set correctly")
 	}
 
@@ -244,7 +250,7 @@ func Test_Stress(t *testing.T) {
 	src := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(src)
 
-	e := initEvaluator(t, &configString)
+	e := initEvaluator(t, configString)
 
 	exprs := []string{
 		`attr`,
@@ -278,7 +284,7 @@ func Test_TypeChecker_Uninitialized(t *testing.T) {
 		t.Fatalf("error: %s", err)
 	}
 
-	aType, err := e.EvalType("attr", descriptor.NewFinder(&configString))
+	aType, err := e.EvalType("attr", expr.NewFinder(configString))
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -286,7 +292,7 @@ func Test_TypeChecker_Uninitialized(t *testing.T) {
 		t.Fatalf("attr should have been a string: %s", aType)
 	}
 
-	aType, err = e.EvalType("attr", descriptor.NewFinder(&configInt))
+	aType, err = e.EvalType("attr", expr.NewFinder(configInt))
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -314,48 +320,30 @@ func initBag(attrValue interface{}) attribute.Bag {
 	return ilt.NewFakeBag(attrs)
 }
 
-func initEvaluator(t *testing.T, config *pb.GlobalConfig) *IL {
+func initEvaluator(t *testing.T, attrs map[string]*pb.AttributeManifest_AttributeInfo) *IL {
 	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
-	finder := descriptor.NewFinder(config)
+	finder := expr.NewFinder(attrs)
 	e.ChangeVocabulary(finder)
 	return e
 }
 
-var configInt = pb.GlobalConfig{
-	Manifests: []*pb.AttributeManifest{
-		{
-			Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-				"attr": {
-					ValueType: pbv.INT64,
-				},
-			},
-		},
+var configInt = map[string]*pb.AttributeManifest_AttributeInfo{
+	"attr": {
+		ValueType: pbv.INT64,
 	},
 }
 
-var configString = pb.GlobalConfig{
-	Manifests: []*pb.AttributeManifest{
-		{
-			Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-				"attr": {
-					ValueType: pbv.STRING,
-				},
-			},
-		},
+var configString = map[string]*pb.AttributeManifest_AttributeInfo{
+	"attr": {
+		ValueType: pbv.STRING,
 	},
 }
 
-var configBool = pb.GlobalConfig{
-	Manifests: []*pb.AttributeManifest{
-		{
-			Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-				"attr": {
-					ValueType: pbv.BOOL,
-				},
-			},
-		},
+var configBool = map[string]*pb.AttributeManifest_AttributeInfo{
+	"attr": {
+		ValueType: pbv.BOOL,
 	},
 }

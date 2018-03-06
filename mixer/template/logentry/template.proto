@@ -14,22 +14,26 @@
 
 syntax = "proto3";
 
+// $title: Log Entry
+// $overview: A template that represents a single runtime log entry.
+// $location: https://istio.io/docs/reference/config/template/logentry.html
+
+// The `logentry` template represents an individual entry within a log.
 package logEntry;
 
 import "mixer/v1/template/standard_types.proto";
-import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
-// LogEntry represents an individual entry within a log.
+// The `logentry` template represents an individual entry within a log.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: logentry
 // metadata:
@@ -53,7 +57,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 // ```
 message Template {
     // Variables that are delivered for each log entry.
-    map<string, istio.mixer.v1.config.descriptor.ValueType> variables = 1;
+    map<string, istio.mixer.v1.template.Value> variables = 1;
 
     // Timestamp is the time value for the log entry
     istio.mixer.v1.template.TimeStamp timestamp = 2;
@@ -69,5 +73,5 @@ message Template {
     // Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
     // recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
     // Otherwise these fields will be ignored by the adapter.
-    map<string, istio.mixer.v1.config.descriptor.ValueType> monitored_resource_dimensions = 5;
+    map<string, istio.mixer.v1.template.Value> monitored_resource_dimensions = 5;
 }

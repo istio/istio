@@ -27,8 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -38,16 +37,7 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
-	return proxy.ApplyMeshConfigDefaults(string(yaml))
-}
-
-// VersionCmd is a sub-command to print version information
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Display version information and exit",
-	Run: func(*cobra.Command, []string) {
-		fmt.Print(version.Version())
-	},
+	return model.ApplyMeshConfigDefaults(string(yaml))
 }
 
 // AddFlags adds all command line flags to the given command.
@@ -81,5 +71,5 @@ func WaitSignal(stop chan struct{}) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	close(stop)
-	log.Sync()
+	_ = log.Sync()
 }

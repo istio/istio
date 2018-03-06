@@ -30,19 +30,19 @@ kind: Deployment
 metadata:
   name: istio-ingress
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         istio: ingress
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         args:
         - proxy
         - ingress

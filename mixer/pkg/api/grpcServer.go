@@ -28,7 +28,6 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
@@ -195,7 +194,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		//          use a different protoBag for each individual goroutine
 		//          such that we can get valid usage info for individual attributes.
 		for name, param := range req.Quotas {
-			qma := &aspect.QuotaMethodArgs{
+			qma := &runtime.QuotaMethodArgs{
 				Quota:           name,
 				Amount:          param.Amount,
 				DeduplicationID: req.DeduplicationId + name,
@@ -233,7 +232,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 }
 
 func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*mixerpb.CheckResponse_QuotaResult, error) {
+	qma *runtime.QuotaMethodArgs) (*mixerpb.CheckResponse_QuotaResult, error) {
 	if d == nil {
 		return nil, nil
 	}
@@ -300,7 +299,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
 			out = status.WithError(err)
 		}
-		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+		if err = mutableBag.PreserveMerge(preprocResponseBag); err != nil {
 			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 		}
 

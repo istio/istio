@@ -44,6 +44,48 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: v1alpha2routerules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: V1alpha2RouteRule
+    listKind: V1alpha2RouteRuleList
+    plural: v1alpha2routerules
+    singular: v1alpha2routerule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationrules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: DestinationRule
+    listKind: DestinationRuleList
+    plural: destinationrules
+    singular: destinationrule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: externalservices.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: ExternalService
+    listKind: ExternalServiceList
+    plural: externalservices
+    singular: externalservice
+  scope: Namespaced
+  version: v1alpha2
+---
 # Pilot service for discovery
 apiVersion: v1
 kind: Service
@@ -56,6 +98,10 @@ spec:
   ports:
   - port: 15003
     name: http-discovery
+  - port: 8080
+    name: http-legacy-discovery
+  - port: 9093
+    name: http-monitoring
   - port: 443
     name: admission-webhook
   selector:
@@ -72,14 +118,14 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         istio: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:
@@ -101,11 +147,13 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_THROTTLE
+          value: "200"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
       - name: istio-proxy
-        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003

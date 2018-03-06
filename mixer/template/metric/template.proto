@@ -14,21 +14,27 @@
 
 syntax = "proto3";
 
+// $title: Metric
+// $overview: A template that represents a single runtime metric.
+// $location: https://istio.io/docs/reference/config/template/metric.html
+
+// The `metric` template is designed to let you describe runtime metric to dispatch to
+// monitoring backends.
 package metric;
 
-import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
-// Metric represents a single piece of data to report.
+// The `metric` template represents a single piece of data to report.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: metric
 // metadata:
@@ -46,10 +52,10 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 // ```
 message Template {
     // The value being reported.
-    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    istio.mixer.v1.template.Value value = 1;
 
     // The unique identity of the particular metric to report.
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+    map<string, istio.mixer.v1.template.Value> dimensions = 2;
 
     // Optional. An expression to compute the type of the monitored resource this metric is being reported on.
     // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
@@ -59,5 +65,5 @@ message Template {
     // Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
     // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
     // these fields will be ignored by the adapter.
-    map<string, istio.mixer.v1.config.descriptor.ValueType> monitored_resource_dimensions = 4;
+    map<string, istio.mixer.v1.template.Value> monitored_resource_dimensions = 4;
 }

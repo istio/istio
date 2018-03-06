@@ -15,47 +15,81 @@
 package ilt
 
 import (
+	"fmt"
+	"sort"
+	"sync"
+
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 )
 
-// NewFakeBag creates a fakebag and converts map[string]string to StringMap
-func NewFakeBag(attrs map[string]interface{}) attribute.Bag {
+// NewFakeBag creates a FakeBag and converts map[string]string to StringMap
+func NewFakeBag(attrs map[string]interface{}) *FakeBag {
+	bag := &FakeBag{
+		Attrs: make(map[string]interface{}, len(attrs)),
+	}
 	for k, v := range attrs {
 		if sm, ok := v.(map[string]string); ok {
-			attrs[k] = NewStringMap(k, sm)
+			bag.Attrs[k] = NewStringMap(k, sm, bag)
+		} else {
+			bag.Attrs[k] = v
 		}
 	}
-	return &fakeBag{Attrs: attrs}
+
+	bag.referenced = make(map[string]bool)
+	return bag
 }
 
-// fakeBag is a fake implementation of the Bag for testing purposes.
-type fakeBag struct {
+// FakeBag is a fake implementation of the Bag for testing purposes.
+type FakeBag struct {
 	Attrs map[string]interface{}
+
+	referenced     map[string]bool
+	referencedLock sync.RWMutex
 }
 
-var _ attribute.Bag = (*fakeBag)(nil)
+var _ attribute.Bag = (*FakeBag)(nil)
 
 // Get returns an attribute value.
-func (b *fakeBag) Get(name string) (interface{}, bool) {
+func (b *FakeBag) Get(name string) (interface{}, bool) {
 	c, found := b.Attrs[name]
+	b.referencedLock.Lock()
+	b.referenced[name] = true
+	b.referencedLock.Unlock()
 	return c, found
 }
 
 // Names return the names of all the attributes known to this bag.
-func (b *fakeBag) Names() []string {
+func (b *FakeBag) Names() []string {
 	return []string{}
 }
 
 // Done indicates the bag can be reclaimed.
-func (b *fakeBag) Done() {}
+func (b *FakeBag) Done() {}
 
 // DebugString is needed to implement the Bag interface.
-func (b *fakeBag) DebugString() string { return "" }
+func (b *FakeBag) DebugString() string { return "" }
+
+// ReferencedList returns the sorted list of attributes that were referenced. Attribute references through
+// string maps are encoded as mapname[keyname].
+func (b *FakeBag) ReferencedList() []string {
+
+	attributes := make([]string, 0, len(b.referenced))
+
+	b.referencedLock.RLock()
+	for k := range b.referenced {
+		attributes = append(attributes, k)
+	}
+	b.referencedLock.RUnlock()
+
+	sort.Strings(attributes)
+
+	return attributes
+}
 
 // NewStringMap creates an il.StringMap given map[string]string
-func NewStringMap(name string, entries map[string]string) il.StringMap {
-	return stringMap{Name: name, Entries: entries}
+func NewStringMap(name string, entries map[string]string, parent *FakeBag) il.StringMap {
+	return stringMap{Name: name, Entries: entries, parent: parent}
 }
 
 type stringMap struct {
@@ -63,10 +97,18 @@ type stringMap struct {
 	Name string
 	// Entries in the stringmap
 	Entries map[string]string
+
+	parent *FakeBag
 }
 
 // Get returns a stringmap value and records access
 func (s stringMap) Get(key string) (string, bool) {
 	str, found := s.Entries[key]
+	if s.parent != nil {
+		name := fmt.Sprintf(`%s[%s]`, s.Name, key)
+		s.parent.referencedLock.Lock()
+		s.parent.referenced[name] = true
+		s.parent.referencedLock.Unlock()
+	}
 	return str, found
 }

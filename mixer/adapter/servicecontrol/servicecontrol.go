@@ -103,7 +103,7 @@ func validateRuntimeConfig(config *config.RuntimeConfig) *multierror.Error {
 
 func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror.Error {
 	var result *multierror.Error
-	if settings == nil || len(settings) == 0 {
+	if len(settings) == 0 {
 		result = multierror.Append(result, errors.New("settings is nil or empty"))
 		return result
 	}

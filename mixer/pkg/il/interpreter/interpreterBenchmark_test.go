@@ -21,19 +21,6 @@ import (
 	"istio.io/istio/mixer/pkg/il/text"
 )
 
-// 12/6/2017
-//BenchmarkIL/ExprBench/ok_1st-8         	10000000	       135 ns/op	       0 B/op	       0 allocs/op
-//BenchmarkIL/ExprBench/ok_2nd-8         	 5000000	       238 ns/op	      16 B/op	       1 allocs/op
-//BenchmarkIL/ExprBench/not_found-8      	 5000000	       239 ns/op	      16 B/op	       1 allocs/op
-//PASS
-
-// 5/17/2017
-//ozben-macbookpro2:intr ozben$ go test -run=^$  -bench=.  -benchmem
-//BenchmarkInterpreter/ASTBenchmark/[a=20,_host="abc]"-8         	20000000	       111 ns/op	       0 B/op	       0 allocs/op
-//BenchmarkInterpreter/ASTBenchmark/[a=2,_host="abc]"-8          	10000000	       158 ns/op	       0 B/op	       0 allocs/op
-//BenchmarkInterpreter/ASTBenchmark/[a=20,_host="abcd]"-8        	10000000	       165 ns/op	       0 B/op	       0 allocs/op
-//PASS
-
 func BenchmarkInterpreter(b *testing.B) {
 	for _, test := range ilt.TestData {
 		if !test.Bench {

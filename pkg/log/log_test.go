@@ -154,7 +154,7 @@ func TestBasic(t *testing.T) {
 				}
 
 				c.f()
-				Sync()
+				Sync() // nolint: errcheck
 			})
 
 			if err != nil {
@@ -170,7 +170,7 @@ func TestBasic(t *testing.T) {
 	// sadly, only testing whether we crash or not...
 	l := With(zap.String("Key", "Value"))
 	l.Debug("Hello")
-	l.Sync()
+	_ = l.Sync()
 }
 
 func TestEnabled(t *testing.T) {
@@ -262,7 +262,7 @@ func TestRotateNoStdout(t *testing.T) {
 	}
 
 	Error("HELLO")
-	Sync()
+	Sync() // nolint: errcheck
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -289,7 +289,7 @@ func TestRotateAndStdout(t *testing.T) {
 		}
 
 		Error("HELLO")
-		Sync()
+		Sync() // nolint: errcheck
 
 		content, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -353,8 +353,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)

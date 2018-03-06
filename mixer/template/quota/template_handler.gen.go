@@ -22,15 +22,17 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `quota` template represents an item for which to check quota.
+
 // Fully qualified name of the template
 const TemplateName = "quota"
 
 // Instance is constructed by Mixer for the 'quota' template.
 //
-// Quota represents a piece of data to check Quota for.
+// The `quota` template represents a piece of data to check Quota for.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:

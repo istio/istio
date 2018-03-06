@@ -11,10 +11,10 @@ An open platform to connect, manage, and secure microservices.
 - [Repositories](#repositories)
 - [Issue management](#issue-management)
 
-In addition, here are some other docs you may wish to read:
+In addition, here are some other documents you may wish to read:
 
 - [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
-- [Istio Developer's Guide](DEV-GUIDE.md) - explains how to setup and use an Istio development environment
+- [Istio Developer's Guide](DEV-GUIDE.md) - explains how to set up and use an Istio development environment
 - [Project Conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
 - [Creating Fast and Lean Code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
 
@@ -26,31 +26,32 @@ and aggregate telemetry data. Istio's control plane provides an abstraction
 layer over the underlying cluster management platform, such as Kubernetes,
 Mesos, etc.
 
-Visit [istio.io](https://istio.io) for in-depth information about using Istio.     
+Visit [istio.io](https://istio.io) for in-depth information about using Istio.
 
 Istio is composed of these components:
 
-* **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
+- **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
    services. The proxies form a _secure microservice mesh_ providing a rich
    set of functions like discovery, rich layer-7 routing, circuit breakers,
    policy enforcement and telemetry recording/reporting
    functions.
 
-  >  Note: The service mesh is not an overlay network. It
-  >  simplifies and enhances how microservices in an application talk to each
-  >  other over the network provided by the underlying platform.
+  > Note: The service mesh is not an overlay network. It
+  > simplifies and enhances how microservices in an application talk to each
+  > other over the network provided by the underlying platform.
 
-* **Mixer** - Central component that is leveraged by the proxies and microservices
-   to enforce policies such as ACLs, rate limits, quotas, authentication, request
+- **Mixer** - Central component that is leveraged by the proxies and microservices
+   to enforce policies such as authorization, rate limits, quotas, authentication, request
    tracing and telemetry collection.
 
-* **Pilot** - A component responsible for configuring the
-  proxies at runtime.
+- **Pilot** - A component responsible for configuring the proxies at runtime.
 
-* **CA** - A component responsible for cert issuance and rotation.
+- **CA** - A centralized component responsible for certificate issuance and rotation.
 
-* **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
+- **Node Agent** - A per-node component responsible for certificate issuance and rotation.
+
+- **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
 
 Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
@@ -59,12 +60,12 @@ Cloud Foundry, and Mesos in the near future.
 
 The Istio project is divided across a few GitHub repositories.
 
-- [istio/istio](README.md). This is the main repo that you are
+- [istio/istio](README.md). This is the main repository that you are
 currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [security](security/). This directory contains security related code,
-including CA (Cert Authority), node agent, etc.
+including CA (Certificate Authority), node agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
@@ -84,10 +85,10 @@ contains code for Istio's implementation of the Open Service Broker API.
 component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
-for Mixer's API.
+(currently supports C++) for Mixer's API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
 decisions to Mixer.
 
@@ -98,7 +99,7 @@ We use GitHub combined with ZenHub to track all of our bugs and feature requests
 - **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
 Each issue is ultimately part of an epic.
 
-- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, 0.3, or 'Nebulous Future'. The milestone indicates when we
+- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, ..., or 'Nebulous Future'. The milestone indicates when we
 think the issue should get addressed.
 
 - **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of

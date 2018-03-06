@@ -8,7 +8,6 @@ Additional overview of what metric is etc..
 */
 package istio.mixer.adapter.metricEntry;
 
-import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
 import "mixer/v1/template/standard_types.proto";
 
@@ -19,9 +18,9 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 */
 message Template {
     // value is ...
-    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    istio.mixer.v1.template.Value value = 1;
     // dimensions are ...
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+    map<string, istio.mixer.v1.template.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 
@@ -31,7 +30,7 @@ message Template {
 
     string stringPrimitive = 6;
 
-    istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
+    istio.mixer.v1.template.Value anotherValueType = 7;
 
     map<string, int64> dimensionsFixedInt64ValueDType = 8;
 
@@ -67,9 +66,9 @@ message Resource2 {
 // resource3 comment
 message Resource3 {
     // value is ...
-    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    istio.mixer.v1.template.Value value = 1;
     // dimensions are ...
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+    map<string, istio.mixer.v1.template.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 
@@ -79,7 +78,7 @@ message Resource3 {
 
     string stringPrimitive = 6;
 
-    istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
+    istio.mixer.v1.template.Value anotherValueType = 7;
 
     map<string, int64> dimensionsFixedInt64ValueDType = 8;
 

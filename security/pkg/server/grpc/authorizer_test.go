@@ -90,7 +90,7 @@ func TestRegistryAuthorizerWithJWT(t *testing.T) {
 				authz := &registryAuthorizor{&registry.IdentityRegistry{
 					Map: map[string]string{"id": "id"},
 				}}
-				authz.authorize(idRequestor, requestedIDs)
+				_ = authz.authorize(idRequestor, requestedIDs)
 				return authz
 			}(),
 		},
@@ -164,7 +164,7 @@ func TestRegistryAuthorizerWithClientCertificate(t *testing.T) {
 		},
 	}
 
-	for id, c := range testCases {
+	for id, c := range testCases { // nolint: vet
 		authz := &registryAuthorizor{&c.registry}
 		err := authz.authorize(&caller{authSourceClientCertificate, c.callerIDs}, c.requestedIDs)
 		if c.expectedErr != "" {

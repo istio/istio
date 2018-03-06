@@ -1,0 +1,96 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "pilot.fullname" . }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: pilot
+  annotations:
+    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "pilot.name" . }}
+        release: {{ .Release.Name }}
+        istio: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ template "pilot.serviceAccountName" . }}
+      containers:
+        - name: {{ template "pilot.name" . }}-discovery
+          image: "{{ .Values.global.pilot.repository }}:{{ .Values.global.pilot.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args: ["discovery", "-v", "2", "--admission-service", "{{ template "pilot.fullname" . }}"]
+          ports:
+          - containerPort: 8080
+          - containerPort: 443
+          readinessProbe:
+            httpGet:
+              path: /v1/registration
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: PILOT_THROTTLE
+            value: "200"
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+        - name: {{ template "pilot.name" . }}-proxy
+          image: "{{ .Values.global.proxy.repository }}:{{ .Values.global.proxy.tag }}"
+          imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
+          ports:
+          - containerPort: 15003
+          args:
+          - proxy
+          - pilot
+          - -v
+          - "2"
+          - --discoveryAddress
+          - {{ template "pilot.fullname" . }}:15003
+          - --controlPlaneAuthPolicy
+        {{- if .Values.global.securityEnabled }}
+          - MUTUAL_TLS
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_pilot_auth.json
+        {{- else }}
+          - NONE #--controlPlaneAuthPolicy
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_pilot.json
+        {{- end }}
+          resources:
+{{ toYaml .Values.global.proxy.resources | indent 12 }}
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: istio-certs
+        secret:
+          secretName: "istio.{{ template "pilot.serviceAccountName" . }}"
+          optional: true
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

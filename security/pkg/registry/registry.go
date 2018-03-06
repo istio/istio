@@ -15,10 +15,8 @@
 package registry
 
 import (
+	"fmt"
 	"sync"
-
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 )
@@ -26,8 +24,8 @@ import (
 // Registry is the standard interface for identity registry implementation
 type Registry interface {
 	Check(string, string) bool
-	AddMapping(string, string)
-	DeleteMapping(string, string)
+	AddMapping(string, string) error
+	DeleteMapping(string, string) error
 }
 
 // IdentityRegistry is a naive registry that maintains a mapping between
@@ -55,32 +53,34 @@ func (reg *IdentityRegistry) Check(id1, id2 string) bool {
 	return true
 }
 
-// AddMapping adds a mapping id1 -> id2
-func (reg *IdentityRegistry) AddMapping(id1, id2 string) {
-	reg.RLock()
-	oldID, ok := reg.Map[id1]
-	reg.RUnlock()
-	if ok {
-		log.Warnf("Overwriting existing mapping: %q -> %q", id1, oldID)
-	}
+// AddMapping adds a mapping id1 -> id2. If id1 is already mapped to
+// something else, add fails.
+func (reg *IdentityRegistry) AddMapping(id1, id2 string) error {
 	reg.Lock()
+	defer reg.Unlock()
+	oldID, ok := reg.Map[id1]
+	if ok && oldID != id2 {
+		return fmt.Errorf("identity %q is already mapped to %q", id1, oldID)
+	}
+
+	log.Infof("adding registry entry %q -> %q", id1, id2)
 	reg.Map[id1] = id2
-	reg.Unlock()
+	return nil
 }
 
 // DeleteMapping attempts to delete mapping id1 -> id2. If id1 is already
 // mapped to a different identity, deletion fails
-func (reg *IdentityRegistry) DeleteMapping(id1, id2 string) {
-	reg.RLock()
-	oldID, ok := reg.Map[id1]
-	reg.RUnlock()
-	if !ok || oldID != id2 {
-		log.Warnf("Could not delete nonexistent mapping: %q -> %q", id1, id2)
-		return
-	}
+func (reg *IdentityRegistry) DeleteMapping(id1, id2 string) error {
 	reg.Lock()
+	defer reg.Unlock()
+	oldID, ok := reg.Map[id1]
+	if !ok || oldID != id2 {
+		return fmt.Errorf("could not delete nonexistent mapping: %q -> %q", id1, id2)
+	}
+
+	log.Infof("deleting registry entry %q -> %q", id1, id2)
 	delete(reg.Map, id1)
-	reg.Unlock()
+	return nil
 }
 
 var (

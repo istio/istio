@@ -1,0 +1,20 @@
+---
+- hosts: localhost
+  gather_facts: true
+
+  pre_tasks:
+    # We require Ansible 2.4 or newer
+    - name: Check Ansible version
+      assert:
+        that: '(ansible_version.major, ansible_version.minor, ansible_version.revision) >= (2, 4, 0)'
+        msg: 'Please install the recommended version 2.4+. You have Ansible {{ ansible_version.string }}.'
+      run_once: yes
+
+    - name: Playbook runs correctly only on Linux or Mac OSX
+      assert:
+        that: 'ansible_system == "Linux" or ansible_os_family == "Darwin"'
+        msg: 'The playbook can only be run on Linux or Mac OSX systems'
+      run_once: yes
+
+  roles:
+    - istio

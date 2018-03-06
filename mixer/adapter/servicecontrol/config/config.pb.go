@@ -4,6 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
+	The `servicecontrol` adapter delivers logs and metrics to
+	[Google Service Control](https://cloud.google.com/service-control).
+
 	It is generated from these files:
 		mixer/adapter/servicecontrol/config/config.proto
 
@@ -74,8 +77,11 @@ func (m *GcpServiceSetting) Reset()                    { *m = GcpServiceSetting{
 func (*GcpServiceSetting) ProtoMessage()               {}
 func (*GcpServiceSetting) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{2} }
 
+// Configuration format for the `servicecontrol` adapter.
+//
 // Sample adapter config:
-// '''
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrol
 // metadata:
@@ -93,7 +99,7 @@ func (*GcpServiceSetting) Descriptor() ([]byte, []int) { return fileDescriptorCo
 //         - name: ratelimit.quota.istio-system
 //           google_quota_metric_name: read-requests
 //           expiration: 1m
-// '''
+// ```
 type Params struct {
 	RuntimeConfig *RuntimeConfig `protobuf:"bytes,1,opt,name=runtime_config,json=runtimeConfig" json:"runtime_config,omitempty"`
 	// A path to JSON token file, usually mounted as Kubernetes secret on pod.

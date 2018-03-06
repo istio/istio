@@ -15,9 +15,9 @@
 package interpreter
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -1683,7 +1683,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			expected: "c",
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() il.StringMap {
-					return ilt.NewStringMap("", map[string]string{"b": "c"})
+					return ilt.NewStringMap("", map[string]string{"b": "c"}, nil)
 				}),
 			},
 		},
@@ -1694,7 +1694,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: []byte{0x1, 0x2, 0x4, 0x6},
+			expected: net.ParseIP("1.2.4.6"),
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() []byte {
 					return []byte{0x1, 0x2, 0x4, 0x6}
@@ -1851,7 +1851,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: []byte{0x1, 0x2, 0x4, 0x6},
+			expected: net.ParseIP("1.2.4.6"),
 			input: map[string]interface{}{
 				"a": []byte{0x1, 0x2, 0x4, 0x6},
 			},
@@ -2405,7 +2405,6 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		if err != nil {
 			t.Fatal(s.Error())
 		}
-		t.Log(s)
 	}
 	if s.Error() != nil {
 		if len(test.err) == 0 {
@@ -2451,13 +2450,13 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 }
 
 func areEqual(a1 interface{}, a2 interface{}) bool {
-	b1, b1Ok := a1.([]byte)
-	b2, b2Ok := a2.([]byte)
+	b1, b1Ok := a1.(net.IP)
+	b2, b2Ok := a2.(net.IP)
 	if b1Ok != b2Ok {
 		return false
 	}
 	if b1Ok {
-		return bytes.Equal(b1, b2)
+		return b1.Equal(b2)
 	}
 	return a1 == a2
 }

@@ -17,7 +17,7 @@ package compiled
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
 
@@ -32,7 +32,7 @@ func BenchmarkCompiled(b *testing.B) {
 			continue
 		}
 
-		finder := descriptor.NewFinder(test.Conf())
+		finder := expr.NewFinder(test.Conf())
 
 		builder := NewBuilder(finder)
 		expression, _, err := builder.Compile(test.E)

@@ -15,13 +15,12 @@
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/stdio/config/config.proto
 
 // Package stdio provides an adapter that implements the logEntry and metrics
-// templates to serialize generated logs and metrics to either stdout or stderr.
+// templates to serialize generated logs and metrics to stdout, stderr, or files.
 package stdio // import "istio.io/istio/mixer/adapter/stdio"
 
 import (
 	"context"
 	"fmt"
-	"net"
 	"sort"
 	"time"
 
@@ -36,14 +35,17 @@ import (
 )
 
 type (
-	zapBuilderFn func(outputPath string, encoding string) (*zap.Logger, error)
+	zapBuilderFn func(options *config.Params) (*zap.Logger, func(), error)
 	getTimeFn    func() time.Time
+	writeFn      func(entry zapcore.Entry, fields []zapcore.Field) error
 
 	handler struct {
 		logger         *zap.Logger
+		closer         func()
 		severityLevels map[string]zapcore.Level
 		metricLevel    zapcore.Level
 		getTime        getTimeFn
+		write          writeFn
 		logEntryVars   map[string][]string
 		metricDims     map[string][]string
 	}
@@ -62,11 +64,11 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 
 		for _, varName := range h.logEntryVars[instance.Name] {
 			if value, ok := instance.Variables[varName]; ok {
-				fields = append(fields, field(varName, value))
+				fields = append(fields, zap.Any(varName, value))
 			}
 		}
 
-		if err := h.logger.Core().Write(entry, fields); err != nil {
+		if err := h.write(entry, fields); err != nil {
 			errors = multierror.Append(errors, err)
 		}
 		fields = fields[:0]
@@ -89,10 +91,10 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 		fields = append(fields, zap.Any("value", instance.Value))
 		for _, varName := range h.metricDims[instance.Name] {
 			value := instance.Dimensions[varName]
-			fields = append(fields, field(varName, value))
+			fields = append(fields, zap.Any(varName, value))
 		}
 
-		if err := h.logger.Core().Write(entry, fields); err != nil {
+		if err := h.write(entry, fields); err != nil {
 			errors = multierror.Append(errors, err)
 		}
 		fields = fields[:0]
@@ -101,21 +103,11 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 	return errors.ErrorOrNil()
 }
 
-func field(varName string, value interface{}) zapcore.Field {
-	// TODO: remove when IP_ADDRESS is properly handled by Mixer
-	switch value.(type) {
-	case []byte:
-		b := value.([]byte)
-		if len(b) == net.IPv4len || len(b) == net.IPv6len {
-			return zap.Any(varName, net.IP(b))
-		}
-		return zap.Any(varName, value)
-	default:
-		return zap.Any(varName, value)
-	}
+func (h *handler) Close() error {
+	_ = h.logger.Sync()
+	h.closer()
+	return nil
 }
-
-func (h *handler) Close() error { return nil }
 
 func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	level, ok := h.severityLevels[severity]
@@ -139,9 +131,29 @@ func GetInfo() adapter.Info {
 			metric.TemplateName,
 		},
 		DefaultConfig: &config.Params{
-			LogStream:    config.STDOUT,
-			MetricLevel:  config.INFO,
-			OutputAsJson: false,
+			LogStream:                  config.STDOUT,
+			MetricLevel:                config.INFO,
+			OutputLevel:                config.INFO,
+			OutputAsJson:               true,
+			MaxDaysBeforeRotation:      30,
+			MaxMegabytesBeforeRotation: 100 * 1024 * 1024,
+			MaxRotatedFiles:            1000,
+			SeverityLevels: map[string]config.Params_Level{
+				"INFORMATIONAL": config.INFO,
+				"informational": config.INFO,
+				"INFO":          config.INFO,
+				"info":          config.INFO,
+				"WARNING":       config.WARNING,
+				"warning":       config.WARNING,
+				"WARN":          config.WARNING,
+				"warn":          config.WARNING,
+				"ERROR":         config.ERROR,
+				"error":         config.ERROR,
+				"ERR":           config.ERROR,
+				"err":           config.ERROR,
+				"FATAL":         config.ERROR,
+				"fatal":         config.ERROR,
+			},
 		},
 
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
@@ -157,7 +169,20 @@ type builder struct {
 func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) { b.logEntryTypes = types }
 func (b *builder) SetMetricTypes(types map[string]*metric.Type)     { b.metricTypes = types }
 func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg.(*config.Params) }
-func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if b.adapterConfig.LogStream == config.STDERR || b.adapterConfig.LogStream == config.STDOUT {
+		if b.adapterConfig.OutputPath != "" {
+			ce = ce.Appendf("outputPath", "cannot specify an output path when using a STDOUT or STDERR log stream")
+		}
+	} else {
+		if b.adapterConfig.OutputPath == "" {
+			ce = ce.Appendf("outputPath", "need a valid output path when using a FILE or ROTATED_FILE log stream")
+		}
+	}
+
+	return
+}
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	return b.buildWithZapBuilder(context, env, newZapLogger)
@@ -190,64 +215,24 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		dimLists[tn] = l
 	}
 
-	ac := b.adapterConfig
-
-	outputPath := "stdout"
-	if ac.LogStream == config.STDERR {
-		outputPath = "stderr"
-	}
-
-	encoding := "console"
-	if ac.OutputAsJson {
-		encoding = "json"
-	}
-
-	zapLogger, err := zb(outputPath, encoding)
+	logger, closer, err := zb(b.adapterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not build logger: %v", err)
 	}
 
 	sl := make(map[string]zapcore.Level)
-	for k, v := range ac.SeverityLevels {
-		sl[k] = mapConfigLevel(v)
+	for k, v := range b.adapterConfig.SeverityLevels {
+		sl[k] = levelToZap[v]
 	}
 
 	return &handler{
 		severityLevels: sl,
-		metricLevel:    mapConfigLevel(ac.MetricLevel),
-		logger:         zapLogger,
+		metricLevel:    levelToZap[b.adapterConfig.MetricLevel],
+		logger:         logger,
+		closer:         closer,
 		getTime:        time.Now,
+		write:          logger.Core().Write,
 		logEntryVars:   varLists,
 		metricDims:     dimLists,
 	}, nil
-}
-
-func mapConfigLevel(l config.Params_Level) zapcore.Level {
-	if l == config.WARNING {
-		return zapcore.WarnLevel
-	} else if l == config.ERROR {
-		return zapcore.ErrorLevel
-	}
-	return zapcore.InfoLevel
-}
-
-func newZapEncoderConfig() zapcore.EncoderConfig {
-	encConfig := zap.NewProductionEncoderConfig()
-	encConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encConfig.EncodeDuration = zapcore.StringDurationEncoder
-	encConfig.MessageKey = ""
-	encConfig.NameKey = "instance"
-
-	return encConfig
-}
-
-func newZapLogger(outputPath string, encoding string) (*zap.Logger, error) {
-	zapConfig := zap.NewProductionConfig()
-	zapConfig.DisableCaller = true
-	zapConfig.DisableStacktrace = true
-	zapConfig.OutputPaths = []string{outputPath}
-	zapConfig.EncoderConfig = newZapEncoderConfig()
-	zapConfig.Encoding = encoding
-
-	return zapConfig.Build()
 }

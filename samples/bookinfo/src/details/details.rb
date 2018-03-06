@@ -16,6 +16,7 @@
 
 require 'webrick'
 require 'json'
+require 'net/http'
 
 if ARGV.length < 1 then
     puts "usage: #{$PROGRAM_NAME} port"
@@ -36,20 +37,33 @@ end
 
 server.mount_proc '/details' do |req, res|
     pathParts = req.path.split('/')
+    headers = get_forward_headers(req)
+
     begin
-        id = Integer(pathParts[-1])
-        details = get_book_details(id)
+        begin
+          id = Integer(pathParts[-1])
+        rescue
+          raise 'please provide numeric product id'
+        end
+        details = get_book_details(id, headers)
         res.body = details.to_json
         res['Content-Type'] = 'application/json'
-    rescue
-        res.body = {'error' => 'please provide numeric product id'}.to_json
+    rescue => error
+        res.body = {'error' => error}.to_json
         res['Content-Type'] = 'application/json'
         res.status = 400
     end
 end
 
 # TODO: provide details on different books.
-def get_book_details(id)
+def get_book_details(id, headers)
+    if ENV['ENABLE_EXTERNAL_BOOK_SERVICE'] === 'true' then
+      # the ISBN of one of Comedy of Errors on the Amazon
+      # that has Shakespeare as the single author
+        isbn = '0486424618'
+        return fetch_details_from_external_service(isbn, id, headers)
+    end
+
     return {
         'id' => id,
         'author': 'William Shakespeare',
@@ -61,6 +75,78 @@ def get_book_details(id)
         'ISBN-10' => '1234567890',
         'ISBN-13' => '123-1234567890'
     }
+end
+
+def fetch_details_from_external_service(isbn, id, headers)
+    uri = URI.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:' + isbn)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.read_timeout = 5 # seconds
+
+    # WITH_ISTIO means that the details app runs with an Istio sidecar injected.
+    #
+    # With the Istio sidecar injected, the requests must be sent by HTTP protocol (without TLS),
+    # while the sidecar proxy will perform TLS origination. An Egress Rule
+    # must be defined to enable the trafic to www.googleapis.com and to perform the TLS origination.
+    #
+    # Without the Istio sidecar injected, the TLS origination must be performed by the `http` object,
+    # by setting `use_ssl` field to true.
+    unless ENV['WITH_ISTIO'] === 'true' then
+      http.use_ssl = true
+    end
+
+    request = Net::HTTP::Get.new(uri.request_uri)
+    headers.each { |header, value| request[header] = value }
+
+    response = http.request(request)
+
+    json = JSON.parse(response.body)
+    book = json['items'][0]['volumeInfo']
+
+    language = book['language'] === 'en'? 'English' : 'unknown'
+    type = book['printType'] === 'BOOK'? 'paperback' : 'unknown'
+    isbn10 = get_isbn(book, 'ISBN_10')
+    isbn13 = get_isbn(book, 'ISBN_13')
+
+    return {
+        'id' => id,
+        'author': book['authors'][0],
+        'year': book['publishedDate'],
+        'type' => type,
+        'pages' => book['pageCount'],
+        'publisher' => book['publisher'],
+        'language' => language,
+        'ISBN-10' => isbn10,
+        'ISBN-13' => isbn13
+  }
+
+end
+
+def get_isbn(book, isbn_type)
+  isbn_dentifiers = book['industryIdentifiers'].select do |identifier|
+    identifier['type'] === isbn_type
+  end
+
+  return isbn_dentifiers[0]['identifier']
+end
+
+def get_forward_headers(request)
+  headers = {}
+  incoming_headers = [ 'x-request-id',
+                       'x-b3-traceid',
+                       'x-b3-spanid',
+                       'x-b3-parentspanid',
+                       'x-b3-sampled',
+                       'x-b3-flags',
+                       'x-ot-span-context'
+                     ]
+
+  request.each do |header, value|
+    if incoming_headers.include? header then
+      headers[header] = value
+    end
+  end
+
+  return headers
 end
 
 server.start

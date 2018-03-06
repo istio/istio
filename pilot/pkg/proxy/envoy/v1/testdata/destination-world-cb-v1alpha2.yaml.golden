@@ -1,0 +1,26 @@
+name: world
+subsets:
+  - name: v0
+    labels:
+      version: v0
+    trafficPolicy:
+      loadBalancer:
+        simple: RANDOM
+      connectionPool:
+        tcp:
+        # TODO add connect timeout
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 50
+          http2MaxRequests: 200
+          maxRequestsPerConnection: 500
+          maxRetries: 5
+      outlierDetection:
+        http:
+          consecutiveErrors: 10
+          interval: 30s
+          baseEjectionTime: 15.5s
+          maxEjectionPercent: 100
+  - name: v1
+    labels:
+      version: v1

@@ -17,6 +17,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -28,17 +29,17 @@ import (
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 
+	cpb "istio.io/api/mixer/v1/config"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -55,7 +56,7 @@ type Dispatcher interface {
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
+		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
 }
 
 // Resolver represents the current snapshot of the configuration database
@@ -103,6 +104,7 @@ func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool, i
 		mapper:            mapper,
 		gp:                gp,
 		identityAttribute: identityAttribute,
+		Probe:             probe.NewProbe(),
 	}
 	m.ChangeResolver(rt)
 	return m
@@ -122,6 +124,8 @@ type dispatcher struct {
 	resolver     Resolver
 
 	identityAttribute string
+
+	*probe.Probe
 }
 
 // ChangeResolver installs a new resolver.
@@ -130,6 +134,11 @@ type dispatcher struct {
 func (m *dispatcher) ChangeResolver(rt Resolver) {
 	m.resolverLock.Lock()
 	m.resolver = rt
+	var err error
+	if rt == nil {
+		err = errors.New("resolver is unavailable")
+	}
+	m.Probe.SetAvailable(err)
 	m.resolverLock.Unlock()
 }
 
@@ -231,7 +240,7 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 // Quota calls are dispatched to at most one handler.
 // Dispatcher#Quota.
 func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	dispatched := false
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {
@@ -407,12 +416,12 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 	m.gp.ScheduleWork(func(_ interface{}) {
 		// tracing
 		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
-		span, ctx := opentracing.StartSpanFromContext(ctx, op)
+		span, ctx2 := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 
 		log.Debugf("runAsync %s -> %v", op, *callinfo)
 
-		out := safeDispatch(ctx, do, op)
+		out := safeDispatch(ctx2, do, op)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)
