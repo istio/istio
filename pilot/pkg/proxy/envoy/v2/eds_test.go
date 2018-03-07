@@ -15,6 +15,7 @@ package v2_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -125,6 +126,7 @@ func TestEds(t *testing.T) {
 	t.Run("DebugEndpoint", func(t *testing.T) {
 		testEdsz(t)
 	})
+	fmt.Println("XXXX EDS TEST DONE")
 }
 
 var (
@@ -135,10 +137,12 @@ var (
 // TODO: parse response, check if data captured matches what we expect.
 // TODO: turn this into an integration test.
 func testEdsz(t *testing.T) {
+	fmt.Println("XXXX EDS 0")
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch /edsz")
 	}
+	fmt.Println("XXXX EDS 1")
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		t.Fatalf("Failed to read /edsz")

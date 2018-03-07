@@ -168,7 +168,11 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
+{{if eq .ControlPlaneAuthPolicy.String "NONE"}}
           optional: true
+{{else}}
+          optional: false
+{{end}}
 {{if .DebugPort}}
       - name: debug
         persistentVolumeClaim:
