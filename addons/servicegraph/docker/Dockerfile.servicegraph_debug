@@ -1,4 +1,4 @@
-FROM gcr.io/istio-testing/ubuntu_xenial_debug:3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622
+FROM ubuntu:xenial
 
 WORKDIR /tmp/
 COPY servicegraph /usr/local/bin/

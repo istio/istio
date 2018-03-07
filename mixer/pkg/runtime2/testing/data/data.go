@@ -85,6 +85,17 @@ metadata:
 spec:
 `
 
+// InstanceCheck1WithSpec has a spec with expressions
+var InstanceCheck1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tcheck
+metadata:
+  name: icheck1
+  namespace: istio-system
+spec:
+  foo: attr.string
+`
+
 // InstanceHalt1 is a standard testing instance.
 var InstanceHalt1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -103,6 +114,17 @@ metadata:
   name: ireport1
   namespace: istio-system
 spec:
+`
+
+// InstanceReport1WithSpec has a spec with expressions
+var InstanceReport1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: treport
+metadata:
+  name: ireport1
+  namespace: istio-system
+spec:
+  foo: attr.string
 `
 
 // InstanceQuota1 is a standard testing instance for template tquota.
@@ -125,6 +147,17 @@ metadata:
 spec:
 `
 
+// InstanceQuota1WithSpec has a spec with expressions
+var InstanceQuota1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tquota
+metadata:
+  name: iquota1
+  namespace: istio-system
+spec:
+  foo: attr.string
+`
+
 // InstanceAPA1 is an APA instance
 var InstanceAPA1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -133,6 +166,19 @@ metadata:
   name: iapa1
   namespace: istio-system
 spec:
+`
+
+// InstanceAPA1WithSpec has a spec with expressions
+var InstanceAPA1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tapa
+metadata:
+  name: iapa1
+  namespace: istio-system
+spec:
+  foo: attr.string
+  attribute_bindings:
+    source.name: $out.generated.string | ""
 `
 
 // HandlerACheck1 is a handler of type acheck with name hcheck1.

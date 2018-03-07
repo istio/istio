@@ -47,44 +47,44 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualservices.config.istio.io
+  name: virtualservices.networking.istio.io
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: VirtualService
     listKind: VirtualServiceList
     plural: virtualservices
     singular: virtualservice
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: destinationrules.config.istio.io
+  name: destinationrules.networking.istio.io
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: DestinationRule
     listKind: DestinationRuleList
     plural: destinationrules
     singular: destinationrule
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: externalservices.config.istio.io
+  name: externalservices.networking.istio.io
 spec:
-  group: config.istio.io
+  group: networking.istio.io
   names:
     kind: ExternalService
     listKind: ExternalServiceList
     plural: externalservices
     singular: externalservice
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
 ---
 # Pilot service for discovery
 apiVersion: v1
@@ -102,6 +102,8 @@ spec:
     name: https-discovery
   - port: 15007
     name: http-discovery
+  - port: 15010
+    name: grpc-discovery
   - port: 8080
     name: http-legacy-discovery
   - port: 9093

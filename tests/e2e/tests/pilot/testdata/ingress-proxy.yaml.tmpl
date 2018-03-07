@@ -50,7 +50,7 @@ spec:
 {{end}}
         - --controlPlaneAuthPolicy
         - "{{.ControlPlaneAuthPolicy.String}}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 443
         - containerPort: 80

@@ -8,7 +8,7 @@ discovery_refresh_delay:  {seconds: 3}
 zipkin_address:           "localhost:6000"
 connect_timeout:          {seconds: 7}
 statsd_udp_address:       "10.1.1.1:9125"
-proxy_admin_port:         15003
+proxy_admin_port:         15005
 availability_zone:        "AZ"
 control_plane_auth_policy: MUTUAL_TLS
 stat_name_length:          200

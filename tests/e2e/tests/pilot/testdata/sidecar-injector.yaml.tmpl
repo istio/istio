@@ -33,7 +33,7 @@ spec:
       containers:
         - name: webhook
           image: {{.Hub}}/sidecar_injector:{{.Tag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --tlsCertFile=/etc/istio/certs/cert.pem
             - --tlsKeyFile=/etc/istio/certs/key.pem

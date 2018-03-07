@@ -67,13 +67,16 @@ e2e_simple_run:
 e2e_mixer: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+e2e_dashboard: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
 e2e_bookinfo: istioctl generate_yaml
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_upgrade: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e_all.xml
+JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
 e2e_all: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
 	set -o pipefail; \
@@ -90,7 +93,7 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
 	kubectl create ns istio-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true --auth=enable \
+		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
 		--core-files-dir=${OUT_DIR}/logs \

@@ -197,28 +197,28 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		expectedErr string
 	}{
 		"Good certificates": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key.pem",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key.pem",
 			expectedErr: "",
 		},
 		"Missing cert files": {
-			certFile:    "testdata/cert-not-exist.pem",
-			keyFile:     "testdata/key.pem",
-			expectedErr: "certificate file reading failure (open testdata/cert-not-exist.pem: no such file or directory)",
+			certFile:    "../testdata/cert-not-exist.pem",
+			keyFile:     "../testdata/key.pem",
+			expectedErr: "certificate file reading failure (open ../testdata/cert-not-exist.pem: no such file or directory)",
 		},
 		"Missing key files": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key-not-exist.pem",
-			expectedErr: "private key file reading failure (open testdata/key-not-exist.pem: no such file or directory)",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key-not-exist.pem",
+			expectedErr: "private key file reading failure (open ../testdata/key-not-exist.pem: no such file or directory)",
 		},
 		"Bad cert files": {
-			certFile:    "testdata/cert-bad.pem",
-			keyFile:     "testdata/key.pem",
+			certFile:    "../testdata/cert-bad.pem",
+			keyFile:     "../testdata/key.pem",
 			expectedErr: "pem encoded cert parsing failure (invalid PEM encoded certificate)",
 		},
 		"Bad key files": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key-bad.pem",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key-bad.pem",
 			expectedErr: "pem encoded key parsing failure (invalid PEM-encoded key)",
 		},
 	}

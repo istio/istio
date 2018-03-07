@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -63,6 +64,24 @@ var (
 						Weight: 80,
 					},
 				},
+			},
+		},
+	}
+
+	ExampleExternalService = &networking.ExternalService{
+		Hosts:     []string{"*.google.com"},
+		Discovery: networking.ExternalService_NONE,
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-name", Protocol: "http"},
+			{Number: 8080, Name: "http2-name", Protocol: "http2"},
+		},
+	}
+
+	ExampleGateway = &networking.Gateway{
+		Servers: []*networking.Server{
+			{
+				Hosts: []string{"google.com"},
+				Port:  &networking.Port{Name: "http", Protocol: "http", Number: 10080},
 			},
 		},
 	}
@@ -216,6 +235,16 @@ var (
 				Namespace: "default",
 			},
 		},
+	}
+
+	// ExampleAuthenticationPolicy is an example authentication Policy
+	ExampleAuthenticationPolicy = &authn.Policy{
+		Destinations: []*networking.Destination{{
+			Name: "hello",
+		}},
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
 	}
 )
 
@@ -422,6 +451,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"RouteRule", model.RouteRule, ExampleRouteRule},
 		{"VirtualService", model.VirtualService, ExampleVirtualService},
 		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
+		{"ExternalService", model.ExternalService, ExampleExternalService},
+		{"Gatway", model.Gateway, ExampleGateway},
 		{"IngressRule", model.IngressRule, ExampleIngressRule},
 		{"EgressRule", model.EgressRule, ExampleEgressRule},
 		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
@@ -433,6 +464,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 			ExampleEndUserAuthenticationPolicySpec},
 		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
 			ExampleEndUserAuthenticationPolicySpecBinding},
+		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
 	}
 
 	for _, c := range cases {

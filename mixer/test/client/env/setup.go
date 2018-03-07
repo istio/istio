@@ -86,7 +86,7 @@ func (s *TestSetup) SetMixerQuotaLimit(limit int64) {
 
 // GetMixerQuotaCount get the number of Quota calls.
 func (s *TestSetup) GetMixerQuotaCount() int {
-	return s.mixer.quota.count
+	return s.mixer.quota.Count()
 }
 
 // SetStress set the stress flag
@@ -155,17 +155,17 @@ func (s *TestSetup) ReStartEnvoy() {
 
 // VerifyCheckCount verifies the number of Check calls.
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
-	if s.mixer.check.count != expected {
+	if s.mixer.check.Count() != expected {
 		s.t.Fatalf("%s check count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.check.count, expected)
+			tag, s.mixer.check.Count(), expected)
 	}
 }
 
 // VerifyReportCount verifies the number of Report calls.
 func (s *TestSetup) VerifyReportCount(tag string, expected int) {
-	if s.mixer.report.count != expected {
+	if s.mixer.report.Count() != expected {
 		s.t.Fatalf("%s report count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.report.count, expected)
+			tag, s.mixer.report.Count(), expected)
 	}
 }
 
