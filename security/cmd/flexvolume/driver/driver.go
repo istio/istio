@@ -100,7 +100,7 @@ type FlexVolumeInputs struct {
 const (
 	versionK8s        string = "1.8"
 	configFileName    string = "/etc/flexvolume/nodeagent.json"
-	nodeAgentHome     string = "/var/run/nodeagent"
+	nodeAgentHome     string = "/tmp/nodeagent"
 	mountDir          string = "/mount"
 	credentialDirHome string = "/creds"
 	logLevelWarn      string = "WARNING"

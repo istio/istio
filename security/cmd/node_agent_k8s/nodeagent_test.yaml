@@ -13,31 +13,26 @@ spec:
     spec:
       initContainers:
       - name: flexvol-driver
-        image: gcr.io/istio-testing/flexvol:latest
+        # TODO(saumoh): Point to istio-testing once the images are updated.
+        image: quay.io/saurabh/flexvolume:istio-latest2
         volumeMounts:
         - name: flexvol-driver-host
           mountPath: /host/driver
       containers:
       - name: nodeagent
-        image: gcr.io/istio-testing/nodeagent:latest
+        # TODO(saumoh): Point to istio-testing once the images are updated.
+        image: quay.io/saurabh/node-agent-k8s:istio-latest1
         imagePullPolicy: Always
         volumeMounts:
         - name: test-mgmt
-          mountPath: /tmp/udsuspver
-        - name: test-workload
           mountPath: /tmp/nodeagent
       volumes:
         - name: test-mgmt
           hostPath:
             # directory location on host for the mgmt api between flexvolume driver and nodeagent
             type: DirectoryOrCreate
-            path: /tmp/udsuspver
-        - name: test-workload
-          hostPath:
-            # directory location on host for the uds between nodeagent and workload
-            type: DirectoryOrCreate
             path: /tmp/nodeagent
         - name: flexvol-driver-host
           hostPath:
             type: DirectoryOrCreate
-            path: /home/kubernetes/flexvolume
+            path: /home/kubernetes/flexvolume/nodeagent~uds

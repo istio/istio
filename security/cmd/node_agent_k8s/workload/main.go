@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -48,7 +47,7 @@ func init() {
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	var conn *grpc.ClientConn
@@ -57,11 +56,12 @@ func main() {
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithDialer(unixDialer))
-	fmt.Printf("start to connect with server")
+	log.Printf("start to connect with server")
 
 	conn, err = grpc.Dial(sockFile, opts...)
 	if err != nil {
-		fmt.Printf("failed to connect with server %v", err)
+		log.Printf("failed to connect with server %v", err)
+		os.Exit(1)
 	}
 	defer conn.Close() // nolint: errcheck
 
@@ -76,7 +76,7 @@ func check(client pb.WorkloadServiceClient) {
 	req := &pb.CheckRequest{Name: "foo"}
 	resp, err := client.Check(context.Background(), req)
 	if err != nil {
-		fmt.Printf("%v.Check(_) = _, %v: ", client, err)
+		log.Printf("%v.Check(_) = _, %v: ", client, err)
 	}
 	log.Println(resp)
 }

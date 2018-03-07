@@ -336,7 +336,7 @@ node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
 .PHONY: flexvolume
-flexvolume: ${ISTIO_OUT}/flexvolume
+flexvolume: ${ISTIO_OUT}/flexvolume flexvolume-sh
 
 .PHONY: flexvolume-sh
 flexvolume-sh: ./security/cmd/flexvolume/flexvolume.sh
