@@ -100,9 +100,8 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 
 	// Need to run the debug test before we close - close will remove the cluster since
 	// nobody is watching.
-	t.Run("DebugEndpoint", func(t *testing.T) {
-		testEdsz(t)
-	})
+	testEdsz(t)
+
 
 	_ = edsstr.CloseSend()
 }

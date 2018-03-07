@@ -11,7 +11,7 @@ data:
       drainDuration:          2s
       parentShutdownDuration: 3s
 {{if eq .Auth.String "NONE"}}
-      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15007
+      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:8080
 {{else}}
       discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15005
 {{end}}
