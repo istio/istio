@@ -553,6 +553,7 @@ var (
 func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
 	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15005"
 	return proxyConfig
 }
 
