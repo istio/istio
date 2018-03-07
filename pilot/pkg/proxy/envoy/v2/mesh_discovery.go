@@ -16,7 +16,6 @@ package v2
 
 import (
 	"os"
-	"strconv"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -25,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
-var(
+var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
@@ -46,7 +45,7 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 
-	if  len(periodicRefreshDuration) > 0 {
+	if len(periodicRefreshDuration) > 0 {
 		go periodicRefresh()
 	}
 	return out
@@ -64,6 +63,6 @@ func periodicRefresh() {
 	ticker := time.NewTicker(responseTickDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-			EdsPushAll()
+		EdsPushAll()
 	}
 }

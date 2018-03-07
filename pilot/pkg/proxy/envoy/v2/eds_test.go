@@ -151,4 +151,3 @@ func testEdsz(t *testing.T) {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }
-
