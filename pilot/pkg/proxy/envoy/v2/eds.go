@@ -335,10 +335,10 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	}
 }
 
-// ClearCache implements old style invalidation, generated when any rule or endpoint changes.
+// EdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func ClearCache() {
+func EdsPushAll() {
 	if edsDebug {
 		log.Infoa("EDS cache reset")
 	}
@@ -360,7 +360,7 @@ func ClearCache() {
 
 func Edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
-		ClearCache()
+		EdsPushAll()
 	}
 	data, err := json.Marshal(edsClusters)
 	if err != nil {

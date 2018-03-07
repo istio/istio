@@ -42,7 +42,8 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 
-	go periodicRefresh()
+	// 
+	//go periodicRefresh()
 	return out
 }
 
@@ -56,7 +57,7 @@ func periodicRefresh() {
 		// Block until either a request is received or the ticker ticks
 		select {
 		case <-ticker.C:
-			ClearCache()
+			EdsPushAll()
 		}
 	}
 }

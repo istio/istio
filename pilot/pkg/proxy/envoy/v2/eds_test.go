@@ -89,7 +89,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
 		mock.MakeService("hello2.default.svc.cluster.local", "10.1.0.1"))
 
-	v2.ClearCache() // will trigger recompute and push
+	v2.EdsPushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
 	res1, err = edsstr.Recv()

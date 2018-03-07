@@ -33,7 +33,6 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
-
           "api_type": "GRPC",
 
           "refresh_delay": {"seconds": 3, "nanos": 0},
