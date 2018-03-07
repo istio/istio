@@ -24,10 +24,6 @@ type SecretServer interface {
 	SetServiceIdentityPrivateKey([]byte) error
 	// SetServiceIdentityCert sets the service identity cert to the channel accessible to the workload.
 	SetServiceIdentityCert([]byte) error
-	// GetServiceIdentityPrivateKey returns the service identity private key.
-	GetServiceIdentityPrivateKey() ([]byte, error)
-	// SetServiceIdentityCert returns the service identity cert.
-	GetServiceIdentityCert() ([]byte, error)
 }
 
 // NewSecretServer instantiates a SecretServer according to the configuration.
@@ -35,8 +31,8 @@ func NewSecretServer(cfg Config) (SecretServer, error) {
 	switch cfg.Mode {
 	case SecretFile:
 		return &SecretFileServer{cfg}, nil
-	case WorkloadAPI:
-		return nil, fmt.Errorf("WORKLOAD API is unimplemented")
+	case SecretDiscoveryService:
+		return &SDSServer{}, nil
 	default:
 		return nil, fmt.Errorf("mode: %d is not supported", cfg.Mode)
 	}

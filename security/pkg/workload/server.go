@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -49,8 +50,17 @@ type SDSServer struct {
 	// The grpc server that listens on the above udsPaths.
 	grpcServer *grpc.Server
 
-	// secret service that serves certificate and private key
-	secretServer SecretServer
+	// Stores the certificated chain in the memory protected by certificateChainGuard
+	certificateChain []byte
+
+	// Stores the private key in the memory protected by privateKeyGuard
+	privateKey []byte
+
+	// Read/Write mutex for certificateChain
+	certificateChainGuard sync.RWMutex
+
+	// Read/Write mutex for privateKey
+	privateKeyGuard sync.RWMutex
 }
 
 const (
@@ -64,29 +74,41 @@ const (
 	SecretName = "SPKI"
 )
 
+// SetServiceIdentityCert sets the service identity certificate into the memory.
+func (s *SDSServer) SetServiceIdentityCert(content []byte) error {
+	s.certificateChainGuard.Lock()
+	s.certificateChain = content
+	s.certificateChainGuard.Unlock()
+	return nil
+}
+
+// SetServiceIdentityPrivateKey sets the service identity private key into the memory.
+func (s *SDSServer) SetServiceIdentityPrivateKey(content []byte) error {
+	s.privateKeyGuard.Lock()
+	s.privateKey = content
+	s.privateKeyGuard.Unlock()
+	return nil
+}
+
 // GetTLSCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
 // SecretServer implementations could have diffent implementation
 func (s *SDSServer) GetTLSCertificate(udsPath string) (*auth.TlsCertificate, error) {
-	privateKey, err := s.secretServer.GetServiceIdentityPrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
-	certificateChain, err := s.secretServer.GetServiceIdentityCert()
-	if err != nil {
-		return nil, err
-	}
+	s.certificateChainGuard.RLock()
+	s.privateKeyGuard.RLock()
 
 	tlsSecret := &auth.TlsCertificate{
 		CertificateChain: &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{certificateChain},
+			Specifier: &core.DataSource_InlineBytes{s.certificateChain},
 		},
 		PrivateKey: &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{privateKey},
+			Specifier: &core.DataSource_InlineBytes{s.privateKey},
 		},
 	}
+
+	s.certificateChainGuard.RUnlock()
+	s.privateKeyGuard.RUnlock()
 	return tlsSecret, nil
 }
 
@@ -144,12 +166,11 @@ func (s *SDSServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 
 // NewSDSServer creates the SDSServer that registers
 // SecretDiscoveryServiceServer, a gRPC server.
-func NewSDSServer(secretServer SecretServer) *SDSServer {
+func NewSDSServer() *SDSServer {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	s := &SDSServer{
-		grpcServer:   grpcServer,
-		secretServer: secretServer,
+		grpcServer: grpcServer,
 	}
 
 	sds.RegisterSecretDiscoveryServiceServer(grpcServer, s)
