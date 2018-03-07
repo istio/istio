@@ -29,7 +29,8 @@ import (
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
-	"istio.io/istio/mixer/pkg/runtime"
+	runtimeConfig "istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime2/validator"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -37,16 +38,20 @@ type runtimeValidatorOptions struct {
 	configStoreURL    string
 	identityAttribute string
 	adapters          map[string]*adapter.Info
-	templates         map[string]template.Info
+	templates         map[string]*template.Info
 }
 
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
 	tmplRepo := template.NewRepository(info)
+	tmplInfo := make(map[string]*template.Info, len(info))
+	for k, info := range info {
+		tmplInfo[k] = &info
+	}
 	ainfo := config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate)
-	rvc := runtimeValidatorOptions{adapters: ainfo, templates: info}
+	rvc := runtimeValidatorOptions{adapters: ainfo, templates: tmplInfo}
 	var kubeconfig string
-	kinds := runtime.KindMap(ainfo, info)
+	kinds := runtimeConfig.KindMap(ainfo, tmplInfo)
 	vc.ResourceNames = make([]string, 0, len(kinds))
 	for name := range kinds {
 		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))
@@ -97,7 +102,7 @@ func newValidator(rvc runtimeValidatorOptions, kinds map[string]proto.Message) (
 	if err != nil {
 		return nil, err
 	}
-	rv, err := runtime.NewValidator(eval, eval, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
+	rv, err := validator.New(eval, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
 	if err != nil {
 		return nil, err
 	}

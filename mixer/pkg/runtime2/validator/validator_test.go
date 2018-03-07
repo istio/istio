@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package validator
 
 import (
 	"context"
@@ -72,7 +72,7 @@ func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapt
 }
 
 func getValidatorForTest() (*Validator, error) {
-	path, err := filepath.Abs("../../testdata/config")
+	path, err := filepath.Abs("../../../testdata/config")
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +92,8 @@ func getValidatorForTest() (*Validator, error) {
 			},
 		},
 	}
-	templateInfo := map[string]template.Info{
-		"listentry": {
+	templateInfo := map[string]*template.Info{
+		"listentry": &template.Info{
 			CtrCfg: &types.Struct{},
 			InferType: func(msg proto.Message, fn template.TypeEvalFn) (proto.Message, error) {
 				st := msg.(*types.Struct)
@@ -110,7 +110,7 @@ func getValidatorForTest() (*Validator, error) {
 			},
 		},
 	}
-	v, err := NewValidator(eval, eval, "destination.service", s, adapterInfo, templateInfo)
+	v, err := New(eval, "destination.service", s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +223,7 @@ func TestValidator(t *testing.T) {
 			if err != nil {
 				tt.Fatal(err)
 			}
+			defer v.Stop()
 			err = v.Validate(cc.ev)
 			ok := (err == nil)
 			if cc.ok != ok {
@@ -271,6 +272,7 @@ func TestValidatorToRememberValidation(t *testing.T) {
 			if err != nil {
 				tt.Fatal(err)
 			}
+			defer v.Stop()
 
 			if err = v.Validate(c.ev1); err == nil {
 				tt.Error("Got nil, Want error")

@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/cache"
 	"istio.io/istio/pkg/log"
 )
 
@@ -43,42 +42,6 @@ func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeLi
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
 	return d, err
-}
-
-// NewValidator creates a new store.Validator instance which validates runtime semantics of
-// the configs.
-func NewValidator(vcListener VocabularyChangeListener, tc expr.TypeChecker, identityAttribute string, s store.Store,
-	adapterInfo map[string]*adapter.Info, templateInfo map[string]template.Info) (store.Validator, error) {
-	data, ch, err := startWatch(s, adapterInfo, templateInfo)
-	if err != nil {
-		return nil, err
-	}
-	hb := make(map[string]adapter.HandlerBuilder, len(adapterInfo))
-	for k, ai := range adapterInfo {
-		hb[k] = ai.NewBuilder()
-	}
-	configData := make(map[store.Key]proto.Message, len(data))
-	manifests := map[store.Key]*cpb.AttributeManifest{}
-	for k, obj := range data {
-		if k.Kind == AttributeManifestKind {
-			manifests[k] = obj.Spec.(*cpb.AttributeManifest)
-		}
-		configData[k] = obj.Spec
-	}
-	v := &Validator{
-		handlerBuilders: hb,
-		templates:       templateInfo,
-		tc:              tc,
-		vocabularyChangeListener: vcListener,
-		c: &validatorCache{
-			c:          cache.NewTTL(validatedDataExpiration, validatedDataEviction),
-			configData: configData,
-		},
-	}
-	go watchChanges(ch, watchFlushDuration, v.c.applyChanges)
-	v.af = v.newAttributeDescriptorFinder(manifests)
-	v.vocabularyChangeListener.ChangeVocabulary(v.af)
-	return v, nil
 }
 
 // startWatch registers with store, initiates a watch, and returns the current config state.

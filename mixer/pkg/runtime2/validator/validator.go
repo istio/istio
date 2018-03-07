@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package validator
 
 import (
 	"fmt"
@@ -26,29 +26,130 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
+	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/cache"
 	"istio.io/istio/pkg/log"
 )
 
 // Validator offers semantic validation of the config changes.
 type Validator struct {
-	handlerBuilders          map[string]adapter.HandlerBuilder
-	templates                map[string]template.Info
-	tc                       expr.TypeChecker
-	af                       expr.AttributeDescriptorFinder
-	vocabularyChangeListener VocabularyChangeListener
-	c                        *validatorCache
+	handlerBuilders map[string]adapter.HandlerBuilder
+	templates       map[string]*template.Info
+	tc              *evaluator.IL
+	af              expr.AttributeDescriptorFinder
+	c               *validatorCache
+	donec           chan struct{}
+}
+
+// startWatch registers with store, initiates a watch, and returns the current config state.
+// TODO: merge this with runtime2/runtime implementation.
+func startWatch(s store.Store, adapterInfo map[string]*adapter.Info,
+	templateInfo map[string]*template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
+	kindMap := config.KindMap(adapterInfo, templateInfo)
+	if err := s.Init(kindMap); err != nil {
+		return nil, nil, err
+	}
+	// create channel before listing.
+	watchChan, err := s.Watch()
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.List(), watchChan, nil
+}
+
+var watchFlushDuration = time.Second
+
+// maxEvents is the likely maximum number of events
+// we can expect in a second. It is used to avoid slice reallocation.
+const maxEvents = 50
+
+type applyEventsFn func(events []*store.Event)
+
+// watchChanges watches for changes on a channel and
+// publishes a batch of changes via applyEvents.
+// watchChanges is started in a goroutine.
+// TODO: merge this with runtime2/runtime implementation.
+func watchChanges(stop <-chan struct{}, wch <-chan store.Event, duration time.Duration, applyEvents applyEventsFn) {
+	// consume changes and apply them to data indefinitely
+	var timeChan <-chan time.Time
+	var timer *time.Timer
+	events := make([]*store.Event, 0, maxEvents)
+
+loop:
+	for {
+		select {
+		case ev, ok := <-wch:
+			if !ok {
+				break loop
+			}
+			if len(events) == 0 {
+				timer = time.NewTimer(duration)
+				timeChan = timer.C
+			}
+			events = append(events, &ev)
+		case <-timeChan:
+			timer.Stop()
+			timeChan = nil
+			log.Infof("Publishing %d events", len(events))
+			applyEvents(events)
+			events = events[:0]
+		case <-stop:
+			return
+		}
+	}
+}
+
+// New creates a new store.Validator instance which validates runtime semantics of
+// the configs.
+func New(tc *evaluator.IL, identityAttribute string, s store.Store,
+	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
+	data, ch, err := startWatch(s, adapterInfo, templateInfo)
+	if err != nil {
+		return nil, err
+	}
+	hb := make(map[string]adapter.HandlerBuilder, len(adapterInfo))
+	for k, ai := range adapterInfo {
+		hb[k] = ai.NewBuilder()
+	}
+	configData := make(map[store.Key]proto.Message, len(data))
+	manifests := map[store.Key]*cpb.AttributeManifest{}
+	for k, obj := range data {
+		if k.Kind == config.AttributeManifestKind {
+			manifests[k] = obj.Spec.(*cpb.AttributeManifest)
+		}
+		configData[k] = obj.Spec
+	}
+	v := &Validator{
+		handlerBuilders: hb,
+		templates:       templateInfo,
+		tc:              tc,
+		c: &validatorCache{
+			c:          cache.NewTTL(validatedDataExpiration, validatedDataEviction),
+			configData: configData,
+		},
+		donec: make(chan struct{}),
+	}
+	go watchChanges(v.donec, ch, watchFlushDuration, v.c.applyChanges)
+	v.af = v.newAttributeDescriptorFinder(manifests)
+	v.tc.ChangeVocabulary(v.af)
+	return v, nil
+}
+
+func (v *Validator) Stop() {
+	close(v.donec)
 }
 
 func (v *Validator) refreshTypeChecker() {
 	manifests := map[store.Key]*cpb.AttributeManifest{}
 	v.c.forEach(func(key store.Key, spec proto.Message) {
-		if key.Kind == AttributeManifestKind {
+		if key.Kind == config.AttributeManifestKind {
 			manifests[key] = spec.(*cpb.AttributeManifest)
 		}
 	})
 	v.af = v.newAttributeDescriptorFinder(manifests)
-	v.vocabularyChangeListener.ChangeVocabulary(v.af)
+	v.tc.ChangeVocabulary(v.af)
 }
 
 func (v *Validator) getKey(value, namespace string) (store.Key, error) {
@@ -77,7 +178,7 @@ func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.At
 			attrs[an] = at
 		}
 	}
-	return &attributeFinder{attrs: attrs}
+	return expr.NewFinder(attrs)
 }
 
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
@@ -130,7 +231,7 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 func (v *Validator) validateHandlerDelete(hkey store.Key) error {
 	var errs error
 	v.c.forEach(func(rkey store.Key, spec proto.Message) {
-		if rkey.Kind != RulesKind {
+		if rkey.Kind != config.RulesKind {
 			return
 		}
 		rule := spec.(*cpb.Rule)
@@ -152,7 +253,7 @@ func (v *Validator) validateHandlerDelete(hkey store.Key) error {
 func (v *Validator) validateInstanceDelete(ikey store.Key) error {
 	var errs error
 	v.c.forEach(func(rkey store.Key, spec proto.Message) {
-		if rkey.Kind != RulesKind {
+		if rkey.Kind != config.RulesKind {
 			return
 		}
 		rule := spec.(*cpb.Rule)
@@ -181,7 +282,7 @@ func (v *Validator) validateManifests(af expr.AttributeDescriptorFinder) error {
 			_, err = ti.InferType(spec, func(s string) (cpb.ValueType, error) {
 				return v.tc.EvalType(s, af)
 			})
-		} else if key.Kind == RulesKind {
+		} else if key.Kind == config.RulesKind {
 			rule := spec.(*cpb.Rule)
 			if rule.Match != "" {
 				if aerr := v.tc.AssertType(rule.Match, v.af, cpb.BOOL); aerr != nil {
@@ -205,15 +306,15 @@ func (v *Validator) validateDelete(key store.Key) error {
 		if err := v.validateInstanceDelete(key); err != nil {
 			return err
 		}
-	} else if key.Kind == AttributeManifestKind {
+	} else if key.Kind == config.AttributeManifestKind {
 		manifests := map[store.Key]*cpb.AttributeManifest{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
-			if k.Kind == AttributeManifestKind && k != key {
+			if k.Kind == config.AttributeManifestKind && k != key {
 				manifests[k] = spec.(*cpb.AttributeManifest)
 			}
 		})
 		af := v.newAttributeDescriptorFinder(manifests)
-		v.vocabularyChangeListener.ChangeVocabulary(af)
+		v.tc.ChangeVocabulary(af)
 		if err := v.validateManifests(af); err != nil {
 			return err
 		}
@@ -241,20 +342,20 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		if err != nil {
 			return err
 		}
-	} else if rule, ok := ev.Value.Spec.(*cpb.Rule); ok && ev.Kind == RulesKind {
+	} else if rule, ok := ev.Value.Spec.(*cpb.Rule); ok && ev.Kind == config.RulesKind {
 		if err := v.validateUpdateRule(ev.Namespace, rule); err != nil {
 			return err
 		}
-	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == AttributeManifestKind {
+	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == config.AttributeManifestKind {
 		manifests := map[store.Key]*cpb.AttributeManifest{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
-			if k.Kind == AttributeManifestKind {
+			if k.Kind == config.AttributeManifestKind {
 				manifests[k] = spec.(*cpb.AttributeManifest)
 			}
 		})
 		manifests[ev.Key] = manifest
 		af := v.newAttributeDescriptorFinder(manifests)
-		v.vocabularyChangeListener.ChangeVocabulary(af)
+		v.tc.ChangeVocabulary(af)
 		if err := v.validateManifests(af); err != nil {
 			return err
 		}

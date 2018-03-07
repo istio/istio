@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package validator
 
 import (
 	"reflect"
@@ -25,17 +25,18 @@ import (
 	cpb "istio.io/api/mixer/v1/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
+	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/pkg/cache"
 )
 
 const expirationForTest = 10 * time.Millisecond
 const watchFlushDurationForTest = time.Millisecond
 
-func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *storetest.Memstore, error) {
+func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *storetest.Memstore, chan struct{}, error) {
 	m := storetest.NewMemstore()
 	s := store.WithBackend(m)
-	if err := s.Init(map[string]proto.Message{RulesKind: &cpb.Rule{}, AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
-		return nil, nil, nil, err
+	if err := s.Init(map[string]proto.Message{config.RulesKind: &cpb.Rule{}, config.AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
+		return nil, nil, nil, nil, err
 	}
 	c := &validatorCache{
 		c:          cache.NewTTL(expirationForTest, expirationForTest*2),
@@ -43,10 +44,11 @@ func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *store
 	}
 	wch, err := s.Watch()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	go watchChanges(wch, watchFlushDurationForTest, c.applyChanges)
-	return c, s, m, nil
+	donec := make(chan struct{})
+	go watchChanges(donec, wch, watchFlushDurationForTest, c.applyChanges)
+	return c, s, m, donec, nil
 }
 
 func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
@@ -82,13 +84,14 @@ func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want pro
 }
 
 func TestValidatorCache(t *testing.T) {
-	c, s, m, err := newValidatorCacheForTest(t.Name())
+	c, s, m, donec, err := newValidatorCacheForTest(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer close(donec)
 	defer s.Stop()
 	assertListKeys(t, c)
-	k1 := store.Key{Kind: RulesKind, Name: "foo", Namespace: "ns"}
+	k1 := store.Key{Kind: config.RulesKind, Name: "foo", Namespace: "ns"}
 	r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}, Spec: map[string]interface{}{"match": "foo"}}
 	m.Put(r1)
 	time.Sleep(watchFlushDurationForTest * 2)
@@ -127,7 +130,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 	spec1 := &cpb.Rule{Match: "spec1"}
 	spec2 := &cpb.Rule{Match: "spec2"}
 	base := &cpb.Rule{Match: "base"}
-	k1 := store.Key{Kind: RulesKind, Name: "foo", Namespace: "ns"}
+	k1 := store.Key{Kind: config.RulesKind, Name: "foo", Namespace: "ns"}
 	meta1 := store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}
 	setWait := func(tt *testing.T, c *validatorCache, data proto.Message) {
 		// tt.Helper()
@@ -251,10 +254,11 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
-			c, s, m, err := newValidatorCacheForTest(t.Name())
+			c, s, m, donec, err := newValidatorCacheForTest(t.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer close(donec)
 			defer s.Stop()
 
 			r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{"match": "base"}}
