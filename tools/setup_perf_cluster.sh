@@ -228,6 +228,95 @@ function run_fortio_test3() {
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
 }
 
+# Run canonical perf tests.
+# The following parameters can be supplied:
+# 1) Label:
+#    A custom label to use. This is useful when running the same suite against two target binaries/configs.
+#    Defaults to "canonical"
+# 2) Driver:
+#    The load driver to use. Currently "fortio1" and "fortio2" are supported. Defaults to "fortio1".
+# 3) Target:
+#     The target service for the load. Currently "echo1" and "echo2" are supported.
+#     Defaults to "echo2"
+# 4) QPS:
+#     The QPS to apply. Defaults to 400.
+# 5) Duration:
+#     The duration of the test. Default is 5 minutes.
+# 6) Clients:
+#     The number of clients to use. Defaults is 16.
+# 7) Outdir:
+#     The output dir for collecting the Json results. If not specified, a temporary dir will be created.
+function run_canonical_perf_test() {
+    LABEL="${1}"
+    DRIVER="${2}"
+    TARGET="${3}"
+    QPS="${4}"
+    DURATION="${5}"
+    CLIENTS="${6}"
+    OUT_DIR="${7}"
+
+    # Set defaults
+    LABEL="${LABEL:-canonical}"
+    DRIVER="${DRIVER:-fortio1}"
+    TARGET="${TARGET:-echo2}"
+    QPS="${QPS:-400}"
+    DURATION="${DURATION:-5m}"
+    CLIENTS="${CLIENTS:-16}"
+
+    get_istio_ingress_ip
+
+    FORTIO1_URL="http://${ISTIO_INGRESS_IP}/fortio1/fortio"
+    FORTIO2_URL="http://${ISTIO_INGRESS_IP}/fortio2/fortio"
+    case "${DRIVER}" in
+        "fortio1")
+            DRIVER_URL="${FORTIO1_URL}"
+            ;;
+        "fortio2")
+            DRIVER_URL="${FORTIO2_URL}"
+            ;;
+        *)
+            echo "unknown driver: ${DRIVER}"
+            exit -1
+            ;;
+    esac
+
+    # URL encoded URLs for echo1 and echo2. These get directly embedded as parameters into the main URL to invoke
+    # the test.
+    ECHO1_URL="echosrv1:8080/echo"
+    ECHO2_URL="echosrv2:8080/echo"
+    case "${TARGET}" in
+        "echo1")
+            TARGET_URL="${ECHO1_URL}"
+            ;;
+        "echo2")
+            TARGET_URL="${ECHO2_URL}"
+            ;;
+        *)
+            echo "unknown target: ${TARGET}"
+            exit -1
+            ;;
+    esac
+
+    PERCENTILES="50%2C+75%2C+90%2C+99%2C+99.9"
+    GRANULARITY="0.001"
+
+    LABELS="${LABEL}+${DRIVER}+${TARGET}+Q${QPS}+T${DURATION}+C${CLIENTS}"
+
+    if [[ -z "${OUT_DIR// }" ]]; then
+        OUT_DIR=$(mktemp -d -t "istio_perf.XXXXXX")
+    fi
+
+    FILE_NAME="${LABELS//\+/_}"
+    OUT_FILE="${OUT_DIR}/${FILE_NAME}.json"
+
+    echo "Running '${LABELS}' and storing results in ${OUT_FILE}"
+
+    URL="${DRIVER_URL}/?labels=${LABELS}&url=${TARGET_URL}&qps=${QPS}&t=${DURATION}&c=${CLIENTS}&p=${PERCENTILES}&r=${GRANULARITY}&json=on&save=on&load=Start"
+    #echo "URL: ${URL}"
+
+    curl -s "${URL}" -o "${OUT_FILE}"
+}
+
 function setup_vm_all() {
   update_gcp_opts
   create_vm
