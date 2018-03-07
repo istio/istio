@@ -359,7 +359,7 @@ if __name__ == "__main__":
         description="Fetch routes from Envoy or Pilot for a given pod")
 
     parser.add_argument("--pilot_url",
-                        help="Often this is localhost:8080 or 15003 through a port-forward."
+                        help="Often this is localhost:8080 or 15005 (https) or 15007 (http) through a port-forward."
                         " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080."
                         "\n\nIf not provided, attempt will be made to find it out."
                         )
