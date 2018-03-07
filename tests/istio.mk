@@ -67,6 +67,9 @@ e2e_simple_run:
 e2e_mixer: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+e2e_dashboard: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
 e2e_bookinfo: istioctl generate_yaml
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 

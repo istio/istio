@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  selector:
+    app: echosrv
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /fortio/.*
+            backend:
+              serviceName: echosrv
+              servicePort: http-echo
+          - path: /tcp/.*
+            backend:
+              serviceName: tcpechosrv
+              servicePort: tcp-echo
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: fortio-redir
+spec:
+    destination:
+      name: echosrv
+    match:
+        request:
+          headers:
+            uri:
+              prefix: /fortio/ # prefix
+    rewrite:
+        uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: echosrv
+        version: v1
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+        args:
+          - server
