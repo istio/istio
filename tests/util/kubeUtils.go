@@ -26,6 +26,7 @@ import (
 	"text/template"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/log"
 )
 
@@ -77,12 +78,10 @@ func DeleteNamespace(n string) error {
 
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string) (bool, error) {
-	output, err := Shell("kubectl get namespace %s", n)
+	output, err := ShellSilent("kubectl get namespace %s -o name", n)
 	if strings.Contains(output, "NotFound") {
-		log.Infof("namespace %s deleted\n", n)
 		return true, nil
 	}
-	log.Infof("namespace %s not deleted yet\n", n)
 	return false, err
 }
 
@@ -128,15 +127,15 @@ func KubeDelete(namespace, yamlFileName string) error {
 // GetIngress get istio ingress ip
 func GetIngress(n string) (string, error) {
 	retry := Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  20 * time.Second,
-		Retries:   20,
+		BaseDelay: 1 * time.Second,
+		MaxDelay:  1 * time.Second,
+		Retries:   300, // ~5 minutes
 	}
 	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
 	retryFn := func(i int) error {
-		ip, err := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+		ip, err := ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
 		// For minikube, comment out the previous line and uncomment the following line
 		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
@@ -144,10 +143,7 @@ func GetIngress(n string) (string, error) {
 		}
 		ip = strings.Trim(ip, "'")
 		if ri.FindString(ip) == "" {
-			pods, _ := Shell("kubectl get all -n %s -o wide", n)
-			err = fmt.Errorf("unable to find ingress ip, state:\n%s", pods)
-			log.Warna(err)
-			return err
+			return errors.New("ingress ip not available yet")
 		}
 		ingress = ip
 		// For minikube, comment out the previous line and uncomment the following lines
@@ -162,10 +158,16 @@ func GetIngress(n string) (string, error) {
 		//	return err
 		//}
 		//ingress = ip + ":" + port
-		log.Infof("Istio ingress: %s\n", ingress)
+		log.Infof("Istio ingress: %s", ingress)
+
 		return nil
 	}
+	log.Info("Waiting for istio-ingress to get external IP")
 	_, err := retry.Retry(retryFn)
+	if err != nil {
+		pods, _ := ShellMuteOutput("kubectl get all -n %s -o wide", n)
+		err = multierror.Prefix(err, pods)
+	}
 	return ingress, err
 }
 

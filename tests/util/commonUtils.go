@@ -125,22 +125,35 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
-	return sh(format, true, args...)
+	return sh(format, true, true, args...)
 }
 
 // ShellMuteOutput run command on shell and get back output and error if get one
 // without logging the output
 func ShellMuteOutput(format string, args ...interface{}) (string, error) {
-	return sh(format, false, args...)
+	return sh(format, true, false, args...)
 }
 
-func sh(format string, logOutput bool, args ...interface{}) (string, error) {
+// ShellSilent runs command on shell and get back output and error if get one
+// without logging the command or output.
+func ShellSilent(format string, args ...interface{}) (string, error) {
+	return sh(format, false, false, args...)
+}
+
+func sh(format string, logCommand, logOutput bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
-	log.Infof("Running command %s", command)
+	if logCommand {
+		log.Infof("Running command %s", command)
+	}
 	c := exec.Command("sh", "-c", command) // #nosec
 	bytes, err := c.CombinedOutput()
 	if logOutput {
-		log.Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
+		if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
+			log.Infof("Command output: \n%s", output)
+		}
+		if err != nil {
+			log.Infof("Command error: %v", err)
+		}
 	}
 	if err != nil {
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)

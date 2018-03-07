@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -25,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/sync/errgroup"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -39,6 +41,8 @@ const (
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
+
+	maxDeploymentRolloutTime = 120 * time.Second
 )
 
 var (
@@ -222,16 +226,17 @@ func (k *KubeInfo) Teardown() error {
 	// confirm the namespace is deleted as it will cause future creation to fail
 	maxAttempts := 30
 	namespaceDeleted := false
+	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
 		if namespaceDeleted {
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
-		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
 		return nil
 	}
 
@@ -305,12 +310,34 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
 			return err
 		}
-
-		// alow time for sidecar injector to start
-		time.Sleep(60 * time.Second)
 	}
 
-	return nil
+	// wait for istio-system deployments to be fully rolled out before proceeding
+	deployments, err := util.ShellMuteOutput("kubectl -n %s get deployment -o name", k.Namespace)
+	if err != nil {
+		return fmt.Errorf("could not list deployments in namespace %q", k.Namespace)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), maxDeploymentRolloutTime)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	for _, deployment := range strings.Fields(deployments) {
+		g.Go(func() error {
+			errc := make(chan error)
+			go func() {
+				if _, err := util.ShellMuteOutput("kubectl -n %s rollout status %s", k.Namespace, deployment); err != nil {
+					errc <- fmt.Errorf("%s in namespace %s failed", deployment, k.Namespace)
+				}
+				errc <- nil
+			}()
+			select {
+			case err := <-errc:
+				return err
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+	}
+	return g.Wait()
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
