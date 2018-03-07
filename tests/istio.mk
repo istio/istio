@@ -82,7 +82,7 @@ e2e_all: | $(JUNIT_REPORT)
 
 # Run the e2e tests, with auth enabled. A separate target is used for non-auth.
 e2e_pilot: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG} -auth=enable
+	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG}
 
 e2e_pilot_noauth: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} -hub ${HUB} -tag ${TAG} --skip-cleanup -mixer=true -auth=disable -use-sidecar-injector=false

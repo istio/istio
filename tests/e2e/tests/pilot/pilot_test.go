@@ -66,7 +66,7 @@ func init() {
 	flag.StringVar(&config.KubeConfig, "kubeconfig", config.KubeConfig,
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&config.TestCount, "count", config.TestCount, "Number of times to run each test")
-	flag.StringVar(&authmode, "auth", string(authModeBoth),
+	flag.StringVar(&authmode, "auth", string(authModeEnable),
 		fmt.Sprintf("Auth mode for the tests (Choose from %s, %s, %s)", authModeEnable, authModeDisable, authModeBoth))
 	flag.BoolVar(&config.Mixer, "mixer", config.Mixer, "Enable / disable mixer.")
 	flag.BoolVar(&config.V1alpha1, "v1alpha1", config.V1alpha1, "Enable / disable v1alpha1 routing rules.")
