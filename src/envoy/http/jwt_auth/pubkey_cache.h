@@ -1,4 +1,4 @@
-/* Copyright 2017 Istio Authors. All Rights Reserved.
+/* Copyright 2018 Istio Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-#ifndef JWT_AUTH_PUBKEY_CACHE_H
-#define JWT_AUTH_PUBKEY_CACHE_H
+#pragma once
 
 #include <chrono>
 #include <unordered_map>
@@ -121,5 +120,3 @@ class PubkeyCache {
 }  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy
-
-#endif  // JWT_AUTH_PUBKEY_CACHE_H

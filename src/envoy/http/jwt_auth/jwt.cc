@@ -39,8 +39,6 @@ std::string StatusToString(Status status) {
   static std::map<Status, std::string> table = {
       {Status::OK, "OK"},
       {Status::JWT_MISSED, "Required JWT token is missing"},
-      {Status::BEARER_PREFIX_MISMATCH,
-       "Authorization header value doesn't have Bearer prefix"},
       {Status::JWT_EXPIRED, "JWT is expired"},
       {Status::JWT_BAD_FORMAT, "JWT_BAD_FORMAT"},
       {Status::JWT_HEADER_PARSE_ERROR, "JWT_HEADER_PARSE_ERROR"},

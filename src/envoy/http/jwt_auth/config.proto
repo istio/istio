@@ -86,7 +86,7 @@ message JWT {
   // specified.
   google.protobuf.Duration public_key_cache_duration = 5;
 
-  // Defines where to extract the JWT from an HTTP request.
+  // Two fields below define where to extract the JWT from an HTTP request.
   //
   // If no explicit location is specified the following default
   // locations are tried in order:
@@ -98,24 +98,34 @@ message JWT {
   //     2) `access_token` query parameter (see
   //     https://tools.ietf.org/html/rfc6750#section-2.3)
   //
-  message Location {
-    oneof scheme {
-      // JWT is sent in a request header. `header` represents the
-      // header name.
-      //
-      // For example, if `header=x-goog-iap-jwt-assertion`, the header
-      // format will be x-goog-iap-jwt-assertion: <JWT>.
-      //
-      string header = 1;
 
-      // JWT is sent in a query parameter. `query` represents the
-      // query parameter name.
-      //
-      // For example, `query=jwt_token`.
-      string query = 2;
-    }
-  }
-  repeated Location locations = 6;
+  // Only one JWT token is verified per request.
+  // If multiple header or parameter names specified, the first one with the
+  // token will be used.
+  // If both jwt_headers and jwt_params are specified, jwt_headers will be
+  // checked first.
+
+  // JWT is sent in a request header. `jwt_headers` represents the
+  // header names. Their format is:
+  //    header_name: <JWT>
+  //
+  // For example, if config is
+  //   jwt_headers:
+  //      x-goog-iap-jwt-assertion
+  // The header format will be:
+  //   x-goog-iap-jwt-assertion: <JWT>.
+  //
+  repeated string jwt_headers = 6;
+
+  // JWT is sent in a query parameter. `jwt_params` represents the
+  // query parameter names.
+  //
+  // For example, if config is:
+  //   jwt_params:
+  //      jwt_token
+  // The query parameter is:  ?jwt_token=<JWT>
+  //
+  repeated string jwt_params = 8;
 
   // This field is specific for Envoy proxy implementation.
   // It is the cluster name in the Envoy config for the jwks_uri.

@@ -211,6 +211,8 @@ TEST_F(JwtAuthenticatorTest, TestOkJWT) {
               "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
               "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
               "ImV4cCI6MjAwMTAwMTAwMX0");
+    // Verify the token is removed.
+    EXPECT_FALSE(headers.Authorization());
   }
 }
 
@@ -270,9 +272,8 @@ TEST_F(JwtAuthenticatorTest, TestInvalidJWT) {
 TEST_F(JwtAuthenticatorTest, TestInvalidPrefix) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
-        ASSERT_EQ(status, Status::BEARER_PREFIX_MISMATCH);
-      }));
+      .WillOnce(Invoke(
+          [](const Status& status) { ASSERT_EQ(status, Status::JWT_MISSED); }));
 
   auto headers = TestHeaderMapImpl{{"Authorization", "Bearer-invalid"}};
   auth_->Verify(headers, &mock_cb_);
