@@ -134,18 +134,16 @@ func TestPilot(t *testing.T) {
 			config.Namespace, authmode)
 	}
 
-	noAuthConfig := config
-	authConfig := config
-	authConfig.Auth = true
-
 	switch authMode(authmode) {
 	case authModeEnable:
-		doTest(authTestName, authConfig, t)
+		config.Auth = true
+		doTest(authTestName, config, t)
 	case authModeDisable:
-		doTest(noAuthTestName, noAuthConfig, t)
+		doTest(noAuthTestName, config, t)
 	case authModeBoth:
-		doTest(noAuthTestName, noAuthConfig, t)
-		doTest(authTestName, authConfig, t)
+		// Deprecated - will run auth
+		config.Auth = true
+		doTest(authTestName, config, t)
 	default:
 		t.Fatalf("Unknown auth mode(=%s).", authmode)
 	}
