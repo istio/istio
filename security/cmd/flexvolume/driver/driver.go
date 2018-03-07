@@ -238,7 +238,6 @@ func genericSucc(caller, inp, msg string) error {
 	return nil
 }
 
-// Failure report failure case
 func failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
 	if err != nil {
