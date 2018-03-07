@@ -15,12 +15,20 @@
 package v2
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
@@ -30,6 +38,29 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
+
+var(
+	// It doesn't appear the logging framework has support for per-component logging, yet
+	// we need to be able to debug EDS2.
+	edsDebug = len(os.Getenv("PILOT_DEBUG_EDS")) > 0
+
+	// TODO: add the connections to the map, add a debug helper and push
+	edsClientMutex sync.Mutex
+	edsClients = map[string]EdsConnection{}
+)
+
+// EdsConnection represents a streaming grpc connection from an envoy server.
+// This is primarily intended for supporting push, but also for debug and statusz.
+type EdsConnection struct {
+	peerAddr string
+
+	// current list of clusters monitored by the client
+	clusters []string
+
+	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// same info can be sent to all clients, without recomputing.
+	pushChannel chan bool
+}
 
 // Endpoints implements MeshDiscovery.Endpoints()
 func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {
@@ -49,30 +80,37 @@ func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.Discov
 		Nonce:       version,
 	}
 
-	var totalEndpoints uint32
 	out.Resources = make([]types.Any, 0, len(serviceClusters))
 	for _, serviceCluster := range serviceClusters {
-		hostname, ports, labels := model.ParseServiceKey(serviceCluster)
-		instances, err := ds.Instances(hostname, ports.GetNames(), labels)
-		if err != nil {
-			log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
-			continue
+		clAssignmentRes := clusterEndpoints(ds, serviceCluster)
+		if clAssignmentRes != nil {
+			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
-		locEps := localityLbEndpointsFromInstances(instances)
-		if len(instances) == 0 {
-			log.Infoa("EDS: no instances ", serviceCluster, hostname, ports, labels)
-		}
-		clAssignment := &xdsapi.ClusterLoadAssignment{
-			ClusterName: serviceCluster,
-			Endpoints:   locEps,
-		}
-		//log.Infof("EDS: %v %s", serviceCluster, clAssignment.String())
-		clAssignmentRes, _ = types.MarshalAny(clAssignment)
-		out.Resources = append(out.Resources, *clAssignmentRes)
-		totalEndpoints += uint32(len(locEps))
 	}
 
 	return out
+}
+
+// Get the ClusterLoadAssignment for a cluster.
+func clusterEndpoints(ds *v1.DiscoveryService, serviceCluster string) *types.Any {
+	// TODO: cache the result, invalidate. All endpoints want the same object.
+	hostname, ports, labels := model.ParseServiceKey(serviceCluster)
+	instances, err := ds.Instances(hostname, ports.GetNames(), labels)
+	if err != nil {
+		log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
+		return nil
+	}
+	locEps := localityLbEndpointsFromInstances(instances)
+	if len(instances) == 0 && edsDebug {
+		log.Infoa("EDS: no instances ", serviceCluster, hostname, ports, labels)
+	}
+	clAssignment := &xdsapi.ClusterLoadAssignment{
+		ClusterName: serviceCluster,
+		Endpoints:   locEps,
+	}
+	//log.Infof("EDS: %v %s", serviceCluster, clAssignment.String())
+	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+	return clAssignmentRes
 }
 
 func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
@@ -125,14 +163,128 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 			}
 			localityEpMap[locality] = locLbEps
 		}
-		log.Infoa("EDS LOCALITY ep: ", (*lbEp).String(), localityEpMap)
 		locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *lbEp)
 	}
-	log.Infoa("EDS LOCALITY: ", localityEpMap)
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		out = append(out, *locLbEps)
-		log.Infoa("EDS LOCALITY add: ", locLbEps.String())
 	}
 	return out
+}
+
+// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
+func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
+	ticker := time.NewTicker(responseTickDuration)
+	peerInfo, ok := peer.FromContext(stream.Context())
+	peerAddr := "Unknown peer address"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	defer ticker.Stop()
+	var discReq *xdsapi.DiscoveryRequest
+	var receiveError error
+	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	con := & EdsConnection {
+		pushChannel : make(chan bool, 1),
+		peerAddr: peerAddr,
+		clusters: []string{},
+	}
+	go func() {
+		defer close(reqChannel)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if status.Code(err) == codes.Canceled || err == io.EOF {
+					return
+				}
+				receiveError = err
+				log.Errorf("EDS close for client %q terminated with errors %v", peerAddr, err)
+				return
+			}
+			reqChannel <- req
+		}
+	}()
+	for {
+		// Block until either a request is received or the ticker ticks
+		select {
+		case discReq, ok = <-reqChannel:
+			if !ok {
+				return receiveError
+			}
+			clusters2 := discReq.GetResourceNames()
+			// TODO: is it additive ? Does override ever happens ?
+			if len(con.clusters) > 0 && len(clusters2) > 0 {
+				log.Infof("Clusters override %v -> %v %s", con.clusters, clusters2, discReq.String())
+			}
+			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
+			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
+			// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
+			if discReq.ResponseNonce != "" {
+				if edsDebug {
+					log.Infof("EDS ACK %s from Envoy, existing clusters %v ",
+						discReq.String(), con.clusters)
+				}
+				continue
+			} else {
+				if edsDebug {
+					if len(con.clusters) > 0 {
+						log.Infof("EDS REQ %s from Envoy, existing clusters %v ",
+							discReq.String(), con.clusters)
+					} else {
+						log.Infof("EDS REQ %s %v", discReq.String(), peerAddr)
+					}
+				}
+			}
+			if len(clusters2) > 0 {
+				con.clusters = clusters2
+			}
+
+		case <-ticker.C:
+			case <- con.pushChannel:
+		}
+
+		if len(con.clusters) > 0 {
+			response := Endpoints(s.mesh, con.clusters)
+			err := stream.Send(response)
+			if err != nil {
+				return err
+			}
+
+			if edsDebug {
+				log.Infof("EDS RES for %q clusters %v, Response: \n%s %s \n", peerAddr,
+					con.clusters, response.String())
+			}
+		} else {
+			if edsDebug {
+				log.Infof("EDS empty clusters %v \n", peerAddr)
+			}
+		}
+	}
+}
+
+// FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
+func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+	peerInfo, ok := peer.FromContext(ctx)
+	peerAddr := "Unknown peer address"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	clusters := req.GetResourceNames()
+	if len(clusters) == 0 {
+		return nil, fmt.Errorf("no clusters specified in EDS request from %q", peerAddr)
+	}
+	if log.DebugEnabled() {
+		log.Debugf("EDS request from  %q for clusters %v received.", peerAddr, clusters)
+	}
+	response := Endpoints(s.mesh, clusters)
+	if log.DebugEnabled() {
+		log.Debugf("\nEDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr, clusters, response.String())
+	}
+	return response, nil
+}
+
+// StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
+func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
+	// TODO: Change fake values to real load assignments
+	return errors.New("unsupported streaming method")
 }

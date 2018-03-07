@@ -33,7 +33,11 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
+{{ if .edsv1  }}
+          "api_type": "REST_LEGACY",
+{{ else }}
           "api_type": "GRPC",
+{{ end }}
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
             "xds-grpc"

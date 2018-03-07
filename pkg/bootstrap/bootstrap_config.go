@@ -170,6 +170,12 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	}
 	opts["pilot_grpc_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", grpcHost, grpcPort)
 
+	// Failsafe for EDSv2. In case of bugs of problems, the injection template can be modified to
+	// add this env variable. This is short lived, EDSv1 will be deprecated/removed.
+	if os.Getenv("USE_EDS_V1") == "1" {
+			opts["edsv1"] = "1"
+	}
+
 	if config.ZipkinAddress != "" {
 		addPort = strings.Split(config.ZipkinAddress, ":")
 		opts["zipkin"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])

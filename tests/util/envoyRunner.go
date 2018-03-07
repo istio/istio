@@ -98,7 +98,8 @@ func RunEnvoy(base string, template string) error {
 		return err
 	}
 
-	_, err = bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, &EnvoyOutWriter, &EnvoyErrWriter)
+	//_, err = bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, &EnvoyOutWriter, &EnvoyErrWriter)
+	_, err = bootstrap.RunProxy(&config, "router~x~x~x", 0, fname, nil, os.Stdout, os.Stderr)
 
 	if err != nil {
 		fmt.Println("Failed to start envoy", err)
