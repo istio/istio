@@ -46,16 +46,16 @@ spec:
           - istio-mixer:9125
           - --proxyAdminPort
           - "15000"
-        {{- if .Values.global.securityEnabled }}
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
           - istio-pilot:15005
         {{- else }}
           - --controlPlaneAuthPolicy
-          - NONE #--controlPlaneAuthPolicy
+          - NONE
           - --discoveryAddress
-          - istio-pilot:15007
+          - istio-pilot:8080
         {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}

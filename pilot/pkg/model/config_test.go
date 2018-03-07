@@ -22,6 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -571,5 +572,105 @@ func TestPolicy(t *testing.T) {
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
+	}
+}
+
+func TestAuthenticationPolicyConfig(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	authNPolicies := map[string]*authn.Policy{
+		"all": {
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_None{},
+			}},
+		},
+		"hello": {
+			Destinations: []*networking.Destination{{
+				Name: "hello",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
+		"world": {
+			Destinations: []*networking.Destination{{
+				Name: "world",
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 80,
+					},
+				},
+			}},
+			CredentialRules: []*authn.CredentialRule{{
+				Binding: authn.CredentialRule_USE_ORIGIN,
+				Origins: []*authn.OriginAuthenticationMethod{{
+					Jwt: &authn.Jwt{
+						Issuer:  "abc.xzy",
+						JwksUri: "https://secure.isio.io",
+					},
+				}},
+			}},
+		},
+	}
+	for key, value := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha1",
+				Namespace: "default",
+				Domain:    "cluster.local",
+			},
+			Spec: value,
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname string
+		port     int
+		expected string
+	}{
+		{
+			hostname: "hello.default.svc.cluster.local",
+			port:     80,
+			expected: "hello",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     80,
+			expected: "world",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     8080,
+			expected: "all",
+		},
+		{
+			hostname: "world.another-galaxy.svc.cluster.local",
+			port:     8080,
+			expected: "",
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		expected := authNPolicies[testCase.expected]
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		if out == nil {
+			if expected != nil {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
+					testCase.hostname, testCase.port, expected)
+			}
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(expected, policy) {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
+					testCase.hostname, testCase.port, expected, out)
+			}
+		}
 	}
 }

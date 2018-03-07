@@ -20,18 +20,18 @@ import (
 )
 
 const (
-	rootCertFile        = "testdata/multilevelpki/root-cert.pem"
-	rootKeyFile         = "testdata/multilevelpki/root-key.pem"
-	intCertFile         = "testdata/multilevelpki/int-cert.pem"
-	intKeyFile          = "testdata/multilevelpki/int-key.pem"
-	intCertChainFile    = "testdata/multilevelpki/int-cert-chain.pem"
-	int2CertFile        = "testdata/multilevelpki/int2-cert.pem"
-	int2KeyFile         = "testdata/multilevelpki/int2-key.pem"
-	int2CertChainFile   = "testdata/multilevelpki/int2-cert-chain.pem"
-	badCertFile         = "testdata/cert-bad.pem"
-	badKeyFile          = "testdata/key-bad.pem"
-	anotherKeyFile      = "testdata/key.pem"
-	anotherRootCertFile = "testdata/cert.pem"
+	rootCertFile        = "../testdata/multilevelpki/root-cert.pem"
+	rootKeyFile         = "../testdata/multilevelpki/root-key.pem"
+	intCertFile         = "../testdata/multilevelpki/int-cert.pem"
+	intKeyFile          = "../testdata/multilevelpki/int-key.pem"
+	intCertChainFile    = "../testdata/multilevelpki/int-cert-chain.pem"
+	int2CertFile        = "../testdata/multilevelpki/int2-cert.pem"
+	int2KeyFile         = "../testdata/multilevelpki/int2-key.pem"
+	int2CertChainFile   = "../testdata/multilevelpki/int2-cert-chain.pem"
+	badCertFile         = "../testdata/cert-bad.pem"
+	badKeyFile          = "../testdata/key-bad.pem"
+	anotherKeyFile      = "../testdata/key.pem"
+	anotherRootCertFile = "../testdata/cert.pem"
 )
 
 // The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.

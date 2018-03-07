@@ -32,13 +32,13 @@ type Config struct {
 	KubeConfig            string
 	Hub                   string
 	Tag                   string
+	ImagePullPolicy       string
 	Namespace             string
 	IstioNamespace        string
 	Registry              string
 	ErrorLogsDir          string
 	CoreFilesDir          string
 	SelectedTest          string
-	SidecarTemplate       string
 	AdmissionServiceName  string
 	Verbosity             int
 	DebugPort             int
@@ -53,7 +53,7 @@ type Config struct {
 	DebugImagesAndMode    bool
 	UseAutomaticInjection bool
 	V1alpha1              bool
-	V1alpha2              bool
+	V1alpha3              bool
 	RDSv2                 bool
 	NoRBAC                bool
 	UseAdmissionWebhook   bool
@@ -66,6 +66,7 @@ func NewConfig() *Config {
 		KubeConfig:            os.Getenv("KUBECONFIG"),
 		Hub:                   defaultHub,
 		Tag:                   "",
+		ImagePullPolicy:       "IfNotPresent",
 		Namespace:             "",
 		IstioNamespace:        "",
 		Registry:              defaultRegistry,
@@ -87,6 +88,6 @@ func NewConfig() *Config {
 		UseAdmissionWebhook:   false,
 		AdmissionServiceName:  defaultAdmissionServiceName,
 		V1alpha1:              false,
-		V1alpha2:              true,
+		V1alpha3:              true,
 	}
 }

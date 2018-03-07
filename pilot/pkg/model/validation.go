@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -1647,6 +1648,72 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
+func ValidateAuthenticationPolicy(msg proto.Message) error {
+	in, ok := msg.(*authn.Policy)
+	if !ok {
+		return errors.New("cannot cast to AuthenticationPolicy")
+	}
+	var errs error
+
+	for _, dest := range in.Destinations {
+		errs = appendErrors(errs, validateDestination(dest))
+	}
+
+	for _, method := range in.Peers {
+		errs = appendErrors(errs, validateJwt(method.GetJwt()))
+	}
+
+	for _, rule := range in.CredentialRules {
+		if rule.Binding == authn.CredentialRule_USE_ORIGIN {
+			if len(rule.Origins) == 0 {
+				errs = multierror.Append(
+					errs, errors.New("credential use origin must define at least one method"))
+			}
+		}
+		for _, method := range rule.Origins {
+			errs = appendErrors(errs, validateJwt(method.Jwt))
+		}
+	}
+	return errs
+}
+
+func validateJwt(jwt *authn.Jwt) (errs error) {
+	if jwt == nil {
+		return nil
+	}
+	if jwt.Issuer == "" {
+		errs = multierror.Append(errs, errors.New("issuer must be set"))
+	}
+	for _, audience := range jwt.Audiences {
+		if audience == "" {
+			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
+		}
+	}
+	if jwt.JwksUri == "" {
+		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
+	}
+	if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
+		errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
+	}
+	if _, err := url.Parse(jwt.JwksUri); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
+	}
+
+	for _, location := range jwt.JwtHeaders {
+		if location == "" {
+			errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
+		}
+	}
+
+	for _, location := range jwt.JwtParams {
+		if location == "" {
+			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
+		}
+	}
+	return
 }
 
 // ValidateEndUserAuthenticationPolicySpec checks that EndUserAuthenticationPolicySpec is well-formed.

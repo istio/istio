@@ -229,11 +229,11 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=false -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
-  e2e-pilot-v1alpha1-and-v1alpha2:
+  e2e-pilot-v1alpha1-and-v1alpha3:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -265,7 +265,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=true -v1alpha3=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -314,6 +314,8 @@ jobs:
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
       ISTIO_BIN: /go/bin
+      # Skip enforcement of coverage until integration tests are measured.
+      CODECOV_NO_ENFORCE: true
     steps:
       - checkout
       - run: make submodule-sync
@@ -326,7 +328,7 @@ jobs:
       - run:
           name: Uploading code coverage to codecov.io
           when: always
-          command: cd /go/out/codecov && bash <(curl -s https://codecov.io/bash)
+          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.txt
       - store_artifacts:
           path: /go/out/codecov
 
@@ -549,7 +551,7 @@ workflows:
       - e2e-bookinfo:
           requires:
             - build
-      - e2e-pilot-v1alpha1-and-v1alpha2:
+      - e2e-pilot-v1alpha1-and-v1alpha3:
           requires:
             - build
       - e2e-pilot-noauth:

@@ -118,7 +118,6 @@ func TestExtractSANExtension(t *testing.T) {
 	}
 }
 
-// TODO: Test the error messages.
 func TestExtractIDs(t *testing.T) {
 	id := "test.id"
 	sanExt, err := BuildSANExtension([]Identity{
@@ -129,25 +128,36 @@ func TestExtractIDs(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		exts        []pkix.Extension
-		expectedIDs []string
+		exts           []pkix.Extension
+		expectedIDs    []string
+		expectedErrMsg string
 	}{
 		"Empty extension list": {
-			exts:        []pkix.Extension{},
-			expectedIDs: nil,
+			exts:           []pkix.Extension{},
+			expectedIDs:    nil,
+			expectedErrMsg: "the SAN extension does not exist",
 		},
 		"Extensions without SAN": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
 				{Id: asn1.ObjectIdentifier{3, 2, 1}},
 			},
-			expectedIDs: nil,
+			expectedIDs:    nil,
+			expectedErrMsg: "the SAN extension does not exist",
 		},
 		"Extensions with bad SAN": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte("bad san bytes")},
 			},
-			expectedIDs: nil,
+			expectedIDs:    nil,
+			expectedErrMsg: "failed to extract identities from SAN extension (error asn1: syntax error: data truncated)",
+		},
+		"Extensions with incorrectly encoded SAN": {
+			exts: []pkix.Extension{
+				{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: append(copyBytes(sanExt.Value), 'x')},
+			},
+			expectedIDs:    nil,
+			expectedErrMsg: "failed to extract identities from SAN extension (error the SAN extension is incorrectly encoded)",
 		},
 		"Extensions with SAN": {
 			exts: []pkix.Extension{
@@ -160,9 +170,16 @@ func TestExtractIDs(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		actualIDs, _ := ExtractIDs(tc.exts)
+		actualIDs, err := ExtractIDs(tc.exts)
 		if !reflect.DeepEqual(actualIDs, tc.expectedIDs) {
 			t.Errorf("Case %q: unexpected identities: want %v but got %v", id, tc.expectedIDs, actualIDs)
+		}
+		if tc.expectedErrMsg != "" {
+			if err == nil {
+				t.Errorf("Case %q: no error message returned: want %s", id, tc.expectedErrMsg)
+			} else if tc.expectedErrMsg != err.Error() {
+				t.Errorf("Case %q: unexpected error message: want %s but got %s", id, tc.expectedErrMsg, err.Error())
+			}
 		}
 	}
 }

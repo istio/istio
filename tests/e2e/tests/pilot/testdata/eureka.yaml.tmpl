@@ -24,12 +24,12 @@ spec:
       containers:
       - name: eureka
         image: netflixoss/eureka:1.3.1
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 8080
       - name: mirror
         image: {{.Hub}}/eurekamirror:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         args:
         - -url
         - http://localhost:8080
