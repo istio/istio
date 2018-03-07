@@ -35,6 +35,12 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var (
+	// validateClustersDefault is an environment variable that can be set to false to disable
+	// cluster validation in RDS, in case problems are discovered.
+	ValidateClustersDefault = true
+)
+
 // Config generation main functions.
 // The general flow of the generation process consists of the following steps:
 // - routes are created for each destination, with referenced clusters stored as a special field
@@ -353,7 +359,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 	}
 
 	if httpConfigs[port] == nil {
-		httpConfigs[port] = &HTTPRouteConfig{ValidateClusters: true, VirtualHosts: []*VirtualHost{}}
+		httpConfigs[port] = &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: []*VirtualHost{}}
 	}
 	return httpConfigs[port], nil
 }
@@ -861,7 +867,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 			host.Routes = append(host.Routes, defaultRoute)
 
-			routeConfig := &HTTPRouteConfig{ValidateClusters: true, VirtualHosts: []*VirtualHost{host}}
+			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				proxy:            node,
