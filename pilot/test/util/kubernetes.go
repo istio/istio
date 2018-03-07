@@ -214,7 +214,7 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 // Eventually retries until f() returns true, or it times out in error
 func Eventually(f func() bool, t *testing.T) {
 	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
+	for true {
 		if f() {
 			return
 		}

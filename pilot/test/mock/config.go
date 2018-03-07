@@ -489,6 +489,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	defer close(stop)
 
 	lock := sync.Mutex{}
+	cond := sync.NewCond(&lock)
 
 	added, deleted := 0, 0
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
@@ -502,11 +503,13 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 				t.Errorf("Events are not serialized (add)")
 			}
 			added++
+			cond.Signal()
 		case model.EventDelete:
 			if added != n {
 				t.Errorf("Events are not serialized (delete)")
 			}
 			deleted++
+			cond.Signal()
 		}
 		log.Infof("Added %d, deleted %d", added, deleted)
 	})
@@ -516,12 +519,14 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	util.Eventually(func() bool {
-		lock.Lock()
-		defer lock.Unlock()
-		return added == n && deleted == n
-
-	}, t)
+	lock.Lock()
+	defer lock.Unlock()
+	for {
+		if added == n && deleted == n {
+			break
+		}
+		cond.Wait()
+	}
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
