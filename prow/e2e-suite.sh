@@ -30,7 +30,7 @@ set -u
 # Print commands
 set -x
 
-TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade)
+TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
