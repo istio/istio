@@ -22,8 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	cpb "istio.io/api/mixer/v1/config"
-	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
@@ -84,7 +83,7 @@ func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.At
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 	var errs error
 	if rule.Match != "" {
-		if err := v.tc.AssertType(rule.Match, v.af, dpb.BOOL); err != nil {
+		if err := v.tc.AssertType(rule.Match, v.af, cpb.BOOL); err != nil {
 			errs = multierror.Append(errs, &adapter.ConfigError{Field: "match", Underlying: err})
 		}
 	}
@@ -179,13 +178,13 @@ func (v *Validator) validateManifests(af expr.AttributeDescriptorFinder) error {
 	v.c.forEach(func(key store.Key, spec proto.Message) {
 		var err error
 		if ti, ok := v.templates[key.Kind]; ok {
-			_, err = ti.InferType(spec, func(s string) (dpb.ValueType, error) {
+			_, err = ti.InferType(spec, func(s string) (cpb.ValueType, error) {
 				return v.tc.EvalType(s, af)
 			})
 		} else if key.Kind == RulesKind {
 			rule := spec.(*cpb.Rule)
 			if rule.Match != "" {
-				if aerr := v.tc.AssertType(rule.Match, v.af, dpb.BOOL); aerr != nil {
+				if aerr := v.tc.AssertType(rule.Match, v.af, cpb.BOOL); aerr != nil {
 					err = &adapter.ConfigError{Field: "match", Underlying: aerr}
 				}
 			}
@@ -236,7 +235,7 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			return err
 		}
 	} else if ti, ok := v.templates[ev.Kind]; ok {
-		_, err := ti.InferType(ev.Value.Spec, func(s string) (dpb.ValueType, error) {
+		_, err := ti.InferType(ev.Value.Spec, func(s string) (cpb.ValueType, error) {
 			return v.tc.EvalType(s, v.af)
 		})
 		if err != nil {
