@@ -43,6 +43,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 	testutil "istio.io/istio/tests/util"
+	"path"
 )
 
 const (
@@ -69,7 +71,8 @@ type Environment struct {
 
 	sidecarTemplate string
 
-	KubeClient kubernetes.Interface
+	KubeClient [2]kubernetes.Interface
+	clusterStore      *clusterregistry.ClusterStore
 
 	// Directory where test data files are located.
 	testDataDir string
@@ -128,6 +131,7 @@ func NewEnvironment(config Config) *Environment {
 		testDataDir: "testdata/",
 		certDir:     "../../../../pilot/docker/certs/",
 		Auth:        meshconfig.MeshConfig_NONE,
+//JAJ
 		MixerCustomConfigFile: mixerConfigFile,
 		PilotCustomConfigFile: pilotConfigFile,
 	}
@@ -169,16 +173,50 @@ func (e *Environment) ToTemplateData() TemplateData {
 
 // Setup creates the k8s environment and deploys the test apps
 func (e *Environment) Setup() error {
-	if e.Config.KubeConfig == "" {
-		e.Config.KubeConfig = "pilot/pkg/kube/config"
-		log.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
-	}
 	var err error
-	if _, e.KubeClient, err = kube.CreateInterface(e.Config.KubeConfig); err != nil {
-		return err
+	if e.Config.KubeConfig[0] != "" {
+		if _, e.KubeClient[0], err = kube.CreateInterface(e.Config.KubeConfig[0]); err != nil {
+			return err
+		}
+        }
+
+	if e.Config.ClusterRegistriesDir != "" {
+		e.clusterStore, err = clusterregistry.ReadClusters(e.Config.ClusterRegistriesDir)
+		if e.clusterStore == nil {
+			return err
+		}
+		if e.clusterStore != nil {
+
+			kubeCfgFile := e.clusterStore.GetPilotAccessConfig();
+			kubeCfgFile = path.Join(e.Config.ClusterRegistriesDir, kubeCfgFile)
+			e.Config.KubeConfig[0] = kubeCfgFile
+			if _, e.KubeClient[0], err = kube.CreateInterface(kubeCfgFile); err != nil {
+				return err
+			}
+            // Note only a single remote cluster is currently supported.
+			clusters := e.clusterStore.GetPilotClusters()
+			for _, cluster := range clusters{
+				kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
+				e.Config.KubeConfig[1] = path.Join(e.Config.ClusterRegistriesDir, kubeconfig)
+
+				log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), e.Config.KubeConfig[1])
+				// Expecting only a single remote cluster so hard code this.
+				if _, e.KubeClient[1], err = kube.CreateInterface(e.Config.KubeConfig[1]); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
-	crdclient, crderr := crd.NewClient(e.Config.KubeConfig, model.IstioConfigTypes, "")
+	if e.Config.KubeConfig[0] == "" && e.Config.ClusterRegistriesDir == "" {
+		e.Config.KubeConfig[0] = "pilot/pkg/kube/config"
+		log.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
+		if _, e.KubeClient[0], err = kube.CreateInterface(e.Config.KubeConfig[0]); err != nil {
+			return err
+		}
+	}
+
+	crdclient, crderr := crd.NewClient(e.Config.KubeConfig[0], model.IstioConfigTypes, "")
 	if crderr != nil {
 		return crderr
 	}
@@ -189,23 +227,34 @@ func (e *Environment) Setup() error {
 	e.config = model.MakeIstioStore(crdclient)
 
 	if e.Config.Namespace == "" {
-		if e.Config.Namespace, err = util.CreateNamespaceWithPrefix(e.KubeClient, "istio-test-app-", e.Config.UseAutomaticInjection); err != nil { // nolint: lll
+		if e.Config.Namespace, err = util.CreateNamespaceWithPrefix(e.KubeClient[0], "istio-test-app-", e.Config.UseAutomaticInjection); err != nil { // nolint: lll
 			return err
+		}
+		// Create the namespace on the remote cluster if needed
+		if e.Config.KubeConfig[1] != "" {
+			if _, err = util.CreateNamedNamespace(e.KubeClient[1], e.Config.Namespace, e.Config.UseAutomaticInjection); err != nil { // nolint: lll
+				return err
+			}
 		}
 		e.namespaceCreated = true
 	} else {
-		if _, err = e.KubeClient.CoreV1().Namespaces().Get(e.Config.Namespace, meta_v1.GetOptions{}); err != nil {
+		if _, err = e.KubeClient[0].CoreV1().Namespaces().Get(e.Config.Namespace, meta_v1.GetOptions{}); err != nil {
 			return err
+		}
+		if e.Config.KubeConfig[1] != "" {
+			if _, err = e.KubeClient[1].CoreV1().Namespaces().Get(e.Config.Namespace, meta_v1.GetOptions{}); err != nil { // nolint: lll
+				return err
+			}
 		}
 	}
 
 	if e.Config.IstioNamespace == "" {
-		if e.Config.IstioNamespace, err = util.CreateNamespaceWithPrefix(e.KubeClient, "istio-test-", false); err != nil {
+		if e.Config.IstioNamespace, err = util.CreateNamespaceWithPrefix(e.KubeClient[0], "istio-test-", false); err != nil {
 			return err
 		}
 		e.istioNamespaceCreated = true
 	} else {
-		if _, err = e.KubeClient.CoreV1().Namespaces().Get(e.Config.IstioNamespace, meta_v1.GetOptions{}); err != nil {
+		if _, err = e.KubeClient[0].CoreV1().Namespaces().Get(e.Config.IstioNamespace, meta_v1.GetOptions{}); err != nil {
 			return err
 		}
 	}
@@ -215,7 +264,7 @@ func (e *Environment) Setup() error {
 		data := e.ToTemplateData()
 		if filledYaml, err = e.Fill(name, data); err != nil {
 			return err
-		} else if err = e.KubeApply(filledYaml, namespace); err != nil {
+		} else if err = e.KubeApply(filledYaml, namespace, false); err != nil {
 			return err
 		}
 		return nil
@@ -231,7 +280,7 @@ func (e *Environment) Setup() error {
 		return err
 	}
 
-	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, kube.IstioConfigMap); err != nil {
+	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient[0], e.Config.IstioNamespace, kube.IstioConfigMap); err != nil {
 		return err
 	}
 	debugMode := e.Config.DebugImagesAndMode
@@ -253,12 +302,20 @@ func (e *Environment) Setup() error {
 	}
 
 	if e.Config.UseAutomaticInjection {
+		// Automatic side car injection is not supported when multiple clusters are being tested.
+		if e.Config.KubeConfig[1] != "" {
+			return err
+		}
 		if err = e.createSidecarInjector(); err != nil {
 			return err
 		}
 	}
 
 	if e.Config.UseAdmissionWebhook {
+		// Admission Webhook is not supported when multiple clusters are being tested.
+		if e.Config.KubeConfig[1] != "" {
+			return err
+		}
 		if err = e.createAdmissionWebhookSecret(); err != nil {
 			return err
 		}
@@ -283,6 +340,7 @@ func (e *Environment) Setup() error {
 		}
 	}
 
+	// JAJ probably need to augment this headless services
 	if err = deploy("headless.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
@@ -301,7 +359,7 @@ func (e *Environment) Setup() error {
 		if err != nil {
 			return err
 		}
-		_, err = e.KubeClient.CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{
+		_, err = e.KubeClient[0].CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{
 			ObjectMeta: meta_v1.ObjectMeta{Name: ingressSecretName},
 			Data: map[string][]byte{
 				"tls.key": key,
@@ -329,38 +387,55 @@ func (e *Environment) Setup() error {
 	}
 
 	nslist := []string{e.Config.IstioNamespace, e.Config.Namespace}
-	e.Apps, err = util.GetAppPods(e.KubeClient, e.Config.KubeConfig, nslist)
+	e.Apps, err = util.GetAppPods(e.KubeClient[0], e.Config.KubeConfig[0], nslist)
+		// TODO JAJ this is going to need some surgery in a couple places to get all the pods form both cluster
+		// When passing kubeClient[1] the remote pod names were returned but the status was never correct
+		// the KubeConfig is passed here to run a shell command to describe failing pods
+		// the kubeconfig passed is only valid for the base cluster additionally the shell
+		// command needs to be run on the remote cluster.   Refactor to use a kubeClient command.
 	return err
 }
 
 func (e *Environment) deployApps() error {
 	// deploy a healthy mix of apps, with and without proxy
-	if err := e.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false); err != nil {
+	if err := e.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false); err != nil {
 		return err
 	}
-	if err := e.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false); err != nil {
+	if err := e.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, false); err != nil {
 		return err
 	}
-	if err := e.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false); err != nil {
+	if err := e.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, false); err != nil {
 		return err
 	}
-	if err := e.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false); err != nil {
+	if err := e.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, false); err != nil {
 		return err
 	}
-	if err := e.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false); err != nil {
+	if err := e.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, false); err != nil {
 		return err
 	}
-	if err := e.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true); err != nil {
+	if err := e.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true, false); err != nil {
 		return err
+	}
+	// If this is a multicluster test deploy some services on the remote cluster.
+	if e.Config.KubeConfig[1] != "" {
+		if err := e.deployApp("t-remote", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, true); err != nil {
+			return err
+		}
+		if err := e.deployApp("a-remote", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true); err != nil {
+			return err
+		}
+		if err := e.deployApp("b-remote", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true); err != nil {
+			return err
+		}
 	}
 	// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 	// environment, pilot can see only services in the test namespaces). This service
 	// will be listed in mtlsExcludedServices in the mesh config.
-	return e.deployApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false)
+	return e.deployApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false, false)
 }
 
 func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, perServiceAuth bool) error {
+	version string, injectProxy bool, perServiceAuth bool, remoteCluster bool) error {
 	// Eureka does not support management ports
 	healthPort := "true"
 	if serviceregistry.ServiceRegistry(e.Config.Registry) == serviceregistry.EurekaRegistry {
@@ -401,12 +476,12 @@ func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3,
 		}
 	}
 
-	return e.KubeApply(writer.String(), e.Config.Namespace)
+	return e.KubeApply(writer.String(), e.Config.Namespace, remoteCluster)
 }
 
 // Teardown cleans up the k8s environment, removing any resources that were created by the tests.
 func (e *Environment) Teardown() {
-	if e.KubeClient == nil {
+	if e.KubeClient[0] == nil {
 		return
 	}
 
@@ -446,22 +521,25 @@ func (e *Environment) Teardown() {
 	}
 
 	if e.Config.Ingress {
-		if err := e.KubeClient.ExtensionsV1beta1().Ingresses(e.Config.Namespace).
+		if err := e.KubeClient[0].ExtensionsV1beta1().Ingresses(e.Config.Namespace).
 			DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{}); err != nil {
 			log.Warna(err)
 		}
-		if err := e.KubeClient.CoreV1().Secrets(e.Config.Namespace).
+		if err := e.KubeClient[0].CoreV1().Secrets(e.Config.Namespace).
 			Delete(ingressSecretName, &meta_v1.DeleteOptions{}); err != nil {
 			log.Warna(err)
 		}
 	}
 
 	if e.namespaceCreated {
-		util.DeleteNamespace(e.KubeClient, e.Config.Namespace)
+		util.DeleteNamespace(e.KubeClient[0], e.Config.Namespace)
+		if e.Config.KubeConfig[1] != "" {
+			util.DeleteNamespace(e.KubeClient[1], e.Config.Namespace)
+		}
 		e.Config.Namespace = ""
 	}
 	if e.istioNamespaceCreated {
-		util.DeleteNamespace(e.KubeClient, e.Config.IstioNamespace)
+		util.DeleteNamespace(e.KubeClient[0], e.Config.IstioNamespace)
 		e.Config.IstioNamespace = ""
 	}
 }
@@ -478,48 +556,60 @@ func (e *Environment) dumpErrorLogs() {
 	}
 
 	// Temp: dump logs the old way, for people used with it.
-	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {
-		var filename, content string
-		if strings.HasPrefix(pod, "istio-pilot") {
-			Tlog("Discovery log", pod)
-			filename = "istio-pilot"
-			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, "discovery")
-		} else if strings.HasPrefix(pod, "istio-mixer") {
-			Tlog("Mixer log", pod)
-			filename = "istio-mixer"
-			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, "mixer")
-		} else if strings.HasPrefix(pod, "istio-ingress") {
-			Tlog("Ingress log", pod)
-			filename = "istio-ingress"
-			content = util.FetchLogs(e.KubeClient, pod, e.Config.IstioNamespace, inject.ProxyContainerName)
-		} else {
-			Tlog("Proxy log", pod)
-			filename = pod
-			content = util.FetchLogs(e.KubeClient, pod, e.Config.Namespace, inject.ProxyContainerName)
-		}
-
-		if len(e.Config.ErrorLogsDir) > 0 {
-			if err := ioutil.WriteFile(e.Config.ErrorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
-				log.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
-				log.Info(content)
+	n := 1
+	if e.Config.KubeConfig[1] != "" {
+		n = 2
+	}
+	for i :=0; i < n; i++ {
+		for _, pod := range util.GetPods(e.KubeClient[i], e.Config.Namespace) {
+			var filename, content string
+			if strings.HasPrefix(pod, "istio-pilot") {
+				Tlog("Discovery log", pod)
+				filename = "istio-pilot"
+				content = util.FetchLogs(e.KubeClient[i], pod, e.Config.IstioNamespace, "discovery")
+			} else if strings.HasPrefix(pod, "istio-mixer") {
+				Tlog("Mixer log", pod)
+				filename = "istio-mixer"
+				content = util.FetchLogs(e.KubeClient[i], pod, e.Config.IstioNamespace, "mixer")
+			} else if strings.HasPrefix(pod, "istio-ingress") {
+				Tlog("Ingress log", pod)
+				filename = "istio-ingress"
+				content = util.FetchLogs(e.KubeClient[i], pod, e.Config.IstioNamespace, inject.ProxyContainerName)
+			} else {
+				Tlog("Proxy log", pod)
+				filename = pod
+				content = util.FetchLogs(e.KubeClient[i], pod, e.Config.Namespace, inject.ProxyContainerName)
 			}
-		} else {
-			log.Info(content)
+
+			if len(e.Config.ErrorLogsDir) > 0 {
+				if err := ioutil.WriteFile(e.Config.ErrorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
+					log.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
+					log.Info(content)
+				}
+			} else {
+					log.Info(content)
+			}
 		}
 	}
 }
 
 // KubeApply runs kubectl apply with the given yaml and namespace.
-func (e *Environment) KubeApply(yaml, namespace string) error {
-	return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
-		e.Config.KubeConfig, namespace), yaml)
+func (e *Environment) KubeApply(yaml, namespace string, remote bool) error {
+	if remote {
+		return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
+			e.Config.KubeConfig[1], namespace), yaml)
+	} else {
+		return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
+			e.Config.KubeConfig[0], namespace), yaml)
+	}
 }
 
 // KubeDelete runs kubectl delete with the given yaml and namespace.
 func (e *Environment) KubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
-		e.Config.KubeConfig, namespace), yaml)
+		e.Config.KubeConfig[0], namespace), yaml)
 }
+
 
 // Response represents a response to a client request.
 type Response struct {
@@ -589,7 +679,7 @@ func (e *Environment) ClientRequest(app, url string, count int, extra string) Re
 	pod := e.Apps[app][0]
 
 	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s -count %d %s",
-		pod, e.Config.KubeConfig, e.Config.Namespace, url, count, extra)
+		pod, e.Config.KubeConfig[0], e.Config.Namespace, url, count, extra)
 	request, err := util.Shell(cmd)
 
 	if err != nil {
@@ -779,12 +869,12 @@ func (e *Environment) createAdmissionWebhookSecret() error {
 	if err != nil {
 		return err
 	}
-	return e.KubeApply(filledYaml, e.Config.IstioNamespace)
+	return e.KubeApply(filledYaml, e.Config.IstioNamespace, false)
 }
 
 func (e *Environment) deleteAdmissionWebhookSecret() error {
 	return util.Run(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s secret pilot-webhook",
-		e.Config.KubeConfig, e.Config.IstioNamespace))
+		e.Config.KubeConfig[0], e.Config.IstioNamespace))
 }
 
 func (e *Environment) createSidecarInjector() error {
@@ -797,7 +887,7 @@ func (e *Environment) createSidecarInjector() error {
 	}
 
 	// sidecar configuration template
-	if _, err = e.KubeClient.CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
+	if _, err = e.KubeClient[0].CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "istio-inject",
 		},
@@ -813,7 +903,7 @@ func (e *Environment) createSidecarInjector() error {
 	if err != nil {
 		return err
 	}
-	if _, err := e.KubeClient.CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
+	if _, err := e.KubeClient[0].CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
 		ObjectMeta: meta_v1.ObjectMeta{Name: "sidecar-injector-certs"},
 		Data: map[string][]byte{
 			"cert.pem": cert,
@@ -828,13 +918,13 @@ func (e *Environment) createSidecarInjector() error {
 	e.CABundle = base64.StdEncoding.EncodeToString(ca)
 	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil { // nolint: vetshadow
 		return err
-	} else if err = e.KubeApply(filledYaml, e.Config.IstioNamespace); err != nil {
+	} else if err = e.KubeApply(filledYaml, e.Config.IstioNamespace, false); err != nil {
 		return err
 	}
 
 	// wait until injection webhook service is running before
 	// proceeding with deploying test applications
-	if _, err = util.GetAppPods(e.KubeClient, e.Config.KubeConfig, []string{e.Config.IstioNamespace}); err != nil {
+	if _, err = util.GetAppPods(e.KubeClient[0], e.Config.KubeConfig[0], []string{e.Config.IstioNamespace}); err != nil {
 		return fmt.Errorf("sidecar injector failed to start: %v", err)
 	}
 	return nil
@@ -869,3 +959,4 @@ func (e *Environment) Fill(inFile string, values interface{}) (string, error) {
 
 	return out.String(), nil
 }
+

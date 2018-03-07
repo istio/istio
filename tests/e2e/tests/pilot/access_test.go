@@ -85,7 +85,7 @@ func (a *accessLogs) check(e *tutil.Environment) error {
 					ns = e.Config.IstioNamespace
 				}
 				util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, e.Config.CoreFilesDir+"/"+pod+"."+ns)
-				logs := util.FetchLogs(e.KubeClient, pod, ns, container)
+				logs := util.FetchLogs(e.KubeClient[0], pod, ns, container)
 
 				if strings.Contains(logs, "segmentation fault") {
 					util.CopyPodFiles(container, pod, ns, model.ConfigPathDir, e.Config.CoreFilesDir+"/"+pod+"."+ns)

@@ -47,7 +47,7 @@ func init() {
 	flag.BoolVar(&config.CheckLogs, "logs", config.CheckLogs,
 		"Validate pod logs (expensive in long-running tests)")
 
-	flag.StringVar(&config.KubeConfig, "kubeconfig", config.KubeConfig,
+	flag.StringVar(&config.KubeConfig[0], "kubeconfig", config.KubeConfig[0],
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&config.TestCount, "count", config.TestCount, "Number of times to run each test")
 	flag.BoolVar(&config.Auth, "auth_enable", config.Auth, "Whether to use mTLS for all traffic within the mesh.")
@@ -67,6 +67,8 @@ func init() {
 
 	flag.BoolVar(&config.UseAutomaticInjection, "use-sidecar-injector", config.UseAutomaticInjection,
 		"Use automatic sidecar injector")
+	flag.StringVar(&config.ClusterRegistriesDir, "cluster-registry-dir", config.ClusterRegistriesDir,
+		"Directory name for the Cluster registry config")
 	flag.BoolVar(&config.UseAdmissionWebhook, "use-admission-webhook", config.UseAdmissionWebhook,
 		"Use k8s external admission webhook for config validation")
 
@@ -99,9 +101,9 @@ func TestPilot(t *testing.T) {
 		config.Verbosity = 3
 	}
 
-	// Only run the tests if the user has defined the KUBECONFIG environment variable.
-	if config.KubeConfig == "" {
-		t.Skip("Env variable KUBECONFIG not set. Skipping tests")
+	// Only run the tests if the user has defined the KUBECONFIG environment variable or a cluster registry directory
+	if config.KubeConfig[0] == "" && config.ClusterRegistriesDir == "" {
+		t.Skip("Neither Env variable KUBECONFIG nor ClusterRegistry set. Skipping tests")
 	}
 
 	if config.Hub == "" {
@@ -122,9 +124,10 @@ func TestPilot(t *testing.T) {
 		&tcp{Environment: env},
 		&headless{Environment: env},
 		&ingress{Environment: env},
-		&egressRules{Environment: env},
+		// JAJ &egressRules{Environment: env},
 		&routing{Environment: env},
-		&routingToEgress{Environment: env},
+		//JAJ &routingToEgress{Environment: env},
+		// &multicluster{Infra: config},
 		&zipkin{Environment: env},
 		&authExclusion{Environment: env},
 		&kubernetesExternalNameServices{Environment: env},

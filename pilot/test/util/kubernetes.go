@@ -59,7 +59,26 @@ func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bo
 	log.Infof("Created namespace %s", ns.Name)
 	return ns.Name, nil
 }
-
+// CreateNamespaceWithPrefix creates a fresh namespace with the given prefix
+func CreateNamedNamespace(cl kubernetes.Interface, namespace string, inject bool) (string, error) {
+	injectionValue := "disabled"
+	if inject {
+		injectionValue = "enabled"
+	}
+	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				"istio-injection": injectionValue,
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	log.Infof("Created namespace %s", ns.Name)
+	return ns.Name, nil
+}
 // DeleteNamespace removes a namespace
 func DeleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {

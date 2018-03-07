@@ -29,7 +29,8 @@ const (
 
 // Config defines the configuration for the test environment.
 type Config struct {
-	KubeConfig            string
+	KubeConfig            [2]string
+	ClusterRegistriesDir  string
 	Hub                   string
 	Tag                   string
 	ImagePullPolicy       string
@@ -63,7 +64,7 @@ type Config struct {
 // NewConfig creates a new test environment configuration with default values.
 func NewConfig() *Config {
 	return &Config{
-		KubeConfig:            os.Getenv("KUBECONFIG"),
+		KubeConfig:            [2]string {os.Getenv("KUBECONFIG"),""},
 		Hub:                   defaultHub,
 		Tag:                   "",
 		ImagePullPolicy:       "IfNotPresent",
