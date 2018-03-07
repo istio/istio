@@ -140,8 +140,16 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 	}
 
 	// print table of running pods detailed container information
-	outputFormat := "custom-columns=NAME:.metadata.name,CONTAINERS:.spec.containers[*].name,RESTARTS:.status.containerStatuses[*].restartCount,STATUS:.status.phase" // nolint: lll
-	util.Shell("kubectl get pods -n %s -o=%s", namespace, outputFormat)                                                                                              // nolint: errcheck
+	columns := []string{
+		"NAME:.metadata.name",
+		"IMAGES:.spec.containers[*].image",
+		"CONTAINERS:.spec.containers[*].name",
+		"RESTARTS:.status.containerStatuses[*].restartCount",
+		"PHASE:.status.phase",
+		"STATE_WAIT:.status.containerStatuses[*].state.waiting.reason",
+		"STATE_TERM:.status.containerStatuses[*].state.terminated.reason",
+	}
+	util.Shell("kubectl get pods -n %s -o=custom-columns=%s", namespace, strings.Join(columns, ",")) // nolint: errcheck
 
 	pods, err := util.ShellMuteOutput("kubectl get pods -n %s -o jsonpath={.items[*].metadata.name}", namespace)
 	if err != nil {
