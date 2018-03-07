@@ -609,7 +609,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.ServiceController,
 		s.configController,
 		environment,
-		args.DiscoveryOptions)
+		args.DiscoveryOptions,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery service: %v", err)
 	}
