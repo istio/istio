@@ -22,7 +22,7 @@ const (
 	// SecretFile propages the key/cert to the workload through file.
 	SecretFile int = iota // 0
 	// SecretDiscoveryService propages the key/cert to the workload through SDS API.
-	SecretDiscoveryService // 1
+	SecretDiscoveryServiceAPI // 1
 )
 
 // Config is the configuration for node agent to workload communication.
