@@ -229,7 +229,13 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run:
+          command: |
+            mkdir -p /go/out/tests
+            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            # Run the tests in env similar with recommended setup.
+            make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
+               | tee -a /go/out/tests/go-test-report.out
       - store_artifacts:
           path: /home/circleci/logs
 

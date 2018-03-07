@@ -102,7 +102,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	// nobody is watching.
 	testEdsz(t)
 
-
 	_ = edsstr.CloseSend()
 }
 
@@ -153,4 +152,3 @@ func testEdsz(t *testing.T) {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }
-

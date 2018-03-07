@@ -35,13 +35,17 @@
         "api_config_source": {
 {{- if .edsv1  }}
           "api_type": "REST_LEGACY",
+          "refresh_delay": {{ .refresh_delay }},
+          "cluster_names": [
+            "rds"
+          ]
 {{ else }}
           "api_type": "GRPC",
-{{ end }}
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
             "xds-grpc"
           ]
+{{ end }}
         }
       }
     }
