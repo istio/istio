@@ -45,6 +45,7 @@ const (
 	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
 	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	sleepYaml                = "samples/sleep/sleep.yaml"
 	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
@@ -65,6 +66,8 @@ const (
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
+
+	httpOK = "200"
 )
 
 type testConfig struct {
@@ -468,6 +471,7 @@ func testDenials(t *testing.T, rule string) {
 	}
 }
 
+// TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
@@ -482,63 +486,53 @@ func TestIngressCheckCache(t *testing.T) {
 	}()
 	allowRuleSync()
 
-	promAPI, err := promAPI()
-	if err != nil {
-		fatalf(t, "Could not build prometheus API client: %v", err)
+	// Visit product page through ingress should all be denied.
+	visit := func() error {
+		return visitProductPage(productPageTimeout, http.StatusForbidden);
 	}
-
-	prior, err := getCachedCheckCalls(promAPI)
-	if err != nil {
-		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
-	}
-
-	// Visit product page for 5 times. All of them should be denied.
-	for i := 0; i < 5; i++ {
-		if err = visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
-			fatalf(t, "Test app setup failure, or product page was not denied: %v", err)
-		}
-	}
-
-	allowPrometheusSync()
-	got, err := getCachedCheckCalls(promAPI)
-	if err != nil {
-		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
-	}
-
-	// At least 4 check calls should be cache hit.
-	want := float64(4)
-	if (got - prior) < want {
-		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
-	}
+	testCheckCache(t, visit)
 }
 
+// TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
+	// visit calls product page health handler within sleep app.
+	visit := func() error {
+		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace))
+		return visitThroughSleep(url, httpOK);
+	}
+	testCheckCache(t, visit)
+}
+
+// testCheckCache verifies check cache is used when calling the given visit function
+// by comparing the check call metric.
+func testCheckCache(t *testing.T, visit func() (error)) {
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 
-	prior, err := getCachedCheckCalls(promAPI)
+	// Get check cache hit baseline.
+	prior, err := getCheckCacheHits(promAPI)
 	if err != nil {
-		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
 
-	// Visit products api for 5 times, which should only touch productpage service through ingress.
+	// Call visit for 5 times, which should use check cache for 5 times.
 	for i := 0; i < 5; i++ {
-		if err = visitProductsAPI(productPageTimeout, http.StatusOK); err != nil {
-			fatalf(t, "Cannot finish visiting product page: %v", err)
+		if err = visit(); err != nill {
+			fatal(t, "%v", err)
 		}
 	}
 
 	allowPrometheusSync()
-	got, err := getCachedCheckCalls(promAPI)
+	// Get new check cache hit.
+	got, err := getCheckCacheHits(promAPI)
 	if err != nil {
-		fatalf(t, "Unable to retrieve cached hit number: %v", err)
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
 
-	// At least 8 check calls should be cache hit.
-	// 4 cache hit from Ingress and 4 from productpage.
-	want := float64(8)
+	// At least 4 calls should be cache hit.
+	want := float64(4)
 	if (got - prior) < want {
 		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
 	}
@@ -835,39 +829,25 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
-// visitProductsAPI visit the products API endpoint of productpage service.
-func visitProductsAPI(timeout time.Duration, wantStatus int, headers ...*header) error {
-	start := time.Now()
-	clnt := &http.Client{
-		Timeout: 1 * time.Minute,
+// visitThroughSleep visits the given url by curl command within sleep app.
+func visitThroughSleep(url string, code string) error {
+	pod, err := podID("sleep")
+	if err != nil {
+		return err
 	}
-	url := tc.gateway + "/api/v1/products"
-
-	for {
-		status, _, err := get(clnt, url, headers...)
-		if err != nil {
-			log.Warnf("Unable to connect to products api: %v", err)
-		}
-
-		if status == wantStatus {
-			log.Infof("Got %d response from products api!", wantStatus)
-			return nil
-		}
-
-		if time.Since(start) > timeout {
-			dumpMixerMetrics()
-			return fmt.Errorf("could not call products api in %v: Last status: %v", timeout, status)
-		}
-
-		// see what is happening
-		dumpK8Env()
-
-		time.Sleep(3 * time.Second)
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c sleep -- curl -i %s", pod, tc.Kube.Namespace, url)
+	resp, err := util.Shell(cmd)
+	if err != nil {
+		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
 	}
+	if !strings.Contains(resp, code) {
+		return errors.New("response: %v does not have wanted status code: %v", resp, code)
+	}
+	return nil
 }
 
-// getCachedCheckCalls returned the total number of check cache hits in this cluster.
-func getCachedCheckCalls(promAPI v1.API) (float64, error) {
+// getCheckCacheHits returned the total number of check cache hits in this cluster.
+func getCheckCacheHits(promAPI v1.API) (float64, error) {
 	log.Info("Get number of cached check calls")
 	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
 	log.Infof("prometheus query: %s", query)
@@ -886,7 +866,8 @@ func getCachedCheckCalls(promAPI v1.API) (float64, error) {
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		log.Infof("Could not get rem
+		ote check calls metric from prometheus: %v", err)
 		return 0, nil
 	}
 	remoteCheck, err := vectorValue(value, map[string]string{})
@@ -976,6 +957,10 @@ func setTestConfig() error {
 			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
+		{
+			AppYaml:    util.GetResourcePath(sleepYaml),
+			KubeInject: true,
+		}
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
