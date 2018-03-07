@@ -22,7 +22,7 @@ import (
 type SecretServer interface {
 	// SetServiceIdentityPrivateKey sets the service identity private key to the channel accessible to the workload.
 	SetServiceIdentityPrivateKey([]byte) error
-	// SetServiceIdentityCert sets the service identity cert to the channel accessible to the workload.
+	// SecretDiscoveryServiceAPI sets the service identity cert to the channel accessible to the workload.
 	SetServiceIdentityCert([]byte) error
 }
 
