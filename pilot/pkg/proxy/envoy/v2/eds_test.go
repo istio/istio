@@ -131,7 +131,7 @@ func TestEds(t *testing.T) {
 }
 
 var (
-	edszURL = "http://localhost:9093/edsz"
+	edszURL = "http://localhost:9093/debug/edsz"
 )
 
 // Verify the endpoint debug interface is installed and returns some string.

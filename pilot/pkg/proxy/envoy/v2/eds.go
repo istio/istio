@@ -378,17 +378,19 @@ func EdsPushAll() {
 	}
 }
 
+// Edsz implements a status and debug interface for EDS.
+// It is mapped to /debug/edsz on the monitor port (9093).
 func Edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		EdsPushAll()
 	}
 	data, err := json.Marshal(edsClusters)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
 
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 // addEdsCon will track the eds connection, for push and debug
@@ -431,7 +433,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	return nil, errors.New("Not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().

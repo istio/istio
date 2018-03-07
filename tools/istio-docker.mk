@@ -14,6 +14,9 @@
 
 .PHONY: docker
 
+# scratch dir base
+ISTIO_DOCKER_BASE:=${ISTIO_OUT}/docker_scratch
+
 docker: docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -85,7 +88,6 @@ $(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${I
 docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server \
             $(ISTIO_DOCKER)/cert.crt $(ISTIO_DOCKER)/cert.key
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
 docker.proxy: $(ISTIO_DOCKER)/envoy
 docker.proxy_debug: $(ISTIO_DOCKER)/envoy-debug
@@ -94,7 +96,14 @@ docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
+docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
+	mkdir -p $(ISTIO_DOCKER_BASE)/pilot
+	cp pilot/docker/Dockerfile.pilot $(ISTIO_DOCKER_BASE)/pilot/Dockerfile
+	cp $(ISTIO_OUT)/pilot-discovery $(ISTIO_DOCKER_BASE)/pilot/pilot-discovery
+	time (cd $(ISTIO_DOCKER_BASE)/pilot && \
+		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile .)
+
+PILOT_DOCKER:=docker.app docker.eurekamirror docker.proxy \
               docker.proxy_debug docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
