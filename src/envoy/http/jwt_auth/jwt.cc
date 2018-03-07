@@ -20,8 +20,10 @@
 #include "common/common/utility.h"
 #include "common/json/json_loader.h"
 #include "openssl/bn.h"
+#include "openssl/ecdsa.h"
 #include "openssl/evp.h"
 #include "openssl/rsa.h"
+#include "openssl/sha.h"
 
 #include <algorithm>
 #include <cassert>
@@ -57,7 +59,10 @@ std::string StatusToString(Status status) {
       {Status::ALG_NOT_IMPLEMENTED, "ALG_NOT_IMPLEMENTED"},
       {Status::PEM_PUBKEY_BAD_BASE64, "PEM_PUBKEY_BAD_BASE64"},
       {Status::PEM_PUBKEY_PARSE_ERROR, "PEM_PUBKEY_PARSE_ERROR"},
-      {Status::JWK_PUBKEY_PARSE_ERROR, "JWK_PUBKEY_PARSE_ERROR"},
+      {Status::JWK_RSA_PUBKEY_PARSE_ERROR, "JWK_RSA_PUBKEY_PARSE_ERROR"},
+      {Status::FAILED_CREATE_EC_KEY, "FAILED_CREATE_EC_KEY"},
+      {Status::JWK_EC_PUBKEY_PARSE_ERROR, "JWK_EC_PUBKEY_PARSE_ERROR"},
+      {Status::FAILED_CREATE_ECDSA_SIGNATURE, "FAILED_CREATE_ECDSA_SIGNATURE"},
       {Status::AUDIENCE_NOT_ALLOWED, "Audience doesn't match"},
       {Status::FAILED_FETCH_PUBKEY, "Failed to fetch public key"},
   };
@@ -147,7 +152,7 @@ const uint8_t *CastToUChar(const std::string &str) {
 //   EvpPkeyGetter e;
 //   bssl::UniquePtr<EVP_PKEY> pkey =
 //   e.EvpPkeyFromStr(pem_formatted_public_key);
-// (You can use EvpPkeyFromJwk() for JWKs)
+// (You can use EvpPkeyFromJwkRSA() or EcKeyFromJwkEC() for JWKs)
 class EvpPkeyGetter : public WithStatus {
  public:
   EvpPkeyGetter() {}
@@ -166,9 +171,33 @@ class EvpPkeyGetter : public WithStatus {
     return EvpPkeyFromRsa(rsa.get());
   }
 
-  bssl::UniquePtr<EVP_PKEY> EvpPkeyFromJwk(const std::string &n,
-                                           const std::string &e) {
+  bssl::UniquePtr<EVP_PKEY> EvpPkeyFromJwkRSA(const std::string &n,
+                                              const std::string &e) {
     return EvpPkeyFromRsa(RsaFromJwk(n, e).get());
+  }
+
+  bssl::UniquePtr<EC_KEY> EcKeyFromJwkEC(const std::string &x,
+                                         const std::string &y) {
+    bssl::UniquePtr<EC_KEY> ec_key(
+        EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
+    if (!ec_key) {
+      UpdateStatus(Status::FAILED_CREATE_EC_KEY);
+      return nullptr;
+    }
+    bssl::UniquePtr<BIGNUM> bn_x = BigNumFromBase64UrlString(x);
+    bssl::UniquePtr<BIGNUM> bn_y = BigNumFromBase64UrlString(y);
+    if (!bn_x || !bn_y) {
+      // EC public key field is missing or has parse error.
+      UpdateStatus(Status::JWK_EC_PUBKEY_PARSE_ERROR);
+      return nullptr;
+    }
+
+    if (EC_KEY_set_public_key_affine_coordinates(ec_key.get(), bn_x.get(),
+                                                 bn_y.get()) == 0) {
+      UpdateStatus(Status::JWK_EC_PUBKEY_PARSE_ERROR);
+      return nullptr;
+    }
+    return ec_key;
   }
 
  private:
@@ -201,7 +230,7 @@ class EvpPkeyGetter : public WithStatus {
     rsa->e = BigNumFromBase64UrlString(e).release();
     if (!rsa->n || !rsa->e) {
       // RSA public key field is missing or has parse error.
-      UpdateStatus(Status::JWK_PUBKEY_PARSE_ERROR);
+      UpdateStatus(Status::JWK_RSA_PUBKEY_PARSE_ERROR);
       return nullptr;
     }
     return rsa;
@@ -250,7 +279,7 @@ Jwt::Jwt(const std::string &jwt) {
     // EVP_sha384() if alg == "RS384" and
     // EVP_sha512() if alg == "RS512"
     md_ = EVP_sha256();
-  } else {
+  } else if (alg_ != "ES256") {
     UpdateStatus(Status::ALG_NOT_IMPLEMENTED);
     return;
   }
@@ -303,10 +332,11 @@ Jwt::Jwt(const std::string &jwt) {
   }
 }
 
-bool Verifier::VerifySignature(EVP_PKEY *key, const EVP_MD *md,
-                               const uint8_t *signature, size_t signature_len,
-                               const uint8_t *signed_data,
-                               size_t signed_data_len) {
+bool Verifier::VerifySignatureRSA(EVP_PKEY *key, const EVP_MD *md,
+                                  const uint8_t *signature,
+                                  size_t signature_len,
+                                  const uint8_t *signed_data,
+                                  size_t signed_data_len) {
   bssl::UniquePtr<EVP_MD_CTX> md_ctx(EVP_MD_CTX_create());
 
   EVP_DigestVerifyInit(md_ctx.get(), nullptr, md, nullptr, key);
@@ -314,11 +344,41 @@ bool Verifier::VerifySignature(EVP_PKEY *key, const EVP_MD *md,
   return (EVP_DigestVerifyFinal(md_ctx.get(), signature, signature_len) == 1);
 }
 
-bool Verifier::VerifySignature(EVP_PKEY *key, const EVP_MD *md,
-                               const std::string &signature,
-                               const std::string &signed_data) {
-  return VerifySignature(key, md, CastToUChar(signature), signature.length(),
-                         CastToUChar(signed_data), signed_data.length());
+bool Verifier::VerifySignatureRSA(EVP_PKEY *key, const EVP_MD *md,
+                                  const std::string &signature,
+                                  const std::string &signed_data) {
+  return VerifySignatureRSA(key, md, CastToUChar(signature), signature.length(),
+                            CastToUChar(signed_data), signed_data.length());
+}
+
+bool Verifier::VerifySignatureEC(EC_KEY *key, const uint8_t *signature,
+                                 size_t signature_len,
+                                 const uint8_t *signed_data,
+                                 size_t signed_data_len) {
+  // ES256 signature should be 64 bytes.
+  if (signature_len != 2 * 32) {
+    return false;
+  }
+
+  uint8_t digest[SHA256_DIGEST_LENGTH];
+  SHA256(signed_data, signed_data_len, digest);
+
+  bssl::UniquePtr<ECDSA_SIG> ecdsa_sig(ECDSA_SIG_new());
+  if (!ecdsa_sig) {
+    UpdateStatus(Status::FAILED_CREATE_ECDSA_SIGNATURE);
+    return false;
+  }
+
+  BN_bin2bn(signature, 32, ecdsa_sig->r);
+  BN_bin2bn(signature + 32, 32, ecdsa_sig->s);
+  return (ECDSA_do_verify(digest, SHA256_DIGEST_LENGTH, ecdsa_sig.get(), key) ==
+          1);
+}
+
+bool Verifier::VerifySignatureEC(EC_KEY *key, const std::string &signature,
+                                 const std::string &signed_data) {
+  return VerifySignatureEC(key, CastToUChar(signature), signature.length(),
+                           CastToUChar(signed_data), signed_data.length());
 }
 
 bool Verifier::Verify(const Jwt &jwt, const Pubkeys &pubkeys) {
@@ -351,8 +411,12 @@ bool Verifier::Verify(const Jwt &jwt, const Pubkeys &pubkeys) {
     }
     kid_alg_matched = true;
 
-    if (VerifySignature(pubkey->key_.get(), jwt.md_, jwt.signature_,
-                        signed_data)) {
+    if (pubkey->alg_ == "ES256" &&
+        VerifySignatureEC(pubkey->ec_key_.get(), jwt.signature_, signed_data)) {
+      // Verification succeeded.
+      return true;
+    } else if (VerifySignatureRSA(pubkey->evp_pkey_.get(), jwt.md_,
+                                  jwt.signature_, signed_data)) {
       // Verification succeeded.
       return true;
     }
@@ -389,7 +453,7 @@ void Pubkeys::CreateFromPemCore(const std::string &pkey_pem) {
   keys_.clear();
   std::unique_ptr<Pubkey> key_ptr(new Pubkey());
   EvpPkeyGetter e;
-  key_ptr->key_ = e.EvpPkeyFromStr(pkey_pem);
+  key_ptr->evp_pkey_ = e.EvpPkeyFromStr(pkey_pem);
   UpdateStatus(e.GetStatus());
   if (e.GetStatus() == Status::OK) {
     keys_.push_back(std::move(key_ptr));
@@ -419,25 +483,73 @@ void Pubkeys::CreateFromJwksCore(const std::string &pkey_jwks) {
   }
 
   for (auto jwk_json : keys) {
-    std::unique_ptr<Pubkey> pubkey(new Pubkey());
-
-    std::string n_str, e_str;
     try {
-      pubkey->kid_ = jwk_json->getString("kid");
-      pubkey->alg_ = jwk_json->getString("alg");
-      pubkey->alg_specified_ = true;
-      n_str = jwk_json->getString("n");
-      e_str = jwk_json->getString("e");
+      ExtractPubkeyFromJwk(jwk_json);
     } catch (Json::Exception &e) {
       continue;
     }
-    EvpPkeyGetter e;
-    pubkey->key_ = e.EvpPkeyFromJwk(n_str, e_str);
-    keys_.push_back(std::move(pubkey));
   }
+
   if (keys_.size() == 0) {
     UpdateStatus(Status::JWK_NO_VALID_PUBKEY);
   }
+}
+
+void Pubkeys::ExtractPubkeyFromJwk(Json::ObjectSharedPtr jwk_json) {
+  // Check "kty" parameter, it should exist.
+  // https://tools.ietf.org/html/rfc7517#section-4.1
+  // If "kty" is missing, throw an exception.
+  std::string kty = jwk_json->getString("kty", "");
+  if (kty != "RSA" && kty != "EC") {
+    return;
+  }
+  // Compare "kty" and "alg", and do nothing if they do not match.
+  // https://tools.ietf.org/html/rfc7518#section-6.1
+  // https://tools.ietf.org/html/rfc7518#section-7.1.2
+  std::string alg = jwk_json->getString("alg");
+  if (kty == "EC" && alg == "ES256") {
+    ExtractPubkeyFromJwkEC(jwk_json);
+  } else if (kty == "RSA" && alg.compare(0, 2, "RS") == 0) {
+    ExtractPubkeyFromJwkRSA(jwk_json);
+  }
+}
+
+void Pubkeys::ExtractPubkeyFromJwkRSA(Json::ObjectSharedPtr jwk_json) {
+  std::unique_ptr<Pubkey> pubkey(new Pubkey());
+  std::string n_str, e_str;
+  try {
+    pubkey->kid_ = jwk_json->getString("kid");
+    pubkey->alg_ = jwk_json->getString("alg");
+    n_str = jwk_json->getString("n");
+    e_str = jwk_json->getString("e");
+  } catch (Json::Exception &e) {
+    // Do not extract public key if jwk_json has bad format.
+    return;
+  }
+  pubkey->alg_specified_ = true;
+
+  EvpPkeyGetter e;
+  pubkey->evp_pkey_ = e.EvpPkeyFromJwkRSA(n_str, e_str);
+  keys_.push_back(std::move(pubkey));
+}
+
+void Pubkeys::ExtractPubkeyFromJwkEC(Json::ObjectSharedPtr jwk_json) {
+  std::unique_ptr<Pubkey> pubkey(new Pubkey());
+  std::string x_str, y_str;
+  try {
+    pubkey->kid_ = jwk_json->getString("kid");
+    pubkey->alg_ = jwk_json->getString("alg");
+    x_str = jwk_json->getString("x");
+    y_str = jwk_json->getString("y");
+  } catch (Json::Exception &e) {
+    // Do not extract public key if jwk_json has bad format.
+    return;
+  }
+  pubkey->alg_specified_ = true;
+
+  EvpPkeyGetter e;
+  pubkey->ec_key_ = e.EcKeyFromJwkEC(x_str, y_str);
+  keys_.push_back(std::move(pubkey));
 }
 
 std::unique_ptr<Pubkeys> Pubkeys::CreateFrom(const std::string &pkey,

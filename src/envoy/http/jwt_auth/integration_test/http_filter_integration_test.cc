@@ -189,7 +189,7 @@ class JwtVerificationFilterIntegrationTestWithJwks
   }
 
  protected:
-  const std::string kPublicKey =
+  const std::string kPublicKeyRSA =
       "{\"keys\": [{\"kty\": \"RSA\",\"alg\": \"RS256\",\"use\": "
       "\"sig\",\"kid\": \"62a93512c9ee4c7f8067b5a216dade2763d32a47\",\"n\": "
       "\"0YWnm_eplO9BFtXszMRQNL5UtZ8HJdTH2jK7vjs4XdLkPW7YBkkm_"
@@ -209,13 +209,33 @@ class JwtVerificationFilterIntegrationTestWithJwks
       "74kRBVZbk2wnmmb7IhP9OoLc1-7-9qU1uhpDxmE6JwBau0mDSwMnYDS4G_ML17dC-"
       "ZDtLd1i24STUw39KH0pcSdfFbL2NtEZdNeam1DDdk0iUtJSPZliUHJBI_pj8M-2Mn_"
       "oA8jBuI8YKwBqYkZCN1I95Q\",\"e\": \"AQAB\"}]}";
+
+  const std::string kPublicKeyEC =
+      "{\"keys\": ["
+      "{"
+      "\"kty\": \"EC\","
+      "\"crv\": \"P-256\","
+      "\"x\": \"EB54wykhS7YJFD6RYJNnwbWEz3cI7CF5bCDTXlrwI5k\","
+      "\"y\": \"92bCBTvMFQ8lKbS2MbgjT3YfmYo6HnPEE2tsAqWUJw8\","
+      "\"alg\": \"ES256\","
+      "\"kid\": \"abc\""
+      "},"
+      "{"
+      "\"kty\": \"EC\","
+      "\"crv\": \"P-256\","
+      "\"x\": \"EB54wykhS7YJFD6RYJNnwbWEz3cI7CF5bCDTXlrwI5k\","
+      "\"y\": \"92bCBTvMFQ8lKbS2MbgjT3YfmYo6HnPEE2tsAqWUJw8\","
+      "\"alg\": \"ES256\","
+      "\"kid\": \"xyz\""
+      "}"
+      "]}";
 };
 
 INSTANTIATE_TEST_CASE_P(
     IpVersions, JwtVerificationFilterIntegrationTestWithJwks,
     testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
 
-TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, RSASuccess1) {
   const std::string kJwtNoKid =
       "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
@@ -236,7 +256,30 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "ImV4cCI6MjAwMTAwMTAwMX0");
 
   TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
-                   kPublicKey, true, expected_headers, "");
+                   kPublicKeyRSA, true, expected_headers, "");
+}
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, ES256Success1) {
+  // Payload:
+  // {"iss": "https://example.com", "sub": "test@example.com", "aud":
+  // "example_service",
+  //  "exp": 2001001001}
+
+  const std::string kJwtEC =
+      "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY"
+      "29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjo"
+      "iZXhhbXBsZV9zZXJ2aWNlIn0.1Slk-zwP_78zR8Go5COxmmMunkxdTnBeeC91CgR-p2MWM"
+      "T9ubWvRvNGGYOTuJ8T17Db68Qk3T8UNTK5lzfR_mw";
+
+  auto expected_headers = BaseRequestHeaders();
+  expected_headers.addCopy("sec-istio-auth-userinfo",
+                           "eyJpc3MiOiJo"
+                           "dHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtc"
+                           "GxlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbX"
+                           "BsZV9zZXJ2aWNlIn0");
+
+  TestVerification(createHeaders(kJwtEC), "", createIssuerHeaders(),
+                   kPublicKeyEC, true, expected_headers, "");
 }
 
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, JwtExpired) {

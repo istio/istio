@@ -16,6 +16,7 @@
 #pragma once
 
 #include "envoy/json/json_object.h"
+#include "openssl/ec.h"
 #include "openssl/evp.h"
 
 #include <string>
@@ -30,71 +31,80 @@ enum class Status {
   OK = 0,
 
   // JWT token is required.
-  JWT_MISSED,
+  JWT_MISSED = 1,
 
   // Token expired.
-  JWT_EXPIRED,
+  JWT_EXPIRED = 2,
 
   // Given JWT is not in the form of Header.Payload.Signature
-  JWT_BAD_FORMAT,
+  JWT_BAD_FORMAT = 3,
 
   // Header is an invalid Base64url input or an invalid JSON.
-  JWT_HEADER_PARSE_ERROR,
+  JWT_HEADER_PARSE_ERROR = 4,
 
   // Header does not have "alg".
-  JWT_HEADER_NO_ALG,
+  JWT_HEADER_NO_ALG = 5,
 
   // "alg" in the header is not a string.
-  JWT_HEADER_BAD_ALG,
+  JWT_HEADER_BAD_ALG = 6,
 
   // Signature is an invalid Base64url input.
-  JWT_SIGNATURE_PARSE_ERROR,
+  JWT_SIGNATURE_PARSE_ERROR = 7,
 
   // Signature Verification failed (= Failed in DigestVerifyFinal())
-  JWT_INVALID_SIGNATURE,
+  JWT_INVALID_SIGNATURE = 8,
 
   // Signature is valid but payload is an invalid Base64url input or an invalid
   // JSON.
-  JWT_PAYLOAD_PARSE_ERROR,
+  JWT_PAYLOAD_PARSE_ERROR = 9,
 
   // "kid" in the JWT header is not a string.
-  JWT_HEADER_BAD_KID,
+  JWT_HEADER_BAD_KID = 10,
 
   // Issuer is not configured.
-  JWT_UNKNOWN_ISSUER,
+  JWT_UNKNOWN_ISSUER = 11,
 
   // JWK is an invalid JSON.
-  JWK_PARSE_ERROR,
+  JWK_PARSE_ERROR = 12,
 
   // JWK does not have "keys".
-  JWK_NO_KEYS,
+  JWK_NO_KEYS = 13,
 
   // "keys" in JWK is not an array.
-  JWK_BAD_KEYS,
+  JWK_BAD_KEYS = 14,
 
   // There are no valid public key in given JWKs.
-  JWK_NO_VALID_PUBKEY,
+  JWK_NO_VALID_PUBKEY = 15,
 
   // There is no key the kid and the alg of which match those of the given JWT.
-  KID_ALG_UNMATCH,
+  KID_ALG_UNMATCH = 16,
 
   // Value of "alg" in the header is invalid.
-  ALG_NOT_IMPLEMENTED,
+  ALG_NOT_IMPLEMENTED = 17,
 
   // Given PEM formatted public key is an invalid Base64 input.
-  PEM_PUBKEY_BAD_BASE64,
+  PEM_PUBKEY_BAD_BASE64 = 18,
 
   // A parse error on PEM formatted public key happened.
-  PEM_PUBKEY_PARSE_ERROR,
+  PEM_PUBKEY_PARSE_ERROR = 19,
 
-  // "n" or" "e" field of a JWK has a parse error or is missing.
-  JWK_PUBKEY_PARSE_ERROR,
+  // "n" or "e" field of a JWK has a parse error or is missing.
+  JWK_RSA_PUBKEY_PARSE_ERROR = 20,
+
+  // Failed to create a EC_KEY object.
+  FAILED_CREATE_EC_KEY = 21,
+
+  // "x" or "y" field of a JWK has a parse error or is missing.
+  JWK_EC_PUBKEY_PARSE_ERROR = 22,
+
+  // Failed to create ECDSA_SIG object.
+  FAILED_CREATE_ECDSA_SIGNATURE = 23,
 
   // Audience is not allowed.
-  AUDIENCE_NOT_ALLOWED,
+  AUDIENCE_NOT_ALLOWED = 24,
 
   // Failed to fetch public key
-  FAILED_FETCH_PUBKEY,
+  FAILED_FETCH_PUBKEY = 25,
 };
 
 std::string StatusToString(Status status);
@@ -150,12 +160,17 @@ class Verifier : public WithStatus {
   // Functions to verify with single public key.
   // (Note: Pubkeys object passed to Verify() may contains multiple public keys)
   // When verification fails, UpdateStatus() is NOT called.
-  bool VerifySignature(EVP_PKEY* key, const EVP_MD* md,
-                       const uint8_t* signature, size_t signature_len,
-                       const uint8_t* signed_data, size_t signed_data_len);
-  bool VerifySignature(EVP_PKEY* key, const EVP_MD* md,
-                       const std::string& signature,
-                       const std::string& signed_data);
+  bool VerifySignatureRSA(EVP_PKEY* key, const EVP_MD* md,
+                          const uint8_t* signature, size_t signature_len,
+                          const uint8_t* signed_data, size_t signed_data_len);
+  bool VerifySignatureRSA(EVP_PKEY* key, const EVP_MD* md,
+                          const std::string& signature,
+                          const std::string& signed_data);
+  bool VerifySignatureEC(EC_KEY* key, const std::string& signature,
+                         const std::string& signed_data);
+  bool VerifySignatureEC(EC_KEY* key, const uint8_t* signature,
+                         size_t signature_len, const uint8_t* signed_data,
+                         size_t signed_data_len);
 };
 
 // Class to parse and a hold a JWT.
@@ -256,11 +271,16 @@ class Pubkeys : public WithStatus {
  private:
   void CreateFromPemCore(const std::string& pkey_pem);
   void CreateFromJwksCore(const std::string& pkey_jwks);
+  // Extracts the public key from a jwk key (jkey) and sets it to keys_;
+  void ExtractPubkeyFromJwk(Json::ObjectSharedPtr jwk_json);
+  void ExtractPubkeyFromJwkRSA(Json::ObjectSharedPtr jwk_json);
+  void ExtractPubkeyFromJwkEC(Json::ObjectSharedPtr jwk_json);
 
   class Pubkey {
    public:
     Pubkey(){};
-    bssl::UniquePtr<EVP_PKEY> key_;
+    bssl::UniquePtr<EVP_PKEY> evp_pkey_;
+    bssl::UniquePtr<EC_KEY> ec_key_;
     std::string kid_;
     bool alg_specified_ = false;
     std::string alg_;
