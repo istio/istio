@@ -259,13 +259,13 @@ func (vm *GCPRawVM) prepareCluster() error {
 }
 
 func setFirewallRuleToAllowAccessToVM() error {
-	if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
-		if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
-		 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
-		 	--source-ranges 0.0.0.0/0`); err != nil {
-			return err
-		}
-	}
+	// if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
+	// 	if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
+	// 	 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
+	// 	 	--source-ranges 0.0.0.0/0`); err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
 
