@@ -35,8 +35,8 @@ func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []str
 	return false
 }
 
-// applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
-func applyClusterPolicy(cluster *Cluster,
+// ApplyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
+func ApplyClusterPolicy(cluster *Cluster,
 	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	mesh *meshconfig.MeshConfig,
@@ -54,16 +54,16 @@ func applyClusterPolicy(cluster *Cluster,
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
-			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+			consolidateAuthPolicy(mesh, cluster.Port.AuthenticationPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
-			ports := model.PortList{cluster.port}.GetNames()
-			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
+			ports := model.PortList{cluster.Port}.GetNames()
+			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.Hostname, ports)
 			cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, serviceAccounts)
 		}
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(proxyInstances, cluster.hostname, cluster.labels)
+	policyConfig := config.Policy(proxyInstances, cluster.Hostname, cluster.labels)
 
 	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {
@@ -236,7 +236,7 @@ func applyTrafficPolicy(cluster *Cluster, policy *networking.TrafficPolicy) {
 }
 
 func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domain string) {
-	destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
+	destinationRuleConfig := config.DestinationRule(cluster.Hostname, domain)
 	if destinationRuleConfig != nil {
 		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
 

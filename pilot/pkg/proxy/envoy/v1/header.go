@@ -91,15 +91,15 @@ func buildHTTPRouteMatchV2(match *networking.HTTPMatchRequest) *HTTPRoute {
 	}
 
 	if match.Method != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(headerMethod, match.Method))
+		route.Headers = append(route.Headers, buildHeaderV2(HeaderMethod, match.Method))
 	}
 
 	if match.Authority != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(headerAuthority, match.Authority))
+		route.Headers = append(route.Headers, buildHeaderV2(HeaderAuthority, match.Authority))
 	}
 
 	if match.Scheme != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(headerScheme, match.Scheme))
+		route.Headers = append(route.Headers, buildHeaderV2(HeaderScheme, match.Scheme))
 	}
 
 	// TODO: match.DestinationPorts
