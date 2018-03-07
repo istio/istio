@@ -53,7 +53,7 @@ func (cache *ConfigCache) Register(grpcServer *grpc.Server) {
 	// v2.RegisterListenerDiscoveryServiceServer(grpcServer, cache.server)
 }
 
-// Register with the controllers
+// RegisterInput connects with the controllers
 func (cache *ConfigCache) RegisterInput(services model.Controller, configs model.ConfigStoreCache) {
 	if err := services.AppendServiceHandler(cache.OnServiceEvent); err != nil {
 		log.Fatal(err)
