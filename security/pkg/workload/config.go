@@ -21,7 +21,7 @@ import (
 const (
 	// SecretFile propages the key/cert to the workload through file.
 	SecretFile int = iota // 0
-	// SecretDiscoveryService propages the key/cert to the workload through SDS API.
+	// SecretDiscoveryServiceAPI propages the key/cert to the workload through SDS API.
 	SecretDiscoveryServiceAPI // 1
 )
 
