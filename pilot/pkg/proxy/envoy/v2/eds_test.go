@@ -114,10 +114,10 @@ func TestEds(t *testing.T) {
 	}
 	log.Println(srv)
 
-	err = startEnvoy()
-	if err != nil {
-		t.Error("Failed to start envoy", err)
-	}
+	//err = startEnvoy()
+	//if err != nil {
+	//	t.Error("Failed to start envoy", err)
+	//}
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(server, t)
@@ -135,14 +135,14 @@ var (
 
 // Verify the endpoint debug interface is installed and returns some string.
 // TODO: parse response, check if data captured matches what we expect.
-// TODO: turn this into an integration test.
+// TODO: use this in integration tests.
+// TODO: refine the output
+// TODO: dump the ServiceInstances as well
 func testEdsz(t *testing.T) {
-	fmt.Println("XXXX EDS 0")
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch /edsz")
 	}
-	fmt.Println("XXXX EDS 1")
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		t.Fatalf("Failed to read /edsz")

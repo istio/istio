@@ -42,7 +42,7 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 
-	// 
+	//
 	//go periodicRefresh()
 	return out
 }

@@ -59,6 +59,12 @@ type EdsCluster struct {
 
 	LoadAssignments *xdsapi.ClusterLoadAssignment
 
+	// FirstUse is the time the cluster was first used, for debugging
+	FirstUse time.Time
+
+	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
+	NonEmptyTime time.Time
+
 	// The discovery service this cluster is associated with.
 	discovery *DiscoveryServer
 }
@@ -74,7 +80,7 @@ type EdsConnection struct {
 	Clusters []string
 
 	// Time of connection, for debugging
-	Connect string
+	Connect time.Time
 
 	// Sending on this channel results in  push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
@@ -175,6 +181,9 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
+	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
+		edsCluster.NonEmptyTime = time.Now()
+	}
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -224,7 +233,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		pushChannel: make(chan bool, 1),
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
-		Connect:     time.Now().String(),
+		Connect:     time.Now(),
 	}
 	var node string
 	go func() {
@@ -348,6 +357,7 @@ func EdsPushAll() {
 	for k, v := range edsClusters {
 		tmpMap[k] = v
 	}
+	version++;
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {
@@ -380,6 +390,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 	if c == nil {
 		c = &EdsCluster{discovery: s,
 			EdsClients: map[string]*EdsConnection{},
+			FirstUse:time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}
@@ -397,6 +408,10 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 
 	delete(c.EdsClients, node)
+	if len(c.EdsClients) == 0 {
+		log.Infoa("EDS: unused cluster ", clusterName, edsClusters)
+		delete(edsClusters, clusterName)
+	}
 }
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
