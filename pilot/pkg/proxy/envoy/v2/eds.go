@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -368,7 +367,7 @@ func EdsPushAll() {
 	for k, v := range edsClusters {
 		tmpMap[k] = v
 	}
-	version++;
+	version++
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {
@@ -407,7 +406,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	if c == nil {
 		c = &EdsCluster{discovery: s,
 			EdsClients: map[string]*EdsConnection{},
-			FirstUse:time.Now(),
+			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}

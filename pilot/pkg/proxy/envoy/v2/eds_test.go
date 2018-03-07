@@ -15,7 +15,6 @@ package v2_test
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -25,6 +24,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
@@ -126,7 +126,6 @@ func TestEds(t *testing.T) {
 	t.Run("DebugEndpoint", func(t *testing.T) {
 		testEdsz(t)
 	})
-	fmt.Println("XXXX EDS TEST DONE")
 }
 
 var (
