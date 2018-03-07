@@ -45,8 +45,9 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	vc := crd.ControllerOptions{}
 	tmplRepo := template.NewRepository(info)
 	tmplInfo := make(map[string]*template.Info, len(info))
-	for k, info := range info {
-		tmplInfo[k] = &info
+	for k := range info {
+		t := info[k]
+		tmplInfo[k] = &t
 	}
 	ainfo := config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate)
 	rvc := runtimeValidatorOptions{adapters: ainfo, templates: tmplInfo}
