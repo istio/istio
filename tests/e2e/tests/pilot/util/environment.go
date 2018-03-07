@@ -494,6 +494,10 @@ func (e *Environment) dumpErrorLogs() {
 	if err != nil {
 		log.Errora("Failed to dump logs", err)
 	}
+	err = testutil.FetchAndSaveClusterLogs(e.Config.IstioNamespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
 
 	// Temp: dump logs the old way, for people used with it.
 	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {

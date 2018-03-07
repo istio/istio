@@ -15,6 +15,8 @@
 package v2
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -23,8 +25,10 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
-const (
-	responseTickDuration = time.Second * 60
+var(
+	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
+	// TODO: remove after events get enough testing
+	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -42,22 +46,24 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 
-	//
-	//go periodicRefresh()
+	if  len(periodicRefreshDuration) > 0 {
+		go periodicRefresh()
+	}
 	return out
+
 }
 
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func periodicRefresh() {
+	responseTickDuration, err := time.ParseDuration(periodicRefreshDuration)
+	if err != nil {
+		return
+	}
 	ticker := time.NewTicker(responseTickDuration)
 	defer ticker.Stop()
-	for {
-		// Block until either a request is received or the ticker ticks
-		select {
-		case <-ticker.C:
+	for range ticker.C {
 			EdsPushAll()
-		}
 	}
 }

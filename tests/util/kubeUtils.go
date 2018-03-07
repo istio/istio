@@ -289,6 +289,7 @@ func CheckPodsRunning(n string) (ready bool) {
 	return true
 }
 
+// FetchAndSaveClusterLogs will dump the logs for a cluster.
 func FetchAndSaveClusterLogs(namespace string, tempDir string) error {
 	var multiErr error
 	fetchAndWrite := func(pod string) error {

@@ -114,7 +114,7 @@ func TestEds(t *testing.T) {
 	}
 	log.Println(srv)
 
-	//err = startEnvoy()
+	//err := util.RunEnvoy("xds", "tests/testdata/envoy_local.json")
 	//if err != nil {
 	//	t.Error("Failed to start envoy", err)
 	//}
@@ -152,7 +152,3 @@ func testEdsz(t *testing.T) {
 	}
 }
 
-func startEnvoy() error {
-	err := util.RunEnvoy("xds", "tests/testdata/envoy_local.json")
-	return err
-}
