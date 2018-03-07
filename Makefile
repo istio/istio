@@ -622,9 +622,11 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/servicegraph.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
                 install/kubernetes/addons/zipkin.yaml \
-                install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
+                install/kubernetes/istio-ca-with-health-check.yaml \
+                install/kubernetes/istio-mixer-validator.yaml \
+                install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
