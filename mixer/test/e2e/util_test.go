@@ -151,7 +151,8 @@ func (tt *testData) checkReferencedAttributes(t *testing.T, actual istio_mixer_v
 	for _, m := range actual.AttributeMatches {
 		switch m.Condition {
 		case istio_mixer_v1.EXACT, istio_mixer_v1.ABSENCE, istio_mixer_v1.REGEX:
-			break
+			// do nothing
+
 		default:
 			t.Fatalf("Unexpected condition: %v (%v)", m.Condition, spew.Sdump(m))
 		}
