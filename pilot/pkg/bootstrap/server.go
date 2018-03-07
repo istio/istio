@@ -661,6 +661,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
 
+		if args.RDSv2 {
+			log.Info("xDS: enabling RDS")
+			envoyv2.NewConfigCache(s.ServiceController, s.configController).Register(s.GRPCServer)
+		}
+
 		return err
 	})
 

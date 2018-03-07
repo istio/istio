@@ -15,6 +15,8 @@
 package v2
 
 import (
+	"log"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
@@ -51,8 +53,19 @@ func (cache *ConfigCache) Register(grpcServer *grpc.Server) {
 	// v2.RegisterListenerDiscoveryServiceServer(grpcServer, cache.server)
 }
 
+// Register with the controllers
+func (cache *ConfigCache) RegisterInput(services model.Controller, configs model.ConfigStoreCache) {
+	if err := services.AppendServiceHandler(cache.OnServiceEvent); err != nil {
+		log.Fatal(err)
+	}
+	configs.RegisterEventHandler(model.VirtualService.Type, cache.OnConfigEvent)
+	configs.RegisterEventHandler(model.DestinationRule.Type, cache.OnConfigEvent)
+}
+
 // ID ...
-func (cache *ConfigCache) ID(node *core.Node) string { return node.GetId() }
+func (cache *ConfigCache) ID(node *core.Node) string {
+	return node.GetId()
+}
 
 // OnServiceEvent ...
 func (cache *ConfigCache) OnServiceEvent(svc *model.Service, event model.Event) {
