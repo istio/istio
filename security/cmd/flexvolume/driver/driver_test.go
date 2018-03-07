@@ -19,15 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	//"io/ioutil"
 	"os"
-	//"os/exec"
-	//"path/filepath"
 	"reflect"
-	//"strings"
 	"testing"
-	
-//	pb "istio.io/istio/security/proto"
 )
 
 var (
@@ -83,12 +77,12 @@ func cmpStdOutput(expected, actual interface{}) error {
 func TestInitVer1_8(t *testing.T) {
 	var resp Resp
 	expectedResp := Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}}
-	
+
 	testInitStdIo()
 	if err := Init("1.8"); err != nil {
-	  t.Errorf("Failed to init. (%s)", err.Error())
+		t.Errorf("Failed to init. (%s)", err.Error())
 	}
-	
+
 	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
@@ -97,12 +91,12 @@ func TestInitVer1_8(t *testing.T) {
 func TestInitDefault(t *testing.T) {
 	var resp Resp
 	expectedResp := Resp{Status: "Success", Message: "Init ok."}
-	
+
 	testInitStdIo()
 	if err := Init("1.9"); err != nil {
-	  t.Errorf("Failed to init. (%s)", err.Error())
+		t.Errorf("Failed to init. (%s)", err.Error())
 	}
-	
+
 	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
@@ -116,7 +110,6 @@ func getMountInputs(opts *NodeAgentInputs) (string, error) {
 	}
 	return string(opBytes), nil
 }
-
 
 func TestMount(t *testing.T) {
 	err := Mount("device", "opts")
