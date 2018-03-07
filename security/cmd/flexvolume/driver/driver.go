@@ -175,17 +175,17 @@ func Mount(dir, opts string) error {
 
 	ninputs, s := checkValidMountOpts(opts)
 	if !s {
-		return Failure("mount", inp, "Incomplete inputs")
+		return failure("mount", inp, "Incomplete inputs")
 	}
 
 	if err := doMount(dir, ninputs.Attrs); err != nil {
 		sErr := "Failure to mount: " + err.Error()
-		return Failure("mount", inp, sErr)
+		return failure("mount", inp, sErr)
 	}
 
 	if err := addListener(ninputs); err != nil {
 		sErr := "Failure to notify nodeagent: " + err.Error()
-		return Failure("mount", inp, sErr)
+		return failure("mount", inp, sErr)
 	}
 
 	return genericSucc("mount", inp, "Mount ok.")
@@ -196,7 +196,7 @@ func Unmount(dir string) error {
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
 		sErr := fmt.Sprintf("Unmount failed with dir %s.", dir)
-		return Failure("unmount", dir, sErr)
+		return failure("unmount", dir, sErr)
 	}
 
 	uid := comps[5]
@@ -205,7 +205,7 @@ func Unmount(dir string) error {
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
 	if err := delListener(naInp); err != nil {
 		sErr := "Failure to notify nodeagent: " + err.Error()
-		return Failure("unmount", dir, sErr)
+		return failure("unmount", dir, sErr)
 	}
 
 	// unmount the bind mount
@@ -239,7 +239,7 @@ func genericSucc(caller, inp, msg string) error {
 }
 
 // Failure report failure case
-func Failure(caller, inp, msg string) error {
+func failure(caller, inp, msg string) error {
 	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
 	if err != nil {
 		return err

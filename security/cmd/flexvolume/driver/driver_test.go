@@ -15,24 +15,109 @@
 package driver
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	//"io/ioutil"
+	"os"
+	//"os/exec"
+	//"path/filepath"
+	"reflect"
+	//"strings"
 	"testing"
+	
+//	pb "istio.io/istio/security/proto"
 )
 
-func TestInit(t *testing.T) {
-	ver := "1.8"
-	err := Init(ver)
+var (
+	// The original standard out for printouts
+	oldOut *os.File
+	// The standard out used for tests.
+	pipeOut *os.File
+	// The channel for sending stdout back to test code.
+	outC chan string
+	// testDir is where all the artifacts are created.
+	testDir string
+	// environment vars to attach to exec command
+	envExec []string
+)
+
+// Will block waiting for data on the channel.
+func readStdOut() string {
+	pipeOut.Close()
+	os.Stdout = oldOut
+	fmt.Println("Waiting for output")
+	return <-outC
+}
+
+// Redirect stdout to a pipe
+func testInitStdIo() {
+	var r *os.File
+	oldOut = os.Stdout
+	r, pipeOut, _ = os.Pipe()
+	os.Stdout = pipeOut
+
+	outC = make(chan string)
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- buf.String()
+	}()
+}
+
+func cmpStdOutput(expected, actual interface{}) error {
+	output := readStdOut()
+	err := json.Unmarshal([]byte(output), actual)
 	if err != nil {
-		t.Errorf("Failed to init.")
+		return fmt.Errorf("for output %s error (%s)", output, err.Error())
 	}
 
-	ver = "1.9"
-	err = Init(ver)
-	if err != nil {
-		t.Errorf("Failed to init.")
+	if !reflect.DeepEqual(expected, actual) {
+		return fmt.Errorf("actual: %#v, expected: %#v", actual, expected)
+	}
+
+	return nil
+}
+
+func TestInitVer1_8(t *testing.T) {
+	var resp Resp
+	expectedResp := Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}}
+	
+	testInitStdIo()
+	if err := Init("1.8"); err != nil {
+	  t.Errorf("Failed to init. (%s)", err.Error())
+	}
+	
+	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
+		t.Errorf("Failed to init. (%s)", err.Error())
 	}
 }
 
-// TODO(wattli): improve the testing cases for Mount().
+func TestInitDefault(t *testing.T) {
+	var resp Resp
+	expectedResp := Resp{Status: "Success", Message: "Init ok."}
+	
+	testInitStdIo()
+	if err := Init("1.9"); err != nil {
+	  t.Errorf("Failed to init. (%s)", err.Error())
+	}
+	
+	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
+		t.Errorf("Failed to init. (%s)", err.Error())
+	}
+}
+
+func getMountInputs(opts *NodeAgentInputs) (string, error) {
+	var opBytes []byte
+	opBytes, err := json.Marshal(&opts)
+	if err != nil {
+		return "", err
+	}
+	return string(opBytes), nil
+}
+
+
 func TestMount(t *testing.T) {
 	err := Mount("device", "opts")
 	if err != nil {
