@@ -90,6 +90,7 @@ var (
 		model.QuotaSpecBinding,
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
+		model.AuthenticationPolicy,
 	}
 )
 

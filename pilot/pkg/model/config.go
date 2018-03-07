@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -276,6 +277,14 @@ type IstioConfigStore interface {
 	// Mixerclient end user authn policy specifications associated
 	// with destination service instances.
 	EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config
+
+	// AuthenticationPolicyByDestination selects authentication policy associated
+	// with a service + port. Hostname must be FQDN.
+	// If there are more than one policies at different scopes (global, namespace, service)
+	// the one with the most specific scope will be selected. If there are more than
+	// one with the same scope, the first one seen will be used (later, we should
+	// have validation at submitting time to prevent this scenario from happening)
+	AuthenticationPolicyByDestination(hostname string, port *Port) *Config
 }
 
 const (
@@ -438,6 +447,16 @@ var (
 		Validate:    ValidateQuotaSpecBinding,
 	}
 
+	// AuthenticationPolicy describes an authentication policy.
+	AuthenticationPolicy = ProtoSchema{
+		Type:        "policy",
+		Plural:      "policies",
+		Group:       "authentication",
+		Version:     "v1alpha1",
+		MessageName: "istio.authentication.v1alpha1.Policy",
+		Validate:    ValidateAuthenticationPolicy,
+	}
+
 	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
 	EndUserAuthenticationPolicySpec = ProtoSchema{
 		Type:        "end-user-authentication-policy-spec",
@@ -474,6 +493,7 @@ var (
 		QuotaSpecBinding,
 		EndUserAuthenticationPolicySpec,
 		EndUserAuthenticationPolicySpecBinding,
+		AuthenticationPolicy,
 	}
 )
 
@@ -513,6 +533,11 @@ func ResolveFQDN(host, domain string) string {
 		}
 	}
 	return host
+}
+
+// ResolveFQDNFromDestination returns FQDN for destination, in namespace and domain defines by config meta.
+func ResolveFQDNFromDestination(meta ConfigMeta, destination *networking.Destination) string {
+	return ResolveFQDN(destination.Name, meta.Namespace+".svc."+meta.Domain)
 }
 
 // istioConfigStore provides a simple adapter for Istio configuration types
@@ -829,6 +854,60 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *Config {
+	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 2 {
+		// Bad hostname, return no policy.
+		return nil
+	}
+	namespace := parts[1]
+	// TODO(diemtvu): check for 'global' policy first, when available.
+	// Tracking issue https://github.com/istio/istio/issues/4027
+	specs, err := store.List(AuthenticationPolicy.Type, namespace)
+	if err != nil {
+		return nil
+	}
+	var out Config
+	currentMatchLevel := 0
+	for _, spec := range specs {
+		policy := spec.Spec.(*authn.Policy)
+		// Indicate if a policy matched to target destination:
+		// 0 - not match.
+		// 1 - global / cluster scope.
+		// 2 - namespace scope.
+		// 3 - workload (service).
+		matchLevel := 0
+		if len(policy.Destinations) > 0 {
+			for _, dest := range policy.Destinations {
+
+				if hostname != ResolveFQDNFromDestination(spec.ConfigMeta, dest) {
+					continue
+				}
+				// If destination port is defined, it must match.
+				if !port.Match(dest.GetPort()) {
+					continue
+				}
+				matchLevel = 3
+				break
+			}
+		} else {
+			// Match on namespace level.
+			matchLevel = 2
+		}
+		// Swap output policy that is match in more specific scope.
+		if matchLevel > currentMatchLevel {
+			currentMatchLevel = matchLevel
+			out = spec
+		}
+	}
+	// Zero-currentMatchLevel implies no config matching the destination found.
+	if currentMatchLevel == 0 {
+		return nil
+	}
+	return &out
+}
+
 // EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
 // associated with destination service instances.
 func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config {
@@ -865,7 +944,6 @@ func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(inst
 			out = append(out, spec)
 		}
 	}
-
 	return out
 }
 
