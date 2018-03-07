@@ -94,26 +94,28 @@
         },
         "filter_chains": [
           {
+          {{ if .certDir }}
             "tls_context": {
               "common_tls_context": {
                 "tls_certificates": [
                   {
                     "certificate_chain": {
-                      "filename": "/etc/certs/cert-chain.pem"
+                      "filename": "{{ .certDir }}/cert-chain.pem"
                     },
                     "private_key": {
-                      "filename": "/etc/certs/key.pem"
+                      "filename": "{{ .certDir }}/key.pem"
                     }
                   }
                 ],
                 "validation_context": {
                   "trusted_ca": {
-                    "filename": "/etc/certs/root-cert.pem"
+                    "filename": "{{ .certDir }}/root-cert.pem"
                   }
                 }
               },
               "require_client_certificate": true
             },
+          {{ end }}
             "filters": [
               {
                 "name": "envoy.tcp_proxy",
