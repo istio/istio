@@ -201,7 +201,7 @@ func TestIngressController(t *testing.T) {
 
 	const expectedRuleCount = 5
 	actual := 0
-	for true {
+	for {
 		<-count
 		actual++
 		if actual == expectedRuleCount {
