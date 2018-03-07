@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	cpb "istio.io/api/mixer/v1/config"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"

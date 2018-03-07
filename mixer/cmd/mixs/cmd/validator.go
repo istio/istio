@@ -71,7 +71,6 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	validatorCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Use a Kubernetes configuration file instead of in-cluster configuration")
 	validatorCmd.PersistentFlags().StringVarP(&rvc.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
-	// Hide configIdentityAttribute until we have a need to expose it. See server.go for the details.
 	validatorCmd.PersistentFlags().StringVarP(&rvc.identityAttribute, "configIdentityAttribute", "", "destination.service",
 		"Attribute that is used to identify applicable scopes.")
 	if err := validatorCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {

@@ -21,10 +21,10 @@ syntax = "proto3";
 // The `apikey` template represents a single API key, which is used for authorization checks.
 package apiKey;
 
-import "mixer/v1/template/standard_types.proto";
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 
-option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 
 // The `apikey` template represents a single API key, used to authorize API calls.
 //
@@ -57,5 +57,5 @@ message Template {
     string api_key = 4;
 
     // Timestamp of API call.
-    istio.mixer.v1.template.TimeStamp timestamp = 5;
+    istio.mixer.adapter.model.v1beta1.TimeStamp timestamp = 5;
 }

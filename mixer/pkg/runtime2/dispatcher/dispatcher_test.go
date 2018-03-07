@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	tpb "istio.io/api/mixer/v1/template"
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -59,7 +59,7 @@ var tests = []struct {
 	// quota method arguments to pass
 	qma *runtime.QuotaMethodArgs
 
-	// Attributes to see the response bag with before call
+	// Attributes to expect in the response bag
 	responseAttrs map[string]interface{}
 
 	expectedQuotaResult *adapter.QuotaResult
@@ -71,6 +71,9 @@ var tests = []struct {
 
 	// expected adapter/template log.
 	log string
+
+	// print out the full log for this test. Useful for debugging.
+	fullLog bool
 }{
 	{
 		name: "BasicCheck",
@@ -86,7 +89,9 @@ var tests = []struct {
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -113,7 +118,9 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (ERROR)
 `,
 	},
@@ -143,13 +150,17 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (SUCCESS)
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -198,13 +209,43 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (SUCCESS)
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
+[tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "BasicCheckWithExpressions",
+		config: []string{
+			data.HandlerACheck1,
+			data.InstanceCheck1WithSpec,
+			data.RuleCheck1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		attr: map[string]interface{}{
+			"attr.string": "bar",
+			"ident":       "dest.istio-system",
+		},
+		expectedCheckResult: &adapter.CheckResult{},
+		log: `
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+attr.string                   : bar
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -222,7 +263,9 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [treport] InstanceBuilderFn() <= (SUCCESS)
-[treport] DispatchReport => instances: '[&Empty{}]'
+[treport] DispatchReport => context exists: 'true'
+[treport] DispatchReport => handler exists: 'true'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},}]'
 [treport] DispatchReport <= (SUCCESS)
 `,
 	},
@@ -249,8 +292,36 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [treport] InstanceBuilderFn() <= (SUCCESS)
-[treport] DispatchReport => instances: '[&Empty{}]'
+[treport] DispatchReport => context exists: 'true'
+[treport] DispatchReport => handler exists: 'true'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{},}]'
 [treport] DispatchReport <= (ERROR)
+`,
+	},
+
+	{
+		name: "BasicReportWithExpressions",
+		config: []string{
+			data.HandlerAReport1,
+			data.InstanceReport1WithSpec,
+			data.RuleReport1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_REPORT,
+		attr: map[string]interface{}{
+			"attr.string": "bar",
+			"ident":       "dest.istio-system",
+		},
+		log: `
+[treport] InstanceBuilderFn() => name: 'treport', bag: '---
+attr.string                   : bar
+ident                         : dest.istio-system
+'
+[treport] InstanceBuilderFn() <= (SUCCESS)
+[treport] DispatchReport => context exists: 'true'
+[treport] DispatchReport => handler exists: 'true'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}]'
+[treport] DispatchReport <= (SUCCESS)
+
 `,
 	},
 
@@ -273,7 +344,9 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'42', amount:'64', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -299,7 +372,9 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (ERROR)
 `,
 	},
@@ -336,13 +411,17 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
 	},
@@ -377,6 +456,11 @@ ident                         : dest.istio-system
 			data.RuleQuota1,
 			data.RuleQuota2,
 		},
+		qma: &runtime.QuotaMethodArgs{
+			DeduplicationID: "dedup-id",
+			BestEffort:      true,
+			Amount:          42,
+		},
 		variety: tpb.TEMPLATE_VARIETY_QUOTA,
 		expectedQuotaResult: &adapter.QuotaResult{
 			Status: rpc.Status{
@@ -391,15 +475,51 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'dedup-id', amount:'42', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
 [tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => instance: '&Empty{}'m qArgs:{dedup:'', amount:'0', best:'true'}
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'dedup-id', amount:'42', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 `,
+	},
+
+	{
+		name: "BasicQuotaWithExpressions",
+		config: []string{
+			data.HandlerAQuota1,
+			data.InstanceQuota1WithSpec,
+			data.RuleQuota1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_QUOTA,
+		attr: map[string]interface{}{
+			"attr.string": "bar",
+			"ident":       "dest.istio-system",
+		},
+		qma: &runtime.QuotaMethodArgs{
+			BestEffort:      true,
+			DeduplicationID: "42",
+			Amount:          64,
+		},
+		expectedQuotaResult: &adapter.QuotaResult{},
+		log: `
+[tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
+attr.string                   : bar
+ident                         : dest.istio-system
+'
+[tquota] InstanceBuilderFn() <= (SUCCESS)
+[tquota] DispatchQuota => context exists: 'true'
+[tquota] DispatchQuota => handler exists: 'true'
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}' ` +
+			`qArgs:{dedup:'42', amount:'64', best:'true'}
+[tquota] DispatchQuota <= (SUCCESS)
+			`,
 	},
 
 	{
@@ -415,7 +535,11 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (SUCCESS)
 `,
 	},
@@ -442,9 +566,49 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Empty{}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{},}'
+[tapa] DispatchGenAttrs => attrs:    '---
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
 [tapa] DispatchGenAttrs <= (ERROR)
+`,
+	},
 
+	{
+		name: "BasicPreprocessWithExpressions",
+		config: []string{
+			data.HandlerAPA1,
+			data.InstanceAPA1WithSpec,
+			data.RuleApa1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
+		attr: map[string]interface{}{
+			"attr.string": "bar",
+			"ident":       "dest.istio-system",
+		},
+		templates: []data.FakeTemplateSettings{{
+			Name: "tapa",
+			OutputAttrs: map[string]interface{}{
+				"prefix.generated.string": "boz",
+			},
+		}},
+		responseAttrs: map[string]interface{}{
+			"prefix.generated.string": "boz",
+		},
+		log: `
+[tapa] InstanceBuilderFn() => name: 'tapa', bag: '---
+attr.string                   : bar
+ident                         : dest.istio-system
+'
+[tapa] InstanceBuilderFn() <= (SUCCESS)
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
+[tapa] DispatchGenAttrs => attrs:    '---
+attr.string                   : bar
+ident                         : dest.istio-system
+'
+[tapa] DispatchGenAttrs => mapper(exists):   'true'
+[tapa] DispatchGenAttrs <= (SUCCESS)
 `,
 	},
 
@@ -517,15 +681,19 @@ ident                         : dest.istio-system
 ident                         : dest.istio-system
 '
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
-[tcheck] DispatchCheck => instance: '&Empty{}'
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},}'
 [tcheck] DispatchCheck <= (PANIC)
 `,
 	},
 }
 
 func TestDispatcher(t *testing.T) {
-	o := log.NewOptions()
-	log.Configure(o)
+	o := log.DefaultOptions()
+	if err := log.Configure(o); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {
@@ -546,7 +714,9 @@ func TestDispatcher(t *testing.T) {
 			_ = dispatcher.ChangeRoute(r)
 
 			// clear logger, as we are not interested in adapter/template logs during config step.
-			l.Clear()
+			if !tst.fullLog {
+				l.Clear()
+			}
 
 			attr := tst.attr
 			if attr == nil {
@@ -556,11 +726,7 @@ func TestDispatcher(t *testing.T) {
 			}
 			bag := attribute.GetFakeMutableBagForTesting(attr)
 
-			responseAttrs := map[string]interface{}{}
-			if tst.responseAttrs != nil {
-				responseAttrs = tst.responseAttrs
-			}
-			responseBag := attribute.GetFakeMutableBagForTesting(responseAttrs)
+			responseBag := attribute.GetFakeMutableBagForTesting(make(map[string]interface{}))
 
 			var err error
 			switch tst.variety {
@@ -593,7 +759,10 @@ func TestDispatcher(t *testing.T) {
 
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
-
+				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
+				if strings.TrimSpace(responseBag.DebugString()) != strings.TrimSpace(expectedBag.DebugString()) {
+					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.DebugString(), expectedBag.DebugString())
+				}
 			default:
 				tt.Fatalf("Unknown variety type: %v", tst.variety)
 			}

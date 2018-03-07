@@ -14,7 +14,7 @@ if [ ! -e $ROOT/Gopkg.lock ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' $ROOT/Gopkg.lock | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
@@ -96,6 +96,8 @@ go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSI
 popd
 echo "Done."
 fi
+
+# TODO: vendor those too like istio.io/api without pruning protos
 
 GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
 GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}

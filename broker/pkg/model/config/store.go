@@ -16,8 +16,6 @@ package config
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	brokerconfig "istio.io/api/broker/dev"
 	"istio.io/istio/pkg/log"

@@ -16,7 +16,6 @@ package appoptics
 
 import (
 	"net/http"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -26,10 +25,6 @@ import (
 )
 
 func TestBatchMeasurements(t *testing.T) {
-
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing, see issue #3207")
-	}
 	t.Run("All Good", func(t *testing.T) {
 		env := test2.NewEnv(t)
 		logger := env.Logger()
@@ -40,30 +35,34 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
-		loopFactor := true
 		batchSize := 100
 
-		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
+		finish := make(chan bool)
 
 		go func() {
-			measurements := []*Measurement{}
+			BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+			finish <- true
+		}()
+
+		go func() {
+			measurements := make([]*Measurement, 0)
 			for i := 0; i < batchSize+1; i++ {
 				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
-			loopFactor = false
-			time.Sleep(time.Millisecond)
+			stopChan <- struct{}{}
+			<-finish
 			close(prepChan)
 			close(pushChan)
+			count := 0
+			for range pushChan {
+				count++
+			}
+			if count != 1 {
+				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
+			}
+			close(stopChan)
 		}()
-		count := 0
-		for range pushChan {
-			count++
-		}
-		if count != 1 {
-			t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
-		}
-		close(stopChan)
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
@@ -75,13 +74,11 @@ func TestBatchMeasurements(t *testing.T) {
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 		batchSize := 100
-		loopFactor := true
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
-		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, batchSize, logger)
-		loopFactor = false
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
 		close(prepChan)
 		close(pushChan)
 		close(stopChan)
@@ -99,10 +96,6 @@ func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 }
 
 func TestPersistBatches(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing, see issue #3209")
-	}
-
 	tests := []struct {
 		name           string
 		expectedCount  int32
@@ -137,13 +130,29 @@ func TestPersistBatches(t *testing.T) {
 			pushChan := make(chan []*Measurement)
 			stopChan := make(chan struct{})
 			var count int32
-			var wg sync.WaitGroup
+			var testWg sync.WaitGroup
+			testWg.Add(1)
+			go func() {
+				PersistBatches(&MockServiceAccessor{
+					MockMeasurementsService: func() MeasurementsCommunicator {
+						return &MockMeasurementsService{
+							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
+								atomic.AddInt32(&count, 1)
+								return test.response, test.error
+							},
+						}
+					},
+				}, pushChan, stopChan, logger)
+				testWg.Done()
+			}()
+
+			var action sync.WaitGroup
+			action.Add(1)
 			if test.sendOnStopChan {
-				wg.Add(1)
 				go func() {
 					time.Sleep(time.Millisecond)
 					stopChan <- struct{}{}
-					wg.Done()
+					action.Done()
 				}()
 			} else {
 				go func() {
@@ -151,33 +160,22 @@ func TestPersistBatches(t *testing.T) {
 					pushChan <- []*Measurement{
 						{}, {}, {},
 					}
+					action.Done()
 				}()
 			}
-			loopFactor := true
 
-			go PersistBatches(&loopFactor, &MockServiceAccessor{
-				MockMeasurementsService: func() MeasurementsCommunicator {
-					return &MockMeasurementsService{
-						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
-							atomic.AddInt32(&count, 1)
-							return test.response, test.error
-						},
-					}
-				},
-			}, pushChan, stopChan, logger)
-
-			time.Sleep(2 * time.Second)
 			logger.Infof("%s - waiting...\n", t.Name())
-			if test.sendOnStopChan {
-				wg.Wait()
-			}
+			action.Wait()
 			if atomic.LoadInt32(&count) != test.expectedCount {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
-			loopFactor = false
+			if !test.sendOnStopChan {
+				stopChan <- struct{}{}
+			}
 			close(pushChan)
 			close(stopChan)
+			testWg.Wait()
 		})
 	}
 }

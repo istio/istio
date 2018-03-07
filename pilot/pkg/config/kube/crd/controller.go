@@ -19,8 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,7 +68,11 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
-			err = c.client.dynamic.Get().
+			rc, ok := c.client.clientset[apiVersion(&schema)]
+			if !ok {
+				return nil, fmt.Errorf("client not initialized %s", schema.Type)
+			}
+			err = rc.dynamic.Get().
 				Namespace(namespace).
 				Resource(ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
@@ -78,7 +81,11 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return c.client.dynamic.Get().
+			rc, ok := c.client.clientset[apiVersion(&schema)]
+			if !ok {
+				return nil, fmt.Errorf("client not initialized %s", schema.Type)
+			}
+			return rc.dynamic.Get().
 				Prefix("watch").
 				Namespace(namespace).
 				Resource(ResourceName(schema.Plural)).

@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -251,9 +249,20 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // Register registers the external admission webhook for pilot
 // configuration types.
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.ValidatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	var resources []string
+	var rules []admissionregistrationv1beta1.RuleWithOperations
 	for _, schema := range ac.options.Descriptor {
-		resources = append(resources, crd.ResourceName(schema.Plural))
+		rules = append(rules,
+			admissionregistrationv1beta1.RuleWithOperations{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{crd.ResourceGroup(&schema)},
+					APIVersions: []string{schema.Version},
+					Resources:   []string{crd.ResourceName(schema.Plural)},
+				},
+			})
 	}
 
 	webhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
@@ -262,18 +271,8 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{
 			{
-				Name: ac.options.ExternalAdmissionWebhookName,
-				Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-					Operations: []admissionregistrationv1beta1.OperationType{
-						admissionregistrationv1beta1.Create,
-						admissionregistrationv1beta1.Update,
-					},
-					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{model.IstioAPIGroup},
-						APIVersions: []string{model.IstioAPIVersion},
-						Resources:   resources,
-					},
-				}},
+				Name:  ac.options.ExternalAdmissionWebhookName,
+				Rules: rules,
 				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 					Service: &admissionregistrationv1beta1.ServiceReference{
 						Namespace: ac.options.ServiceNamespace,

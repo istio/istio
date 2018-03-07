@@ -25,7 +25,7 @@
 //
 //		func main() {
 //			// get the default logging options
-//			options := log.NewOptions()
+//			options := log.DefaultOptions()
 //
 //			rootCmd := &cobra.Command{
 //				Run: func(cmd *cobra.Command, args []string) {

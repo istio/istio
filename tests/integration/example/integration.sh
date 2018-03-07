@@ -39,8 +39,10 @@ ls proxy || git clone https://github.com/istio/proxy
 cd proxy
 git pull
 
+# A default value for ISTIO_ENVOY_VERSION is set by init.sh
+git reset ${ISTIO_ENVOY_VERSION} --hard
 #ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
+START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
 cd ../istio
 
 # Install Fortio

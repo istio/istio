@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -69,7 +69,7 @@ func createTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 		return "", fmt.Errorf("failed to create a namespace (error: %v)", err)
 	}
 
-	glog.Infof("namespace %v is created", namespace.GetName())
+	log.Infof("namespace %v is created", namespace.GetName())
 
 	// Create Role
 	err = createIstioCARole(clientset, namespace.GetName())
@@ -93,7 +93,7 @@ func deleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{GracePeriodSeconds: &immediate}); err != nil {
 		return fmt.Errorf("failed to delete namespace %q (error: %v)", namespace, err)
 	}
-	glog.Infof("namespace %v is deleted", namespace)
+	log.Infof("namespace %v is deleted", namespace)
 	return nil
 }
 
@@ -257,7 +257,7 @@ func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace s
 		case event := <-events:
 			svc := event.Object.(*v1.Service)
 			if len(svc.Status.LoadBalancer.Ingress) > 0 {
-				glog.Infof("LoadBalancer for %v/%v is ready. IP: %v", namespace, svc.GetName(),
+				log.Infof("LoadBalancer for %v/%v is ready. IP: %v", namespace, svc.GetName(),
 					svc.Status.LoadBalancer.Ingress[0].IP)
 				return nil
 			}
@@ -285,7 +285,7 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 		case event := <-events:
 			pod := event.Object.(*v1.Pod)
 			if pod.Status.Phase == v1.PodRunning {
-				glog.Infof("pod %v/%v is in Running phase", namespace, pod.GetName())
+				log.Infof("pod %v/%v is in Running phase", namespace, pod.GetName())
 				return nil
 			}
 		case <-time.After(timeToWait - time.Since(startTime)):

@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	routing "istio.io/api/routing/v1alpha2"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -40,9 +40,9 @@ func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
 		return Listeners{}, nil
 	}
 
-	gateway := &routing.Gateway{}
+	gateway := &networking.Gateway{}
 	for _, spec := range gateways {
-		err := model.MergeGateways(gateway, spec.Spec.(*routing.Gateway))
+		err := model.MergeGateways(gateway, spec.Spec.(*networking.Gateway))
 		if err != nil {
 			return nil, fmt.Errorf("merge gateways: %s", err)
 		}
@@ -68,7 +68,7 @@ func buildPhysicalGatewayListener(
 	mesh *meshconfig.MeshConfig,
 	node model.Proxy,
 	config model.IstioConfigStore,
-	server *routing.Server,
+	server *networking.Server,
 ) *Listener {
 
 	opts := buildHTTPListenerOpts{
@@ -111,12 +111,12 @@ func buildPhysicalGatewayListener(
 // TODO: this isn't really correct: we need xDS v2 APIs to really configure this correctly.
 // Our TLS options align with SDSv2 DownstreamTlsContext, but the v1 API's SSLContext is split
 // into three pieces; we need at least two of the pieces here.
-func tlsToSSLContext(tls *routing.Server_TLSOptions, protocol string) *SSLContext {
+func tlsToSSLContext(tls *networking.Server_TLSOptions, protocol string) *SSLContext {
 	return &SSLContext{
 		CertChainFile:            tls.ServerCertificate,
 		PrivateKeyFile:           tls.PrivateKey,
 		CaCertFile:               tls.CaCertificates,
-		RequireClientCertificate: tls.Mode == routing.Server_TLSOptions_MUTUAL,
+		RequireClientCertificate: tls.Mode == networking.Server_TLSOptions_MUTUAL,
 		ALPNProtocols:            strings.Join(ListenersALPNProtocols, ","),
 	}
 }
@@ -128,7 +128,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 		return nil, err
 	}
 
-	allRules, err := configStore.List(model.V1alpha2RouteRule.Type, model.NamespaceAll)
+	allRules, err := configStore.List(model.VirtualService.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, fmt.Errorf("getting all rules: %s", err)
 	}
@@ -136,77 +136,100 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 	virtualHosts := []*VirtualHost{}
 	for _, gwConfig := range gateways {
 		gatewayName := gwConfig.Name
-		gateway := gwConfig.Spec.(*routing.Gateway)
+		gateway := gwConfig.Spec.(*networking.Gateway)
 		for _, server := range gateway.Servers {
 			if listenerPort != int(server.Port.Number) {
 				continue
 			}
-			for _, externalHostname := range server.Hosts {
-				routesForThisVirtualHost, err := buildDestinationHTTPRoutesForGatewayVirtualHost(allRules,
-					node, configStore, listenerPort, buildOutboundCluster,
-					gatewayName, externalHostname)
-				if err != nil {
-					return nil, err
-				}
-				if len(routesForThisVirtualHost) == 0 {
-					log.Warn("gateway-virtual-hosts", zap.String("host", externalHostname))
+
+			for _, gatewayHost := range server.Hosts {
+				allRulesWithHosts := findRulesAndMatchingHosts(allRules, gatewayName, gatewayHost)
+				if len(allRulesWithHosts) == 0 {
+					log.Warn("gateway-virtual-hosts", zap.String("host", gatewayHost))
 					continue
 				}
+				pseudoServicePort := &model.Port{
+					Protocol: model.ProtocolHTTP, // TODO: support others
+					Port:     listenerPort,
+					Name:     "http", // TODO: support other names?
+				}
+				pseudoService := &model.Service{
+					Hostname: gatewayHost,
+					Ports: []*model.Port{
+						pseudoServicePort,
+					},
+				}
+				for _, rh := range allRulesWithHosts {
+					rule := rh.Rule
+					routesForThisVirtualHost := BuildHTTPRoutes(configStore, rule, pseudoService,
+						pseudoServicePort, nil, node.Domain, BuildOutboundCluster)
 
-				virtualHosts = append(virtualHosts, &VirtualHost{
-					Name:    fmt.Sprintf("%s|%d|%s", gatewayName, listenerPort, externalHostname),
-					Domains: []string{fmt.Sprintf("%s:%d", externalHostname, listenerPort), externalHostname},
-					Routes:  routesForThisVirtualHost,
-				})
+					for _, host := range rh.Hosts {
+						virtualHosts = append(virtualHosts, &VirtualHost{
+							Name:    fmt.Sprintf("%s|%d|%s", gatewayName, listenerPort, host),
+							Domains: []string{fmt.Sprintf("%s:%d", host, listenerPort), host},
+							Routes:  routesForThisVirtualHost,
+						})
+					}
+				}
 			}
 		}
 	}
 
-	configs := (&HTTPRouteConfig{VirtualHosts: virtualHosts}).normalize()
+	configs := (&HTTPRouteConfig{VirtualHosts: virtualHosts}).Normalize()
 	return configs, nil
 }
 
-func buildDestinationHTTPRoutesForGatewayVirtualHost(
-	allRules []model.Config,
-	node model.Proxy, config model.IstioConfigStore,
-	externalPort int,
-	buildCluster buildClusterFunc,
-	gatewayName string, externalHostname string) ([]*HTTPRoute, error) {
-
-	rule, found := filterRulesToGatewayAndExternalHostname(allRules, gatewayName, externalHostname)
-	if !found {
-		return nil, nil
-	}
-
-	pseudoServicePort := &model.Port{
-		Protocol: model.ProtocolHTTP, // TODO: support others
-		Port:     externalPort,
-		Name:     "http", // TODO: support other names?
-	}
-	pseudoService := &model.Service{
-		Hostname: externalHostname,
-		Ports: []*model.Port{
-			pseudoServicePort,
-		},
-	}
-	return buildHTTPRoutes(config, rule, pseudoService, pseudoServicePort, nil, node.Domain, buildCluster), nil
+type ruleWithHosts struct {
+	Rule  model.Config
+	Hosts []string
 }
 
-func filterRulesToGatewayAndExternalHostname(allRules []model.Config, gatewayName string, externalHostname string) (model.Config, bool) {
-	for _, untypedRule := range allRules {
-		rule := untypedRule.Spec.(*routing.RouteRule)
-		if stringSliceContains(rule.Hosts, externalHostname) && stringSliceContains(rule.Gateways, gatewayName) {
-			return untypedRule, true
+func findRulesAndMatchingHosts(allRuleConfigs []model.Config, gatewayName string, gatewayHost string) []ruleWithHosts {
+
+	result := []ruleWithHosts{}
+	for _, config := range allRuleConfigs {
+		rule := config.Spec.(*networking.VirtualService)
+		if stringSliceContains(gatewayName, rule.Gateways) {
+			matchingHosts := findMatchingHosts(gatewayHost, rule.Hosts)
+			if len(matchingHosts) == 0 {
+				continue
+			}
+			result = append(result, ruleWithHosts{
+				Rule:  config,
+				Hosts: matchingHosts,
+			})
 		}
 	}
-	return model.Config{}, false
+
+	return result
 }
 
-func stringSliceContains(things []string, match string) bool {
+func stringSliceContains(match string, things []string) bool {
 	for _, thing := range things {
 		if thing == match {
 			return true
 		}
 	}
 	return false
+}
+
+func findMatchingHosts(matchCriteria string, hosts []string) []string {
+	if matchCriteria == "" {
+		return nil
+	}
+
+	if matchCriteria[0] != '*' {
+		if stringSliceContains(matchCriteria, hosts) {
+			return []string{matchCriteria}
+		}
+	}
+
+	matchingHosts := []string{}
+	for _, host := range hosts {
+		if strings.HasSuffix(host, matchCriteria[1:]) {
+			matchingHosts = append(matchingHosts, host)
+		}
+	}
+	return matchingHosts
 }

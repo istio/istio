@@ -46,10 +46,8 @@ spec:
         args:
         - proxy
         - ingress
-        - -v
-        - "2"
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:8080
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration

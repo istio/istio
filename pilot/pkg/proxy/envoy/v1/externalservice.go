@@ -16,15 +16,14 @@ package v1
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func buildExternalServicePort(port *routingv2.Port) *model.Port {
+// BuildExternalServicePort builds an external service port.
+func BuildExternalServicePort(port *networking.Port) *model.Port {
 	protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 	return &model.Port{
 		Name:     fmt.Sprintf("external-%v-%d", protocol, port.Number), // TODO: use external service port name in building model port name?
@@ -33,17 +32,18 @@ func buildExternalServicePort(port *routingv2.Port) *model.Port {
 	}
 }
 
-func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
+// BuildExternalServiceHTTPRoutes builds external service HTTP routes.
+func BuildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	externalServiceConfigs := config.ExternalServices()
 	for _, externalServiceConfig := range externalServiceConfigs {
-		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
 		meshName := externalServiceConfig.Name + "." + externalServiceConfig.Namespace +
 			"." + externalServiceConfig.Domain
 		for _, port := range externalService.Ports {
-			modelPort := buildExternalServicePort(port)
+			modelPort := BuildExternalServicePort(port)
 			switch modelPort.Protocol {
 			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 				httpConfig := httpConfigs.EnsurePort(modelPort.Port)
@@ -58,7 +58,7 @@ func buildExternalServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Prox
 		}
 	}
 
-	return httpConfigs.normalize()
+	return httpConfigs.Normalize()
 }
 
 func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.IstioConfigStore) (Listeners, Clusters) {
@@ -66,17 +66,17 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 	clusters := make(Clusters, 0)
 
 	for _, externalServiceConfig := range config.ExternalServices() {
-		externalService := externalServiceConfig.Spec.(*routingv2.ExternalService)
+		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
 		for _, port := range externalService.Ports {
-			modelPort := buildExternalServicePort(port)
+			modelPort := BuildExternalServicePort(port)
 			switch modelPort.Protocol {
 			case model.ProtocolTCP, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolHTTPS:
 				routes := make([]*TCPRoute, 0)
 
 				for _, host := range externalService.Hosts {
-					cluster := buildExternalServiceCluster(mesh, host, port.Name, modelPort, nil,
+					cluster := BuildExternalServiceCluster(mesh, host, port.Name, modelPort, nil,
 						externalService.Discovery, externalService.Endpoints)
-					route := buildTCPRoute(cluster, []string{host})
+					route := BuildTCPRoute(cluster, []string{host})
 
 					clusters = append(clusters, cluster)
 					routes = append(routes, route)
@@ -95,13 +95,14 @@ func buildExternalServiceTCPListeners(mesh *meshconfig.MeshConfig, config model.
 	return listeners, clusters
 }
 
-func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
+// BuildExternalServiceCluster builds an external service cluster.
+func BuildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 	address, endpointPortName string, port *model.Port, labels model.Labels,
-	discovery routingv2.ExternalService_Discovery, endpoints []*routingv2.ExternalService_Endpoint) *Cluster {
+	discovery networking.ExternalService_Discovery, endpoints []*networking.ExternalService_Endpoint) *Cluster {
 
 	service := model.Service{Hostname: address}
 	key := service.Key(port, labels)
-	clusterName := truncateClusterName(OutboundClusterPrefix + key)
+	clusterName := TruncateClusterName(OutboundClusterPrefix + key)
 
 	// will only be populated with discovery type dns or static
 	hosts := make([]Host, 0)
@@ -128,15 +129,21 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 		}
 	}
 
+	// Use host address if discovery type DNS and no endpoints are provided
+	if discovery == networking.ExternalService_DNS && len(endpoints) == 0 {
+		url := fmt.Sprintf("tcp://%s:%d", address, port.Port)
+		hosts = append(hosts, Host{URL: url})
+	}
+
 	var clusterType, lbType string
 	switch discovery {
-	case routingv2.ExternalService_NONE:
+	case networking.ExternalService_NONE:
 		clusterType = ClusterTypeOriginalDST
 		lbType = LbTypeOriginalDST
-	case routingv2.ExternalService_DNS:
+	case networking.ExternalService_DNS:
 		clusterType = ClusterTypeStrictDNS
 		lbType = LbTypeRoundRobin
-	case routingv2.ExternalService_STATIC:
+	case networking.ExternalService_STATIC:
 		clusterType = ClusterTypeStatic
 		lbType = LbTypeRoundRobin
 	}
@@ -162,20 +169,20 @@ func buildExternalServiceCluster(mesh *meshconfig.MeshConfig,
 		SSLContext:       sslContext,
 		Features:         features,
 		outbound:         true,
-		hostname:         address,
-		port:             port,
+		Hostname:         address,
+		Port:             port,
 		labels:           labels,
 	}
 }
 
 // buildExternalServiceVirtualHost from the perspective of the 'sidecar' node.
-func buildExternalServiceVirtualHost(serviceName string, externalService *routingv2.ExternalService, portName, destination string,
+func buildExternalServiceVirtualHost(serviceName string, externalService *networking.ExternalService, portName, destination string,
 	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 
 	service := &model.Service{Hostname: destination}
 	buildClusterFunc := func(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
-		return buildExternalServiceCluster(mesh, hostname, portName, port, labels,
+		return BuildExternalServiceCluster(mesh, hostname, portName, port, labels,
 			externalService.Discovery, externalService.Endpoints)
 	}
 
@@ -187,7 +194,7 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *routin
 	// every route here belongs to the same destination.service, ie serviceName
 	// And source is the sidecar All attributes are directly sent to Mixer so none are forwarded.
 	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-		oc := buildMixerConfig(node, serviceName, service, config, mesh.DisablePolicyChecks, false)
+		oc := BuildMixerConfig(node, serviceName, service, proxyInstances, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
 		}

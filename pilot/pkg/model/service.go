@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -263,7 +264,7 @@ type ServiceDiscovery interface {
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
-	// determine the intendend destination of a connection without a Host header on the request.
+	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
@@ -315,6 +316,21 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 		}
 	}
 	return false
+}
+
+// Match returns true if port matches with port selector criteria.
+func (port Port) Match(portSelector *networking.PortSelector) bool {
+	if portSelector == nil {
+		return true
+	}
+	switch portSelector.Port.(type) {
+	case *networking.PortSelector_Name:
+		return portSelector.GetName() == port.Name
+	case *networking.PortSelector_Number:
+		return portSelector.GetNumber() == uint32(port.Port)
+	default:
+		return false
+	}
 }
 
 // GetNames returns port names

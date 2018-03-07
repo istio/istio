@@ -31,11 +31,15 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-GRAFANA_FILES:=addons/grafana/start.sh \
-               addons/grafana/grafana-dashboard.json \
-               addons/grafana/mixer-dashboard.json \
-               addons/grafana/pilot-dashboard.json \
-               addons/grafana/import_dashboard.sh
+FLEXVOLUMEDRIVER_FILES:=security/docker/start_driver.sh
+
+GRAFANA_FILES:=addons/grafana/dashboards.yaml \
+               addons/grafana/datasources.yaml \
+               addons/grafana/grafana.ini
+
+# note that "dashboards" is a directory rather than a file
+$(ISTIO_DOCKER)/dashboards: addons/grafana/$$(notdir $$@) | $(ISTIO_DOCKER)
+	cp -r $< $(@D)
 
 # note that "js" and "force" are directories rather than a file
 $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $(ISTIO_DOCKER)
@@ -57,7 +61,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent multicluster_ca
+                             istio_ca flexvolume node_agent multicluster_ca
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -67,10 +71,14 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
+                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
+
+# Copy the envoy images, but use standard file names (without the version) in docker
+$(ISTIO_DOCKER)/envoy: ${ISTIO_ENVOY_RELEASE_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/envoy
+$(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/envoy-debug
 
 # pilot docker images
 
@@ -79,6 +87,8 @@ docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server 
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
+docker.proxy: $(ISTIO_DOCKER)/envoy
+docker.proxy_debug: $(ISTIO_DOCKER)/envoy-debug
 $(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
@@ -111,16 +121,18 @@ docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
 docker.multicluster-ca: $(ISTIO_DOCKER)/multicluster_ca
+docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
+$(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca docker.flexvolumedriver
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # grafana image
 
 $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES)
+docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana

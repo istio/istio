@@ -21,7 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/api/mixer/v1/config"
+	cfg "istio.io/api/policy/v1beta1"
 )
 
 type fakeValidator struct {

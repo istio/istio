@@ -22,8 +22,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -317,19 +318,19 @@ func TestMatchSource(t *testing.T) {
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "world"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      true,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
 			want:      true,
 		},
 	}
@@ -392,7 +393,7 @@ func (errorStore) Delete(typ, name, namespace string) error {
 }
 
 func TestRouteRules(t *testing.T) {
-	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
+	instance := mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")
 
 	testCases := []struct {
 		configType string
@@ -413,12 +414,12 @@ func TestRouteRules(t *testing.T) {
 			},
 		},
 		{
-			configType: model.V1alpha2RouteRule.Type,
-			spec: &routingv2.RouteRule{
+			configType: model.VirtualService.Type,
+			spec: &networking.VirtualService{
 				Hosts: []string{"world"},
-				Http: []*routingv2.HTTPRoute{
+				Http: []*networking.HTTPRoute{
 					{
-						Match: []*routingv2.HTTPMatchRequest{
+						Match: []*networking.HTTPMatchRequest{
 							{
 								SourceLabels: instance.Labels,
 							},
@@ -456,7 +457,7 @@ func TestRouteRules(t *testing.T) {
 				t.Error("RouteRules() => expected no match for source-matched rules")
 			}
 
-			world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
+			world := mock.MakeInstance(mock.WorldService, mock.GetPortHTTP(mock.WorldService), 0, "")
 			if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}, mock.HelloProxyV0.Domain); len(out) != 1 ||
 				!reflect.DeepEqual(tc.spec, out[0].Spec) {
 				t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, tc.spec)
@@ -523,7 +524,7 @@ func TestEgressRules(t *testing.T) {
 func TestPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
-	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")}
+	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
 
 	policy1 := &routing.DestinationPolicy{
 		Source: &routing.IstioService{
@@ -566,5 +567,105 @@ func TestPolicy(t *testing.T) {
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
+	}
+}
+
+func TestAuthenticationPolicyConfig(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	authNPolicies := map[string]*authn.Policy{
+		"all": {
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_None{},
+			}},
+		},
+		"hello": {
+			Destinations: []*networking.Destination{{
+				Name: "hello",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
+		"world": {
+			Destinations: []*networking.Destination{{
+				Name: "world",
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 80,
+					},
+				},
+			}},
+			CredentialRules: []*authn.CredentialRule{{
+				Binding: authn.CredentialRule_USE_ORIGIN,
+				Origins: []*authn.OriginAuthenticationMethod{{
+					Jwt: &authn.Jwt{
+						Issuer:  "abc.xzy",
+						JwksUri: "https://secure.isio.io",
+					},
+				}},
+			}},
+		},
+	}
+	for key, value := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha1",
+				Namespace: "default",
+				Domain:    "cluster.local",
+			},
+			Spec: value,
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname string
+		port     int
+		expected string
+	}{
+		{
+			hostname: "hello.default.svc.cluster.local",
+			port:     80,
+			expected: "hello",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     80,
+			expected: "world",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     8080,
+			expected: "all",
+		},
+		{
+			hostname: "world.another-galaxy.svc.cluster.local",
+			port:     8080,
+			expected: "",
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		expected := authNPolicies[testCase.expected]
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		if out == nil {
+			if expected != nil {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
+					testCase.hostname, testCase.port, expected)
+			}
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(expected, policy) {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
+					testCase.hostname, testCase.port, expected, out)
+			}
+		}
 	}
 }
