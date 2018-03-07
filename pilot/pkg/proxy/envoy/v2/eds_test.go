@@ -15,11 +15,17 @@ package v2_test
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
+	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
@@ -27,7 +33,7 @@ import (
 )
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func directRequest(t *testing.T) {
+func directRequest(server *bootstrap.Server, t *testing.T) {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
@@ -40,6 +46,9 @@ func directRequest(t *testing.T) {
 	}
 
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: "sidecar~a~b~c",
+		},
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
@@ -76,6 +85,10 @@ func directRequest(t *testing.T) {
 	}
 	t.Log(cla.String(), res1.String())
 
+	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
+		mock.MakeService("hello2.default.svc.cluster.local", "10.1.0.1"))
+
+	v2.ClearCache() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
 	res1, err = edsstr.Recv()
@@ -106,8 +119,34 @@ func TestEds(t *testing.T) {
 	}
 
 	t.Run("DirectRequest", func(t *testing.T) {
-		directRequest(t)
+		directRequest(server, t)
 	})
+
+	t.Run("DebugEndpoint", func(t *testing.T) {
+		testEdsz(t)
+	})
+}
+
+var (
+	edszURL = "http://localhost:9093/edsz"
+)
+
+// Verify the endpoint debug interface is installed and returns some string.
+// TODO: parse response, check if data captured matches what we expect.
+// TODO: turn this into an integration test.
+func testEdsz(t *testing.T) {
+	res, err := http.Get(edszURL)
+	if err != nil {
+		t.Fatalf("Failed to fetch /edsz")
+	}
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("Failed to read /edsz")
+	}
+	statusStr := string(data)
+	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|http\"") {
+		t.Fatal("Mock hello service not found ", statusStr)
+	}
 }
 
 func startEnvoy() error {

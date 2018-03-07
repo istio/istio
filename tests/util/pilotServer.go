@@ -66,6 +66,7 @@ func setup() error {
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,
+			MonitoringPort:  9093,
 		},
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",

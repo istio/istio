@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	responseTickDuration = time.Second * 15
+	responseTickDuration = time.Second * 60
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -42,5 +42,21 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 
+	go periodicRefresh()
 	return out
+}
+
+// Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
+// ( will be removed after change detection is implemented, to double check all changes are
+// captured)
+func periodicRefresh() {
+	ticker := time.NewTicker(responseTickDuration)
+	defer ticker.Stop()
+	for {
+		// Block until either a request is received or the ticker ticks
+		select {
+		case <-ticker.C:
+			ClearCache()
+		}
+	}
 }
