@@ -90,7 +90,7 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
 	kubectl create ns istio-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true --auth=enable \
+		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
 		--core-files-dir=${OUT_DIR}/logs \
