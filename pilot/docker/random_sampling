@@ -3,4 +3,4 @@
 # https://www.envoyproxy.io/docs/envoy/latest/configuration/http_conn_man/runtime.html?highlight=sampling
 # This runtime control is specified in the range 0-10000 and defaults to 10000.
 # Thus, trace sampling can be specified in 0.01% increments.
-100
+0
