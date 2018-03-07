@@ -192,7 +192,9 @@ canonical_fortio2_echo1_Q1000_T1s_C24.json  canonical_fortio2_echo1_Q1200_T1s_C1
 canonical_fortio2_echo1_Q100_T1s_C16.json   canonical_fortio2_echo1_Q1200_T1s_C20.json  canonical_fortio2_echo1_Q1600_T1s_C24.json  out.csv
 ```
 
-Notice the ```out.csv``` file in the folder. This file contains all the data in the individual json files, and can be
+You can run `fortio report -data-dir /tmp/istio_perf.cpxCcs/` to see all the results and graph them/compare them by visiting `http://localhost:8080`
+
+Alternatively, notice the ```out.csv``` file in the folder. This file contains all the data in the individual json files, and can be
 imported into a spreadsheet:
 
 
