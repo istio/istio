@@ -417,7 +417,7 @@ type HTTPRouteConfigs map[int]*HTTPRouteConfig
 func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := routes[port]
 	if !ok {
-		config = &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault}
+		config = &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 		routes[port] = config
 	}
 	return config
@@ -448,7 +448,7 @@ func (routes HTTPRouteConfigs) Normalize() HTTPRouteConfigs {
 // note that the virtual hosts without an explicit port suffix (IP:PORT) are stripped
 // for all routes except the route for port 80.
 func (routes HTTPRouteConfigs) Combine() *HTTPRouteConfig {
-	out := &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault}
+	out := &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 	for port, config := range routes {
 		for _, host := range config.VirtualHosts {
 			vhost := &VirtualHost{
@@ -494,7 +494,7 @@ func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: hosts}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
 }
 
 // AccessLog definition.

@@ -112,7 +112,7 @@ func BuildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	// Normalize config
-	rc := &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: make([]*VirtualHost, 0)}
+	rc := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: make([]*VirtualHost, 0)}
 	for host, routes := range vhosts {
 		sort.Sort(RoutesByPath(routes))
 		rc.VirtualHosts = append(rc.VirtualHosts, &VirtualHost{
@@ -122,7 +122,7 @@ func BuildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 		})
 	}
 
-	rcTLS := &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: make([]*VirtualHost, 0)}
+	rcTLS := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: make([]*VirtualHost, 0)}
 	for host, routes := range vhostsTLS {
 		sort.Sort(RoutesByPath(routes))
 		rcTLS.VirtualHosts = append(rcTLS.VirtualHosts, &VirtualHost{

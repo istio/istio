@@ -36,9 +36,9 @@ import (
 )
 
 var (
-	// validateClustersDefault is an environment variable that can be set to false to disable
+	// ValidateClusters is an environment variable that can be set to false to disable
 	// cluster validation in RDS, in case problems are discovered.
-	ValidateClustersDefault = true
+	ValidateClusters = true
 )
 
 // Config generation main functions.
@@ -359,7 +359,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 	}
 
 	if httpConfigs[port] == nil {
-		httpConfigs[port] = &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: []*VirtualHost{}}
+		httpConfigs[port] = &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: []*VirtualHost{}}
 	}
 	return httpConfigs[port], nil
 }
@@ -868,7 +868,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 			host.Routes = append(host.Routes, defaultRoute)
 
-			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: []*VirtualHost{host}}
+			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				proxy:            node,

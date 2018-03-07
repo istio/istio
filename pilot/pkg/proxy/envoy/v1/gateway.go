@@ -176,7 +176,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 		}
 	}
 
-	configs := (&HTTPRouteConfig{ValidateClusters: ValidateClustersDefault, VirtualHosts: virtualHosts}).Normalize()
+	configs := (&HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: virtualHosts}).Normalize()
 	return configs, nil
 }
 
