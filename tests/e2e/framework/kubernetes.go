@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/sync/errgroup"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
