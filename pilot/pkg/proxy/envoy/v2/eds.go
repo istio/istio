@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -87,10 +88,10 @@ type EdsConnection struct {
 	pushChannel chan bool
 }
 
-// Endpoints implements MeshDiscovery.Endpoints()
-func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {
+// Endpoints aggregate a DiscoveryResponse for pushing.
+func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {
 	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
-	version := time.Now().String()
+	version := strconv.Itoa(version)
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
 	clAssignmentRes, _ := types.MarshalAny(clAssignment)
 	out := &xdsapi.DiscoveryResponse{
@@ -102,12 +103,12 @@ func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.Discov
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
 		VersionInfo: version,
-		Nonce:       version,
+		Nonce:       version + "-" + time.Now().String(),
 	}
 
 	out.Resources = make([]types.Any, 0, len(serviceClusters))
 	for _, serviceCluster := range serviceClusters {
-		clAssignmentRes := clusterEndpoints(ds, serviceCluster)
+		clAssignmentRes := s.clusterEndpoints(ds, serviceCluster)
 		if clAssignmentRes != nil {
 			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
@@ -117,8 +118,18 @@ func Endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.Discov
 }
 
 // Get the ClusterLoadAssignment for a cluster.
-func clusterEndpoints(ds *v1.DiscoveryService, serviceCluster string) *types.Any {
-	// TODO: cache the result, invalidate. All endpoints want the same object.
+func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, serviceCluster string) *types.Any {
+	c := s.getOrAddEdsCluster(serviceCluster)
+	if c.LoadAssignments != nil {
+		// Previously computed load assignments. They are re-computed on cache invalidation or
+		// event, but don't have to be recomputed once for each sidecar.
+		clAssignmentRes, _ := types.MarshalAny(c.LoadAssignments)
+		return clAssignmentRes
+	}
+
+	// We don't have LoadAssignments - this will happen the first time a cluster is looked up.
+	// The 'push' is only re-computing the endpoints for watched clusters, so first time we need
+	// to do compute it.
 	hostname, ports, labels := model.ParseServiceKey(serviceCluster)
 	instances, err := ds.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
@@ -326,7 +337,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		}
 
 		if len(con.Clusters) > 0 {
-			response := Endpoints(s.mesh, con.Clusters)
+			response := s.endpoints(s.mesh, con.Clusters)
 			err := stream.Send(response)
 			if err != nil {
 				return err
@@ -383,6 +394,12 @@ func Edsz(w http.ResponseWriter, req *http.Request) {
 
 // addEdsCon will track the eds connection, for push and debug
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *EdsConnection) {
+
+	c := s.getOrAddEdsCluster(clusterName)
+	c.EdsClients[node] = connection
+}
+
+func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 
@@ -394,8 +411,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 		}
 		edsClusters[clusterName] = c
 	}
-
-	c.EdsClients[node] = connection
+	return c
 }
 
 // removeEdsCon will track the eds connection, for push and debug
@@ -416,23 +432,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	peerInfo, ok := peer.FromContext(ctx)
-	peerAddr := "Unknown peer address"
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-	clusters := req.GetResourceNames()
-	if len(clusters) == 0 {
-		return nil, fmt.Errorf("no clusters specified in EDS request from %q", peerAddr)
-	}
-	if log.DebugEnabled() {
-		log.Debugf("EDS request from  %q for clusters %v received.", peerAddr, clusters)
-	}
-	response := Endpoints(s.mesh, clusters)
-	if log.DebugEnabled() {
-		log.Debugf("\nEDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr, clusters, response.String())
-	}
-	return response, nil
+	return nil, errors.New("Not implemented")
 }
 
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
