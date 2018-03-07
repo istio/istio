@@ -39,6 +39,7 @@ const (
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
+	mixerValidatorFile          = "istio-mixer-validator.yaml"
 )
 
 var (
@@ -56,6 +57,7 @@ var (
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
 		"prometheus",
@@ -164,6 +166,15 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 	k.Ingress = in
+
+	if *withMixerValidator {
+		// Run the script to set up the certificate.
+		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
+		if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
+			return err
+		}
+
+	}
 	return nil
 }
 
@@ -292,6 +303,19 @@ func (k *KubeInfo) deployIstio() error {
 	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
+	}
+
+	if *withMixerValidator {
+		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
+		testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
+		if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
+			log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
+			log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
+			return err
+		}
 	}
 
 	if *useAutomaticInjection {
