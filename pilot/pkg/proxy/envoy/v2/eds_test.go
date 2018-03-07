@@ -98,6 +98,12 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	}
 	t.Log(res1.String())
 
+	// Need to run the debug test before we close - close will remove the cluster since
+	// nobody is watching.
+	t.Run("DebugEndpoint", func(t *testing.T) {
+		testEdsz(t)
+	})
+
 	_ = edsstr.CloseSend()
 }
 
@@ -123,9 +129,6 @@ func TestEds(t *testing.T) {
 		directRequest(server, t)
 	})
 
-	t.Run("DebugEndpoint", func(t *testing.T) {
-		testEdsz(t)
-	})
 }
 
 var (
@@ -151,3 +154,4 @@ func testEdsz(t *testing.T) {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }
+
