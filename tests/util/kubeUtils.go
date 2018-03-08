@@ -17,9 +17,11 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -27,6 +29,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/istio/pkg/log"
 )
@@ -169,7 +172,24 @@ func GetIngress(n string) (string, error) {
 		pods, _ := ShellMuteOutput("kubectl get all -n %s -o wide", n)
 		err = multierror.Prefix(err, pods)
 	}
-	return ingress, err
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client := &http.Client{Timeout: time.Duration(5 * time.Second)}
+	for {
+		select {
+		case <-ctx.Done():
+			return "", errors.New("istio-ingress readiness check timed out")
+		default:
+			response, err := ctxhttp.Get(ctx, client, fmt.Sprintf("http://%s", ingress))
+			if err == nil {
+				log.Infof("Response %v %q received from istio-ingress", response.StatusCode, response.Status)
+				return ingress, nil
+			}
+			log.Warna("Error: %v, checking again")
+		}
+	}
 }
 
 // GetIngressPod get istio ingress ip
