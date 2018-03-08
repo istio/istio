@@ -92,14 +92,6 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 	}
 }
 
-/*func TestGetAllPem(t *testing.T) {
-
-}
-
-func TestGetAll(t *testing.T) {
-
-}*/
-
 // The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.
 func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 	testCases := map[string]struct {
