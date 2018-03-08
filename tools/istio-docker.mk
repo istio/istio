@@ -97,7 +97,7 @@ docker.proxy: $(ISTIO_OUT)/pilot-agent
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
 	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
-ifeq ($(DEBUG_IMAGE),)
+ifeq ($(DEBUG_IMAGE),1)
 	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 else
