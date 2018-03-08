@@ -91,7 +91,7 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy: tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES}
 docker.proxy: $(ISTIO_OUT)/envoy
 docker.proxy: $(ISTIO_OUT)/pilot-agent
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
@@ -107,11 +107,11 @@ endif
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
-docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
+docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER_BASE)/proxyd
 	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy
-	cp  tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/
+	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/
 	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
@@ -126,9 +126,11 @@ docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
 			pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/Dockerfile.app
 	mkdir -p $(ISTIO_DOCKER_BASE)/pilotapp
 	cp $^ $(ISTIO_DOCKER_BASE)/pilotapp
+ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
 	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
+endif
 	time (cd $(ISTIO_DOCKER_BASE)/pilotapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.appdbg .)
 
