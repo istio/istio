@@ -138,8 +138,8 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--auth_enable=false \
 		-v1alpha3=true -v1alpha1=false \
 		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-system-test \
-        -n pilot-test \
+        	--ns pilot-system-test \
+        	-n pilot-test \
            ${TESTOPTS}
            # |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-noauth-pilot.xml)
 
