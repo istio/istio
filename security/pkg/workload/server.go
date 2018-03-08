@@ -58,6 +58,9 @@ type SDSServer struct {
 
 	// Mutex for udsServerMap
 	udsServerMapGuard sync.Mutex
+
+	// current certificate chain and private key version number
+	version string
 }
 
 const (
@@ -72,6 +75,7 @@ const (
 func (s *SDSServer) SetServiceIdentityCert(content []byte) error {
 	s.certificateChainGuard.Lock()
 	s.certificateChain = content
+	s.version = fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond))
 	s.certificateChainGuard.Unlock()
 	return nil
 }
@@ -80,6 +84,7 @@ func (s *SDSServer) SetServiceIdentityCert(content []byte) error {
 func (s *SDSServer) SetServiceIdentityPrivateKey(content []byte) error {
 	s.privateKeyGuard.Lock()
 	s.privateKey = content
+	s.version = fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond))
 	s.privateKeyGuard.Unlock()
 	return nil
 }
@@ -136,7 +141,7 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 	response := &api.DiscoveryResponse{
 		Resources:   resources,
 		TypeUrl:     SecretTypeURL,
-		VersionInfo: fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond)),
+		VersionInfo: s.version,
 	}
 
 	return response, nil
@@ -154,6 +159,7 @@ func (s *SDSServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 func NewSDSServer() *SDSServer {
 	s := &SDSServer{
 		udsServerMap: map[string]*grpc.Server{},
+		version:      fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond)),
 	}
 
 	return s
