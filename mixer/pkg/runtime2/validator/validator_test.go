@@ -93,7 +93,7 @@ func getValidatorForTest() (*Validator, error) {
 		},
 	}
 	templateInfo := map[string]*template.Info{
-		"listentry": &template.Info{
+		"listentry": {
 			CtrCfg: &types.Struct{},
 			InferType: func(msg proto.Message, fn template.TypeEvalFn) (proto.Message, error) {
 				st := msg.(*types.Struct)
