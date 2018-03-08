@@ -54,7 +54,7 @@ type Config struct {
 	UseAutomaticInjection bool
 	V1alpha1              bool
 	V1alpha3              bool
-	RDSv2                 bool
+	XDSv2                 bool
 	NoRBAC                bool
 	UseAdmissionWebhook   bool
 	APIVersions           []string
