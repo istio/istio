@@ -21,25 +21,25 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
-	role            model.Node
-	serviceregistry platform.ServiceRegistry
+	role     model.Proxy
+	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
 	configPath             string
@@ -57,11 +57,13 @@ var (
 	controlPlaneAuthPolicy string
 	customConfigFile       string
 	proxyLogLevel          string
+	concurrency            int
+	bootstrapv2            bool
 
-	loggingOptions = log.NewOptions()
+	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "agent",
+		Use:   "pilot-agent",
 		Short: "Istio Pilot agent",
 		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
 	}
@@ -73,7 +75,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
-			log.Infof("Version %s", version.Line())
+			log.Infof("Version %s", version.Info.String())
 			role.Type = model.Sidecar
 			if len(args) > 0 {
 				role.Type = model.NodeType(args[0])
@@ -81,7 +83,7 @@ var (
 
 			// set values from registry platform
 			if role.IPAddress == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
 					ipAddr := "127.0.0.1"
@@ -94,9 +96,9 @@ var (
 				}
 			}
 			if role.ID == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
-				} else if serviceregistry == platform.ConsulRegistry {
+				} else if registry == serviceregistry.ConsulRegistry {
 					role.ID = role.IPAddress + ".service.consul"
 				} else {
 					role.ID = role.IPAddress
@@ -104,10 +106,10 @@ var (
 			}
 			pilotDomain := role.Domain
 			if role.Domain == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
-				} else if serviceregistry == platform.ConsulRegistry {
+				} else if registry == serviceregistry.ConsulRegistry {
 					role.Domain = "service.consul"
 				} else {
 					role.Domain = ""
@@ -132,6 +134,7 @@ var (
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
@@ -140,17 +143,17 @@ var (
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				if serviceregistry == platform.KubernetesRegistry {
+				if registry == serviceregistry.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]
 					parts := strings.Split(discoveryHostname, ".")
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
-						// pod namespace e.g. istio-pilot:15003
+						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
 					} else {
 						// namespace is found in the discovery address
-						// e.g. istio-pilot.istio-system:15003
+						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
 					}
 				}
@@ -193,7 +196,14 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
+			var envoyProxy proxy.Proxy
+			if bootstrapv2 {
+				// Using a different constructor - the code will likely be refactored / split from the v1,
+				// but may expose same interface to minimize risks
+				envoyProxy = envoy.NewV2Proxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
+			} else {
+				envoyProxy = envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
+			}
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -217,10 +227,10 @@ func timeDuration(dur *duration.Duration) time.Duration {
 }
 
 func init() {
-	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
-		string(platform.KubernetesRegistry),
+	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
+		string(serviceregistry.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -263,9 +273,13 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the generated configuration file directory")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
+	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
+		"number of worker threads to run")
+	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
+		"Use bootstrap v2")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
@@ -273,13 +287,16 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(cmd.VersionCmd)
+	rootCmd.AddCommand(version.CobraCommand())
+
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio Pilot Agent",
+		Section: "pilot-agent CLI",
+		Manual:  "Istio Pilot Agent",
+	}))
 }
 
 func main() {
-	// Needed to avoid "logging before flag.Parse" error with glog.
-	cmd.SupressGlogWarnings()
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(-1)

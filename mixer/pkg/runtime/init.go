@@ -15,12 +15,10 @@
 package runtime
 
 import (
-	"context"
-
 	"github.com/gogo/protobuf/proto"
 
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
@@ -49,13 +47,12 @@ func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeLi
 // startWatch registers with store, initiates a watch, and returns the current config state.
 func startWatch(s store.Store, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
-	ctx := context.Background()
 	kindMap := KindMap(adapterInfo, templateInfo)
-	if err := s.Init(ctx, kindMap); err != nil {
+	if err := s.Init(kindMap); err != nil {
 		return nil, nil, err
 	}
 	// create channel before listing.
-	watchChan, err := s.Watch(ctx)
+	watchChan, err := s.Watch()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,17 +66,17 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 	// typed instances
 	for kind, info := range templateInfo {
 		kindMap[kind] = info.CtrCfg
-		log.Infof("template Kind: %s, %v", kind, info.CtrCfg)
+		log.Debugf("template Kind: %s, %v", kind, info.CtrCfg)
 	}
 	// typed handlers
 	for kind, info := range adapterInfo {
 		kindMap[kind] = info.DefaultConfig
-		log.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
+		log.Debugf("adapter Kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &cpb.Rule{}
-	log.Infof("template Kind: %s", RulesKind)
+	log.Debugf("template Kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
-	log.Infof("template Kind: %s", AttributeManifestKind)
+	log.Debugf("template Kind: %s", AttributeManifestKind)
 
 	return kindMap
 }

@@ -22,16 +22,19 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `listentry` template is designed to let you perform list check operations
+// with the [list](https://istio.io/docs/reference/config/adapters/list.html) adapter.
+
 // Fully qualified name of the template
 const TemplateName = "listentry"
 
 // Instance is constructed by Mixer for the 'listentry' template.
 //
-// ListEntry is used to verify the presence/absence of a string
+// The `listentry` template is used to verify the presence/absence of a string
 // within a list.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.template.Value,
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:

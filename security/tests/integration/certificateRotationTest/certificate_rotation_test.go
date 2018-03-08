@@ -17,12 +17,11 @@ package integration
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration/framework"
@@ -59,7 +58,7 @@ func TestCertificateRotation(t *testing.T) {
 	term := certValidationInterval
 	for i := 0; i < certValidateRetry; i++ {
 		if i > 0 {
-			glog.Infof("checking certificate rotation in %v seconds", term)
+			t.Logf("checking certificate rotation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
 			term = term * 2
 		}
@@ -75,29 +74,37 @@ func TestCertificateRotation(t *testing.T) {
 		}
 
 		if !bytes.Equal(initialSecret.Data[controller.RootCertID], secret.Data[controller.RootCertID]) {
-			t.Error(fmt.Errorf("root certificates should be match"))
+			t.Errorf("root certificates should be match")
 		}
 
 		if !bytes.Equal(initialSecret.Data[controller.PrivateKeyID], secret.Data[controller.PrivateKeyID]) &&
 			!bytes.Equal(initialSecret.Data[controller.CertChainID], secret.Data[controller.CertChainID]) {
-			glog.Infof("certificates were successfully rotated")
+			t.Logf("certificates were successfully rotated")
 
 			return
 		}
 	}
-	t.Error(fmt.Errorf("failed to validate certificate rotation"))
+	t.Errorf("failed to validate certificate rotation")
 }
 
 func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
+	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
+	tag := flag.String("tag", "", "Tag for Istio CA image")
 
 	flag.Parse()
 
-	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig)
+	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+
+	if testEnv == nil {
+		log.Error("test environment creation failure")
+		// There is no cleanup needed at this point.
+		os.Exit(1)
+	}
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
-	glog.Infof("Test result %d in env %s", res, testEnvName)
+	log.Infof("Test result %d in env %s", res, testEnvName)
 
 	os.Exit(res)
 }

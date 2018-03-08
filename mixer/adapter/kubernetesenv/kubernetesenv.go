@@ -29,6 +29,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -51,9 +52,9 @@ const (
 	podServiceLabel                    = "app"
 	istioPodServiceLabel               = "istio"
 	lookupIngressSourceAndOriginValues = false
-	istioIngressSvc                    = "ingress.istio-system.svc.cluster.local"
+	istioIngressSvc                    = "istio-ingress.istio-system.svc.cluster.local"
 
-	// cache invalidation
+	// k8s cache invalidation
 	// TODO: determine a reasonable default
 	defaultRefreshPeriod = 5 * time.Minute
 )
@@ -74,6 +75,9 @@ type (
 	builder struct {
 		adapterConfig *config.Params
 		newClientFn   clientFactoryFn
+
+		sync.Mutex
+		controllers map[string]cacheController
 	}
 
 	handler struct {
@@ -138,20 +142,32 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
-	clientset, err := b.newClientFn(path, env)
-	if err != nil {
-		return nil, err
+
+	// only ever build a controller for a config once. this potential blocks
+	// the Build() for multiple handlers using the same config until the first
+	// one has synced. This should be OK, as the WaitForCacheSync was meant to
+	// provide this basic functionality before.
+	b.Lock()
+	defer b.Unlock()
+	controller, found := b.controllers[path]
+	if !found {
+		clientset, err := b.newClientFn(path, env)
+		if err != nil {
+			return nil, fmt.Errorf("could not build kubernetes client: %v", err)
+		}
+		controller = newCacheController(clientset, refresh)
+		env.ScheduleDaemon(func() { controller.Run(stopChan) })
+		// ensure that any request is only handled after
+		// a sync has occurred
+		env.Logger().Infof("Waiting for kubernetes cache sync...")
+		if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
+			stopChan <- struct{}{}
+			return nil, errors.New("cache sync failure")
+		}
+		env.Logger().Infof("Cache sync successful.")
+		b.controllers[path] = controller
 	}
-	controller := newCacheController(clientset, refresh)
-	env.ScheduleDaemon(func() { controller.Run(stopChan) })
-	// ensure that any request is only handled after
-	// a sync has occurred
-	env.Logger().Infof("Waiting for kubernetes cache sync...")
-	if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
-		stopChan <- struct{}{}
-		return nil, errors.New("cache sync failure")
-	}
-	env.Logger().Infof("Cache sync successful.")
+
 	return &handler{
 		env:    env,
 		pods:   controller,
@@ -162,12 +178,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 func newBuilder(clientFactory clientFactoryFn) *builder {
 	return &builder{
 		newClientFn:   clientFactory,
+		controllers:   make(map[string]cacheController),
 		adapterConfig: conf,
 	}
 }
 
 func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
-	out := &ktmpl.Output{}
+	out := ktmpl.NewOutput()
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
 			h.fillDestinationAttrs(p, out, h.params)
@@ -283,34 +300,34 @@ func keyFromUID(uid string) string {
 
 func (h *handler) fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
-		o.OriginLabels = p.Labels
+		o.SetOriginLabels(p.Labels)
 	}
 	if len(p.Name) > 0 {
-		o.OriginPodName = p.Name
+		o.SetOriginPodName(p.Name)
 	}
 	if len(p.Namespace) > 0 {
-		o.OriginNamespace = p.Namespace
+		o.SetOriginNamespace(p.Namespace)
 	}
 	if len(p.Spec.ServiceAccountName) > 0 {
-		o.OriginServiceAccountName = p.Spec.ServiceAccountName
+		o.SetOriginServiceAccountName(p.Spec.ServiceAccountName)
 	}
 	if len(p.Status.PodIP) > 0 {
-		o.OriginPodIp = net.ParseIP(p.Status.PodIP)
+		o.SetOriginPodIp(net.ParseIP(p.Status.PodIP))
 	}
 	if len(p.Status.HostIP) > 0 {
-		o.OriginHostIp = net.ParseIP(p.Status.HostIP)
+		o.SetOriginHostIp(net.ParseIP(p.Status.HostIP))
 	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.OriginService = n
+			o.SetOriginService(n)
 		} else {
 			h.env.Logger().Warningf("OriginService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.OriginService = n
+			o.SetOriginService(n)
 		} else {
 			h.env.Logger().Warningf("OriginService not set: %v", err)
 		}
@@ -319,34 +336,34 @@ func (h *handler) fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 
 func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
-		o.DestinationLabels = p.Labels
+		o.SetDestinationLabels(p.Labels)
 	}
 	if len(p.Name) > 0 {
-		o.DestinationPodName = p.Name
+		o.SetDestinationPodName(p.Name)
 	}
 	if len(p.Namespace) > 0 {
-		o.DestinationNamespace = p.Namespace
+		o.SetDestinationNamespace(p.Namespace)
 	}
 	if len(p.Spec.ServiceAccountName) > 0 {
-		o.DestinationServiceAccountName = p.Spec.ServiceAccountName
+		o.SetDestinationServiceAccountName(p.Spec.ServiceAccountName)
 	}
 	if len(p.Status.PodIP) > 0 {
-		o.DestinationPodIp = net.ParseIP(p.Status.PodIP)
+		o.SetDestinationPodIp(net.ParseIP(p.Status.PodIP))
 	}
 	if len(p.Status.HostIP) > 0 {
-		o.DestinationHostIp = net.ParseIP(p.Status.HostIP)
+		o.SetDestinationHostIp(net.ParseIP(p.Status.HostIP))
 	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.DestinationService = n
+			o.SetDestinationService(n)
 		} else {
 			h.env.Logger().Warningf("DestinationService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.DestinationService = n
+			o.SetDestinationService(n)
 		} else {
 			h.env.Logger().Warningf("DestinationService not set: %v", err)
 		}
@@ -355,38 +372,47 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 
 func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
-		o.SourceLabels = p.Labels
+		o.SetSourceLabels(p.Labels)
 	}
 	if len(p.Name) > 0 {
-		o.SourcePodName = p.Name
+		o.SetSourcePodName(p.Name)
 	}
 	if len(p.Namespace) > 0 {
-		o.SourceNamespace = p.Namespace
+		o.SetSourceNamespace(p.Namespace)
 	}
 	if len(p.Spec.ServiceAccountName) > 0 {
-		o.SourceServiceAccountName = p.Spec.ServiceAccountName
+		o.SetSourceServiceAccountName(p.Spec.ServiceAccountName)
 	}
 	if len(p.Status.PodIP) > 0 {
-		o.SourcePodIp = net.ParseIP(p.Status.PodIP)
+		o.SetSourcePodIp(net.ParseIP(p.Status.PodIP))
 	}
 	if len(p.Status.HostIP) > 0 {
-		o.SourceHostIp = net.ParseIP(p.Status.HostIP)
+		o.SetSourceHostIp(net.ParseIP(p.Status.HostIP))
 	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.SourceService = n
+			o.SetSourceService(n)
 		} else {
 			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
-		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
-			o.SourceService = n
+			o.SetSourceService(n)
 		} else {
 			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	}
+}
+
+// TODO: fix this hack by using a service + endpoint cache/index (instead of
+//       guessing at the service name
+func istioComponentName(name string) string {
+	if strings.HasPrefix(name, "istio-") {
+		return name
+	}
+	return "istio-" + name
 }
 
 func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface, error) {
@@ -395,6 +421,5 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	env.Logger().Infof("getting k8s client from config")
 	return k8s.NewForConfig(config)
 }

@@ -19,6 +19,10 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -26,31 +30,33 @@ set -u
 # Print commands
 set -x
 
+TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard)
+SINGLE_MODE=false
+
+# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
+# for existing resources types
+RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+OWNER='e2e-suite'
+INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+
+E2E_ARGS=(--mason_info="${INFO_PATH}")
+
+source "${ROOT}/prow/lib.sh"
+source "${ROOT}/prow/mason_lib.sh"
+source "${ROOT}/prow/cluster_lib.sh"
+
+function cleanup() {
+  mason_cleanup
+  cat "${FILE_LOG}"
+}
+
+setup_and_export_git_sha
+
 if [ "${CI:-}" == 'bootstrap' ]; then
-  export USER=Prow
-
-  # Make sure we are in the right directory
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-    # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-    # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-    mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-    cd ${GOPATH}/src/istio.io/istio
-  fi
-
-  if [ -z "${PULL_PULL_SHA:-}" ]; then
-    GIT_SHA="${PULL_BASE_SHA}"
-  else
-    GIT_SHA="${PULL_PULL_SHA}"
-  fi
-
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
-else
-  # Use the current commit.
-  GIT_SHA=${GIT_SHA:-"$(git rev-parse --verify HEAD)"}
 fi
 
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)
@@ -58,16 +64,48 @@ ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
-# Download envoy and go deps
-${ISTIO_GO}/bin/init.sh
+make init
 
-# Build istioctl, used by  the test.
-make depend.ensure istioctl generate_yaml
+trap cleanup EXIT
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+setup_cluster
 
-mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
+# getopts only handles single character flags
+for ((i=1; i<=$#; i++)); do
+    case ${!i} in
+        # -s/--single_test to specify only one test to run.
+        # e.g. "-s e2e_mixer" will only trigger e2e mixer_test
+        -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
+        continue
+        ;;
+    esac
+    E2E_ARGS+=( ${!i} )
+done
 
-# It seems logs are generated on tmp ?
-trap "cp -a /tmp/istio* ${GOPATH}/src/istio.io/istio/_artifacts" EXIT
+echo 'Running ISTIO E2E Test(s)'
+if ${SINGLE_MODE}; then
+    echo "Executing single e2e test"
 
-echo 'Running Integration Tests'
-time make e2e_all
+    # Check if it's a valid test file
+    VALID_TEST=false
+    for T in ${TEST_TARGETS[@]}; do
+        if [ "${T}" == "${SINGLE_TEST}" ]; then
+            VALID_TEST=true
+            time ISTIO_DOCKER_HUB=$HUB \
+              E2E_ARGS="${E2E_ARGS[@]}" \
+              make "${SINGLE_TEST}"
+        fi
+    done
+    if [ "${VALID_TEST}" == "false" ]; then
+      echo "Invalid e2e test target, must be one of ${TEST_TARGETS}"
+      # Fail if it's not a valid test file
+      process_result 1 'Invalid test target'
+    fi
+
+else
+    echo "Executing e2e test suite"
+    time ISTIO_DOCKER_HUB=$HUB \
+      E2E_ARGS="${E2E_ARGS[@]}" \
+      JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
+      make e2e_all
+fi

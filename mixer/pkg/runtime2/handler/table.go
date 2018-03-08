@@ -30,7 +30,7 @@ type Table struct {
 
 // Entry in the handler table.
 type Entry struct {
-	// name of the Handler
+	// Name of the Handler
 	Name string
 
 	// Handler is the initialized Handler object.
@@ -41,6 +41,9 @@ type Entry struct {
 
 	// Signature of the configuration used to create this entry.
 	Signature signature
+
+	// env refers to the adapter.Env passed to the handler.
+	env env
 }
 
 // NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
@@ -72,7 +75,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 			f = newFactory(snapshot)
 		}
 
-		e := NewEnv(snapshot.ID, handler.Name, gp)
+		e := newEnv(snapshot.ID, handler.Name, gp)
 		instantiatedHandler, err := f.build(handler, instances, e)
 
 		if err != nil {
@@ -93,6 +96,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 			Handler:   instantiatedHandler,
 			Adapter:   handler.Adapter,
 			Signature: sig,
+			env:       e,
 		}
 	}
 
@@ -119,13 +123,7 @@ func (t *Table) Cleanup(current *Table) {
 
 	for _, entry := range toCleanup {
 		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
-		// Do a nil check for counters here. Since we're using the counters of the new table, they are not
-		// guaranteed to exist (i.e. a default value, or the result of Empty()). This is not a problem
-		// for other counters as the other code-paths doesn't suffer from the same issue.
-		if current.counters.closedHandlers != nil {
-			current.counters.closedHandlers.Inc()
-		}
-
+		t.counters.closedHandlers.Inc()
 		var err error
 		panicErr := safeCall("handler.Close", func() {
 			err = entry.Handler.Close()
@@ -135,10 +133,13 @@ func (t *Table) Cleanup(current *Table) {
 			err = panicErr
 		}
 
+		if reportErr := entry.env.reportStrayWorkers(); reportErr != nil {
+			log.Warnf("unable to report if there are any stray go routines scheduled by the adapter '%s': %v",
+				entry.Name, reportErr)
+		}
+
 		if err != nil {
-			if current.counters.closeFailure != nil {
-				current.counters.closeFailure.Inc()
-			}
+			t.counters.closeFailure.Inc()
 			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
 		}
 	}

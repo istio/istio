@@ -29,12 +29,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	pb "istio.io/api/mixer/v1/config/descriptor"
-	adpTmpl "istio.io/api/mixer/v1/template"
+	adpTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	istio_mixer_v1_config "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
@@ -303,6 +303,9 @@ type inferTypeTest struct {
 
 func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 	return func(expr string) (pb.ValueType, error) {
+		if err != nil {
+			return pb.VALUE_TYPE_UNSPECIFIED, err
+		}
 		expr = strings.ToLower(expr)
 		retType := pb.VALUE_TYPE_UNSPECIFIED
 		if strings.HasSuffix(expr, "string") {
@@ -326,7 +329,7 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 
 		if retType == pb.VALUE_TYPE_UNSPECIFIED {
 			tc := evaluator.NewTypeChecker()
-			retType, _ = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
+			retType, err = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
 		}
 		return retType, err
 	}
@@ -340,7 +343,6 @@ func TestInferTypeForSampleReport(t *testing.T) {
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
-doublePrimitive: source.double
 stringPrimitive: source.string
 timeStamp: source.timestamp
 duration: source.duration
@@ -410,49 +412,59 @@ res1:
 			},
 		},
 		{
-			name: "MissingAField",
+			name: "MissingAFieldValid",
 			instYamlCfg: `
-value: source.int64
+# value: source.int64 # missing ValueType field
 # int64Primitive: source.int64 # missing int64Primitive
-boolPrimitive: source.bool
+# boolPrimitive: source.bool # missing int64Primitive
 doublePrimitive: source.double
 stringPrimitive: source.string
 timeStamp: source.timestamp
 duration: source.duration
-dimensions:
-  source: source.string
-  target: source.string
-`,
-			cstrParam:     &sample_report.InstanceParam{},
-			typeEvalError: nil,
-			wantErr:       "expression for field 'Int64Primitive' cannot be empty",
-			willPanic:     false,
-		},
-		{
-			name: "MissingAFieldSubMsg",
-			instYamlCfg: `
-value: source.int64
-int64Primitive: source.int64
-boolPrimitive: source.bool
-doublePrimitive: source.double
-stringPrimitive: source.string
-timeStamp: source.timestamp
-duration: source.duration
-dimensions:
-  source: source.string
-  target: source.string
+#dimensions: # missing int64Primitive
+#  source: source.string
+#  target: source.string
 res1:
-  value: source.int64
+  # value: source.int64 # missing ValueType field
   # int64Primitive: source.int64 # missing int64Primitive
   boolPrimitive: source.bool
-  doublePrimitive: source.double
-  stringPrimitive: source.string
-  timeStamp: source.timestamp
-  duration: source.duration
+  # doublePrimitive: source.double
+  # stringPrimitive: source.string
+  # timeStamp: source.timestamp
+  # duration: source.duration
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field 'Res1.Int64Primitive' cannot be empty",
+			wantErr:       "",
+			willPanic:     false,
+			wantType: &sample_report.Type{
+				Value:      pb.VALUE_TYPE_UNSPECIFIED,
+				Dimensions: map[string]pb.ValueType{},
+				Res1: &sample_report.Res1Type{
+					Value:      pb.VALUE_TYPE_UNSPECIFIED,
+					Dimensions: map[string]pb.ValueType{},
+					Res2:       nil,
+					Res2Map:    map[string]*sample_report.Res2Type{},
+				},
+			},
+		},
+		{
+			name: "NotValidMissingExpressionInMap",
+			instYamlCfg: `
+# value: source.int64 # missing ValueType field
+# int64Primitive: source.int64 # missing int64Primitive
+# boolPrimitive: source.bool # missing boolPrimitive
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+# bad expression below.
+  source:
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "failed to evaluate expression for field 'Dimensions[source]'",
 			willPanic:     false,
 		},
 		{
@@ -829,6 +841,9 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	if strings.HasSuffix(expr2, "source.email") {
 		return "foo@bar.com", nil
 	}
+	if strings.HasSuffix(expr2, ".ip") {
+		return net.ParseIP("2.3.4.5"), nil
+	}
 	if strings.HasSuffix(expr2, "timestamp") {
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
@@ -946,7 +961,7 @@ func TestProcessReport(t *testing.T) {
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
 					Value:           "1",
-					Dimensions:      map[string]string{"s": "2"},
+					Dimensions:      map[string]string{"s": "2", "p": "source.ip"},
 					BoolPrimitive:   "true",
 					DoublePrimitive: "1.2",
 					Int64Primitive:  "54362",
@@ -1007,7 +1022,7 @@ func TestProcessReport(t *testing.T) {
 				{
 					Name:            "foo",
 					Value:           int64(1),
-					Dimensions:      map[string]interface{}{"s": int64(2)},
+					Dimensions:      map[string]interface{}{"s": int64(2), "p": net.ParseIP("2.3.4.5")},
 					BoolPrimitive:   true,
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
@@ -1049,6 +1064,68 @@ func TestProcessReport(t *testing.T) {
 								Uri:            adapter.URI("myURI"),
 							},
 						},
+					},
+				},
+				{
+					Name:            "bar",
+					Value:           int64(2),
+					Dimensions:      map[string]interface{}{"k": int64(3)},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "mystring",
+					Int64Map:        map[string]int64{"b": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+				},
+			},
+		},
+		{
+			name: " ValidMissingFieldsInConfig",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					// missing all fields
+					Res1: &sample_report.Res1InstanceParam{
+						// missing all fields
+					},
+				},
+				"bar": &sample_report.InstanceParam{
+					Value:           "2",
+					Dimensions:      map[string]string{"k": "3"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"b": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
+			},
+			hdlr: &fakeReportHandler{},
+			wantInstance: []*sample_report.Instance{
+				{
+					Name:            "foo",
+					Value:           nil,
+					Dimensions:      map[string]interface{}{},
+					BoolPrimitive:   false,
+					DoublePrimitive: 0.0,
+					Int64Primitive:  0,
+					StringPrimitive: "",
+					Int64Map:        map[string]int64{},
+					TimeStamp:       time.Time{},
+					Duration:        time.Duration(0),
+					Res1: &sample_report.Res1{
+						Value:           nil,
+						Dimensions:      map[string]interface{}{},
+						BoolPrimitive:   false,
+						DoublePrimitive: 0.0,
+						Int64Primitive:  0,
+						StringPrimitive: "",
+						Int64Map:        map[string]int64{},
+						TimeStamp:       time.Time{},
+						Duration:        time.Duration(0),
+						Res2:            nil,
+						Res2Map:         map[string]*sample_report.Res2{},
 					},
 				},
 				{
@@ -1621,6 +1698,16 @@ attribute_bindings:
 }
 
 func TestProcessApa(t *testing.T) {
+	handlerOut := istio_mixer_adapter_sample_myapa.NewOutput()
+	handlerOut.SetBoolPrimitive(true)
+	handlerOut.SetDoublePrimitive(1237)
+	handlerOut.SetStringPrimitive("1237")
+	handlerOut.SetTimeStamp(time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC))
+	handlerOut.SetDuration(10 * time.Second)
+	handlerOut.SetInt64Primitive(1237)
+	handlerOut.SetEmail(adapter.EmailAddress("updatedfoo@bar.com"))
+	handlerOut.SetOutIp(net.ParseIP("1.2.3.4"))
+	handlerOut.SetOutStrMap(map[string]string{"a": "b"})
 	for _, tst := range []struct {
 		name         string
 		instName     string
@@ -1666,17 +1753,7 @@ func TestProcessApa(t *testing.T) {
 				},
 			},
 			hdlr: &fakeMyApaHandler{
-				retOutput: &istio_mixer_adapter_sample_myapa.Output{
-					BoolPrimitive:   true,
-					DoublePrimitive: 1237,
-					StringPrimitive: "1237",
-					TimeStamp:       time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC),
-					Duration:        10 * time.Second,
-					Int64Primitive:  1237,
-					Email:           adapter.EmailAddress("updatedfoo@bar.com"),
-					OutIp:           net.ParseIP("1.2.3.4"),
-					OutStrMap:       map[string]string{"a": "b"},
-				},
+				retOutput: handlerOut,
 			},
 			wantOutAttrs: map[string]interface{}{
 				"source.mystring":          "1237",
@@ -1686,7 +1763,7 @@ func TestProcessApa(t *testing.T) {
 				"source.myboolPrimitive":   true,
 				"source.mydoublePrimitive": float64(1237),
 				"source.email":             "updatedfoo@bar.com",
-				"source.ip":                []uint8(net.ParseIP("1.2.3.4")),
+				"source.ip":                []uint8{0x1, 0x2, 0x3, 0x4},
 				"source.labels":            map[string]string{"a": "b"},
 			},
 			wantInstance: &istio_mixer_adapter_sample_myapa.Instance{
@@ -1774,7 +1851,7 @@ func TestProcessApa(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Fatalf("got error; want success: error %v", err)
+					t.Fatalf("got error; want success: error : %v", err)
 				}
 				v := (*h).(*fakeMyApaHandler).procCallInput
 				if !reflect.DeepEqual(v, tst.wantInstance) {

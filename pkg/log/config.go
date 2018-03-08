@@ -25,7 +25,7 @@
 //
 //		func main() {
 //			// get the default logging options
-//			options := log.NewOptions()
+//			options := log.DefaultOptions()
 //
 //			rootCmd := &cobra.Command{
 //				Run: func(cmd *cobra.Command, args []string) {
@@ -173,7 +173,9 @@ func Configure(options *Options) error {
 	_ = zap.RedirectStdLog(logger)
 
 	// capture gRPC logging
-	grpclog.SetLogger(zapgrpc.NewLogger(logger.WithOptions(zap.AddCallerSkip(2))))
+	if options.LogGrpc {
+		grpclog.SetLogger(zapgrpc.NewLogger(logger.WithOptions(zap.AddCallerSkip(2))))
+	}
 
 	return nil
 }

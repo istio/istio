@@ -1,4 +1,4 @@
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "broker.istio.io/dev"
 kind: ServiceClass
 metadata:
   name: productpage-service-class
@@ -10,7 +10,7 @@ spec:
     id: 4395a443-f49a-41b0-8d14-d17294cf612f
     description: A book info service
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "broker.istio.io/dev"
 kind: ServicePlan
 metadata:
   name: monthly-service-plan
@@ -22,7 +22,7 @@ spec:
   services:
     - service-class/default/productpage-service-class
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "broker.istio.io/dev"
 kind: ServicePlan
 metadata:
   name: yearly-service-plan

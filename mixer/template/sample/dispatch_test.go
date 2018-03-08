@@ -15,8 +15,10 @@
 package sample
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -124,18 +126,49 @@ func TestDispatchQuota_Failure(t *testing.T) {
 	}
 }
 
-func TestDispatchGenAttrs_Success(t *testing.T) {
-	h := &mockHandler{
-		apaOutput: sample_apa.Output{
-			StringPrimitive: "This is an output",
-			Int64Primitive:  defaultApaAttributes["ai"].(int64),
+var sampleApaInstanceParam = sample_apa.InstanceParam{
+	StringPrimitive:                "as",
+	Int64Primitive:                 "ai",
+	TimeStamp:                      "ats",
+	DoublePrimitive:                "ad",
+	BoolPrimitive:                  "ab",
+	Duration:                       "adr",
+	Email:                          "`email@email`",
+	OptionalIP:                     `ip("0.0.0.0")`,
+	DimensionsFixedInt64ValueDType: map[string]string{"ai2": "ai2"},
+	Res3Map: map[string]*sample_apa.Resource3InstanceParam{
+		"r3": {
+			StringPrimitive:                "as2",
+			Duration:                       "adr",
+			TimeStamp:                      "ats",
+			BoolPrimitive:                  "ab",
+			DoublePrimitive:                "ad",
+			Int64Primitive:                 "ai3",
+			DimensionsFixedInt64ValueDType: map[string]string{"ai4": "ai4"},
 		},
+	},
+	AttributeBindings: map[string]string{
+		"generated.ai": "$out.int64Primitive",
+		"generated.as": "$out.stringPrimitive",
+		"generated.ip": "$out.out_ip",
+	},
+}
+
+func TestDispatchGenAttrs_Success(t *testing.T) {
+
+	out := sample_apa.NewOutput()
+	out.SetStringPrimitive("This is an output")
+	out.SetInt64Primitive(defaultApaAttributes["ai"].(int64))
+	out.SetOutIp(net.ParseIP("2.3.4.5"))
+
+	h := &mockHandler{
+		apaOutput: *out,
 	}
 
 	bag := attribute.GetFakeMutableBagForTesting(defaultApaAttributes)
 	f := finder{combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...)}
 	builder := compiled.NewBuilder(f)
-	expressions, err := SupportedTmplInfo[sample_apa.TemplateName].CreateOutputExpressions(&defaultApaInstanceParam, f, builder)
+	expressions, err := SupportedTmplInfo[sample_apa.TemplateName].CreateOutputExpressions(&sampleApaInstanceParam, f, builder)
 	if err != nil {
 		t.Fatalf("Unexpected CreateOutputExpressions error: %v", err)
 	}
@@ -154,6 +187,10 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 	}
 	if ai, ok := outBag.Get("generated.ai"); !ok || ai != defaultApaAttributes["ai"] {
 		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, defaultApaAttributes["ai"])
+	}
+
+	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte{0x2, 0x3, 0x4, 0x5}) {
+		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, []byte{0x2, 0x3, 0x4, 0x5})
 	}
 }
 

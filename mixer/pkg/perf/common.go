@@ -16,10 +16,9 @@ package perf
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path"
-	"strings"
+	"time"
 )
 
 // ServiceLocation is a struct that combines the address and the path of an rpc server.
@@ -35,28 +34,15 @@ func (s ServiceLocation) String() string {
 	return s.Address + s.Path
 }
 
-// generateHTTPPathDiscriminatorFromAddress is used to create a discrimination string to be used in http paths. The rpc package uses
-// the global http demultiplexer, which doesn't have an unregistration mechanism and cannot handle multiple
-// registrations. Using a discriminator helps deal with the issue.
-//
-// The FromAddress suffix is needed as this is the official way to suppress the interfacer goling warning *sigh*.
-func generateHTTPPathDiscriminatorFromAddress(a net.Addr) string {
-	// Parse the address and extract the port. This should be a good enough discriminator value.
-
-	address := a.String()
-	idx := strings.LastIndex(address, ":")
-	return address[idx+1:]
-}
-
 // generatePath is used to generate the HTTP rpc path for a given component.
-func generatePath(component string, a net.Addr) string {
-	discriminator := generateHTTPPathDiscriminatorFromAddress(a)
+func generatePath(component string) string {
+	discriminator := fmt.Sprintf("ns%d", time.Now().Nanosecond())
 	return fmt.Sprintf("/%s/perf/mixer/%s/_goRPC_", component, discriminator)
 }
 
 // generateDebugPath is used to generate the HTTP rpc debug path for a given component.
-func generateDebugPath(component string, a net.Addr) string {
-	discriminator := generateHTTPPathDiscriminatorFromAddress(a)
+func generateDebugPath(component string) string {
+	discriminator := fmt.Sprintf("nsd%d", time.Now().Nanosecond())
 	return fmt.Sprintf("/debug/%s/perf/mixer/%s/rpc", component, discriminator)
 }
 

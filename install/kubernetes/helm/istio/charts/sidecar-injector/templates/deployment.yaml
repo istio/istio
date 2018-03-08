@@ -1,0 +1,77 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-sidecar-injector
+  labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: sidecar-injector
+  annotations:
+    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: sidecar-injector
+    spec:
+      containers:
+        - name: sidecar-injector-webhook
+          image: "{{ .Values.global.hub }}/sidecar_injector:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --tlsCertFile=/etc/istio/certs/cert.pem
+            - --tlsKeyFile=/etc/istio/certs/key.pem
+            - --injectConfig=/etc/istio/inject/config
+            - --meshConfig=/etc/istio/config/mesh
+            - --healthCheckInterval=2s
+            - --healthCheckFile=/health
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+            readOnly: true
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+          - name: inject-config
+            mountPath: /etc/istio/inject
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: certs
+        secret:
+          secretName: sidecar-injector-certs
+      - name: inject-config
+        configMap:
+          name: istio-sidecar-injector
+          items:
+          - key: config
+            path: config
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

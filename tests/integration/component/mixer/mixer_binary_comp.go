@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"istio.io/istio/tests/integration/framework"
@@ -27,35 +28,76 @@ import (
 )
 
 const (
-	testConfigPath = "mixer/testdata/config"
+	testConfigPath  = "mixer/testdata/config"
+	metricsEndpoint = "http://localhost:42422/metrics"
 )
 
 var (
 	mixerBinary = flag.String("mixer_binary", "", "Mixer binary path.")
+	lock        sync.Mutex
 )
+
+// LocalCompConfig contains configs for LocalComponent
+type LocalCompConfig struct {
+	framework.Config
+	ConfigFileDir string
+	LogFile       string
+}
+
+// LocalCompStatus contains status for LocalComponent
+type LocalCompStatus struct {
+	framework.Status
+	MetricsEndpoint string
+}
 
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
-	Name        string
-	LogFile     string
-	configDir   string
+	config      LocalCompConfig
+	status      LocalCompStatus
+	name        string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
-func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
-	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
+func NewLocalComponent(n string, config LocalCompConfig) *LocalComponent {
 	return &LocalComponent{
-		Name:      n,
-		LogFile:   logFile,
-		configDir: configDir,
+		name:   n,
+		config: config,
 	}
 }
 
 // GetName implement the function in component interface
 func (mixerComp *LocalComponent) GetName() string {
-	return mixerComp.Name
+	return mixerComp.name
+}
+
+// GetConfig return the config for outside use
+func (mixerComp *LocalComponent) GetConfig() framework.Config {
+	lock.Lock()
+	config := mixerComp.config
+	lock.Unlock()
+	return config
+}
+
+// SetConfig set a config into this component
+func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
+	mixerConfig, ok := config.(LocalCompConfig)
+	if !ok {
+		return fmt.Errorf("cannot cast config into mixer local config")
+	}
+	lock.Lock()
+	mixerComp.config = mixerConfig
+	lock.Unlock()
+	return nil
+}
+
+// GetStatus return the status for outside use
+func (mixerComp *LocalComponent) GetStatus() framework.Status {
+	lock.Lock()
+	status := mixerComp.status
+	lock.Unlock()
+	return status
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -65,12 +107,12 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		log.Printf("Failed to get current directory: %s", err)
 		return
 	}
-	emptyDir := filepath.Join(wd, mixerComp.configDir, "emptydir")
+	emptyDir := filepath.Join(wd, mixerComp.config.ConfigFileDir, "emptydir")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return
 	}
-	mixerConfig := filepath.Join(wd, mixerComp.configDir, "mixerconfig")
+	mixerConfig := filepath.Join(wd, mixerComp.config.ConfigFileDir, "mixerconfig")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return
@@ -92,7 +134,11 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
+
+	lock.Lock()
+	mixerComp.status.MetricsEndpoint = metricsEndpoint
+	lock.Unlock()
 
 	log.Printf("Started component %s", mixerComp.GetName())
 	return
@@ -109,9 +155,4 @@ func (mixerComp *LocalComponent) IsAlive() (bool, error) {
 func (mixerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", mixerComp.GetName())
 	return mixerComp.testProcess.Stop()
-}
-
-// Cleanup clean up tmp files and other resource created by LocalComponent
-func (mixerComp *LocalComponent) Cleanup() error {
-	return nil
 }

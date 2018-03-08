@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/gogo/protobuf/proto"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -337,7 +337,7 @@ func promValue(val interface{}) (float64, error) {
 func promLabels(l map[string]interface{}) prometheus.Labels {
 	labels := make(prometheus.Labels, len(l))
 	for i, label := range l {
-		labels[i] = fmt.Sprintf("%v", label)
+		labels[i] = adapter.Stringify(label)
 	}
 	return labels
 }

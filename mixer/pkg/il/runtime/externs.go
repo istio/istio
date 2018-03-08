@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	config "istio.io/api/mixer/v1/config/descriptor"
+	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 )
@@ -36,6 +36,7 @@ var Externs = map[string]interpreter.Extern{
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
 	"endsWith":        interpreter.ExternFromFn("endsWith", externEndsWith),
+	"emptyStringMap":  interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -75,6 +76,11 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 		TargetType:    config.STRING,
 		ReturnType:    config.BOOL,
 		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "emptyStringMap",
+		ReturnType:    config.STRING_MAP,
+		ArgumentTypes: []config.ValueType{},
 	},
 }
 
@@ -125,4 +131,8 @@ func externStartsWith(str string, prefix string) bool {
 
 func externEndsWith(str string, suffix string) bool {
 	return strings.HasSuffix(str, suffix)
+}
+
+func externEmptyStringMap() map[string]string {
+	return map[string]string{}
 }

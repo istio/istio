@@ -1,0 +1,19 @@
+{{- if .Values.global.rbacEnabled }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: istio-ca-role-binding-{{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-ca-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-ca-service-account
+    namespace: {{ .Release.Namespace }}
+{{- end }}

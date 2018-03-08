@@ -1,0 +1,35 @@
+# istio CA watching all namespaces
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ca
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: istio-ca
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+        - name: istio-ca
+          image: "{{ .Values.global.hub }}/istio-ca:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --grpc-port=8060
+            - --grpc-hostname=istio-ca
+            - --self-signed-ca=true
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}

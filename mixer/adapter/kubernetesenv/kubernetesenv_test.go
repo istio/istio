@@ -49,12 +49,17 @@ func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, err
 	return nil, errors.New("can't build k8s client")
 }
 
+func newFakeBuilder() *builder {
+	fb := &fakeK8sBuilder{}
+	return newBuilder(fb.build)
+}
+
 // note: not using TestAdapterInvariants here because of kubernetes dependency.
 // we are aiming for simple unit testing. a larger, more involved integration
 // test / e2e test must be written to validate the builder in relation to a
 // real kubernetes cluster.
 func TestBuilder(t *testing.T) {
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	if err := b.Validate(); err != nil {
 		t.Errorf("ValidateConfig() => builder can't validate its default configuration: %v", err)
@@ -71,7 +76,7 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly", PodLabelForService: "app"}, 3},
 	}
 
-	b := newBuilder((&fakeK8sBuilder{}).build)
+	b := newFakeBuilder()
 
 	for _, v := range tests {
 		b.SetAdapterConfig(v.conf)
@@ -88,10 +93,10 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 
 func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 	tests := []struct {
-		name    string
-		testFn  clientFactoryFn
-		conf    adapter.Config
-		wantErr bool
+		name     string
+		clientFn clientFactoryFn
+		conf     adapter.Config
+		wantErr  bool
 	}{
 		{"success", (&fakeK8sBuilder{}).build, conf, false},
 		{"builder error", errorClientBuilder, conf, true},
@@ -99,7 +104,7 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			b := newBuilder(v.testFn)
+			b := newBuilder(v.clientFn)
 			b.SetAdapterConfig(v.conf)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
 			if err == nil && v.wantErr {
@@ -109,6 +114,20 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 				t.Fatalf("Got error, wanted none: %v", err)
 			}
 		})
+	}
+}
+
+func TestBuilder_ControllerCache(t *testing.T) {
+	b := newFakeBuilder()
+
+	for i := 0; i < 10; i++ {
+		if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
+			t.Errorf("error in builder: %v", err)
+		}
+	}
+
+	if len(b.controllers) != 1 {
+		t.Errorf("Got %v controllers, want 1", len(b.controllers))
 	}
 }
 
@@ -136,19 +155,6 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 			b.SetAdapterConfig(v.conf)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			{
-				_, err := b.Build(ctx, test.NewEnv(t))
-				gotOK := err == nil
-				if gotOK != v.wantOK {
-					t.Fatalf("Got %v, Want %v", err, v.wantOK)
-				}
-				if v.clientFactory.calledPath != wantPath {
-					t.Errorf("Bad kubeconfig path; got %s, want %s", v.clientFactory.calledPath, wantPath)
-				}
-			}
-			v.clientFactory.calledPath = ""
-
-			// try this another time. create a new handler from the same builder
 			{
 				_, err := b.Build(ctx, test.NewEnv(t))
 				gotOK := err == nil
@@ -206,6 +212,7 @@ func TestKubegen_Generate(t *testing.T) {
 			Status:     v1.PodStatus{PodIP: "192.168.234.3"},
 		},
 		"istio-system/ingress": {ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: "istio-system", Labels: map[string]string{"istio": "ingress"}}},
+		"istio-system/mixer":   {ObjectMeta: metav1.ObjectMeta{Name: "mixer", Namespace: "istio-system", Labels: map[string]string{"istio": "istio-mixer"}}},
 		"testns/ipApp":         {ObjectMeta: metav1.ObjectMeta{Name: "ipApp", Namespace: "testns", Labels: map[string]string{"app": "10.1.10.1"}}},
 	}
 
@@ -215,125 +222,117 @@ func TestKubegen_Generate(t *testing.T) {
 		OriginUid:      "kubernetes://badsvcuid",
 	}
 
-	sourceUIDOut := &kubernetes_apa_tmpl.Output{
-		SourceLabels: map[string]string{
-			"app":       "test",
-			"something": "",
-		},
-		SourcePodIp:              net.ParseIP("10.10.10.1"),
-		SourceHostIp:             net.ParseIP("10.1.1.10"),
-		SourceNamespace:          "testns",
-		SourcePodName:            "test-pod",
-		SourceService:            "test.testns.svc.cluster.local",
-		SourceServiceAccountName: "test",
-	}
+	sourceUIDOut := kubernetes_apa_tmpl.NewOutput()
+	sourceUIDOut.SetSourceLabels(map[string]string{
+		"app":       "test",
+		"something": "",
+	})
+	sourceUIDOut.SetSourcePodIp(net.ParseIP("10.10.10.1"))
+	sourceUIDOut.SetSourceHostIp(net.ParseIP("10.1.1.10"))
+	sourceUIDOut.SetSourceNamespace("testns")
+	sourceUIDOut.SetSourcePodName("test-pod")
+	sourceUIDOut.SetSourceService("test.testns.svc.cluster.local")
+	sourceUIDOut.SetSourceServiceAccountName("test")
 
 	nsAppLabelIn := &kubernetes_apa_tmpl.Instance{
 		SourceUid: "kubernetes://alt-pod.testns",
 	}
 
-	nsAppLabelOut := &kubernetes_apa_tmpl.Output{
-		SourceLabels: map[string]string{
-			"app": "alt-svc.testns",
-		},
-		SourceService:   "alt-svc.testns.svc.cluster.local",
-		SourceNamespace: "testns",
-		SourcePodName:   "alt-pod",
-	}
+	nsAppLabelOut := kubernetes_apa_tmpl.NewOutput()
+	nsAppLabelOut.SetSourceLabels(map[string]string{
+		"app": "alt-svc.testns",
+	})
+	nsAppLabelOut.SetSourceService("alt-svc.testns.svc.cluster.local")
+	nsAppLabelOut.SetSourceNamespace("testns")
+	nsAppLabelOut.SetSourcePodName("alt-pod")
 
 	svcClusterIn := &kubernetes_apa_tmpl.Instance{SourceUid: "kubernetes://pod-cluster.testns"}
 
-	svcClusterOut := &kubernetes_apa_tmpl.Output{
-		SourceLabels: map[string]string{
-			"app": "alt-svc-with-cluster.testns.svc.cluster:8080",
-		},
-		SourceService:   "alt-svc-with-cluster.testns.svc.cluster.local",
-		SourceNamespace: "testns",
-		SourcePodName:   "pod-cluster",
-	}
+	svcClusterOut := kubernetes_apa_tmpl.NewOutput()
+	svcClusterOut.SetSourceLabels(map[string]string{"app": "alt-svc-with-cluster.testns.svc.cluster:8080"})
+	svcClusterOut.SetSourceService("alt-svc-with-cluster.testns.svc.cluster.local")
+	svcClusterOut.SetSourceNamespace("testns")
+	svcClusterOut.SetSourcePodName("pod-cluster")
 
 	longSvcClusterIn := &kubernetes_apa_tmpl.Instance{SourceUid: "kubernetes://long-pod.testns"}
 
-	longSvcClusterOut := &kubernetes_apa_tmpl.Output{
-		SourceLabels: map[string]string{
-			"app": "long-svc.testns.svc.cluster.local.solar",
-		},
-		SourceService:   "long-svc.testns.svc.cluster.local.solar",
-		SourceNamespace: "testns",
-		SourcePodName:   "long-pod",
-	}
+	longSvcClusterOut := kubernetes_apa_tmpl.NewOutput()
+	longSvcClusterOut.SetSourceLabels(map[string]string{
+		"app": "long-svc.testns.svc.cluster.local.solar",
+	})
+	longSvcClusterOut.SetSourceService("long-svc.testns.svc.cluster.local.solar")
+	longSvcClusterOut.SetSourceNamespace("testns")
+	longSvcClusterOut.SetSourcePodName("long-pod")
 
 	emptySvcIn := &kubernetes_apa_tmpl.Instance{DestinationUid: "kubernetes://empty.testns"}
 
-	emptyServiceOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels: map[string]string{
-			"app": "",
-		},
-		DestinationNamespace: "testns",
-		DestinationPodName:   "empty",
-	}
+	emptyServiceOut := kubernetes_apa_tmpl.NewOutput()
+	emptyServiceOut.SetDestinationLabels(map[string]string{"app": ""})
+	emptyServiceOut.SetDestinationNamespace("testns")
+	emptyServiceOut.SetDestinationPodName("empty")
 
 	badDestinationSvcIn := &kubernetes_apa_tmpl.Instance{DestinationUid: "kubernetes://bad-svc-pod.testns"}
 
-	badDestinationOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels: map[string]string{
-			"app": ":",
-		},
-		DestinationNamespace: "testns",
-		DestinationPodName:   "bad-svc-pod",
-	}
+	badDestinationOut := kubernetes_apa_tmpl.NewOutput()
+	badDestinationOut.SetDestinationLabels(map[string]string{
+		"app": ":",
+	})
+	badDestinationOut.SetDestinationNamespace("testns")
+	badDestinationOut.SetDestinationPodName("bad-svc-pod")
 
 	ipDestinationSvcIn := &kubernetes_apa_tmpl.Instance{DestinationIp: net.ParseIP("192.168.234.3")}
 
-	ipDestinationOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels: map[string]string{
-			"app": "ipAddr",
-		},
-		DestinationNamespace: "testns",
-		DestinationPodName:   "ip-svc-pod",
-		DestinationService:   "ipAddr.testns.svc.cluster.local",
-		DestinationPodIp:     net.ParseIP("192.168.234.3"),
-	}
+	ipDestinationOut := kubernetes_apa_tmpl.NewOutput()
+	ipDestinationOut.SetDestinationLabels(map[string]string{
+		"app": "ipAddr",
+	})
+	ipDestinationOut.SetDestinationNamespace("testns")
+	ipDestinationOut.SetDestinationPodName("ip-svc-pod")
+	ipDestinationOut.SetDestinationService("ipAddr.testns.svc.cluster.local")
+	ipDestinationOut.SetDestinationPodIp(net.ParseIP("192.168.234.3"))
 
 	istioDestinationSvcIn := &kubernetes_apa_tmpl.Instance{
 		DestinationUid: "kubernetes://ingress.istio-system",
 		SourceUid:      "kubernetes://test-pod.testns",
 	}
 
-	istioDestinationOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels: map[string]string{
-			"istio": "ingress",
-		},
-		DestinationNamespace: "istio-system",
-		DestinationPodName:   "ingress",
-		DestinationService:   "ingress.istio-system.svc.cluster.local",
-	}
+	istioDestinationOut := kubernetes_apa_tmpl.NewOutput()
+	istioDestinationOut.SetDestinationLabels(map[string]string{"istio": "ingress"})
+	istioDestinationOut.SetDestinationNamespace("istio-system")
+	istioDestinationOut.SetDestinationPodName("ingress")
+	istioDestinationOut.SetDestinationService("istio-ingress.istio-system.svc.cluster.local")
 
-	istioDestinationWithSrcOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels:        map[string]string{"istio": "ingress"},
-		DestinationNamespace:     "istio-system",
-		DestinationPodName:       "ingress",
-		DestinationService:       "ingress.istio-system.svc.cluster.local",
-		SourceServiceAccountName: "test",
-		SourceService:            "test.testns.svc.cluster.local",
-		SourceLabels:             map[string]string{"app": "test", "something": ""},
-		SourceNamespace:          "testns",
-		SourcePodIp:              net.ParseIP("10.10.10.1"),
-		SourceHostIp:             net.ParseIP("10.1.1.10"),
-		SourcePodName:            "test-pod",
-	}
+	istioDestinationWithSrcOut := kubernetes_apa_tmpl.NewOutput()
+	istioDestinationWithSrcOut.SetDestinationLabels(map[string]string{"istio": "ingress"})
+	istioDestinationWithSrcOut.SetDestinationNamespace("istio-system")
+	istioDestinationWithSrcOut.SetDestinationPodName("ingress")
+	istioDestinationWithSrcOut.SetDestinationService("istio-ingress.istio-system.svc.cluster.local")
+	istioDestinationWithSrcOut.SetSourceServiceAccountName("test")
+	istioDestinationWithSrcOut.SetSourceService("test.testns.svc.cluster.local")
+	istioDestinationWithSrcOut.SetSourceLabels(map[string]string{"app": "test", "something": ""})
+	istioDestinationWithSrcOut.SetSourceNamespace("testns")
+	istioDestinationWithSrcOut.SetSourcePodIp(net.ParseIP("10.10.10.1"))
+	istioDestinationWithSrcOut.SetSourceHostIp(net.ParseIP("10.1.1.10"))
+	istioDestinationWithSrcOut.SetSourcePodName("test-pod")
 
 	ipAppSvcIn := &kubernetes_apa_tmpl.Instance{
 		DestinationUid: "kubernetes://ipApp.testns",
 	}
 
-	ipAppDestinationOut := &kubernetes_apa_tmpl.Output{
-		DestinationLabels: map[string]string{
-			"app": "10.1.10.1",
-		},
-		DestinationNamespace: "testns",
-		DestinationPodName:   "ipApp",
+	ipAppDestinationOut := kubernetes_apa_tmpl.NewOutput()
+	ipAppDestinationOut.SetDestinationLabels(map[string]string{"app": "10.1.10.1"})
+	ipAppDestinationOut.SetDestinationNamespace("testns")
+	ipAppDestinationOut.SetDestinationPodName("ipApp")
+
+	mixerIn := &kubernetes_apa_tmpl.Instance{
+		SourceUid: "kubernetes://mixer.istio-system",
 	}
+
+	mixerOut := kubernetes_apa_tmpl.NewOutput()
+	mixerOut.SetSourceLabels(map[string]string{"istio": "istio-mixer"})
+	mixerOut.SetSourceService("istio-mixer.istio-system.svc.cluster.local")
+	mixerOut.SetSourceNamespace("istio-system")
+	mixerOut.SetSourcePodName("mixer")
 
 	confWithIngressLookups := *conf
 	confWithIngressLookups.LookupIngressSourceAndOriginValues = true
@@ -354,6 +353,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"istio ingress service (no lookup source)", istioDestinationSvcIn, istioDestinationOut, conf},
 		{"istio ingress service (lookup source)", istioDestinationSvcIn, istioDestinationWithSrcOut, &confWithIngressLookups},
 		{"ip app", ipAppSvcIn, ipAppDestinationOut, conf},
+		{"istio component label", mixerIn, mixerOut, conf},
 	}
 
 	objs := make([]runtime.Object, 0, len(pods))

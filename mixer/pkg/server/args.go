@@ -19,10 +19,12 @@ import (
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -50,7 +52,11 @@ type Args struct {
 	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
+
+	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
+	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -71,11 +77,24 @@ type Args struct {
 	// The tracing options to use
 	TracingOptions *tracing.Options
 
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbeOptions *probe.Options
+
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
 
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
+
+	// Enable profiling via web interface host:port/debug/pprof
+	EnableProfiling bool
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
 
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
@@ -84,8 +103,8 @@ type Args struct {
 	SingleThreaded bool
 }
 
-// NewArgs allocates an Args struct initialized with Mixer's default configuration.
-func NewArgs() *Args {
+// DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
+func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
 		MonitoringPort:                9093,
@@ -97,8 +116,12 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		LoggingOptions:                log.NewOptions(),
-		TracingOptions:                tracing.NewOptions(),
+		UseNewRuntime:                 true,
+		LoggingOptions:                log.DefaultOptions(),
+		TracingOptions:                tracing.DefaultOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
+		EnableProfiling:               true,
 	}
 }
 
@@ -129,11 +152,13 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
+	b.WriteString(fmt.Sprint("EnableProfiling: ", a.EnableProfiling, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
 	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
 	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()

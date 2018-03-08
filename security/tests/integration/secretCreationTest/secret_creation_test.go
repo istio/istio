@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration/framework"
 )
@@ -43,7 +43,7 @@ func TestSecretCreation(t *testing.T) {
 		t.Error(err)
 	}
 
-	glog.Info(`checking secret "istio.default" is correctly created`)
+	t.Log(`checking secret "istio.default" is correctly created`)
 	if err := integration.ExamineSecret(s); err != nil {
 		t.Error(err)
 	}
@@ -52,26 +52,35 @@ func TestSecretCreation(t *testing.T) {
 	if err := integration.DeleteSecret(testEnv.ClientSet, testEnv.NameSpace, "istio.default"); err != nil {
 		t.Error(err)
 	}
-	glog.Info(`secret "istio.default" has been deleted`)
+
+	t.Log(`secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
 	if _, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.NameSpace, "istio.default",
 		secretWaitTime); err != nil {
 		t.Error(err)
 	}
-	glog.Info(`checking secret "istio.default" is correctly re-created`)
+	t.Log(`checking secret "istio.default" is correctly re-created`)
 }
 
 func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
+	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
+	tag := flag.String("tag", "", "Tag for Istio CA image")
 
 	flag.Parse()
 
-	testEnv = integration.NewSecretTestEnv(testEnvName, *kubeconfig)
+	testEnv = integration.NewSecretTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+
+	if testEnv == nil {
+		log.Error("test environment creation failure")
+		// There is no cleanup needed at this point.
+		os.Exit(1)
+	}
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
-	glog.Infof("Test result %d in env %s", res, testEnvName)
+	log.Infof("Test result %d in env %s", res, testEnvName)
 
 	os.Exit(res)
 }

@@ -33,19 +33,34 @@ const reportAttributesOkPost = `
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+	"connection.mtls": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
-  "connection.duration": "*"
+  "connection.duration": "*",
+  "connection.id": "*"
 }
 `
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"tcp_mixer_filter.total_blocking_remote_check_calls": 0,
+	"tcp_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"tcp_mixer_filter.total_check_calls":                 0,
+	"tcp_mixer_filter.total_quota_calls":                 0,
+	"tcp_mixer_filter.total_remote_check_calls":          0,
+	"tcp_mixer_filter.total_remote_quota_calls":          0,
+	"tcp_mixer_filter.total_remote_report_calls":         1,
+	"tcp_mixer_filter.total_report_calls":                1,
+}
+
 func TestDisableTCPCheckCalls(t *testing.T) {
-	s := env.NewTestSetup(
-		env.DisableTCPCheckCallsTest,
-		t,
-		env.BasicConfig+","+env.DisableTCPCheckCalls)
+	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
+	env.SetStatsUpdateInterval(s.V2(), 1)
+	// Disable Check
+	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -61,19 +76,9 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 	s.VerifyCheckCount(tag, 0)
 	s.VerifyReport(tag, reportAttributesOkPost)
 
-	//
-	// Use V2 config
-	//
-
-	s.SetV2Conf()
-	// Disable Check
-	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
-	s.ReStartEnvoy()
-
-	tag = "OKPost"
-	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-	s.VerifyCheckCount(tag, 0)
-	s.VerifyReport(tag, reportAttributesOkPost)
 }

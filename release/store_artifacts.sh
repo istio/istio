@@ -20,6 +20,8 @@ set -o nounset
 set -o pipefail
 set -x
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # This script takes files from a specified directory and uploads
 # then to GCR & GCS.  Only tar files in docker/ are uploaded to GCR.
 
@@ -89,9 +91,13 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
       break
     fi
     docker load -i "${TAR_PATH}"
-    docker tag "${IMAGE_NAME}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    docker tag "istio/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
 
+# preserve the source from the root of the istio repo
+pushd "${ROOT}"
+tar -cvzf "${OUTPUT_PATH}/source.tar.gz" .
+popd
 gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"

@@ -20,10 +20,10 @@ import (
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
-	istio_mixer_v1_template "istio.io/api/mixer/v1/template"
+	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
+	configpb "istio.io/api/policy/v1beta1"
+	descriptorpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -1406,7 +1406,7 @@ func TestConfigs(t *testing.T) {
 	runTests(t)
 
 	// enable debug logging and run again to ensure debug logging won't cause a crash.
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	_ = o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 	runTests(t)

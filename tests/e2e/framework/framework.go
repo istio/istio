@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 )
@@ -70,7 +68,7 @@ func InitLogging() error {
 	}
 
 	// Configure Istio logging to use a file under the temp dir.
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	tmpLogFile, err := ioutil.TempFile(tmpDir, tmpPrefix)
 	if err != nil {
 		return err
@@ -84,13 +82,15 @@ func InitLogging() error {
 	return nil
 }
 
-// NewCommonConfig creates a full config will all supported configs.
-func NewCommonConfig(testID string) (*CommonConfig, error) {
+// NewCommonConfigWithVersion creates a new CommonConfig with the specified
+// version of Istio. If baseVersion is empty, it will use the local head
+// version.
+func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID)
+	k, err := newKubeInfo(t.TempDir, t.RunID, version)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +107,11 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	return c, nil
+}
+
+// NewCommonConfig creates a full config with the local head version.
+func NewCommonConfig(testID string) (*CommonConfig, error) {
+	return NewCommonConfigWithVersion(testID, "")
 }
 
 func (t *testCleanup) RegisterCleanable(c Cleanable) {
@@ -180,15 +185,9 @@ func (t *testCleanup) cleanup() {
 // Fetch and save cluster pod logs using kuebctl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
-	if c.Cleanup.skipCleanup {
-		log.Info("Dev mode (--skip_cleanup), skipping log fetching")
-		return nil
-	}
+	// Logs are fetched even if skip_cleanup is called - the namespace is left around.
 	if c.Info == nil {
 		log.Warn("Skipping log saving as Info is not initialized")
-		return nil
-	}
-	if c.Info.LogBucketPath == "" {
 		return nil
 	}
 	log.Info("Saving logs")

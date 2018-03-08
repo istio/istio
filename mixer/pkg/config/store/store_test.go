@@ -15,90 +15,126 @@
 package store
 
 import (
-	"context"
 	"errors"
 	"net/url"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/istio/mixer/pkg/config/proto"
+	cfg "istio.io/api/policy/v1beta1"
 )
 
 type testStore struct {
-	*memstore
-	initErr  error
-	watchErr error
+	initErr      error
+	watchErr     error
+	watchCh      chan BackendEvent
+	watchCount   int
+	calledKey    Key
+	getResponse  *BackEndResource
+	getError     error
+	listResponse map[Key]*BackEndResource
+	listCount    int
 }
 
-func (t *testStore) Init(ctx context.Context, kinds []string) error {
-	if t.initErr != nil {
-		return t.initErr
+func (t *testStore) Stop() {
+	if t.watchCh != nil {
+		close(t.watchCh)
 	}
-	return t.memstore.Init(ctx, kinds)
 }
 
-func (t *testStore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+func (t *testStore) Init(kinds []string) error {
+	return t.initErr
+}
+
+func (t *testStore) Get(key Key) (*BackEndResource, error) {
+	t.calledKey = key
+	return t.getResponse, t.getError
+}
+
+func (t *testStore) List() map[Key]*BackEndResource {
+	t.listCount++
+	return t.listResponse
+}
+
+func (t *testStore) Watch() (<-chan BackendEvent, error) {
+	t.watchCount++
 	if t.watchErr != nil {
 		return nil, t.watchErr
 	}
-	return t.memstore.Watch(ctx)
+	ch := make(chan BackendEvent)
+	t.watchCh = ch
+	return t.watchCh, nil
+}
+
+func newTestBackend() *testStore {
+	return &testStore{listResponse: map[Key]*BackEndResource{}}
 }
 
 func registerTestStore(builders map[string]Builder) {
 	builders["test"] = func(u *url.URL) (Backend, error) {
-		return &testStore{
-			memstore: createOrGetMemstore(u.String()),
-		}, nil
+		return newTestBackend(), nil
 	}
 }
 
 func TestStore(t *testing.T) {
-	r := NewRegistry(registerTestStore)
-	u := "memstore://" + t.Name()
-	s, err := r.NewStore(u)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := GetMemstoreWriter(u)
+	b := newTestBackend()
+	s := WithBackend(b)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
-	if err = s.Init(context.Background(), kinds); err != nil {
+	if err := s.Init(kinds); err != nil {
 		t.Fatal(err)
 	}
+	defer s.Stop()
+
 	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
+	b.getError = ErrNotFound
 	h1 := &cfg.Handler{}
-	if err = s.Get(k, h1); err != ErrNotFound {
+	if err := s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
-	if err = s.Get(k, h1); err != nil {
+	if b.calledKey != k {
+		t.Errorf("calledKey %s should be %s", b.calledKey, k)
+	}
+
+	b.getError = nil
+	bres := &BackEndResource{
+		Kind:     k.Kind,
+		Metadata: ResourceMeta{Name: k.Name, Namespace: k.Namespace},
+		Spec:     map[string]interface{}{"name": "default", "adapter": "noop"},
+	}
+	b.getResponse = bres
+	if err := s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	want := &cfg.Handler{Name: "default", Adapter: "noop"}
 	if !reflect.DeepEqual(h1, want) {
 		t.Errorf("Got %v, Want %v", h1, want)
 	}
-	wantList := map[Key]proto.Message{k: want}
 
-	for k, v := range s.List() {
-		vwant := wantList[k]
-		if vwant == nil {
-			t.Fatalf("Did not get key for %s", k)
-		}
-		if !reflect.DeepEqual(v.Spec, vwant) {
-			t.Errorf("Got %+v, Want %+v", v, vwant)
-		}
+	b.listResponse[k] = bres
+	if b.listCount != 0 {
+		t.Errorf("List is called %d times already", b.listCount)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ch, err := s.Watch(ctx)
+	wantList := map[Key]*Resource{k: {Metadata: ResourceMeta{Name: k.Name, Namespace: k.Namespace}, Spec: want}}
+	if lst := s.List(); !reflect.DeepEqual(lst, wantList) {
+		t.Errorf("Got %+v, Want %+v", lst, wantList)
+	}
+	if b.listCount != 1 {
+		t.Errorf("Got %d, Want 1", b.listCount)
+	}
+
+	if b.watchCount != 0 {
+		t.Errorf("Watch is called %d times already", b.watchCount)
+	}
+	ch, err := s.Watch()
 	if err != nil {
 		t.Error(err)
 	}
-	m.Put(k, &BackEndResource{Spec: map[string]interface{}{"name": "default", "adapter": "noop"}})
+	if b.watchCount != 1 {
+		t.Errorf("Got %d, Want 1", b.watchCount)
+	}
+	b.watchCh <- BackendEvent{Type: Update, Key: k, Value: bres}
 	wantEv := Event{Key: k, Type: Update,
 		Value: &Resource{
 			Metadata: ResourceMeta{
@@ -115,58 +151,55 @@ func TestStore(t *testing.T) {
 }
 
 func TestStoreWatchMultiple(t *testing.T) {
-	r := NewRegistry(registerTestStore)
-	s, err := r.NewStore("memstore://" + t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := newTestBackend()
+	s := WithBackend(b)
 
-	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+	if err := s.Init(map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	if _, err := s.Watch(ctx); err != nil {
+	defer s.Stop()
+	if b.watchCount != 0 {
+		t.Errorf("Watch is called %d times already", b.watchCount)
+	}
+	if _, err := s.Watch(); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExists {
+	if b.watchCount != 1 {
+		t.Errorf("Got %d, Want 1", b.watchCount)
+	}
+	if _, err := s.Watch(); err != ErrWatchAlreadyExists {
 		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExists)
 	}
-	cancel()
-	// short sleep to make sure the goroutine for canceling watch status in store.
-	time.Sleep(time.Millisecond * 5)
-	if _, err := s.Watch(context.Background()); err != nil {
-		t.Errorf("Got %v, Want nil", err)
+	if b.watchCount != 1 {
+		t.Errorf("Got %d, Want 1", b.watchCount)
 	}
 }
 
 func TestStoreFail(t *testing.T) {
-	r := NewRegistry(registerTestStore)
-	s, err := r.NewStore("test://" + t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts := s.(*store).backend.(*testStore)
+	b := newTestBackend()
+	s := WithBackend(b)
 	kinds := map[string]proto.Message{"Handler": &cfg.Handler{}}
-	ts.initErr = errors.New("dummy")
-	if err = s.Init(context.Background(), kinds); err.Error() != "dummy" {
+	b.initErr = errors.New("dummy")
+	if err := s.Init(kinds); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
-	ts.initErr = nil
-	if err = s.Init(context.Background(), kinds); err != nil {
+	defer s.Stop()
+	b.initErr = nil
+	if err := s.Init(kinds); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 
-	ts.watchErr = errors.New("watch error")
-	if _, err := s.Watch(context.Background()); err.Error() != "watch error" {
+	b.watchErr = errors.New("watch error")
+	if _, err := s.Watch(); err.Error() != "watch error" {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 
-	ts.Put(Key{Kind: "Handler", Name: "name", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
+	b.listResponse[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = &BackEndResource{Spec: map[string]interface{}{
 		"foo": 1,
-	}})
-	ts.Put(Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}, &BackEndResource{Spec: map[string]interface{}{
+	}}
+	b.listResponse[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = &BackEndResource{Spec: map[string]interface{}{
 		"unknown": "unknown",
-	}})
+	}}
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %v, Want empty", lst)
 	}
@@ -178,7 +211,7 @@ func TestRegistry(t *testing.T) {
 		u  string
 		ok bool
 	}{
-		{"memstore://", true},
+		{"memstore://", false},
 		{"mem://", false},
 		{"fs:///", true},
 		{"://", false},

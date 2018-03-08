@@ -23,8 +23,9 @@ data:
     enableTracing: true
     #
     # To disable the mixer completely (including metrics), comment out
-    # the following line
-    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:15004
+    # the following lines
+    mixerCheckServer: istio-mixer.{ISTIO_NAMESPACE}:15004
+    mixerReportServer: istio-mixer.{ISTIO_NAMESPACE}:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     #
@@ -64,7 +65,7 @@ data:
       proxyAdminPort: 15000
       #
       # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:15003
+      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411

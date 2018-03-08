@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/istio/mixer/pkg/config/proto"
+	descriptor "istio.io/api/policy/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
@@ -306,6 +306,49 @@ end`,
 		conf: exprEvalAttrs,
 	},
 	{
+		E:    `match(request.headers["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.headers": map[string]string{
+				"user-agent": "curlish",
+			},
+		},
+		R:    true,
+		conf: istio06AttributeSet,
+	},
+	{
+		E:    `match(request.headers["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.headers": map[string]string{
+				"user-agent": "ishcurl",
+			},
+		},
+		R:    false,
+		conf: istio06AttributeSet,
+	},
+	{
+		E:    `match(request.headers["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.headers": map[string]string{},
+		},
+		R:    false,
+		conf: istio06AttributeSet,
+	},
+	{
+		E:    `match(request.headers["user-agent"], "curl*")`,
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		Err:  "lookup failed: 'request.headers'",
+		conf: istio06AttributeSet,
+	},
+	{
+		E:          `match(request.headerzzzz["user-agent"], "curl*")`,
+		CompileErr: "unknown attribute request.headerzzzz",
+		conf:       istio06AttributeSet,
+	},
+	{
 		E:    `( origin.name | "unknown" ) == "users"`,
 		Type: descriptor.BOOL,
 		I:    map[string]interface{}{},
@@ -462,7 +505,7 @@ end`,
 		E:          `target.ip| ip("10.1.12.3")`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
-		R:          []uint8(net.ParseIP("10.1.12.3")),
+		R:          net.ParseIP("10.1.12.3"),
 		Referenced: []string{"target.ip"},
 		conf:       exprEvalAttrs,
 	},
@@ -510,7 +553,37 @@ end`,
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		conf:   exprEvalAttrs,
 	},
-
+	{
+		E:    "emptyStringMap()",
+		Type: descriptor.STRING_MAP,
+		IL: `
+fn eval() interface
+  call emptyStringMap
+  ret
+end
+`,
+		R:          map[string]string{},
+		I:          map[string]interface{}{},
+		Referenced: []string{},
+		conf:       exprEvalAttrs,
+	},
+	{
+		E:          `source.labels | emptyStringMap()`,
+		Type:       descriptor.STRING_MAP,
+		I:          map[string]interface{}{},
+		R:          map[string]string{},
+		Referenced: []string{"source.labels"},
+		conf:       exprEvalAttrs,
+	},
+	// TODO: uncomment the following lines when short-circuiting for externs is added
+	//{
+	//	E:    `emptyStringMap() | source.labels`,
+	//	Type: descriptor.STRING_MAP,
+	//	I:    map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
+	//	R:    map[string]string{},
+	//	Referenced: []string{},
+	//	conf: exprEvalAttrs,
+	//},
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
 		E: "a = 2",
@@ -1757,7 +1830,7 @@ end`,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 		},
-		R: []byte{0x1, 0x2, 0x3, 0x4},
+		R: net.ParseIP("1.2.3.4"),
 	},
 	{
 		E:    `aip | bip`,
@@ -1765,7 +1838,7 @@ end`,
 		I: map[string]interface{}{
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: []byte{0x4, 0x5, 0x6, 0x7},
+		R: net.ParseIP("4.5.6.7"),
 	},
 	{
 		E:    `aip | bip`,
@@ -1774,12 +1847,12 @@ end`,
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: []byte{0x1, 0x2, 0x3, 0x4},
+		R: net.ParseIP("1.2.3.4"),
 	},
 	{
 		E:    `ip("0.0.0.0")`,
 		Type: descriptor.IP_ADDRESS,
-		R:    []byte(net.IPv4zero),
+		R:    net.IPv4zero,
 		IL: `fn eval() interface
   apush_s "0.0.0.0"
   call ip
@@ -1910,7 +1983,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1926,7 +1999,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1942,7 +2015,7 @@ L0:
   ret
 end
 		`,
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1958,7 +2031,7 @@ L0:
   ret
 end
 `,
-		R: []uint8(net.ParseIP("5.6.7.8")),
+		R: net.ParseIP("5.6.7.8"),
 	},
 
 	{
@@ -1967,7 +2040,7 @@ end
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
 	},
 
 	{
@@ -1990,7 +2063,269 @@ end
 		I: map[string]interface{}{
 			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
-		R: []uint8(net.ParseIP("1.2.3.4")),
+		R: net.ParseIP("1.2.3.4"),
+	},
+
+	{
+		E:    `ip(as) | ip(bs)`,
+		Type: descriptor.IP_ADDRESS,
+		I: map[string]interface{}{
+			"as": "1.2.3.4",
+			"bs": "5.6.7.8",
+		},
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call ip
+  jmp L0
+  resolve_s "bs"
+  call ip
+L0:
+  ret
+end
+`,
+		R: net.ParseIP("1.2.3.4"),
+	},
+
+	{
+		E:    `ip(as) | ip(bs)`,
+		Type: descriptor.IP_ADDRESS,
+		I: map[string]interface{}{
+			"bs": "1.2.3.4",
+		},
+		Err: `lookup failed: 'as'`,
+	},
+
+	{
+		E:    `true | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  apush_b true
+  jmp L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | true`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_b true
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | ab`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": true,
+		},
+		R: false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  resolve_b "ab"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("f") | ab`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+  jmp L0
+  resolve_b "ab"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `"foo".startsWith("bar") | ab | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | "foo".startsWith("f")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_s "foo"
+  apush_s "f"
+  call startsWith
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | bb`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"bb": true,
+		},
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  resolve_b "bb"
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `ab | bb | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  tresolve_b "bb"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | bb | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"bb": true,
+		},
+	},
+	{
+		E:    `ab | true | "foo".startsWith("bar")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_b true
+  jmp L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `ab | "foo".startsWith("bar") | true`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_s "foo"
+  apush_s "bar"
+  call startsWith
+  jmp L0
+  apush_b true
+L0:
+  ret
+end
+`,
 	},
 
 	{
@@ -2365,6 +2700,7 @@ func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
 	return reflect.DeepEqual(actual, t.Referenced)
 }
 
+// Attribute set from the original expression tests
 var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"a": {
 		ValueType: descriptor.INT64,
@@ -2420,8 +2756,12 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"servicename": {
 		ValueType: descriptor.STRING,
 	},
+	"source.labels": {
+		ValueType: descriptor.STRING_MAP,
+	},
 }
 
+// made up attribute set.
 var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"ai": {
 		ValueType: descriptor.INT64,
@@ -2486,4 +2826,59 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"sm": {
 		ValueType: descriptor.STRING_MAP,
 	},
+}
+
+var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
+	"origin.ip":                       {ValueType: descriptor.IP_ADDRESS},
+	"origin.uid":                      {ValueType: descriptor.STRING},
+	"origin.user":                     {ValueType: descriptor.STRING},
+	"request.headers":                 {ValueType: descriptor.STRING_MAP},
+	"request.id":                      {ValueType: descriptor.STRING},
+	"request.host":                    {ValueType: descriptor.STRING},
+	"request.method":                  {ValueType: descriptor.STRING},
+	"request.path":                    {ValueType: descriptor.STRING},
+	"request.reason":                  {ValueType: descriptor.STRING},
+	"request.referer":                 {ValueType: descriptor.STRING},
+	"request.scheme":                  {ValueType: descriptor.STRING},
+	"request.size":                    {ValueType: descriptor.INT64},
+	"request.time":                    {ValueType: descriptor.TIMESTAMP},
+	"request.useragent":               {ValueType: descriptor.STRING},
+	"response.code":                   {ValueType: descriptor.INT64},
+	"response.duration":               {ValueType: descriptor.DURATION},
+	"response.headers":                {ValueType: descriptor.STRING_MAP},
+	"response.size":                   {ValueType: descriptor.INT64},
+	"response.time":                   {ValueType: descriptor.TIMESTAMP},
+	"source.uid":                      {ValueType: descriptor.STRING},
+	"source.user":                     {ValueType: descriptor.STRING},
+	"destination.uid":                 {ValueType: descriptor.STRING},
+	"connection.id":                   {ValueType: descriptor.STRING},
+	"connection.received.bytes":       {ValueType: descriptor.INT64},
+	"connection.received.bytes_total": {ValueType: descriptor.INT64},
+	"connection.sent.bytes":           {ValueType: descriptor.INT64},
+	"connection.sent.bytes_total":     {ValueType: descriptor.INT64},
+	"connection.duration":             {ValueType: descriptor.DURATION},
+	"connection.mtls":                 {ValueType: descriptor.BOOL},
+	"context.protocol":                {ValueType: descriptor.STRING},
+	"context.timestamp":               {ValueType: descriptor.TIMESTAMP},
+	"context.time":                    {ValueType: descriptor.TIMESTAMP},
+	"api.service":                     {ValueType: descriptor.STRING},
+	"api.version":                     {ValueType: descriptor.STRING},
+	"api.operation":                   {ValueType: descriptor.STRING},
+	"api.protocol":                    {ValueType: descriptor.STRING},
+	"request.auth.principal":          {ValueType: descriptor.STRING},
+	"request.auth.audiences":          {ValueType: descriptor.STRING},
+	"request.auth.presenter":          {ValueType: descriptor.STRING},
+	"request.api_key":                 {ValueType: descriptor.STRING},
+	"source.ip":                       {ValueType: descriptor.IP_ADDRESS},
+	"source.labels":                   {ValueType: descriptor.STRING_MAP},
+	"source.name":                     {ValueType: descriptor.STRING},
+	"source.namespace":                {ValueType: descriptor.STRING},
+	"source.service":                  {ValueType: descriptor.STRING},
+	"source.serviceAccount":           {ValueType: descriptor.STRING},
+	"destination.ip":                  {ValueType: descriptor.IP_ADDRESS},
+	"destination.labels":              {ValueType: descriptor.STRING_MAP},
+	"destination.name":                {ValueType: descriptor.STRING},
+	"destination.namespace":           {ValueType: descriptor.STRING},
+	"destination.service":             {ValueType: descriptor.STRING},
+	"destination.serviceAccount":      {ValueType: descriptor.STRING},
 }

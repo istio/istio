@@ -1,0 +1,29 @@
+{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1" -}}
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ template "sidecar-injector.fullname" . }}
+  labels:
+    app: {{ template "sidecar-injector.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: sidecar-injector
+webhooks:
+  - name: sidecar-injector.istio.io
+    clientConfig:
+      service:
+        name: {{ .Release.Name }}-sidecar-injector
+        namespace: {{ .Release.Namespace }}
+        path: "/inject"
+      caBundle: ${CA_BUNDLE}
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        istio-injection: enabled
+{{- end -}}

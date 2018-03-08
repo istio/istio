@@ -21,17 +21,15 @@ import (
 	"net"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-
 	"google.golang.org/grpc/status"
+
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
 )
@@ -43,6 +41,7 @@ const certExpirationBuffer = time.Minute
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
+	serverCertTTL  time.Duration
 	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
 	hostname       string
@@ -53,40 +52,36 @@ type Server struct {
 // proper validation (e.g. authentication) and upon validated, signs the CSR
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
-func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
+func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
-	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
+	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR parsing error (error %v)", err)
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
-	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
+	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
-	err = s.authorizer.authorize(caller, requestedIDs)
-	if err != nil {
-		log.Warnf("request is not authorized (%v)", err)
-		return nil, status.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
-	}
-
-	cert, err := s.ca.Sign(request.CsrPem)
+	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, request.ForCA)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
-	response := &pb.Response{
-		IsApproved:      true,
-		SignedCertChain: cert,
+	response := &pb.CsrResponse{
+		IsApproved: true,
+		SignedCert: cert,
+		CertChain:  certChainBytes,
 	}
 	log.Info("CSR successfully signed.")
 
@@ -119,7 +114,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -134,6 +129,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
+		serverCertTTL:  ttl,
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
@@ -142,7 +138,8 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(s.ca.GetRootCertificate())
+	_, _, _, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	cp.AppendCertsFromPEM(rootCertBytes)
 
 	config := &tls.Config{
 		ClientCAs:  cp,
@@ -163,17 +160,17 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 }
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
-	opts := ca.CertOptions{
+	opts := util.CertOptions{
 		Host:       s.hostname,
 		RSAKeySize: 2048,
 	}
 
-	csrPEM, privPEM, err := ca.GenCSR(opts)
+	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM)
+	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL, false)
 	if err != nil {
 		return nil, err
 	}

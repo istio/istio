@@ -18,16 +18,15 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"reflect"
-
-	pbv "istio.io/api/mixer/v1/config/descriptor"
+	pb "istio.io/api/policy/v1beta1"
+	pbv "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
-	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )

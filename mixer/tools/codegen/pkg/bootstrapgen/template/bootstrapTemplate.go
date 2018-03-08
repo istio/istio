@@ -46,10 +46,9 @@ import (
     "istio.io/istio/mixer/pkg/expr"
     "istio.io/istio/mixer/pkg/il/compiled"
     "istio.io/istio/pkg/log"
-    istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
     "istio.io/istio/mixer/pkg/template"
-    adptTmpl "istio.io/api/mixer/v1/template"
-    "istio.io/istio/mixer/pkg/config/proto"
+    istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
+    istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
     "errors"
     {{range .TemplateModels}}
         "{{.PackageImportPath}}"
@@ -61,7 +60,7 @@ import (
 // below codegen.
 var (
     _ net.IP
-    _ istio_mixer_v1_config.AttributeManifest
+    _ istio_policy_v1beta1.AttributeManifest
     _ = strings.Reader{}
 )
  
@@ -115,7 +114,7 @@ var (
             Name: {{.GoPackageName}}.TemplateName,
             Impl: "{{.PackageName}}",
             CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
-            Variety:   adptTmpl.{{.VarietyName}},
+            Variety:   istio_adapter_model_v1beta1.{{.VarietyName}},
             BldrInterfaceName:  {{.GoPackageName}}.TemplateName + "." + "HandlerBuilder",
             HndlrInterfaceName: {{.GoPackageName}}.TemplateName + "." + "Handler",
             BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -177,7 +176,7 @@ var (
                             {{else}}
                                 if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
                             {{end}}
-                                    return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", err)
+                                    return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path,"{{.GoName}}", k, err)
                                 }
                             }
                         {{else}}
@@ -190,9 +189,8 @@ var (
                                 }
                             {{else}}
                                 if param.{{.GoName}} == "" {
-                                    return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
-                                }
-                                if infrdType.{{.GoName}}, err = tEvalFn(param.{{.GoName}}); err != nil {
+                                    infrdType.{{.GoName}} = {{getUnspecifiedValueType}}
+                                } else if infrdType.{{.GoName}}, err = tEvalFn(param.{{.GoName}}); err != nil {
                                     return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", err)
                                 }
                             {{end}}
@@ -200,25 +198,24 @@ var (
                         {{end}}
                     {{else}}
                         {{if .GoType.IsMap}}
-                            for _, v := range param.{{.GoName}} {
+                            for k, v := range param.{{.GoName}} {
                                 if t, e := tEvalFn(v); e != nil || t != {{getValueType .GoType.MapValue}} {
                                     if e != nil {
-                                        return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", e)
+                                        return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "{{.GoName}}", k, e)
                                     }
                                     return nil, fmt.Errorf(
-                                        "error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType.MapValue}})
+                                        "error type checking for field '%s%s[%s]': Evaluated expression type %v want %v", path, "{{.GoName}}", k, t, {{getValueType .GoType.MapValue}})
                                 }
                             }
                         {{else}}
-                            if param.{{.GoName}} == "" {
-                                return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
-                            }
-                            if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
-                                if e != nil {
-                                    return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path + "{{.GoName}}", e)
-                                }
-                                return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType}})
-                            }
+							if param.{{.GoName}} != "" {
+								if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
+									if e != nil {
+										return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path + "{{.GoName}}", e)
+									}
+									return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType}})
+                            	}
+							}
                         {{end}}
                     {{end}}
                 {{end}}
@@ -268,9 +265,9 @@ var (
             {{end}}
             {{if eq $varietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
             {{$goPkgName := .GoPackageName}}
-            AttributeManifests: []*istio_mixer_v1_config.AttributeManifest{
+            AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
                 {
-                    Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+                    Attributes: map[string]*istio_policy_v1beta1.AttributeManifest_AttributeInfo{
                         {{range .OutputTemplateMessage.Fields}}
                         "{{$goPkgName}}.output.{{.ProtoName}}": {
                             ValueType: {{getValueType .GoType}},
@@ -332,8 +329,31 @@ var (
                     {{if .GoType.IsResourceMessage}}
                     {{$typeName := getTypeName .GoType}}
                     {{.GoName}}, err := {{getBuildFnName $typeName}}(instName, param.{{.GoName}}, path + "{{.GoName}}.")
-                    {{else }}
-                    {{.GoName}}, err := mapper.Eval(param.{{.GoName}}, attrs)
+                    {{else if .GoType.IsValueType}}
+					var {{.GoName}} interface{}
+					if param.{{.GoName}} != "" {
+						{{.GoName}}, err = mapper.Eval(param.{{.GoName}}, attrs)
+					}
+					{{else}}
+
+					{{if isAliasTypeSkipIp .GoType.Name}}
+					var {{.GoName}}Interface interface{}
+					var {{.GoName}} {{.GoType.Name}}
+					if param.{{.GoName}} != "" {
+						if {{.GoName}}Interface, err = mapper.Eval(param.{{.GoName}}, attrs); err == nil {
+							{{.GoName}} = {{.GoType.Name}}({{.GoName}}Interface.({{getAliasType .GoType.Name}})){{reportTypeUsed .GoType}}
+						}
+					}
+					{{else}}
+					var {{.GoName}}Interface interface{}
+					var {{.GoName}} {{.GoType.Name}}
+					if param.{{.GoName}} != "" {
+						if {{.GoName}}Interface, err = mapper.Eval(param.{{.GoName}}, attrs); err == nil {
+							{{.GoName}} = {{.GoName}}Interface.({{.GoType.Name}}){{reportTypeUsed .GoType}}
+						}
+					}
+					{{end}}
+
                     {{end}}
                 {{end}}
                     if err != nil {
@@ -355,7 +375,7 @@ var (
                                 {{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
                                     res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
                                     for k, v := range m {
-                                        {{if isAliasType .GoType.MapValue.Name}}
+                                        {{if isAliasTypeSkipIp .GoType.MapValue.Name}}
                                         res[k] = {{.GoType.MapValue.Name}}(v.({{getAliasType .GoType.MapValue.Name}}))
                                         {{else}}
                                         res[k] = v.({{.GoType.MapValue.Name}})
@@ -364,11 +384,7 @@ var (
                                     return res
                                 }({{.GoName}}),
                             {{else}}
-                                {{if isAliasType .GoType.Name}}
-                                {{.GoName}}: {{.GoType.Name}}({{.GoName}}.({{getAliasType .GoType.Name}})),{{reportTypeUsed .GoType}}
-                                {{else}}
-                                {{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
-                                {{end}}
+                                {{.GoName}}: {{.GoName}},
                             {{end}}
                         {{end}}
                     {{end}}
@@ -416,7 +432,7 @@ var (
                     abag = newWrapperAttrBag(
                         func(name string) (value interface{}, found bool) {
                             field := strings.TrimPrefix(name, fullOutName)
-                            if len(field) != len(name) {
+                            if len(field) != len(name) && out.WasSet(field) {
                                 switch field {
                                     {{range .OutputTemplateMessage.Fields}}
                                     case "{{.ProtoName}}":
@@ -429,7 +445,6 @@ var (
                                     default:
                                     return nil, false
                                 }
- 
                             }
                             return attrs.Get(name)
                         },
@@ -440,25 +455,25 @@ var (
                     }
                     resultBag := attribute.GetMutableBag(nil)
                     for attrName, outExpr := range instParam.AttributeBindings {
-                ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-                        val, err := mapper.Eval(ex, abag)
-            if err != nil {
-                    return nil, err
-                }
-            switch v := val.(type) {
-            case net.IP:
-                // conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-                // TODO: remove
-                if v4 := v.To4(); v4 != nil {
-                    resultBag.Set(attrName, []byte(v4))
-                    continue
-                }
-                resultBag.Set(attrName, []byte(v.To16()))
-            default:
-                resultBag.Set(attrName, val)
-            }
-        }
-        return resultBag, nil
+						ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
+						val, err := mapper.Eval(ex, abag)
+						if err != nil {
+							return nil, err
+						}
+						switch v := val.(type) {
+						case net.IP:
+						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
+						// TODO: remove
+						if v4 := v.To4(); v4 != nil {
+							resultBag.Set(attrName, []byte(v4))
+							continue
+						}
+						resultBag.Set(attrName, []byte(v.To16()))
+						default:
+						resultBag.Set(attrName, val)
+						}
+        			}
+        			return resultBag, nil
                     {{end}}
                 },
             {{end}}
@@ -528,7 +543,7 @@ var (
             outBag := newWrapperAttrBag(
                 func(name string) (value interface{}, found bool) {
                     field := strings.TrimPrefix(name, fullOutName)
-                    if len(field) != len(name) {
+                    if len(field) != len(name) && out.WasSet(field) {
                         switch field {
                             {{range .OutputTemplateMessage.Fields}}
                             case "{{.ProtoName}}":
@@ -602,7 +617,7 @@ var (
 			finder expr.AttributeDescriptorFinder,
 			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
             var err error
-			var expType istio_mixer_v1_config_descriptor.ValueType
+			var expType istio_policy_v1beta1.ValueType
 
             // Convert the generic instanceParam to its specialized type.
             param := instanceParam.(*{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}})
@@ -695,7 +710,7 @@ var (
             _ = err
             var errp template.ErrorPath
             _ = errp
-			var expType istio_mixer_v1_config_descriptor.ValueType
+			var expType istio_policy_v1beta1.ValueType
             _ = expType
 
             {{range $m.Fields}}
@@ -732,23 +747,26 @@ var (
                     {{end}}
                 {{else}}
                     {{if $f.GoType.IsResourceMessage}}
-	                    {{/* Construct the builder instance for sub-message field types. */}}
-                        if b.{{builderFieldName $f}}, errp = {{getNewMessageBuilderFnName $t $f.GoType}}(expb, param.{{$f.GoName}}); !errp.IsNil() {
-                            return nil, errp.WithPrefix("{{$f.GoName}}")
-                        }
+						{{/* Construct the builder instance for sub-message field types. */}}
+						if b.{{builderFieldName $f}}, errp = {{getNewMessageBuilderFnName $t $f.GoType}}(expb, param.{{$f.GoName}}); !errp.IsNil() {
+							return nil, errp.WithPrefix("{{$f.GoName}}")
+						}
                     {{else}}
 	                    {{/* Construct the compiled.Expression for fields of basic type. */}}
-                        b.{{builderFieldName $f}}, expType, err = expb.Compile(param.{{$f.GoName}})
-                        if err != nil {
-                            return nil, template.NewErrorPath("{{$f.GoName}}", err)
-                        }
-						{{if isPrimitiveType $f.GoType}}
-							if expType != {{getValueType $f.GoType}} {
-								err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType}}, expType, param.{{$f.GoName}})
+						if param.{{$f.GoName}} == "" {
+							b.{{builderFieldName $f}} = nil
+						} else {
+							b.{{builderFieldName $f}}, expType, err = expb.Compile(param.{{$f.GoName}})
+							if err != nil {
 								return nil, template.NewErrorPath("{{$f.GoName}}", err)
 							}
-						{{end}}
-
+							{{if isPrimitiveType $f.GoType}}
+								if expType != {{getValueType $f.GoType}} {
+									err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", {{getValueType $f.GoType}}, expType, param.{{$f.GoName}})
+									return nil, template.NewErrorPath("{{$f.GoName}}", err)
+								}
+							{{end}}
+						}
                     {{end}}
                 {{end}}
  
@@ -813,7 +831,7 @@ var (
 	                            {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
 	                                r.{{$f.GoName}}[k] = vIface
 	                            {{else}}
-	                                {{if isAliasType $f.GoType.MapValue.Name}}
+	                                {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
 	                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}(vIface.({{getAliasType $f.GoType.MapValue.Name}}))
 	                                {{else}}
 	                                    r.{{$f.GoName}}[k] = vIface.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
@@ -823,6 +841,7 @@ var (
                         }
                     {{end}}
                 {{else}}
+					if b.{{builderFieldName $f}} != nil {
                     {{if $f.GoType.IsResourceMessage}}
 	                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
                             return nil, errp.WithPrefix("{{$f.GoName}}")
@@ -841,7 +860,7 @@ var (
 	                        {{if containsValueTypeOrResMsg $f.GoType}}
 	                            r.{{$f.GoName}} = vIface
 	                        {{else}}
-	                            {{if isAliasType $f.GoType.Name}}
+	                            {{if isAliasTypeSkipIp $f.GoType.Name}}
 	                                r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
 	                            {{else}}
 	                                r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
@@ -849,6 +868,7 @@ var (
 	                        {{end}}
 						{{end}}
                     {{end}}
+					}
                 {{end}}
             {{end}}
  

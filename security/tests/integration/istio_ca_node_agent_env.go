@@ -17,11 +17,11 @@ package integration
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/integration/framework"
 )
 
@@ -30,6 +30,7 @@ type (
 	NodeAgentTestEnv struct {
 		framework.TestEnv
 		name      string
+		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
 		NameSpace string
 		Hub       string
@@ -45,15 +46,16 @@ const (
 )
 
 // NewNodeAgentTestEnv creates the environment instance
-func NewNodeAgentTestEnv(name string, kubeconfig string) *NodeAgentTestEnv {
-	clientset, err := CreateClientset(kubeconfig)
+func NewNodeAgentTestEnv(name, kubeConfig, hub, tag string) *NodeAgentTestEnv {
+	clientset, err := CreateClientset(kubeConfig)
 	if err != nil {
-		glog.Errorf("failed to initialize K8s client: %s\n", err)
+		log.Errorf("failed to initialize K8s client: %v", err)
 		return nil
 	}
 
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {
+		log.Errorf("failed to create test namespace: %v", err)
 		return nil
 	}
 
@@ -61,8 +63,8 @@ func NewNodeAgentTestEnv(name string, kubeconfig string) *NodeAgentTestEnv {
 		ClientSet: clientset,
 		name:      name,
 		NameSpace: namespace,
-		Hub:       *hub,
-		Tag:       *tag,
+		Hub:       hub,
+		Tag:       tag,
 	}
 }
 
@@ -75,48 +77,51 @@ func (env *NodeAgentTestEnv) GetName() string {
 // It defines what components a environment contains.
 // Components will be stored in framework for start and stop
 func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
-	return []framework.Component{
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			istioCaWithGivenCertificate,
-			fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
-			[]string{},
-			[]string{},
-		),
-		NewKubernetesService(
-			env.ClientSet,
-			env.NameSpace,
-			"istio-ca",
-			v1.ServiceTypeClusterIP,
-			8060,
-			map[string]string{
-				"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
-			},
-			map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
-			},
-		),
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			nodeAgent,
-			fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
-			[]string{},
-			[]string{},
-		),
-		NewKubernetesService(
-			env.ClientSet,
-			env.NameSpace,
-			nodeAgentService,
-			v1.ServiceTypeLoadBalancer,
-			8080,
-			map[string]string{
-				"pod-group": nodeAgent + podGroupPostfix,
-			},
-			map[string]string{},
-		),
+	if env.comps == nil {
+		env.comps = []framework.Component{
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				istioCaWithGivenCertificate,
+				fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
+				[]string{},
+				[]string{},
+			),
+			NewKubernetesService(
+				env.ClientSet,
+				env.NameSpace,
+				"istio-ca",
+				v1.ServiceTypeClusterIP,
+				8060,
+				map[string]string{
+					"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
+				},
+				map[string]string{
+					kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
+				},
+			),
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				nodeAgent,
+				fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
+				[]string{},
+				[]string{},
+			),
+			NewKubernetesService(
+				env.ClientSet,
+				env.NameSpace,
+				nodeAgentService,
+				v1.ServiceTypeLoadBalancer,
+				8080,
+				map[string]string{
+					"pod-group": nodeAgent + podGroupPostfix,
+				},
+				map[string]string{},
+			),
+		}
 	}
+	return env.comps
 }
 
 // Bringup doing general setup for environment level, not components.
@@ -128,10 +133,12 @@ func (env *NodeAgentTestEnv) Bringup() error {
 // Cleanup clean everything created by this test environment, not component level
 // Cleanup() is being called in framework.TearDown()
 func (env *NodeAgentTestEnv) Cleanup() error {
-	glog.Infof("cleaning up environment...")
+	log.Infof("cleaning up environment...")
 	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
 	if err != nil {
-		glog.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		log.Errorf("%v", retErr)
+		return retErr
 	}
 	return nil
 }

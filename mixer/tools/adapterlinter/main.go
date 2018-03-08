@@ -82,9 +82,7 @@ func doDir(name string) reports {
 	}
 	rpts := make(reports, 0)
 	for _, pkg := range pkgs {
-		for _, r := range doPackage(fs, pkg) {
-			rpts = append(rpts, r)
-		}
+		rpts = append(rpts, doPackage(fs, pkg)...)
 	}
 	sort.Sort(rpts)
 	return rpts

@@ -26,35 +26,40 @@ function process_result() {
     fi
 }
 
+echo ${GOPATH}
+
 # Build mixer binary
-bazel build //mixer/cmd/mixs:mixs
-MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/mixs/mixs
+make mixs
+MIXER_BINARY=$(make where-is-out)/mixs
+ENVOY_BINARY=$(make where-is-out)/envoy
 
-# Get fortio
-go get -u istio.io/fortio
-
-# Download Proxy
+# Download Proxy Repo
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
-#git pull
-bazel build //src/envoy/mixer:envoy
-ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
+git pull
+
+# A default value for ISTIO_ENVOY_VERSION is set by init.sh
+git reset ${ISTIO_ENVOY_VERSION} --hard
+#ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
+START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
 cd ../istio
+
+# Install Fortio
+( cd vendor/istio.io/fortio ; go install . )
 
 # Run Tests
 TESTSPATH='tests/integration/example/tests'
-TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)")) || error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
-TESTARG=(-envoy_binary ${ENVOY_BINARY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 
-for T in ${TESTS_TARGETS[@]}; do
-    echo "Running ${T}"
-    bazel run ${T} -- ${TESTARG[@]}
-    process_result $? ${T}
-done
+go test -v ./tests/integration/example/tests/sample1 ${TESTARG[@]} $@
+process_result $? sample1
+
+go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
+process_result $? sample2
 
 printf "${SUMMARY}\n"
 exit ${FAILURE_COUNT}

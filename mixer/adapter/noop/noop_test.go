@@ -26,12 +26,14 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/authorization"
 	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	"istio.io/istio/mixer/template/reportnothing"
+	"istio.io/istio/mixer/template/tracespan"
 )
 
 func TestBasic(t *testing.T) {
@@ -42,7 +44,9 @@ func TestBasic(t *testing.T) {
 		!contains(info.SupportedTemplates, listentry.TemplateName) ||
 		!contains(info.SupportedTemplates, logentry.TemplateName) ||
 		!contains(info.SupportedTemplates, metric.TemplateName) ||
-		!contains(info.SupportedTemplates, quota.TemplateName) {
+		!contains(info.SupportedTemplates, quota.TemplateName) ||
+		!contains(info.SupportedTemplates, authorization.TemplateName) ||
+		!contains(info.SupportedTemplates, tracespan.TemplateName) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
@@ -61,6 +65,21 @@ func TestBasic(t *testing.T) {
 
 	checkNothingHandler := handler.(checknothing.Handler)
 	if result, err := checkNothingHandler.HandleCheckNothing(context.TODO(), nil); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.ValidUseCount < 1000 {
+			t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
+		}
+	}
+
+	authorizationHandler := handler.(authorization.Handler)
+	if result, err := authorizationHandler.HandleAuthorization(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	} else {
 		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
@@ -114,6 +133,11 @@ func TestBasic(t *testing.T) {
 		if result.Amount != 100 {
 			t.Errorf("Got %d quota, expecting 100", result.Amount)
 		}
+	}
+
+	tracespanHandler := handler.(tracespan.Handler)
+	if err := tracespanHandler.HandleTraceSpan(context.TODO(), nil); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
 	}
 
 	if err := handler.Close(); err != nil {

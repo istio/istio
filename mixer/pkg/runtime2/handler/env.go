@@ -26,7 +26,7 @@ type env struct {
 }
 
 // NewEnv returns a new environment instance.
-func NewEnv(cfgID int64, name string, gp *pool.GoroutinePool) adapter.Env {
+func newEnv(cfgID int64, name string, gp *pool.GoroutinePool) env {
 	return env{
 		logger:   newLogger(name),
 		gp:       gp,
@@ -93,4 +93,28 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 		fn()
 		reachedEnd = true
 	}()
+}
+
+func (e env) reportStrayWorkers() error {
+	if dc, err := e.counters.getDaemonCount(); err != nil {
+		return err
+	} else if dc > 0 {
+		// TODO: ideally we should return some sort of error here to bubble up this issue to the top so that
+		// operator can look at it. However, currently we cannot guarantee that SchedularXXXX gauge
+		// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
+		// Basically, even if the adapter would have closed everything before returning from Close function, our
+		// counter might get delayed decremented, causing this false positive error.
+		// Therefore, we need a new retry kind logic on handler Close to give time for counters to get updated
+		// before making this as a red flag error. runtime2 work has plans to implement this stuff, we can revisit
+		// this to-do then. Same for the code below related to workers.
+		_ = e.Logger().Errorf("adapter did not close all the scheduled daemons")
+	}
+
+	if wc, err := e.counters.getWorkerCount(); err != nil {
+		return err
+	} else if wc > 0 {
+		_ = e.Logger().Errorf("adapter did not close all the scheduled workers")
+	}
+
+	return nil
 }

@@ -23,18 +23,21 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// The `kubernetes` template holds data that controls the production of Kubernetes-specific
+// attributes.
+
 // Fully qualified name of the template
 const TemplateName = "kubernetes"
 
 // Instance is constructed by Mixer for the 'kubernetes' template.
 //
-// kubernetes template represents data used to generate kubernetes attributes.
+// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
 //
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
 //
 // Example config:
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: kubernetes
 // metadata:
@@ -88,6 +91,7 @@ type Instance struct {
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
 type Output struct {
+	fieldsSet map[string]bool
 
 	// Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
 	SourcePodIp net.IP
@@ -151,6 +155,120 @@ type Output struct {
 
 	// Refers to origin pod host ip address. attribute_bindings can refer to this field using $out.origin_host_ip
 	OriginHostIp net.IP
+}
+
+func NewOutput() *Output {
+	return &Output{fieldsSet: make(map[string]bool)}
+}
+
+func (o *Output) SetSourcePodIp(val net.IP) {
+	o.fieldsSet["source_pod_ip"] = true
+	o.SourcePodIp = val
+}
+
+func (o *Output) SetSourcePodName(val string) {
+	o.fieldsSet["source_pod_name"] = true
+	o.SourcePodName = val
+}
+
+func (o *Output) SetSourceLabels(val map[string]string) {
+	o.fieldsSet["source_labels"] = true
+	o.SourceLabels = val
+}
+
+func (o *Output) SetSourceNamespace(val string) {
+	o.fieldsSet["source_namespace"] = true
+	o.SourceNamespace = val
+}
+
+func (o *Output) SetSourceService(val string) {
+	o.fieldsSet["source_service"] = true
+	o.SourceService = val
+}
+
+func (o *Output) SetSourceServiceAccountName(val string) {
+	o.fieldsSet["source_service_account_name"] = true
+	o.SourceServiceAccountName = val
+}
+
+func (o *Output) SetSourceHostIp(val net.IP) {
+	o.fieldsSet["source_host_ip"] = true
+	o.SourceHostIp = val
+}
+
+func (o *Output) SetDestinationPodIp(val net.IP) {
+	o.fieldsSet["destination_pod_ip"] = true
+	o.DestinationPodIp = val
+}
+
+func (o *Output) SetDestinationPodName(val string) {
+	o.fieldsSet["destination_pod_name"] = true
+	o.DestinationPodName = val
+}
+
+func (o *Output) SetDestinationLabels(val map[string]string) {
+	o.fieldsSet["destination_labels"] = true
+	o.DestinationLabels = val
+}
+
+func (o *Output) SetDestinationNamespace(val string) {
+	o.fieldsSet["destination_namespace"] = true
+	o.DestinationNamespace = val
+}
+
+func (o *Output) SetDestinationService(val string) {
+	o.fieldsSet["destination_service"] = true
+	o.DestinationService = val
+}
+
+func (o *Output) SetDestinationServiceAccountName(val string) {
+	o.fieldsSet["destination_service_account_name"] = true
+	o.DestinationServiceAccountName = val
+}
+
+func (o *Output) SetDestinationHostIp(val net.IP) {
+	o.fieldsSet["destination_host_ip"] = true
+	o.DestinationHostIp = val
+}
+
+func (o *Output) SetOriginPodIp(val net.IP) {
+	o.fieldsSet["origin_pod_ip"] = true
+	o.OriginPodIp = val
+}
+
+func (o *Output) SetOriginPodName(val string) {
+	o.fieldsSet["origin_pod_name"] = true
+	o.OriginPodName = val
+}
+
+func (o *Output) SetOriginLabels(val map[string]string) {
+	o.fieldsSet["origin_labels"] = true
+	o.OriginLabels = val
+}
+
+func (o *Output) SetOriginNamespace(val string) {
+	o.fieldsSet["origin_namespace"] = true
+	o.OriginNamespace = val
+}
+
+func (o *Output) SetOriginService(val string) {
+	o.fieldsSet["origin_service"] = true
+	o.OriginService = val
+}
+
+func (o *Output) SetOriginServiceAccountName(val string) {
+	o.fieldsSet["origin_service_account_name"] = true
+	o.OriginServiceAccountName = val
+}
+
+func (o *Output) SetOriginHostIp(val net.IP) {
+	o.fieldsSet["origin_host_ip"] = true
+	o.OriginHostIp = val
+}
+
+func (o *Output) WasSet(field string) bool {
+	_, found := o.fieldsSet[field]
+	return found
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

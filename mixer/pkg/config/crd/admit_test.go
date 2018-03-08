@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pilot/platform/kube/admit/testcerts"
+	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -423,6 +423,7 @@ func TestServe(t *testing.T) {
 			t.Errorf("%v: AdmissionRequest.Status.Allowed is wrong : got %v want %v",
 				c.name, gotReview.Response.Allowed, c.wantAllowed)
 		}
+		_ = res.Body.Close()
 	}
 }
 
@@ -482,7 +483,7 @@ func TestRegister(t *testing.T) {
 }
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	kubeconfig := k8s.Kubeconfig("/../../../../pilot/platform/kube/config")
+	kubeconfig := k8s.Kubeconfig("/../../../../pilot/pkg/kube/config")
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		t.Fatal(err)

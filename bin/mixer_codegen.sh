@@ -14,13 +14,21 @@ if [ ! -e $ROOT/Gopkg.lock ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' $ROOT/Gopkg.lock | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
 
 outdir=$ROOT
 file=$ROOT
 protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
+
+# BUGBUG: we override the use of protoc-min-version here, since using
+#         that tool prevents warnings from protoc-gen-docs from being
+#         displayed. If protoc-min-version gets fixed to allow this
+#         data though, then remove this override
+protoc="protoc"
+
 optimport=$ROOT
 template=$ROOT
 
@@ -51,14 +59,29 @@ if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
+PROTOC_PATH=$(which protoc)
+ if [ -z "$PROTOC_PATH" ] ; then
+    die "protoc was not found, please install it first"
+ fi
+
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
 GOGOSLICK=protoc-gen-gogoslick
 GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
+GENDOCS=protoc-gen-docs
+GENDOCS_PATH=vendor/github.com/istio/tools/$GENDOCS
 
 if [ ! -e $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ]; then
 echo "Building protoc-gen-gogoslick..."
 pushd $ROOT
 go build --pkgdir $GOGOSLICK_PATH -o $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ./$GOGOPROTO_PATH/$GOGOSLICK
+popd
+echo "Done."
+fi
+
+if [ ! -e $ROOT/bin/$GENDOCS-$GENDOCS_VERSION ]; then
+echo "Building protoc-gen-docs..."
+pushd $ROOT/$GENDOCS_PATH
+go build --pkgdir $GENDOCS_PATH -o $ROOT/bin/$GENDOCS-$GENDOCS_VERSION
 popd
 echo "Done."
 fi
@@ -73,6 +96,8 @@ go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSI
 popd
 echo "Done."
 fi
+
+# TODO: vendor those too like istio.io/api without pruning protos
 
 GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
 GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
@@ -125,7 +150,11 @@ done
 PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
 PLUGIN+=$outdir
 
-# handle template code generation 
+GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=jekyll_html:"
+GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
+GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
+
+# handle template code generation
 if [ "$opttemplate" = true ]; then
 
   template_mappings=(
@@ -160,7 +189,7 @@ if [ "$opttemplate" = true ]; then
 
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
-  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
   if [ ! -z "$err" ]; then
     die "template generation failure: $err"; 
   fi
@@ -172,7 +201,6 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err"; 
   fi
 
-  #rm $templateDS
   rm $templateIP
   rm $templatePG
 
@@ -180,7 +208,7 @@ if [ "$opttemplate" = true ]; then
 fi
 
 # handle simple protoc-based generation
-err=`$protoc $IMPORTS $PLUGIN $file`
+err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
 if [ ! -z "$err" ]; then 
   die "generation failure: $err"; 
 fi

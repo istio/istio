@@ -1,14 +1,13 @@
 #! /bin/bash
 #
 # Sets up a cluster for perf testing - GCP/GKE
-#   PROJECT=istio-perf tools/setup_perf_cluster.sh
+#   tools/setup_perf_cluster.sh
 # Notes:
 # * Make sure istioctl in your path is the one matching your release/crd/...
-# * You need update istio-auth.yaml or run from a release directory:
+# * You need to update istio-auth.yaml or run from a release directory:
 # For instance in ~/tmp/istio-0.3.0/ run
 #   ln -s ~/go/src/istio.io/istio/tools .
 # then
-#   PROJECT=istio-perf
 #   source tools/setup_perf_cluster.sh
 #   setup_all
 # (inside google you may need to rerun setup_vm_firewall multiple times)
@@ -16,6 +15,7 @@
 # This can be used as a script or sourced and functions called interactively
 #
 
+PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
 MACHINE_TYPE=${MACHINE_TYPE:-n1-highcpu-2}
@@ -40,7 +40,6 @@ function List_functions() {
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
-  echo "You must set PROJECT before using one of the function interactively:"
   List_functions
   SOURCED=1
 else
@@ -68,6 +67,11 @@ function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
 }
 
+function delete_cluster() {
+  echo "Deleting CLUSTER_NAME=$CLUSTER_NAME"
+  Execute gcloud container clusters delete $CLUSTER_NAME $GCP_OPTS -q
+}
+
 function create_vm() {
   echo "Obtaining latest ubuntu xenial image name... (takes a few seconds)..."
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
@@ -78,6 +82,11 @@ function create_vm() {
   sleep 45
 }
 
+function delete_vm() {
+  echo "Deleting VM_NAME=$VM_NAME"
+  Execute gcloud compute instances delete $VM_NAME $GCP_OPTS -q
+}
+
 function run_on_vm() {
   echo "*** Remote run: \"$1\""
   Execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
@@ -85,7 +94,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.8-go && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.8/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.9-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
@@ -93,8 +102,13 @@ function setup_vm_firewall() {
   Execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
 }
 
+function delete_vm_firewall() {
+  Execute gcloud compute --project=$PROJECT firewall-rules delete default-allow-http -q
+  Execute gcloud compute --project $PROJECT firewall-rules delete allow-8080 -q
+}
+
 function update_fortio_on_vm() {
-  run_on_vm 'go get -u istio.io/fortio && sudo setcap 'cap_net_bind_service=+ep' `which fortio`'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go install -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
@@ -108,8 +122,16 @@ function get_vm_ip() {
 
 # assumes run from istio/ (or release) directory
 function install_istio() {
+  # You need these permissions to create the necessary RBAC rules for Istio
+  Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+}
+
+# assumes run from istio/ (or release) directory
+function delete_istio() {
+  # Use the non debug ingress and remove the -v "2"
+  Execute sh -c 'kubectl delete -f install/kubernetes/istio-auth.yaml'
 }
 
 function kubectl_setup() {
@@ -118,9 +140,9 @@ function kubectl_setup() {
 
 function install_non_istio_svc() {
  Execute kubectl create namespace $FORTIO_NAMESPACE
- Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio:latest_release --port=8080
  Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
- Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio:latest_release --port=8080
  Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
 }
 
@@ -206,6 +228,95 @@ function run_fortio_test3() {
   Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
 }
 
+# Run canonical perf tests.
+# The following parameters can be supplied:
+# 1) Label:
+#    A custom label to use. This is useful when running the same suite against two target binaries/configs.
+#    Defaults to "canonical"
+# 2) Driver:
+#    The load driver to use. Currently "fortio1" and "fortio2" are supported. Defaults to "fortio1".
+# 3) Target:
+#     The target service for the load. Currently "echo1" and "echo2" are supported.
+#     Defaults to "echo2"
+# 4) QPS:
+#     The QPS to apply. Defaults to 400.
+# 5) Duration:
+#     The duration of the test. Default is 5 minutes.
+# 6) Clients:
+#     The number of clients to use. Defaults is 16.
+# 7) Outdir:
+#     The output dir for collecting the Json results. If not specified, a temporary dir will be created.
+function run_canonical_perf_test() {
+    LABEL="${1}"
+    DRIVER="${2}"
+    TARGET="${3}"
+    QPS="${4}"
+    DURATION="${5}"
+    CLIENTS="${6}"
+    OUT_DIR="${7}"
+
+    # Set defaults
+    LABEL="${LABEL:-canonical}"
+    DRIVER="${DRIVER:-fortio1}"
+    TARGET="${TARGET:-echo2}"
+    QPS="${QPS:-400}"
+    DURATION="${DURATION:-5m}"
+    CLIENTS="${CLIENTS:-16}"
+
+    get_istio_ingress_ip
+
+    FORTIO1_URL="http://${ISTIO_INGRESS_IP}/fortio1/fortio"
+    FORTIO2_URL="http://${ISTIO_INGRESS_IP}/fortio2/fortio"
+    case "${DRIVER}" in
+        "fortio1")
+            DRIVER_URL="${FORTIO1_URL}"
+            ;;
+        "fortio2")
+            DRIVER_URL="${FORTIO2_URL}"
+            ;;
+        *)
+            echo "unknown driver: ${DRIVER}"
+            exit -1
+            ;;
+    esac
+
+    # URL encoded URLs for echo1 and echo2. These get directly embedded as parameters into the main URL to invoke
+    # the test.
+    ECHO1_URL="echosrv1:8080/echo"
+    ECHO2_URL="echosrv2:8080/echo"
+    case "${TARGET}" in
+        "echo1")
+            TARGET_URL="${ECHO1_URL}"
+            ;;
+        "echo2")
+            TARGET_URL="${ECHO2_URL}"
+            ;;
+        *)
+            echo "unknown target: ${TARGET}"
+            exit -1
+            ;;
+    esac
+
+    PERCENTILES="50%2C+75%2C+90%2C+99%2C+99.9"
+    GRANULARITY="0.001"
+
+    LABELS="${LABEL}+${DRIVER}+${TARGET}+Q${QPS}+T${DURATION}+C${CLIENTS}"
+
+    if [[ -z "${OUT_DIR// }" ]]; then
+        OUT_DIR=$(mktemp -d -t "istio_perf.XXXXXX")
+    fi
+
+    FILE_NAME="${LABELS//\+/_}"
+    OUT_FILE="${OUT_DIR}/${FILE_NAME}.json"
+
+    echo "Running '${LABELS}' and storing results in ${OUT_FILE}"
+
+    URL="${DRIVER_URL}/?labels=${LABELS}&url=${TARGET_URL}&qps=${QPS}&t=${DURATION}&c=${CLIENTS}&p=${PERCENTILES}&r=${GRANULARITY}&json=on&save=on&load=Start"
+    #echo "URL: ${URL}"
+
+    curl -s "${URL}" -o "${OUT_FILE}"
+}
+
 function setup_vm_all() {
   update_gcp_opts
   create_vm
@@ -237,6 +348,16 @@ function setup_all() {
   setup_cluster_all
 }
 
+function delete_all() {
+  echo "Deleting Istio mesh, cluster $CLUSTER_NAME, Instance $VM_NAME and firewall rules for project $PROJECT in zone $ZONE"
+  echo "Interrupt now if you don't want to delete..."
+  sleep 5
+  delete_istio
+  delete_cluster
+  delete_vm
+  delete_vm_firewall
+}
+
 function get_ips() {
   #TODO: wait for ingresses/svcs to be ready
   get_vm_ip
@@ -247,7 +368,6 @@ function get_ips() {
 
 function run_tests() {
   update_gcp_opts
-  setup_vm_firewall
   get_ips
   run_fortio_test1
   run_fortio_test2
@@ -280,4 +400,5 @@ if [[ $SOURCED == 0 ]]; then
 #setup_vm_firewall
 #get_ips
 #install_istio_svc
+  delete_all
 fi

@@ -20,7 +20,7 @@ spec:
     port: 9091
   - name: tcp-mtls
     port: 15004
-  - name: http-health
+  - name: http-monitoring
     port: 9093
   - name: configapi
     port: 9094
@@ -45,14 +45,14 @@ kind: Deployment
 metadata:
   name: istio-mixer
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         istio: mixer
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-mixer-service-account
       containers:
@@ -73,16 +73,13 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
+        - containerPort: 9093
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
-          - --zipkinURL=http://zipkin:9411/api/v1/spans
-          - --logtostderr
-          - -v
-          - "2"
+          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
       - name: istio-proxy
         image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
@@ -91,8 +88,6 @@ spec:
         args:
         - proxy
         - mixer
-        - -v
-        - "2"
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile
@@ -303,6 +298,23 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: rbacs.config.istio.io
+  labels:
+    package: rbac
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: rbac
+    plural: rbacs
+    singular: rbac
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: servicecontrols.config.istio.io
   labels:
     package: servicecontrol
@@ -313,6 +325,23 @@ spec:
     kind: servicecontrol
     plural: servicecontrols
     singular: servicecontrol
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: solarwindses.config.istio.io
+  labels:
+    package: solarwinds
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: solarwinds
+    plural: solarwindses
+    singular: solarwinds
   scope: Namespaced
   version: v1alpha2
 ---
@@ -371,7 +400,7 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: apikeies.config.istio.io
+  name: apikeys.config.istio.io
   labels:
     package: apikey
     istio: mixer-instance
@@ -379,7 +408,7 @@ spec:
   group: config.istio.io
   names:
     kind: apikey
-    plural: apikeies
+    plural: apikeys
     singular: apikey
   scope: Namespaced
   version: v1alpha2
@@ -554,6 +583,39 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: serviceroles.config.istio.io
+  labels:
+    istio: rbac
+spec:
+  group: config.istio.io
+  names:
+    kind: ServiceRole
+    plural: serviceroles
+    singular: servicerole
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: servicerolebindings.config.istio.io
+  labels:
+    istio: rbac
+spec:
+  group: config.istio.io
+  names:
+    kind: ServiceRoleBinding
+    plural: servicerolebindings
+    singular: servicerolebinding
+  scope: Namespaced
+  version: v1alpha2
+---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -617,6 +679,8 @@ spec:
       valueType: INT64
     connection.duration:
       valueType: DURATION
+    connection.mtls:
+      valueType: BOOL
     context.protocol:
       valueType: STRING
     context.timestamp:
@@ -700,6 +764,7 @@ spec:
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
+    connectionMtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -727,6 +792,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -742,6 +808,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -757,6 +824,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -772,6 +840,7 @@ spec:
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -788,6 +857,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -804,6 +874,7 @@ spec:
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -822,6 +893,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
   - name: request_duration
     instance_name: requestduration.metric.{ISTIO_NAMESPACE}
     kind: DISTRIBUTION
@@ -831,6 +903,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
@@ -843,6 +916,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -857,6 +931,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
+    - connection_mtls
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -870,6 +945,7 @@ spec:
     - source_version
     - destination_service
     - destination_version
+    - connection_mtls
   - name: tcp_bytes_received
     instance_name: tcpbytereceived.metric.{ISTIO_NAMESPACE}
     kind: COUNTER
@@ -878,15 +954,15 @@ spec:
     - source_version
     - destination_service
     - destination_version
+    - connection_mtls
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
   namespace: {ISTIO_NAMESPACE}
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http"
   actions:
   - handler: handler.prometheus
     instances:
@@ -901,8 +977,9 @@ metadata:
   name: promtcp
   namespace: {ISTIO_NAMESPACE}
   labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.prometheus
     instances:
@@ -936,6 +1013,20 @@ spec:
     - attributes.kubernetes
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: tcpkubeattrgenrulerule
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.kubernetesenv
+    instances:
+    - attributes.kubernetes
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: attributes
@@ -945,20 +1036,19 @@ spec:
   source_uid: source.uid | ""
   source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
   destination_uid: destination.uid | ""
-  destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
   origin_uid: '""'
   origin_ip: ip("0.0.0.0") # default to unspecified ip addr
   attribute_bindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
-    source.ip: $out.source_pod_ip
-    source.labels: $out.source_labels
-    source.namespace: $out.source_namespace
-    source.service: $out.source_service
-    source.serviceAccount: $out.source_service_account_name
-    destination.ip: $out.destination_pod_ip
-    destination.labels: $out.destination_labels
-    destination.namespace: $out.destination_namespace
-    destination.service: $out.destination_service
-    destination.serviceAccount: $out.destination_service_account_name
+    source.ip: $out.source_pod_ip | ip("0.0.0.0")
+    source.labels: $out.source_labels | emptyStringMap()
+    source.namespace: $out.source_namespace | "default"
+    source.service: $out.source_service | "unknown"
+    source.serviceAccount: $out.source_service_account_name | "unknown"
+    destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
+    destination.labels: $out.destination_labels | emptyStringMap()
+    destination.namespace: $out.destination_namespace | "default"
+    destination.service: $out.destination_service | "unknown"
+    destination.serviceAccount: $out.destination_service_account_name | "unknown"
 ---
