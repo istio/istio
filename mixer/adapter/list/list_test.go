@@ -44,17 +44,18 @@ func TestBasic(t *testing.T) {
 	cfg := info.DefaultConfig
 	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
+	b.SetListEntryTypes(nil)
 
 	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	if err = handler.Close(); err != nil {
+	if err = h.Close(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 }
@@ -385,21 +386,44 @@ func TestNoUrlStringList(t *testing.T) {
 }
 
 func TestRegexList(t *testing.T) {
-	cfg := &config.Params{
-		Overrides: []string{
-			"a+.*",
-			"efg",
-		},
-		EntryType: config.REGEX,
+	var listToServe interface{}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		out, err := yaml.Marshal(listToServe)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := w.Write(out); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := config.Params{
+		ProviderUrl:     ts.URL,
+		RefreshInterval: 1 * time.Second,
+		Ttl:             10 * time.Second,
+		Overrides:       []string{"a*b"},
+		EntryType:       config.REGEX,
 	}
 	info := GetInfo()
 	b := info.NewBuilder().(*builder)
-	b.SetAdapterConfig(cfg)
+
+	b.SetListEntryTypes(nil)
+	b.SetAdapterConfig(&cfg)
+
+	if err := b.Validate(); err != nil {
+		t.Errorf("Validate failed with %v", err)
+	}
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
+
+	leh := h.(*handler)
 
 	cases := []struct {
 		symbol string
@@ -409,16 +433,69 @@ func TestRegexList(t *testing.T) {
 		{"B", rpc.NOT_FOUND},
 	}
 
-	rlh := h.(*handler)
-	for _, c := range cases {
-		result, err := rlh.HandleListEntry(context.Background(), &listentry.Instance{Value: c.symbol})
-		if err != nil {
-			t.Fatalf(`unexpected failure %v`, err)
-		}
+	listToServe = listPayload{
+		WhiteList: []string{"a+.*", "efg"},
+	}
+	leh.fetchList()
 
-		if result.Status.Code != int32(c.result) {
-			t.Errorf(`Got '%v', expecting '%v'`, result.Status.Code, c.result)
-		}
+	// exercise the NOP code
+	leh.fetchList()
+
+	for _, c := range cases {
+		t.Run(c.symbol, func(t *testing.T) {
+			result, err := leh.HandleListEntry(context.Background(), &listentry.Instance{Value: c.symbol})
+			if err != nil {
+				t.Fatalf("Got error %v, expecting success", err)
+			}
+
+			if result.Status.Code != int32(c.result) {
+				t.Errorf("Got '%v', expecting '%v'", result.Status.Code, c.result)
+			}
+		})
+	}
+
+	// now try to parse a list with errors
+	entryCnt := leh.list.numEntries()
+	listToServe = listPayload{
+		WhiteList: []string{"10.10.11.2", "(", "10.10.11.3"},
+	}
+	leh.fetchList()
+	if leh.lastFetchError == nil {
+		t.Errorf("Got success, expected error")
+	}
+
+	if leh.list.numEntries() != entryCnt {
+		t.Errorf("Got %d entries, expected %d", leh.list.numEntries(), entryCnt)
+	}
+
+	// now try to parse a list in the wrong format
+	listToServe = []string{"("}
+	leh.fetchList()
+	if leh.lastFetchError == nil {
+		t.Error("Got success, expected error")
+	}
+	if leh.list.numEntries() != entryCnt {
+		t.Errorf("Got %d entries, expected %d", leh.list.numEntries(), entryCnt)
+	}
+
+	if err := leh.Close(); err != nil {
+		t.Errorf("Unable to close adapter: %v", err)
+	}
+}
+
+func TestBadRegexOverride(t *testing.T) {
+	cfg := &config.Params{
+		Overrides: []string{
+			"(", // invalid regex
+		},
+		EntryType: config.REGEX,
+	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
+
+	if err := b.Validate(); err == nil {
+		t.Error("Expected validation error")
 	}
 }
 
