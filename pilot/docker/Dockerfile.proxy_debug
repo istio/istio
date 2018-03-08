@@ -11,5 +11,12 @@ COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json
 COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+# Sudoers used to allow tcpdump and other debug utilities.
+RUN mkdir /var/lib/istio && useradd -m --uid 1337 istio-proxy && \
+    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
+    chown -R istio-proxy /var/lib/istio
+
+
+# TODO: add delve
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
