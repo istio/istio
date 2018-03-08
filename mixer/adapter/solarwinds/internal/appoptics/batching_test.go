@@ -38,32 +38,24 @@ func TestBatchMeasurements(t *testing.T) {
 
 		batchSize := 100
 
-		finish := make(chan bool)
+		go BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
 
-		go func() {
-			BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
-			finish <- true
-		}()
-
-		go func() {
-			measurements := make([]*Measurement, 0)
-			for i := 0; i < batchSize+1; i++ {
-				measurements = append(measurements, &Measurement{})
+		measurements := make([]*Measurement, 0)
+		for i := 0; i < batchSize+1; i++ {
+			measurements = append(measurements, &Measurement{})
+		}
+		prepChan <- measurements
+		count := 0
+		for range pushChan {
+			count++
+			if count == 1 {
+				break
 			}
-			prepChan <- measurements
-			stopChan <- struct{}{}
-			<-finish
-			close(prepChan)
-			close(pushChan)
-			count := 0
-			for range pushChan {
-				count++
-			}
-			if count != 1 {
-				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
-			}
-			close(stopChan)
-		}()
+		}
+		stopChan <- struct{}{}
+		close(pushChan)
+		close(prepChan)
+		close(stopChan)
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
@@ -84,7 +76,6 @@ func TestBatchMeasurements(t *testing.T) {
 		close(pushChan)
 		close(stopChan)
 	})
-
 }
 
 type MockServiceAccessor struct {
