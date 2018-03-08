@@ -298,17 +298,18 @@ func buildSidecarListenersClusters(
 		httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
-			mesh:             mesh,
-			proxy:            node,
-			proxyInstances:   proxyInstances,
-			routeConfig:      nil,
-			ip:               listenAddress,
-			port:             int(mesh.ProxyHttpPort),
-			rds:              RDSAll,
-			useRemoteAddress: useRemoteAddress,
-			direction:        traceOperation,
-			outboundListener: true,
-			store:            config,
+			mesh:                 mesh,
+			proxy:                node,
+			proxyInstances:       proxyInstances,
+			routeConfig:          nil,
+			ip:                   listenAddress,
+			port:                 int(mesh.ProxyHttpPort),
+			rds:                  RDSAll,
+			useRemoteAddress:     useRemoteAddress,
+			direction:            traceOperation,
+			outboundListener:     true,
+			store:                config,
+			authenticationPolicy: nil, /* authN policy is not needed for outbout listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
@@ -367,17 +368,18 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
-	mesh             *meshconfig.MeshConfig
-	proxy            model.Proxy
-	proxyInstances   []*model.ServiceInstance
-	routeConfig      *HTTPRouteConfig
-	ip               string
-	port             int
-	rds              string
-	useRemoteAddress bool
-	direction        string
-	outboundListener bool
-	store            model.IstioConfigStore
+	mesh                 *meshconfig.MeshConfig
+	proxy                model.Proxy
+	proxyInstances       []*model.ServiceInstance
+	routeConfig          *HTTPRouteConfig
+	ip                   string
+	port                 int
+	rds                  string
+	useRemoteAddress     bool
+	direction            string
+	outboundListener     bool
+	store                model.IstioConfigStore
+	authenticationPolicy *authn.Policy
 }
 
 // buildHTTPListener constructs a listener for the network interface address and port.
