@@ -17,11 +17,12 @@ package util
 import (
 	"bytes"
 	"encoding/pem"
+	"testing"
+
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"testing"
 )
 
 const (
