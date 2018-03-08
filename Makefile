@@ -27,7 +27,6 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_URL_ISTIOCTL ?= istioctl
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -111,7 +110,7 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_TAG),)
-  export PROXY_TAG:=$(shell grep PROXY_TAG istio.VERSION  | cut -d '=' -f2 | tr -d '"')
+  export PROXY_TAG:=$(shell grep PROXY_TAG istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
@@ -377,7 +376,7 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 
 istio-archive: ${ISTIO_OUT}/archive
 
-# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL, ISTIO_URL_ISTIOCTL as dependencies
+# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
 # consider using -a with updateVersion.sh to simplify the input parameters
 ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
@@ -388,7 +387,6 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	cp -r tools ${ISTIO_OUT}/archive
 	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
                                  -P "$(ISTIO_URL)/deb" \
                                  -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
