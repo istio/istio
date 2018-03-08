@@ -34,11 +34,11 @@
       "sds_config": {
         "api_config_source": {
           "api_type": "GRPC",
-
           "refresh_delay": {"seconds": 3, "nanos": 0},
           "cluster_names": [
             "xds-grpc"
           ]
+
         }
       }
     }
