@@ -494,8 +494,7 @@ func TestBadRegexOverride(t *testing.T) {
 	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
 
-	err := b.Validate()
-	if err == nil {
+	if err := b.Validate(); err == nil {
 		t.Error("Expected validation error")
 	}
 }

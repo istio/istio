@@ -171,7 +171,10 @@ func TestBuilder(t *testing.T) {
 				if handler.metricLevel != c.metricLevel {
 					t.Errorf("Got metric level %v, expecting %v", handler.metricLevel, c.metricLevel)
 				}
-				h.Close()
+
+				if err = h.Close(); err != nil {
+					t.Errorf("Got %v, expected success", err)
+				}
 			}
 		})
 	}
