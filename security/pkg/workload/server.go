@@ -55,6 +55,9 @@ type SDSServer struct {
 	// request X.509 key/cert from this server. This path should only be
 	// accessible by such workload.
 	udsServerMap map[string]*grpc.Server
+
+	// Mutex for udsServerMap
+	udsServerMapGuard sync.Mutex
 }
 
 const (
@@ -159,6 +162,9 @@ func NewSDSServer() *SDSServer {
 // RegisterUdsPath registers a path for Unix Domain Socket and has
 // SDSServer's gRPC server listen on it.
 func (s *SDSServer) RegisterUdsPath(udsPath string) error {
+	s.udsServerMapGuard.Lock()
+	defer s.udsServerMapGuard.Unlock()
+
 	_, err := os.Stat(udsPath)
 	if err == nil {
 		return fmt.Errorf("UDS path %v already exists", udsPath)
@@ -186,6 +192,9 @@ func (s *SDSServer) RegisterUdsPath(udsPath string) error {
 
 // DeregisterUdsPath closes and removes the grpcServer instance serving UDS
 func (s *SDSServer) DeregisterUdsPath(udsPath string) error {
+	s.udsServerMapGuard.Lock()
+	defer s.udsServerMapGuard.Unlock()
+
 	if udsServer, ok := s.udsServerMap[udsPath]; ok {
 		udsServer.GracefulStop()
 		delete(s.udsServerMap, udsPath)
