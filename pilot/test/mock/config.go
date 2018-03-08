@@ -488,30 +488,24 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 
-	lock := sync.Mutex{}
-	cond := sync.NewCond(&lock)
-
-	added, deleted := 0, 0
+	ach, dch := make(chan bool), make(chan bool)
+	sad, sdd := 0, 0
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
-
-		lock.Lock()
-		defer lock.Unlock()
-
 		switch ev {
 		case model.EventAdd:
-			if deleted != 0 {
+			if sdd != 0 {
 				t.Errorf("Events are not serialized (add)")
 			}
-			added++
-			cond.Signal()
+			sad++
+			ach <- true
 		case model.EventDelete:
-			if added != n {
+			if sad != n {
 				t.Errorf("Events are not serialized (delete)")
 			}
-			deleted++
-			cond.Signal()
+			sdd++
+			dch <- true
 		}
-		log.Infof("Added %d, deleted %d", added, deleted)
+		log.Infof("Added %d, deleted %d", sad, sdd)
 	})
 	go cache.Run(stop)
 
@@ -519,20 +513,21 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	timeout := time.After(60 * time.Second)
+	timeout := time.After(10 * time.Second)
+	added, deleted := 0, 0
 	for {
 		select {
 		case <-timeout:
 			t.Fatalf("timeout waiting to receive expected events. actual added %d deleted %d. expected %d",
 				added, deleted, n)
+		case <-ach:
+			added++
+		case <-dch:
+			deleted++
 		default:
-			lock.Lock()
 			if added == n && deleted == n {
-				lock.Unlock()
 				return
 			}
-			lock.Unlock()
-			cond.Wait()
 		}
 	}
 }
