@@ -488,7 +488,7 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Visit product page through ingress should all be denied.
 	visit := func() error {
-		return visitProductPage(productPageTimeout, http.StatusForbidden);
+		return visitProductPage(productPageTimeout, http.StatusForbidden)
 	}
 	testCheckCache(t, visit)
 }
@@ -497,39 +497,44 @@ func TestIngressCheckCache(t *testing.T) {
 func TestCheckCache(t *testing.T) {
 	// visit calls product page health handler within sleep app.
 	visit := func() error {
-		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace))
-		return visitThroughSleep(url, httpOK);
+		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
+		return visitThroughSleep(url, httpOK)
 	}
 	testCheckCache(t, visit)
 }
 
 // testCheckCache verifies check cache is used when calling the given visit function
 // by comparing the check call metric.
-func testCheckCache(t *testing.T, visit func() (error)) {
+func testCheckCache(t *testing.T, visit func() error) {
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 
 	// Get check cache hit baseline.
+	t.Log("Query prometheus to get baseline cache hits...")
 	prior, err := getCheckCacheHits(promAPI)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
 
+	t.Logf("Baseline cache hits: %v", prior)
+	t.Log("Start to call visit function for 5 times...")
 	// Call visit for 5 times, which should use check cache for 5 times.
 	for i := 0; i < 5; i++ {
-		if err = visit(); err != nill {
-			fatal(t, "%v", err)
+		if err = visit(); err != nil {
+			fatalf(t, "%v", err)
 		}
 	}
 
 	allowPrometheusSync()
+	t.Log("Query promethus to get new cache hits number...")
 	// Get new check cache hit.
 	got, err := getCheckCacheHits(promAPI)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
+	t.Logf("New cache hits: %v", got)
 
 	// At least 4 calls should be cache hit.
 	want := float64(4)
@@ -831,18 +836,20 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 // visitThroughSleep visits the given url by curl command within sleep app.
 func visitThroughSleep(url string, code string) error {
-	pod, err := podID("sleep")
+	pod, err := podID("app=sleep")
 	if err != nil {
-		return err
+		return fmt.Errorf("fail getting pod id of sleep %v", err)
 	}
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c sleep -- curl -i %s", pod, tc.Kube.Namespace, url)
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c sleep -- curl -i -s %s", pod, tc.Kube.Namespace, url)
+	log.Infof("Visit %s with the following command: %v", url, cmd)
 	resp, err := util.Shell(cmd)
 	if err != nil {
 		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
 	}
 	if !strings.Contains(resp, code) {
-		return errors.New("response: %v does not have wanted status code: %v", resp, code)
+		return fmt.Errorf("response: %v does not have wanted status code: %v", resp, code)
 	}
+	log.Infof("Response contains wanted status code %v.", code)
 	return nil
 }
 
@@ -866,8 +873,7 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		log.Infof("Could not get rem
-		ote check calls metric from prometheus: %v", err)
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
 		return 0, nil
 	}
 	remoteCheck, err := vectorValue(value, map[string]string{})
@@ -960,7 +966,7 @@ func setTestConfig() error {
 		{
 			AppYaml:    util.GetResourcePath(sleepYaml),
 			KubeInject: true,
-		}
+		},
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
