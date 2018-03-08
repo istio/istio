@@ -498,7 +498,7 @@ func TestCheckCache(t *testing.T) {
 	// visit calls product page health handler within sleep app.
 	visit := func() error {
 		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
-		return visitThroughSleep(url, httpOK)
+		return visitWithSleepApp(url, httpOK)
 	}
 	testCheckCache(t, visit)
 }
@@ -834,8 +834,8 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
-// visitThroughSleep visits the given url by curl command within sleep app.
-func visitThroughSleep(url string, code string) error {
+// visitWithSleepApp visits the given url by curl command within sleep app.
+func visitWithSleepApp(url string, code string) error {
 	pod, err := podID("app=sleep")
 	if err != nil {
 		return fmt.Errorf("fail getting pod id of sleep %v", err)
