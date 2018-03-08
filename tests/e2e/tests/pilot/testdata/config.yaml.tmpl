@@ -15,8 +15,8 @@ data:
 {{else}}
       discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15005
 {{end}}
-      discoveryRefreshDelay:  1s
-      connectTimeout:         1s
+      discoveryRefreshDelay:  2s
+      connectTimeout:         5s
       proxyAdminPort:         15000
       controlPlaneAuthPolicy:        {{ .Auth }}
 {{if .Zipkin}}
@@ -27,8 +27,8 @@ data:
     mixerReportServer:        istio-mixer.{{.IstioNamespace}}:15004
 {{end}}
     authPolicy:               {{ .Auth }}
-    connectTimeout:           1s
-    rdsRefreshDelay:          1s
+    connectTimeout:           5s
+    rdsRefreshDelay:          4s
     disablePolicyChecks:      false
     ingressClass:             {{.IstioNamespace}}
     ingressControllerMode:    STRICT
