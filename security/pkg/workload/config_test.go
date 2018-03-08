@@ -23,11 +23,11 @@ func TestNewSecretFileServerConfig(t *testing.T) {
 	cert := "certfile"
 	key := "keyfile"
 	config := NewSecretFileServerConfig(cert, key)
-	
+
 	if config.ServiceIdentityCertFile != cert {
 		t.Fatalf("cert file does not match")
 	}
-	
+
 	if config.ServiceIdentityPrivateKeyFile != key {
 		t.Fatalf("key file does not match")
 	}
@@ -35,7 +35,7 @@ func TestNewSecretFileServerConfig(t *testing.T) {
 	if config.Mode != SecretFile {
 		t.Fatalf("secret file does not match")
 	}
-	
+
 	utilImpl := util.FileUtilImpl{}
 	if config.FileUtil != utilImpl {
 		t.Fatalf("file util does not match")
