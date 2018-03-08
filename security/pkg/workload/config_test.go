@@ -15,8 +15,9 @@
 package workload
 
 import (
-	"istio.io/istio/security/pkg/util"
 	"testing"
+
+	"istio.io/istio/security/pkg/util"
 )
 
 func TestNewSecretFileServerConfig(t *testing.T) {
