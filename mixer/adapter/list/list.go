@@ -314,7 +314,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			}
 		}
 	}
-
+	
 	if ac.EntryType == config.REGEX {
 		for _, regex := range ac.Overrides {
 			if _, err := regexp.Compile(regex); err != nil {
