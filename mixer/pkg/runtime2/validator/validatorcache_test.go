@@ -47,7 +47,7 @@ func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *store
 		return nil, nil, nil, nil, err
 	}
 	donec := make(chan struct{})
-	go watchChanges(donec, wch, watchFlushDurationForTest, c.applyChanges)
+	go store.WatchChanges(wch, donec, watchFlushDurationForTest, c.applyChanges)
 	return c, s, m, donec, nil
 }
 
