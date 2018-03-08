@@ -129,10 +129,11 @@ docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
 ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
+	cp $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
+	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER_BASE)/pilotapp && \
-		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.appdbg .)
+		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
 
 PILOT_DOCKER:=docker.eurekamirror \
