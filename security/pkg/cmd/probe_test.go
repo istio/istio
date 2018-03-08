@@ -16,7 +16,23 @@ package cmd
 
 import (
 	"testing"
+	"bytes"
+	"io/ioutil"
+	"github.com/spf13/cobra"
 )
+
+func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
+	_, output, err = executeCommandC(root, args...)
+	return output, err
+}
+
+func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, output string, err error) {
+	buf := new(bytes.Buffer)
+	root.SetOutput(buf)
+	root.SetArgs(args)
+	c, err = root.ExecuteC()
+	return c, buf.String(), err
+}
 
 func TestNewProbeCmd(t *testing.T) {
 	cmd := NewProbeCmd()
@@ -40,5 +56,25 @@ func TestNewProbeCmd(t *testing.T) {
 	}
 	if durVal != 0 {
 		t.Errorf("interval var should be 0")
+	}
+}
+
+func TestProbeCommand(t *testing.T) {
+	cmd := NewProbeCmd()
+
+	testFile, err := ioutil.TempFile("/tmp", "test")
+	if err != nil {
+		t.Errorf("failed to create a test file")
+	}
+
+	rootCmd := &cobra.Command{}
+	rootCmd.AddCommand(cmd)
+
+	output, err := executeCommand(rootCmd, "probe", "--probe-path", testFile.Name(), "--interval", "1s")
+	if output != "" {
+		t.Errorf("Unexpected output: %v", output)
+	}
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 }
