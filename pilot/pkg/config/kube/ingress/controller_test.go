@@ -184,7 +184,7 @@ func TestIngressController(t *testing.T) {
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
 	count := make(chan bool)
-	//defer close(count)
+	defer close(count)
 
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
 		count <- true
