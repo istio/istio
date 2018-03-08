@@ -31,10 +31,6 @@ var (
 	pipeOut *os.File
 	// The channel for sending stdout back to test code.
 	outC chan string
-	// testDir is where all the artifacts are created.
-	testDir string
-	// environment vars to attach to exec command
-	envExec []string
 )
 
 // Will block waiting for data on the channel.
@@ -55,7 +51,9 @@ func testInitStdIo() {
 	outC = make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+		  return fmt.Errorf("Failed to copy with error %v", err)
+		}
 		outC <- buf.String()
 	}()
 }
@@ -100,15 +98,6 @@ func TestInitDefault(t *testing.T) {
 	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
-}
-
-func getMountInputs(opts *NodeAgentInputs) (string, error) {
-	var opBytes []byte
-	opBytes, err := json.Marshal(&opts)
-	if err != nil {
-		return "", err
-	}
-	return string(opBytes), nil
 }
 
 func TestMount(t *testing.T) {
