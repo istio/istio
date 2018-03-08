@@ -221,6 +221,8 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
+${ISTIO_ENVOY_DEBUG_PATH}: init
+${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call make depend.update if adding new deps or
@@ -335,12 +337,12 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolumedriver
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca multicluster_ca istioctl
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -358,13 +360,13 @@ node-agent:
 
 .PHONY: flexvolumedriver
 flexvolumedriver:
-	bin/gobuild.sh ${ISTIO_OUT}/flexvolumedriver istio.io/istio/pkg/version ./security/cmd/flexvolume
+	bin/gobuild.sh ${ISTIO_OUT}/flexvolume istio.io/istio/pkg/version ./security/cmd/flexvolume
 
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca node_agent istio_ca
-multicluster_ca node_agent istio_ca:
+.PHONY: multicluster_ca node_agent istio_ca flexvolume
+multicluster_ca node_agent istio_ca flexvolume:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
@@ -410,7 +412,7 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit_tests.xml
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
@@ -470,28 +472,28 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley
 
 .PHONY: pilot-coverage
 pilot-coverage:
-	bin/parallel-codecov.sh pilot
+	bin/codecov.sh pilot
 
 .PHONY: mixer-coverage
 mixer-coverage:
-	bin/parallel-codecov.sh mixer
+	bin/codecov.sh mixer
 
 .PHONY: broker-coverage
 broker-coverage:
-	bin/parallel-codecov.sh broker
+	bin/codecov.sh broker
 
 .PHONY: galley-coverage
 galley-coverage:
-	bin/parallel-codecov.sh galley
+	bin/codecov.sh galley
 
 .PHONY: security-coverage
 security-coverage:
-	bin/parallel-codecov.sh security/pkg
-	bin/parallel-codecov.sh security/cmd
+	bin/codecov.sh security/pkg
+	bin/codecov.sh security/cmd
 
 .PHONY: common-coverage
 common-coverage:
-	bin/parallel-codecov.sh pkg
+	bin/codecov.sh pkg
 
 #-----------------------------------------------------------------------------
 # Target: go test -race
@@ -579,12 +581,14 @@ generate_yaml:
 
 istio.yaml:
 	helm template --set global.tag=${TAG} \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 istio_auth.yaml:
 	helm template --set global.tag=${TAG} \
+		  		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
 			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
@@ -592,9 +596,10 @@ istio_auth.yaml:
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
 	helm template --set global.tag=${TAG} \
+		          --namespace=istio-system \
                   --set global.hub=${HUB} \
-		      --set sidecar-injector.enabled=true \
-		      --set ingress.enabled=true \
+		      	  --set sidecar-injector.enabled=true \
+		      	  --set ingress.enabled=true \
                   --set servicegraph.enabled=true \
                   --set zipkin.enabled=true \
                   --set grafana.enabled=true \
@@ -619,9 +624,11 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/servicegraph.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
                 install/kubernetes/addons/zipkin.yaml \
-                install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
+                install/kubernetes/istio-ca-with-health-check.yaml \
+                install/kubernetes/istio-mixer-validator.yaml \
+                install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
@@ -643,6 +650,7 @@ show.goenv: ; $(info $(H) go environment...)
 	$(Q) $(GO) version
 	$(Q) $(GO) env
 
+# tickle
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true

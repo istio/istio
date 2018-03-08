@@ -24,8 +24,7 @@ function mason_cleanup() {
 }
 
 function get_resource() {
-  wget https://storage.googleapis.com/istio-tools/mason_client/mason_client
-  chmod a+x mason_client
+  go get istio.io/test-infra/boskos/cmd/mason_client
   # TODO: Remove once submitted
   # go install istio.io/test-infra/boskos/cmd/mason_client
   local type="${1}"
@@ -33,7 +32,7 @@ function get_resource() {
   local info_path="${3}"
   local file_log="${4}"
 
-  ./mason_client \
+  mason_client \
     --type="${type}" \
     --boskos-url='http://boskos.boskos.svc.cluster.local' \
     --owner="${owner}" \

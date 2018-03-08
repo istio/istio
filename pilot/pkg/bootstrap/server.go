@@ -17,14 +17,22 @@ package bootstrap
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
+
+	"google.golang.org/grpc"
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -39,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
@@ -81,6 +90,7 @@ var (
 		model.QuotaSpecBinding,
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
+		model.AuthenticationPolicy,
 	}
 )
 
@@ -168,13 +178,23 @@ type PilotArgs struct {
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
 	mesh              *meshconfig.MeshConfig
-	serviceController *aggregate.Controller
+	ServiceController *aggregate.Controller
 	configController  model.ConfigStoreCache
 	mixerSAN          []string
 	kubeClient        kubernetes.Interface
 	startFuncs        []startFunc
-	listeningAddr     net.Addr
+	HTTPListeningAddr net.Addr
+	GRPCListeningAddr net.Addr
 	clusterStore      *clusterregistry.ClusterStore
+
+	EnvoyXdsServer   *envoyv2.DiscoveryServer
+	HTTPServer       *http.Server
+	GRPCServer       *grpc.Server
+	DiscoveryService *envoy.DiscoveryService
+
+	// An in-memory service discovery, enabled if 'mock' registry is added.
+	// Currently used for tests.
+	MemoryServiceDiscovery *mock.ServiceDiscovery
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -229,7 +249,7 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 		}
 	}
 
-	return s.listeningAddr, nil
+	return s.HTTPListeningAddr, nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
@@ -369,8 +389,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
 		configController = memory.NewController(store)
-		fileSnapshotter := configmonitor.NewFileSnapshotter(args.Config.FileDir, configDescriptor)
-		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshotter.ReadFile)
+		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
 
 		// Defer starting the file monitor until after the service is created.
 		s.addStartFunc(func(stop chan struct{}) error {
@@ -452,31 +472,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case MockRegistry:
-			discovery1 := mock.NewDiscovery(
-				map[string]*model.Service{
-					mock.HelloService.Hostname: mock.HelloService,
-				}, 2)
-
-			discovery2 := mock.NewDiscovery(
-				map[string]*model.Service{
-					mock.WorldService.Hostname: mock.WorldService,
-				}, 2)
-
-			registry1 := aggregate.Registry{
-				Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
-				ServiceDiscovery: discovery1,
-				ServiceAccounts:  discovery1,
-				Controller:       &mockController{},
-			}
-
-			registry2 := aggregate.Registry{
-				Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
-				ServiceDiscovery: discovery2,
-				ServiceAccounts:  discovery2,
-				Controller:       &mockController{},
-			}
-			serviceControllers.AddRegistry(registry1)
-			serviceControllers.AddRegistry(registry2)
+			initMemoryRegistry(s, serviceControllers)
 		case KubernetesRegistry:
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
@@ -560,42 +556,118 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceController = serviceControllers
+	s.ServiceController = serviceControllers
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop chan struct{}) error {
-		go s.serviceController.Run(stop)
+		go s.ServiceController.Run(stop)
 		return nil
 	})
 
 	return nil
+}
+func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
+	discovery1 := mock.NewDiscovery(
+		map[string]*model.Service{
+			//			mock.HelloService.Hostname: mock.HelloService,
+		}, 2)
+
+	s.MemoryServiceDiscovery = discovery1
+
+	discovery2 := mock.NewDiscovery(
+		map[string]*model.Service{
+			//			mock.WorldService.Hostname: mock.WorldService,
+		}, 2)
+
+	registry1 := aggregate.Registry{
+		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
+		ServiceDiscovery: discovery1,
+		ServiceAccounts:  discovery1,
+		Controller:       &mockController{},
+	}
+
+	registry2 := aggregate.Registry{
+		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
+		ServiceDiscovery: discovery2,
+		ServiceAccounts:  discovery2,
+		Controller:       &mockController{},
+	}
+	serviceControllers.AddRegistry(registry1)
+	serviceControllers.AddRegistry(registry2)
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: model.MakeIstioStore(s.configController),
-		ServiceDiscovery: s.serviceController,
-		ServiceAccounts:  s.serviceController,
+		ServiceDiscovery: s.ServiceController,
+		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
 	}
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
-		s.serviceController,
+		s.ServiceController,
 		s.configController,
 		environment,
-		args.DiscoveryOptions)
+		args.DiscoveryOptions,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery service: %v", err)
 	}
+	s.DiscoveryService = discovery
+
+	// For now we create the gRPC server sourcing data from Pilot's older data model.
+	s.initGrpcServer()
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer)
+
+	s.HTTPServer = &http.Server{
+		Addr:    ":" + strconv.Itoa(args.DiscoveryOptions.Port),
+		Handler: discovery.RestContainer}
+
+	addr := s.HTTPServer.Addr
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	s.HTTPListeningAddr = listener.Addr()
+
+	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
+	if err != nil {
+		return err
+	}
+	s.GRPCListeningAddr = grpcListener.Addr()
 
 	s.addStartFunc(func(stop chan struct{}) error {
-		addr, err := discovery.Start(stop)
-		if err == nil {
-			// Store the listening address in the output config.
-			s.listeningAddr = addr
+		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
+
+		go func() {
+			if err = s.HTTPServer.Serve(listener); err != nil {
+				log.Warna(err)
+			}
+		}()
+		go func() {
+			if err = s.EnvoyXdsServer.GrpcServer.Serve(grpcListener); err != nil {
+				log.Warna(err)
+			}
+		}()
+
+		go func() {
+			<-stop
+			err = s.HTTPServer.Close()
+			if err != nil {
+				log.Warna(err)
+			}
+			s.EnvoyXdsServer.GrpcServer.Stop()
+		}()
+
+		if args.RDSv2 {
+			log.Info("xDS: enabling RDS")
+			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
+			cache.Register(s.GRPCServer)
+			cache.RegisterInput(s.ServiceController, s.configController)
 		}
+
 		return err
 	})
 
@@ -636,6 +708,29 @@ func (s *Server) initAdmissionController(args *PilotArgs) error {
 		return nil
 	})
 	return nil
+}
+
+// NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
+func (s *Server) initGrpcServer() {
+	// TODO for now use hard coded / default gRPC options. The constructor may evolve to use interfaces that guide specific options later.
+	// Example:
+	//		grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(someconfig.MaxConcurrentStreams)))
+	var grpcOptions []grpc.ServerOption
+
+	var interceptors []grpc.UnaryServerInterceptor
+
+	// TODO: log request interceptor if debug enabled.
+
+	// setup server prometheus monitoring (as final interceptor in chain)
+	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
+
+	// get the grpc server wired up
+	grpc.EnableTracing = true
+
+	s.GRPCServer = grpc.NewServer(grpcOptions...)
 }
 
 func (s *Server) addStartFunc(fn startFunc) {

@@ -180,7 +180,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		defer mockRedis.Close()
 
 		// start mixer with redisquota adapter
-		args := server.NewArgs()
+		args := server.DefaultArgs()
 
 		args.APIPort = 0
 		args.MonitoringPort = 0

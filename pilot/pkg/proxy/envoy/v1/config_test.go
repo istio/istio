@@ -541,7 +541,7 @@ func makeProxyConfig() meshconfig.ProxyConfig {
 	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
-	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15007"
 	proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return proxyConfig
 }
@@ -553,6 +553,7 @@ var (
 func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
 	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15005"
 	return proxyConfig
 }
 
@@ -623,17 +624,17 @@ func TestTruncateClusterName(t *testing.T) {
 
 	var trunc string
 	less := s[:MaxClusterNameLength-1]
-	trunc = truncateClusterName(less)
+	trunc = TruncateClusterName(less)
 	if trunc != less {
 		t.Errorf("Cluster name modified when truncating short cluster name:\nwant %s,\ngot %s", less, trunc)
 	}
 	eq := s[:MaxClusterNameLength]
-	trunc = truncateClusterName(eq)
+	trunc = TruncateClusterName(eq)
 	if trunc != eq {
 		t.Errorf("Cluster name modified when truncating cluster name:\nwant %s,\ngot %s", eq, trunc)
 	}
 	gt := s[:MaxClusterNameLength+1]
-	trunc = truncateClusterName(gt)
+	trunc = TruncateClusterName(gt)
 	if len(trunc) != MaxClusterNameLength {
 		t.Errorf("Cluster name length is not expected: want %d, got %d", MaxClusterNameLength, len(trunc))
 	}

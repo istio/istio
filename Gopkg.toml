@@ -42,6 +42,18 @@ required = [
   unused-packages = true
   go-tests = true
   non-go = true
+  [[prune.project]]
+    name = "istio.io/fortio"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "istio.io/api"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "github.com/envoyproxy/go-control-plane"
+    non-go = false
+    unused-packages = false
 ###
 
 [[constraint]]
@@ -117,11 +129,11 @@ required = [
 # TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  revision = "0cb6ca9f2a06370b8734f4e4c0d62b77ec5975d3"
+  revision = "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "e0ebc95432196ce43dae88cc2822983466210656"
+  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
 
 ### Begin Mixer codegen dep pinning
 

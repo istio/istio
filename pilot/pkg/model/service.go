@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -315,6 +316,21 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 		}
 	}
 	return false
+}
+
+// Match returns true if port matches with port selector criteria.
+func (port Port) Match(portSelector *networking.PortSelector) bool {
+	if portSelector == nil {
+		return true
+	}
+	switch portSelector.Port.(type) {
+	case *networking.PortSelector_Name:
+		return portSelector.GetName() == port.Name
+	case *networking.PortSelector_Number:
+		return portSelector.GetNumber() == uint32(port.Port)
+	default:
+		return false
+	}
 }
 
 // GetNames returns port names

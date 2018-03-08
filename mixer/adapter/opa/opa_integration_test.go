@@ -178,7 +178,7 @@ spec:
 )
 
 func TestServer(t *testing.T) {
-	args := server.NewArgs()
+	args := server.DefaultArgs()
 
 	args.APIPort = 0
 	args.MonitoringPort = 0

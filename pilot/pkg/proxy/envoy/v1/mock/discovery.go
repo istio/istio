@@ -22,11 +22,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Mock values
 var (
+	PortHTTPName = "http"
+	// Mock values
 	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	PortHTTPName   = "http"
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -209,6 +209,10 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
 	sd.GetProxyServiceInstancesError = nil
+}
+
+func (sd *ServiceDiscovery) AddService(name string, svc *model.Service) {
+	sd.services[name] = svc
 }
 
 // Services implements discovery interface

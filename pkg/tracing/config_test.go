@@ -56,7 +56,7 @@ func TestConfigure(t *testing.T) {
 
 			lines, err := captureStdout(func() {
 
-				err := log.Configure(log.NewOptions())
+				err := log.Configure(log.DefaultOptions())
 				if err != nil {
 					t.Fatalf("Unable to configure logging: %v", err)
 				}
@@ -99,7 +99,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestZipkinError(t *testing.T) {
-	o := NewOptions()
+	o := DefaultOptions()
 	o.ZipkinURL = "foobar"
 
 	_, err := configure("tracing-test", o, func(url string, options ...zipkin.HTTPOption) (*zipkin.HTTPTransport, error) {
@@ -115,7 +115,7 @@ func TestSpanLogger(t *testing.T) {
 	sl := spanLogger{}
 
 	lines, err := captureStdout(func() {
-		err := log.Configure(log.NewOptions())
+		err := log.Configure(log.DefaultOptions())
 		if err != nil {
 			t.Fatalf("Unable to configure logging: %v", err)
 		}

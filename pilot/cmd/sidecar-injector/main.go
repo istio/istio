@@ -22,7 +22,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pilot/cmd"
@@ -46,7 +45,7 @@ var (
 		healthCheckFile     string
 		probeOptions        probe.Options
 	}{
-		loggingOptions: log.NewOptions(),
+		loggingOptions: log.DefaultOptions(),
 	}
 
 	rootCmd = &cobra.Command{
