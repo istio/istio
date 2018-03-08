@@ -34,19 +34,18 @@ const (
 	anotherRootCertFile = "../testdata/cert.pem"
 )
 
-
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 	testCases := map[string]struct {
-		rootCertFile  string
-		expectedErr   string
+		rootCertFile string
+		expectedErr  string
 	}{
 		"File not found": {
-			rootCertFile:  "bad.pem",
-			expectedErr:   "open bad.pem: no such file or directory",
+			rootCertFile: "bad.pem",
+			expectedErr:  "open bad.pem: no such file or directory",
 		},
 		"With root cert": {
-			rootCertFile:  rootCertFile,
-			expectedErr:   "",
+			rootCertFile: rootCertFile,
+			expectedErr:  "",
 		},
 	}
 	for id, tc := range testCases {
@@ -62,33 +61,33 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 		} else if bundle == nil {
 			t.Errorf("%s: the bundle should not be empty", id)
 		} else {
-		    cert, key, chain, root := bundle.GetAllPem()
-		    if len(cert) != 0 {
-			      t.Errorf("%s: certBytes should be empty", id)
-		    }
-		    if len(key) != 0 {
-			      t.Errorf("%s: privateKeyBytes should be empty", id)
-		    }
-		    if len(chain) != 0 {
-			      t.Errorf("%s: certChainBytes should be empty", id)
-		    }
-		    if len(root) == 0 {
-			      t.Errorf("%s: rootCertBytes should not be empty", id)
-		    }
-		    
-		    x509Cert, privKey, chain, root := bundle.GetAll()
-		    if x509Cert != nil {
-		          t.Errorf("%s: cert should be nil", id)
-		    }
-		    if privKey != nil {
-		          t.Errorf("%s: private key should be nil", id)
-		    }
-		    if len(chain) != 0 {
-			      t.Errorf("%s: certChainBytes should be empty", id)
-		    }
-		    if len(root) == 0 {
-			      t.Errorf("%s: rootCertBytes should not be empty", id)
-		    }
+			cert, key, chain, root := bundle.GetAllPem()
+			if len(cert) != 0 {
+				t.Errorf("%s: certBytes should be empty", id)
+			}
+			if len(key) != 0 {
+				t.Errorf("%s: privateKeyBytes should be empty", id)
+			}
+			if len(chain) != 0 {
+				t.Errorf("%s: certChainBytes should be empty", id)
+			}
+			if len(root) == 0 {
+				t.Errorf("%s: rootCertBytes should not be empty", id)
+			}
+
+			x509Cert, privKey, chain, root := bundle.GetAll()
+			if x509Cert != nil {
+				t.Errorf("%s: cert should be nil", id)
+			}
+			if privKey != nil {
+				t.Errorf("%s: private key should be nil", id)
+			}
+			if len(chain) != 0 {
+				t.Errorf("%s: certChainBytes should be empty", id)
+			}
+			if len(root) == 0 {
+				t.Errorf("%s: rootCertBytes should not be empty", id)
+			}
 		}
 	}
 }
@@ -98,7 +97,7 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 }
 
 func TestGetAll(t *testing.T) {
-	
+
 }*/
 
 // The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.
