@@ -45,10 +45,10 @@ func TestNewSecretServer_WorkloadAPI(t *testing.T) {
 		if err.Error() != expectedErr.Error() {
 			t.Errorf("error message mismatch, actual %v, expected %v", err, expectedErr)
 		}
+	}
 
-		if actual != nil {
-			t.Errorf("server should be nil")
-		}
+	if actual == nil {
+		t.Errorf("secretServer should not be nil")
 	}
 }
 
