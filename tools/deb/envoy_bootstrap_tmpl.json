@@ -43,7 +43,7 @@
           "api_type": "GRPC",
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
-            "xds-grpc"
+            "rds"
           ]
 {{ end }}
         }

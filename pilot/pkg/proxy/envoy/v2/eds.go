@@ -54,6 +54,9 @@ var (
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
 // all clusters until we support on-demand cluster loading.
 type EdsCluster struct {
+	// mutex protects changes to this cluster
+	mutex sync.Mutex
+
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*EdsConnection
 
@@ -119,33 +122,17 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, serviceClusters []s
 // Get the ClusterLoadAssignment for a cluster.
 func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, serviceCluster string) *types.Any {
 	c := s.getOrAddEdsCluster(serviceCluster)
-	if c.LoadAssignments != nil {
-		// Previously computed load assignments. They are re-computed on cache invalidation or
-		// event, but don't have to be recomputed once for each sidecar.
-		clAssignmentRes, _ := types.MarshalAny(c.LoadAssignments)
-		return clAssignmentRes
+	if c.LoadAssignments == nil { // fresh cluster
+		updateCluster(serviceCluster, c)
 	}
 
-	// We don't have LoadAssignments - this will happen the first time a cluster is looked up.
-	// The 'push' is only re-computing the endpoints for watched clusters, so first time we need
-	// to do compute it.
-	hostname, ports, labels := model.ParseServiceKey(serviceCluster)
-	instances, err := ds.Instances(hostname, ports.GetNames(), labels)
-	if err != nil {
-		log.Warnf("endpoints for service cluster %q returned error %q", serviceCluster, err)
-		return nil
-	}
-	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0 && edsDebug {
-		log.Infoa("EDS: no instances ", serviceCluster, hostname, ports, labels)
-	}
-	clAssignment := &xdsapi.ClusterLoadAssignment{
-		ClusterName: serviceCluster,
-		Endpoints:   locEps,
-	}
-	//log.Infof("EDS: %v %s", serviceCluster, clAssignment.String())
-	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	// Previously computed load assignments. They are re-computed on cache invalidation or
+	// event, but don't have to be recomputed once for each sidecar.
+	clAssignmentRes, _ := types.MarshalAny(c.LoadAssignments)
 	return clAssignmentRes
+
 }
 
 func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
@@ -187,6 +174,12 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	if len(instances) == 0 && edsDebug {
 		log.Infoa("EDS: no instances ", clusterName, hostname, ports, labels)
 	}
+	// There is a chance multiple goroutines will update the cluster at the same time.
+	// This could be prevented by a lock - but because the update may be slow, it may be
+	// better to accept the extra computations.
+	// We still lock the access to the LoadAssignments.
+	edsCluster.mutex.Lock()
+	defer edsCluster.mutex.Unlock()
 	edsCluster.LoadAssignments = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -194,6 +187,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
+
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
