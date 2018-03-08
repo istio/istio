@@ -328,6 +328,36 @@ func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
 }
 
+func TestClusterDiscoveryWithSecurityOnByByAuthenticationPolicy(t *testing.T) {
+	// This test enable mesh mTLS using authN policy. Currently, the broadest scope
+	// for policy is namespace. However, this test setup has only one namespace, so
+	// the effect is the same as using mesh config flag (i.e
+	// TestClusterDiscoveryWithSecurityOn)
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+	addConfig(registry, authnPolicyNamespaceMTlsOn, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context.json", t)
+}
+
+func TestClusterDiscoveryWithSecurityOffByByAuthenticationPolicy(t *testing.T) {
+	// This test shows mesh config AuthPolicy will be overriden by policy. The
+	// test will enable mTLS via mesh flag, but then disable with authn policy. The
+	// end result should be equivalent to mesh's auth policy is disable in the
+	// first place (i.e TestClusterDiscovery)
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
+	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, authnPolicyNamespaceMTlsOff, t)
+
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds.json", t)
+}
+
 func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 	mesh := makeMeshConfig()
 	mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
@@ -344,6 +374,23 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 
 	// Reset mock service security option.
 	mock.WorldService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
+}
+
+func TestClusterDiscoveryWithOptOutByAuthenticationPolicy(t *testing.T) {
+	// This test using authentication policies (CRD) to enable mTLS for the whole
+	// namespace (we don't support global policy yet, but for this test setup, it's
+	// the same as global since we have only one namespace), and disable mTLS for
+	// 'world' service. In other words, this has the same effect as
+	// TestClusterDiscoveryWithAuthOptOut above.
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+
+	addConfig(registry, authnPolicyNamespaceMTlsOn, t)
+	addConfig(registry, authnPolicyWorldMTlsOff, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-optout.json", t)
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
@@ -878,6 +925,19 @@ func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
 	mock.HelloService.Ports[0].AuthenticationPolicy = meshconfig.AuthenticationPolicy_INHERIT
+}
+
+func TestListenerDiscoverySidecarAuthOptOutByByAuthenticationPolicy(t *testing.T) {
+	// This test using authentication policies (CRD) to enable mTLS for the whole
+	// namespace and disable for Hello service. In other words, it has the same effect
+	// as TestListenerDiscoverySidecarAuthOptOut above.
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, authnPolicyNamespaceMTlsOn, t)
+	addConfig(registry, authnPolicyHelloMTlsOff, t)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
 }
 
 func TestRouteDiscoverySidecarError(t *testing.T) {
