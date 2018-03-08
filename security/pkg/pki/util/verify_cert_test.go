@@ -365,7 +365,7 @@ func TestVerifyCert(t *testing.T) {
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
 				t.Errorf("%s: Unexpected error: %v", id, err)
-			} else if strings.Contains(err.Error(), tc.expectedErr) != true {
+			} else if !strings.Contains(err.Error(), tc.expectedErr) {
 				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
 			}
 		} else if len(tc.expectedErr) != 0 {
