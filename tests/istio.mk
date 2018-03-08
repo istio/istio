@@ -90,6 +90,9 @@ e2e_pilot: istioctl generate_yaml
 e2e_pilot_noauth: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} -hub ${HUB} -tag ${TAG} --skip-cleanup -mixer=true -auth=disable -use-sidecar-injector=false
 
+test/minikube/noauth/e2e_simple:
+	go test -v -timeout 20m ./tests/e2e/tests/simple -args --skip_cleanup  -use_local_cluster -cluster_wide -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${TESTOPTS}
+
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/auth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs

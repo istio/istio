@@ -20,7 +20,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Envoy.
-ADD envoy-debug /usr/local/bin/envoy
+ADD envoy /usr/local/bin/envoy
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 

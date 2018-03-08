@@ -337,8 +337,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			}
 
 			if edsDebug {
-				log.Infof("EDS RES for %q clusters %v, Response: \n%s %s \n", peerAddr,
-					con.Clusters, response.String())
+				log.Infof("EDS RES for %s %q clusters %v, Response: \n%s\n",
+					node, peerAddr, con.Clusters, response.String())
 			}
 		} else {
 			if edsDebug {
@@ -375,6 +375,10 @@ func EdsPushAll() {
 // Edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
 func Edsz(w http.ResponseWriter, req *http.Request) {
+	if req.Form.Get("debug") != "" {
+		edsDebug = req.Form.Get("debug") == "1"
+		return
+	}
 	if req.Form.Get("push") != "" {
 		EdsPushAll()
 	}

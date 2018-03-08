@@ -17,7 +17,9 @@
 # scratch dir base
 ISTIO_DOCKER_BASE:=${ISTIO_OUT}/docker_scratch
 
-docker: docker.all
+# Docker target will build the go binaries and package the docker for local testing.
+# It does not upload to a registry.
+docker: build test-bins docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -85,8 +87,6 @@ $(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${I
 
 # pilot docker images
 
-docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server \
-            $(ISTIO_DOCKER)/cert.crt $(ISTIO_DOCKER)/cert.key
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
@@ -94,37 +94,46 @@ docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: $(ISTIO_OUT)/envoy
 docker.proxy: $(ISTIO_OUT)/pilot-agent
-docker.proxy: pilot/docker/Dockerfile.proxy
+docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
-	cp pilot/docker/{envoy_pilot.json,envoy_pilot_auth.json,envoy_mixer.json,envoy_mixer_auth.json} $(ISTIO_DOCKER_BASE)/proxy/
-	cp pilot/docker/Dockerfile.proxy $(ISTIO_DOCKER_BASE)/proxy/Dockerfile
-	cp $(ISTIO_OUT)/envoy $(ISTIO_DOCKER_BASE)/proxy/
-	cp $(ISTIO_OUT)/pilot-agent $(ISTIO_DOCKER_BASE)/proxy/
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxy/
+	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
+ifeq ($(DEBUG_IMAGE),)
 	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile .)
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
+else
+	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
+endif
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER_BASE)/proxyd
-	cp pilot/docker/{envoy_pilot.json,envoy_pilot_auth.json,envoy_mixer.json,envoy_mixer_auth.json} $(ISTIO_DOCKER_BASE)/proxyd
-	cp pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/Dockerfile
-	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy-debug
-	cp $(ISTIO_OUT)/pilot-agent $(ISTIO_DOCKER_BASE)/proxyd/
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxyd/
+	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy
+	cp  tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/
 	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
-		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile .)
+		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER_BASE)/pilot
-	cp pilot/docker/Dockerfile.pilot $(ISTIO_DOCKER_BASE)/pilot/Dockerfile
-	cp $(ISTIO_OUT)/pilot-discovery $(ISTIO_DOCKER_BASE)/pilot/pilot-discovery
+	cp $^ $(ISTIO_DOCKER_BASE)/pilot/
 	time (cd $(ISTIO_DOCKER_BASE)/pilot && \
-		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile .)
+		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile.pilot .)
 
-PILOT_DOCKER:=docker.app docker.eurekamirror \
+# Test app for pilot integration
+docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
+			pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/Dockerfile.app
+	mkdir -p $(ISTIO_DOCKER_BASE)/pilotapp
+	cp $^ $(ISTIO_DOCKER_BASE)/pilotapp
+	# It is extremely helpful to debug from the test app. The savings in size are not worth the
+	# developer pain
+	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
+	time (cd $(ISTIO_DOCKER_BASE)/pilotapp && \
+		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.appdbg .)
+
+
+PILOT_DOCKER:=docker.eurekamirror \
               docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
@@ -165,11 +174,13 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
 
+# This target will package all docker images used in test and release, without re-building
+# go binaries. It is intended for CI/CD systems where the build is done in separate job.
 docker.all: $(DOCKER_TARGETS)
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
