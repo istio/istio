@@ -34,6 +34,72 @@ const (
 	anotherRootCertFile = "../testdata/cert.pem"
 )
 
+func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
+	testCases := map[string]struct {
+		rootCertFile string
+		expectedErr  string
+	}{
+		"File not found": {
+			rootCertFile: "bad.pem",
+			expectedErr:  "open bad.pem: no such file or directory",
+		},
+		"With root cert": {
+			rootCertFile: rootCertFile,
+			expectedErr:  "",
+		},
+	}
+	for id, tc := range testCases {
+		bundle, err := NewKeyCertBundleWithRootCertFromFile(tc.rootCertFile)
+		if err != nil {
+			if len(tc.expectedErr) == 0 {
+				t.Errorf("%s: Unexpected error: %v", id, err)
+			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
+				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
+			}
+		} else if len(tc.expectedErr) != 0 {
+			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
+		} else if bundle == nil {
+			t.Errorf("%s: the bundle should not be empty", id)
+		} else {
+			cert, key, chain, root := bundle.GetAllPem()
+			if len(cert) != 0 {
+				t.Errorf("%s: certBytes should be empty", id)
+			}
+			if len(key) != 0 {
+				t.Errorf("%s: privateKeyBytes should be empty", id)
+			}
+			if len(chain) != 0 {
+				t.Errorf("%s: certChainBytes should be empty", id)
+			}
+			if len(root) == 0 {
+				t.Errorf("%s: rootCertBytes should not be empty", id)
+			}
+
+			x509Cert, privKey, chain, root := bundle.GetAll()
+			if x509Cert != nil {
+				t.Errorf("%s: cert should be nil", id)
+			}
+			if privKey != nil {
+				t.Errorf("%s: private key should be nil", id)
+			}
+			if len(chain) != 0 {
+				t.Errorf("%s: certChainBytes should be empty", id)
+			}
+			if len(root) == 0 {
+				t.Errorf("%s: rootCertBytes should not be empty", id)
+			}
+		}
+	}
+}
+
+/*func TestGetAllPem(t *testing.T) {
+
+}
+
+func TestGetAll(t *testing.T) {
+
+}*/
+
 // The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.
 func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 	testCases := map[string]struct {
@@ -71,6 +137,20 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			rootCertFile:  rootCertFile,
 			expectedErr:   "",
 		},
+		"Failure - invalid cert chain file": {
+			caCertFile:    intCertFile,
+			caKeyFile:     intKeyFile,
+			certChainFile: "bad.pem",
+			rootCertFile:  rootCertFile,
+			expectedErr:   "open bad.pem: no such file or directory",
+		},
+		"Failure - no root cert file": {
+			caCertFile:    intCertFile,
+			caKeyFile:     intKeyFile,
+			certChainFile: "",
+			rootCertFile:  "bad.pem",
+			expectedErr:   "open bad.pem: no such file or directory",
+		},
 		"Failure - cert and key do not match": {
 			caCertFile:    int2CertFile,
 			caKeyFile:     anotherKeyFile,
@@ -99,6 +179,13 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 			rootCertFile:  rootCertFile,
 			expectedErr:   "failed to parse cert PEM: invalid PEM encoded certificate",
 		},
+		"Failure - not existing private key": {
+			caCertFile:    intCertFile,
+			caKeyFile:     "bad.pem",
+			certChainFile: "",
+			rootCertFile:  rootCertFile,
+			expectedErr:   "open bad.pem: no such file or directory",
+		},
 		"Failure - invalid private key": {
 			caCertFile:    intCertFile,
 			caKeyFile:     badKeyFile,
@@ -117,7 +204,6 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 	for id, tc := range testCases {
 		_, err := NewVerifiedKeyCertBundleFromFile(
 			tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
-		// signingCert, signingKey, certChainBytes, rootCertBytes := bundle.GetAll()
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
 				t.Errorf("%s: Unexpected error: %v", id, err)
