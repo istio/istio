@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 package cmd
 
 import (
-	"testing"
 	"bytes"
-	"io/ioutil"
 	"github.com/spf13/cobra"
+	"io/ioutil"
+	"os"
+	"testing"
 )
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
@@ -66,6 +67,9 @@ func TestProbeCommand(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create a test file")
 	}
+	defer func() {
+		_ = os.Remove(testFile.Name())
+	}()
 
 	rootCmd := &cobra.Command{}
 	rootCmd.AddCommand(cmd)
