@@ -47,7 +47,6 @@ func TestGenWebhookSecrets(t *testing.T) {
 			Service:   "istio-sidecar-injector",
 			Secret:    secret,
 			Namespace: namespace,
-			Path:      "/inject",
 		}})
 	if err != nil {
 		t.Errorf("Failed to generate secrets: %v", err)

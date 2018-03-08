@@ -48,7 +48,7 @@ func GenerateWebhookSecrets(client corev1client.CoreV1Interface, ca ca.Certifica
 	caCert, _, _, _ := ca.GetCAKeyCertBundle().GetAllPem()
 	for _, w := range webhooks {
 		if w.Secret == "" || w.Namespace == "" || w.Service == "" {
-			return fmt.Errorf("Invalid webhook identify %v", w)
+			return fmt.Errorf("invalid webhook identify %v", w)
 		}
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
