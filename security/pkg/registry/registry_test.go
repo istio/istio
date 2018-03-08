@@ -18,6 +18,85 @@ import (
 	"testing"
 )
 
+func TestIdentityRegistryAddMapping(t *testing.T) {
+	testCases := []struct {
+		id1     string
+		id2     string
+		success bool
+	}{
+		{
+			id1:     "foo",
+			id2:     "bar",
+			success: true,
+		},
+		{
+			id1:     "dead",
+			id2:     "bar",
+			success: false,
+		},
+		{
+			id1:     "dead",
+			id2:     "beef",
+			success: true,
+		},
+	}
+
+	for _, test := range testCases {
+		reg := &IdentityRegistry{
+			Map: make(map[string]string),
+		}
+		// Seeding registry.
+		if err := reg.AddMapping("dead", "beef"); err != nil {
+			t.Fatalf("Fail to seed registry.")
+		}
+		err := reg.AddMapping(test.id1, test.id2)
+		if test.success != (err == nil) {
+			t.Errorf("AddMaping %s -> %s: expected %v, got error: \"%v\"", test.id1, test.id2, test.success, err)
+		}
+		if checkRes := reg.Check(test.id1, test.id2); test.success != checkRes {
+			t.Errorf("Checking %s -> %s in registry: expected %v, got %v", test.id1, test.id2, test.success, checkRes)
+		}
+	}
+}
+
+func TestIdentityRegistryDeleteMapping(t *testing.T) {
+	testCases := []struct {
+		id1     string
+		id2     string
+		success bool
+	}{
+		{
+			id1:     "foo",
+			id2:     "bar",
+			success: false,
+		},
+		{
+			id1:     "dead",
+			id2:     "bar",
+			success: false,
+		},
+		{
+			id1:     "dead",
+			id2:     "beef",
+			success: true,
+		},
+	}
+
+	for _, test := range testCases {
+		reg := &IdentityRegistry{
+			Map: make(map[string]string),
+		}
+		// Seeding registry.
+		if err := reg.AddMapping("dead", "beef"); err != nil {
+			t.Fatalf("Fail to seed registry.")
+		}
+		err := reg.DeleteMapping(test.id1, test.id2)
+		if test.success != (err == nil) {
+			t.Errorf("DeleteMapping %s -> %s: expected %v, got error: \"%v\"", test.id1, test.id2, test.success, err)
+		}
+	}
+}
+
 func TestIdentityRegistry(t *testing.T) {
 	reg := &IdentityRegistry{
 		Map: make(map[string]string),
@@ -26,6 +105,10 @@ func TestIdentityRegistry(t *testing.T) {
 	_ = reg.AddMapping("id1", "id2")
 	if !reg.Check("id1", "id2") {
 		t.Errorf("add mapping: id1 -> id2 should be in registry")
+	}
+
+	if err := reg.AddMapping("id1", "id2"); err != nil {
+		t.Errorf("add mapping: id1 -> id2 should fail as id1 is already mapped")
 	}
 
 	_ = reg.DeleteMapping("id1", "id2")
