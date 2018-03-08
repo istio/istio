@@ -24,6 +24,10 @@ import (
 
 	"google.golang.org/grpc"
 
+	"net/http"
+
+	"net/url"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -32,7 +36,10 @@ import (
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
 	"istio.io/istio/mixer/pkg/template"
+	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -109,12 +116,18 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 	return mixerpb.NewMixerClient(conn), nil
 }
 
-func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
+func newTestServer(globalCfg, serviceCfg string, useNewRuntime bool) (*Server, error) {
 	a := DefaultArgs()
+	a.UseNewRuntime = useNewRuntime
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	a.EnableProfiling = true
+	a.Templates = generatedTmplRepo.SupportedTmplInfo
+	a.LivenessProbeOptions.Path = "abc"
+	a.LivenessProbeOptions.UpdateInterval = 2
+	a.ReadinessProbeOptions.Path = "def"
+	a.ReadinessProbeOptions.UpdateInterval = 3
 	var err error
 	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
 		return nil, err
@@ -123,24 +136,28 @@ func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 }
 
 func TestBasic(t *testing.T) {
-	s, err := newTestServer(globalCfg, serviceCfg)
-	if err != nil {
-		t.Fatalf("Unable to create server: %v", err)
-	}
+	for i := 0; i < 2; i++ {
+		useNewRuntime := i == 0
 
-	d := s.Dispatcher()
-	if d != s.dispatcher {
-		t.Fatalf("returned dispatcher is incorrect")
-	}
+		s, err := newTestServer(globalCfg, serviceCfg, useNewRuntime)
+		if err != nil {
+			t.Fatalf("Unable to create server: %v", err)
+		}
 
-	err = s.Close()
-	if err != nil {
-		t.Errorf("Got error during Close: %v", err)
+		d := s.Dispatcher()
+		if d != s.dispatcher {
+			t.Fatalf("returned dispatcher is incorrect")
+		}
+
+		err = s.Close()
+		if err != nil {
+			t.Errorf("Got error during Close: %v", err)
+		}
 	}
 }
 
 func TestClient(t *testing.T) {
-	s, err := newTestServer(globalCfg, serviceCfg)
+	s, err := newTestServer(globalCfg, serviceCfg, true)
 	if err != nil {
 		t.Fatalf("Unable to create server: %v", err)
 	}
@@ -162,6 +179,11 @@ func TestClient(t *testing.T) {
 	err = s.Close()
 	if err != nil {
 		t.Errorf("Got error during Close: %v", err)
+	}
+
+	err = s.Wait()
+	if err == nil {
+		t.Errorf("Got success, expecting failure")
 	}
 }
 
@@ -190,6 +212,7 @@ func TestErrors(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			a.ConfigStore = configStore
+			a.ConfigStoreURL = ""
 			pt := newPatchTable()
 			switch i {
 			case 0:
@@ -214,21 +237,79 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 4:
-				pt.startMonitor = func(port uint16, enableProfiling bool) (*monitor, error) {
+				pt.startMonitor = func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error) {
 					return nil, errors.New("BAD")
 				}
 			case 5:
+				a.MonitoringPort = 1234
 				pt.listen = func(network string, address string) (net.Listener, error) {
-					return nil, errors.New("BAD")
+					if address != ":1234" {
+						return nil, errors.New("BAD")
+					}
+					return net.Listen(network, address)
+				}
+			case 6:
+				a.MonitoringPort = 1234
+				pt.listen = func(network string, address string) (net.Listener, error) {
+					if address == ":1234" {
+						return nil, errors.New("BAD")
+					}
+					return net.Listen(network, address)
+				}
+			case 7:
+				a.ConfigStoreURL = "http://abogusurl.com"
+			case 8:
+				pt.configLog = func(options *log.Options) error {
+					return errors.New("BAD")
+				}
+			case 9:
+				a.UseNewRuntime = true
+				pt.runtimeListen = func(rt *mixerRuntime2.Runtime) error {
+					return errors.New("BAD")
 				}
 			default:
 				return
 			}
 
-			s, err := newServer(a, pt)
+			s, err = newServer(a, pt)
 			if s != nil || err == nil {
 				t.Errorf("Got success, expecting error")
 			}
 		})
 	}
+}
+
+func TestMonitoringMux(t *testing.T) {
+	configStore, _ := storetest.SetupStoreForTest(globalCfg, serviceCfg)
+
+	a := DefaultArgs()
+	a.ConfigStore = configStore
+	a.MonitoringPort = 0
+	a.APIPort = 0
+	s, err := New(a)
+	if err != nil {
+		t.Fatalf("Got %v, expecting success", err)
+	}
+
+	r := &http.Request{}
+	r.Method = "GET"
+	r.URL, _ = url.Parse("http://localhost/version")
+	rw := responseWriter{}
+	s.monitor.monitoringServer.Handler.ServeHTTP(&rw, r)
+
+	_ = s.Close()
+}
+
+type responseWriter struct {
+}
+
+func (rw *responseWriter) Header() http.Header {
+	return nil
+}
+
+func (rw *responseWriter) Write([]byte) (int, error) {
+	return -1, errors.New("BAD")
+}
+
+func (rw *responseWriter) WriteHeader(int) {
 }
