@@ -496,7 +496,8 @@ jobs:
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              make docker.all push
+              # The xenail debug image is built first, will be used in the next steps
+              make docker.push.basedebug docker.all push
             fi
 
   goxbuild:

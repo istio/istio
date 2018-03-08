@@ -225,7 +225,10 @@ docker.tag: docker
 docker.push: $(DOCKER_PUSH_TARGETS)
 
 # Base image for 'debug' containers.
-# Must be run manually - will push the base image.
+# You can run it first to use local changes (or guarantee it is built from scratch)
 docker.basedebug:
 	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
+
+# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
+docker.push.basedebug: docker.basedebug
 	docker push istionightly/base_debug:latest
