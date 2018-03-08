@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
@@ -114,6 +115,13 @@ func TestPersistBatches(t *testing.T) {
 			sendOnStopChan: false,
 		},
 		{
+			name:           "Persist with error",
+			expectedCount:  0,
+			response:       nil,
+			error:          fmt.Errorf("metrics empty"),
+			sendOnStopChan: false,
+		},
+		{
 			name:           "Stop chan test",
 			expectedCount:  0,
 			response:       nil,
@@ -140,7 +148,9 @@ func TestPersistBatches(t *testing.T) {
 					MockMeasurementsService: func() MeasurementsCommunicator {
 						return &MockMeasurementsService{
 							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
-								atomic.AddInt32(&count, 1)
+								if test.error == nil {
+									atomic.AddInt32(&count, 1)
+								}
 								action.Done()
 								return test.response, test.error
 							},
