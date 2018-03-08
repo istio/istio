@@ -521,11 +521,18 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	log.Infof("Waiting till all events are received")
 	lock.Lock()
 	defer lock.Unlock()
+	timeout := time.After(60 * time.Second)
 	for {
-		if added == n && deleted == n {
-			break
+		select {
+		case <-timeout:
+			t.Fatalf("timeout waiting to receive expected events. actual added %d deleted %d. expected %d",
+				added, deleted, n)
+		default:
+			if added == n && deleted == n {
+				return
+			}
+			cond.Wait()
 		}
-		cond.Wait()
 	}
 }
 
