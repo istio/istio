@@ -519,8 +519,6 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	lock.Lock()
-	defer lock.Unlock()
 	timeout := time.After(60 * time.Second)
 	for {
 		select {
@@ -528,9 +526,12 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 			t.Fatalf("timeout waiting to receive expected events. actual added %d deleted %d. expected %d",
 				added, deleted, n)
 		default:
+			lock.Lock()
 			if added == n && deleted == n {
+				lock.Unlock()
 				return
 			}
+			lock.Unlock()
 			cond.Wait()
 		}
 	}
