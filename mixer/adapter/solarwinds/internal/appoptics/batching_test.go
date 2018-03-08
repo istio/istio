@@ -15,13 +15,13 @@
 package appoptics
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"fmt"
 	test2 "istio.io/istio/mixer/pkg/adapter/test"
 )
 
