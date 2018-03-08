@@ -35,14 +35,14 @@ var (
 
 // Will block waiting for data on the channel.
 func readStdOut() string {
-	pipeOut.Close()
+	pipeOut.Close() //nolint: errcheck
 	os.Stdout = oldOut
 	fmt.Println("Waiting for output")
 	return <-outC
 }
 
 // Redirect stdout to a pipe
-func testInitStdIo() {
+func testInitStdIo(t *testing.T) {
 	var r *os.File
 	oldOut = os.Stdout
 	r, pipeOut, _ = os.Pipe()
@@ -52,7 +52,7 @@ func testInitStdIo() {
 	go func() {
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, r); err != nil {
-			fmt.Errorf("failed to copy with error %v", err)
+			t.Errorf("failed to copy with error %v", err)
 		}
 		outC <- buf.String()
 	}()
@@ -76,7 +76,7 @@ func TestInitVer1_8(t *testing.T) {
 	var resp Resp
 	expectedResp := Resp{Status: "Success", Message: "Init ok.", Capabilities: &Capabilities{Attach: false}}
 
-	testInitStdIo()
+	testInitStdIo(t)
 	if err := Init("1.8"); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
@@ -90,7 +90,7 @@ func TestInitDefault(t *testing.T) {
 	var resp Resp
 	expectedResp := Resp{Status: "Success", Message: "Init ok."}
 
-	testInitStdIo()
+	testInitStdIo(t)
 	if err := Init("1.9"); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
