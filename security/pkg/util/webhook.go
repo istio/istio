@@ -41,13 +41,15 @@ type WebhookIdentity struct {
 	Service   string
 	Secret    string
 	Namespace string
-	Path      string
 }
 
 // GenerateWebhookSecrets generate key and cert for webhook services and stores them in K8S secrets
 func GenerateWebhookSecrets(client corev1client.CoreV1Interface, ca ca.CertificateAuthority, webhooks []WebhookIdentity) error {
 	caCert, _, _, _ := ca.GetCAKeyCertBundle().GetAllPem()
 	for _, w := range webhooks {
+		if w.Secret == "" || w.Namespace == "" || w.Service == "" {
+			return fmt.Errorf("Invalid webhook identify %v", w)
+		}
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      w.Secret,

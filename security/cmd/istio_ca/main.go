@@ -92,7 +92,9 @@ type cliOptions struct { // nolint: maligned
 	upstreamCACertFile string
 	upstreamAuth       string
 
-	genWebhookSecrets bool
+	genWebhookSecrets      bool
+	injectorWebhookService string
+	injectorWebhookSecret  string
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
@@ -187,8 +189,12 @@ func init() {
 		"Interval of checking the liveness of the CA.")
 
 	// Generate webhook secrets
-	flags.BoolVar(&opts.genWebhookSecrets, "generate-webhook-secrets", true,
+	flags.BoolVar(&opts.genWebhookSecrets, "generate-webhook-secrets", false,
 		"Generate secrets for Istio webhook services.")
+	flags.StringVar(&opts.injectorWebhookService, "injector-webhook-service", "",
+		"Sidecar injector webhook service name.")
+	flags.StringVar(&opts.injectorWebhookSecret, "injector-webhook-secret", "",
+		"Sidecar injector webhook secret name.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -239,10 +245,9 @@ func runCA() {
 	if opts.genWebhookSecrets {
 		err = util.GenerateWebhookSecrets(cs.CoreV1(), ca, []util.WebhookIdentity{
 			{
-				Service:   "istio-sidecar-injector",
-				Secret:    "sidecar-injector-certs",
+				Service:   opts.injectorWebhookService,
+				Secret:    opts.injectorWebhookSecret,
 				Namespace: opts.istioCaStorageNamespace,
-				Path:      "/inject",
 			},
 		})
 		if err != nil {
