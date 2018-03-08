@@ -11,7 +11,7 @@
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
-		"file": "istio.VERSION",
+		"file": "istio.deps",
 		"lastStableSHA": "80ec4f6c2a672b00e55d34ef9b5d26a42a98da42"
 	}
 ]
