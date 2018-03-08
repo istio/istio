@@ -575,15 +575,16 @@ end
 		Referenced: []string{"source.labels"},
 		conf:       exprEvalAttrs,
 	},
-	// TODO: uncomment the following lines when short-circuiting for externs is added
-	//{
-	//	E:    `emptyStringMap() | source.labels`,
-	//	Type: descriptor.STRING_MAP,
-	//	I:    map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
-	//	R:    map[string]string{},
-	//	Referenced: []string{},
-	//	conf: exprEvalAttrs,
-	//},
+
+	{
+		E:          `emptyStringMap() | source.labels`,
+		Type:       descriptor.STRING_MAP,
+		I:          map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
+		R:          map[string]string{},
+		Referenced: []string{},
+		conf:       exprEvalAttrs,
+	},
+
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
 		E: "a = 2",
@@ -1031,6 +1032,245 @@ fn eval() bool
   aeq_d 45.230000
   ret
 end`,
+	},
+
+	{
+		E:    `dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() interface
+  apush_s "foo.bar.baz"
+  call dnsName
+  ret
+end`,
+	},
+
+	{
+		E:    `adns`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"adns": "foo.bar",
+		},
+		R: "foo.bar",
+		IL: `
+fn eval() interface
+  resolve_f "adns"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `dnsName("")`,
+		Type: descriptor.DNS_NAME,
+		Err:  `Error converting '' to dns name: 'idna: invalid label ""'`,
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "-foo.-bar",
+		},
+		Err: `Error converting '-foo.-bar' to dns name: 'idna: invalid label "-foo"'`,
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "foo.bar",
+		},
+		R: "foo.bar",
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call dnsName
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() interface
+  tresolve_f "adns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `adns | bdns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() interface
+  tresolve_f "adns"
+  jnz L0
+  tresolve_f "bdns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz") | bdns`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() interface
+  tresolve_f "adns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+  jmp L0
+  resolve_f "bdns"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"adns": "www.istio.io",
+		},
+		R: "www.istio.io",
+	},
+
+	{
+		E:    `adns == bdns`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "adns"
+  resolve_f "bdns"
+  call dnsName_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "fOO.bar.com",
+		},
+	},
+
+	{
+		E:    `dnsName(as | bs | "foo")`,
+		Type: descriptor.DNS_NAME,
+		R:    "foo",
+		IL: `
+ fn eval() interface
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "foo"
+L0:
+  call dnsName
+  ret
+end`,
+	},
+
+	{
+		E:    `dnsName(as | bs | "foo")`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "foo.bar.com",
+		},
+		R: "foo.bar.com",
+	},
+
+	{
+		E:    `adns == bdns`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "bar.foo.com",
+		},
+	},
+
+	{
+		E:    `adns != bdns`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "adns"
+  resolve_f "bdns"
+  call dnsName_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "bar.foo.com",
+		},
+	},
+
+	{
+		E:    `adns != bdns`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "foo.bar.com",
+		},
+	},
+
+	{
+		E:          `adns == as`,
+		CompileErr: "EQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+	},
+
+	{
+		E:          `adns != as`,
+		CompileErr: "NEQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+	},
+
+	{
+		E:    `dnsName("foo.bar.baz") == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(adns | dnsName("foo.bar.baz")) == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(adns | dnsName("foo.bar.baz")) == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+		},
+		R: false,
 	},
 
 	{
@@ -2787,6 +3027,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"aip": {
 		ValueType: descriptor.IP_ADDRESS,
 	},
+	"adns": {
+		ValueType: descriptor.DNS_NAME,
+	},
 	"bi": {
 		ValueType: descriptor.INT64,
 	},
@@ -2804,6 +3047,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"bdur": {
 		ValueType: descriptor.DURATION,
+	},
+	"bdns": {
+		ValueType: descriptor.DNS_NAME,
 	},
 	"bt": {
 		ValueType: descriptor.TIMESTAMP,

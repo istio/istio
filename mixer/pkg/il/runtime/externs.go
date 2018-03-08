@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/idna"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
@@ -32,6 +33,8 @@ var Externs = map[string]interpreter.Extern{
 	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
+	"dnsName":         interpreter.ExternFromFn("dnsName", externDnsName),
+	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDnsNameEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -49,6 +52,11 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 	{
 		Name:          "timestamp",
 		ReturnType:    config.TIMESTAMP,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "dnsName",
+		ReturnType:    config.DNS_NAME,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
@@ -109,6 +117,46 @@ func externTimestamp(in string) (time.Time, error) {
 
 func externTimestampEqual(t1 time.Time, t2 time.Time) bool {
 	return t1.Equal(t2)
+}
+
+// This profile is for performing  validations, but does not otherwise modify the string.
+var externDnsNameProfile = idna.New(
+	idna.StrictDomainName(true),
+	idna.ValidateLabels(true),
+	idna.VerifyDNSLength(true),
+	idna.BidiRule())
+
+func externDnsName(in string) (string, error) {
+	s, err := externDnsNameProfile.ToUnicode(in)
+	if err != nil {
+		err = fmt.Errorf("Error converting '%s' to dns name: '%v'", in, err)
+	}
+	return s, err
+}
+
+// This profile converts the string for lookup.
+var externDnsNameEqualProfile = idna.New(idna.MapForLookup(),
+	idna.BidiRule())
+
+func externDnsNameEqual(n1 string, n2 string) (bool, error) {
+	var err error
+
+	if n1, err = externDnsNameEqualProfile.ToUnicode(n1); err != nil {
+		return false, err
+	}
+
+	if n2, err = externDnsNameEqualProfile.ToUnicode(n2); err != nil {
+		return false, err
+	}
+
+	if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
+		n1 = n1[:len(n1)-1]
+	}
+	if n2[len(n2)-1] == '.' && n1[len(n1)-1] != '.' {
+		n2 = n2[:len(n2)-1]
+	}
+
+	return n1 == n2, nil
 }
 
 func externMatch(str string, pattern string) bool {

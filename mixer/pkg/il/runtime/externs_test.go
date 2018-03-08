@@ -87,6 +87,101 @@ func TestExternTimestampEqual_False(t *testing.T) {
 	}
 }
 
+func TestExternDnsName_Positive(t *testing.T) {
+	positive := []string{
+		"foo",
+		"foo.",
+		"fOO",
+		"Foo",
+		"f00",
+		"f00.",
+		"a-b.c-d",
+	}
+
+	for _, v := range positive {
+		o, err := externDnsName(v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if o != v {
+			t.Fatalf("%v != %v", o, v)
+		}
+	}
+}
+
+func TestExternDnsName_Negative(t *testing.T) {
+	negative := []string{
+		"",
+		".",
+		"b..a",
+		"b..a.",
+		"-a",
+		"b.-a.c",
+		"f-",
+		"f-.",
+		"f-.boo",
+		"f--.boo",
+	}
+
+	for _, v := range negative {
+		_, err := externDnsName(v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: %v", v)
+		}
+	}
+}
+
+func TestExternDnsNameEqual_Positive(t *testing.T) {
+	positive := map[string]string{
+		"foo":     "foo",
+		"FOO":     "foo",
+		"foo.":    "foo",
+		"boo":     "boo.",
+		"zoo.":    "zoo.",
+		"foo.bar": "foo.bar",
+	}
+
+	for k, v := range positive {
+		eq, err := externDnsNameEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if !eq {
+			t.Fatalf("Expected to be equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestExternDnsNameEqual_Negative(t *testing.T) {
+	negative := map[string]string{
+		"foo.bar-a.": "foo.bar",
+	}
+
+	for k, v := range negative {
+		eq, err := externDnsNameEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if eq {
+			t.Fatalf("Expected to be not equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestExternDnsNameEqual_Error(t *testing.T) {
+	erroneous := map[string]string{
+		"a-": "a",
+		"b":  "b-",
+	}
+
+	for k, v := range erroneous {
+		_, err := externDnsNameEqual(k, v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: %v == %v", k, v)
+		}
+	}
+}
+
 func TestExternMatch(t *testing.T) {
 	var cases = []struct {
 		s string
