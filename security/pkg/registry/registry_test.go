@@ -97,6 +97,14 @@ func TestIdentityRegistryDeleteMapping(t *testing.T) {
 	}
 }
 
+func TestGetIdentityRegistry(t *testing.T) {
+	first := GetIdentityRegistry()
+	second := GetIdentityRegistry()
+	if first != second {
+		t.Errorf("Registry is not singleton")
+	}
+}
+
 func TestIdentityRegistry(t *testing.T) {
 	reg := &IdentityRegistry{
 		Map: make(map[string]string),
