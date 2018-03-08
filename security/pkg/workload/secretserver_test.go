@@ -40,13 +40,15 @@ func TestNewSecretServer_WorkloadAPI(t *testing.T) {
 	}
 	actual, err := NewSecretServer(config)
 
-	expectedErr := fmt.Errorf("WORKLOAD API is unimplemented")
-	if err.Error() != expectedErr.Error() {
-		t.Errorf("error message mismatch, actual %v, expected %v", err, expectedErr)
-	}
+	if err != nil {
+		expectedErr := fmt.Errorf("WORKLOAD API is unimplemented")
+		if err.Error() != expectedErr.Error() {
+			t.Errorf("error message mismatch, actual %v, expected %v", err, expectedErr)
+		}
 
-	if actual != nil {
-		t.Errorf("server should be nil")
+		if actual != nil {
+			t.Errorf("server should be nil")
+		}
 	}
 }
 
