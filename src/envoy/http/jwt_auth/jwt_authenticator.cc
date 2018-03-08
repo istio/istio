@@ -112,7 +112,7 @@ void JwtAuthenticator::Verify(HeaderMap& headers,
   }
 
   if (issuer->pubkey() && !issuer->Expired()) {
-    VerifyKey(*issuer->pubkey());
+    VerifyKey(*issuer);
     return;
   }
 
@@ -183,22 +183,25 @@ void JwtAuthenticator::OnFetchPubkeyDone(const std::string& pubkey) {
   if (status != Status::OK) {
     DoneWithStatus(status);
   } else {
-    VerifyKey(*issuer->pubkey());
+    VerifyKey(*issuer);
   }
 }
 
 // Verify with a specific public key.
-void JwtAuthenticator::VerifyKey(const JwtAuth::Pubkeys& pubkey) {
+void JwtAuthenticator::VerifyKey(const PubkeyCacheItem& issuer_item) {
   JwtAuth::Verifier v;
-  if (!v.Verify(*jwt_, pubkey)) {
+  if (!v.Verify(*jwt_, *issuer_item.pubkey())) {
     DoneWithStatus(v.GetStatus());
     return;
   }
 
   headers_->addReferenceKey(kJwtPayloadKey, jwt_->PayloadStrBase64Url());
 
-  // Remove JWT from headers.
-  token_->Remove(headers_);
+  if (!issuer_item.jwt_config().forward_jwt()) {
+    // Remove JWT from headers.
+    token_->Remove(headers_);
+  }
+
   DoneWithStatus(Status::OK);
 }
 

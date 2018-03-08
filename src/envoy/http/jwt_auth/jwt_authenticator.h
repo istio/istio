@@ -54,7 +54,7 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::filter>,
   void onFailure(AsyncClient::FailureReason);
 
   // Verify with a specific public key.
-  void VerifyKey(const JwtAuth::Pubkeys& pubkey);
+  void VerifyKey(const PubkeyCacheItem& issuer);
 
   // Handle the public key fetch done event.
   void OnFetchPubkeyDone(const std::string& pubkey);
