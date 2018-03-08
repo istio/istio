@@ -235,7 +235,12 @@
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
+    "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/redis_proxy/v2",
+    "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
     "pkg/cache",
     "pkg/log",
@@ -1151,6 +1156,7 @@
 [[projects]]
   name = "istio.io/api"
   packages = [
+    "authentication/v1alpha1",
     "broker/dev",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
@@ -1466,6 +1472,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d04ec627debd705ec001c0e2cfb3e004b6bcaf5b93c90a1042c1b020dab8990"
+  inputs-digest = "9f8558d6d0ea4cc420213816743f8083ed1cf9086cb4f174d13e790c4ff9f215"
   solver-name = "gps-cdcl"
   solver-version = 1
