@@ -13,7 +13,7 @@ spec:
   type: LoadBalancer
   ports:
   - name: https-pilot
-    port: 15003
+    port: 15005
     protocol: TCP
   - port: 8080
     name: http-pilot

@@ -53,7 +53,7 @@
 
       "hosts": [
           {
-            "socket_address": {"address": "istio-pilot", "port_value": 15003}
+            "socket_address": {"address": "istio-pilot", "port_value": 15007}
           }
         ]
 

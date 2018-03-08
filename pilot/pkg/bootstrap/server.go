@@ -90,6 +90,7 @@ var (
 		model.QuotaSpecBinding,
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
+		model.AuthenticationPolicy,
 	}
 )
 
@@ -661,6 +662,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
+
+		if args.RDSv2 {
+			log.Info("xDS: enabling RDS")
+			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
+			cache.Register(s.GRPCServer)
+			cache.RegisterInput(s.ServiceController, s.configController)
+		}
 
 		return err
 	})

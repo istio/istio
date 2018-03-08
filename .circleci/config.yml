@@ -63,7 +63,7 @@ jobs:
       - store_artifacts:
           path: /var/lib/localkube/
 
-  e2e-simple-auth:
+  e2e-dashboard:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -93,7 +93,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--auth_enable=true --skip_cleanup -use_local_cluster -cluster_wide -test.v"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -309,7 +309,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth=enable -v1alpha3=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=true -v1alpha3=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -548,6 +548,9 @@ workflows:
       - e2e-bookinfo:
           requires:
             - test
+      - e2e-dashboard:
+          requires:
+            - test
       - e2e-mixer:
           requires:
             - test
@@ -590,6 +593,9 @@ workflows:
           requires:
             - dependencies
       - e2e-simple:
+          requires:
+            - build
+      - e2e-dashboard:
           requires:
             - build
       - e2e-bookinfo:
