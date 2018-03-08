@@ -113,7 +113,7 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	cp pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/Dockerfile
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy-debug
 	cp $(ISTIO_OUT)/pilot-agent $(ISTIO_DOCKER_BASE)/proxyd/
-	cp $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxyd/
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxyd/
 	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile .)
 

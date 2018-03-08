@@ -33,7 +33,7 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
-          "api_type": "REST_LEGACY",
+          "api_type": "GRPC",
           "refresh_delay": {"seconds": 3, "nanos": 0},
           "cluster_names": [
             "rds"
