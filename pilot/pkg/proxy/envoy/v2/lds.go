@@ -24,15 +24,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
+// StreamListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService_StreamListenersServer) error {
 	log.Info("StreamListeners")
 	ticker := time.NewTicker(responseTickDuration)
 	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := "Unknown peer address"
+	peerAddr := unknownPeerAddressStr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
@@ -94,6 +96,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	}
 }
 
+// FetchListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	log.Info("FetchListeners")
 	node, err := model.ParseServiceNode(in.Node.Id)
@@ -101,5 +104,5 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 		return nil, err
 	}
 	log.Debugf("LDSv2 request for %s.", node.ID)
-	return nil, errors.New("FetchListeners not implemented")
+	return nil, errors.New("function FetchListeners not implemented")
 }

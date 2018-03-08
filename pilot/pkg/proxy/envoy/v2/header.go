@@ -21,8 +21,9 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	google_protobuf "github.com/gogo/protobuf/types"
-	routing "istio.io/api/routing/v1alpha1"
+
 	networking "istio.io/api/networking/v1alpha3"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
@@ -50,7 +51,7 @@ func buildHTTPHeaderMatcher(matches *routing.MatchCondition) []*route.HeaderMatc
 	return out
 }
 
-func buildHTTPHeaderMatcherV2(match *networking.HTTPMatchRequest) []*route.HeaderMatcher {
+func buildHTTPHeaderMatcherV2(match *networking.HTTPMatchRequest) []*route.HeaderMatcher { // nolint
 	if match == nil {
 		return nil
 	}
@@ -104,7 +105,7 @@ func buildHeaderMatcher(name string, match *routing.StringMatch) *route.HeaderMa
 	return header
 }
 
-func buildHeaderMatcherV2(name string, match *networking.StringMatch) *route.HeaderMatcher {
+func buildHeaderMatcherV2(name string, match *networking.StringMatch) *route.HeaderMatcher { // nolint
 	header := &route.HeaderMatcher{Name: name}
 
 	switch m := match.MatchType.(type) {

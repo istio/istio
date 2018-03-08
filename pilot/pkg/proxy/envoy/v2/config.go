@@ -30,7 +30,8 @@ import (
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	google_protobuf "github.com/gogo/protobuf/types"
-	_ "github.com/golang/glog"
+	_ "github.com/golang/glog" // nolint
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -109,7 +110,8 @@ func buildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error)
 		if err != nil {
 			return clusters, err
 		}
-		services, err := env.Services()
+		var services []*model.Service
+		services, err = env.Services()
 		if err != nil {
 			return clusters, err
 		}
@@ -234,8 +236,7 @@ func buildSidecarListenersClusters(
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct {
-	// nolint: maligned
+type buildHTTPListenerOpts struct { // nolint: maligned
 	config           model.Config
 	env              model.Environment
 	mesh             *meshconfig.MeshConfig
@@ -328,7 +329,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 
 // consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
 // returns mesh policy.
-func consolidateAuthPolicy(mesh *meshconfig.MeshConfig, serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy {
+func consolidateAuthPolicy(mesh *meshconfig.MeshConfig, serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy { // nolint
 	if serviceAuthPolicy != meshconfig.AuthenticationPolicy_INHERIT {
 		return serviceAuthPolicy
 	}
@@ -799,7 +800,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	return listeners, clusters
 }
 
-func appendPortToDomains(domains []string, port int) []string {
+func appendPortToDomains(domains []string, port int) []string { // nolint
 	domainsWithPorts := make([]string, len(domains), 2*len(domains))
 	copy(domainsWithPorts, domains)
 
@@ -810,7 +811,7 @@ func appendPortToDomains(domains []string, port int) []string {
 	return domainsWithPorts
 }
 
-func buildEgressVirtualHost(serviceName string, destination string,
+func buildEgressVirtualHost(serviceName string, destination string, // nolint
 	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *v1.VirtualHost {
 	var externalTrafficCluster *v1.Cluster

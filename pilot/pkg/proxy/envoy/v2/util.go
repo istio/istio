@@ -20,9 +20,9 @@ import (
 	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
 	oldjson "encoding/json"
 
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 )
@@ -76,12 +76,12 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 }
 
 // protoDurationToTimeDuration converts d to time.Duration format.
-func protoDurationToTimeDuration(d *google_protobuf.Duration) time.Duration {
+func protoDurationToTimeDuration(d *google_protobuf.Duration) time.Duration { //nolint
 	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
 }
 
 // google_protobufToProto converts d to google protobuf Duration format.
-func durationToProto(d time.Duration) *google_protobuf.Duration {
+func durationToProto(d time.Duration) *google_protobuf.Duration { // nolint
 	nanos := d.Nanoseconds()
 	secs := nanos / 1e9
 	nanos -= secs * 1e9

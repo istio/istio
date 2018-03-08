@@ -23,8 +23,9 @@ import (
 	http_fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes"
-	"istio.io/istio/pilot/pkg/model"
+
 	routing "istio.io/api/routing/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // buildFaultFilters builds fault filters in v2 Envoy format for the given config, env and node.
@@ -100,7 +101,7 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *fault.FaultD
 	}
 }
 
-func buildHTTPFaultFilterV2(cluster string, faultRule *routing.HTTPFaultInjection, headers []*route.HeaderMatcher) *http_conn.HttpFilter {
+func buildHTTPFaultFilterV2(cluster string, faultRule *routing.HTTPFaultInjection, headers []*route.HeaderMatcher) *http_conn.HttpFilter { // nolint
 	abort := buildAbortConfigV2(faultRule.Abort)
 	delay := buildDelayConfigV2(faultRule.Delay)
 	if abort == nil && delay == nil {
@@ -120,7 +121,7 @@ func buildHTTPFaultFilterV2(cluster string, faultRule *routing.HTTPFaultInjectio
 	}
 }
 
-func buildAbortConfigV2(abortRule *routing.HTTPFaultInjection_Abort) *http_fault.FaultAbort {
+func buildAbortConfigV2(abortRule *routing.HTTPFaultInjection_Abort) *http_fault.FaultAbort { // nolint
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
 		return nil
 	}
@@ -136,7 +137,7 @@ func buildAbortConfigV2(abortRule *routing.HTTPFaultInjection_Abort) *http_fault
 	}
 }
 
-func buildDelayConfigV2(delayRule *routing.HTTPFaultInjection_Delay) *fault.FaultDelay {
+func buildDelayConfigV2(delayRule *routing.HTTPFaultInjection_Delay) *fault.FaultDelay { // nolint
 	if delayRule == nil {
 		return nil
 	}
@@ -148,7 +149,8 @@ func buildDelayConfigV2(delayRule *routing.HTTPFaultInjection_Delay) *fault.Faul
 
 	percent := int(delayRule.Percent)
 	if percent == 0 {
-		percent = 100 // default to 100 percent
+		// default to 100 percent
+		percent = 100 // nolint
 	}
 
 	return &fault.FaultDelay{

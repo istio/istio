@@ -22,6 +22,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"go.uber.org/zap"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -94,9 +95,9 @@ func buildPhysicalGatewayListener(
 		return listener
 	case "HTTP", "GRPC", "HTTP2":
 		listener := buildHTTPListener(opts)
-		if server.Tls != nil {
-			// TODO(mostrowski)	listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
-		}
+		//if server.Tls != nil {
+		// TODO(mostrowski)	listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
+		//}
 		return listener
 	case "TCP":
 		log.Warnf("TCP protocol support for Gateways is not yet implemented")
