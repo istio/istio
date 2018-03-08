@@ -113,6 +113,7 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
+		--auth=disable \
 		--core-files-dir=${OUT_DIR}/logs \
         --ns pilot-system-test \
         -n pilot-test \

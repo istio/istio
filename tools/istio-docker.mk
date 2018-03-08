@@ -88,13 +88,34 @@ $(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${I
 docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server \
             $(ISTIO_DOCKER)/cert.crt $(ISTIO_DOCKER)/cert.key
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
-docker.proxy: $(ISTIO_DOCKER)/envoy
-docker.proxy_debug: $(ISTIO_DOCKER)/envoy-debug
-$(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
+
+docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy: $(ISTIO_OUT)/envoy
+docker.proxy: $(ISTIO_OUT)/pilot-agent
+docker.proxy: pilot/docker/Dockerfile.proxy
+	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
+	cp pilot/docker/{envoy_pilot.json,envoy_pilot_auth.json,envoy_mixer.json,envoy_mixer_auth.json} $(ISTIO_DOCKER_BASE)/proxy/
+	cp pilot/docker/Dockerfile.proxy $(ISTIO_DOCKER_BASE)/proxy/Dockerfile
+	cp $(ISTIO_OUT)/envoy $(ISTIO_DOCKER_BASE)/proxy/
+	cp $(ISTIO_OUT)/pilot-agent $(ISTIO_DOCKER_BASE)/proxy/
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxy/
+	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile .)
+
+docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
+docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
+docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
+	mkdir -p $(ISTIO_DOCKER_BASE)/proxyd
+	cp pilot/docker/{envoy_pilot.json,envoy_pilot_auth.json,envoy_mixer.json,envoy_mixer_auth.json} $(ISTIO_DOCKER_BASE)/proxyd
+	cp pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/Dockerfile
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy-debug
+	cp $(ISTIO_OUT)/pilot-agent $(ISTIO_DOCKER_BASE)/proxyd/
+	cp $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json $(ISTIO_DOCKER_BASE)/proxyd/
+	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
+		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER_BASE)/pilot
@@ -103,8 +124,8 @@ docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	time (cd $(ISTIO_DOCKER_BASE)/pilot && \
 		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile .)
 
-PILOT_DOCKER:=docker.app docker.eurekamirror docker.proxy \
-              docker.proxy_debug docker.proxy_init docker.sidecar_injector
+PILOT_DOCKER:=docker.app docker.eurekamirror \
+              docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
