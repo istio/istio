@@ -52,7 +52,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
@@ -90,7 +90,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
@@ -128,7 +128,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -167,7 +167,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -208,16 +208,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run:
-          command: |
-            mkdir -p /go/out/tests
-            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
-            # Run the tests in env similar with recommended setup.
-            make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
-               | tee -a /go/out/tests/go-test-report.out
+      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -237,7 +231,7 @@ jobs:
           path: /go/out/tests
 
 
-  e2e-pilot-noauth:
+  e2e-pilot-auth:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -264,12 +258,18 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=false -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-pilot-v1alpha1-and-v1alpha3:
     <<: *integrationDefaults
@@ -300,7 +300,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=true -v1alpha3=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
@@ -496,7 +496,7 @@ jobs:
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              make docker push
+              make docker.all push
             fi
 
   goxbuild:
@@ -551,7 +551,7 @@ workflows:
       - e2e-pilot:
           requires:
             - test
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - test
       - benchcheck:
@@ -567,7 +567,7 @@ workflows:
           requires:
             - e2e-simple
             - e2e-pilot
-            - e2e-pilot-noauth
+            - e2e-pilot-auth
 
   periodic:
     triggers:
@@ -598,7 +598,7 @@ workflows:
       - e2e-pilot-v1alpha1-and-v1alpha3:
           requires:
             - build
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - build
       - benchcheck:
@@ -644,7 +644,7 @@ workflows:
       - e2e-pilot:
           requires:
             - build
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - build
       - e2e-simple:

@@ -21,10 +21,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 )
@@ -34,6 +37,14 @@ const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
 	statusField = 2
+)
+
+var (
+	logDumpResources = []string{
+		"pod",
+		"service",
+		"ingress",
+	}
 )
 
 // Fill complete a template with given values and generate a new output file
@@ -276,4 +287,78 @@ func CheckPodsRunning(n string) (ready bool) {
 	}
 	log.Info("Get all pods running!")
 	return true
+}
+
+// FetchAndSaveClusterLogs will dump the logs for a cluster.
+func FetchAndSaveClusterLogs(namespace string, tempDir string) error {
+	var multiErr error
+	fetchAndWrite := func(pod string) error {
+		cmd := fmt.Sprintf(
+			"kubectl get pods -n %s %s -o jsonpath={.spec.containers[*].name}", namespace, pod)
+		containersString, err := Shell(cmd)
+		if err != nil {
+			return err
+		}
+		containers := strings.Split(containersString, " ")
+		for _, container := range containers {
+			filePath := filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.log", pod, container))
+			f, err := os.Create(filePath)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err = f.Close(); err != nil {
+					log.Warnf("Error during closing file: %v\n", err)
+				}
+			}()
+			dump, err := ShellMuteOutput(
+				fmt.Sprintf("kubectl logs %s -n %s -c %s", pod, namespace, container))
+			if err != nil {
+				return err
+			}
+			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	_, err := Shell("kubectl get ingress --all-namespaces")
+	if err != nil {
+		return err
+	}
+	lines, err := Shell("kubectl get pods -n " + namespace)
+	if err != nil {
+		return err
+	}
+	pods := strings.Split(lines, "\n")
+	if len(pods) > 1 {
+		for _, line := range pods[1:] {
+			if idxEndOfPodName := strings.Index(line, " "); idxEndOfPodName > 0 {
+				pod := line[:idxEndOfPodName]
+				log.Infof("Fetching logs on %s", pod)
+				if err := fetchAndWrite(pod); err != nil {
+					multiErr = multierror.Append(multiErr, err)
+				}
+			}
+		}
+	}
+
+	for _, resrc := range logDumpResources {
+		log.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
+		filePath := filepath.Join(tempDir, fmt.Sprintf("%s.yaml", resrc))
+		if yaml, err0 := ShellMuteOutput(
+			fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
+			multiErr = multierror.Append(multiErr, err0)
+		} else {
+			if f, err1 := os.Create(filePath); err1 != nil {
+				multiErr = multierror.Append(multiErr, err1)
+			} else {
+				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+					multiErr = multierror.Append(multiErr, err2)
+				}
+			}
+		}
+	}
+	return multiErr
 }
