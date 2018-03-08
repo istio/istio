@@ -52,7 +52,7 @@ func testInitStdIo() {
 	go func() {
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, r); err != nil {
-		  return fmt.Errorf("Failed to copy with error %v", err)
+			fmt.Errorf("failed to copy with error %v", err)
 		}
 		outC <- buf.String()
 	}()
