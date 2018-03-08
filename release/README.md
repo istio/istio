@@ -27,7 +27,8 @@ bugs.
 
 ## Daily Releases
 
-Every day, a new release is automatically built and made available at http://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
+Every day, a new release is automatically built and made available at 
+https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
 after it passes the automatic daily release tests. You can find more details about daily releases at
 https://github.com/istio/istio/wiki/Daily-builds.
 
