@@ -631,9 +631,6 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-      - e2e-simple-auth:
-          requires:
-            - build
 
   all:
     jobs:
