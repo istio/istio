@@ -214,8 +214,7 @@
               "port_value": 8080
             }
           }
-        ],
-        "http2_protocol_options": { }
+        ]
       },
       {
         "name": "pilot_grpc",
@@ -232,8 +231,7 @@
               "port_value": 15010
             }
           }
-        ],
-        "http2_protocol_options": { }
+        ]
       }
     ]
   }
