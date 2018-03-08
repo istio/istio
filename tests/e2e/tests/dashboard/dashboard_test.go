@@ -19,6 +19,7 @@ package dashboard
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -323,6 +324,10 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 }
 
 func (p *promProxy) Setup() error {
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return errors.New("could not establish port-forward to prometheus: pods not running")
+	}
+
 	return p.portForward("app=prometheus", prometheusPort, prometheusPort)
 }
 
@@ -357,5 +362,5 @@ func getPodList(namespace string, selector string) ([]string, error) {
 }
 
 func allowPrometheusSync() {
-	time.Sleep(30 * time.Second)
+	time.Sleep(1 * time.Minute)
 }
