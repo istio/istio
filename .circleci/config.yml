@@ -211,13 +211,7 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run:
-          command: |
-            mkdir -p /go/out/tests
-            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
-            # Run the tests in env similar with recommended setup.
-            make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
-               | tee -a /go/out/tests/go-test-report.out
+      - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -267,15 +261,15 @@ jobs:
             make docker.tag generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run:
-          command: |
-            mkdir -p /go/out/tests
-            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
-            # Run the tests in env similar with recommended setup.
-            make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
-               | tee -a /go/out/tests/go-test-report.out
+      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-pilot-v1alpha1-and-v1alpha3:
     <<: *integrationDefaults

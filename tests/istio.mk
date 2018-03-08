@@ -93,6 +93,7 @@ e2e_pilot_noauth: istioctl generate_yaml
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/auth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${OUT_DIR}/tests
 	kubectl create ns pilot-auth-system || true
 	kubectl create ns pilot-auth-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
@@ -104,11 +105,13 @@ test/minikube/auth/e2e_pilot: istioctl
 		--auth_enable=true \
         --ns pilot-auth-system \
         -n pilot-auth-test \
-           ${TESTOPTS}
+           ${TESTOPTS} |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/go-test-report.xml)
+
 
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/noauth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
 	kubectl create ns pilot-system-test || true
 	kubectl create ns pilot-test || true
@@ -121,4 +124,4 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--core-files-dir=${OUT_DIR}/logs \
         --ns pilot-system-test \
         -n pilot-test \
-           ${TESTOPTS}
+           ${TESTOPTS} |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/go-test-report.xml)
