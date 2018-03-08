@@ -184,6 +184,7 @@ func TestIngressController(t *testing.T) {
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
 	count := make(chan bool)
+	//defer close(count)
 
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
 		count <- true
@@ -193,16 +194,22 @@ func TestIngressController(t *testing.T) {
 	if _, err := cl.ExtensionsV1beta1().Ingresses(nginxIngress.Namespace).Create(&nginxIngress); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", nginxIngress.Namespace, err)
 	}
-
 	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
 	if _, err := cl.ExtensionsV1beta1().Ingresses(namespace).Create(&ingress); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", namespace, err)
 	}
 
 	const expectedRuleCount = 5
+	timeout := time.After(3 * time.Second)
 	actual := 0
-	for range count {
-		actual++
+	for {
+		select {
+		case <-count:
+			actual++
+		case <-timeout:
+			t.Fatalf("timeout waiting to receive expected rule count %d, actually received %d",
+				expectedRuleCount, actual)
+		}
 		if actual == expectedRuleCount {
 			break
 		}
