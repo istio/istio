@@ -37,7 +37,7 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap&, bool) {
   ENVOY_LOG(debug, "AuthenticationFilter: {} config.peers_size()={}", __func__,
             peer_size);
   if (peer_size > 0) {
-    const ::istio::authentication::v1alpha1::Mechanism& m = config_.peers()[0];
+    const auto& m = config_.peers()[0];
     if (m.has_mtls()) {
       ENVOY_LOG(debug, "AuthenticationFilter: {} this connection requires mTLS",
                 __func__);
