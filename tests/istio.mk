@@ -159,4 +159,4 @@ test/minikube/auth/e2e_pilot_alpha1: istioctl
 		--core-files-dir=${OUT_DIR}/logs \
         --ns pilot-auth-system \
         -n pilot-test \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-v1-pilot.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
