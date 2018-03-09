@@ -167,7 +167,7 @@ func GetIngress(n string) (string, error) {
 	}
 	log.Info("Waiting for istio-ingress to get external IP")
 	if _, err := retry.Retry(retryFn); err != nil {
-		return err
+		return "", err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
