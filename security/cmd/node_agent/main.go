@@ -57,8 +57,10 @@ func init() {
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
-	flags.StringVar(&naConfig.Env, "env", "unspecified",
-		"Node Environment : unspecified | onprem | gcp | aws")
+
+	// Flag `env` determins how NodwAgent runs.
+	flags.StringVar(&naConfig.Env, "env", "vm",
+		"Node Environment : vm | k8s")
 
 	flags.StringVar(&naConfig.CertChainFile, "cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
@@ -72,9 +74,15 @@ func init() {
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(-1)
+	if naConfig.Env == "vm" {
+		if err := rootCmd.Execute(); err != nil {
+			log.Errora(err)
+			os.Exit(-1)
+		}
+	} else if naConfig.Env == "k8s" {
+		os.Fatalf("WIP support for k8s environment...")
+	} else {
+		os.Fatalf("Node Agent is not supported on environment %v yet, supported environment list: vm", naConfig.Env)
 	}
 }
 
