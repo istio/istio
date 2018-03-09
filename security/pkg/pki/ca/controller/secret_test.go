@@ -112,7 +112,7 @@ func TestSecretController(t *testing.T) {
 		}
 
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+			client.CoreV1(), metav1.NamespaceAll, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -143,7 +143,7 @@ func TestSecretController(t *testing.T) {
 func TestRecoverFromDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-		client.CoreV1(), metav1.NamespaceAll)
+		client.CoreV1(), metav1.NamespaceAll, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestUpdateSecret(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour, tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+			client.CoreV1(), metav1.NamespaceAll, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}

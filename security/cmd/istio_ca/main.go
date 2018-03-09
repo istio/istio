@@ -61,6 +61,11 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
+
+	// ServiceAccount/DNS pair for generating DNS names in certificates.
+	// TODO: move it to a configmap later when we have more services to support.
+	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
+	sidecarInjectorSvc        = "istio-sidecar-injector"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -97,6 +102,9 @@ type cliOptions struct { // nolint: maligned
 	probeCheckInterval   time.Duration
 
 	loggingOptions *log.Options
+
+	// Whether to append DNS names to the certificate
+	appendDNSNames bool
 }
 
 var (
@@ -183,6 +191,9 @@ func init() {
 	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", defaultProbeCheckInterval,
 		"Interval of checking the liveness of the CA.")
 
+	flags.BoolVar(&opts.appendDNSNames, "append-dns-names", true,
+		"Append DNS names to the certificates for webhook services.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -220,11 +231,17 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
+	var webhooks map[string]string
+	if opts.appendDNSNames {
+		webhooks = make(map[string]string)
+		webhooks[sidecarInjectorSvcAccount] = sidecarInjectorSvc
+	}
+
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
-		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace)
+		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("failed to create secret controller: %v", err)
 	}

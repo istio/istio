@@ -70,6 +70,9 @@ type SecretController struct {
 	gracePeriodRatio float32
 	minGracePeriod   time.Duration
 
+	// Webhook service account/service pair
+	webhookServiceMap map[string]string
+
 	// Controller and store for service account objects.
 	saController cache.Controller
 	saStore      cache.Store
@@ -81,7 +84,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string) (*SecretController, error) {
+	core corev1.CoreV1Interface, namespace string, webhooks map[string]string) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -92,11 +95,12 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 	}
 
 	c := &SecretController{
-		ca:               ca,
-		certTTL:          certTTL,
-		gracePeriodRatio: gracePeriodRatio,
-		minGracePeriod:   minGracePeriod,
-		core:             core,
+		ca:                ca,
+		certTTL:           certTTL,
+		gracePeriodRatio:  gracePeriodRatio,
+		minGracePeriod:    minGracePeriod,
+		core:              core,
+		webhookServiceMap: webhooks,
 	}
 
 	saLW := &cache.ListWatch{
@@ -258,6 +262,11 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
+	if sc.webhookServiceMap != nil {
+		if svc, ok := sc.webhookServiceMap[saName]; ok {
+			id += "," + fmt.Sprintf("%s.%s.svc", svc, saNamespace)
+		}
+	}
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
