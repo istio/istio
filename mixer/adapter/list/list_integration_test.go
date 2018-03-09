@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	adapter2 "istio.io/istio/mixer/pkg/adapter"
-	adapter_e2e "istio.io/istio/mixer/pkg/adapter/test"
+	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template"
 )
 
@@ -33,7 +33,7 @@ spec:
   overrides: ["src1", "src2"]
   blacklist: false
 `
-	i1_val_src_name = `
+	i1_val_src_name_attr = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: listentry
 metadata:
@@ -57,51 +57,50 @@ spec:
 )
 
 func TestReport(t *testing.T) {
-	adapter_e2e.AdapterIntegrationTest(
+	adapter_integration.AdapterIntegrationTest(
 		t,
 		[]adapter2.InfoFn{GetInfo},
 		template.SupportedTmplInfo,
-		nil, nil,
-		func(ctx interface{}) (interface{}, error) { return nil, nil },
-		adapter_e2e.TestCase{
-			Calls: []adapter_e2e.Call{
+		nil, /*no setup*/
+		nil, /*no teardown*/
+		nil, /*no adapter specific state to test*/
+		adapter_integration.TestCase{
+			ParallelCalls: []adapter_integration.Call{
 				{
-					CallKind: adapter_e2e.CHECK,
+					CallKind: adapter_integration.CHECK,
 					Attrs:    map[string]interface{}{"source.name": "src1"},
 				},
 				{
-					CallKind: adapter_e2e.CHECK,
+					CallKind: adapter_integration.CHECK,
 				},
 			},
 			Cfgs: []string{
 				h1_override_src1src2,
 				r1_h1_i1,
-				i1_val_src_name,
+				i1_val_src_name_attr,
 			},
-			Want: `
-					{
-		 				"AdapterState": null,
-		 				"Returns": {
-		 				 "0": {
-		 				  "Check": {
-		 				   "Status": {},
-		 				   "ValidDuration": 300000000000,
-		 				   "ValidUseCount": 10000
-		 				  }
-		 				 },
-		 				 "1": {
-		 				  "Check": {
-		 				   "Status": {
-		 				    "code": 5,
-		 				    "message": "staticversion.listchecker.istio-system: is not whitelisted"
-		 				   },
-		 				   "ValidDuration": 300000000000,
-		 				   "ValidUseCount": 10000
-		 				  }
-		 				 }
-		 				}
-					}
-                `,
+			Want: `{
+            "AdapterState": null,
+            "Returns": [
+             {
+              "Check": {
+                "Status": {},
+                "ValidDuration": 300000000000,
+                "ValidUseCount": 10000
+              }
+             },
+             {
+              "Check": {
+               "Status": {
+                "code": 5,
+                "message": "staticversion.listchecker.istio-system: is not whitelisted"
+               },
+               "ValidDuration": 300000000000,
+               "ValidUseCount": 10000
+              }
+             }
+            ]
+            }`,
 		},
 	)
 }

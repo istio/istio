@@ -20,8 +20,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/prom2json"
 
-	adapter2 "istio.io/istio/mixer/pkg/adapter"
-	adapter_e2e "istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/adapter"
+	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template"
 )
 
@@ -30,13 +30,14 @@ const (
 )
 
 func TestReport(t *testing.T) {
-	adapter_e2e.AdapterIntegrationTest(
+	adapter_integration.AdapterIntegrationTest(
 		t,
-		[]adapter2.InfoFn{GetInfo},
+		[]adapter.InfoFn{GetInfo},
 		template.SupportedTmplInfo,
-		nil, nil,
+		nil, /*no setup*/
+		nil, /*no teardown*/
 		func(ctx interface{}) (interface{}, error) {
-			mfChan := make(chan *dto.MetricFamily, 1024)
+			mfChan := make(chan *dto.MetricFamily, 1)
 			go prom2json.FetchMetricFamilies(prometheusReportPort, mfChan, "", "", true)
 			result := []prom2json.Family{}
 			for mf := range mfChan {
@@ -45,13 +46,13 @@ func TestReport(t *testing.T) {
 			return result, nil
 		},
 
-		adapter_e2e.TestCase{
-			Calls: []adapter_e2e.Call{
+		adapter_integration.TestCase{
+			ParallelCalls: []adapter_integration.Call{
 				{
-					CallKind: adapter_e2e.REPORT,
+					CallKind: adapter_integration.REPORT,
 				},
 				{
-					CallKind: adapter_e2e.REPORT,
+					CallKind: adapter_integration.REPORT,
 				},
 			},
 
@@ -98,42 +99,42 @@ spec:
 			},
 
 			Want: `
-				{
-				 "AdapterState": [
-				  {
-				   "help": "request_count",
-				   "metrics": [
-				    {
-				     "labels": {
-				      "destination_service": "myservice",
-				      "response_code": "200"
-				     },
-				     "value": "2"
-				    }
-				   ],
-				   "name": "istio_request_count",
-				   "type": "COUNTER"
-				  }
-				 ],
-				 "Returns": {
-				  "0": {
-				   "Check": {
-				    "Status": {},
-				    "ValidDuration": 0,
-				    "ValidUseCount": 0
-				   },
-				   "Error": null
-				  },
-				  "1": {
-				   "Check": {
-				    "Status": {},
-				    "ValidDuration": 0,
-				    "ValidUseCount": 0
-				   },
-				   "Error": null
-				  }
-				 }
-				}`,
+            {
+             "AdapterState": [
+              {
+               "help": "request_count",
+               "metrics": [
+                {
+                 "labels": {
+                  "destination_service": "myservice",
+                  "response_code": "200"
+                 },
+                 "value": "2"
+                }
+               ],
+               "name": "istio_request_count",
+               "type": "COUNTER"
+              }
+             ],
+             "Returns": [
+              {
+               "Check": {
+                "Status": {},
+                "ValidDuration": 0,
+                "ValidUseCount": 0
+               },
+               "Error": null
+              },
+              {
+               "Check": {
+                "Status": {},
+                "ValidDuration": 0,
+                "ValidUseCount": 0
+               },
+               "Error": null
+              }
+             ]
+             }`,
 		},
 	)
 }

@@ -22,7 +22,7 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	adapter_e2e "istio.io/istio/mixer/pkg/adapter/test"
+	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template"
 )
 
@@ -88,11 +88,9 @@ spec:
 
 func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 	cases := map[string]struct {
-		attrs      map[string]interface{}
-		quotas     map[string]istio_mixer_v1.CheckRequest_QuotaParams
-		statusCode int32
-		expected   map[string]int64
-		want       string
+		attrs  map[string]interface{}
+		quotas map[string]istio_mixer_v1.CheckRequest_QuotaParams
+		want   string
 	}{
 		"Request 30 when 50 is available": {
 			attrs: map[string]interface{}{},
@@ -102,15 +100,11 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					BestEffort: true,
 				},
 			},
-			expected: map[string]int64{
-				"key1": 30,
-			},
-			statusCode: 0,
 			want: `
 			 {
 			  "AdapterState": null,
-			  "Returns": {
-			   "0": {
+			  "Returns": [
+			   {
 			    "Quota": {
 			 	"key1": {
 			 	 "ValidDuration": 30000000000,
@@ -118,7 +112,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 	}
 			    }
 			   }
-			  }
+			  ]
 			 }
 			`,
 		},
@@ -130,14 +124,10 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					BestEffort: true,
 				},
 			},
-			expected: map[string]int64{
-				"key2": 50,
-			},
-			statusCode: 0,
 			want: `
 			{
-			 "Returns": {
-			  "0": {
+			 "Returns": [
+			  {
 			   "Quota": {
 				"key2": {
 				 "ValidDuration": 30000000000,
@@ -145,7 +135,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 				}
 			   }
 			  }
-			 }
+			 ]
 			}
 			`,
 		},
@@ -157,14 +147,10 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					BestEffort: false,
 				},
 			},
-			expected: map[string]int64{
-				"key3": 0,
-			},
-			statusCode: 0,
 			want: `
 			{
-			 "Returns": {
-			  "0": {
+			 "Returns": [
+			  {
 			   "Quota": {
 			    "key3": {
 			     "ValidDuration": 0,
@@ -172,7 +158,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			    }
 			   }
 			  }
-			 }
+			 ]
 			}
 			`,
 		},
@@ -187,15 +173,11 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					BestEffort: true,
 				},
 			},
-			expected: map[string]int64{
-				"overridden": 12,
-			},
-			statusCode: 0,
 			want: `
 			{
 			 "AdapterState": null,
-			 "Returns": {
-			  "0": {
+			 "Returns": [
+			  {
 			   "Quota": {
 			    "overridden": {
 				 "ValidDuration": 30000000000,
@@ -203,7 +185,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			    }
 			   }
 			  }
-			 }
+			 ]
 			}
 			`,
 		},
@@ -220,7 +202,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 
 		t.Run(id, func(t *testing.T) {
-			adapter_e2e.AdapterIntegrationTest(
+			adapter_integration.AdapterIntegrationTest(
 				t,
 				[]adapter.InfoFn{GetInfo},
 				template.SupportedTmplInfo,
@@ -234,10 +216,10 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					ctx.(*miniredis.Miniredis).Close()
 				},
 				func(ctx interface{}) (interface{}, error) { return nil, nil },
-				adapter_e2e.TestCase{
-					Calls: []adapter_e2e.Call{
+				adapter_integration.TestCase{
+					ParallelCalls: []adapter_integration.Call{
 						{
-							CallKind: adapter_e2e.CHECK,
+							CallKind: adapter_integration.CHECK,
 							Attrs:    c.attrs,
 							Quotas:   c.quotas,
 						},
