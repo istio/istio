@@ -83,7 +83,10 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 			})
 		}
 	} else {
-		ns := data[namespace]
+		ns, exists := data[namespace]
+		if !exists {
+			return nil, nil
+		}
 		ns.Range(func(key, value interface{}) bool {
 			out = append(out, value.(model.Config))
 			return true
