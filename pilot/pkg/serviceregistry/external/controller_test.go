@@ -19,14 +19,12 @@ import (
 	"testing"
 	"time"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
-	resync          = 5 * time.Millisecond
-	notifyThreshold = resync * 10
+	notifyThreshold = 5 * time.Millisecond
 )
 
 // TODO: ensure this test is reliable (no timing issues) on different systems
@@ -36,7 +34,6 @@ func TestController(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
-	configStore := model.MakeIstioStore(configController)
 
 	countMutex := sync.Mutex{}
 	count := 0
@@ -54,7 +51,7 @@ func TestController(t *testing.T) {
 		return c
 	}
 
-	ctl := NewController(configStore, resync)
+	ctl := NewController(configController)
 	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
 	if err != nil {
 		t.Errorf("AppendInstanceHandler() => %q", err)
@@ -66,6 +63,7 @@ func TestController(t *testing.T) {
 	}
 
 	stop := make(chan struct{})
+	go configController.Run(stop)
 	go ctl.Run(stop)
 	defer close(stop)
 
@@ -81,23 +79,16 @@ func TestController(t *testing.T) {
 			Namespace: "default",
 			Domain:    "cluster.local",
 		},
-		Spec: &networking.ExternalService{
-			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
-				{Number: 80, Name: "http-number", Protocol: "http"},
-				{Number: 8080, Name: "http2-number", Protocol: "http2"},
-			},
-			Discovery: networking.ExternalService_NONE,
-		},
+		Spec: httpStatic,
 	}
 
-	_, err = store.Create(config)
+	_, err = configController.Create(config)
 	if err != nil {
 		t.Errorf("error occurred crearting ExternalService config: %v", err)
 	}
 
 	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 2 {
-		t.Errorf("got %d notifications from controller, want %d", count, 2)
+	if c := getCountAndReset(); c != 7 {
+		t.Errorf("got %d notifications from controller, want %d", c, 7)
 	}
 }

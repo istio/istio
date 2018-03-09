@@ -15,10 +15,7 @@
 package external
 
 import (
-	"reflect"
-	"sort"
-	"time"
-
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -26,20 +23,38 @@ type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
 
 type controller struct {
-	interval         time.Duration
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler
-	store            model.IstioConfigStore
+	configStore      model.ConfigStoreCache
 }
 
 // NewController instantiates a new ExternalServices controller
-func NewController(store model.IstioConfigStore, interval time.Duration) model.Controller {
-	return &controller{
-		interval:         interval,
+func NewController(configStore model.ConfigStoreCache) model.Controller {
+	c := &controller{
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
-		store:            store,
+		configStore:      configStore,
 	}
+
+	configStore.RegisterEventHandler(model.ExternalService.Type, func(config model.Config, event model.Event) {
+		externalSvc := config.Spec.(*networking.ExternalService)
+
+		services := convertService(externalSvc)
+		for _, handler := range c.serviceHandlers {
+			for _, service := range services {
+				go handler(service, event)
+			}
+		}
+
+		instances := convertInstances(externalSvc)
+		for _, handler := range c.instanceHandlers {
+			for _, instance := range instances {
+				go handler(instance, event)
+			}
+		}
+	})
+
+	return c
 }
 
 func (c *controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
@@ -52,50 +67,4 @@ func (c *controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func (c *controller) Run(stop <-chan struct{}) {
-	cachedConfigs := configs{}
-	ticker := time.NewTicker(c.interval)
-	for {
-		select {
-		case <-ticker.C:
-			externalServiceConfigs := c.store.ExternalServices()
-
-			newRecord := configs(externalServiceConfigs)
-			sort.Sort(newRecord)
-
-			if !reflect.DeepEqual(newRecord, cachedConfigs) {
-				cachedConfigs = newRecord
-				// TODO: feed with real events.
-				// The handlers are being fed dummy events. This is sufficient with simplistic
-				// handlers that invalidate the cache on any event but will not work with smarter
-				// handlers.
-				for _, h := range c.serviceHandlers {
-					go h(&model.Service{}, model.EventAdd)
-				}
-				for _, h := range c.instanceHandlers {
-					go h(&model.ServiceInstance{}, model.EventAdd)
-				}
-			}
-		case <-stop:
-			ticker.Stop()
-			return
-		}
-	}
-}
-
-type configs []model.Config
-
-// Len of the array
-func (c configs) Len() int {
-	return len(c)
-}
-
-// Swap i and j
-func (c configs) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-// Less i and j
-func (c configs) Less(i, j int) bool {
-	return c[i].Name < c[j].Name
-}
+func (c *controller) Run(stop <-chan struct{}) {}
