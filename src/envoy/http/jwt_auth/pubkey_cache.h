@@ -27,6 +27,12 @@ namespace JwtAuth {
 namespace {
 // Default cache expiration time in 5 minutes.
 const int kPubkeyCacheExpirationSec = 600;
+
+// HTTP Protocol scheme prefix in JWT aud claim.
+const std::string kHTTPSchemePrefix("http://");
+
+// HTTPS Protocol scheme prefix in JWT aud claim.
+const std::string kHTTPSSchemePrefix("https://");
 }  // namespace
 
 // Struct to hold an issuer cache item.
@@ -35,7 +41,7 @@ class PubkeyCacheItem {
   PubkeyCacheItem(const Config::JWT& jwt_config) : jwt_config_(jwt_config) {
     // Convert proto repeated fields to std::set.
     for (const auto& aud : jwt_config_.audiences()) {
-      audiences_.insert(aud);
+      audiences_.insert(SanitizeAudience(aud));
     }
   }
 
@@ -56,7 +62,7 @@ class PubkeyCacheItem {
       return true;
     }
     for (const auto& aud : jwt_audiences) {
-      if (audiences_.find(aud) != audiences_.end()) {
+      if (audiences_.find(SanitizeAudience(aud)) != audiences_.end()) {
         return true;
       }
     }
@@ -83,6 +89,32 @@ class PubkeyCacheItem {
   }
 
  private:
+  // Searches protocol scheme prefix and trailing slash from aud, and
+  // returns aud without these prefix and suffix.
+  std::string SanitizeAudience(const std::string& aud) {
+    int beg = 0;
+    int end = aud.length() - 1;
+    bool sanitize_aud = false;
+    // Point beg to first character after protocol scheme prefix in audience.
+    if (aud.compare(0, kHTTPSchemePrefix.length(), kHTTPSchemePrefix) == 0) {
+      beg = kHTTPSchemePrefix.length();
+      sanitize_aud = true;
+    } else if (aud.compare(0, kHTTPSSchemePrefix.length(),
+                           kHTTPSSchemePrefix) == 0) {
+      beg = kHTTPSSchemePrefix.length();
+      sanitize_aud = true;
+    }
+    // Point end to trailing slash in aud.
+    if (end >= 0 && aud[end] == '/') {
+      --end;
+      sanitize_aud = true;
+    }
+    if (sanitize_aud) {
+      return aud.substr(beg, end - beg + 1);
+    }
+    return aud;
+  }
+
   // The issuer config
   const Config::JWT& jwt_config_;
   // Use set for fast lookup
