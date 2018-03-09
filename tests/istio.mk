@@ -115,7 +115,8 @@ test/minikube/auth/e2e_pilot: istioctl
 		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
-		--core-files-dir=${OUT_DIR}/logs \
+		-v1alpha3=true -v1alpha1=false \
+        --core-files-dir=${OUT_DIR}/logs \
 		--auth_enable=true \
 		--ns pilot-auth-system \
 		-n pilot-auth-test \
@@ -137,12 +138,12 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--auth_enable=false \
 		-v1alpha3=true -v1alpha1=false \
 		--core-files-dir=${OUT_DIR}/logs \
-        	--ns pilot-system-test \
-        	-n pilot-test \
+        	--ns pilot-noauth-system \
+        	-n pilot-noauth \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot_legacy: istioctl
+test/minikube/auth/e2e_pilot_alpha1: istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
@@ -153,9 +154,9 @@ test/minikube/noauth/e2e_pilot_legacy: istioctl
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
-		--auth_enable=false \
+		--auth_enable=true \
 		-v1alpha3=false -v1alpha1=true \
 		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-system-test \
+        --ns pilot-auth-system \
         -n pilot-test \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-v1-pilot.raw
