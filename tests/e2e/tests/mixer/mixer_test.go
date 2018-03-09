@@ -66,8 +66,6 @@ const (
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
-
-	httpOK = "200"
 )
 
 type testConfig struct {
@@ -504,7 +502,7 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", httpOK)
+		return visitWithApp(url, pod, "sleep", http.StatusText(http.StatusOK))
 	}
 	testCheckCache(t, visit)
 }
