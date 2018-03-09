@@ -55,7 +55,7 @@ jobs:
             make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+      - run: make test/minikube/noauth/e2e_simple
       - run:
           name: dumpsys
           when: always
@@ -63,15 +63,16 @@ jobs:
             # TODO: move to a make target 'dumpsys'.
             kubectl get all -o wide --all-namespaces
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
-            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml
+            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-simple.raw > /go/out/tests/test-report-noauth-simple.xml
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
       - store_artifacts:
           path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-dashboard:
     <<: *integrationDefaults
