@@ -159,6 +159,77 @@ to one of the Fortio echo servers:
 Fortio provides additional load testing capabilities not covered by this document. For more information, refer to the
 [Fortio documentation](https://github.com/istio/fortio/blob/master/README.md)
 
+### Canonical Tests
+
+There is a set of canonical tests in ```run_canonical_perf_tests.sh``` script that runs tests by changing parameters in
+various dimensions:
+- Number of clients
+- QPS
+- Cached v.s. non-cached
+
+If you have a change that you think might affect performance, then you can run these tests to check the affects.
+
+To establish a baseline, simply deploy a perf cluster using the instructions above. Then run
+```run_canonical_perf_tests.sh``` to establish the baseline. You will see output that looks like this:
+
+```
+> run_canonical_perf_tests.sh
++++ In k8s istio ingress: http://<ip>/fortio1/fortio/ and fortio2
+Running 'canonical+fortio2+echo1+Q100+T1s+C16' and storing results in /tmp/istio_perf.cpxCcs/canonical_fortio2_echo1_Q100_T1s_C16.json
++++ In k8s istio ingress: http://<ip>/fortio1/fortio/ and fortio2
+Running 'canonical+fortio2+echo1+Q400+T1s+C16' and storing results in /tmp/istio_perf.cpxCcs/canonical_fortio2_echo1_Q400_T1s_C16.json
+...
+```
+
+You can check the Fortio UI of the respective drivers to see the results. Also, you can checkout the raw json files
+that gets stored in the temporary folder that is in the output above:
+
+```
+ls /tmp/istio_perf.cpxCcs/
+canonical_fortio2_echo1_Q1000_T1s_C16.json  canonical_fortio2_echo1_Q100_T1s_C20.json   canonical_fortio2_echo1_Q1200_T1s_C24.json  canonical_fortio2_echo1_Q400_T1s_C16.json
+canonical_fortio2_echo1_Q1000_T1s_C20.json  canonical_fortio2_echo1_Q100_T1s_C24.json   canonical_fortio2_echo1_Q1600_T1s_C16.json  canonical_fortio2_echo1_Q400_T1s_C20.json
+canonical_fortio2_echo1_Q1000_T1s_C24.json  canonical_fortio2_echo1_Q1200_T1s_C16.json  canonical_fortio2_echo1_Q1600_T1s_C20.json  canonical_fortio2_echo1_Q400_T1s_C24.json
+canonical_fortio2_echo1_Q100_T1s_C16.json   canonical_fortio2_echo1_Q1200_T1s_C20.json  canonical_fortio2_echo1_Q1600_T1s_C24.json  out.csv
+```
+
+You can run `fortio report -data-dir /tmp/istio_perf.cpxCcs/` to see all the results and graph them/compare them by visiting `http://localhost:8080`
+
+Alternatively, notice the ```out.csv``` file in the folder. This file contains all the data in the individual json files, and can be
+imported into a spreadsheet:
+
+
+```
+> cat /tmp/istio_perf.cpxCcs/out.csv
+Label,Driver,Target,qps,duration,clients,min,max,avg,p50,p75,p90,p99,p99.9
+canonical,fortio2,echo1,1200,1s,16,0.00243703,0.059164527,0.0134183966225,0.0108966942149,0.01594375,0.02405,0.048646875,0.0575867009348
+canonical,fortio2,echo1,1200,1s,24,0.003420898,0.086621239,0.0248239801951,0.0203296703297,0.0303731343284,0.0494375,0.080344304428,0.085993545542
+...
+```
+
+To test the affects of your change, simply update your cluster with your binaries by following the
+[Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) and rerun the tests again. To ensure
+you're tracking the results of your changes correctly, you can explicitly specify a label:
+
+```
+# Notice the "mylabel" parameter below:
+#
+> run_canonical_perf_tests.sh mylabel
++++ In k8s istio ingress: http://<ip>/fortio1/fortio/ and fortio2
+Running 'mylabel+fortio2+echo1+Q400+T1s+C16' and storing results in /tmp/istio_perf.0XuSIH/mylabel_fortio2_echo1_Q400_T1s_C16.json
++++ In k8s istio ingress: http://<ip>/fortio1/fortio/ and fortio2
+...
+```
+
+After the run, you can find the new results both in Fortio UI, and also in the temporary folder:
+
+```
+> ls /tmp/istio_perf.0XuSIH/
+mylabel_fortio2_echo1_Q1000_T1s_C16.json  mylabel_fortio2_echo1_Q100_T1s_C20.json   mylabel_fortio2_echo1_Q1200_T1s_C24.json  mylabel_fortio2_echo1_Q400_T1s_C16.json
+mylabel_fortio2_echo1_Q1000_T1s_C20.json  mylabel_fortio2_echo1_Q100_T1s_C24.json   mylabel_fortio2_echo1_Q1600_T1s_C16.json  mylabel_fortio2_echo1_Q400_T1s_C20.json
+mylabel_fortio2_echo1_Q1000_T1s_C24.json  mylabel_fortio2_echo1_Q1200_T1s_C16.json  mylabel_fortio2_echo1_Q1600_T1s_C20.json  mylabel_fortio2_echo1_Q400_T1s_C24.json
+mylabel_fortio2_echo1_Q100_T1s_C16.json   mylabel_fortio2_echo1_Q1200_T1s_C20.json  mylabel_fortio2_echo1_Q1600_T1s_C24.json  out.csv
+```
+
 ### Uninstall
 Use the `delete_all` function to remove everything done by the `setup_all` function. The following delete functions are used by
 `delete_all` and may be called individually:

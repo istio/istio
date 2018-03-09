@@ -60,7 +60,7 @@ The full list of configurable parameters is as follows:
 
 An example of an invocation where we want to deploy Jaeger instead of Zipkin would be:
 ```bash
-ansible-playbook main.yml -e '{"istio": {"jaeger": true}}'
+ansible-playbook main.yml -e '{"istio": {"addon": ["grafana","prometheus","jaeger","servicegraph"]}}'
 ```
 
 
