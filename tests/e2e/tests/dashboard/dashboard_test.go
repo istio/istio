@@ -75,8 +75,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestDashboards(t *testing.T) {
-	// dashboards := map[string]string{"Istio": istioDashboard, "Mixer": mixerDashboard}
-
 	cases := []struct {
 		name      string
 		dashboard string
@@ -140,7 +138,7 @@ func sendTrafficToCluster() (*fhttp.HTTPRunnerResults, error) {
 	return fhttp.RunHTTPTest(&opts)
 }
 
-func sendTCPTrafficToCluster() error {
+func generateTCPInCluster() error {
 	ns := tc.Kube.Namespace
 	ncPods, err := getPodList(ns, "app=netcat-client")
 	if err != nil {
@@ -275,7 +273,7 @@ func (t *testConfig) Setup() error {
 	}
 	t.promAPI = pAPI
 
-	if err := sendTCPTrafficToCluster(); err != nil {
+	if err := generateTCPInCluster(); err != nil {
 		return fmt.Errorf("generating TCP traffic failed: %v", err)
 	}
 
