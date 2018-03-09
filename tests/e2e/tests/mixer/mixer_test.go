@@ -18,6 +18,7 @@ package mixer
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
