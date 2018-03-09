@@ -55,6 +55,16 @@ func TestAuthenticate(t *testing.T) {
 			caller:             nil,
 			authenticateErrMsg: "no verified chain is found",
 		},
+		"Certificate has no SAN": {
+			certChain: [][]*x509.Certificate{
+				{
+					{
+						Version: 1,
+					},
+				},
+			},
+			authenticateErrMsg: "the SAN extension does not exist",
+		},
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
 				{
