@@ -25,11 +25,6 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	// AuthenticationFilterName is the name for filter
-	AuthenticationFilterName = "isiot_authn"
-)
-
 // getConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
 // If not, it generates and output a policy that is equivalent to the legacy flag
