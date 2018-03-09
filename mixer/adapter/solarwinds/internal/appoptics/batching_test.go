@@ -35,26 +35,36 @@ func TestBatchMeasurements(t *testing.T) {
 		prepChan := make(chan []*Measurement)
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
+		defer close(prepChan)
+		defer close(pushChan)
 
 		batchSize := 100
-
-		go BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
-
-		measurements := make([]*Measurement, 0)
-		for i := 0; i < batchSize+1; i++ {
-			measurements = append(measurements, &Measurement{})
-		}
-		prepChan <- measurements
-		count := 0
-		for range pushChan {
-			count++
-			if count == 1 {
-				break
+		go func() {
+			measurements := make([]*Measurement, 0)
+			for i := 0; i < batchSize+1; i++ {
+				measurements = append(measurements, new(Measurement))
 			}
-		}
-		stopChan <- struct{}{}
-		close(pushChan)
-		close(prepChan)
+			prepChan <- measurements
+			count := 0
+			timeout := time.After(time.Second)
+			for {
+				exit := false
+				select {
+				case <-pushChan:
+					count++
+				case <-timeout:
+					exit = true
+				}
+				if exit {
+					break
+				}
+			}
+			if count != 2 {
+				t.Errorf("Batching is not working properly. Expected batches is 2 but got %d", count)
+			}
+			stopChan <- struct{}{}
+		}()
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
 		close(stopChan)
 	})
 
@@ -66,15 +76,16 @@ func TestBatchMeasurements(t *testing.T) {
 		prepChan := make(chan []*Measurement)
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
+		defer close(prepChan)
+		defer close(pushChan)
+		defer close(stopChan)
+
 		batchSize := 100
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
 		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
-		close(prepChan)
-		close(pushChan)
-		close(stopChan)
 	})
 }
 
