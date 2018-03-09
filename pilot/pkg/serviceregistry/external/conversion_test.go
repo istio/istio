@@ -152,7 +152,7 @@ func makeService(hostname string, ports map[string]int) *model.Service {
 			Name:                 name,
 			Port:                 port,
 			Protocol:             convertPortNameToProtocol(name),
-			AuthenticationPolicy: mesh.AuthenticationPolicy_INHERIT,
+			AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
 		}
 		svcPorts = append(svcPorts, svcPort)
 	}
@@ -173,7 +173,7 @@ func makeInstance(externalSvc *networking.ExternalService, address string, port 
 				Name:                 svcPort.Name,
 				Port:                 int(svcPort.Number),
 				Protocol:             convertProtocol(svcPort.Protocol),
-				AuthenticationPolicy: mesh.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
 			},
 		},
 		Labels: model.Labels(labels),
@@ -186,7 +186,7 @@ func TestConvertService(t *testing.T) {
 		services    []*model.Service
 	}{
 		{
-			// single instance with multiple ports
+			// external service http
 			externalSvc: httpNone,
 			services: []*model.Service{makeService("*.google.com",
 				map[string]int{"http-number": 80, "http2-number": 8080}),

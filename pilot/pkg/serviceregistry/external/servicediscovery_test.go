@@ -75,7 +75,6 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 func TestServiceDiscoveryGetService(t *testing.T) {
 	host := "*.google.com"
-	//hostAlt := "foo.bar.local"
 	hostDNE := "does.not.exist.local"
 
 	store := initConfigStore()
@@ -109,19 +108,12 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 	createExternalServices([]*networking.ExternalService{httpStatic, tcpStatic}, store, t)
 
-	expectedInstances := []*model.ServiceInstance{
-		makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Ports[0], nil),
-		makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Ports[1], nil),
-		makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Ports[0], nil),
-	}
-
 	instances, err := sd.GetProxyServiceInstances(model.Proxy{IPAddress: "2.2.2.2"})
 	if err != nil {
 		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	sortServiceInstances(instances)
-	sortServiceInstances(instances)
-	if err := compare(t, instances, expectedInstances); err != nil {
+
+	if len(instances) != 0 {
 		t.Error(err)
 	}
 }

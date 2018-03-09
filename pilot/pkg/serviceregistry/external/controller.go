@@ -29,16 +29,16 @@ type controller struct {
 	interval         time.Duration
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler
-	config           model.IstioConfigStore
+	store            model.IstioConfigStore
 }
 
-// NewController instantiates a new Eureka controller
-func NewController(config model.IstioConfigStore, interval time.Duration) model.Controller {
+// NewController instantiates a new ExternalServices controller
+func NewController(store model.IstioConfigStore, interval time.Duration) model.Controller {
 	return &controller{
 		interval:         interval,
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
-		config:           config,
+		store:            store,
 	}
 }
 
@@ -58,7 +58,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			externalServiceConfigs := c.config.ExternalServices()
+			externalServiceConfigs := c.store.ExternalServices()
 
 			newRecord := configs(externalServiceConfigs)
 			sort.Sort(newRecord)
