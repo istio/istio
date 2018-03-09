@@ -214,12 +214,13 @@ func (p *promProxy) Setup() error {
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
 		return errors.New("could not establish prometheus proxy: pods not running")
 	}
+
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
-	return err
+		return err
 	}
 
 	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
-	return err
+		return err
 	}
 
 	return p.portForward("app=productpage", productPagePort, "9080")
