@@ -114,7 +114,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	}
 
 	if len(instances) != 0 {
-		t.Error(err)
+		t.Error("ExternalService registry should never return something for GetProxyServiceInstances()")
 	}
 }
 
