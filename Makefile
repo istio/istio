@@ -109,12 +109,12 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
-ifeq ($(PROXY_TAG),)
-  export PROXY_TAG:=$(shell grep PROXY_TAG istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+ifeq ($(PROXY_REPO_SHA),)
+  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-ISTIO_ENVOY_VERSION ?= ${PROXY_TAG}
+ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 

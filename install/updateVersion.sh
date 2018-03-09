@@ -52,7 +52,7 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:n:p:x:c:a:h:r:P:d:D:m: arg; do
+while getopts :n:p:x:c:a:h:r:P:d:D:m: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
