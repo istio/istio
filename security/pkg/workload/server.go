@@ -201,13 +201,14 @@ func (s *SDSServer) DeregisterUdsPath(udsPath string) error {
 	s.udsServerMapGuard.Lock()
 	defer s.udsServerMapGuard.Unlock()
 
-	if udsServer, ok := s.udsServerMap[udsPath]; ok {
-		udsServer.GracefulStop()
-		delete(s.udsServerMap, udsPath)
-		log.Infof("Stopped the GRPC server on UDS path: %s", udsPath)
-	} else {
+	udsServer, ok := s.udsServerMap[udsPath]
+	if !ok {
 		return fmt.Errorf("udsPath is not registred: %s", udsPath)
 	}
+
+	udsServer.GracefulStop()
+	delete(s.udsServerMap, udsPath)
+	log.Infof("Stopped the GRPC server on UDS path: %s", udsPath)
 
 	return nil
 }
