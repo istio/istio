@@ -28,7 +28,6 @@ import (
 	"text/template"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/istio/pkg/log"
@@ -167,16 +166,14 @@ func GetIngress(n string) (string, error) {
 		return nil
 	}
 	log.Info("Waiting for istio-ingress to get external IP")
-	_, err := retry.Retry(retryFn)
-	if err != nil {
-		pods, _ := ShellMuteOutput("kubectl get all -n %s -o wide", n)
-		err = multierror.Prefix(err, pods)
+	if _, err := retry.Retry(retryFn); err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	client := &http.Client{Timeout: time.Duration(5 * time.Second)}
+	client := &http.Client{Timeout: 5 * time.Second}
 	for {
 		select {
 		case <-ctx.Done():
