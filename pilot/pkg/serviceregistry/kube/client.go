@@ -70,14 +70,25 @@ func ResolveConfig(kubeconfig string) (string, error) {
 
 // CreateInterface is a helper function to create Kubernetes interface
 func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
-	kube, err := ResolveConfig(kubeconfig)
-	if err != nil {
-		return nil, nil, err
-	}
+	var config *rest.Config
+	var err error
 
-	config, err := clientcmd.BuildConfigFromFlags("", kube)
-	if err != nil {
-		return nil, nil, err
+	kubeconfigenv := os.Getenv("KUBECONFIG")
+	if kubeconfig != "" || kubeconfigenv != "" {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		loadingRules.ExplicitPath = kubeconfig
+		config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			loadingRules, &clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		// switch to in-cluster config
+		log.Info("using in-cluster configuration")
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	client, err := kubernetes.NewForConfig(config)
