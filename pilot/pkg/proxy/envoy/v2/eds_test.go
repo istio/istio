@@ -63,7 +63,7 @@ func TestReconnect(t *testing.T) {
 	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
 		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
 	edsstr := connect(server, t)
-	_, _ := edsstr.Recv()
+	_, _ = edsstr.Recv()
 
 	// envoy restarts and reconnects
 	edsstr2 := connect(server, t)
