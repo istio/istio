@@ -19,14 +19,12 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 
 	"google.golang.org/grpc"
-
-	"net/http"
-
-	"net/url"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -41,6 +39,7 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -136,23 +135,31 @@ func newTestServer(globalCfg, serviceCfg string, useNewRuntime bool) (*Server, e
 }
 
 func TestBasic(t *testing.T) {
-	for i := 0; i < 2; i++ {
-		useNewRuntime := i == 0
+	runtimes := []struct {
+		name         string
+		useNewRutime bool
+	}{
+		{"old runtime", false},
+		{"new runtime", true},
+	}
 
-		s, err := newTestServer(globalCfg, serviceCfg, useNewRuntime)
-		if err != nil {
-			t.Fatalf("Unable to create server: %v", err)
-		}
+	for _, runtime := range runtimes {
+		t.Run(runtime.name, func(t *testing.T) {
+			s, err := newTestServer(globalCfg, serviceCfg, runtime.useNewRutime)
+			if err != nil {
+				t.Fatalf("Unable to create server: %v", err)
+			}
 
-		d := s.Dispatcher()
-		if d != s.dispatcher {
-			t.Fatalf("returned dispatcher is incorrect")
-		}
+			d := s.Dispatcher()
+			if d != s.dispatcher {
+				t.Fatalf("returned dispatcher is incorrect")
+			}
 
-		err = s.Close()
-		if err != nil {
-			t.Errorf("Got error during Close: %v", err)
-		}
+			err = s.Close()
+			if err != nil {
+				t.Errorf("Got error during Close: %v", err)
+			}
+		})
 	}
 }
 
@@ -209,6 +216,12 @@ func TestErrors(t *testing.T) {
 	a.TracingOptions.LogTraceSpans = true
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 
+	// This test is designed to exercise the many failure paths in the server creation
+	// code. This is mostly about replacing methods in the patch table with methods that
+	// return failures in order to make sure the failure recovery code is working right.
+	// There are also some cases that tweak some parameters to tickle particular execution paths.
+	// So for all these cases, we expect to get a failure when trying to create the server instance.
+
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			a.ConfigStore = configStore
@@ -243,6 +256,7 @@ func TestErrors(t *testing.T) {
 			case 5:
 				a.MonitoringPort = 1234
 				pt.listen = func(network string, address string) (net.Listener, error) {
+					// fail any net.Listen call that's not for the monitoring port.
 					if address != ":1234" {
 						return nil, errors.New("BAD")
 					}
@@ -251,6 +265,7 @@ func TestErrors(t *testing.T) {
 			case 6:
 				a.MonitoringPort = 1234
 				pt.listen = func(network string, address string) (net.Listener, error) {
+					// fail the net.Listen call that's for the monitoring port.
 					if address == ":1234" {
 						return nil, errors.New("BAD")
 					}
@@ -294,20 +309,30 @@ func TestMonitoringMux(t *testing.T) {
 	r := &http.Request{}
 	r.Method = "GET"
 	r.URL, _ = url.Parse("http://localhost/version")
-	rw := responseWriter{}
-	s.monitor.monitoringServer.Handler.ServeHTTP(&rw, r)
+	rw := &responseWriter{}
+
+	// this is exersizing the mux handler code in monitoring.go. The supplied rw is write to return
+	// an error which causes all code paths in the mux handler code to be visited.
+	s.monitor.monitoringServer.Handler.ServeHTTP(rw, r)
+
+	v := string(rw.payload)
+	if v != version.Info.String() {
+		t.Errorf("Got version %v, expecting %v", v, version.Info.String())
+	}
 
 	_ = s.Close()
 }
 
 type responseWriter struct {
+	payload []byte
 }
 
 func (rw *responseWriter) Header() http.Header {
 	return nil
 }
 
-func (rw *responseWriter) Write([]byte) (int, error) {
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	rw.payload = b
 	return -1, errors.New("BAD")
 }
 
