@@ -250,7 +250,12 @@
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
+    "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/redis_proxy/v2",
+    "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
     "pkg/cache",
     "pkg/log",
@@ -1503,6 +1508,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2106b34d6f69b01046166b52ddd199c759659030ce656eac7ef40fa56f4a624b"
+  inputs-digest = "79ae58a3fea3e68f3a7b0abd4f4ccf3752aba8134d4b9655817899313983de70"
   solver-name = "gps-cdcl"
   solver-version = 1
