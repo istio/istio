@@ -321,14 +321,16 @@ func CheckDeployment(ctx context.Context, namespace, deployment string) error {
 // CheckDeployments checks whether all deployment in a given namespace
 func CheckDeployments(namespace string, timeout time.Duration) error {
 	// wait for istio-system deployments to be fully rolled out before proceeding
-	deployments, err := ShellMuteOutput("kubectl -n %s get deployment -o name", namespace)
+	out, err := Shell("kubectl -n %s get deployment -o name", namespace)
 	if err != nil {
 		return fmt.Errorf("could not list deployments in namespace %q", namespace)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	g, ctx := errgroup.WithContext(ctx)
-	for _, deployment := range strings.Fields(deployments) {
+	deployments := strings.Fields(out)
+	for i := range deployments {
+		deployment := deployments[i]
 		g.Go(func() error { return CheckDeployment(ctx, namespace, deployment) })
 	}
 	return g.Wait()
