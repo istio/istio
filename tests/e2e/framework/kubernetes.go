@@ -18,7 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
