@@ -69,7 +69,7 @@ const (
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway  string
+
 	rulesDir string
 }
 
@@ -87,7 +87,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	t.gateway = "http://" + tc.Kube.Ingress
 	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -516,7 +515,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	t.Log("Sending traffic...")
 
-	url := fmt.Sprintf("%s/productpage", tc.gateway)
+	url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
@@ -734,7 +733,13 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
-	url := tc.gateway + "/productpage"
+
+	gateway, err := tc.Kube.Ingress()
+	if err != nil {
+		return err
+	}
+
+	url := gateway + "/productpage"
 
 	for {
 		status, _, err := get(clnt, url, headers...)

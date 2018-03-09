@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 func TestSimpleIngress(t *testing.T) {
 	// Tests the rewrite/dropping of the /fortio/ prefix as fortio only replies
 	// with "echo debug server ..." on the /debug uri.
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	log.Infof("Fetching '%s'", url)
 	attempts := 7 // should not take more than 1min45s to be live...
 	for i := 1; i <= attempts; i++ {

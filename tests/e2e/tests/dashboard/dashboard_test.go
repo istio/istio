@@ -122,7 +122,7 @@ func TestDashboards(t *testing.T) {
 	}
 }
 
-func sendTrafficToCluster() (*fhttp.HTTPRunnerResults, error) {
+func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
@@ -131,7 +131,7 @@ func sendTrafficToCluster() (*fhttp.HTTPRunnerResults, error) {
 			Out:        os.Stderr,
 		},
 		HTTPOptions: fhttp.HTTPOptions{
-			URL: "http://" + tc.Kube.Ingress + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
+			URL: gateway + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
 		},
 		AllowInitialErrors: true,
 	}
@@ -218,7 +218,6 @@ func promAPI() (v1.API, error) {
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway string
 	promAPI v1.API
 }
 
@@ -261,8 +260,7 @@ func setTestConfig() error {
 	return nil
 }
 
-func (t *testConfig) Setup() error {
-	t.gateway = "http://" + tc.Kube.Ingress
+func (t *testConfig) Setup() (err error) {
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
 		return fmt.Errorf("could not get all pods running")
 	}
@@ -277,7 +275,11 @@ func (t *testConfig) Setup() error {
 		return fmt.Errorf("generating TCP traffic failed: %v", err)
 	}
 
-	if _, err := sendTrafficToCluster(); err != nil {
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+	if _, err := sendTrafficToCluster(gateway); err != nil {
 		return fmt.Errorf("generating HTTP traffic failed: %v", err)
 	}
 
