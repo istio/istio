@@ -32,11 +32,19 @@ import (
 const expirationForTest = 10 * time.Millisecond
 const watchFlushDurationForTest = time.Millisecond
 
-func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *storetest.Memstore, chan struct{}, error) {
+type validatorCacheTestController struct {
+	c       *validatorCache
+	s       store.Store
+	m       *storetest.Memstore
+	donec   chan struct{}
+	updatec chan struct{}
+}
+
+func newValidatorCacheForTest() (*validatorCacheTestController, error) {
 	m := storetest.NewMemstore()
 	s := store.WithBackend(m)
 	if err := s.Init(map[string]proto.Message{config.RulesKind: &cpb.Rule{}, config.AttributeManifestKind: &cpb.AttributeManifest{}}); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	c := &validatorCache{
 		c:          cache.NewTTL(expirationForTest, expirationForTest*2),
@@ -44,14 +52,39 @@ func newValidatorCacheForTest(name string) (*validatorCache, store.Store, *store
 	}
 	wch, err := s.Watch()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
-	donec := make(chan struct{})
-	go store.WatchChanges(wch, donec, watchFlushDurationForTest, c.applyChanges)
-	return c, s, m, donec, nil
+	controller := &validatorCacheTestController{
+		c:       c,
+		s:       s,
+		m:       m,
+		donec:   make(chan struct{}),
+		updatec: make(chan struct{}, 100),
+	}
+	go store.WatchChanges(wch, controller.donec, watchFlushDurationForTest, controller.applyChanges)
+	return controller, nil
 }
 
-func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
+func (c *validatorCacheTestController) stop() {
+	close(c.donec)
+	c.s.Stop()
+}
+
+func (c *validatorCacheTestController) applyChanges(evs []*store.Event) {
+	c.c.applyChanges(evs)
+	select {
+	case c.updatec <- struct{}{}:
+	default:
+	}
+}
+
+func (c *validatorCacheTestController) invalidateCache(key store.Key) {
+	// To run the test deterministically, this does not sleep to the key goes away
+	// from the cache, instead removes the cached data explicitly.
+	c.c.c.Remove(key)
+}
+
+func (c *validatorCacheTestController) assertListKeys(t *testing.T, want ...store.Key) {
 	t.Helper()
 	if want == nil {
 		want = []store.Key{}
@@ -60,7 +93,7 @@ func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
 		return want[i].String() < want[j].String()
 	})
 	got := make([]store.Key, 0, len(want))
-	c.forEach(func(key store.Key, obj proto.Message) {
+	c.c.forEach(func(key store.Key, obj proto.Message) {
 		got = append(got, key)
 	})
 	sort.Slice(got, func(i, j int) bool {
@@ -71,9 +104,9 @@ func assertListKeys(t *testing.T, c *validatorCache, want ...store.Key) {
 	}
 }
 
-func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want proto.Message) {
+func (c *validatorCacheTestController) assertExpectedData(t *testing.T, key store.Key, want proto.Message) {
 	t.Helper()
-	got, ok := c.get(key)
+	got, ok := c.c.get(key)
 	if ok {
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("Got %+v, Want %+v", got, want)
@@ -84,46 +117,43 @@ func assertExpectedData(t *testing.T, c *validatorCache, key store.Key, want pro
 }
 
 func TestValidatorCache(t *testing.T) {
-	c, s, m, donec, err := newValidatorCacheForTest(t.Name())
+	c, err := newValidatorCacheForTest()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer close(donec)
-	defer s.Stop()
-	assertListKeys(t, c)
+	defer c.stop()
+	c.assertListKeys(t)
 	k1 := store.Key{Kind: config.RulesKind, Name: "foo", Namespace: "ns"}
 	r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}, Spec: map[string]interface{}{"match": "foo"}}
-	m.Put(r1)
-	time.Sleep(watchFlushDurationForTest * 2)
-	assertListKeys(t, c, k1)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "foo"})
+	c.m.Put(r1)
+	<-c.updatec
+	c.assertListKeys(t, k1)
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "foo"})
 
-	c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: &cpb.Rule{Match: "bar"}}})
-	time.Sleep(2 * time.Millisecond)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
-	time.Sleep(expirationForTest * 2)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "foo"})
+	c.c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: &cpb.Rule{Match: "bar"}}})
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "bar"})
+	c.invalidateCache(k1)
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "foo"})
 
-	c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: &cpb.Rule{Match: "bar"}}})
-	time.Sleep(2 * time.Millisecond)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
+	c.c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: &cpb.Rule{Match: "bar"}}})
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "bar"})
 	r1.Spec = map[string]interface{}{"match": "bar"}
-	m.Put(r1)
-	time.Sleep(expirationForTest * 2)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
+	c.m.Put(r1)
+	<-c.updatec
+	c.invalidateCache(k1)
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "bar"})
 
-	c.putCache(&store.Event{Key: k1, Type: store.Delete})
-	time.Sleep(2 * time.Millisecond)
-	assertExpectedData(t, c, k1, nil)
-	time.Sleep(expirationForTest * 2)
-	assertExpectedData(t, c, k1, &cpb.Rule{Match: "bar"})
+	c.c.putCache(&store.Event{Key: k1, Type: store.Delete})
+	c.assertExpectedData(t, k1, nil)
+	c.invalidateCache(k1)
+	c.assertExpectedData(t, k1, &cpb.Rule{Match: "bar"})
 
-	c.putCache(&store.Event{Key: k1, Type: store.Delete})
-	time.Sleep(2 * time.Millisecond)
-	assertExpectedData(t, c, k1, nil)
-	m.Delete(k1)
-	time.Sleep(expirationForTest * 2)
-	assertExpectedData(t, c, k1, nil)
+	c.c.putCache(&store.Event{Key: k1, Type: store.Delete})
+	c.assertExpectedData(t, k1, nil)
+	c.m.Delete(k1)
+	<-c.updatec
+	c.invalidateCache(k1)
+	c.assertExpectedData(t, k1, nil)
 }
 
 func TestValidatorCacheDoubleEdits(t *testing.T) {
@@ -132,28 +162,26 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 	base := &cpb.Rule{Match: "base"}
 	k1 := store.Key{Kind: config.RulesKind, Name: "foo", Namespace: "ns"}
 	meta1 := store.ResourceMeta{Name: k1.Name, Namespace: k1.Namespace}
-	setWait := func(tt *testing.T, c *validatorCache, data proto.Message) {
-		// tt.Helper()
-		c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: data}})
-		time.Sleep(2 * time.Millisecond)
-		assertExpectedData(tt, c, k1, data)
+	setWait := func(tt *testing.T, c *validatorCacheTestController, data proto.Message) {
+		tt.Helper()
+		c.c.putCache(&store.Event{Key: k1, Type: store.Update, Value: &store.Resource{Spec: data}})
+		c.assertExpectedData(tt, k1, data)
 	}
-	delWait := func(tt *testing.T, c *validatorCache) {
+	delWait := func(tt *testing.T, c *validatorCacheTestController) {
 		// tt.Helper()
-		c.putCache(&store.Event{Key: k1, Type: store.Delete})
-		time.Sleep(2 * time.Millisecond)
-		assertExpectedData(tt, c, k1, nil)
+		c.c.putCache(&store.Event{Key: k1, Type: store.Delete})
+		c.assertExpectedData(tt, k1, nil)
 	}
 
 	for _, cc := range []struct {
 		title   string
-		prepare func(tt *testing.T, c *validatorCache)
+		prepare func(tt *testing.T, c *validatorCacheTestController)
 		op      func(tt *testing.T, m *storetest.Memstore)
 		want    proto.Message
 	}{
 		{
 			"put-put-1",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				setWait(tt, c, spec2)
 			},
@@ -162,7 +190,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"put-put-2",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				setWait(tt, c, spec2)
 			},
@@ -175,7 +203,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"put-put-3",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				setWait(tt, c, spec2)
 			},
@@ -188,7 +216,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"put-delete-1",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				delWait(tt, c)
 			},
@@ -197,7 +225,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"put-delete-2",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				delWait(tt, c)
 			},
@@ -208,7 +236,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"put-delete-3",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				setWait(tt, c, spec1)
 				delWait(tt, c)
 			},
@@ -221,7 +249,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"delete-put-1",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				delWait(tt, c)
 				setWait(tt, c, spec1)
 			},
@@ -230,7 +258,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"delete-put-2",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				delWait(tt, c)
 				setWait(tt, c, spec1)
 			},
@@ -241,7 +269,7 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 		{
 			"delete-put-3",
-			func(tt *testing.T, c *validatorCache) {
+			func(tt *testing.T, c *validatorCacheTestController) {
 				delWait(tt, c)
 				setWait(tt, c, spec1)
 			},
@@ -254,24 +282,24 @@ func TestValidatorCacheDoubleEdits(t *testing.T) {
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
-			c, s, m, donec, err := newValidatorCacheForTest(t.Name())
+			c, err := newValidatorCacheForTest()
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer close(donec)
-			defer s.Stop()
+			defer c.stop()
 
 			r1 := &store.BackEndResource{Kind: k1.Kind, Metadata: meta1, Spec: map[string]interface{}{"match": "base"}}
-			m.Put(r1)
-			time.Sleep(watchFlushDurationForTest * 2)
-			assertExpectedData(tt, c, k1, base)
+			c.m.Put(r1)
+			<-c.updatec
+			c.assertExpectedData(tt, k1, base)
 
 			cc.prepare(tt, c)
 			if cc.op != nil {
-				cc.op(tt, m)
+				cc.op(tt, c.m)
+				<-c.updatec
 			}
-			time.Sleep(expirationForTest * 2)
-			assertExpectedData(tt, c, k1, cc.want)
+			c.invalidateCache(k1)
+			c.assertExpectedData(tt, k1, cc.want)
 		})
 	}
 }
