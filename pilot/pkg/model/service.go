@@ -76,8 +76,9 @@ type Service struct {
 	Resolution Resolution
 }
 
+// Resolution indicates how the service instances need to be resolved before routing
+// traffic.
 type Resolution int
-
 const (
 	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
 	ClientSideLB Resolution = iota
