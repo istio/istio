@@ -495,10 +495,16 @@ func TestIngressCheckCache(t *testing.T) {
 
 // TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
-	// visit calls product page health handler within sleep app.
+	// Get pod id of sleep app.
+	pod, err := podID("app=sleep")
+	if err != nil {
+		fatalf(t, "fail getting pod id of sleep %v", err)
+	}
+	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
+
+	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
-		return visitWithSleepApp(url, httpOK)
+		return visitWithApp(url, pod, "sleep", httpOK)
 	}
 	testCheckCache(t, visit)
 }
@@ -519,9 +525,9 @@ func testCheckCache(t *testing.T, visit func() error) {
 	}
 
 	t.Logf("Baseline cache hits: %v", prior)
-	t.Log("Start to call visit function for 5 times...")
-	// Call visit for 5 times, which should use check cache for 5 times.
-	for i := 0; i < 5; i++ {
+	t.Log("Start to call visit function for 2 times...")
+	// Call visit for 2 times, which should check cache for 2 times.
+	for i := 0; i < 2; i++ {
 		if err = visit(); err != nil {
 			fatalf(t, "%v", err)
 		}
@@ -536,8 +542,8 @@ func testCheckCache(t *testing.T, visit func() error) {
 	}
 	t.Logf("New cache hits: %v", got)
 
-	// At least 4 calls should be cache hit.
-	want := float64(4)
+	// At least 1 call should be cache hit.
+	want := float64(1)
 	if (got - prior) < want {
 		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
 	}
@@ -834,13 +840,9 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
-// visitWithSleepApp visits the given url by curl command within sleep app.
-func visitWithSleepApp(url string, code string) error {
-	pod, err := podID("app=sleep")
-	if err != nil {
-		return fmt.Errorf("fail getting pod id of sleep %v", err)
-	}
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c sleep -- curl -i -s %s", pod, tc.Kube.Namespace, url)
+// visitWithApp visits the given url by curl in the given container.
+func visitWithApp(url string, pod string, container string, code string) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- curl -i -s %s", pod, tc.Kube.Namespace, container, url)
 	log.Infof("Visit %s with the following command: %v", url, cmd)
 	resp, err := util.Shell(cmd)
 	if err != nil {
