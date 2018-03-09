@@ -675,4 +675,6 @@ workflows:
       - e2e-simple:
           requires:
             - build
-
+      - e2e-dashboard:
+          requires:
+            - build

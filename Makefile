@@ -416,7 +416,7 @@ test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(MAKE) --keep-going pilot-test mixer-test security-test broker-test galley-test common-test \
-	|& tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
