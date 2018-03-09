@@ -79,16 +79,6 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 	return nil
 }
 
-// isJwtMechanism returns true if the (peer) authentication method is using JWT.
-func isJwtMechanism(mechanism *authn.PeerAuthenticationMethod) bool {
-	switch mechanism.Params.(type) {
-	case *authn.PeerAuthenticationMethod_Jwt:
-		return true
-	default:
-		return false
-	}
-}
-
 // requireTLS returns true if the policy use mTLS for (peer) authentication.
 func requireTLS(policy *authn.Policy) bool {
 	if policy == nil {

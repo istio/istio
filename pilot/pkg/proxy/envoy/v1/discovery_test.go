@@ -343,7 +343,7 @@ func TestClusterDiscoveryWithSecurityOnByByAuthenticationPolicy(t *testing.T) {
 }
 
 func TestClusterDiscoveryWithSecurityOffByByAuthenticationPolicy(t *testing.T) {
-	// This test shows mesh config AuthPolicy will be overriden by policy. The
+	// This test shows mesh config AuthPolicy will be overridden by policy. The
 	// test will enable mTLS via mesh flag, but then disable with authn policy. The
 	// end result should be equivalent to mesh's auth policy is disable in the
 	// first place (i.e TestClusterDiscovery)
