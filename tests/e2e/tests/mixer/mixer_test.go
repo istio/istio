@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -203,12 +204,24 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 		return err
 	}
 	p.portFwdProcesses = append(p.portFwdProcesses, proc)
+
+	// Give it some time since process is launched in the background
+	time.Sleep(3 * time.Second)
+	if _, err = net.DialTimeout("tcp", ":"+localPort, 5*time.Second); err != nil {
+		log.Errorf("Failed to port forward: %s", err)
+		return err
+	}
+
 	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
 	return nil
 }
 
 func (p *promProxy) Setup() error {
 	var err error
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
