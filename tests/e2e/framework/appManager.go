@@ -105,8 +105,7 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
-	return nil
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}
