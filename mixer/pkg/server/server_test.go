@@ -311,7 +311,7 @@ func TestMonitoringMux(t *testing.T) {
 	r.URL, _ = url.Parse("http://localhost/version")
 	rw := &responseWriter{}
 
-	// this is exersizing the mux handler code in monitoring.go. The supplied rw is write to return
+	// this is exercising the mux handler code in monitoring.go. The supplied rw is used to return
 	// an error which causes all code paths in the mux handler code to be visited.
 	s.monitor.monitoringServer.Handler.ServeHTTP(rw, r)
 
