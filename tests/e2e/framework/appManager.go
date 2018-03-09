@@ -105,6 +105,7 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
+	util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
 	return nil
 }
 

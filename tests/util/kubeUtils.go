@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context/ctxhttp"
+	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/log"
 )
@@ -298,4 +299,37 @@ func CheckPodsRunning(n string) (ready bool) {
 	}
 	log.Info("Get all pods running!")
 	return true
+}
+
+// CheckDeployment gets status of a deployment from a namespace
+func CheckDeployment(ctx context.Context, namespace, deployment string) error {
+	errc := make(chan error)
+	go func() {
+		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s", namespace, deployment); err != nil {
+			errc <- fmt.Errorf("%s in namespace %s failed", deployment, namespace)
+		}
+		errc <- nil
+	}()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// CheckDeployments checks whether all deployment in a given namespace
+func CheckDeployments(namespace string, timeout time.Duration) error {
+	// wait for istio-system deployments to be fully rolled out before proceeding
+	deployments, err := ShellMuteOutput("kubectl -n %s get deployment -o name", namespace)
+	if err != nil {
+		return fmt.Errorf("could not list deployments in namespace %q", namespace)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	for _, deployment := range strings.Fields(deployments) {
+		g.Go(func() error { return CheckDeployment(ctx, namespace, deployment) })
+	}
+	return g.Wait()
 }
