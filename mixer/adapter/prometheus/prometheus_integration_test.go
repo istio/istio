@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,48 @@ import (
 )
 
 const (
-	prometheusReportPort = "http://localhost:42422/metrics"
+	prometheusMetricsURL      = "http://localhost:42422/metrics"
+	request_count_to_prom_cfg = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - destination_service
+    - response_code
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - requestcount.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestcount
+  namespace: istio-system
+spec:
+  value: "1"
+  dimensions:
+    destination_service: "\"myservice\""
+    response_code: "200"
+`
 )
 
 func TestReport(t *testing.T) {
-	adapter_integration.AdapterIntegrationTest(
+	adapter_integration.RunTest(
 		t,
 		[]adapter.InfoFn{GetInfo},
 		template.SupportedTmplInfo,
@@ -38,7 +75,7 @@ func TestReport(t *testing.T) {
 		nil, /*no teardown*/
 		func(ctx interface{}) (interface{}, error) {
 			mfChan := make(chan *dto.MetricFamily, 1)
-			go prom2json.FetchMetricFamilies(prometheusReportPort, mfChan, "", "", true)
+			go prom2json.FetchMetricFamilies(prometheusMetricsURL, mfChan, "", "", true)
 			result := []prom2json.Family{}
 			for mf := range mfChan {
 				result = append(result, *prom2json.NewFamily(mf))
@@ -57,45 +94,7 @@ func TestReport(t *testing.T) {
 			},
 
 			Cfgs: []string{
-				`
-apiVersion: "config.istio.io/v1alpha2"
-kind: prometheus
-metadata:
-  name: handler
-  namespace: istio-system
-spec:
-  metrics:
-  - name: request_count
-    instance_name: requestcount.metric.istio-system
-    kind: COUNTER
-    label_names:
-    - destination_service
-    - response_code
-`,
-				`
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcp
-  namespace: istio-system
-spec:
-  actions:
-  - handler: handler.prometheus
-    instances:
-    - requestcount.metric
-`,
-				`
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-  name: requestcount
-  namespace: istio-system
-spec:
-  value: "1"
-  dimensions:
-    destination_service: "\"myservice\""
-    response_code: "200"
-`,
+				request_count_to_prom_cfg,
 			},
 
 			Want: `

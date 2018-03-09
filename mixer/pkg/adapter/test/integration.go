@@ -1,3 +1,17 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package test
 
 import (
@@ -15,6 +29,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	"sync"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -22,6 +38,8 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 )
+
+// Utility to help write Mixer-adapter integration tests.
 
 type (
 	// TestCase fully defines an adapter integration test
@@ -31,7 +49,9 @@ type (
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
-		// Expected json string for a WantObject object.
+
+		// Want is the expected serialized json for the Result struct.
+		// Result.AdapterState is what the callback function `getState`, passed to `RunTest`, returns.
 		//
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
@@ -51,7 +71,8 @@ type (
 
 	// Result represents the test baseline
 	Result struct {
-		// AdapterState represents adapter specific baseline data
+		// AdapterState represents adapter specific baseline data. AdapterState is what the callback function
+		// `getState`, passed to `RunTest`, returns.
 		AdapterState interface{} `json:"AdapterState"`
 		// Returns represents the return data from calls to Mixer
 		Returns []Return `json:"Returns"`
@@ -69,28 +90,39 @@ type (
 
 const (
 	// CHECK for  Mixer Check
-	CHECK CallKind = 0
+	CHECK CallKind = iota
 	// REPORT for  Mixer Report
-	REPORT CallKind = 1
+	REPORT
 )
 
 type (
-	setupFn    func() (ctx interface{}, err error)
-	teardownFn func(ctx interface{})
-	getStateFn func(ctx interface{}) (interface{}, error)
+	// SetupFn functions will be called at the beginning of the test
+	SetupFn func() (ctx interface{}, err error)
+	// TeardownFn functions will be called at the end of the test
+	TeardownFn func(ctx interface{})
+	// GetStateFn returns the adapter specific state upon test execution. The return value becomes part of
+	// expected Result.AdapterState.
+	GetStateFn func(ctx interface{}) (interface{}, error)
 )
 
-// AdapterIntegrationTest executes the given test case on
-// an in-memory Mixer with given adapters, templates and configs.
-func AdapterIntegrationTest(
+// RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
+//
+// * adapters and tmpls provides the necessary adapter and template inventory for Mixer.
+// * setup and teardown are callback functions that will be called at the beginning and end of the test respectively. They
+// are meant to be used for things like starting and stopping a local backend server. setup function returns a
+// context (interface{}) which is passed back into the teardown and the getState functions.
+// * getState lets the test provide any (interface{}) adapter specific data to be part of baseline.
+// Example: for prometheus adapter, the actual metric reported to the local backend can be embedded into the expected
+// json baseline.
+// * TestCase provide the adapter/handler/rule configs along with the call parameters (check or report, and attributes)
+func RunTest(
 	t *testing.T,
 	adapters []adapter.InfoFn,
 	tmpls map[string]template.Info,
-	setup setupFn,
-	teardown teardownFn,
-	getState getStateFn,
+	setup SetupFn,
+	teardown TeardownFn,
+	getState GetStateFn,
 	testCase TestCase,
-
 ) {
 
 	// Let the test do some initial setup.
@@ -112,12 +144,12 @@ func AdapterIntegrationTest(
 	var env *server.Server
 	if args, err = getServerArgs(tmpls, adapters, testCase.Cfgs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
-	} else if env, err = server.New(args); err != nil {
-		t.Fatalf("fail to new mixer: %v", err)
-	} else {
-		env.Run()
-		defer closeHelper(env)
 	}
+	if env, err = server.New(args); err != nil {
+		t.Fatalf("fail to new mixer: %v", err)
+	}
+	env.Run()
+	defer closeHelper(env)
 
 	// Connect the client to Mixer
 	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
@@ -128,15 +160,15 @@ func AdapterIntegrationTest(
 	defer closeHelper(conn)
 
 	// Invoke calls async
-	done := make(chan Return)
+	var wg sync.WaitGroup
+	wg.Add(len(testCase.ParallelCalls))
+
 	got := Result{Returns: make([]Return, len(testCase.ParallelCalls))}
 	for i, call := range testCase.ParallelCalls {
-		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, done)
+		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
 	}
 	// wait for calls to finish
-	for i := 0; i < len(testCase.ParallelCalls); i++ {
-		<-done
-	}
+	wg.Wait()
 
 	// get adapter state. NOTE: We are doing marshal and then unmarshal it back into generic interface{}.
 	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshalling
@@ -170,7 +202,7 @@ func AdapterIntegrationTest(
 	}
 }
 
-func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.MixerClient, returns []Return, i int, done chan Return) {
+func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.MixerClient, returns []Return, i int, wg *sync.WaitGroup) {
 	ret := Return{}
 	switch c.CallKind {
 	case CHECK:
@@ -208,7 +240,7 @@ func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.M
 		ret.Error = responseErr
 	}
 	returns[i] = ret
-	done <- ret
+	wg.Done()
 }
 
 func closeHelper(c io.Closer) {

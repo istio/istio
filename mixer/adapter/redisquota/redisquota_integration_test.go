@@ -202,7 +202,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 
 		t.Run(id, func(t *testing.T) {
-			adapter_integration.AdapterIntegrationTest(
+			adapter_integration.RunTest(
 				t,
 				[]adapter.InfoFn{GetInfo},
 				template.SupportedTmplInfo,
