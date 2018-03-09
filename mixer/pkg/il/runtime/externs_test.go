@@ -182,6 +182,114 @@ func TestExternDnsNameEqual_Error(t *testing.T) {
 	}
 }
 
+func TestExternEmail_Positive(t *testing.T) {
+	positive := []string{
+		"foo@bar",
+		"foo@bar.com",
+		"foo+a@bar.com",
+		`"john..doe"@bar.com`,
+	}
+
+	for _, v := range positive {
+		o, err := externEmail(v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if o != v {
+			t.Fatalf("%v != %v", o, v)
+		}
+	}
+}
+
+func TestExternEmail_Negative(t *testing.T) {
+	negative := []string{
+		"foo",
+		"foo.",
+		"foo@",
+		"@foo",
+		"foo+a@bar-.com",
+		`aaaa <johndoe@bar.com>`,
+	}
+
+	for _, v := range negative {
+		_, err := externEmail(v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: %v", v)
+		}
+	}
+}
+
+func TestExternEmailEqual_Positive(t *testing.T) {
+	positive := map[string]string{
+		"foo@bar.com":   "foo@bar.com",
+		"foo@Bar.com":   "foo@bar.com",
+		`"foo"@bar.com`: "foo@bar.com",
+	}
+
+	for k, v := range positive {
+		eq, err := externEmailEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if !eq {
+			t.Fatalf("Expected to be equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestExternEmailEqual_Error(t *testing.T) {
+	erroneous := map[string]string{
+		"foo..baz@bar.com": "foo@bar.com",
+		"foo@bar.com":      "foo..baz@bar.com",
+		"foo":              "foo@bar.com",
+		"boo@bar.com":      "foo",
+	}
+
+	for k, v := range erroneous {
+		_, err := externEmailEqual(k, v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: %v == %v", k, v)
+		}
+	}
+}
+
+func TestExternEmailEqual_Negative(t *testing.T) {
+	negative := map[string]string{
+		"foo@bar.com": "foo@foo.com",
+		"foo@foo.com": "bar@foo.com",
+		"Foo@bar.com": "foo@bar.com",
+	}
+
+	for k, v := range negative {
+		eq, err := externEmailEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if eq {
+			t.Fatalf("Expected to be not equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestGetEmailParts(t *testing.T) {
+	cases := [][]string{
+		{"", "", ""},
+		{"@", "", ""},
+		{"foo", "foo", ""},
+		{"foo@", "foo", ""},
+		{"@foo", "", "foo"},
+		{"foo@bar", "foo", "bar"},
+		{"foo@bar@baz", "foo", "bar@baz"},
+	}
+
+	for _, c := range cases {
+		p1, p2 := getEmailParts(c[0])
+		if p1 != c[1] || p2 != c[2] {
+			t.Fatalf("Failed for '%s' got: '%s','%s' wanted: '%s','%s'.", c[0], p1, p2, c[1], c[2])
+		}
+	}
+}
+
 func TestExternMatch(t *testing.T) {
 	var cases = []struct {
 		s string
@@ -192,6 +300,8 @@ func TestExternMatch(t *testing.T) {
 		{"ns1.svc.local", "ns2.*", false},
 		{"svc1.ns1.cluster", "*.ns1.cluster", true},
 		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
+		{"svc1.ns1.cluster", "svc1.ns1.cluster", true},
+		{"svc1.ns1.cluster", "svc2.ns1.cluster", false},
 	}
 
 	for _, c := range cases {

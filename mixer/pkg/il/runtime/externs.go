@@ -17,6 +17,7 @@ package runtime
 import (
 	"fmt"
 	"net"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -35,6 +36,8 @@ var Externs = map[string]interpreter.Extern{
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"dnsName":         interpreter.ExternFromFn("dnsName", externDnsName),
 	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDnsNameEqual),
+	"email":           interpreter.ExternFromFn("email", externEmail),
+	"email_equal":     interpreter.ExternFromFn("email_equal", externEmailEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -57,6 +60,11 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 	{
 		Name:          "dnsName",
 		ReturnType:    config.DNS_NAME,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "email",
+		ReturnType:    config.EMAIL_ADDRESS,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
@@ -157,6 +165,68 @@ func externDnsNameEqual(n1 string, n2 string) (bool, error) {
 	}
 
 	return n1 == n2, nil
+}
+
+func externEmail(in string) (string, error) {
+	a, err := mail.ParseAddress(in)
+	if err != nil {
+		return "", fmt.Errorf("error converting '%s' to e-mail: '%v'", in, err)
+	}
+
+	if a.Name != "" {
+		return "", fmt.Errorf("error converting '%s' to e-mail: display names are not allowed", in)
+	}
+
+	// Also check through the dns name logic to ensure that this will not cause any breaks there, when used for
+	// comparison.
+
+	_, domain := getEmailParts(a.Address)
+
+	_, err = externDnsName(domain)
+	if err != nil {
+		return "", fmt.Errorf("error converting '%s' to e-mail: '%v'", in, err)
+	}
+
+	return in, nil
+}
+
+func externEmailEqual(e1 string, e2 string) (bool, error) {
+	a1, err := mail.ParseAddress(e1)
+	if err != nil {
+		return false, err
+	}
+
+	a2, err := mail.ParseAddress(e2)
+	if err != nil {
+		return false, err
+	}
+
+	local1, domain1 := getEmailParts(a1.Address)
+	local2, domain2 := getEmailParts(a2.Address)
+
+	domainEq, err := externDnsNameEqual(domain1, domain2)
+	if err != nil {
+		return false, fmt.Errorf("error comparing e-mails '%s' and '%s': %v", e1, e2, err)
+	}
+
+	if !domainEq {
+		return false, nil
+	}
+
+	return local1 == local2, nil
+}
+
+func getEmailParts(email string) (local string, domain string) {
+	idx := strings.IndexByte(email, '@')
+	if idx == -1 {
+		local = email
+		domain = ""
+		return
+	}
+
+	local = email[:idx]
+	domain = email[idx+1:]
+	return
 }
 
 func externMatch(str string, pattern string) bool {

@@ -1274,6 +1274,239 @@ end`,
 	},
 
 	{
+		E:    `email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		R:    "istio@istio.io",
+		IL: `
+fn eval() interface
+  apush_s "istio@istio.io"
+  call email
+  ret
+end`,
+	},
+
+	{
+		E:    `amail`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"amail": "foo@bar.com",
+		},
+		R: "foo@bar.com",
+		IL: `
+fn eval() interface
+  resolve_f "amail"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `email("")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		Err:  `error converting '' to e-mail: 'mail: no address'`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "barfoo",
+		},
+		Err: `error converting 'barfoo' to e-mail: 'mail: no angle-addr'`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call email
+  ret
+end
+`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": `"istio"@istio.io`, // The e-mail should not get normalized.
+		},
+		R: `"istio"@istio.io`,
+	},
+
+	{
+		E:    `amail | email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() interface
+  tresolve_f "amail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `amail | bmail | email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() interface
+  tresolve_f "amail"
+  jnz L0
+  tresolve_f "bmail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `amail | email("istio@istio.io") | bmail`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() interface
+  tresolve_f "amail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+  jmp L0
+  resolve_f "bmail"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `amail | email("kubernetes@kubernetes.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+	},
+
+	{
+		E:    `amail == bmail`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "amail"
+  resolve_f "bmail"
+  call email_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"amail": `"istio"@istio.io`,
+			"bmail": "istio@istio.io",
+		},
+	},
+
+	{
+		E:    `email(as | bs | "istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		R:    "istio@istio.io",
+		IL: `
+ fn eval() interface
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "istio@istio.io"
+L0:
+  call email
+  ret
+end`,
+	},
+
+	{
+		E:    `email(as | bs | "pilot@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+	},
+
+	{
+		E:    `amail == bmail`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "pilot@istio.io",
+		},
+	},
+
+	{
+		E:    `amail != bmail`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "amail"
+  resolve_f "bmail"
+  call email_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "pilot@istio.io",
+		},
+	},
+
+	{
+		E:    `amail != bmail`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "istio@istio.io",
+		},
+	},
+
+	{
+		E:          `amail == as`,
+		CompileErr: "EQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+	},
+
+	{
+		E:          `amail != as`,
+		CompileErr: "NEQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+	},
+
+	{
+		E:    `email("istio@istio.io") == email("istio@istio.io")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
 		E:    "3 != 2",
 		Type: descriptor.BOOL,
 		R:    true,
@@ -3030,6 +3263,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"adns": {
 		ValueType: descriptor.DNS_NAME,
 	},
+	"amail": {
+		ValueType: descriptor.EMAIL_ADDRESS,
+	},
 	"bi": {
 		ValueType: descriptor.INT64,
 	},
@@ -3050,6 +3286,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"bdns": {
 		ValueType: descriptor.DNS_NAME,
+	},
+	"bmail": {
+		ValueType: descriptor.EMAIL_ADDRESS,
 	},
 	"bt": {
 		ValueType: descriptor.TIMESTAMP,
