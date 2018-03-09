@@ -60,6 +60,7 @@ jobs:
           name: dumpsys
           when: always
           command: |
+            mkdir -p /go/out/logs
             # TODO: move to a make target 'dumpsys'.
             kubectl get all -o wide --all-namespaces
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
@@ -505,7 +506,7 @@ jobs:
 #          paths:
 #            - /go/pkg
 
-  docker-push:
+  nightly:
     <<: *defaults
     resource_class: xlarge
     environment:
@@ -515,6 +516,7 @@ jobs:
           at:  /go
       - setup_remote_docker:
           docker_layer_caching: true
+      - run: make istio-archive
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -586,8 +588,8 @@ workflows:
       - goxbuild:
           requires:
             - test
-      # Push to dockerhub
-      - docker-push:
+      # Nightly release
+      - nightly:
           context: org-global
           requires:
             - e2e-simple
