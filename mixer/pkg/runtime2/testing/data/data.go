@@ -127,6 +127,16 @@ spec:
   foo: attr.string
 `
 
+// InstanceReport2 is a standard testing instance for template treport.
+var InstanceReport2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: treport
+metadata:
+  name: ireport2
+  namespace: istio-system
+spec:
+`
+
 // InstanceQuota1 is a standard testing instance for template tquota.
 var InstanceQuota1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -469,6 +479,21 @@ spec:
   - handler: hreport1.areport
     instances:
     - ireport1.treport.istio-system
+`
+
+// RuleReport1And2 is a standard testing instance config with name rreport1.
+var RuleReport1And2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rreport1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hreport1.areport
+    instances:
+    - ireport1.treport.istio-system
+    - ireport2.treport.istio-system
 `
 
 // RuleQuota1 is a standard testing instance config with name rquota1. It references I1 and H1.

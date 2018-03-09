@@ -14,6 +14,8 @@
 
 package workload
 
+import "io/ioutil"
+
 const (
 	keyFilePermission  = 0600
 	certFilePermission = 0644
@@ -32,4 +34,14 @@ func (sf *SecretFileServer) SetServiceIdentityPrivateKey(content []byte) error {
 // SetServiceIdentityCert sets the service identity certificate into the file system.
 func (sf *SecretFileServer) SetServiceIdentityCert(content []byte) error {
 	return sf.cfg.FileUtil.Write(sf.cfg.ServiceIdentityCertFile, content, certFilePermission)
+}
+
+// GetServiceIdentityPrivateKey sets the service identity private key to the channel accessible to the workload.
+func (sf *SecretFileServer) GetServiceIdentityPrivateKey() ([]byte, error) {
+	return ioutil.ReadFile(sf.cfg.ServiceIdentityPrivateKeyFile)
+}
+
+// GetServiceIdentityCert sets the service identity cert to the channel accessible to the workload.
+func (sf *SecretFileServer) GetServiceIdentityCert() ([]byte, error) {
+	return ioutil.ReadFile(sf.cfg.ServiceIdentityCertFile)
 }
