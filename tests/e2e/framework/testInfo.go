@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"

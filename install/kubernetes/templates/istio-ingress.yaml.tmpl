@@ -47,7 +47,7 @@ spec:
         - proxy
         - ingress
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:8080 #--controlPlaneAuthPolicy
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration
