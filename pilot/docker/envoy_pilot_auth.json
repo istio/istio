@@ -74,6 +74,9 @@
         },
         "filter_chains": [
           {
+            "filter_chain_match": {
+              "sni_domains": []
+            },
             "tls_context": {
               "common_tls_context": {
                 "tls_certificates": [
@@ -125,6 +128,9 @@
         },
         "filter_chains": [
           {
+            "filter_chain_match": {
+              "sni_domains": ["*"]
+            },
             "tls_context": {
               "common_tls_context": {
                 "tls_certificates": [
