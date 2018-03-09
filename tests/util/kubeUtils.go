@@ -28,8 +28,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/golang/sync/errgroup"
 	"golang.org/x/net/context/ctxhttp"
-	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/log"
 )
