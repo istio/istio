@@ -33,8 +33,8 @@ func NewServiceDiscovery(store model.IstioConfigStore) model.ServiceDiscovery {
 }
 
 // Services list declarations of all services in the system
-func (c *externalDiscovery) Services() ([]*model.Service, error) {
-	configs := c.store.ExternalServices()
+func (d *externalDiscovery) Services() ([]*model.Service, error) {
+	configs := d.store.ExternalServices()
 	services := make([]*model.Service, 0)
 	for _, externalServiceConfig := range configs {
 		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
@@ -46,7 +46,7 @@ func (c *externalDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
-func (c *externalDiscovery) GetService(hostname string) (*model.Service, error) {
+func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
@@ -54,7 +54,7 @@ func (c *externalDiscovery) GetService(hostname string) (*model.Service, error) 
 		return nil, err
 	}
 
-	for _, service := range c.getServices() {
+	for _, service := range d.getServices() {
 		if service.Hostname == name {
 			return service, nil
 		}
@@ -63,8 +63,8 @@ func (c *externalDiscovery) GetService(hostname string) (*model.Service, error) 
 	return nil, nil
 }
 
-func (c *externalDiscovery) getServices() []*model.Service {
-	configs := c.store.ExternalServices()
+func (d *externalDiscovery) getServices() []*model.Service {
+	configs := d.store.ExternalServices()
 	services := make([]*model.Service, 0)
 	for _, externalServiceConfig := range configs {
 		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
@@ -76,13 +76,13 @@ func (c *externalDiscovery) getServices() []*model.Service {
 // ManagementPorts retries set of health check ports by instance IP.
 // This does not apply to External Service registry, as External Services do not
 // manage the service instances.
-func (c *externalDiscovery) ManagementPorts(addr string) model.PortList {
+func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
 }
 
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
-func (c *externalDiscovery) Instances(hostname string, ports []string,
+func (d *externalDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
@@ -98,7 +98,7 @@ func (c *externalDiscovery) Instances(hostname string, ports []string,
 
 	instances := []*model.ServiceInstance{}
 	externalInstances := []*model.ServiceInstance{}
-	configs := c.store.ExternalServices()
+	configs := d.store.ExternalServices()
 	for _, externalServiceConfig := range configs {
 		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
 		externalInstances = append(externalInstances, convertInstances(externalService)...)
@@ -121,7 +121,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *externalDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (d *externalDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	// There is no proxy sitting next to google.com.  If supplied, istio will end up generating a full envoy
 	// configuration with routes to internal services, (listeners, etc.) for the external service
 	// (which does not exist in the cluster).

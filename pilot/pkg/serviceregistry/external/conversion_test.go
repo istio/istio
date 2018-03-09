@@ -157,6 +157,7 @@ func makeService(hostname string, ports map[string]int) *model.Service {
 		svcPorts = append(svcPorts, svcPort)
 	}
 
+	sortPorts(svcPorts)
 	svc.Ports = svcPorts
 
 	return svc
@@ -245,7 +246,6 @@ func TestConvertService(t *testing.T) {
 }
 
 func TestConvertInstances(t *testing.T) {
-
 	serviceInstanceTests := []struct {
 		externalSvc *networking.ExternalService
 		out         []*model.ServiceInstance
