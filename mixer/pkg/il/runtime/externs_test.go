@@ -290,6 +290,110 @@ func TestGetEmailParts(t *testing.T) {
 	}
 }
 
+func TestExternUri_Positive(t *testing.T) {
+	positive := []string{
+		"urn:foo",
+		"urn:foo/bar",
+		"urn:foo/bar?q=5",
+		"urn:foo/bar?q=5#frr",
+		"http://foo",
+		"http://foo/",
+		"http://foo/bar",
+		"http://foo/bar/",
+		"http://foo/bar/?q=4",
+		"http://foo/bar/?q=4#fr",
+		"https://foo/bar/?q=4#fr",
+		"ftp://foo/bar/?q=4#fr",
+		"fs:foo",
+		"fs:/foo",
+		"foo",
+		"http://[fe80::1%25en0]",
+	}
+
+	for _, v := range positive {
+		o, err := externUri(v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if o != v {
+			t.Fatalf("%v != %v", o, v)
+		}
+	}
+}
+
+func TestExternUri_Negative(t *testing.T) {
+	negative := []string{
+		"",
+		":/",
+		":a",
+		`http://[fe80::1%25en0`,
+	}
+
+	for _, v := range negative {
+		_, err := externUri(v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: '%v'", v)
+		}
+	}
+}
+
+func TestExternUriEqual_Positive(t *testing.T) {
+	positive := map[string]string{
+		"foo":                "foo",
+		"scheme:bar":         "scheme:bar",
+		"http://host":        "http://host",
+		"http://HOST":        "http://host",
+		"http://HOST.com":    "http://host.COM",
+		"http://HOST.com:80": "http://host.COM:80",
+		"http://HOST.COM:":   "http://host.COM",
+	}
+
+	for k, v := range positive {
+		eq, err := externUriEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if !eq {
+			t.Fatalf("Expected to be equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestExternUriEqual_Negative(t *testing.T) {
+	negative := map[string]string{
+		"urn:foo":         "urn:bar",
+		"urn:BAR":         "urn:bar",
+		"http://host":     "http://host/",
+		"http://bar":      "http://host",
+		"http://host:80":  "http://host:81",
+		"http://host.com": "https://host.com",
+	}
+
+	for k, v := range negative {
+		eq, err := externUriEqual(k, v)
+		if err != nil {
+			t.Fatalf("Error: %v for %s", err, v)
+		}
+		if eq {
+			t.Fatalf("Expected to be not equal: %s != %s", k, v)
+		}
+	}
+}
+
+func TestExternUriEqual_Error(t *testing.T) {
+	erroneous := map[string]string{
+		":/": "a",
+		"a":  ":/",
+	}
+
+	for k, v := range erroneous {
+		_, err := externUriEqual(k, v)
+		if err == nil {
+			t.Fatalf("Expected error not found for: %v == %v", k, v)
+		}
+	}
+}
+
 func TestExternMatch(t *testing.T) {
 	var cases = []struct {
 		s string

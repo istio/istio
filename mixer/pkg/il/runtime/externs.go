@@ -15,9 +15,11 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/mail"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -38,6 +40,8 @@ var Externs = map[string]interpreter.Extern{
 	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDnsNameEqual),
 	"email":           interpreter.ExternFromFn("email", externEmail),
 	"email_equal":     interpreter.ExternFromFn("email_equal", externEmailEqual),
+	"uri":             interpreter.ExternFromFn("uri", externUri),
+	"uri_equal":       interpreter.ExternFromFn("uri_equal", externUriEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -65,6 +69,11 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 	{
 		Name:          "email",
 		ReturnType:    config.EMAIL_ADDRESS,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "uri",
+		ReturnType:    config.URI,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
@@ -214,6 +223,56 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	}
 
 	return local1 == local2, nil
+}
+
+func externUri(in string) (string, error) {
+	if in == "" {
+		return "", errors.New("error converting string to url: empty string")
+	}
+	_, err := url.Parse(in)
+	if err != nil {
+		return "", fmt.Errorf("error converting string to url '%s': '%v'", in, err)
+	}
+	return in, err
+}
+
+func externUriEqual(u1 string, u2 string) (bool, error) {
+	url1, err := url.Parse(u1)
+	if err != nil {
+		return false, fmt.Errorf("error converting string to url '%s': '%v'", u1, err)
+	}
+
+	url2, err := url.Parse(u2)
+	if err != nil {
+		return false, fmt.Errorf("error converting string to url '%s': '%v'", u2, err)
+	}
+
+	// Try to apply as much normalization logic as possible.
+	if url1.Scheme != url2.Scheme {
+		return false, nil
+	}
+
+	if url1.Scheme == "http" || url1.Scheme == "https" {
+		// Special case http(s) URLs
+
+		dnsEq, err := externDnsNameEqual(url1.Hostname(), url2.Hostname())
+		if err != nil {
+			return false, err
+		}
+
+		if !dnsEq {
+			return false, nil
+		}
+
+		if url1.Port() != url2.Port() {
+			return false, nil
+		}
+
+		// normalize url2 to url1's hostname.
+		url1.Host = url2.Host
+	}
+
+	return url1.String() == url2.String(), nil
 }
 
 func getEmailParts(email string) (local string, domain string) {

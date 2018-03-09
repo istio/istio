@@ -348,6 +348,8 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 			g.builder.Call("dnsName_equal")
 		case descriptor.EMAIL_ADDRESS:
 			g.builder.Call("email_equal")
+		case descriptor.URI:
+			g.builder.Call("uri_equal")
 		default:
 			g.internalError("equality for type not yet implemented: %v", exprType)
 		}

@@ -1506,6 +1506,259 @@ end`,
 		R:    true,
 	},
 
+
+
+
+
+
+
+
+
+	{
+		E:    `uri("http://istio.io")`,
+		Type: descriptor.URI,
+		R:    "http://istio.io",
+		IL: `
+fn eval() interface
+  apush_s "http://istio.io"
+  call uri
+  ret
+end`,
+	},
+
+	{
+		E:    `auri`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"auri": "http://istio.io",
+		},
+		R: "http://istio.io",
+		IL: `
+fn eval() interface
+  resolve_f "auri"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `uri("")`,
+		Type: descriptor.URI,
+		Err:  `error converting string to url: empty string`,
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": ":/",
+		},
+		Err: `error converting string to url ':/': 'parse :/: missing protocol scheme'`,
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": "urn:foo",
+		},
+		R: "urn:foo",
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call uri
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("urn:foo")`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "urn:foo",
+		IL: `
+fn eval() interface
+  tresolve_f "auri"
+  jnz L0
+  apush_s "urn:foo"
+  call uri
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `auri | buri | uri("https://kubernetes.io")`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "https://kubernetes.io",
+		IL: `
+fn eval() interface
+  tresolve_f "auri"
+  jnz L0
+  tresolve_f "buri"
+  jnz L0
+  apush_s "https://kubernetes.io"
+  call uri
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("https://kubernetes.io") | buri`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "https://kubernetes.io",
+		IL: `
+fn eval() interface
+  tresolve_f "auri"
+  jnz L0
+  apush_s "https://kubernetes.io"
+  call uri
+  jmp L0
+  resolve_f "buri"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("https://kubernetes.io")`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"auri": "www.istio.io",
+		},
+		R: "www.istio.io",
+	},
+
+	{
+		E:    `auri == buri`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "auri"
+  resolve_f "buri"
+  call uri_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"auri": "http://foo.bar.com",
+			"buri": "http://fOO.bar.com",
+		},
+	},
+
+	{
+		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		Type: descriptor.URI,
+		R:    "ftp://ftp.istio.io/releases",
+		IL: `
+ fn eval() interface
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "ftp://ftp.istio.io/releases"
+L0:
+  call uri
+  ret
+end`,
+	},
+
+	{
+		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": "http://istio.io",
+		},
+		R: "http://istio.io",
+	},
+
+	{
+		E:    `auri == buri`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:81",
+		},
+	},
+
+	{
+		E:    `auri != buri`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_f "auri"
+  resolve_f "buri"
+  call uri_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:81",
+		},
+	},
+
+	{
+		E:    `auri != buri`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:80",
+		},
+	},
+
+	{
+		E:          `auri == as`,
+		CompileErr: "EQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+	},
+
+	{
+		E:          `auri != as`,
+		CompileErr: "NEQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+	},
+
+	{
+		E:    `uri("http://foo.bar.baz") == uri("http://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(auri | uri("http://foo.bar.baz")) == uri("http://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(auri | uri("https://foo.bar.baz")) == uri("https://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"auri": "foo.bar.com",
+		},
+		R: false,
+	},
+
+	
+	
+	
+	
+	
+	
 	{
 		E:    "3 != 2",
 		Type: descriptor.BOOL,
@@ -3266,6 +3519,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"amail": {
 		ValueType: descriptor.EMAIL_ADDRESS,
 	},
+	"auri": {
+		ValueType: descriptor.URI,
+	},
 	"bi": {
 		ValueType: descriptor.INT64,
 	},
@@ -3289,6 +3545,9 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"bmail": {
 		ValueType: descriptor.EMAIL_ADDRESS,
+	},
+	"buri": {
+		ValueType: descriptor.URI,
 	},
 	"bt": {
 		ValueType: descriptor.TIMESTAMP,
