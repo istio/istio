@@ -15,6 +15,7 @@
 package appoptics
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -34,35 +35,37 @@ func TestBatchMeasurements(t *testing.T) {
 		prepChan := make(chan []*Measurement)
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
+		defer close(prepChan)
+		defer close(pushChan)
 
 		batchSize := 100
-
-		finish := make(chan bool)
-
-		go func() {
-			BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
-			finish <- true
-		}()
-
 		go func() {
 			measurements := make([]*Measurement, 0)
 			for i := 0; i < batchSize+1; i++ {
-				measurements = append(measurements, &Measurement{})
+				measurements = append(measurements, new(Measurement))
 			}
 			prepChan <- measurements
-			stopChan <- struct{}{}
-			<-finish
-			close(prepChan)
-			close(pushChan)
 			count := 0
-			for range pushChan {
-				count++
+			timeout := time.After(time.Second)
+			for {
+				exit := false
+				select {
+				case <-pushChan:
+					count++
+				case <-timeout:
+					exit = true
+				}
+				if exit {
+					break
+				}
 			}
-			if count != 1 {
-				t.Errorf("Batching is not working properly. Expected batches is 1 but got %d", count)
+			if count != 2 {
+				t.Errorf("Batching is not working properly. Expected batches is 2 but got %d", count)
 			}
-			close(stopChan)
+			stopChan <- struct{}{}
 		}()
+		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
+		close(stopChan)
 	})
 
 	t.Run("Using stop chan", func(t *testing.T) {
@@ -73,17 +76,17 @@ func TestBatchMeasurements(t *testing.T) {
 		prepChan := make(chan []*Measurement)
 		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
+		defer close(prepChan)
+		defer close(pushChan)
+		defer close(stopChan)
+
 		batchSize := 100
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
 		BatchMeasurements(prepChan, pushChan, stopChan, batchSize, logger)
-		close(prepChan)
-		close(pushChan)
-		close(stopChan)
 	})
-
 }
 
 type MockServiceAccessor struct {
@@ -114,6 +117,13 @@ func TestPersistBatches(t *testing.T) {
 			sendOnStopChan: false,
 		},
 		{
+			name:           "Persist with error",
+			expectedCount:  0,
+			response:       nil,
+			error:          fmt.Errorf("metrics empty"),
+			sendOnStopChan: false,
+		},
+		{
 			name:           "Stop chan test",
 			expectedCount:  0,
 			response:       nil,
@@ -132,12 +142,18 @@ func TestPersistBatches(t *testing.T) {
 			var count int32
 			var testWg sync.WaitGroup
 			testWg.Add(1)
+
+			var action sync.WaitGroup
+			action.Add(1)
 			go func() {
 				PersistBatches(&MockServiceAccessor{
 					MockMeasurementsService: func() MeasurementsCommunicator {
 						return &MockMeasurementsService{
 							OnCreate: func(measurements []*Measurement) (*http.Response, error) {
-								atomic.AddInt32(&count, 1)
+								if test.error == nil {
+									atomic.AddInt32(&count, 1)
+								}
+								action.Done()
 								return test.response, test.error
 							},
 						}
@@ -146,8 +162,6 @@ func TestPersistBatches(t *testing.T) {
 				testWg.Done()
 			}()
 
-			var action sync.WaitGroup
-			action.Add(1)
 			if test.sendOnStopChan {
 				go func() {
 					time.Sleep(time.Millisecond)
@@ -160,14 +174,13 @@ func TestPersistBatches(t *testing.T) {
 					pushChan <- []*Measurement{
 						{}, {}, {},
 					}
-					action.Done()
 				}()
 			}
 
 			logger.Infof("%s - waiting...\n", t.Name())
 			action.Wait()
-			if atomic.LoadInt32(&count) != test.expectedCount {
-				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
+			if c := atomic.LoadInt32(&count); c != test.expectedCount {
+				t.Errorf("Count %d did not match the expected count: %d", c, test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
 			if !test.sendOnStopChan {
