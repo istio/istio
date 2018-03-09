@@ -55,6 +55,10 @@ func EnsureTestServer() *bootstrap.Server {
 }
 
 func setup() error {
+	// TODO: point to test data directory
+	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
+	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
+	// This limits the options -
 	fsRoot = createTempDir()
 	stop = make(chan struct{})
 
@@ -77,7 +81,8 @@ func setup() error {
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
-			Registries: []string{string(bootstrap.MockRegistry)},
+			Registries: []string{
+				string(bootstrap.MockRegistry)},
 		},
 	}
 

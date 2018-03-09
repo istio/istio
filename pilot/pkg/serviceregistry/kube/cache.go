@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"log"
 	"sync"
 
 	"k8s.io/api/core/v1"
@@ -44,6 +45,9 @@ func newPodCache(ch cacheHandler) *PodCache {
 
 		pod := *obj.(*v1.Pod)
 		ip := pod.Status.PodIP
+
+		log.Printf("Handle pod %s in namespace %s -> %v", pod.Name, pod.Namespace, pod.Status.PodIP)
+
 		if len(ip) > 0 {
 			switch ev {
 			case model.EventAdd, model.EventUpdate:

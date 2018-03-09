@@ -41,6 +41,29 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// EDS returns the list of endpoints (IP:port and in future labels) associated with a real
+// or virtual service. A virtual service is a subset of a real service, selected using labels.
+//
+// The source of info is a list of service registries.
+//
+// Primary event is an endpoint creation/deletion. Once the event is fired, EDS needs to
+// find the list of services associated with the endpoint.
+//
+// In case of k8s, Endpoints event is fired when the endpoints are added to service - typically
+// after readiness check. At that point we have the 'real' Service. The Endpoint includes a list
+// of port numbers and names.
+//
+// For the virtual case, the Pod referenced in the Endpoint must be looked up, and pod checked
+// for labels.
+//
+// In addition, ExternalEndpoint includes IPs and labels directly and can be directly processed.
+//
+// TODO: for selector-less services (mesh expansion), skip pod processing
+// TODO: optimize the code path for ExternalEndpoint, no additional processing needed
+// TODO: if a service doesn't have split traffic - we can also skip pod and lable processing
+// TODO: efficient label processing. In alpha3, the destination policies are set per service, so
+// we may only need to search in a small list.
+
 var (
 	// It doesn't appear the logging framework has support for per-component logging, yet
 	// we need to be able to debug EDS2.
@@ -395,7 +418,23 @@ func Edsz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *EdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
+	c.mutex.Lock()
+	existing := c.EdsClients[node]
+	c.mutex.Unlock()
+
+	// May replace an existing connection
+	if  existing != nil {
+		existing.pushChannel <- false // force closing it
+	}
 	c.EdsClients[node] = connection
+}
+
+// getEdsCluster returns a cluster.
+func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
+	// separate method only to have proper lock.
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
+	return edsClusters[clusterName]
 }
 
 func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
@@ -413,18 +452,30 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	return c
 }
 
-// removeEdsCon will track the eds connection, for push and debug
+// removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
+// stream. As of 0.7 envoy watches a single cluster per gprc stream.
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *EdsConnection) {
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
-	c := edsClusters[clusterName]
+	c := s.getEdsCluster(clusterName)
 	if c == nil {
-		log.Infoa("EDS: missing cluster ", clusterName, edsClusters)
+		log.Warnf("EDS: missing cluster %s", clusterName)
+		return
 	}
 
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	oldcon := c.EdsClients[node]
+	if oldcon != connection {
+		if edsDebug {
+			log.Infof("EDS: Envoy restart %s %v, old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
+		}
+		return
+	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		log.Infoa("EDS: unused cluster ", clusterName, edsClusters)
+		log.Infoa("EDS: remove unused cluster ", clusterName, edsClusters)
+		edsClusterMutex.Lock()
+		defer edsClusterMutex.Unlock()
 		delete(edsClusters, clusterName)
 	}
 }
@@ -436,6 +487,5 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	// TODO: Change fake values to real load assignments
 	return errors.New("unsupported streaming method")
 }

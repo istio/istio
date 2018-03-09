@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -33,8 +34,7 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-// Make a direct EDS grpc request to pilot, verify the result is as expected.
-func directRequest(server *bootstrap.Server, t *testing.T) {
+func connect(server *bootstrap.Server, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
@@ -45,7 +45,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if err != nil {
 		t.Fatal("Rpc failed", err)
 	}
-
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: "sidecar~a~b~c",
@@ -54,6 +53,57 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
+	return edsstr
+}
+
+// Regression for envoy restart and overlapping connections
+func TestReconnect(t *testing.T) {
+	server := util.EnsureTestServer()
+
+	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
+		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	edsstr := connect(server, t)
+	m, err := edsstr.Recv()
+
+	// envoy restarts and reconnects
+	edsstr2 := connect(server, t)
+	m, err = edsstr2.Recv()
+
+	// closes old process
+	_ = edsstr.CloseSend()
+
+	time.Sleep(1 * time.Second)
+
+
+	// event happens
+	v2.EdsPushAll()
+	// will trigger recompute and push (we may need to make a change once diff is implemented
+
+	done := make(chan struct{}, 1)
+	go func () {
+		t := time.NewTimer(3*time.Second)
+		select {
+		case <-t.C:
+			edsstr2.CloseSend()
+		case <-done:
+			if !t.Stop() {
+				<-t.C
+			}
+		}
+	}()
+
+	m, err = edsstr2.Recv()
+	if err != nil {
+		t.Fatal("Recv failed", err)
+	}
+	t.Log("Received ", m)
+
+
+}
+
+// Make a direct EDS grpc request to pilot, verify the result is as expected.
+func directRequest(server *bootstrap.Server, t *testing.T) {
+	edsstr := connect(server, t)
 
 	res1, err := edsstr.Recv()
 	if err != nil {
