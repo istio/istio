@@ -94,15 +94,13 @@ test/minikube/auth/e2e_simple:
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS}
-           | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
 test/minikube/noauth/e2e_simple:
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS}
-           | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/auth/e2e_pilot: istioctl
@@ -119,8 +117,7 @@ test/minikube/auth/e2e_pilot: istioctl
 		--auth_enable=true \
 		--ns pilot-auth-system \
 		-n pilot-auth-test \
-		   ${TESTOPTS}
-        | tee ${OUT_DIR}/tests/test-report-auth-pilot.raw
+		   ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot.raw
 
 
 # Target for running e2e pilot in a minikube env. Used by CI
@@ -140,8 +137,7 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--core-files-dir=${OUT_DIR}/logs \
         	--ns pilot-system-test \
         	-n pilot-test \
-           ${TESTOPTS}
-           | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/noauth/e2e_pilot_legacy: istioctl
@@ -160,5 +156,4 @@ test/minikube/noauth/e2e_pilot_legacy: istioctl
 		--core-files-dir=${OUT_DIR}/logs \
         --ns pilot-system-test \
         -n pilot-test \
-           ${TESTOPTS}
-            | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
