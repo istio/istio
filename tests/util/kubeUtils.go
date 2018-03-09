@@ -173,7 +173,7 @@ func GetIngress(n string) (string, error) {
 		err = multierror.Prefix(err, pods)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
 	client := &http.Client{Timeout: time.Duration(5 * time.Second)}
@@ -182,12 +182,14 @@ func GetIngress(n string) (string, error) {
 		case <-ctx.Done():
 			return "", errors.New("istio-ingress readiness check timed out")
 		default:
-			response, err := ctxhttp.Get(ctx, client, fmt.Sprintf("http://%s", ingress))
+			url := fmt.Sprintf("http://%s", ingress)
+			log.Infof("Checking %v", url)
+			response, err := ctxhttp.Get(ctx, client, url)
 			if err == nil {
 				log.Infof("Response %v %q received from istio-ingress", response.StatusCode, response.Status)
 				return ingress, nil
 			}
-			log.Warna("Error: %v, checking again")
+			log.Warna("Error: %v, checking again", err)
 		}
 	}
 }
