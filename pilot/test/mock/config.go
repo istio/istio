@@ -489,6 +489,8 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	defer close(stop)
 
 	ach, dch := make(chan bool), make(chan bool)
+	defer close(ach)
+	defer close(dch)
 	sad, sdd := 0, 0
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
 		switch ev {
