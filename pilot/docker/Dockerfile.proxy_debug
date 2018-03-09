@@ -12,7 +12,7 @@ COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # Sudoers used to allow tcpdump and other debug utilities.
-RUN mkdir /var/lib/istio && useradd -m --uid 1337 istio-proxy && \
+RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
