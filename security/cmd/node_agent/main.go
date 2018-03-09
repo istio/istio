@@ -80,9 +80,11 @@ func main() {
 			os.Exit(-1)
 		}
 	} else if naConfig.Env == "k8s" {
-		os.Fatalf("WIP support for k8s environment...")
+		log.Errorf("WIP support for k8s environment...")
+		os.Exit(-1)
 	} else {
-		os.Fatalf("Node Agent is not supported on environment %v yet, supported environment list: vm", naConfig.Env)
+		log.Errorf("Node Agent is not supported on environment %v yet, supported environment list: vm", naConfig.Env)
+		os.Exit(-1)
 	}
 }
 
