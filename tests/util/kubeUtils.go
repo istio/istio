@@ -189,7 +189,7 @@ func GetIngress(n string) (string, error) {
 				log.Infof("Response %v %q received from istio-ingress", response.StatusCode, response.Status)
 				return ingress, nil
 			}
-			log.Warna("Error: %v, checking again", err)
+			log.Warnf("Error: %v, checking again", err)
 		}
 	}
 }
