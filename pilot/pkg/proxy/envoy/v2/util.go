@@ -51,8 +51,8 @@ func mustMarshalToString(i interface{}) string {
 	return string(s)
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port.
-func BuildAddress(ip string, port uint32) core.Address {
+// buildAddress returns a SocketAddress with the given ip and port.
+func buildAddress(ip string, port uint32) core.Address {
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
@@ -65,8 +65,9 @@ func BuildAddress(ip string, port uint32) core.Address {
 	}
 }
 
-// GetByAddress returns a listener by its address
-func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
+// getByAddress returns a listener by its address
+// TODO(mostrowski): consider passing map around to save iteration.
+func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	for _, listener := range listeners {
 		if listener.Address.String() == addr {
 			return listener

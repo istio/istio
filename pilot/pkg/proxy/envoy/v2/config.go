@@ -41,13 +41,13 @@ import (
 )
 
 const (
-	// FilterNameRouter is the name for the router filter.
-	FilterNameRouter = "router"
+	// filterNameRouter is the name for the router filter.
+	filterNameRouter = "router"
 )
 
 // ListListenersResponse returns a list of listeners for the given environment and source node.
 func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := BuildListeners(env, node)
+	ls, err := buildListeners(env, node)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.Dis
 	return resp, nil
 }
 
-// BuildListeners produces a list of listeners and referenced clusters for all proxies
-func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+// buildListeners produces a list of listeners and referenced clusters for all proxies
+func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		proxyInstances, err := env.GetProxyServiceInstances(node)
@@ -178,7 +178,7 @@ func buildSidecarListenersClusters(
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
 			c := mgmtClusters[i]
-			l := GetByAddress(listeners, m.Address.String())
+			l := getByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
 					m.Name, m.Address, l.Name, l.Address)
@@ -193,7 +193,7 @@ func buildSidecarListenersClusters(
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           v1.VirtualListenerName,
-			Address:        BuildAddress(v1.WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Address:        buildAddress(v1.WildcardAddress, uint32(mesh.ProxyListenPort)),
 			UseOriginalDst: &google_protobuf.BoolValue{true},
 			FilterChains:   make([]listener.FilterChain, 0),
 		})
@@ -258,7 +258,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(v1.CORSFilter, "")}
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
-	filters = append(filters, buildHTTPFilterConfig(FilterNameRouter, ""))
+	filters = append(filters, buildHTTPFilterConfig(filterNameRouter, ""))
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
@@ -312,7 +312,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		Address: BuildAddress(opts.ip, uint32(opts.port)),
+		Address: buildAddress(opts.ip, uint32(opts.port)),
 		Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
 		FilterChains: []listener.FilterChain{
 			{
@@ -383,7 +383,7 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 		}
 		return &xdsapi.Listener{
 			Name:    fmt.Sprintf("mongo_%s_%d", ip, port),
-			Address: BuildAddress(ip, port),
+			Address: buildAddress(ip, port),
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -417,7 +417,7 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 			}
 			return &xdsapi.Listener{
 				Name:    fmt.Sprintf("redis_%s_%d", ip, port),
-				Address: BuildAddress(ip, port),
+				Address: buildAddress(ip, port),
 				FilterChains: []listener.FilterChain{
 					{
 						Filters: []listener.Filter{
@@ -435,7 +435,7 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 
 	return &xdsapi.Listener{
 		Name:         fmt.Sprintf("tcp_%s_%d", ip, port),
-		Address:      BuildAddress(ip, port),
+		Address:      buildAddress(ip, port),
 		FilterChains: []listener.FilterChain{{Filters: []listener.Filter{baseTCPProxy}}},
 	}
 }
