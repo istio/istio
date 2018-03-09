@@ -221,7 +221,7 @@ jobs:
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
             kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
             kubectl describe pods -n istio-test > /go/out/logs/pods-test.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml"
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
