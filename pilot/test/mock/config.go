@@ -487,8 +487,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
-
-	ach, dch := make(chan bool), make(chan bool)
+	ach, dch := make(chan bool, n), make(chan bool, n)
 	defer close(ach)
 	defer close(dch)
 	sad, sdd := 0, 0
