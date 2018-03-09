@@ -63,28 +63,27 @@ func TestReconnect(t *testing.T) {
 	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
 		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
 	edsstr := connect(server, t)
-	m, err := edsstr.Recv()
+	_, _ := edsstr.Recv()
 
 	// envoy restarts and reconnects
 	edsstr2 := connect(server, t)
-	m, err = edsstr2.Recv()
+	_, _ = edsstr2.Recv()
 
 	// closes old process
 	_ = edsstr.CloseSend()
 
 	time.Sleep(1 * time.Second)
 
-
 	// event happens
 	v2.EdsPushAll()
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	done := make(chan struct{}, 1)
-	go func () {
-		t := time.NewTimer(3*time.Second)
+	go func() {
+		t := time.NewTimer(3 * time.Second)
 		select {
 		case <-t.C:
-			edsstr2.CloseSend()
+			_ = edsstr2.CloseSend()
 		case <-done:
 			if !t.Stop() {
 				<-t.C
@@ -92,12 +91,11 @@ func TestReconnect(t *testing.T) {
 		}
 	}()
 
-	m, err = edsstr2.Recv()
+	m, err := edsstr2.Recv()
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
 	t.Log("Received ", m)
-
 
 }
 

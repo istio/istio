@@ -423,7 +423,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 	c.mutex.Unlock()
 
 	// May replace an existing connection
-	if  existing != nil {
+	if existing != nil {
 		existing.pushChannel <- false // force closing it
 	}
 	c.EdsClients[node] = connection
