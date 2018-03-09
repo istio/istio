@@ -21,10 +21,13 @@ namespace Mixer {
 
 Control::Control(const Config& config, Upstream::ClusterManager& cm,
                  Event::Dispatcher& dispatcher,
-                 Runtime::RandomGenerator& random,
+                 Runtime::RandomGenerator& random, Stats::Scope& scope,
                  Utils::MixerFilterStats& stats)
     : config_(config),
-      cm_(cm),
+      check_client_factory_(Utils::GrpcClientFactoryForCluster(
+          config_.check_cluster(), cm, scope)),
+      report_client_factory_(Utils::GrpcClientFactoryForCluster(
+          config_.report_cluster(), cm, scope)),
       stats_obj_(dispatcher, stats,
                  config_.config_pb().transport().stats_update_interval(),
                  [this](::istio::mixerclient::Statistics* stat) -> bool {
@@ -32,15 +35,15 @@ Control::Control(const Config& config, Upstream::ClusterManager& cm,
                  }) {
   ::istio::control::http::Controller::Options options(config_.config_pb());
 
-  Utils::CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
-                           config_.report_cluster(), &options.env);
+  Utils::CreateEnvironment(dispatcher, random, *check_client_factory_,
+                           *report_client_factory_, &options.env);
 
   controller_ = ::istio::control::http::Controller::Create(options);
 }
 
 Utils::CheckTransport::Func Control::GetCheckTransport(
     const HeaderMap* headers) {
-  return Utils::CheckTransport::GetFunc(cm_, config_.check_cluster(), headers);
+  return Utils::CheckTransport::GetFunc(*check_client_factory_, headers);
 }
 
 // Call controller to get statistics.

@@ -24,18 +24,22 @@ namespace Mixer {
 
 Control::Control(const Config& config, Upstream::ClusterManager& cm,
                  Event::Dispatcher& dispatcher,
-                 Runtime::RandomGenerator& random,
+                 Runtime::RandomGenerator& random, Stats::Scope& scope,
                  Utils::MixerFilterStats& stats, const std::string& uuid)
     : config_(config),
       dispatcher_(dispatcher),
+      check_client_factory_(Utils::GrpcClientFactoryForCluster(
+          config_.check_cluster(), cm, scope)),
+      report_client_factory_(Utils::GrpcClientFactoryForCluster(
+          config_.report_cluster(), cm, scope)),
       stats_obj_(dispatcher, stats,
                  config_.config_pb().transport().stats_update_interval(),
                  [this](Statistics* stat) -> bool { return GetStats(stat); }),
       uuid_(uuid) {
   ::istio::control::tcp::Controller::Options options(config_.config_pb());
 
-  Utils::CreateEnvironment(cm, dispatcher, random, config_.check_cluster(),
-                           config_.report_cluster(), &options.env);
+  Utils::CreateEnvironment(dispatcher, random, *check_client_factory_,
+                           *report_client_factory_, &options.env);
 
   controller_ = ::istio::control::tcp::Controller::Create(options);
 }

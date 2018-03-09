@@ -45,7 +45,7 @@ fi
 
 cd $ROOT
 
-export BAZEL_TEST_ARGS="--test_output=errors --define=google_grpc=disabled"
+export BAZEL_TEST_ARGS="--test_output=errors"
 
 echo 'Code Check'
 make check

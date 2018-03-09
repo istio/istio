@@ -32,7 +32,8 @@ class Control final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   Control(const Config& config, Upstream::ClusterManager& cm,
           Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
-          Utils::MixerFilterStats& stats, const std::string& uuid);
+          Stats::Scope& scope, Utils::MixerFilterStats& stats,
+          const std::string& uuid);
 
   ::istio::control::tcp::Controller* controller() { return controller_.get(); }
 
@@ -53,6 +54,11 @@ class Control final : public ThreadLocal::ThreadLocalObject {
 
   // dispatcher.
   Event::Dispatcher& dispatcher_;
+
+  // async client factories
+  Grpc::AsyncClientFactoryPtr check_client_factory_;
+  Grpc::AsyncClientFactoryPtr report_client_factory_;
+
   // statistics
   Utils::MixerStatsObject stats_obj_;
   // UUID of the Envoy TCP mixer filter.

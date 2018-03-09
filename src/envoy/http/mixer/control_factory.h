@@ -41,10 +41,11 @@ class ControlFactory : public Logger::Loggable<Logger::Id::config> {
             POOL_COUNTER_PREFIX(context.scope(), kHttpStatsPrefix))} {
     Upstream::ClusterManager& cm = context.clusterManager();
     Runtime::RandomGenerator& random = context.random();
-    tls_->set([this, &cm, &random](Event::Dispatcher& dispatcher)
+    Stats::Scope& scope = context.scope();
+    tls_->set([this, &cm, &random, &scope](Event::Dispatcher& dispatcher)
                   -> ThreadLocal::ThreadLocalObjectSharedPtr {
                     return std::make_shared<Control>(*config_, cm, dispatcher,
-                                                     random, stats_);
+                                                     random, scope, stats_);
                   });
   }
 

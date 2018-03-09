@@ -35,7 +35,7 @@ class Control final : public ThreadLocal::ThreadLocalObject {
   // The constructor.
   Control(const Config& config, Upstream::ClusterManager& cm,
           Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
-          Utils::MixerFilterStats& stats);
+          Stats::Scope& scope, Utils::MixerFilterStats& stats);
 
   // Get low-level controller object.
   ::istio::control::http::Controller* controller() { return controller_.get(); }
@@ -49,10 +49,11 @@ class Control final : public ThreadLocal::ThreadLocalObject {
 
   // The mixer config.
   const Config& config_;
-  // Envoy cluster manager for making gRPC calls.
-  Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::control::http::Controller> controller_;
+  // async client factories
+  Grpc::AsyncClientFactoryPtr check_client_factory_;
+  Grpc::AsyncClientFactoryPtr report_client_factory_;
   // The stats object.
   Utils::MixerStatsObject stats_obj_;
 };

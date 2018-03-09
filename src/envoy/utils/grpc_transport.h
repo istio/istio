@@ -38,8 +38,7 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
       const RequestType& request, ResponseType* response,
       istio::mixerclient::DoneFunc on_done)>;
 
-  static Func GetFunc(Upstream::ClusterManager& cm,
-                      const std::string& cluster_name,
+  static Func GetFunc(Grpc::AsyncClientFactory& factory,
                       const Http::HeaderMap* headers = nullptr);
 
   GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
