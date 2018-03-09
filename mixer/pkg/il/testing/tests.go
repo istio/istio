@@ -1064,7 +1064,7 @@ end
 	{
 		E:    `dnsName("")`,
 		Type: descriptor.DNS_NAME,
-		Err:  `Error converting '' to dns name: 'idna: invalid label ""'`,
+		Err:  `error converting '' to dns name: 'idna: invalid label ""'`,
 	},
 
 	{
@@ -1079,7 +1079,7 @@ end
 		I: map[string]interface{}{
 			"as": "-foo.-bar",
 		},
-		Err: `Error converting '-foo.-bar' to dns name: 'idna: invalid label "-foo"'`,
+		Err: `error converting '-foo.-bar' to dns name: 'idna: invalid label "-foo"'`,
 	},
 
 	{
@@ -1506,14 +1506,6 @@ end`,
 		R:    true,
 	},
 
-
-
-
-
-
-
-
-
 	{
 		E:    `uri("http://istio.io")`,
 		Type: descriptor.URI,
@@ -1544,7 +1536,7 @@ end
 	{
 		E:    `uri("")`,
 		Type: descriptor.URI,
-		Err:  `error converting string to url: empty string`,
+		Err:  `error converting string to uri: empty string`,
 	},
 
 	{
@@ -1559,7 +1551,7 @@ end
 		I: map[string]interface{}{
 			"as": ":/",
 		},
-		Err: `error converting string to url ':/': 'parse :/: missing protocol scheme'`,
+		Err: `error converting string to uri ':/': 'parse :/: missing protocol scheme'`,
 	},
 
 	{
@@ -1753,12 +1745,6 @@ end`,
 		R: false,
 	},
 
-	
-	
-	
-	
-	
-	
 	{
 		E:    "3 != 2",
 		Type: descriptor.BOOL,

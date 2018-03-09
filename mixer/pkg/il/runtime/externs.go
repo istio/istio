@@ -36,12 +36,12 @@ var Externs = map[string]interpreter.Extern{
 	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
-	"dnsName":         interpreter.ExternFromFn("dnsName", externDnsName),
-	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDnsNameEqual),
+	"dnsName":         interpreter.ExternFromFn("dnsName", externDNSName),
+	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
 	"email":           interpreter.ExternFromFn("email", externEmail),
 	"email_equal":     interpreter.ExternFromFn("email_equal", externEmailEqual),
-	"uri":             interpreter.ExternFromFn("uri", externUri),
-	"uri_equal":       interpreter.ExternFromFn("uri_equal", externUriEqual),
+	"uri":             interpreter.ExternFromFn("uri", externURI),
+	"uri_equal":       interpreter.ExternFromFn("uri_equal", externURIEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
 	"matches":         interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -136,33 +136,34 @@ func externTimestampEqual(t1 time.Time, t2 time.Time) bool {
 	return t1.Equal(t2)
 }
 
-// This profile is for performing  validations, but does not otherwise modify the string.
-var externDnsNameProfile = idna.New(
+// This IDNA profile is for performing validations, but does not otherwise modify the string.
+var externDNSNameProfile = idna.New(
 	idna.StrictDomainName(true),
 	idna.ValidateLabels(true),
 	idna.VerifyDNSLength(true),
 	idna.BidiRule())
 
-func externDnsName(in string) (string, error) {
-	s, err := externDnsNameProfile.ToUnicode(in)
+func externDNSName(in string) (string, error) {
+	s, err := externDNSNameProfile.ToUnicode(in)
 	if err != nil {
-		err = fmt.Errorf("Error converting '%s' to dns name: '%v'", in, err)
+		err = fmt.Errorf("error converting '%s' to dns name: '%v'", in, err)
 	}
 	return s, err
 }
 
-// This profile converts the string for lookup.
-var externDnsNameEqualProfile = idna.New(idna.MapForLookup(),
+// This IDNA profile converts the string for lookup, which ends up canonicalizing the dns name, for the most
+// part.
+var externDNSNameEqualProfile = idna.New(idna.MapForLookup(),
 	idna.BidiRule())
 
-func externDnsNameEqual(n1 string, n2 string) (bool, error) {
+func externDNSNameEqual(n1 string, n2 string) (bool, error) {
 	var err error
 
-	if n1, err = externDnsNameEqualProfile.ToUnicode(n1); err != nil {
+	if n1, err = externDNSNameEqualProfile.ToUnicode(n1); err != nil {
 		return false, err
 	}
 
-	if n2, err = externDnsNameEqualProfile.ToUnicode(n2); err != nil {
+	if n2, err = externDNSNameEqualProfile.ToUnicode(n2); err != nil {
 		return false, err
 	}
 
@@ -191,7 +192,7 @@ func externEmail(in string) (string, error) {
 
 	_, domain := getEmailParts(a.Address)
 
-	_, err = externDnsName(domain)
+	_, err = externDNSName(domain)
 	if err != nil {
 		return "", fmt.Errorf("error converting '%s' to e-mail: '%v'", in, err)
 	}
@@ -213,7 +214,7 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	local1, domain1 := getEmailParts(a1.Address)
 	local2, domain2 := getEmailParts(a2.Address)
 
-	domainEq, err := externDnsNameEqual(domain1, domain2)
+	domainEq, err := externDNSNameEqual(domain1, domain2)
 	if err != nil {
 		return false, fmt.Errorf("error comparing e-mails '%s' and '%s': %v", e1, e2, err)
 	}
@@ -225,37 +226,43 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	return local1 == local2, nil
 }
 
-func externUri(in string) (string, error) {
+func externURI(in string) (string, error) {
 	if in == "" {
-		return "", errors.New("error converting string to url: empty string")
+		return "", errors.New("error converting string to uri: empty string")
 	}
-	_, err := url.Parse(in)
-	if err != nil {
-		return "", fmt.Errorf("error converting string to url '%s': '%v'", in, err)
+
+	if _, err := url.Parse(in); err != nil {
+		return "", fmt.Errorf("error converting string to uri '%s': '%v'", in, err)
 	}
-	return in, err
+	return in, nil
 }
 
-func externUriEqual(u1 string, u2 string) (bool, error) {
+func externURIEqual(u1 string, u2 string) (bool, error) {
 	url1, err := url.Parse(u1)
 	if err != nil {
-		return false, fmt.Errorf("error converting string to url '%s': '%v'", u1, err)
+		return false, fmt.Errorf("error converting string to uri '%s': '%v'", u1, err)
 	}
 
 	url2, err := url.Parse(u2)
 	if err != nil {
-		return false, fmt.Errorf("error converting string to url '%s': '%v'", u2, err)
+		return false, fmt.Errorf("error converting string to uri '%s': '%v'", u2, err)
 	}
 
 	// Try to apply as much normalization logic as possible.
-	if url1.Scheme != url2.Scheme {
+	scheme1 := strings.ToLower(url1.Scheme)
+	scheme2 := strings.ToLower(url2.Scheme)
+	if scheme1 != scheme2 {
 		return false, nil
 	}
 
-	if url1.Scheme == "http" || url1.Scheme == "https" {
+	// normalize schemes
+	url1.Scheme = scheme1
+	url2.Scheme = scheme1
+
+	if scheme1 == "http" || scheme1 == "https" {
 		// Special case http(s) URLs
 
-		dnsEq, err := externDnsNameEqual(url1.Hostname(), url2.Hostname())
+		dnsEq, err := externDNSNameEqual(url1.Hostname(), url2.Hostname())
 		if err != nil {
 			return false, err
 		}
@@ -268,7 +275,7 @@ func externUriEqual(u1 string, u2 string) (bool, error) {
 			return false, nil
 		}
 
-		// normalize url2 to url1's hostname.
+		// normalize host names
 		url1.Host = url2.Host
 	}
 

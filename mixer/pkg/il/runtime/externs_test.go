@@ -99,7 +99,7 @@ func TestExternDnsName_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := externDnsName(v)
+		o, err := externDNSName(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -124,7 +124,7 @@ func TestExternDnsName_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := externDnsName(v)
+		_, err := externDNSName(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v", v)
 		}
@@ -142,7 +142,7 @@ func TestExternDnsNameEqual_Positive(t *testing.T) {
 	}
 
 	for k, v := range positive {
-		eq, err := externDnsNameEqual(k, v)
+		eq, err := externDNSNameEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -158,7 +158,7 @@ func TestExternDnsNameEqual_Negative(t *testing.T) {
 	}
 
 	for k, v := range negative {
-		eq, err := externDnsNameEqual(k, v)
+		eq, err := externDNSNameEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -175,7 +175,7 @@ func TestExternDnsNameEqual_Error(t *testing.T) {
 	}
 
 	for k, v := range erroneous {
-		_, err := externDnsNameEqual(k, v)
+		_, err := externDNSNameEqual(k, v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v == %v", k, v)
 		}
@@ -311,7 +311,7 @@ func TestExternUri_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := externUri(v)
+		o, err := externURI(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -330,7 +330,7 @@ func TestExternUri_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := externUri(v)
+		_, err := externURI(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: '%v'", v)
 		}
@@ -341,15 +341,17 @@ func TestExternUriEqual_Positive(t *testing.T) {
 	positive := map[string]string{
 		"foo":                "foo",
 		"scheme:bar":         "scheme:bar",
+		"urn:bar":            "URN:bar",
 		"http://host":        "http://host",
 		"http://HOST":        "http://host",
 		"http://HOST.com":    "http://host.COM",
 		"http://HOST.com:80": "http://host.COM:80",
 		"http://HOST.COM:":   "http://host.COM",
+		"HTTP://host.com:":   "http://host.com",
 	}
 
 	for k, v := range positive {
-		eq, err := externUriEqual(k, v)
+		eq, err := externURIEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -370,7 +372,7 @@ func TestExternUriEqual_Negative(t *testing.T) {
 	}
 
 	for k, v := range negative {
-		eq, err := externUriEqual(k, v)
+		eq, err := externURIEqual(k, v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -387,7 +389,7 @@ func TestExternUriEqual_Error(t *testing.T) {
 	}
 
 	for k, v := range erroneous {
-		_, err := externUriEqual(k, v)
+		_, err := externURIEqual(k, v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v == %v", k, v)
 		}
