@@ -72,7 +72,7 @@ func consolidateAuthPolicy(mesh *meshconfig.MeshConfig,
 func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) *authn.Policy {
 	if legacy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		return &authn.Policy{
-			Peers: []*authn.PeerAuthenticationMethod{&authn.PeerAuthenticationMethod{
+			Peers: []*authn.PeerAuthenticationMethod{{
 				Params: &authn.PeerAuthenticationMethod_Mtls{}}},
 		}
 	}
