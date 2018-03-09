@@ -105,6 +105,7 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
+	util.CheckPodsRunning(am.namespace)
 	return nil
 }
 

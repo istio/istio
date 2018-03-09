@@ -154,6 +154,7 @@ func (k *KubeInfo) Setup() error {
 			log.Error("Failed to deploy istio addons")
 			return err
 		}
+		util.CheckPodsRunning(k.Namespace)
 	}
 
 	var in string
