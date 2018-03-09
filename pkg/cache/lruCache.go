@@ -156,6 +156,12 @@ func NewLRU(defaultExpiration time.Duration, evictionInterval time.Duration, max
 	return c
 }
 
+// SimpleLRU returns a cache with an LRU eviction model. It differs from NewLRU in that it does not perform
+// time based evictions.
+func SimpleLRU(maxEntries int32) Cache {
+	return NewLRU(time.Duration(0), time.Duration(0), maxEntries)
+}
+
 func (c *lruCache) evicter(evictionInterval time.Duration) {
 	// Wake up once in a while and evict stale items
 	ticker := time.NewTicker(evictionInterval)
