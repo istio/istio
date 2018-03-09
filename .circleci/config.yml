@@ -650,4 +650,6 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-
+      - e2e-dashboard:
+          requires:
+            - build
