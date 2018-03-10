@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -536,8 +535,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 // CheckCacheFreshness validates operational invariants of a cache
 func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *testing.T) {
 	stop := make(chan struct{})
-	var doneMu sync.Mutex
-	done := false
+	done := make(chan bool)
 	o := Make(namespace, 0)
 
 	// validate cache consistency
@@ -577,9 +575,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			}
 			log.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
-			doneMu.Lock()
-			done = true
-			doneMu.Unlock()
+			done <- true
 		}
 	})
 
@@ -596,11 +592,13 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 		t.Error(err)
 	}
 
-	util.Eventually("successfully set done", func() bool {
-		doneMu.Lock()
-		defer doneMu.Unlock()
-		return done
-	}, t)
+	timeout := time.After(10 * time.Second)
+	select {
+	case <-timeout:
+		t.Fatalf("timeout waiting to be done")
+	case <-done:
+		return
+	}
 }
 
 // CheckCacheSync validates operational invariants of a cache against the
