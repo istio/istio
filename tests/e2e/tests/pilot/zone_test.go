@@ -45,7 +45,7 @@ func (z *zone) Run() error {
 
 	funcs := make(map[string]func() tutil.Status)
 	for _, app := range []string{"a", "b", "d"} {
-		name := fmt.Sprintf("Checking log of %s for availabilty zone", app)
+		name := fmt.Sprintf("Checking log of %s for availability zone", app)
 		funcs[name] = (func(app string) func() tutil.Status {
 			return func() tutil.Status {
 				if len(z.Apps[app]) == 0 {
