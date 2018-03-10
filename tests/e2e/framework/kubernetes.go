@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/log"
@@ -74,7 +76,9 @@ type KubeInfo struct {
 	TmpDir  string
 	yamlDir string
 
-	Ingress string
+	inglock    sync.Mutex
+	ingress    string
+	ingressErr error
 
 	localCluster     bool
 	namespaceCreated bool
@@ -158,17 +162,6 @@ func (k *KubeInfo) Setup() error {
 		}
 	}
 
-	var in string
-	if k.localCluster {
-		in, err = util.GetIngressPod(k.Namespace)
-	} else {
-		in, err = util.GetIngress(k.Namespace)
-	}
-	if err != nil {
-		return err
-	}
-	k.Ingress = in
-
 	if *withMixerValidator {
 		// Run the script to set up the certificate.
 		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
@@ -178,6 +171,39 @@ func (k *KubeInfo) Setup() error {
 
 	}
 	return nil
+}
+
+// IngressOrFail lazily initialize ingress and fail test if not found.
+func (k *KubeInfo) IngressOrFail(t *testing.T) string {
+	gw, err := k.Ingress()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// Ingress lazily initialize ingress
+func (k *KubeInfo) Ingress() (string, error) {
+	k.inglock.Lock()
+	defer k.inglock.Unlock()
+
+	// Previously fetched ingress or failed.
+	if k.ingressErr != nil || len(k.ingress) != 0 {
+		return k.ingress, k.ingressErr
+	}
+
+	if k.localCluster {
+		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace)
+	} else {
+		k.ingress, k.ingressErr = util.GetIngress(k.Namespace)
+	}
+
+	// So far we only do http ingress
+	if len(k.ingress) > 0 {
+		k.ingress = "http://" + k.ingress
+	}
+
+	return k.ingress, k.ingressErr
 }
 
 // Teardown clean up everything created by setup

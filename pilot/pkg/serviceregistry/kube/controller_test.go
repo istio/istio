@@ -70,7 +70,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	util.Eventually(func() bool {
+	util.Eventually("successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false

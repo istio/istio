@@ -19,6 +19,7 @@ package dashboard
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -39,6 +40,7 @@ import (
 
 const (
 	istioDashboard = "addons/grafana/dashboards/istio-dashboard.json"
+	mixerDashboard = "addons/grafana/dashboards/mixer-dashboard.json"
 	fortioYaml     = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml     = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -51,6 +53,7 @@ var (
 		"$source", "istio-ingress.*",
 		"$http_destination", "echosrv.*",
 		"$destination_version", "v1.*",
+		"$adapter", "kubernetesenv",
 		`\`, "",
 	)
 
@@ -71,57 +74,55 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func TestIstioDashboard(t *testing.T) {
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
+func TestDashboards(t *testing.T) {
+	cases := []struct {
+		name      string
+		dashboard string
+		filter    func([]string) []string
+	}{
+		{"Istio", istioDashboard, func(queries []string) []string { return queries }},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn},
 	}
 
-	t.Log("Generating TCP traffic...")
-	if err = sendTCPTrafficToCluster(t); err != nil {
-		t.Fatalf("Generating traffic failed: %v", err)
-	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			queries, err := extractQueries(testCase.dashboard)
+			if err != nil {
+				t.Fatalf("Could not extract queries from dashboard: %v", err)
+			}
 
-	t.Log("Generating HTTP traffic...")
-	_, err = sendTrafficToCluster()
-	if err != nil {
-		t.Fatalf("Generating traffic failed: %v", err)
-	}
+			queries = testCase.filter(queries)
 
-	t.Log("Sleep to allow prometheus scraping to happen...")
-	allowPrometheusSync()
+			t.Logf("For %s, checking %d queries.", testCase.name, len(queries))
 
-	queries, err := extractQueries()
-	if err != nil {
-		t.Fatalf("Could not extract queries from dashboard: %v", err)
-	}
-
-	for _, query := range queries {
-		modified := replaceGrafanaTemplates(query)
-		value, err := promAPI.Query(context.Background(), modified, time.Now())
-		if err != nil {
-			t.Errorf("Failure executing query (%s): %v", modified, err)
-		}
-		if value == nil {
-			t.Errorf("Returned value should not be nil for '%s'", modified)
-			continue
-		}
-		numSamples := 0
-		switch v := value.(type) {
-		case model.Vector:
-			numSamples = v.Len()
-		case *model.Scalar:
-			numSamples = 1
-		default:
-			t.Logf("unknown metric value type: %T", v)
-		}
-		if numSamples == 0 {
-			t.Errorf("Expected a metric value for '%s', found no samples: %#v", modified, value)
-		}
+			for _, query := range queries {
+				modified := replaceGrafanaTemplates(query)
+				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
+				if err != nil {
+					t.Errorf("Failure executing query (%s): %v", modified, err)
+				}
+				if value == nil {
+					t.Errorf("Returned value should not be nil for '%s'", modified)
+					continue
+				}
+				numSamples := 0
+				switch v := value.(type) {
+				case model.Vector:
+					numSamples = v.Len()
+				case *model.Scalar:
+					numSamples = 1
+				default:
+					t.Logf("unknown metric value type: %T", v)
+				}
+				if numSamples == 0 {
+					t.Errorf("Expected a metric value for '%s', found no samples: %#v", modified, value)
+				}
+			}
+		})
 	}
 }
 
-func sendTrafficToCluster() (*fhttp.HTTPRunnerResults, error) {
+func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
@@ -130,14 +131,14 @@ func sendTrafficToCluster() (*fhttp.HTTPRunnerResults, error) {
 			Out:        os.Stderr,
 		},
 		HTTPOptions: fhttp.HTTPOptions{
-			URL: "http://" + tc.Kube.Ingress + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
+			URL: gateway + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
 		},
 		AllowInitialErrors: true,
 	}
 	return fhttp.RunHTTPTest(&opts)
 }
 
-func sendTCPTrafficToCluster(t *testing.T) error {
+func generateTCPInCluster() error {
 	ns := tc.Kube.Namespace
 	ncPods, err := getPodList(ns, "app=netcat-client")
 	if err != nil {
@@ -147,14 +148,13 @@ func sendTCPTrafficToCluster(t *testing.T) error {
 		return fmt.Errorf("bad number of pods returned for netcat client: %d", len(ncPods))
 	}
 	clientPod := ncPods[0]
-	res, err := util.Shell("kubectl -n %s exec %s -c netcat -- sh -c \"echo 'test' | nc -vv -w5 -vv netcat-srv 44444\"", ns, clientPod)
-	t.Logf("TCP Traffic Response: %v", res)
+	_, err = util.Shell("kubectl -n %s exec %s -c netcat -- sh -c \"echo 'test' | nc -vv -w5 -vv netcat-srv 44444\"", ns, clientPod)
 	return err
 }
 
-func extractQueries() ([]string, error) {
+func extractQueries(dashFile string) ([]string, error) {
 	var queries []string
-	dash, err := os.Open(util.GetResourcePath(istioDashboard))
+	dash, err := os.Open(util.GetResourcePath(dashFile))
 	if err != nil {
 		return queries, fmt.Errorf("could not open dashboard file: %v", err)
 	}
@@ -177,6 +177,37 @@ func replaceGrafanaTemplates(orig string) string {
 	return out
 }
 
+// There currently is no good way to inject failures into a running Mixer,
+// nor to cause Mixers to become unhealthy and drop out of cluster membership.
+// For now, we will filter out the queries related to those metrics.
+//
+// Issue: https://github.com/istio/istio/issues/4070
+func mixerQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "_rq_5xx") {
+			continue
+		}
+		if strings.Contains(query, "_rq_4xx") {
+			continue
+		}
+		if strings.Contains(query, "ejections") {
+			continue
+		}
+		if strings.Contains(query, "retry") {
+			continue
+		}
+		if strings.Contains(query, "DataLoss") {
+			continue
+		}
+		if strings.Contains(query, "grpc_code!=") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
 func promAPI() (v1.API, error) {
 	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
 	if err != nil {
@@ -187,7 +218,7 @@ func promAPI() (v1.API, error) {
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway string
+	promAPI v1.API
 }
 
 func (t *testConfig) Teardown() error {
@@ -230,11 +261,31 @@ func setTestConfig() error {
 }
 
 func (t *testConfig) Setup() (err error) {
-	t.gateway = "http://" + tc.Kube.Ingress
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+		return fmt.Errorf("could not get all pods running")
 	}
-	return
+
+	pAPI, err := promAPI()
+	if err != nil {
+		return fmt.Errorf("could not build prometheus API client: %v", err)
+	}
+	t.promAPI = pAPI
+
+	if err := generateTCPInCluster(); err != nil {
+		return fmt.Errorf("generating TCP traffic failed: %v", err)
+	}
+
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+	if _, err := sendTrafficToCluster(gateway); err != nil {
+		return fmt.Errorf("generating HTTP traffic failed: %v", err)
+	}
+
+	allowPrometheusSync()
+
+	return nil
 }
 
 type promProxy struct {
@@ -273,6 +324,10 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 }
 
 func (p *promProxy) Setup() error {
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return errors.New("could not establish port-forward to prometheus: pods not running")
+	}
+
 	return p.portForward("app=prometheus", prometheusPort, prometheusPort)
 }
 
@@ -307,5 +362,5 @@ func getPodList(namespace string, selector string) ([]string, error) {
 }
 
 func allowPrometheusSync() {
-	time.Sleep(30 * time.Second)
+	time.Sleep(1 * time.Minute)
 }
