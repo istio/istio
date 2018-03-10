@@ -19,7 +19,7 @@ syntax = "proto3";
 // $location: https://istio.io/docs/reference/config/adapters/solarwinds.html
 
 // The `solarwinds` adapter enables Istio to deliver log and metric data to the
-// [Papertrail](https://www.papertrailapp.com) logging backendu and the
+// [Papertrail](https://www.papertrailapp.com) logging backend and the
 // [AppOptics](https://www.appoptics.com) monitoring backend.
 package adapter.solarwinds.config;
 
