@@ -16,7 +16,6 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="istio.VERSION"
-SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
 # Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
@@ -38,7 +37,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -c ... <hub>,<tag> for the istio-ca docker image
     -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
     -h ... <hub>,<tag> for the hyperkube docker image
-    -r ... tag for proxy debian package
+    -o ... <hub>,<tag> for the proxy docker image
     -n ... <namespace> namespace in which to install Istio control plane components
     -A ... URL to download auth debian packages
     -P ... URL to download pilot debian packages
@@ -50,17 +49,15 @@ EOF
   exit 2
 }
 
-source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
-
-while getopts :i:n:p:x:c:a:h:r:P:d:D:m: arg; do
+while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
-    p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    p) PILOT_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
+    x) MIXER_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
+    c) CA_HUB_TAG="${OPTARG}";;        # Format: "<hub>,<tag>"
+    a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
     h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    r) PROXY_TAG="${OPTARG}";;
+    o) PROXY_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
     D) PROXY_DEBUG="${OPTARG}";;
@@ -78,6 +75,11 @@ if [[ -n ${ALL_HUB_TAG} ]]; then
     MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     CA_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
     CA_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${PROXY_HUB_TAG} ]]; then
+    PROXY_HUB="$(echo ${PROXY_HUB_TAG}|cut -f1 -d,)"
+    PROXY_TAG="$(echo ${PROXY_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${PILOT_HUB_TAG} ]]; then
@@ -230,6 +232,7 @@ export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
+export PROXY_HUB="${PROXY_HUB}"
 export PROXY_TAG="${PROXY_TAG}"
 export PROXY_DEBUG="${PROXY_DEBUG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
@@ -272,11 +275,11 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector-configmap-release.yaml.tmpl
 
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-with-health-check.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
@@ -292,7 +295,7 @@ function update_istio_install() {
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector-configmap-release.yaml.tmpl
 
 
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PILOT_HUB}/${PROXY_IMAGE}:${PILOT_TAG}|" istio-ingress.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
   popd
 }
 
@@ -314,7 +317,7 @@ function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" bookinfo.sidecars.yaml.tmpl
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
   popd
 }
 
