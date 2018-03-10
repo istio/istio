@@ -16,7 +16,6 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="istio.VERSION"
-SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
 # Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
@@ -49,8 +48,6 @@ usage: ${BASH_SOURCE[0]} [options ...]"
 EOF
   exit 2
 }
-
-source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
 while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
   case ${arg} in
