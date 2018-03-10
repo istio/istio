@@ -185,7 +185,7 @@ def searchpod(pi, searchstr):
     if "." in searchstr:
         si = searchstr.split('.')
         if len(si) != 3 and len(si) != 2:
-            logging.warn("podname must be either name.namespace.podip or name.namespace or any string that's a pod's label or a prefix of a pod's name")
+            logging.warning("podname must be either name.namespace.podip or name.namespace or any string that's a pod's label or a prefix of a pod's name")
             return None
 
         podname = si[0]
@@ -260,8 +260,8 @@ def find_pilot_url():
         try:
             requests.get(pilot_url, timeout=2)
         except:
-            logging.warn("It seems that you are running outside the k8s cluster")
-            logging.warn("Let's try to create a port-forward to access pilot")
+            logging.warning("It seems that you are running outside the k8s cluster")
+            logging.warning("Let's try to create a port-forward to access pilot")
             cmd = "kubectl --namespace=%s get -l istio=pilot pod -o=jsonpath={.items[0].metadata.name}" % (ISTIO_NS)
             pod_name = subprocess.check_output(cmd.split())
             pilot_url, port_forward_pid = start_port_forward(pod_name, ISTIO_NS, pilot_port)
@@ -278,13 +278,13 @@ def main(args):
 
     if len(pods) > 1:
         podnames = ["%s.%s" % (pod.name, pod.namespace) for pod in pods]
-        logging.error("More than one pod is found: %s" % ", ".join(podnames)
+        logging.error("More than one pod is found: %s" % ", ".join(podnames))
         return -1
 
     pod = pods[0]
 
     if args.output is None:
-        output_dir = "/tmp" + pod.name
+        output_dir = "/tmp/" + pod.name
     else:
         output_dir = args.output + "/" + pod.name
 
@@ -305,7 +305,7 @@ def main(args):
 
         output_file = output_dir + "/" + "pilot_xds.json"
         op = open(output_file, "wt")
-        logging.info("Fetching from Pilot for pod %s in %s namespace" % (pod.name, pod.namespace)
+        logging.info("Fetching from Pilot for pod %s in %s namespace" % (pod.name, pod.namespace))
         xds = XDS(url=pilot_url)
         data = xds.lds(pod, True)
         yaml.safe_dump(data, op, default_flow_style=False,
