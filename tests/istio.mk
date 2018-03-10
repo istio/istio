@@ -46,16 +46,18 @@ endif
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
-EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
-EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
-EXTRA_E2E_ARGS += --mixer_tag ${TAG}
-EXTRA_E2E_ARGS += --pilot_tag ${TAG}
-EXTRA_E2E_ARGS += --proxy_tag ${TAG}
-EXTRA_E2E_ARGS += --ca_tag ${TAG}
-EXTRA_E2E_ARGS += --mixer_hub ${HUB}
-EXTRA_E2E_ARGS += --pilot_hub ${HUB}
-EXTRA_E2E_ARGS += --proxy_hub ${HUB}
-EXTRA_E2E_ARGS += --ca_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
+DEFAULT_EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
+DEFAULT_EXTRA_E2E_ARGS += --mixer_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --ca_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub ${HUB}
+
+EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
@@ -67,6 +69,9 @@ e2e_simple_run:
 e2e_mixer: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+e2e_dashboard: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
 e2e_bookinfo: istioctl generate_yaml
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
@@ -77,7 +82,7 @@ JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
 e2e_all: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
 	set -o pipefail; \
-	$(MAKE) e2e_simple e2e_mixer e2e_bookinfo \
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo \
 	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 e2e_pilot: istioctl generate_yaml
@@ -90,7 +95,7 @@ test/minikube/auth/e2e_pilot: istioctl generate_yaml
 	kubectl create ns istio-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true --auth=enable \
+		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
 		--core-files-dir=${OUT_DIR}/logs \

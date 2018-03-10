@@ -193,3 +193,13 @@ func captureStdout(f func()) ([]string, error) {
 
 	return strings.Split(string(content), "\n"), nil
 }
+
+func TestConfigWithBadOptions(t *testing.T) {
+	o := DefaultOptions()
+	o.JaegerURL = "https://foo"
+	o.ZipkinURL = "https://bar"
+
+	if _, err := Configure("foo", o); err == nil {
+		t.Error("Expecting failure, got success")
+	}
+}

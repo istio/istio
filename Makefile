@@ -27,7 +27,6 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_URL_ISTIOCTL ?= istioctl
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -111,7 +110,7 @@ ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_TAG),)
-  export PROXY_TAG:=$(shell grep PROXY_TAG istio.VERSION  | cut -d '=' -f2 | tr -d '"')
+  export PROXY_TAG:=$(shell grep PROXY_TAG istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
@@ -221,6 +220,8 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh pilot/docker/Dockerfile.proxy_debug | ${
 
 # init.sh downloads envoy
 ${ISTIO_OUT}/envoy: init
+${ISTIO_ENVOY_DEBUG_PATH}: init
+${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call make depend.update if adding new deps or
@@ -375,7 +376,7 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 
 istio-archive: ${ISTIO_OUT}/archive
 
-# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL, ISTIO_URL_ISTIOCTL as dependencies
+# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
 # consider using -a with updateVersion.sh to simplify the input parameters
 ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
@@ -386,7 +387,6 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updat
 	cp -r tools ${ISTIO_OUT}/archive
 	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -i "$(ISTIO_URL)/$(ISTIO_URL_ISTIOCTL)" \
                                  -P "$(ISTIO_URL)/deb" \
                                  -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
@@ -414,8 +414,8 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) pilot-test mixer-test security-test broker-test galley-test common-test \
-	|& tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+	$(MAKE) --keep-going pilot-test mixer-test security-test broker-test galley-test common-test \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
@@ -622,9 +622,11 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/servicegraph.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
                 install/kubernetes/addons/zipkin.yaml \
-                install/kubernetes/helm/istio/values.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
+                install/kubernetes/istio-ca-with-health-check.yaml \
+                install/kubernetes/istio-mixer-validator.yaml \
+                install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \

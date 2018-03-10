@@ -139,6 +139,7 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
+
 	webhookClient   *http.Client
 	webhookEndpoint string
 	// TODO Profile and optimize cache eviction policy to avoid

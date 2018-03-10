@@ -28,8 +28,8 @@ import (
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
@@ -94,6 +94,7 @@ var (
 		model.QuotaSpecBinding,
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
+		model.AuthenticationPolicy,
 	}
 )
 
@@ -643,7 +644,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.ServiceController,
 		s.configController,
 		environment,
-		args.DiscoveryOptions)
+		args.DiscoveryOptions,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create discovery service: %v", err)
 	}
@@ -651,7 +653,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer)
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer, environment)
 
 	s.HTTPServer = &http.Server{
 		Addr:    ":" + strconv.Itoa(args.DiscoveryOptions.Port),
@@ -692,6 +694,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
+
+		if args.RDSv2 {
+			log.Info("xDS: enabling RDS")
+			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
+			cache.Register(s.GRPCServer)
+			cache.RegisterInput(s.ServiceController, s.configController)
+		}
 
 		return err
 	})
@@ -747,10 +756,10 @@ func (s *Server) initGrpcServer() {
 	// TODO: log request interceptor if debug enabled.
 
 	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, grpc_prometheus.UnaryServerInterceptor)
-	grpc_prometheus.EnableHandlingTimeHistogram()
+	interceptors = append(interceptors, prometheus.UnaryServerInterceptor)
+	prometheus.EnableHandlingTimeHistogram()
 
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)))
 
 	// get the grpc server wired up
 	grpc.EnableTracing = true

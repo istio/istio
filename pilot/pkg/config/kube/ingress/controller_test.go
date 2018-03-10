@@ -16,7 +16,6 @@ package ingress
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -171,7 +170,7 @@ func TestConfig(t *testing.T) {
 		t.Errorf("Delete should not be allowed")
 	}
 
-	util.Eventually(ctl.HasSynced, t)
+	util.Eventually("HasSynced", ctl.HasSynced, t)
 }
 
 func TestIngressController(t *testing.T) {
@@ -184,43 +183,38 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
+	count := make(chan bool)
+	defer close(count)
 
-	lock := sync.Mutex{}
-	notificationCount := 0
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
-
-		lock.Lock()
-		defer lock.Unlock()
-
-		notificationCount++
+		count <- true
 	})
 	go ctl.Run(stop)
 
 	if _, err := cl.ExtensionsV1beta1().Ingresses(nginxIngress.Namespace).Create(&nginxIngress); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", nginxIngress.Namespace, err)
 	}
-
 	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
-	const expectedRuleCount = 5
 	if _, err := cl.ExtensionsV1beta1().Ingresses(namespace).Create(&ingress); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", namespace, err)
 	}
 
-	util.Eventually(func() bool {
-
-		lock.Lock()
-		defer lock.Unlock()
-
-		return notificationCount == expectedRuleCount
-	}, t)
-	if notificationCount != expectedRuleCount {
-		t.Errorf("expected %d IngressRule events to be notified, found %d", expectedRuleCount, notificationCount)
+	const expectedRuleCount = 5
+	timeout := time.After(3 * time.Second)
+	actual := 0
+	for {
+		select {
+		case <-count:
+			actual++
+		case <-timeout:
+			t.Fatalf("timeout waiting to receive expected rule count %d, actually received %d",
+				expectedRuleCount, actual)
+		}
+		if actual == expectedRuleCount {
+			break
+		}
 	}
 
-	util.Eventually(func() bool {
-		rules, _ := ctl.List(model.IngressRule.Type, namespace)
-		return len(rules) == expectedRuleCount
-	}, t)
 	rules, err := ctl.List(model.IngressRule.Type, namespace)
 	if err != nil {
 		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", namespace, err)

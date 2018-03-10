@@ -541,7 +541,7 @@ func makeProxyConfig() meshconfig.ProxyConfig {
 	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
-	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15007"
 	proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return proxyConfig
 }
@@ -553,6 +553,7 @@ var (
 func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
 	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15005"
 	return proxyConfig
 }
 
