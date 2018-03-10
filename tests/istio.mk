@@ -99,6 +99,7 @@ test/minikube/auth/e2e_simple:
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
 test/minikube/noauth/e2e_simple:
+	mkdir -p ${OUT_DIR}/tests
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
