@@ -314,7 +314,9 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 		},
 	)
 
-	log.Debugf("Attributes generated from preprocess phase are %v", responseBag.DebugString())
+	if log.DebugEnabled() {
+		log.Debugf("Attributes generated from preprocess phase are %v", responseBag.DebugString())
+	}
 	return err
 }
 
