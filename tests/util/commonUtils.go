@@ -125,27 +125,32 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
-	return sh(format, true, true, args...)
+	return sh(context.Background(), format, true, true, args...)
+}
+
+// Shell run command on shell and get back output and error if get one
+func ShellContext(ctx context.Context, format string, args ...interface{}) (string, error) {
+	return sh(ctx, format, true, true, args...)
 }
 
 // ShellMuteOutput run command on shell and get back output and error if get one
 // without logging the output
 func ShellMuteOutput(format string, args ...interface{}) (string, error) {
-	return sh(format, true, false, args...)
+	return sh(context.Background(), format, true, false, args...)
 }
 
 // ShellSilent runs command on shell and get back output and error if get one
 // without logging the command or output.
 func ShellSilent(format string, args ...interface{}) (string, error) {
-	return sh(format, false, false, args...)
+	return sh(context.Background(), format, false, false, args...)
 }
 
-func sh(format string, logCommand, logOutput bool, args ...interface{}) (string, error) {
+func sh(ctx context.Context, format string, logCommand, logOutput bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
 	if logCommand {
 		log.Infof("Running command %s", command)
 	}
-	c := exec.Command("sh", "-c", command) // #nosec
+	c := exec.CommandContext(ctx, "sh", "-c", command) // #nosec
 	bytes, err := c.CombinedOutput()
 	if logOutput {
 		if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
