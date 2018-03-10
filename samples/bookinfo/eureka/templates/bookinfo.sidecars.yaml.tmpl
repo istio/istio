@@ -26,7 +26,7 @@ services:
       - -u
       - "1337"
   details-v1-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_details-v1_1"
     entrypoint:
       - su
@@ -34,7 +34,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy --serviceregistry Eureka --serviceCluster details-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   ratings-v1-init:
-    image: {PROXY_HUB}/proxy_init:{PILOT_TAG}
+    image: {PILOT_HUB}/proxy_init:{PILOT_TAG}
     cap_add:
       - NET_ADMIN
     network_mode: "container:eureka_ratings-v1_1"
@@ -44,7 +44,7 @@ services:
       - -u
       - "1337"
   ratings-v1-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_ratings-v1_1"
     entrypoint:
       - su
@@ -62,7 +62,7 @@ services:
       - -u
       - "1337"
   productpage-v1-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_productpage-v1_1"
     entrypoint:
       - su
@@ -80,7 +80,7 @@ services:
       - -u
       - "1337"
   reviews-v1-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_reviews-v1_1"
     entrypoint:
       - su
@@ -98,7 +98,7 @@ services:
       - -u
       - "1337"
   reviews-v2-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_reviews-v2_1"
     entrypoint:
       - su
@@ -116,7 +116,7 @@ services:
       - -u
       - "1337"
   reviews-v3-sidecar:
-    image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+    image: {PILOT_HUB}/proxy_debug:{PROXY_TAG}
     network_mode: "container:eureka_reviews-v3_1"
     entrypoint:
       - su
