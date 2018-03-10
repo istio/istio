@@ -79,15 +79,10 @@ func TestSimpleIngress(t *testing.T) {
 	// should not take more than 1min45s to be live...
 	ctx, cancel := context.WithTimeout(context.Background(), 105*time.Second)
 	defer cancel()
-
 	client := &http.Client{Timeout: 5 * time.Second}
 	for i := 0; ; i++ {
 		if i != 0 {
-			select {
-			case <-time.After(time.Second):
-			case <-ctx.Done():
-				t.Fatalf("Unable to find expected output after %d attempts - ingress issue", i)
-			}
+			time.Sleep(time.Second)
 		}
 
 		select {
