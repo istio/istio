@@ -77,6 +77,13 @@ func newPodCache(ch cacheHandler) *PodCache {
 	return out
 }
 
+func (pc *PodCache) getPodKey(addr string) (string, bool) {
+	pc.rwMu.RLock()
+	defer pc.rwMu.RUnlock()
+	key, exists := pc.keys[addr]
+	return key, exists
+}
+
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
 	pc.rwMu.RLock()
