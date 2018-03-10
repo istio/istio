@@ -34,8 +34,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/sync/errgroup"
 	"golang.org/x/net/context/ctxhttp"
-	"golang.org/x/sync/errgroup"
+
 	"istio.io/fortio/fhttp"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
