@@ -54,22 +54,11 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 
-	return out
-}
-
-/***************************  Mesh EDS Implementation **********************************/
-// TODO: move to eds.go (separate PR for easier review of the changes)
-
-// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
-func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	ticker := time.NewTicker(responseTickDuration)
-	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := unknownPeerAddressStr
-	if ok {
-		peerAddr = peerInfo.Addr.String()
+	if len(periodicRefreshDuration) > 0 {
+		periodicRefresh()
 	}
-	return out
 
+	return out
 }
 
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
