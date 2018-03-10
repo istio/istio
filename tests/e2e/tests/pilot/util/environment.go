@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	testutil "istio.io/istio/tests/util"
 )
 
 const (
@@ -463,6 +464,17 @@ func (e *Environment) Teardown() {
 }
 
 func (e *Environment) dumpErrorLogs() {
+	// Use the common logs dumper.
+	err := testutil.FetchAndSaveClusterLogs(e.Config.Namespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+	err = testutil.FetchAndSaveClusterLogs(e.Config.IstioNamespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+
+	// Temp: dump logs the old way, for people used with it.
 	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {
 		var filename, content string
 		if strings.HasPrefix(pod, "istio-pilot") {
