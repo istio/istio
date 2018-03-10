@@ -341,6 +341,7 @@ $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
+# Build will rebuild the go binaries.
 build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
 
 # The following are convenience aliases for most of the go targets
