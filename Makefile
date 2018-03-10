@@ -415,7 +415,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going pilot-test mixer-test security-test broker-test galley-test common-test \
+	$(MAKE) --keep-going common-test mixer-test security-test broker-test galley-test pilot-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -548,9 +548,7 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 .PHONY: artifacts gcs.push.istioctl-all artifacts installgen
 
-# for now docker is limited to Linux compiles
-ifeq ($(GOOS),linux)
-
+# for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
@@ -563,8 +561,6 @@ gcs.push.istioctl-all: istioctl-all
 
 gcs.push.deb: deb
 	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
-
-endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'
