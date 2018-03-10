@@ -124,7 +124,7 @@ minikube start --bootstrapper kubeadm
 ```
 
 If you are using kubernetes with version < v1.8.0, you need to specify
-the extra-config and RBAC flags explicitly, Please run:
+the extra-config and RBAC flags explicitly. Please run:
 ```bash
 minikube start \
     --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
