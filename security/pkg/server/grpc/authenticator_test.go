@@ -190,7 +190,7 @@ func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
 				t.Errorf("Case %s: Incorrect error message: want %s but got %s", id, tc.expectedErrMsg, err.Error())
 			}
 		} else if err != nil {
-			t.Fatal("Case %s: Unexpected Error: %v", id, err)
+			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
 		}
 		if tc.expectedCaller != nil {
 			if !reflect.DeepEqual(tc.expectedCaller, actual) {
