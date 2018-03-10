@@ -91,7 +91,7 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: istio.default
+          secretName: istio.istio-ingress-service-account
           optional: true
       - name: ingress-certs
         secret:
