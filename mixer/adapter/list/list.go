@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -309,7 +310,15 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 			_, _, err := net.ParseCIDR(ip)
 			if err != nil {
-				ce = ce.Appendf("overrides", "could not parse override %s: %v", orig, err)
+				ce = ce.Appendf("overrides", "could not parse ip address override %s: %v", orig, err)
+			}
+		}
+	}
+
+	if ac.EntryType == config.REGEX {
+		for _, regex := range ac.Overrides {
+			if _, err := regexp.Compile(regex); err != nil {
+				ce = ce.Appendf("overrides", "could not parse regex override %s: %v", regex, err)
 			}
 		}
 	}

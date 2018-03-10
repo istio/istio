@@ -27,13 +27,14 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
-
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	responseTickDuration = time.Second * 15
+	responseTickDuration  = time.Second * 15
+	unknownPeerAddressStr = "Unknown peer address"
 )
 
 // MeshDiscovery is a unified interface for Envoy's v2 xDS APIs and Pilot's older
@@ -54,6 +55,8 @@ type DiscoveryServer struct {
 	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
+	// env is the model environment.
+	env model.Environment
 
 	Connections map[string]*EdsConnection
 }
@@ -63,9 +66,10 @@ type EdsConnection struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *DiscoveryServer {
-	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
+func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
+	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 
 	return out
 }
@@ -77,7 +81,7 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *Dis
 func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	ticker := time.NewTicker(responseTickDuration)
 	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := "Unknown peer address"
+	peerAddr := unknownPeerAddressStr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
@@ -153,7 +157,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	peerInfo, ok := peer.FromContext(ctx)
-	peerAddr := "Unknown peer address"
+	peerAddr := unknownPeerAddressStr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}

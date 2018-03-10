@@ -149,7 +149,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		if ok {
 			config, err := ConvertObject(schema, item, c.client.domainSuffix)
 			if err != nil {
-				log.Warnf("error translating object %#v", object)
+				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", schema, err, object)
 			} else {
 				f(*config, ev)
 			}

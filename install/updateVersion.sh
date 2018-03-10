@@ -54,7 +54,6 @@ source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
 while getopts :i:n:p:x:c:a:h:r:P:d:D:m: arg; do
   case ${arg} in
-    i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
@@ -174,6 +173,7 @@ function merge_files() {
   execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_AUTH
+  execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_AUTH
   execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_AUTH
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
 
@@ -187,6 +187,7 @@ function merge_files() {
   execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
 
@@ -229,7 +230,6 @@ export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
-export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PROXY_TAG="${PROXY_TAG}"
 export PROXY_DEBUG="${PROXY_DEBUG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"

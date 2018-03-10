@@ -50,6 +50,10 @@ required = [
     name = "istio.io/api"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/envoyproxy/go-control-plane"
+    non-go = false
+    unused-packages = false
 ###
 
 [[constraint]]

@@ -16,11 +16,12 @@ package version
 
 import "testing"
 
-func TestBuildInfo_String(t *testing.T) {
+func TestBuildInfo(t *testing.T) {
 	cases := []struct {
-		name string
-		in   BuildInfo
-		want string
+		name     string
+		in       BuildInfo
+		want     string
+		longWant string
 	}{
 		{"all specified", BuildInfo{
 			Version:       "VER",
@@ -29,14 +30,32 @@ func TestBuildInfo_String(t *testing.T) {
 			GolangVersion: "GOLANGVER",
 			DockerHub:     "DH",
 			User:          "USER",
-			BuildStatus:   "STATUS"}, "USER@HOST-DH-VER-GITREV-STATUS"},
-		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown"},
+			BuildStatus:   "STATUS"},
+			"USER@HOST-DH-VER-GITREV-STATUS", `Version: VER
+GitRevision: GITREV
+User: USER@HOST
+Hub: DH
+GolangVersion: GOLANGVER
+BuildStatus: STATUS
+`},
+
+		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", `Version: unknown
+GitRevision: unknown
+User: unknown@unknown
+Hub: unknown
+GolangVersion: go1.10
+BuildStatus: unknown
+`},
 	}
 
 	for _, v := range cases {
 		t.Run(v.name, func(t *testing.T) {
 			if v.in.String() != v.want {
 				t.Errorf("got %s; want %s", v.in.String(), v.want)
+			}
+
+			if v.in.LongForm() != v.longWant {
+				t.Errorf("got\n%s\nwant\n%s", v.in.LongForm(), v.longWant)
 			}
 		})
 	}
