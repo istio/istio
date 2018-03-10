@@ -59,7 +59,6 @@ func setup() error {
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
 	// This limits the options -
-	fsRoot = createTempDir()
 	stop = make(chan struct{})
 
 	// Create a test pilot discovery service configured to watch the tempDir.
@@ -77,7 +76,7 @@ func setup() error {
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			FileDir: fsRoot,
+			KubeConfig:IstioSrc + "/.circleci/config",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
