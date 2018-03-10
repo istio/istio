@@ -15,12 +15,11 @@
 package mixerEnvoyEnv
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-
-	"fmt"
 
 	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/component/mixer"

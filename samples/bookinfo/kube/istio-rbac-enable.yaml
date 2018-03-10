@@ -23,10 +23,10 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rbac
 metadata:
- name: handler
- namespace: istio-system
+  name: handler
+  namespace: istio-system
 spec:
- config_store_url: "k8s://"
+  config_store_url: "k8s://"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -34,8 +34,8 @@ metadata:
   name: rbaccheck
   namespace: istio-system
 spec:
+  match: destination.namespace == "default"
   actions:
-  # handler and instance names default to the rule's namespace.
   - handler: handler.rbac
     instances:
     - requestcontext.authorization

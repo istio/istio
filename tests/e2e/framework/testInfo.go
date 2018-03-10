@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -139,6 +137,10 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		return nil
 	}
 
+	_, err := util.Shell("kubectl get ingress --all-namespaces")
+	if err != nil {
+		return err
+	}
 	lines, err := util.Shell("kubectl get pods -n " + namespace)
 	if err != nil {
 		return err

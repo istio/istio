@@ -20,8 +20,7 @@ import (
 	"sort"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -71,7 +70,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	util.Eventually(func() bool {
+	util.Eventually("successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false

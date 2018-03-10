@@ -22,11 +22,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Mock values
 var (
+	PortHTTPName = "http"
+	// Mock values
 	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	PortHTTPName   = "http"
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -211,6 +211,10 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
+func (sd *ServiceDiscovery) AddService(name string, svc *model.Service) {
+	sd.services[name] = svc
+}
+
 // Services implements discovery interface
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	if sd.ServicesError != nil {
@@ -250,7 +254,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 		if port, ok := service.Ports.Get(name); ok {
 			for v := 0; v < sd.versions; v++ {
 				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-					out = append(out, MakeInstance(service, port, v, ""))
+					out = append(out, MakeInstance(service, port, v, "zone/region"))
 				}
 			}
 		}
@@ -272,7 +276,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model
 			for v := 0; v < sd.versions; v++ {
 				if node.IPAddress == MakeIP(service, v) {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, ""))
+						out = append(out, MakeInstance(service, port, v, "zone/region"))
 					}
 				}
 			}

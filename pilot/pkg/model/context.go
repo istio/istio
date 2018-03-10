@@ -20,8 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -159,8 +158,8 @@ const (
 	// ServiceClusterName service cluster name used in xDS calls
 	ServiceClusterName = "istio-proxy"
 
-	// DiscoveryServerAddress discovery IP address:port
-	DiscoveryServerAddress = "istio-pilot:15003"
+	// DiscoveryPlainAddress discovery IP address:port with plain text
+	DiscoveryPlainAddress = "istio-pilot:15007"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -172,7 +171,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryAddress:       DiscoveryServerAddress,
+		DiscoveryAddress:       DiscoveryPlainAddress,
 		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),

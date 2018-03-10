@@ -54,7 +54,6 @@ import (
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/runtime2/config"
@@ -179,7 +178,7 @@ func (b *builder) build(config *config.Snapshot) {
 					continue
 				}
 
-				b.add(rule.Namespace, instance.Template, entry.Adapter, entry.Handler, condition, builder, mapper,
+				b.add(rule.Namespace, instance.Template, entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, rule.ResourceType)
 			}
 		}
@@ -277,8 +276,7 @@ func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression
 func (b *builder) add(
 	namespace string,
 	t *template.Info,
-	a *adapter.Info,
-	handler adapter.Handler,
+	entry handler.Entry,
 	condition compiled.Expression,
 	builder template.InstanceBuilderFn,
 	mapper template.OutputMapperFn,
@@ -308,7 +306,7 @@ func (b *builder) add(
 	// Find or create the handler&template entry.
 	var byHandler *Destination
 	for _, d := range byNamespace.Entries() {
-		if d.Handler == handler && d.Template.Name == t.Name {
+		if d.HandlerName == entry.Name && d.Template.Name == t.Name {
 			byHandler = d
 			break
 		}
@@ -317,13 +315,13 @@ func (b *builder) add(
 	if byHandler == nil {
 		byHandler = &Destination{
 			id:             b.nextID(),
-			Handler:        handler,
-			FriendlyName:   fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, a.Name),
+			Handler:        entry.Handler,
+			FriendlyName:   fmt.Sprintf("%s:%s(%s)", t.Name, handlerName, entry.Adapter.Name),
 			HandlerName:    handlerName,
-			AdapterName:    a.Name,
+			AdapterName:    entry.Adapter.Name,
 			Template:       t,
 			InstanceGroups: []*InstanceGroup{},
-			Counters:       newDestinationCounters(t.Name, handlerName, a.Name),
+			Counters:       newDestinationCounters(t.Name, handlerName, entry.Adapter.Name),
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 	}

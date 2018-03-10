@@ -33,7 +33,7 @@ spec:
       containers:
         - name: webhook
           image: {{.Hub}}/sidecar_injector:{{.Tag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           args:
             - --tlsCertFile=/etc/istio/certs/cert.pem
             - --tlsKeyFile=/etc/istio/certs/key.pem
@@ -100,6 +100,7 @@ webhooks:
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
+    failurePolicy: Fail
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

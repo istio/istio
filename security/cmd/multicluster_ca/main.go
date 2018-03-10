@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -69,7 +68,7 @@ type cliOptions struct {
 
 var (
 	opts = cliOptions{
-		loggingOptions: log.NewOptions(),
+		loggingOptions: log.DefaultOptions(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -175,17 +174,11 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 			fatalf("Failed to create a self-signed Istio Multicluster CA (error: %v)", err)
 		}
 	} else {
-		var certChainBytes []byte
-		if opts.certChainFile != "" {
-			certChainBytes = readFile(opts.certChainFile)
-		}
-		caOpts = &ca.IstioCAOptions{
-			CertChainBytes:   certChainBytes,
-			CertTTL:          0, // unused
-			MaxCertTTL:       opts.maxIssuedCertTTL,
-			SigningCertBytes: readFile(opts.signingCertFile),
-			SigningKeyBytes:  readFile(opts.signingKeyFile),
-			RootCertBytes:    readFile(opts.rootCertFile),
+		log.Info("Use certificate from argument as the CA certificate")
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
+			opts.rootCertFile, 0 /* unused */, opts.maxIssuedCertTTL)
+		if err != nil {
+			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
 	}
 
@@ -211,14 +204,6 @@ func generateConfig() *rest.Config {
 		fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
-}
-
-func readFile(filename string) []byte {
-	bs, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fatalf("Failed to read file %s (error: %v)", filename, err)
-	}
-	return bs
 }
 
 func verifyCommandLineOptions() {

@@ -15,14 +15,12 @@
 package kube
 
 import (
-	"sync"
-	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-	"k8s.io/client-go/util/flowcontrol"
-
 	"os"
 	"strconv"
+	"sync"
+	"time"
+
+	"k8s.io/client-go/util/flowcontrol"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"

@@ -68,7 +68,7 @@ func pilotURL(path string) string {
 
 var routeRule = fmt.Sprintf(`
 apiVersion: config.istio.io/v1alpha2
-kind: V1alpha2RouteRule
+kind: VirtualService
 metadata:
   name: route-for-myapp
 spec:
@@ -84,7 +84,7 @@ spec:
 
 var routeRule2 = fmt.Sprintf(`
 apiVersion: config.istio.io/v1alpha2
-kind: V1alpha2RouteRule
+kind: VirtualService
 metadata:
   name: route-for-other-app
 spec:

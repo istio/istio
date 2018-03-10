@@ -9,4 +9,6 @@
 - name: Set zipkin disabled addon
   set_fact:
     disabled_addons: "{{ disabled_addons }} + [ 'zipkin' ]"
-  when: istio.jaeger == true
+  when:
+    - is_istioaddon_iterable
+    - "'jaeger' in istio.addon"

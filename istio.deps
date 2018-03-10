@@ -1,30 +1,17 @@
 [
 	{
+		"_comment": "This file is auto updated by a robot executing `https://github.com/istio/test-infra/blob/master/prow/test-infra-update-deps.sh`.",
 		"name": "istio.io/api",
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "Gopkg.toml",
-		"lastStableSHA": "24209c4d7c9713900ac7571dfc38dd2eeea3f167"
-	},
-	{
-		"name": "/envoy",
-		"repoName": "proxy",
-		"prodBranch": "master",
-		"file": "pilot/docker/Dockerfile.proxy",
-		"lastStableSHA": "4ba2edbeebd9d6a85c49f0bf069853a85ae1d166"
-	},
-	{
-		"name": "/envoy-debug",
-		"repoName": "proxy",
-		"prodBranch": "master",
-		"file": "pilot/docker/Dockerfile.proxy_debug",
-		"lastStableSHA": "4ba2edbeebd9d6a85c49f0bf069853a85ae1d166"
+		"lastStableSHA": "9d978d76653da8b7b4bd6421b7e8f9925d8c79ea"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
-		"file": "istio.VERSION",
-		"lastStableSHA": "4ba2edbeebd9d6a85c49f0bf069853a85ae1d166"
+		"file": "",
+		"lastStableSHA": "80ec4f6c2a672b00e55d34ef9b5d26a42a98da42"
 	}
 ]

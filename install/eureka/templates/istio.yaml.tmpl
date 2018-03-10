@@ -42,7 +42,7 @@ services:
       - "15003"
     ports:
       - "8081:15003"
-    command: ["discovery", "-v", "2",
+    command: ["discovery",
              "--port", "15003",
              "--registries", "Eureka",
              "--eurekaserverURL", "http://eureka:8080",

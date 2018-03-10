@@ -22,6 +22,7 @@ type TestEnv interface {
 
 	// GetComponents is the key of a environment
 	// It defines what components a environment contains.
+	// It should be a singleton-like function
 	// Components will be stored in framework for start and stop
 	GetComponents() []Component
 

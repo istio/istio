@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -29,7 +28,7 @@ import (
 )
 
 type egressRules struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *egressRules) String() string {
