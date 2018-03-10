@@ -84,7 +84,6 @@ type Descriptor struct {
 	enums    []*EnumDescriptor // Inner enums, if any.
 	typename []string          // Cached typename vector.
 	path     string            // The SourceCodeInfo path as comma-separated integers.
-	group    bool
 }
 
 // EnumDescriptor wraps a EnumDescriptorProto.
