@@ -43,6 +43,10 @@ func (t *routingToEgress) Setup() error {
 }
 
 func (t *routingToEgress) Run() error {
+	// egress rules are v1alpha1
+	if !t.Config.V1alpha1 {
+		return nil
+	}
 	cases := []struct {
 		description   string
 		configEgress  []string

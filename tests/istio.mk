@@ -85,35 +85,79 @@ e2e_all: | $(JUNIT_REPORT)
 	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo \
 	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
+# Run the e2e tests, with auth enabled. A separate target is used for non-auth.
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG}
 
+e2e_pilot_noauth: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} -hub ${HUB} -tag ${TAG} --skip-cleanup -mixer=true -auth=disable -use-sidecar-injector=false
+
+test/minikube/auth/e2e_simple:
+	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
+	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
+	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
+
+test/minikube/noauth/e2e_simple:
+	mkdir -p ${OUT_DIR}/tests
+	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
+	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
+	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
+
 # Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/auth/e2e_pilot: istioctl generate_yaml
+test/minikube/auth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
-	kubectl create ns istio-system || true
-	kubectl create ns istio-test || true
+	mkdir -p ${OUT_DIR}/tests
+	kubectl create ns pilot-auth-system || true
+	kubectl create ns pilot-auth-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
 		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
-		--core-files-dir=${OUT_DIR}/logs \
-         --ns istio-system \
-        -n istio-test \
-           ${TESTOPTS}
+		-v1alpha3=true -v1alpha1=false \
+        --core-files-dir=${OUT_DIR}/logs \
+		--auth_enable=true \
+		--ns pilot-auth-system \
+		-n pilot-auth-test \
+		   ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot.raw
+
 
 # Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot: istioctl generate_yaml
+test/minikube/noauth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
-	kubectl create ns istio-system || true
-	kubectl create ns istio-test || true
+	mkdir -p ${OUT_DIR}/tests
+	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
+	kubectl create ns pilot-system-test || true
+	kubectl create ns pilot-test || true
 	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
+		--auth_enable=false \
+		-v1alpha3=true -v1alpha1=false \
 		--core-files-dir=${OUT_DIR}/logs \
-         --ns istio-system \
-        -n istio-test \
-           ${TESTOPTS}
+        	--ns pilot-noauth-system \
+        	-n pilot-noauth \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+
+# Target for running e2e pilot in a minikube env. Used by CI
+test/minikube/auth/e2e_pilot_alpha1: istioctl
+	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${OUT_DIR}/tests
+	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
+	kubectl create ns pilot-system-test || true
+	kubectl create ns pilot-test || true
+	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+		-hub ${HUB} -tag ${TAG} \
+		--skip-cleanup --mixer=true \
+		-errorlogsdir=${OUT_DIR}/logs \
+		--use-sidecar-injector=false \
+		--auth_enable=true \
+		-v1alpha3=false -v1alpha1=true \
+		--core-files-dir=${OUT_DIR}/logs \
+        --ns pilot-auth-system \
+        -n pilot-test \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
