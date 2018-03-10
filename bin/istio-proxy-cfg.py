@@ -284,7 +284,7 @@ def main(args):
     pod = pods[0]
 
     if args.output is None:
-        output_dir = "./" + pod.name
+        output_dir = "/tmp" + pod.name
     else:
         output_dir = args.output + "/" + pod.name
 
@@ -373,7 +373,7 @@ if __name__ == "__main__":
                         )
     parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
     parser.add_argument(
-        "--output", help="A directory where output files are saved. default is the current directory")
+        "--output", help="A directory where output files are saved. default is the /tmp directory")
     parser.add_argument(
         "--skip_envoy", action='store_true', help="Fetch Envoy configuration from a pod")
     parser.add_argument(
