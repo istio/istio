@@ -94,11 +94,6 @@ type Environment struct {
 	Err error
 }
 
-const (
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-)
-
 // TemplateData is a container for common fields accessed from yaml templates.
 type TemplateData struct {
 	// nolint: maligned
