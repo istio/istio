@@ -1,5 +1,3 @@
-<p align="center"><strong>NOTE</strong>: this is considered <strong>EXPERIMENTAL</strong> and is not yet recommended for production systems.</p>
-
 # Istio Mixer Adapter
 An Istio Mixer adapter for integration with AppOptics and Papertrail. As a SolarWinds Innovation Project, this adapter is supported in a best-effort fashion.
 

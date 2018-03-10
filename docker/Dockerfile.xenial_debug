@@ -22,10 +22,3 @@ RUN apt-get update && \
       sudo &&  apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN mkdir /var/lib/istio && useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R istio-proxy /var/lib/istio
-
-
-# TODO: add delve

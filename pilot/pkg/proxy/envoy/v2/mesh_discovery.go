@@ -21,6 +21,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
@@ -30,23 +31,42 @@ var (
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 )
 
+const (
+	responseTickDuration  = time.Second * 15
+	unknownPeerAddressStr = "Unknown peer address"
+)
+
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
 	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
+	// env is the model environment.
+	env model.Environment
 
 	Connections map[string]*EdsConnection
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server) *DiscoveryServer {
-	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer}
+func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
+	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 
-	if len(periodicRefreshDuration) > 0 {
-		go periodicRefresh()
+	return out
+}
+
+/***************************  Mesh EDS Implementation **********************************/
+// TODO: move to eds.go (separate PR for easier review of the changes)
+
+// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
+func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
+	ticker := time.NewTicker(responseTickDuration)
+	peerInfo, ok := peer.FromContext(stream.Context())
+	peerAddr := unknownPeerAddressStr
+	if ok {
+		peerAddr = peerInfo.Addr.String()
 	}
 	return out
 

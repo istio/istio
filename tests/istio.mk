@@ -46,16 +46,18 @@ endif
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
-EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
-EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
-EXTRA_E2E_ARGS += --mixer_tag ${TAG}
-EXTRA_E2E_ARGS += --pilot_tag ${TAG}
-EXTRA_E2E_ARGS += --proxy_tag ${TAG}
-EXTRA_E2E_ARGS += --ca_tag ${TAG}
-EXTRA_E2E_ARGS += --mixer_hub ${HUB}
-EXTRA_E2E_ARGS += --pilot_hub ${HUB}
-EXTRA_E2E_ARGS += --proxy_hub ${HUB}
-EXTRA_E2E_ARGS += --ca_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
+DEFAULT_EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
+DEFAULT_EXTRA_E2E_ARGS += --mixer_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --ca_tag ${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub ${HUB}
+
+EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
@@ -80,7 +82,7 @@ JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
 e2e_all: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
 	set -o pipefail; \
-	$(MAKE) e2e_simple e2e_mixer e2e_bookinfo \
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo \
 	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 # Run the e2e tests, with auth enabled. A separate target is used for non-auth.
@@ -94,15 +96,14 @@ test/minikube/auth/e2e_simple:
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS}
-           #|& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-auth-simple.xml)
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
 test/minikube/noauth/e2e_simple:
+	mkdir -p ${OUT_DIR}/tests
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS}
-           #|& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-noauth-simple.xml)
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
 test/minikube/auth/e2e_pilot: istioctl
@@ -115,12 +116,12 @@ test/minikube/auth/e2e_pilot: istioctl
 		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
-		--core-files-dir=${OUT_DIR}/logs \
+		-v1alpha3=true -v1alpha1=false \
+        --core-files-dir=${OUT_DIR}/logs \
 		--auth_enable=true \
-        --ns pilot-auth-system \
-        -n pilot-auth-test \
-           ${TESTOPTS}
-        #   |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-auth-pilot.xml)
+		--ns pilot-auth-system \
+		-n pilot-auth-test \
+		   ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot.raw
 
 
 # Target for running e2e pilot in a minikube env. Used by CI
@@ -138,13 +139,12 @@ test/minikube/noauth/e2e_pilot: istioctl
 		--auth_enable=false \
 		-v1alpha3=true -v1alpha1=false \
 		--core-files-dir=${OUT_DIR}/logs \
-        	--ns pilot-system-test \
-        	-n pilot-test \
-           ${TESTOPTS}
-           # |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-noauth-pilot.xml)
+        	--ns pilot-noauth-system \
+        	-n pilot-noauth \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot_legacy: istioctl
+test/minikube/auth/e2e_pilot_alpha1: istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
@@ -155,10 +155,9 @@ test/minikube/noauth/e2e_pilot_legacy: istioctl
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
-		--auth_enable=false \
+		--auth_enable=true \
 		-v1alpha3=false -v1alpha1=true \
 		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-system-test \
+        --ns pilot-auth-system \
         -n pilot-test \
-           ${TESTOPTS}
-            # |& tee >($(JUNIT_REPORT) > ${OUT_DIR}/tests/test-report-noauth-pilot.xml)
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
