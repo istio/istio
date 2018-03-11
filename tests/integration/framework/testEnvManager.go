@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -122,7 +123,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 		return nil
 	}
 
-	_, err := retry.Retry(retryFn)
+	_, err := retry.Retry(context.Background, retryFn)
 	return ready, err
 }
 

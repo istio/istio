@@ -27,6 +27,7 @@ package simple
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	u "istio.io/istio/tests/util"
 )
 
 const (
@@ -76,46 +78,44 @@ func TestSimpleIngress(t *testing.T) {
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	log.Infof("Fetching '%s'", url)
 
-	// should not take more than 1min45s to be live...
-	ctx, cancel := context.WithTimeout(context.Background(), 105*time.Second)
-	defer cancel()
+	retry := u.Retrier{
+		BaseDelay:   time.Second,
+		MaxDelay:    time.Second,
+		Retries:     1000,
+		MaxDuration: 105 * time.Second,
+	}
+
 	client := &http.Client{Timeout: 5 * time.Second}
-	for i := 0; ; i++ {
-		if i != 0 {
-			time.Sleep(time.Second)
+	_, err := retry.Retry(context.Background(), func(ctx context.Context, i int) error {
+		resp, err := ctxhttp.Get(ctx, client, url)
+		if err != nil {
+			log.Warnf("Attempt %d : http.Get error %v", i, err)
+			return fmt.Errorf("Attempt %d : http.Get error %v", i, err)
 		}
 
-		select {
-		case <-ctx.Done():
-			t.Fatalf("Unable to find expected output after %d attempts - ingress issue", i)
-		default:
-			resp, err := ctxhttp.Get(ctx, client, url)
-			if err != nil {
-				log.Warnf("Attempt %d : http.Get error %v", i, err)
-				continue
-			}
-
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				log.Warnf("Attempt %d : ReadAll error %v", i, err)
-				continue
-			}
-
-			_ = resp.Body.Close()
-			bodyStr := string(body)
-			if len(bodyStr) == 0 {
-				log.Infof("Attempt %d: reply body is empty", i)
-				continue
-			}
-
-			log.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
-			needle := "echo debug server up"
-			if !strings.Contains(bodyStr, needle) {
-				log.Warnf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
-				continue
-			}
-			return // success
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warnf("Attempt %d : ReadAll error %v", i, err)
+			return fmt.Errorf("Attempt %d : ReadAll error %v", i, err)
 		}
+
+		_ = resp.Body.Close()
+		bodyStr := string(body)
+		if len(bodyStr) == 0 {
+			log.Infof("Attempt %d: reply body is empty", i)
+			return fmt.Errorf("Attempt %d: reply body is empty", i)
+		}
+
+		log.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
+		needle := "echo debug server up"
+		if !strings.Contains(bodyStr, needle) {
+			log.Warnf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
+			return fmt.Errorf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 }
 

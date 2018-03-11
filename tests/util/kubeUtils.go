@@ -138,7 +138,7 @@ func GetIngress(n string) (string, error) {
 	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		ip, err := ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
 		// For minikube, comment out the previous line and uncomment the following line
 		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
@@ -166,12 +166,15 @@ func GetIngress(n string) (string, error) {
 
 		return nil
 	}
+
+	ctx := context.Background()
+
 	log.Info("Waiting for istio-ingress to get external IP")
-	if _, err := retry.Retry(retryFn); err != nil {
+	if _, err := retry.Retry(ctx, retryFn); err != nil {
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -201,7 +204,7 @@ func GetIngressPod(n string) (string, error) {
 	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	portRegex := regexp.MustCompile(`^[0-9]+$`)
 	var ingress string
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		podIP, err := Shell("kubectl get pod -l istio=ingress "+
 			"-n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
@@ -228,7 +231,7 @@ func GetIngressPod(n string) (string, error) {
 		log.Infof("Istio ingress: %s\n", ingress)
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
+	_, err := retry.Retry(context.Background(), retryFn)
 	return ingress, err
 }
 
@@ -271,7 +274,7 @@ func CheckPodsRunning(n string) (ready bool) {
 		Retries:   6,
 	}
 
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		pods := GetPodsName(n)
 		ready = true
 		for _, p := range pods {
@@ -292,8 +295,7 @@ func CheckPodsRunning(n string) (ready bool) {
 		}
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
-	if err != nil {
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		return false
 	}
 	log.Info("Get all pods running!")
