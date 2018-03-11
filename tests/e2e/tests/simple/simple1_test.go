@@ -96,21 +96,21 @@ func TestSimpleIngress(t *testing.T) {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Warnf("Attempt %d : ReadAll error %v", i, err)
-			return fmt.Errorf("Attempt %d : ReadAll error %v", i, err)
+			return fmt.Errorf("attempt %d : ReadAll error %v", i, err)
 		}
 
 		_ = resp.Body.Close()
 		bodyStr := string(body)
 		if len(bodyStr) == 0 {
 			log.Infof("Attempt %d: reply body is empty", i)
-			return fmt.Errorf("Attempt %d: reply body is empty", i)
+			return fmt.Errorf("attempt %d: reply body is empty", i)
 		}
 
 		log.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
 		needle := "echo debug server up"
 		if !strings.Contains(bodyStr, needle) {
 			log.Warnf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
-			return fmt.Errorf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
+			return fmt.Errorf("not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
 		}
 		return nil
 	})
