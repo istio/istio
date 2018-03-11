@@ -261,8 +261,7 @@ func (g *Generator) generateInternal(fdsFiles map[string]string,
 			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
 		}
 
-		var parser *modelgen.FileDescriptorSetParser
-		parser = modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
+		parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
 
 		var model *modelgen.Model
 		if model, err = createModel(parser); err != nil {
