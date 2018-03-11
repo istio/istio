@@ -45,15 +45,14 @@ const (
 	bookinfoMysqlYaml                  = bookinfoSampleDir + "/kube/bookinfo-mysql.yaml"
 	bookinfoDetailsExternalServiceYaml = bookinfoSampleDir + "/kube/bookinfo-details-v2.yaml"
 	modelDir                           = "tests/apps/bookinfo/output"
-	rulesDir                           = bookinfoSampleDir + "/kube"
-	allRule                            = "route-rule-all-v1.yaml"
-	delayRule                          = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
-	testRule                           = "route-rule-reviews-test-v2.yaml"
-	testDbRule                         = "route-rule-ratings-db.yaml"
-	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
+	allRule                            = bookinfoSampleDir + "/route-rule-all-v1.yaml"
+	delayRule                          = bookinfoSampleDir + "/route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = bookinfoSampleDir + "/route-rule-reviews-50-v3.yaml"
+	testRule                           = bookinfoSampleDir + "/route-rule-reviews-test-v2.yaml"
+	testDbRule                         = bookinfoSampleDir + "/route-rule-ratings-db.yaml"
+	testMysqlRule                      = bookinfoSampleDir + "/route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = bookinfoSampleDir + "/route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = bookinfoSampleDir + "/egress-rule-google-apis.yaml"
 )
 
 var (
@@ -93,8 +92,8 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
+		src := util.GetResourcePath(rule)
+		dest := filepath.Join(t.rulesDir, filepath.Base(rule))
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
