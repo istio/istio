@@ -93,7 +93,7 @@ func (t *testConfig) Setup() error {
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(rule)
-		dest := filepath.Join(t.rulesDir, filepath.Base(rule))
+		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
@@ -101,6 +101,13 @@ func (t *testConfig) Setup() error {
 		}
 		content := string(ori)
 		content = strings.Replace(content, "jason", u2, -1)
+
+		err = os.MkDirAll(filepath.Dir(rule), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(rule))
+			return err
+		}
+
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
