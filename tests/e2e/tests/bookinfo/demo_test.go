@@ -45,14 +45,14 @@ const (
 	bookinfoMysqlYaml                  = bookinfoSampleDir + "/kube/bookinfo-mysql.yaml"
 	bookinfoDetailsExternalServiceYaml = bookinfoSampleDir + "/kube/bookinfo-details-v2.yaml"
 	modelDir                           = "tests/apps/bookinfo/output"
-	allRule                            = bookinfoSampleDir + "/route-rule-all-v1.yaml"
-	delayRule                          = bookinfoSampleDir + "/route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = bookinfoSampleDir + "/route-rule-reviews-50-v3.yaml"
-	testRule                           = bookinfoSampleDir + "/route-rule-reviews-test-v2.yaml"
-	testDbRule                         = bookinfoSampleDir + "/route-rule-ratings-db.yaml"
-	testMysqlRule                      = bookinfoSampleDir + "/route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = bookinfoSampleDir + "/route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = bookinfoSampleDir + "/egress-rule-google-apis.yaml"
+	allRule                            = bookinfoSampleDir + "/kube/route-rule-all-v1.yaml"
+	delayRule                          = bookinfoSampleDir + "/kube/route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = bookinfoSampleDir + "/kube/route-rule-reviews-50-v3.yaml"
+	testRule                           = bookinfoSampleDir + "/kube/route-rule-reviews-test-v2.yaml"
+	testDbRule                         = bookinfoSampleDir + "/kube/route-rule-ratings-db.yaml"
+	testMysqlRule                      = bookinfoSampleDir + "/kube/route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = bookinfoSampleDir + "/kube/route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = bookinfoSampleDir + "/kube/egress-rule-google-apis.yaml"
 )
 
 var (
