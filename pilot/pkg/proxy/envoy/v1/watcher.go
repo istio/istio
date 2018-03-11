@@ -83,7 +83,7 @@ const (
 
 // pilotListenerAddress is the proxy listener to pilot
 // It allows code running in the istio-proxy container (UID) to make a request to pilot even with mtls enabled
-var pilotListenerAddress = "127.0.0.1:15005"
+var pilotListenerAddress = "127.0.0.1:14999"
 
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
