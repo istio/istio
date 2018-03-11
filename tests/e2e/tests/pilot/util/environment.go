@@ -230,7 +230,7 @@ func (e *Environment) Setup() error {
 		return err
 	}
 
-	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
+	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, kube.IstioConfigMap); err != nil {
 		return err
 	}
 	debugMode := e.Config.DebugImagesAndMode
