@@ -760,8 +760,8 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
 				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
-				if strings.TrimSpace(responseBag.DebugString()) != strings.TrimSpace(expectedBag.DebugString()) {
-					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.DebugString(), expectedBag.DebugString())
+				if strings.TrimSpace(responseBag.String()) != strings.TrimSpace(expectedBag.String()) {
+					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.String(), expectedBag.String())
 				}
 			default:
 				tt.Fatalf("Unknown variety type: %v", tst.variety)
