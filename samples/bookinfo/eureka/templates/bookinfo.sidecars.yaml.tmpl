@@ -34,7 +34,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy --serviceregistry Eureka --serviceCluster details-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   ratings-v1-init:
-    image: {PROXY_HUB}/proxy_init:{PILOT_TAG}
+    image: {PILOT_HUB}/proxy_init:{PILOT_TAG}
     cap_add:
       - NET_ADMIN
     network_mode: "container:eureka_ratings-v1_1"
