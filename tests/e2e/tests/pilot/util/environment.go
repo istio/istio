@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	testutil "istio.io/istio/tests/util"
 )
 
 const (
@@ -93,11 +95,6 @@ type Environment struct {
 	Err error
 }
 
-const (
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-)
-
 // TemplateData is a container for common fields accessed from yaml templates.
 type TemplateData struct {
 	// nolint: maligned
@@ -143,27 +140,6 @@ func NewEnvironment(config Config) *Environment {
 	}
 
 	return &e
-}
-
-// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
-func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) { // nolint: lll
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	cfgYaml, exists := config.Data[ConfigMapKey]
-	if !exists {
-		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
-	}
-
-	mesh, err := model.ApplyMeshConfigDefaults(cfgYaml)
-	if err != nil {
-		return nil, nil, err
-	}
-	return config, mesh, nil
 }
 
 // ToTemplateData creates a data structure containing common fields used in yaml templates.
@@ -254,7 +230,7 @@ func (e *Environment) Setup() error {
 		return err
 	}
 
-	if _, e.meshConfig, err = GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, "istio"); err != nil {
+	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
 		return err
 	}
 	debugMode := e.Config.DebugImagesAndMode
@@ -488,6 +464,17 @@ func (e *Environment) Teardown() {
 }
 
 func (e *Environment) dumpErrorLogs() {
+	// Use the common logs dumper.
+	err := testutil.FetchAndSaveClusterLogs(e.Config.Namespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+	err = testutil.FetchAndSaveClusterLogs(e.Config.IstioNamespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+
+	// Temp: dump logs the old way, for people used with it.
 	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {
 		var filename, content string
 		if strings.HasPrefix(pod, "istio-pilot") {
