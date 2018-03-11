@@ -47,7 +47,7 @@ spec:
         - proxy
         - ingress
         - --discoveryAddress
-        - istio-pilot:15007
+        - istio-pilot:8080 #--controlPlaneAuthPolicy
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration
@@ -91,7 +91,7 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: istio.default
+          secretName: istio.istio-ingress-service-account
           optional: true
       - name: ingress-certs
         secret:

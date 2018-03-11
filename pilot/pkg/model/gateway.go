@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strings"
 
-	routing "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // MergeGateways merges servers from src into the server set on dst
@@ -40,7 +40,7 @@ import (
 //
 // See also: Merging Gateways and RouteRules
 //  https://docs.google.com/document/d/1z9jOZ1f4MhC3Fvisduio8IoUqd1_Eqrd3kG65M6n854
-func MergeGateways(dst, src *routing.Gateway) error {
+func MergeGateways(dst, src *networking.Gateway) error {
 	// Simplify the loop logic below by handling the case where either Gateway is empty.
 	if len(dst.Servers) == 0 {
 		dst.Servers = src.Servers
@@ -49,7 +49,7 @@ func MergeGateways(dst, src *routing.Gateway) error {
 		return nil
 	}
 
-	servers := make([]*routing.Server, 0, len(dst.Servers))
+	servers := make([]*networking.Server, 0, len(dst.Servers))
 	for _, ss := range src.Servers {
 		for _, ds := range dst.Servers {
 			if serversEqual(ss, ds) {
@@ -66,7 +66,7 @@ func MergeGateways(dst, src *routing.Gateway) error {
 	return nil
 }
 
-func serversEqual(a, b *routing.Server) bool {
+func serversEqual(a, b *networking.Server) bool {
 	return portsEqual(a.Port, b.Port) && tlsEqual(a.Tls, b.Tls)
 }
 
@@ -79,19 +79,19 @@ func serversEqual(a, b *routing.Server) bool {
 //
 // TODO: once SNI and TLS-snooping work, we should be able to
 // avoid many of those conflicts.
-func portsAreDistinct(a, b *routing.Port) bool {
+func portsAreDistinct(a, b *networking.Port) bool {
 	return a.Number != b.Number && a.Name != b.Name
 }
 
 // Two ports are equal if they expose the same protocol on the same port number
 // with the same name.  They can only be merged if they are equal.
-func portsEqual(a, b *routing.Port) bool {
+func portsEqual(a, b *networking.Port) bool {
 	return a.Number == b.Number && a.Name == b.Name &&
 		strings.ToLower(a.Protocol) == strings.ToLower(b.Protocol)
 
 }
 
 // Two TLS Options are equal if all of their fields are equal.
-func tlsEqual(a, b *routing.Server_TLSOptions) bool {
+func tlsEqual(a, b *networking.Server_TLSOptions) bool {
 	return reflect.DeepEqual(a, b)
 }

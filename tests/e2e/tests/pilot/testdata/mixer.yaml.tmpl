@@ -47,7 +47,7 @@ spec:
       containers:
       - name: mixer
         image: {{.Hub}}/mixer_debug:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 9091
         - containerPort: 9093
@@ -61,7 +61,7 @@ spec:
         - debug # pilot verification required debug output
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 15004
         args:

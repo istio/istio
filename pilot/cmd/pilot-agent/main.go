@@ -149,11 +149,11 @@ var (
 					parts := strings.Split(discoveryHostname, ".")
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
-						// pod namespace e.g. istio-pilot:15003
+						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
 					} else {
 						// namespace is found in the discovery address
-						// e.g. istio-pilot.istio-system:15003
+						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
 					}
 				}

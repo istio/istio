@@ -23,12 +23,19 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/tests/integration/component/fortio_server"
+	fortio_server "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/component/proxy"
 	"istio.io/istio/tests/integration/example/environment/appOnlyEnv"
 	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
+
+// This sample shows how to reuse a test cases in different test environments
+// The test case tries to do simple request to a echo server and verify response.
+// With appOnlyEnv, the test case directly hits the echo(fortio) server endpoint.
+// With mixerEnvoyEnv, the test case hits proxy(envoy) endpoint and verify if it can route to backend service (echo server)
+// The framework first brings up one environment, kicks off test case against this environment and then tears it down
+// before brings up another environment.
 
 const (
 	appOnlyEnvName    = "app_only_env"
@@ -45,7 +52,7 @@ func TestSample1(t *testing.T) {
 
 	var url string
 	if testEM.GetEnv().GetName() == appOnlyEnvName {
-		fortioStatus, ok := testEM.GetEnv().GetComponents()[0].GetStatus().(fortioServer.LocalCompStatus)
+		fortioStatus, ok := testEM.GetEnv().GetComponents()[0].GetStatus().(fortio_server.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get fortio server status")
 		}

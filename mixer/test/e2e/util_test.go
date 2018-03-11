@@ -15,109 +15,187 @@
 package e2e
 
 import (
-	"fmt"
+	"context"
 	"io"
 	"log"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"google.golang.org/grpc"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/storetest"
+	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
 
-// ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
-// the constructed spyAdapters along with the adapters Info functions.
-func ConstructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
-	adapterInfos := make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter.Adapter, 0)
-	for _, b := range adptBehaviors {
-		sa := spyAdapter.NewSpyAdapter(b)
-		spyAdapters = append(spyAdapters, sa)
-		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
-	}
-	return adapterInfos, spyAdapters
-}
-
-// CmpSliceAndErr compares two slices
-func CmpSliceAndErr(t *testing.T, msg string, act, exp interface{}) {
-	a := interfaceSlice(exp)
-	b := interfaceSlice(act)
-	if len(a) != len(b) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
-	}
-
-	for _, x1 := range a {
-		f := false
-		for _, x2 := range b {
-			if reflect.DeepEqual(x1, x2) {
-				f = true
-			}
-		}
-		if !f {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-			return
-		}
-	}
-}
-
-// CmpMapAndErr compares two maps
-func CmpMapAndErr(t *testing.T, msg string, act, exp interface{}) {
-	want := interfaceMap(exp)
-	got := interfaceMap(act)
-	if len(want) != len(got) {
-		t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		return
-	}
-
-	for wk, wv := range want {
-		if v, found := got[wk]; !found {
-			t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-		} else {
-			if !reflect.DeepEqual(wv, v) {
-				t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s", msg, spew.Sdump(act), spew.Sdump(exp)))
-			}
-		}
-	}
-}
-
-func interfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-
-	ret := make([]interface{}, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
-}
-
-func interfaceMap(m interface{}) map[interface{}]interface{} {
-	s := reflect.ValueOf(m)
-
-	ret := make(map[interface{}]interface{}, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		k := s.MapKeys()[i]
-		v := s.MapIndex(k)
-		ret[k.Interface()] = v.Interface()
-	}
-
-	return ret
-}
-
 type testData struct {
-	name                  string
-	cfg                   string
-	behaviors             []spyAdapter.AdapterBehavior
-	templates             map[string]template.Info
-	attrs                 map[string]interface{}
-	validate              func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
-	validateCheckResponse func(t *testing.T, response *istio_mixer_v1.CheckResponse, err error)
+	name      string
+	cfg       string
+	behaviors []spyAdapter.AdapterBehavior
+	templates map[string]template.Info
+	attrs     map[string]interface{}
+
+	expectError    error
+	expectSetTypes map[string]interface{}
+	expectCalls    []spyAdapter.CapturedCall
+	expectAttrRefs []expectedAttrRef
+}
+
+type expectedAttrRef struct {
+	name      string
+	condition istio_mixer_v1.ReferencedAttributes_Condition
+	mapkey    string
+}
+
+func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg string) {
+	// Do common setup
+	adapterInfos, spyAdapters := constructAdapterInfos(tt.behaviors)
+
+	args := testEnv.DefaultArgs()
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.Templates = tt.templates
+	args.Adapters = adapterInfos
+	var cerr error
+	if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalCfg, tt.cfg); cerr != nil {
+		t.Fatal(cerr)
+	}
+
+	env, err := testEnv.New(args)
+	if err != nil {
+		t.Fatalf("fail to create mixer: %v", err)
+	}
+
+	env.Run()
+
+	defer closeHelper(env)
+
+	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("Unable to connect to gRPC server: %v", err)
+	}
+
+	client := istio_mixer_v1.NewMixerClient(conn)
+	defer closeHelper(conn)
+
+	tt.checkSetTypes(t, spyAdapters)
+
+	switch variety {
+	case v1beta1.TEMPLATE_VARIETY_REPORT:
+		req := istio_mixer_v1.ReportRequest{
+			Attributes: []istio_mixer_v1.CompressedAttributes{
+				getAttrBag(tt.attrs,
+					args.ConfigIdentityAttribute,
+					args.ConfigIdentityAttributeDomain)},
+		}
+		_, err = client.Report(context.Background(), &req)
+		tt.checkReturnError(t, err)
+		tt.checkCalls(t, spyAdapters)
+
+	case v1beta1.TEMPLATE_VARIETY_CHECK:
+		req := istio_mixer_v1.CheckRequest{
+			Attributes: getAttrBag(tt.attrs,
+				args.ConfigIdentityAttribute,
+				args.ConfigIdentityAttributeDomain),
+		}
+
+		response, err := client.Check(context.Background(), &req)
+		tt.checkReturnError(t, err)
+		tt.checkCalls(t, spyAdapters)
+		tt.checkReferencedAttributes(t, response.Precondition.ReferencedAttributes)
+
+	default:
+		t.Fatalf("Unsupported variety: %v", variety)
+	}
+}
+
+func (tt *testData) checkReturnError(t *testing.T, err error) {
+	if !reflect.DeepEqual(tt.expectError, err) {
+		t.Fatalf("Error mismatch: got:'%v', wanted:'%v'", err, tt.expectError)
+	}
+}
+
+func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyAdapter.Adapter) {
+	if tt.expectSetTypes == nil {
+		return
+	}
+
+	// TODO: Handle multiple adapters
+	actual := adapters[0].BuilderData.SetTypes
+	if !reflect.DeepEqual(actual, tt.expectSetTypes) {
+		t.Fatalf("SetTypes Mismatch:\ngot:\n%v\nwanted:\n%v\n", spew.Sdump(actual), spew.Sdump(tt.expectSetTypes))
+	}
+}
+
+func (tt *testData) checkCalls(t *testing.T, adapters []*spyAdapter.Adapter) {
+	if tt.expectCalls == nil {
+		return
+	}
+
+	// TODO: Handle multiple adapters
+	actual := adapters[0].HandlerData.CapturedCalls
+	if !reflect.DeepEqual(actual, tt.expectCalls) {
+		t.Fatalf("Call mismatch:\ngot:\n%v\nwanted:\n%v\n", spew.Sdump(actual), spew.Sdump(tt.expectCalls))
+	}
+}
+
+func (tt *testData) checkReferencedAttributes(t *testing.T, actual istio_mixer_v1.ReferencedAttributes) {
+	conditions := make(map[string]istio_mixer_v1.ReferencedAttributes_Condition)
+	mapkeys := make(map[string]string)
+	for _, m := range actual.AttributeMatches {
+		switch m.Condition {
+		case istio_mixer_v1.EXACT, istio_mixer_v1.ABSENCE, istio_mixer_v1.REGEX:
+			// do nothing
+
+		default:
+			t.Fatalf("Unexpected condition: %v (%v)", m.Condition, spew.Sdump(m))
+		}
+
+		idx := int(-m.Name - 1)
+		if idx < 0 && idx > len(actual.Words) {
+			t.Fatalf("Out of bounds word reference: %v (%v)", m.Name, spew.Sdump(m))
+		}
+		name := actual.Words[idx]
+
+		if m.MapKey != 0 {
+			idx = int(-m.MapKey - 1)
+			if idx < 0 && idx > len(actual.Words) {
+				t.Fatalf("Out of bounds word reference from map key: %v (%v)", m.MapKey, spew.Sdump(m))
+			}
+
+			mapkey := actual.Words[idx]
+			mapkeys[name] = mapkey
+		}
+
+		conditions[name] = m.Condition
+	}
+
+	if len(conditions) != len(tt.expectAttrRefs) {
+		t.Fatalf("Referenced attribute mismatch:\ngot:\n%v\nwanted:\n%v\n", spew.Sdump(actual), spew.Sdump(tt.expectAttrRefs))
+	}
+
+	for _, e := range tt.expectAttrRefs {
+		acond, ok := conditions[e.name]
+		if !ok {
+			t.Fatalf("Expected attr ref not found: %v\nactuals:%v\n", e.name, spew.Sdump(e))
+		}
+		if acond != e.condition {
+			t.Fatalf("Expected condition mismatch for '%v': got:%v, wanted:%v", e.name, acond, e.condition)
+		}
+		amk, ok := mapkeys[e.name]
+		if !ok && e.mapkey != "" {
+			t.Fatalf("Expected mapkey not found for '%v': %v", e.name, e.mapkey)
+		}
+		if ok && amk != e.mapkey {
+			t.Fatalf("Unexpected mapkey (or mismatch for '%v': got:%v, wanted:%v", e.name, amk, e.mapkey)
+		}
+	}
 }
 
 func closeHelper(c io.Closer) {
@@ -137,4 +215,17 @@ func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain s
 	var attrProto istio_mixer_v1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
+}
+
+// constructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
+// the constructed spyAdapters along with the adapters Info functions.
+func constructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
+	adapterInfos := make([]adapter.InfoFn, 0)
+	spyAdapters := make([]*spyAdapter.Adapter, 0)
+	for _, b := range adptBehaviors {
+		sa := spyAdapter.NewSpyAdapter(b)
+		spyAdapters = append(spyAdapters, sa)
+		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
+	}
+	return adapterInfos, spyAdapters
 }

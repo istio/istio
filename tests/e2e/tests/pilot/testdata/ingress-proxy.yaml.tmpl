@@ -40,7 +40,7 @@ spec:
         - ingress
         - --discoveryAddress
 {{if eq .ControlPlaneAuthPolicy.String "NONE" }}
-        - istio-pilot:15007
+        - istio-pilot:8080
 {{else}}
         - istio-pilot:15005
 {{end}}
@@ -48,9 +48,13 @@ spec:
         - --zipkinAddress
         - zipkin:9411
 {{end}}
+        - --connectTimeout
+        - '10s' #connectTimeout
+        - --discoveryRefreshDelay
+        - '2s' #discoveryRefreshDelay
         - --controlPlaneAuthPolicy
         - "{{.ControlPlaneAuthPolicy.String}}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 443
         - containerPort: 80

@@ -594,7 +594,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"
@@ -653,7 +653,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"
@@ -719,7 +719,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"

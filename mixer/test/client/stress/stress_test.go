@@ -17,7 +17,6 @@ package stress
 import (
 	"fmt"
 	"log"
-	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -31,11 +30,6 @@ const (
 )
 
 func TestStressEnvoy(t *testing.T) {
-
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test is broken for race testing, see issue #3210")
-	}
-
 	s := env.NewTestSetup(env.StressEnvoyTest, t)
 	s.SetStress(true)
 
@@ -49,19 +43,23 @@ func TestStressEnvoy(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
-	var count uint64
+	var total, failed uint64
 	for k := 0; k < concurrent; k++ {
 		go func() {
 			for {
 				if err := env.HTTPFastGet(url); err != nil {
-					t.Errorf("Failed in request: %v", err)
+					atomic.AddUint64(&failed, 1)
 				}
-				atomic.AddUint64(&count, 1)
+				atomic.AddUint64(&total, 1)
 			}
 		}()
 	}
 	time.Sleep(time.Second * time.Duration(durationInSecond))
-	countFinal := atomic.LoadUint64(&count)
-	log.Printf("Total: %v, concurrent: %v, duration: %v seconds, qps: %v\n",
-		countFinal, concurrent, durationInSecond, countFinal/durationInSecond)
+	totalFinal := atomic.LoadUint64(&total)
+	failedFinal := atomic.LoadUint64(&failed)
+	log.Printf("Total: %v, failed: %v, concurrent: %v, duration: %v seconds, qps: %v\n",
+		totalFinal, failedFinal, concurrent, durationInSecond, totalFinal/durationInSecond)
+	if failedFinal > 0 {
+		t.Errorf("Total failed request: %v", failedFinal)
+	}
 }
