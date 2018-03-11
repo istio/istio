@@ -100,9 +100,9 @@ func (w *wrapperAttr) Done() {
     w.done()
 }
  
-// DebugString provides a dump of an attribute Bag that avoids affecting the
+// String provides a dump of an attribute Bag that avoids affecting the
 // calculation of referenced attributes.
-func (w *wrapperAttr) DebugString() string {
+func (w *wrapperAttr) String() string {
     return w.debugString()
 }
  
@@ -449,7 +449,7 @@ var (
                         },
                         func() []string {return attrs.Names()},
                         func() {attrs.Done()},
-                        func() string {return attrs.DebugString()},
+                        func() string {return attrs.String()},
                     )
                     }
                     resultBag := attribute.GetMutableBag(nil)
@@ -560,7 +560,7 @@ var (
                 },
                 func() []string {return attrs.Names()},
                 func() {attrs.Done()},
-                func() string {return attrs.DebugString()},
+                func() string {return attrs.String()},
             )
 
             // Mapper will map back $out values in the outBag into ambient attribute names, and return
