@@ -1039,7 +1039,7 @@ end`,
 		Type: descriptor.DNS_NAME,
 		R:    "foo.bar.baz",
 		IL: `
-fn eval() interface
+fn eval() string
   apush_s "foo.bar.baz"
   call dnsName
   ret
@@ -1054,8 +1054,8 @@ end`,
 		},
 		R: "foo.bar",
 		IL: `
-fn eval() interface
-  resolve_f "adns"
+fn eval() string
+  resolve_s "adns"
   ret
 end
 `,
@@ -1090,7 +1090,7 @@ end
 		},
 		R: "foo.bar",
 		IL: `
-fn eval() interface
+fn eval() string
   resolve_s "as"
   call dnsName
   ret
@@ -1104,8 +1104,8 @@ end
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
 		IL: `
-fn eval() interface
-  tresolve_f "adns"
+fn eval() string
+  tresolve_s "adns"
   jnz L0
   apush_s "foo.bar.baz"
   call dnsName
@@ -1120,10 +1120,10 @@ end`,
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
 		IL: `
-fn eval() interface
-  tresolve_f "adns"
+fn eval() string
+  tresolve_s "adns"
   jnz L0
-  tresolve_f "bdns"
+  tresolve_s "bdns"
   jnz L0
   apush_s "foo.bar.baz"
   call dnsName
@@ -1139,13 +1139,13 @@ end
 		I:    map[string]interface{}{},
 		R:    "foo.bar.baz",
 		IL: `
-fn eval() interface
-  tresolve_f "adns"
+fn eval() string
+  tresolve_s "adns"
   jnz L0
   apush_s "foo.bar.baz"
   call dnsName
   jmp L0
-  resolve_f "bdns"
+  resolve_s "bdns"
 L0:
   ret
 end
@@ -1167,8 +1167,8 @@ end
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "adns"
-  resolve_f "bdns"
+  resolve_s "adns"
+  resolve_s "bdns"
   call dnsName_equal
   ret
 end`,
@@ -1183,7 +1183,7 @@ end`,
 		Type: descriptor.DNS_NAME,
 		R:    "foo",
 		IL: `
- fn eval() interface
+ fn eval() string
   tresolve_s "as"
   jnz L0
   tresolve_s "bs"
@@ -1220,8 +1220,8 @@ end`,
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "adns"
-  resolve_f "bdns"
+  resolve_s "adns"
+  resolve_s "bdns"
   call dnsName_equal
   not
   ret
@@ -1278,7 +1278,7 @@ end`,
 		Type: descriptor.EMAIL_ADDRESS,
 		R:    "istio@istio.io",
 		IL: `
-fn eval() interface
+fn eval() string
   apush_s "istio@istio.io"
   call email
   ret
@@ -1293,8 +1293,8 @@ end`,
 		},
 		R: "foo@bar.com",
 		IL: `
-fn eval() interface
-  resolve_f "amail"
+fn eval() string
+  resolve_s "amail"
   ret
 end
 `,
@@ -1329,7 +1329,7 @@ end
 		},
 		R: "istio@istio.io",
 		IL: `
-fn eval() interface
+fn eval() string
   resolve_s "as"
   call email
   ret
@@ -1352,8 +1352,8 @@ end
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
 		IL: `
-fn eval() interface
-  tresolve_f "amail"
+fn eval() string
+  tresolve_s "amail"
   jnz L0
   apush_s "istio@istio.io"
   call email
@@ -1368,10 +1368,10 @@ end`,
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
 		IL: `
-fn eval() interface
-  tresolve_f "amail"
+fn eval() string
+  tresolve_s "amail"
   jnz L0
-  tresolve_f "bmail"
+  tresolve_s "bmail"
   jnz L0
   apush_s "istio@istio.io"
   call email
@@ -1387,13 +1387,13 @@ end
 		I:    map[string]interface{}{},
 		R:    "istio@istio.io",
 		IL: `
-fn eval() interface
-  tresolve_f "amail"
+fn eval() string
+  tresolve_s "amail"
   jnz L0
   apush_s "istio@istio.io"
   call email
   jmp L0
-  resolve_f "bmail"
+  resolve_s "bmail"
 L0:
   ret
 end
@@ -1415,8 +1415,8 @@ end
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "amail"
-  resolve_f "bmail"
+  resolve_s "amail"
+  resolve_s "bmail"
   call email_equal
   ret
 end`,
@@ -1431,7 +1431,7 @@ end`,
 		Type: descriptor.EMAIL_ADDRESS,
 		R:    "istio@istio.io",
 		IL: `
- fn eval() interface
+ fn eval() string
   tresolve_s "as"
   jnz L0
   tresolve_s "bs"
@@ -1468,8 +1468,8 @@ end`,
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "amail"
-  resolve_f "bmail"
+  resolve_s "amail"
+  resolve_s "bmail"
   call email_equal
   not
   ret
@@ -1511,7 +1511,7 @@ end`,
 		Type: descriptor.URI,
 		R:    "http://istio.io",
 		IL: `
-fn eval() interface
+fn eval() string
   apush_s "http://istio.io"
   call uri
   ret
@@ -1526,8 +1526,8 @@ end`,
 		},
 		R: "http://istio.io",
 		IL: `
-fn eval() interface
-  resolve_f "auri"
+fn eval() string
+  resolve_s "auri"
   ret
 end
 `,
@@ -1562,7 +1562,7 @@ end
 		},
 		R: "urn:foo",
 		IL: `
-fn eval() interface
+fn eval() string
   resolve_s "as"
   call uri
   ret
@@ -1576,8 +1576,8 @@ end
 		I:    map[string]interface{}{},
 		R:    "urn:foo",
 		IL: `
-fn eval() interface
-  tresolve_f "auri"
+fn eval() string
+  tresolve_s "auri"
   jnz L0
   apush_s "urn:foo"
   call uri
@@ -1592,10 +1592,10 @@ end`,
 		I:    map[string]interface{}{},
 		R:    "https://kubernetes.io",
 		IL: `
-fn eval() interface
-  tresolve_f "auri"
+fn eval() string
+  tresolve_s "auri"
   jnz L0
-  tresolve_f "buri"
+  tresolve_s "buri"
   jnz L0
   apush_s "https://kubernetes.io"
   call uri
@@ -1611,13 +1611,13 @@ end
 		I:    map[string]interface{}{},
 		R:    "https://kubernetes.io",
 		IL: `
-fn eval() interface
-  tresolve_f "auri"
+fn eval() string
+  tresolve_s "auri"
   jnz L0
   apush_s "https://kubernetes.io"
   call uri
   jmp L0
-  resolve_f "buri"
+  resolve_s "buri"
 L0:
   ret
 end
@@ -1639,8 +1639,8 @@ end
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "auri"
-  resolve_f "buri"
+  resolve_s "auri"
+  resolve_s "buri"
   call uri_equal
   ret
 end`,
@@ -1655,7 +1655,7 @@ end`,
 		Type: descriptor.URI,
 		R:    "ftp://ftp.istio.io/releases",
 		IL: `
- fn eval() interface
+ fn eval() string
   tresolve_s "as"
   jnz L0
   tresolve_s "bs"
@@ -1692,8 +1692,8 @@ end`,
 		R:    true,
 		IL: `
 fn eval() bool
-  resolve_f "auri"
-  resolve_f "buri"
+  resolve_s "auri"
+  resolve_s "buri"
   call uri_equal
   not
   ret
