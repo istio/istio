@@ -1236,7 +1236,7 @@
           "expr": "sum(envoy_cluster_rds_membership_healthy)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "rds (healthy)",
+          "legendFormat": "Pilot (healthy)",
           "refId": "E",
           "step": 2
         },
@@ -1244,7 +1244,7 @@
           "expr": "sum(envoy_cluster_rds_membership_total)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "rds (total)",
+          "legendFormat": "Pilot (total)",
           "refId": "F",
           "step": 2
         }

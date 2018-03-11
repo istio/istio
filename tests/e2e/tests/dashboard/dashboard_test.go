@@ -55,6 +55,8 @@ var (
 		"$http_destination", "echosrv.*",
 		"$destination_version", "v1.*",
 		"$adapter", "kubernetesenv",
+		`connection_mtls=\"true\"`, "",
+		`connection_mtls=\"false\"`, "",
 		`\`, "",
 	)
 
