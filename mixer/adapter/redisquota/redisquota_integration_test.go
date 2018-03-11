@@ -216,7 +216,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 					ctx.(*miniredis.Miniredis).Close()
 				},
 				func(ctx interface{}) (interface{}, error) { return nil, nil },
-				adapter_integration.TestCase{
+				adapter_integration.Scenario{
 					ParallelCalls: []adapter_integration.Call{
 						{
 							CallKind: adapter_integration.CHECK,

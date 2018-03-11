@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	h1_override_src1src2 = `
+	h1OverrideSrc1Src2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: listchecker
 metadata:
@@ -33,7 +33,7 @@ spec:
   overrides: ["src1", "src2"]
   blacklist: false
 `
-	i1_val_src_name_attr = `
+	i1ValSrcNameAttr = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: listentry
 metadata:
@@ -42,7 +42,7 @@ metadata:
 spec:
   value: source.name | ""
 `
-	r1_h1_i1 = `
+	r1H1I1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -64,7 +64,7 @@ func TestReport(t *testing.T) {
 		nil, /*no setup*/
 		nil, /*no teardown*/
 		nil, /*no adapter specific state to test*/
-		adapter_integration.TestCase{
+		adapter_integration.Scenario{
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.CHECK,
@@ -75,9 +75,9 @@ func TestReport(t *testing.T) {
 				},
 			},
 			Cfgs: []string{
-				h1_override_src1src2,
-				r1_h1_i1,
-				i1_val_src_name_attr,
+				h1OverrideSrc1Src2,
+				r1H1I1,
+				i1ValSrcNameAttr,
 			},
 			Want: `{
             "AdapterState": null,

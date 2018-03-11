@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	prometheusMetricsURL      = "http://localhost:42422/metrics"
-	request_count_to_prom_cfg = `
+	prometheusMetricsURL  = "http://localhost:42422/metrics"
+	requestCountToPromCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: prometheus
 metadata:
@@ -83,7 +83,7 @@ func TestReport(t *testing.T) {
 			return result, nil
 		},
 
-		adapter_integration.TestCase{
+		adapter_integration.Scenario{
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.REPORT,
@@ -94,7 +94,7 @@ func TestReport(t *testing.T) {
 			},
 
 			Cfgs: []string{
-				request_count_to_prom_cfg,
+				requestCountToPromCfg,
 			},
 
 			Want: `

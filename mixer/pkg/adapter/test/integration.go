@@ -42,8 +42,8 @@ import (
 // Utility to help write Mixer-adapter integration tests.
 
 type (
-	// TestCase fully defines an adapter integration test
-	TestCase struct {
+	// Scenario fully defines an adapter integration test
+	Scenario struct {
 		// Cfgs is a list of CRDs that Mixer will read.
 		Cfgs []string
 		// ParallelCalls is a list of test calls to be made to Mixer
@@ -114,7 +114,7 @@ type (
 // * getState lets the test provide any (interface{}) adapter specific data to be part of baseline.
 // Example: for prometheus adapter, the actual metric reported to the local backend can be embedded into the expected
 // json baseline.
-// * TestCase provide the adapter/handler/rule configs along with the call parameters (check or report, and attributes)
+// * Scenario provide the adapter/handler/rule configs along with the call parameters (check or report, and attributes)
 func RunTest(
 	t *testing.T,
 	adapters []adapter.InfoFn,
@@ -122,7 +122,7 @@ func RunTest(
 	setup SetupFn,
 	teardown TeardownFn,
 	getState GetStateFn,
-	testCase TestCase,
+	scenario Scenario,
 ) {
 
 	// Let the test do some initial setup.
@@ -142,7 +142,7 @@ func RunTest(
 	// Start Mixer
 	var args *server.Args
 	var env *server.Server
-	if args, err = getServerArgs(tmpls, adapters, testCase.Cfgs); err != nil {
+	if args, err = getServerArgs(tmpls, adapters, scenario.Cfgs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 	if env, err = server.New(args); err != nil {
@@ -161,10 +161,10 @@ func RunTest(
 
 	// Invoke calls async
 	var wg sync.WaitGroup
-	wg.Add(len(testCase.ParallelCalls))
+	wg.Add(len(scenario.ParallelCalls))
 
-	got := Result{Returns: make([]Return, len(testCase.ParallelCalls))}
-	for i, call := range testCase.ParallelCalls {
+	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
+	for i, call := range scenario.ParallelCalls {
 		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
 	}
 	// wait for calls to finish
@@ -176,29 +176,31 @@ func RunTest(
 	// from the rich object returned by getState function.
 	if getState != nil {
 		adptState, _ := getState(ctx)
-		if adptStateBytes, err := json.Marshal(adptState); err != nil {
+		var adptStateBytes []byte
+		if adptStateBytes, err = json.Marshal(adptState); err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", adptState, err)
-		} else if err = json.Unmarshal(adptStateBytes, &got.AdapterState); err != nil {
+		}
+		if err = json.Unmarshal(adptStateBytes, &got.AdapterState); err != nil {
 			t.Fatalf("Unable to unmarshal %s into interface{}: %v", string(adptStateBytes), err)
 		}
 	}
 
 	var want Result
-	if err = json.Unmarshal([]byte(testCase.Want), &want); err != nil {
-		t.Fatalf("Unable to unmarshal %s into Result: %v", testCase.Want, err)
+	if err = json.Unmarshal([]byte(scenario.Want), &want); err != nil {
+		t.Fatalf("Unable to unmarshal %s into Result: %v", scenario.Want, err)
 	}
 
 	// compare
 	if !reflect.DeepEqual(want, got) {
-		gotJson, err := json.MarshalIndent(got, "", " ")
+		gotJSON, err := json.MarshalIndent(got, "", " ")
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", got, err)
 		}
-		wantJson, err := json.MarshalIndent(want, "", " ")
+		wantJSON, err := json.MarshalIndent(want, "", " ")
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
-		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJson, wantJson)
+		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
 	}
 }
 
@@ -260,9 +262,7 @@ func getServerArgs(
 	args.Adapters = adpts
 
 	data := make([]string, 0)
-	for _, f := range cfgs {
-		data = append(data, f)
-	}
+	data = append(data, cfgs...)
 
 	// always include the attribute vocabulary
 	_, filename, _, _ := runtime.Caller(0)
