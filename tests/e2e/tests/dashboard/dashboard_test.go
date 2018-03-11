@@ -41,6 +41,7 @@ import (
 const (
 	istioDashboard = "addons/grafana/dashboards/istio-dashboard.json"
 	mixerDashboard = "addons/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard = "addons/grafana/dashboards/pilot-dashboard.json"
 	fortioYaml     = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml     = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -54,6 +55,8 @@ var (
 		"$http_destination", "echosrv.*",
 		"$destination_version", "v1.*",
 		"$adapter", "kubernetesenv",
+		`connection_mtls=\"true\"`, "",
+		`connection_mtls=\"false\"`, "",
 		`\`, "",
 	)
 
@@ -82,6 +85,7 @@ func TestDashboards(t *testing.T) {
 	}{
 		{"Istio", istioDashboard, func(queries []string) []string { return queries }},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn},
 	}
 
 	for _, testCase := range cases {
@@ -201,6 +205,28 @@ func mixerQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "grpc_code!=") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
+// There currently is no good way to inject failures into a running Pilot,
+// nor to cause Pilots to become unhealthy and drop out of cluster membership.
+// For now, we will filter out the queries related to those metrics.
+//
+// Issue: https://github.com/istio/istio/issues/4155
+func pilotQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "_rq_5xx") {
+			continue
+		}
+		if strings.Contains(query, "_rq_4xx") {
+			continue
+		}
+		if strings.Contains(query, "_membership_") {
 			continue
 		}
 		filtered = append(filtered, query)
