@@ -102,7 +102,7 @@ func (t *testConfig) Setup() error {
 		content := string(ori)
 		content = strings.Replace(content, "jason", u2, -1)
 
-		err = os.MkDirAll(filepath.Dir(rule), 0700)
+		err = os.MkdirAll(filepath.Dir(rule), 0700)
 		if err != nil {
 			log.Errorf("Failed to create the directory %s", filepath.Dir(rule))
 			return err
