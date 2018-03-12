@@ -109,12 +109,12 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
-ifeq ($(PROXY_TAG),)
-  export PROXY_TAG:=$(shell grep PROXY_TAG istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+ifeq ($(PROXY_REPO_SHA),)
+  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-ISTIO_ENVOY_VERSION ?= ${PROXY_TAG}
+ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
@@ -379,17 +379,16 @@ istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
 # consider using -a with updateVersion.sh to simplify the input parameters
-${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
+${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
+	install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -P "$(ISTIO_URL)/deb" \
-                                 -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
+                                 -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN

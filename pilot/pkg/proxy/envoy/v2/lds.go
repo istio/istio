@@ -79,9 +79,14 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			initialRequest = false
 			log.Debugf("LDS request from  %q received.", peerAddr)
 		}
+
+		nt, err := model.ParseServiceNode(discReq.Node.Id)
+		if err != nil {
+			return err
+		}
 		node := model.Proxy{
-			ID: discReq.Node.Id,
-			// TODO(mostrowski): where does type come from?
+			ID:   discReq.Node.Id,
+			Type: nt.Type,
 		}
 		response, err := ListListenersResponse(s.env, node)
 		log.Info(response.String())
