@@ -30,6 +30,9 @@ import (
 
 // buildFaultFilters builds fault filters in v2 Envoy format for the given config, env and node.
 func buildFaultFilters(config model.Config, env model.Environment, node model.Proxy) []*http_conn.HttpFilter {
+	if config.Spec == nil {
+		return []*http_conn.HttpFilter{}
+	}
 	rule := config.Spec.(*routing.RouteRule)
 	// TODO(mostrowski): need a lightweight function to get list of cluster names.
 	clusters, err := buildClusters(env, node)
