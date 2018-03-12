@@ -28,11 +28,8 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"

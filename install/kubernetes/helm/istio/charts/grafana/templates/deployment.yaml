@@ -1,27 +1,24 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "grafana.fullname" . }}
+  name: grafana
   labels:
     app: {{ template "grafana.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        app: {{ template "grafana.name" . }}
-        release: {{ .Release.Name }}
+        app: grafana
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.global.grafana.repository }}:{{ .Values.global.grafana.tag }}"
+          image: "{{ .Values.global.hub }}/grafana:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}

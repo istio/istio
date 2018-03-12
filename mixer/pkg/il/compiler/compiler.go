@@ -180,11 +180,11 @@ func (g *generator) toIlType(t descriptor.ValueType) il.Type {
 	case descriptor.IP_ADDRESS:
 		return il.Interface
 	case descriptor.EMAIL_ADDRESS:
-		return il.Interface
+		return il.String
 	case descriptor.DNS_NAME:
-		return il.Interface
+		return il.String
 	case descriptor.URI:
-		return il.Interface
+		return il.String
 	case descriptor.TIMESTAMP:
 		return il.Interface
 	default:
@@ -317,10 +317,20 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 		}
 
 	case il.String:
-		if constArg1 != nil {
-			g.builder.AEQString(constArg1.(string))
-		} else {
-			g.builder.EQString()
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.DNS_NAME:
+			g.builder.Call("dnsName_equal")
+		case descriptor.EMAIL_ADDRESS:
+			g.builder.Call("email_equal")
+		case descriptor.URI:
+			g.builder.Call("uri_equal")
+		default:
+			if constArg1 != nil {
+				g.builder.AEQString(constArg1.(string))
+			} else {
+				g.builder.EQString()
+			}
 		}
 
 	case il.Integer:

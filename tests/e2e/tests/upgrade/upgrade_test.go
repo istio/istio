@@ -25,8 +25,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -66,7 +65,6 @@ type testConfig struct {
 }
 
 func (t *testConfig) Setup() error {
-	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range defaultRules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -89,6 +87,13 @@ func (t *testConfig) Setup() error {
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
 		return fmt.Errorf("can't get all pods running")
 	}
+
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+
+	t.gateway = gateway
 
 	return setUpDefaultRouting()
 }
@@ -263,7 +268,12 @@ func upgradeControlPlane() error {
 	}
 	// TODO: Check control plane version.
 	// Update gateway address
-	tc.gateway = "http://" + targetConfig.Kube.Ingress
+	gateway, errGw := targetConfig.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+
+	tc.gateway = gateway
 	return nil
 }
 

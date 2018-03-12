@@ -16,13 +16,11 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
@@ -43,26 +41,8 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 // AddFlags adds all command line flags to the given command.
 func AddFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		switch gf.Name {
-		case "logtostderr":
-			if err := gf.Value.Set("true"); err != nil {
-				fmt.Printf("missing logtostderr flag: %v", err)
-			}
-		case "alsologtostderr", "log_dir", "stderrthreshold":
-			// always use stderr for logging
-		default:
-			rootCmd.PersistentFlags().AddGoFlag(gf)
-		}
+		rootCmd.PersistentFlags().AddGoFlag(gf)
 	})
-}
-
-// SupressGlogWarnings is a hack to make flag.Parsed return true such that glog is happy
-// about the flags having been parsed.  See https://github.com/istio/istio/issues/2127.
-func SupressGlogWarnings() {
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	/* #nosec */
-	_ = fs.Parse([]string{})
-	flag.CommandLine = fs
 }
 
 // WaitSignal awaits for SIGINT or SIGTERM and closes the channel

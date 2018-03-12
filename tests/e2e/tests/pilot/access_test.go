@@ -18,14 +18,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
-
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 

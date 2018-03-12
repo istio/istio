@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -42,6 +41,10 @@ func (t *egressRules) Setup() error {
 
 // TODO: test negatives
 func (t *egressRules) Run() error {
+	// egress rules are v1alpha1
+	if !t.Config.V1alpha1 {
+		return nil
+	}
 	cases := []struct {
 		description string
 		config      string

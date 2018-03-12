@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	testutil "istio.io/istio/tests/util"
 )
 
 const (
@@ -63,6 +65,8 @@ type Environment struct {
 	// nolint: maligned
 	Name   string
 	Config Config
+
+	sidecarTemplate string
 
 	KubeClient kubernetes.Interface
 
@@ -91,19 +95,16 @@ type Environment struct {
 	Err error
 }
 
-const (
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-)
-
 // TemplateData is a container for common fields accessed from yaml templates.
 type TemplateData struct {
+	// nolint: maligned
 	Hub                    string
 	Tag                    string
 	Namespace              string
 	IstioNamespace         string
 	Registry               string
 	AdmissionServiceName   string
+	ImagePullPolicy        string
 	Verbosity              int
 	DebugPort              int
 	Auth                   meshconfig.MeshConfig_AuthPolicy
@@ -111,6 +112,7 @@ type TemplateData struct {
 	Ingress                bool
 	Zipkin                 bool
 	UseAdmissionWebhook    bool
+	RDSv2                  bool
 	ControlPlaneAuthPolicy meshconfig.AuthenticationPolicy
 	PilotCustomConfigFile  string
 	MixerCustomConfigFile  string
@@ -136,28 +138,8 @@ func NewEnvironment(config Config) *Environment {
 		e.MixerCustomConfigFile = mixerConfigAuthFile
 		e.PilotCustomConfigFile = pilotConfigAuthFile
 	}
+
 	return &e
-}
-
-// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
-func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) { // nolint: lll
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	cfgYaml, exists := config.Data[ConfigMapKey]
-	if !exists {
-		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
-	}
-
-	mesh, err := model.ApplyMeshConfigDefaults(cfgYaml)
-	if err != nil {
-		return nil, nil, err
-	}
-	return config, mesh, nil
 }
 
 // ToTemplateData creates a data structure containing common fields used in yaml templates.
@@ -179,6 +161,8 @@ func (e *Environment) ToTemplateData() TemplateData {
 		PilotCustomConfigFile:  e.PilotCustomConfigFile,
 		MixerCustomConfigFile:  e.MixerCustomConfigFile,
 		CABundle:               e.CABundle,
+		RDSv2:                  e.Config.RDSv2,
+		ImagePullPolicy:        e.Config.ImagePullPolicy,
 	}
 }
 
@@ -236,21 +220,23 @@ func (e *Environment) Setup() error {
 		return nil
 	}
 
-	if err = deploy("rbac-beta.yaml.tmpl", e.Config.IstioNamespace); err != nil {
-		return err
+	if !e.Config.NoRBAC {
+		if err = deploy("rbac-beta.yaml.tmpl", e.Config.IstioNamespace); err != nil {
+			return err
+		}
 	}
 
 	if err = deploy("config.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
 
-	if _, e.meshConfig, err = GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, "istio"); err != nil {
+	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, kube.IstioConfigMap); err != nil {
 		return err
 	}
 	debugMode := e.Config.DebugImagesAndMode
 	log.Infof("mesh %s", spew.Sdump(e.meshConfig))
 
-	e.Config.SidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+	e.sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 		InitImage:       inject.InitImageName(e.Config.Hub, e.Config.Tag, debugMode),
 		ProxyImage:      inject.ProxyImageName(e.Config.Hub, e.Config.Tag, debugMode),
 		Verbosity:       e.Config.Verbosity,
@@ -259,6 +245,7 @@ func (e *Environment) Setup() error {
 		Version:         "integration-test",
 		Mesh:            e.meshConfig,
 		DebugMode:       debugMode,
+		ImagePullPolicy: e.Config.ImagePullPolicy,
 	})
 	if err != nil {
 		return err
@@ -378,21 +365,22 @@ func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3,
 	}
 
 	w, err := e.Fill("app.yaml.tmpl", map[string]string{
-		"Hub":            e.Config.Hub,
-		"Tag":            e.Config.Tag,
-		"service":        svcName,
-		"perServiceAuth": strconv.FormatBool(perServiceAuth),
-		"deployment":     deployment,
-		"port1":          strconv.Itoa(port1),
-		"port2":          strconv.Itoa(port2),
-		"port3":          strconv.Itoa(port3),
-		"port4":          strconv.Itoa(port4),
-		"port5":          strconv.Itoa(port5),
-		"port6":          strconv.Itoa(port6),
-		"version":        version,
-		"istioNamespace": e.Config.IstioNamespace,
-		"injectProxy":    strconv.FormatBool(injectProxy),
-		"healthPort":     healthPort,
+		"Hub":             e.Config.Hub,
+		"Tag":             e.Config.Tag,
+		"service":         svcName,
+		"perServiceAuth":  strconv.FormatBool(perServiceAuth),
+		"deployment":      deployment,
+		"port1":           strconv.Itoa(port1),
+		"port2":           strconv.Itoa(port2),
+		"port3":           strconv.Itoa(port3),
+		"port4":           strconv.Itoa(port4),
+		"port5":           strconv.Itoa(port5),
+		"port6":           strconv.Itoa(port6),
+		"version":         version,
+		"istioNamespace":  e.Config.IstioNamespace,
+		"injectProxy":     strconv.FormatBool(injectProxy),
+		"healthPort":      healthPort,
+		"ImagePullPolicy": e.Config.ImagePullPolicy,
 	})
 	if err != nil {
 		return err
@@ -401,7 +389,7 @@ func (e *Environment) deployApp(deployment, svcName string, port1, port2, port3,
 	writer := new(bytes.Buffer)
 
 	if injectProxy && !e.Config.UseAutomaticInjection {
-		if err := inject.IntoResourceFile(e.Config.SidecarTemplate, e.meshConfig, strings.NewReader(w), writer); err != nil {
+		if err := inject.IntoResourceFile(e.sidecarTemplate, e.meshConfig, strings.NewReader(w), writer); err != nil {
 			return err
 		}
 	} else {
@@ -476,6 +464,17 @@ func (e *Environment) Teardown() {
 }
 
 func (e *Environment) dumpErrorLogs() {
+	// Use the common logs dumper.
+	err := testutil.FetchAndSaveClusterLogs(e.Config.Namespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+	err = testutil.FetchAndSaveClusterLogs(e.Config.IstioNamespace, e.Config.ErrorLogsDir)
+	if err != nil {
+		log.Errora("Failed to dump logs", err)
+	}
+
+	// Temp: dump logs the old way, for people used with it.
 	for _, pod := range util.GetPods(e.KubeClient, e.Config.Namespace) {
 		var filename, content string
 		if strings.HasPrefix(pod, "istio-pilot") {
@@ -757,7 +756,7 @@ func (e *Environment) deleteAdmissionWebhookSecret() error {
 func (e *Environment) createSidecarInjector() error {
 	configData, err := yaml.Marshal(&inject.Config{
 		Policy:   inject.InjectionPolicyEnabled,
-		Template: e.Config.SidecarTemplate,
+		Template: e.sidecarTemplate,
 	})
 	if err != nil {
 		return err

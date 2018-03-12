@@ -80,7 +80,6 @@ spec:
           - --configStoreURL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          - --logtostderr
       - name: istio-proxy
         image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
@@ -89,8 +88,6 @@ spec:
         args:
         - proxy
         - mixer
-        - -v
-        - "2"
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile
@@ -964,9 +961,8 @@ kind: rule
 metadata:
   name: promhttp
   namespace: {ISTIO_NAMESPACE}
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http"
   actions:
   - handler: handler.prometheus
     instances:
@@ -981,8 +977,9 @@ metadata:
   name: promtcp
   namespace: {ISTIO_NAMESPACE}
   labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.prometheus
     instances:
@@ -1016,6 +1013,20 @@ spec:
     - attributes.kubernetes
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: tcpkubeattrgenrulerule
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.kubernetesenv
+    instances:
+    - attributes.kubernetes
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetes
 metadata:
   name: attributes
@@ -1025,7 +1036,6 @@ spec:
   source_uid: source.uid | ""
   source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
   destination_uid: destination.uid | ""
-  destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
   origin_uid: '""'
   origin_ip: ip("0.0.0.0") # default to unspecified ip addr
   attribute_bindings:

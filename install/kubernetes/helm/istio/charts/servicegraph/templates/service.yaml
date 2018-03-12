@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "servicegraph.fullname" . }}
+  name: servicegraph
   labels:
-    app: {{ template "servicegraph.name" . }}
+    app: servicegraph
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -15,5 +15,4 @@ spec:
       protocol: TCP
       name: {{ .Values.service.name }}
   selector:
-    app: {{ template "servicegraph.name" . }}
-    release: {{ .Release.Name }}
+    app: servicegraph

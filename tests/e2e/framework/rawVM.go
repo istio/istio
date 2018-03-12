@@ -43,7 +43,7 @@ var (
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
-	releaseMode   = flag.Bool("release_mode", false, "release mode uses different artifacts URL")
+	debURL        = flag.String("deb_url", "", "The URL where `istio-sidecar.deb` can be accessed")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -53,7 +53,7 @@ var (
 )
 
 const (
-	debURL = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
+	debURLFmt = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
 )
 
 // GCPRawVM is hosted on Google Cloud Platform
@@ -184,25 +184,16 @@ func (vm *GCPRawVM) Setup() error {
 	if _, err := u.Shell("cat istio.VERSION"); err != nil {
 		return err
 	}
-	if err := setFirewallRuleToAllowAccessToVM(); err != nil {
-		return err
-	}
 	return vm.setupMeshEx("machineSetup", vm.Name)
 }
 
 func buildIstioVersion() error {
-	proxyURL := fmt.Sprintf(debURL, "pilot", *pilotTag)
-	if *releaseMode {
-		if *remotePath == "" {
-			return fmt.Errorf("istioctl_url cannot be empty")
-		}
-		// remove trailing slash
-		base := strings.Trim(*remotePath, "/")
-		// replace either `/istioctl` or `/istioctl-stage` with `/deb`
-		base = base[0:strings.LastIndex(base, "/")]
-		proxyURL = base + "/deb"
+	if *debURL == "" {
+		*debURL = fmt.Sprintf(debURLFmt, "pilot", *pilotTag)
 	}
-	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, proxyURL)
+	// `install/tools/setupIstioVM.sh` sources istio.VERSION to
+	// get `istio-sidecar.deb` from PILOT_DEBIAN_URL
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, *debURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 
@@ -225,9 +216,6 @@ func (vm *GCPRawVM) provision() error {
 		if _, err := u.Shell(createVMcmd); err != nil {
 			return err
 		}
-	}
-	if err := setFirewallRuleToAllowAccessToVM(); err != nil {
-		return err
 	}
 	// wait until VM is up and ready
 	isVMLive := func() (bool, error) {
@@ -262,17 +250,6 @@ func (vm *GCPRawVM) prepareCluster() error {
 		"istio-system": vm.Namespace,
 	}
 	return replaceKVInYamlThenKubectlApply(mashExpansionYaml, kv)
-}
-
-func setFirewallRuleToAllowAccessToVM() error {
-	if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
-		if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
-		 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
-		 	--source-ranges 0.0.0.0/0`); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func replaceKVInYamlThenKubectlApply(yamlPath string, kv map[string]string) error {

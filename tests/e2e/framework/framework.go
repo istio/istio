@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 )
@@ -70,7 +68,7 @@ func InitLogging() error {
 	}
 
 	// Configure Istio logging to use a file under the temp dir.
-	o := log.NewOptions()
+	o := log.DefaultOptions()
 	tmpLogFile, err := ioutil.TempFile(tmpDir, tmpPrefix)
 	if err != nil {
 		return err
