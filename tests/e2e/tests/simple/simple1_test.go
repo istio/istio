@@ -142,7 +142,7 @@ func TestSvc2Svc(t *testing.T) {
 				case <-ctx.Done():
 					return ctx.Err()
 				default:
-					_, err := util.ShellContext(ctx, "kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -curl http://echosrv.%s:8080/echo", ns, pod, ns) // nolint: lll
+					_, err := util.ShellContext(ctx, "kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv.%s:8080/echo", ns, pod, ns) // nolint: lll
 					if err == nil {
 						return nil
 					}
