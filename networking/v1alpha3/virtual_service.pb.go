@@ -263,9 +263,9 @@ type Destination struct {
 	//
 	// If short names are used, the FQDN of the service will be resolved in a
 	// platform specific manner. For example in Kubernetes, when a route with a
-	// short name "reviews" in the destination in namespace "bookinfo" is applied
-	// to a client in , the final destination is resolved to
-	// reviews.bookinfo.svc.cluster.local. The sidecar will route to the IP
+	// short name "reviews" in the destination in namespace "bookinfo" is applied,
+	// the final destination is resolved to reviews.bookinfo.svc.cluster.local. The
+	// sidecar will route to the IP
 	// addresses of the pods constituting the service. However, if the lookup
 	// fails, "reviews" is treated as an external service, such that the sidecar
 	// will dynamically resolve the DNS of the service name and route the request
