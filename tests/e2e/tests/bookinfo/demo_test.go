@@ -341,13 +341,6 @@ type migrationRule struct {
 	modelToMigrate string
 }
 
-func getRuleKeys(rules []migrationRule) (ruleKeys []string) {
-	for _, rule := range rules {
-		ruleKeys = append(ruleKeys, rule.key)
-	}
-	return
-}
-
 func TestVersionMigration(t *testing.T) {
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
@@ -370,18 +363,16 @@ func TestVersionMigration(t *testing.T) {
 		},
 	}
 
-	ruleKeys := getRuleKeys(rules)
-	inspect(applyRules(ruleKeys), "failed to apply rules", "", t)
-	defer func() {
-		inspect(deleteRules(ruleKeys), fmt.Sprintf("failed to delete rules"), "", t)
-	}()
-
 	for _, rule := range rules {
-		testMigration(t, rule.modelToMigrate, rule.rate)
+		doTestVersionMigration(t, rule)
 	}
 }
 
-func testMigration(t *testing.T, modelToMigrate string, migrationRate float64) {
+func doTestVersionMigration(t *testing.T, rule migrationRule) {
+	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+	}()
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
 	totalShot := 100
@@ -412,13 +403,13 @@ func testMigration(t *testing.T, modelToMigrate string, migrationRate float64) {
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
 				c1++
-			} else if err = util.CompareToFile(body, modelToMigrate); err == nil {
+			} else if err = util.CompareToFile(body, rule.modelToMigrate); err == nil {
 				cVersionToMigrate++
 			}
 			closeResponseBody(resp)
 		}
-		c1Percent := int((migrationRate + tolerance) * float64(totalShot))
-		cVersionToMigratePercent := int((migrationRate - tolerance) * float64(totalShot))
+		c1Percent := int((rule.rate + tolerance) * float64(totalShot))
+		cVersionToMigratePercent := int((rule.rate - tolerance) * float64(totalShot))
 		if (c1 <= c1Percent) && (cVersionToMigrate >= cVersionToMigratePercent) {
 			log.Infof(
 				"Success! Version migration acts as expected, "+
