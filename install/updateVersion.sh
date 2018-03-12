@@ -287,6 +287,7 @@ function update_istio_install() {
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-with-health-check.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer-with-health-check.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
   execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
@@ -294,12 +295,11 @@ function update_istio_install() {
 
   execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-injector.yaml.tmpl
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector.yaml.tmpl
-  execute_sed "s|{PROXY_IMAGE}|${PROXY_IMAGE}|" istio-sidecar-injector.yaml.tmpl
 
-  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
-  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
-  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-injector-configmap-release.yaml.tmpl
-  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector-configmap-release.yaml.tmpl
+  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
+  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
+  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" istio-sidecar-injector-configmap-release.yaml.tmpl
+  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" istio-sidecar-injector-configmap-release.yaml.tmpl
 
 
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
@@ -323,7 +323,6 @@ function update_istio_addons() {
 function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" bookinfo.sidecars.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
   popd
 }
