@@ -119,7 +119,7 @@ func (w *watcher) Reload() {
 		}
 	}
 	for _, cert := range w.optionalCerts {
-		generateCertHash(h, cert.Directory, cert.Files, false)
+		_ = generateCertHash(h, cert.Directory, cert.Files, false)
 	}
 	config.Hash = h.Sum(nil)
 

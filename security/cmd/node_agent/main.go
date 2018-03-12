@@ -57,8 +57,10 @@ func init() {
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
+
 	flags.StringVar(&naConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
+	flags.StringVar(&naConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
 	flags.StringVar(&naConfig.CertChainFile, "cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
@@ -72,8 +74,16 @@ func init() {
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
+	if naConfig.Platform == "vm" {
+		if err := rootCmd.Execute(); err != nil {
+			log.Errora(err)
+			os.Exit(-1)
+		}
+	} else if naConfig.Platform == "k8s" {
+		log.Errorf("WIP for support on k8s...")
+		os.Exit(-1)
+	} else {
+		log.Errorf("node agent on %v is not supported yet", naConfig.Platform)
 		os.Exit(-1)
 	}
 }
