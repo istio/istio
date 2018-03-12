@@ -110,6 +110,25 @@ func HelmInit(serviceAccount string) error {
 	return err
 }
 
+// HelmInstallDryRun helm install dry run from a chart for a given namespace
+func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmInstall helm install from a chart for a given namespace
+//       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+func HelmInstall(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmDelete helm del --purge a chart
+func HelmDelete(chartName string) error {
+	_, err := Shell("helm del --purge %s", chartName)
+	return err
+}
+
 // KubeDeleteContents kubectl apply from contents
 func KubeDeleteContents(namespace, yamlContents string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
