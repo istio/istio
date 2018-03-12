@@ -28,7 +28,7 @@ func subsetSelector(svc *model.Service, subset string) map[string]string {
 
 func TestRDS(t *testing.T) {
 	services := map[string]*model.Service{
-		"a.default.svc.cluster.local": &model.Service{
+		"a.default.svc.cluster.local": {
 			Hostname: "a.default.svc.cluster.local",
 			Ports: model.PortList{
 				&model.Port{
@@ -37,7 +37,7 @@ func TestRDS(t *testing.T) {
 				},
 			},
 		},
-		"b.default.svc.cluster.local": &model.Service{
+		"b.default.svc.cluster.local": {
 			Hostname: "b.default.svc.cluster.local",
 			Ports: model.PortList{
 				&model.Port{
@@ -48,7 +48,7 @@ func TestRDS(t *testing.T) {
 		},
 	}
 	configs := []model.Config{
-		model.Config{
+		{
 			ConfigMeta: model.ConfigMeta{
 				Name:      "rule1",
 				Namespace: "default",
@@ -56,7 +56,7 @@ func TestRDS(t *testing.T) {
 			Spec: &v1alpha3.VirtualService{
 				Hosts: []string{"b", "random.com"},
 				Http: []*v1alpha3.HTTPRoute{
-					&v1alpha3.HTTPRoute{
+					{
 						Match: []*v1alpha3.HTTPMatchRequest{{
 							Uri: &v1alpha3.StringMatch{
 								MatchType: &v1alpha3.StringMatch_Prefix{
@@ -64,17 +64,17 @@ func TestRDS(t *testing.T) {
 								},
 							},
 							Headers: map[string]*v1alpha3.StringMatch{
-								"test": &v1alpha3.StringMatch{MatchType: &v1alpha3.StringMatch_Exact{Exact: "id"}},
+								"test": {MatchType: &v1alpha3.StringMatch_Exact{Exact: "id"}},
 							},
 							Method:    &v1alpha3.StringMatch{MatchType: &v1alpha3.StringMatch_Exact{Exact: "POST"}},
 							Authority: &v1alpha3.StringMatch{MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "b"}},
 							Scheme:    &v1alpha3.StringMatch{MatchType: &v1alpha3.StringMatch_Regex{Regex: "h.*"}},
 						}},
 						Route: []*v1alpha3.DestinationWeight{
-							&v1alpha3.DestinationWeight{
+							{
 								Destination: &v1alpha3.Destination{Name: "a", Subset: "test"}, Weight: 50,
 							},
-							&v1alpha3.DestinationWeight{
+							{
 								Destination: &v1alpha3.Destination{Name: "b"}, Weight: 50,
 							},
 						},
@@ -82,7 +82,7 @@ func TestRDS(t *testing.T) {
 				},
 			},
 		},
-		model.Config{
+		{
 			ConfigMeta: model.ConfigMeta{
 				Name:      "rule2",
 				Namespace: "default",
@@ -90,7 +90,7 @@ func TestRDS(t *testing.T) {
 			Spec: &v1alpha3.VirtualService{
 				Hosts: []string{"google.com"},
 				Http: []*v1alpha3.HTTPRoute{
-					&v1alpha3.HTTPRoute{
+					{
 						Redirect: &v1alpha3.HTTPRedirect{
 							Authority: "us.google.com",
 						},
@@ -105,5 +105,5 @@ func TestRDS(t *testing.T) {
 		subsetSelector,
 		"svc.cluster.local")
 
-	t.Logf("%#v", out)
+	t.Logf("%+v", out)
 }
