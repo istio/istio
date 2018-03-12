@@ -138,7 +138,7 @@ function startPilot() {
 }
 
 function startMixer() {
-  ${ISTIO_OUT}/mixs server erver --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
+  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
     --kubeconfig .circleci/config &
   echo $! > $LOG_DIR/mixer.pid
 }
