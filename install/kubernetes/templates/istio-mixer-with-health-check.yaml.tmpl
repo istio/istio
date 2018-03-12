@@ -87,7 +87,7 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
-          optional: true
+          optional: true # FALSE WHEN AUTH IS ENABLED
       - name: config-volume
         configMap:
           name: istio-mixer
