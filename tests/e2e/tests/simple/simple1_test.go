@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
-	u "istio.io/istio/tests/util"
 )
 
 const (
@@ -78,7 +77,7 @@ func TestSimpleIngress(t *testing.T) {
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	log.Infof("Fetching '%s'", url)
 
-	retry := u.Retrier{
+	retry := util.Retrier{
 		BaseDelay:   time.Second,
 		MaxDelay:    time.Second,
 		Retries:     1000,
