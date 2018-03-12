@@ -67,6 +67,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
                              istio_ca node_agent multicluster_ca flexvolume flexvolume.sh node_agent_k8s
+
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -169,7 +170,8 @@ $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_D
 docker.flexvolume:	$(ISTIO_DOCKER)/flexvolume $(ISTIO_DOCKER)/flexvolume.sh
 docker.node-agent-k8s:	$(ISTIO_DOCKER)/node_agent_k8s
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca docker.flexvolume docker.node-agent-k8s
+
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca docker.flexvolumedriver docker.node-agent-k8s
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 

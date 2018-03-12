@@ -17,9 +17,11 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,7 +29,10 @@ import (
 	"text/template"
 	"time"
 
+
+	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/istio/pkg/log"
 )
@@ -88,12 +93,10 @@ func DeleteNamespace(n string) error {
 
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string) (bool, error) {
-	output, err := Shell("kubectl get namespace %s", n)
+	output, err := ShellSilent("kubectl get namespace %s -o name", n)
 	if strings.Contains(output, "NotFound") {
-		log.Infof("namespace %s deleted\n", n)
 		return true, nil
 	}
-	log.Infof("namespace %s not deleted yet\n", n)
 	return false, err
 }
 
@@ -139,15 +142,15 @@ func KubeDelete(namespace, yamlFileName string) error {
 // GetIngress get istio ingress ip
 func GetIngress(n string) (string, error) {
 	retry := Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  20 * time.Second,
-		Retries:   20,
+		BaseDelay: 1 * time.Second,
+		MaxDelay:  1 * time.Second,
+		Retries:   300, // ~5 minutes
 	}
 	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
-	retryFn := func(i int) error {
-		ip, err := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+	retryFn := func(_ context.Context, i int) error {
+		ip, err := ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
 		// For minikube, comment out the previous line and uncomment the following line
 		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
@@ -155,10 +158,7 @@ func GetIngress(n string) (string, error) {
 		}
 		ip = strings.Trim(ip, "'")
 		if ri.FindString(ip) == "" {
-			pods, _ := Shell("kubectl get all -n %s -o wide", n)
-			err = fmt.Errorf("unable to find ingress ip, state:\n%s", pods)
-			log.Warna(err)
-			return err
+			return errors.New("ingress ip not available yet")
 		}
 		ingress = ip
 		// For minikube, comment out the previous line and uncomment the following lines
@@ -173,11 +173,36 @@ func GetIngress(n string) (string, error) {
 		//	return err
 		//}
 		//ingress = ip + ":" + port
-		log.Infof("Istio ingress: %s\n", ingress)
+		log.Infof("Istio ingress: %s", ingress)
+
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
-	return ingress, err
+
+	ctx := context.Background()
+
+	log.Info("Waiting for istio-ingress to get external IP")
+	if _, err := retry.Retry(ctx, retryFn); err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	defer cancel()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	ingressURL := fmt.Sprintf("http://%s", ingress)
+	log.Infof("Sanity checking %v", ingressURL)
+	for {
+		select {
+		case <-ctx.Done():
+			return "", errors.New("istio-ingress readiness check timed out")
+		default:
+			response, err := ctxhttp.Get(ctx, client, ingressURL)
+			if err == nil {
+				log.Infof("Response %v %q received from %v", response.StatusCode, response.Status, ingressURL)
+				return ingress, nil
+			}
+		}
+	}
 }
 
 // GetIngressPod get istio ingress ip
@@ -190,7 +215,7 @@ func GetIngressPod(n string) (string, error) {
 	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	portRegex := regexp.MustCompile(`^[0-9]+$`)
 	var ingress string
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		podIP, err := Shell("kubectl get pod -l istio=ingress "+
 			"-n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
@@ -217,7 +242,7 @@ func GetIngressPod(n string) (string, error) {
 		log.Infof("Istio ingress: %s\n", ingress)
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
+	_, err := retry.Retry(context.Background(), retryFn)
 	return ingress, err
 }
 
@@ -260,7 +285,7 @@ func CheckPodsRunning(n string) (ready bool) {
 		Retries:   6,
 	}
 
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		pods := GetPodsName(n)
 		ready = true
 		for _, p := range pods {
@@ -281,12 +306,47 @@ func CheckPodsRunning(n string) (ready bool) {
 		}
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
-	if err != nil {
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		return false
 	}
 	log.Info("Get all pods running!")
 	return true
+}
+
+
+// CheckDeployment gets status of a deployment from a namespace
+func CheckDeployment(ctx context.Context, namespace, deployment string) error {
+	errc := make(chan error)
+	go func() {
+		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s", namespace, deployment); err != nil {
+			errc <- fmt.Errorf("%s in namespace %s failed", deployment, namespace)
+		}
+		errc <- nil
+	}()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// CheckDeployments checks whether all deployment in a given namespace
+func CheckDeployments(namespace string, timeout time.Duration) error {
+	// wait for istio-system deployments to be fully rolled out before proceeding
+	out, err := Shell("kubectl -n %s get deployment -o name", namespace)
+	if err != nil {
+		return fmt.Errorf("could not list deployments in namespace %q", namespace)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	deployments := strings.Fields(out)
+	for i := range deployments {
+		deployment := deployments[i]
+		g.Go(func() error { return CheckDeployment(ctx, namespace, deployment) })
+	}
+	return g.Wait()
 }
 
 // FetchAndSaveClusterLogs will dump the logs for a cluster.

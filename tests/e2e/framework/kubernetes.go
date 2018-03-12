@@ -42,6 +42,7 @@ const (
 	istioSystem                 = "istio-system"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
 	mixerValidatorFile          = "istio-mixer-validator.yaml"
+	maxDeploymentRolloutTime = 120 * time.Second
 )
 
 var (
@@ -257,18 +258,19 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 30
+	maxAttempts := 120
 	namespaceDeleted := false
+	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
 		if namespaceDeleted {
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
-		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
 		return nil
 	}
 
@@ -355,12 +357,8 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
 			return err
 		}
-
-		// alow time for sidecar injector to start
-		time.Sleep(60 * time.Second)
 	}
-
-	return nil
+	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime)
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
@@ -389,7 +387,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 

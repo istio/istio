@@ -12,38 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package driver is invoked by kubelet when a pod installs a flexvolume drive
-// of type nodeagent/uds
-// This driver communicates to the nodeagent by
-//   * writing credentials of workloads to a file
-// to shares the properties of the pod with nodeagent.
-//
 package driver
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log/syslog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	fv "istio.io/istio/security/pkg/flexvolume"
 )
 
-// Response is the output of Flex volume driver to the kubelet.
-type Response struct {
-	Status  string `json:"status"`
+// Resp is the driver response
+type Resp struct {
+	// Status of the response
+	Status string `json:"status"`
+	// Response message of the response
 	Message string `json:"message"`
-	// Is attached resp.
-	Attached bool `json:"attached,omitempty"`
-	// Dev mount resp.
-	Device string `json:"device,omitempty"`
-	// Volumen name resp.
-	VolumeName string `json:"volumename,omitempty"`
+	// Defines the driver's capability
+	Capabilities *Capabilities `json:",omitempty"`
 }
 
 // Capabilities define whether driver is attachable and the linux relabel
@@ -133,7 +123,7 @@ func InitCommand() error {
 		fmt.Println(string(resp))
 		return nil
 	}
-	return genericSuccess("init", "", "Init ok.")
+	return genericSucc("init", "", "Init ok.")
 }
 
 // produceWorkloadCredential converts input from the kubelet to WorkloadInfo
@@ -141,7 +131,7 @@ func produceWorkloadCredential(opts string) (*fv.Credential, error) {
 	ninputs := FlexVolumeInputs{}
 	err := json.Unmarshal([]byte(opts), &ninputs)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
 	wlInfo := fv.Credential{
@@ -166,27 +156,29 @@ func doMount(destinationDir string, cred *fv.Credential) error {
 
 	// Not really needed but attempt to workaround:
 	// https://github.com/kubernetes/kubernetes/blob/61ac9d46382884a8bd9e228da22bca5817f6d226/pkg/util/mount/mount_linux.go
-	cmdMount := getExecCmd("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", destinationDir)
+	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
 	err = cmdMount.Run()
 	if err != nil {
-		os.RemoveAll(newDir) //nolint: errcheck
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
-	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
-	err = os.MkdirAll(newDestinationDir, 0777)
+	newDstDir := dstDir + "/nodeagent"
+	err = os.MkdirAll(newDstDir, 0777)
 	if err != nil {
-		getExecCmd("/bin/unmount", destinationDir).Run() //nolint: errcheck
-		os.RemoveAll(newDir)                             //nolint: errcheck
+		cmd := exec.Command("/bin/unmount", dstDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
 	// Do a bind mount
-	cmd := getExecCmd("/bin/mount", "--bind", newDir, newDestinationDir)
+	cmd := exec.Command("/bin/mount", "--bind", newDir, newDstDir)
 	err = cmd.Run()
 	if err != nil {
-		getExecCmd("/bin/umount", destinationDir).Run() //nolint: errcheck
-		os.RemoveAll(newDir)                            //nolint: errcheck
+		cmd = exec.Command("/bin/umount", dstDir)
+		_ = cmd.Run()
+		_ = os.RemoveAll(newDir)
 		return err
 	}
 
@@ -205,16 +197,48 @@ func handleErrMount(destinationDir string, cred *fv.Credential) {
 	os.RemoveAll(filepath.Join(configuration.NodeAgentWorkloadHomeDir, cred.UID))
 }
 
-// Mount handles the mount command to the driver.
-func Mount(dir, opts string) error {
-	inp := strings.Join([]string{dir, opts}, "|")
+// addListener add the listener for the workload
+func addListener(ninputs *pb.WorkloadInfo) error {
+	client := nagent.ClientUds(nodeAgentMgmtAPI)
+	if client == nil {
+		return errors.New("failed to create Nodeagent client")
+	}
 
 	ninputs, err := produceWorkloadCredential(opts)
 	if err != nil {
-		return failure("mount", inp, err.Error())
+		return err
 	}
 
-	if err := doMount(dir, ninputs); err != nil {
+	client.Close()
+	return nil
+}
+
+// delListener delete the listener for the workload
+func delListener(ninputs *pb.WorkloadInfo) error {
+	client := nagent.ClientUds(nodeAgentMgmtAPI)
+	if client == nil {
+		return errors.New("failed to create Nodeagent client")
+	}
+
+	_, err := client.WorkloadDeleted(ninputs)
+	if err != nil {
+		return err
+	}
+
+	client.Close()
+	return nil
+}
+
+// Mount mount the file path.
+func Mount(dir, opts string) error {
+	inp := dir + "|" + opts
+
+	ninputs, s := checkValidMountOpts(opts)
+	if !s {
+		return failure("mount", inp, "Incomplete inputs")
+	}
+
+	if err := doMount(dir, ninputs.Attrs); err != nil {
 		sErr := "Failure to mount: " + err.Error()
 		return failure("mount", inp, sErr)
 	}
@@ -225,16 +249,14 @@ func Mount(dir, opts string) error {
 		return failure("mount", inp, sErr)
 	}
 
-	return genericSuccess("mount", inp, "Mount ok.")
+	return genericSucc("mount", inp, "Mount ok.")
 }
 
-// Unmount handles the unmount command to the driver.
+// Unmount unmount the file path.
 func Unmount(dir string) error {
-	var emsgs []string
-	// Stop the listener.
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
-		sErr := fmt.Sprintf("Failure to notify nodeagent dir %v", dir)
+		sErr := fmt.Sprintf("Unmount failed with dir %s.", dir)
 		return failure("unmount", dir, sErr)
 	}
 
@@ -249,39 +271,27 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	if err := getExecCmd("/bin/umount", filepath.Join(dir, "nodeagent")).Run(); err != nil {
-		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", filepath.Join(dir, "nodeagent")))
-	}
-
+	_ = doUnmount(dir + "/nodeagent")
 	// unmount the tmpfs
-	if err := getExecCmd("/bin/umount", dir).Run(); err != nil {
-		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", dir))
-	}
-
+	_ = doUnmount(dir)
 	// delete the directory that was created.
-	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, uid)
+	delDir := nodeAgentUdsHome + "/" + uid
 	err := os.Remove(delDir)
 	if err != nil {
-		emsgs = append(emsgs, fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error()))
-		// go head and return ok.
+		estr := fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error())
+		return genericSucc("unmount", dir, estr)
 	}
 
-	if len(emsgs) == 0 {
-		emsgs = append(emsgs, "Unmount Ok")
-	}
-
-	return genericSuccess("unmount", dir, strings.Join(emsgs, ","))
+	return genericSucc("unmount", dir, "Unmount ok.")
 }
 
-// printAndLog is used to print to stdout and to the syslog.
 func printAndLog(caller, inp, s string) {
 	fmt.Println(s)
 	logToSys(caller, inp, s)
 }
 
-// genericSuccess is to print a success response to the kubelet.
-func genericSuccess(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Response{Status: "Success", Message: msg})
+func genericSucc(caller, inp, msg string) error {
+	resp, err := json.Marshal(&Resp{Status: "Success", Message: msg})
 	if err != nil {
 		return err
 	}
@@ -290,20 +300,8 @@ func genericSuccess(caller, inp, msg string) error {
 	return nil
 }
 
-// failure is to print a failure response to the kubelet.
 func failure(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Response{Status: "Failure", Message: msg})
-	if err != nil {
-		return errors.New(msg)
-	}
-
-	printAndLog(caller, inp, string(resp))
-	return errors.New(msg)
-}
-
-// GenericUnsupported is to print a un-supported response to the kubelet.
-func GenericUnsupported(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Response{Status: "Not supported", Message: msg})
+	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
 	if err != nil {
 		return err
 	}
@@ -312,9 +310,8 @@ func GenericUnsupported(caller, inp, msg string) error {
 	return nil
 }
 
-// logToSys is to write to syslog.
 func logToSys(caller, inp, opts string) {
-	if logWriter == nil {
+	if logWrt == nil {
 		return
 	}
 
