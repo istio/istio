@@ -54,23 +54,25 @@ type CertSource struct {
 }
 
 type watcher struct {
-	agent    proxy.Agent
-	role     model.Proxy
-	config   meshconfig.ProxyConfig
-	certs    []CertSource
-	pilotSAN []string
+	agent         proxy.Agent
+	role          model.Proxy
+	config        meshconfig.ProxyConfig
+	optionalcerts []CertSource
+	requiredCerts []CertSource
+	pilotSAN      []string
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
-	certs []CertSource, pilotSAN []string) Watcher {
+	optionalcerts []CertSource, requiredCerts []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
-		agent:    agent,
-		role:     role,
-		config:   config,
-		certs:    certs,
-		pilotSAN: pilotSAN,
+		agent:         agent,
+		role:          role,
+		config:        config,
+		optionalcerts: optionalcerts,
+		requiredCerts: requiredCerts,
+		pilotSAN:      pilotSAN,
 	}
 }
 
@@ -89,8 +91,11 @@ func (w *watcher) Run(ctx context.Context) {
 	w.Reload()
 
 	// monitor certificates
-	certDirs := make([]string, 0, len(w.certs))
-	for _, cert := range w.certs {
+	certDirs := make([]string, 0, len(w.optionalcerts)+len(w.requiredCerts))
+	for _, cert := range w.optionalcerts {
+		certDirs = append(certDirs, cert.Directory)
+	}
+	for _, cert := range w.requiredCerts {
 		certDirs = append(certDirs, cert.Directory)
 	}
 
@@ -100,13 +105,21 @@ func (w *watcher) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
+// Reload tries to restart Envoy. However, if any of the required certs do not present, the reload will abort.
 func (w *watcher) Reload() {
 	config := BuildConfig(w.config, w.pilotSAN)
 
 	// compute hash of dependent certificates
 	h := sha256.New()
-	for _, cert := range w.certs {
-		generateCertHash(h, cert.Directory, cert.Files)
+	for _, cert := range w.optionalcerts {
+		generateCertHash(h, cert.Directory, cert.Files, false)
+	}
+	for _, cert := range w.requiredCerts {
+		if !generateCertHash(h, cert.Directory, cert.Files, true) {
+			// If the cert files are required, they must present to start Envoy.
+			log.Warnf("Envoy is not started because required certificates are not ready.")
+			return
+		}
 	}
 	config.Hash = h.Sum(nil)
 
@@ -211,22 +224,27 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
-func generateCertHash(h hash.Hash, certsDir string, files []string) {
+// generateCertHash generates the hash value based on the contents of cert files in the certs directory.
+// It returns false if requireFiles is true and any of the files does not exist.
+func generateCertHash(h hash.Hash, certsDir string, files []string, requireFiles bool) bool {
 	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
-		return
+		return !requireFiles
 	}
 
 	for _, file := range files {
 		filename := path.Join(certsDir, file)
 		bs, err := ioutil.ReadFile(filename)
 		if err != nil {
-			// log.Warnf("failed to read file %q", filename)
+			if requireFiles {
+				return false
+			}
 			continue
 		}
 		if _, err := h.Write(bs); err != nil {
 			log.Warna(err)
 		}
 	}
+	return true
 }
 
 const (

@@ -180,21 +180,26 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			certs := []envoy.CertSource{
-				{
-					Directory: model.AuthCertsPath,
-					Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
-				},
+			optionalCerts := make([]envoy.CertSource, 0, 3)
+			requiredCerts := make([]envoy.CertSource, 0, 3)
+			mTLSCerts := envoy.CertSource{
+				Directory: model.AuthCertsPath,
+				Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
+			}
+			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+				optionalCerts = append(requiredCerts, mTLSCerts)
+			} else {
+				requiredCerts = append(optionalCerts, mTLSCerts)
 			}
 
 			if role.Type == model.Ingress {
-				certs = append(certs, envoy.CertSource{
+				optionalCerts = append(optionalCerts, envoy.CertSource{
 					Directory: model.IngressCertsPath,
 					Files:     []string{model.IngressCertFilename, model.IngressKeyFilename},
 				})
 			}
 
-			log.Infof("Monitored certs: %#v", certs)
+			log.Infof("Monitored certs: (optional) %#v, (required) %#v", optionalCerts, requiredCerts)
 
 			var envoyProxy proxy.Proxy
 			if bootstrapv2 {
@@ -205,7 +210,7 @@ var (
 				envoyProxy = envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			}
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
+			watcher := envoy.NewWatcher(proxyConfig, agent, role, optionalCerts, requiredCerts, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 

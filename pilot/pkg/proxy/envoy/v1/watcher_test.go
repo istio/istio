@@ -49,30 +49,88 @@ func (ta TestAgent) Run(ctx context.Context) {
 }
 
 func TestRunReload(t *testing.T) {
-	called := make(chan bool)
-	agent := TestAgent{
-		schedule: func(_ interface{}) {
-			called <- true
+	certDir, err := ioutil.TempDir("testdata", "certs")
+	if err != nil {
+		t.Errorf("failed to create a temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(certDir); err != nil {
+			t.Errorf("failed to remove temp dir: %v", err)
+		}
+	}()
+
+	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
+	for _, file := range authFiles {
+		content := []byte(file)
+		if err := ioutil.WriteFile(path.Join(certDir, file), content, 0644); err != nil {
+			t.Errorf("failed to write file %s (error %v)", file, err)
+		}
+	}
+
+	tests := []struct {
+		name          string
+		optionalCerts []CertSource
+		requiredCerts []CertSource
+		expectReload  bool
+	}{
+		{
+			name:          "Reload with optional certs not presented",
+			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "random"}},
+			requiredCerts: nil,
+			expectReload:  true,
+		},
+		{
+			name:          "Reload with optional files presented",
+			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}},
+			requiredCerts: nil,
+			expectReload:  true,
+		},
+		{
+			name:          "Fail reload with required files not presented",
+			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}},
+			requiredCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "random"}},
+			expectReload:  false,
+		},
+		{
+			name:          "Reload with required files presented",
+			optionalCerts: nil,
+			requiredCerts: []CertSource{{Directory: certDir, Files: authFiles}},
+			expectReload:  true,
 		},
 	}
-	config := model.DefaultProxyConfig()
-	node := model.Proxy{
-		Type: model.Ingress,
-		ID:   "random",
-	}
-	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
-	ctx, cancel := context.WithCancel(context.Background())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := make(chan bool)
+			agent := TestAgent{
+				schedule: func(_ interface{}) {
+					called <- true
+				},
+			}
+			config := model.DefaultProxyConfig()
+			node := model.Proxy{
+				Type: model.Ingress,
+				ID:   "random",
+			}
+			watcher := NewWatcher(config, agent, node, tt.optionalCerts, tt.requiredCerts, nil)
+			ctx, cancel := context.WithCancel(context.Background())
 
-	// watcher starts agent and schedules a config update
-	go watcher.Run(ctx)
+			// watcher starts agent and schedules a config update
+			go watcher.Run(ctx)
 
-	select {
-	case <-called:
-		// expected
-		cancel()
-	case <-time.After(time.Second):
-		t.Errorf("The callback is not called within time limit " + time.Now().String())
-		cancel()
+			select {
+			case <-called:
+				// expected
+				if !tt.expectReload {
+					t.Errorf("The callback is unexpectedly called.")
+				}
+				cancel()
+			case <-time.After(time.Second):
+				if tt.expectReload {
+					t.Errorf("The callback is not called within time limit " + time.Now().String())
+				}
+				cancel()
+			}
+		})
 	}
 }
 
@@ -188,7 +246,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			)
 			stubURL, _ := url.Parse(pilotStub.URL)
 			config.DiscoveryAddress = stubURL.Host
-			w := NewWatcher(config, agent, node, nil, nil)
+			w := NewWatcher(config, agent, node, nil, nil, nil)
 			ctx, cancel := context.WithCancel(context.Background())
 
 			go w.(*watcher).retrieveAZ(ctx, 0, tt.retries)
@@ -299,12 +357,12 @@ func TestWatchCerts(t *testing.T) {
 }
 
 func TestGenerateCertHash(t *testing.T) {
-	name, err := ioutil.TempDir("testdata", "certs")
+	certDir, err := ioutil.TempDir("testdata", "certs")
 	if err != nil {
 		t.Errorf("failed to create a temp dir: %v", err)
 	}
 	defer func() {
-		if err := os.RemoveAll(name); err != nil {
+		if err := os.RemoveAll(certDir); err != nil {
 			t.Errorf("failed to remove temp dir: %v", err)
 		}
 	}()
@@ -313,26 +371,86 @@ func TestGenerateCertHash(t *testing.T) {
 	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
 	for _, file := range authFiles {
 		content := []byte(file)
-		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
+		if err := ioutil.WriteFile(path.Join(certDir, file), content, 0644); err != nil {
 			t.Errorf("failed to write file %s (error %v)", file, err)
 		}
 		if _, err := h.Write(content); err != nil {
 			t.Errorf("failed to write hash (error %v)", err)
 		}
 	}
-	expectedHash := h.Sum(nil)
+	filesHash := h.Sum(nil)
 
-	h2 := sha256.New()
-	generateCertHash(h2, name, append(authFiles, "missing-file"))
-	actualHash := h2.Sum(nil)
-	if !bytes.Equal(actualHash, expectedHash) {
-		t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)", actualHash, expectedHash)
+	tests := []struct {
+		name           string
+		dir            string
+		files          []string
+		requireCerts   bool
+		expectedReturn bool
+		expectedHash   []byte
+	}{
+		{
+			name:           "All required files exit",
+			dir:            certDir,
+			files:          authFiles,
+			requireCerts:   true,
+			expectedReturn: true,
+			expectedHash:   filesHash,
+		},
+		{
+			name:           "All files exit",
+			dir:            certDir,
+			files:          authFiles,
+			requireCerts:   false,
+			expectedReturn: true,
+			expectedHash:   filesHash,
+		},
+		{
+			name:           "Required directory does not exit",
+			dir:            "dir_not_exist",
+			files:          []string{"file"},
+			requireCerts:   true,
+			expectedReturn: false,
+		},
+		{
+			name:           "Directory does not exit",
+			dir:            "dir_not_exist",
+			files:          []string{"file"},
+			requireCerts:   false,
+			expectedReturn: true,
+			expectedHash:   sha256.New().Sum(nil),
+		},
+		{
+			name:           "Required file does not exit",
+			dir:            certDir,
+			files:          append(authFiles, "missing-file"),
+			requireCerts:   true,
+			expectedReturn: false,
+		},
+		{
+			name:           "File does not exit",
+			dir:            certDir,
+			files:          append(authFiles, "missing-file"),
+			requireCerts:   false,
+			expectedReturn: true,
+			expectedHash:   filesHash,
+		},
 	}
 
-	generateCertHash(h2, "", nil)
-	emptyHash := h2.Sum(nil)
-	if !bytes.Equal(emptyHash, expectedHash) {
-		t.Error("hash should not be affected by empty directory")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHash := sha256.New()
+			returnValue := generateCertHash(testHash, tt.dir, tt.files, tt.requireCerts)
+			if returnValue != tt.expectedReturn {
+				t.Errorf("Unexpected return value: %v VS (expected) %v.", returnValue, tt.expectedReturn)
+			}
+			if !tt.requireCerts && tt.expectedReturn {
+				actualHash := testHash.Sum(nil)
+				if !bytes.Equal(actualHash, tt.expectedHash) {
+					t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)",
+						actualHash, tt.expectedHash)
+				}
+			}
+		})
 	}
 }
 
