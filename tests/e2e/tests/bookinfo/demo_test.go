@@ -47,9 +47,9 @@ const (
 	modelDir                           = "tests/apps/bookinfo/output"
 	allRule                            = bookinfoSampleDir + "/kube/route-rule-all-v1.yaml"
 	delayRule                          = bookinfoSampleDir + "/kube/route-rule-ratings-test-delay.yaml"
+	tenRule                            = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-90-10.yaml"
+	twentyRule                         = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-80-20.yaml"
 	fiftyRule                          = bookinfoSampleDir + "/kube/route-rule-reviews-50-v3.yaml"
-	eightyRule                         = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-80-20.yaml"
-	ninetyRule                         = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-90-10.yaml"
 	testRule                           = bookinfoSampleDir + "/kube/route-rule-reviews-test-v2.yaml"
 	testDbRule                         = bookinfoSampleDir + "/kube/route-rule-ratings-db.yaml"
 	testMysqlRule                      = bookinfoSampleDir + "/kube/route-rule-ratings-mysql.yaml"
@@ -92,7 +92,7 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, eightyRule, ninetyRule, testRule, testDbRule,
+	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule, testDbRule,
 		testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(rule)
 		dest := filepath.Join(t.rulesDir, rule)
@@ -352,14 +352,14 @@ func TestVersionMigration(t *testing.T) {
 			rate:           0.5,
 		},
 		{
-			key:            eightyRule,
+			key:            twentyRule,
 			modelToMigrate: modelV2,
-			rate:           0.8,
+			rate:           0.2,
 		},
 		{
-			key:            ninetyRule,
+			key:            tenRule,
 			modelToMigrate: modelV2,
-			rate:           0.9,
+			rate:           0.1,
 		},
 	}
 
@@ -408,9 +408,9 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 			}
 			closeResponseBody(resp)
 		}
-		c1Percent := int((rule.rate + tolerance) * float64(totalShot))
-		cVersionToMigratePercent := int((rule.rate - tolerance) * float64(totalShot))
-		if (c1 <= c1Percent) && (cVersionToMigrate >= cVersionToMigratePercent) {
+
+		if isWithinPercentage(c1, totalShot, 1.0-rule.rate, tolerance) &&
+			isWithinPercentage(cVersionToMigrate, totalShot, rule.rate, tolerance) {
 			log.Infof(
 				"Success! Version migration acts as expected, "+
 					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
@@ -422,6 +422,12 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 				"old version hit %d, new version hit %d", c1, cVersionToMigrate)
 		}
 	}
+}
+
+func isWithinPercentage(count int, total int, rate float64, tolerance float64) bool {
+	minimum := int((rate - tolerance) * float64(total))
+	maximum := int((rate + tolerance) * float64(total))
+	return count >= minimum && count <= maximum
 }
 
 func setTestConfig() error {
