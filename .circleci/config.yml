@@ -22,6 +22,7 @@ jobs:
       - run: make deb BAZEL_BUILD_ARGS="-j 4"
       - run: make test
       - run: make test_asan
+      - run: make test_tsan
       - save_cache:
           key: repo-cache-{{ checksum "WORKSPACE" }}
           paths:
