@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
+	"istio.io/istio/security/pkg/util"
 )
 
 const (
@@ -90,6 +91,10 @@ type cliOptions struct { // nolint: maligned
 	upstreamCAAddress  string
 	upstreamCACertFile string
 	upstreamAuth       string
+
+	genWebhookSecrets      bool
+	injectorWebhookService string
+	injectorWebhookSecret  string
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
@@ -183,6 +188,14 @@ func init() {
 	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", defaultProbeCheckInterval,
 		"Interval of checking the liveness of the CA.")
 
+	// Generate webhook secrets
+	flags.BoolVar(&opts.genWebhookSecrets, "generate-webhook-secrets", false,
+		"Generate secrets for Istio webhook services.")
+	flags.StringVar(&opts.injectorWebhookService, "injector-webhook-service", "",
+		"Sidecar injector webhook service name.")
+	flags.StringVar(&opts.injectorWebhookSecret, "injector-webhook-secret", "",
+		"Sidecar injector webhook secret name.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -227,6 +240,19 @@ func runCA() {
 		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace)
 	if err != nil {
 		fatalf("failed to create secret controller: %v", err)
+	}
+
+	if opts.genWebhookSecrets {
+		err = util.GenerateWebhookSecrets(cs.CoreV1(), ca, []util.WebhookIdentity{
+			{
+				Service:   opts.injectorWebhookService,
+				Secret:    opts.injectorWebhookSecret,
+				Namespace: opts.istioCaStorageNamespace,
+			},
+		})
+		if err != nil {
+			log.Errorf("Failed to generate webhook secrets: %v", err)
+		}
 	}
 
 	stopCh := make(chan struct{})
