@@ -289,6 +289,69 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTandCache) {
   EXPECT_EQ(mock_pubkey.called_count(), 1);
 }
 
+TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoAlg) {
+  // Test OK pubkey with no "alg" claim.
+  std::string alg_claim = "  \"alg\": \"RS256\",";
+  std::string pubkey_no_alg = kPublicKey;
+  std::size_t alg_pos = pubkey_no_alg.find(alg_claim);
+  while (alg_pos != std::string::npos) {
+    pubkey_no_alg.erase(alg_pos, alg_claim.length());
+    alg_pos = pubkey_no_alg.find(alg_claim);
+  }
+  MockUpstream mock_pubkey(mock_cm_, pubkey_no_alg);
+
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
+
+  MockJwtAuthenticatorCallbacks mock_cb;
+  EXPECT_CALL(mock_cb, onDone(_))
+      .WillOnce(
+          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+
+  auth_->Verify(headers, &mock_cb);
+
+  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
+            "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
+            "aWNlIn0");
+  // Verify the token is removed.
+  EXPECT_FALSE(headers.Authorization());
+
+  EXPECT_EQ(mock_pubkey.called_count(), 1);
+}
+
+TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoKid) {
+  // Test OK pubkey with no "kid" claim.
+  std::string kid_claim1 =
+      ",  \"kid\": \"62a93512c9ee4c7f8067b5a216dade2763d32a47\"";
+  std::string kid_claim2 =
+      ",  \"kid\": \"b3319a147514df7ee5e4bcdee51350cc890cc89e\"";
+  std::string pubkey_no_kid = kPublicKey;
+  std::size_t kid_pos = pubkey_no_kid.find(kid_claim1);
+  pubkey_no_kid.erase(kid_pos, kid_claim1.length());
+  kid_pos = pubkey_no_kid.find(kid_claim2);
+  pubkey_no_kid.erase(kid_pos, kid_claim2.length());
+
+  MockUpstream mock_pubkey(mock_cm_, pubkey_no_kid);
+
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
+
+  MockJwtAuthenticatorCallbacks mock_cb;
+  EXPECT_CALL(mock_cb, onDone(_))
+      .WillOnce(
+          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+
+  auth_->Verify(headers, &mock_cb);
+
+  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
+            "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
+            "aWNlIn0");
+  // Verify the token is removed.
+  EXPECT_FALSE(headers.Authorization());
+
+  EXPECT_EQ(mock_pubkey.called_count(), 1);
+}
+
 // Verifies that a JWT with aud: http://example_service/ is matched to
 // example_service in config.
 TEST_F(JwtAuthenticatorTest, TestOkJWTAudService) {

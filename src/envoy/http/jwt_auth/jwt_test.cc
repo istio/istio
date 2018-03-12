@@ -574,6 +574,31 @@ TEST_F(JwtTestJwks, OkNoKid) {
   DoTest(ds.kJwtNoKid, ds.kPublicKeyRSA, "jwks", true, Status::OK, payload);
 }
 
+TEST_F(JwtTestJwks, OkTokenJwkRSAPublicKeyOptionalAlgKid) {
+  auto payload = Json::Factory::loadFromString(ds.kJwtPayload);
+  // Remove "alg" claim from public key.
+  std::string alg_claim = "\"alg\": \"RS256\",";
+  std::string pubkey_no_alg = ds.kPublicKeyRSA;
+  std::size_t alg_pos = pubkey_no_alg.find(alg_claim);
+  while (alg_pos != std::string::npos) {
+    pubkey_no_alg.erase(alg_pos, alg_claim.length());
+    alg_pos = pubkey_no_alg.find(alg_claim);
+  }
+  DoTest(ds.kJwtNoKid, pubkey_no_alg, "jwks", true, Status::OK, payload);
+
+  // Remove "kid" claim from public key.
+  std::string kid_claim1 =
+      ",\"kid\": \"62a93512c9ee4c7f8067b5a216dade2763d32a47\"";
+  std::string kid_claim2 =
+      ",\"kid\": \"b3319a147514df7ee5e4bcdee51350cc890cc89e\"";
+  std::string pubkey_no_kid = ds.kPublicKeyRSA;
+  std::size_t kid_pos = pubkey_no_kid.find(kid_claim1);
+  pubkey_no_kid.erase(kid_pos, kid_claim1.length());
+  kid_pos = pubkey_no_kid.find(kid_claim2);
+  pubkey_no_kid.erase(kid_pos, kid_claim2.length());
+  DoTest(ds.kJwtNoKid, pubkey_no_kid, "jwks", true, Status::OK, payload);
+}
+
 TEST_F(JwtTestJwks, OkNoKidLogExp) {
   auto payload = Json::Factory::loadFromString(ds.kJwtPayloadLongExp);
   DoTest(ds.kJwtNoKidLongExp, ds.kPublicKeyRSA, "jwks", true, Status::OK,
@@ -632,6 +657,29 @@ TEST_F(JwtTestJwks, OkTokenJwkEC) {
   // ES256-signed token without kid specified.
   DoTest(ds.kTokenECNoKid, ds.kPublicKeyJwkEC, "jwks", true, Status::OK,
          payload);
+}
+
+TEST_F(JwtTestJwks, OkTokenJwkECPublicKeyOptionalAlgKid) {
+  auto payload = Json::Factory::loadFromString(ds.kJwtPayloadEC);
+  // Remove "alg" claim from public key.
+  std::string alg_claim = "\"alg\": \"ES256\",";
+  std::string pubkey_no_alg = ds.kPublicKeyJwkEC;
+  std::size_t alg_pos = pubkey_no_alg.find(alg_claim);
+  while (alg_pos != std::string::npos) {
+    pubkey_no_alg.erase(alg_pos, alg_claim.length());
+    alg_pos = pubkey_no_alg.find(alg_claim);
+  }
+  DoTest(ds.kTokenEC, pubkey_no_alg, "jwks", true, Status::OK, payload);
+
+  // Remove "kid" claim from public key.
+  std::string kid_claim1 = ",\"kid\": \"abc\"";
+  std::string kid_claim2 = ",\"kid\": \"xyz\"";
+  std::string pubkey_no_kid = ds.kPublicKeyJwkEC;
+  std::size_t kid_pos = pubkey_no_kid.find(kid_claim1);
+  pubkey_no_kid.erase(kid_pos, kid_claim1.length());
+  kid_pos = pubkey_no_kid.find(kid_claim2);
+  pubkey_no_kid.erase(kid_pos, kid_claim2.length());
+  DoTest(ds.kTokenEC, pubkey_no_kid, "jwks", true, Status::OK, payload);
 }
 
 TEST_F(JwtTestJwks, NonExistKidEC) {
