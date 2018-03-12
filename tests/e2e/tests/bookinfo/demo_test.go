@@ -51,9 +51,9 @@ const (
 	modelDir                           = "tests/apps/bookinfo/output"
 	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
 	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
+	tenRule                            = tutorialDir + "/" + "/route-rule-reviews-90-10"
+	twentyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
 	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	eightyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
-	ninetyRule                         = tutorialDir + "/" + "/route-rule-reviews-90-10"
 	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
 	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
 	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
@@ -96,7 +96,7 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, eightyRule, ninetyRule, testRule,
+	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
@@ -356,14 +356,14 @@ func TestVersionMigration(t *testing.T) {
 			rate:           0.5,
 		},
 		{
-			key:            eightyRule,
+			key:            twentyRule,
 			modelToMigrate: modelV2,
-			rate:           0.8,
+			rate:           0.2,
 		},
 		{
-			key:            ninetyRule,
+			key:            tenRule,
 			modelToMigrate: modelV2,
-			rate:           0.9,
+			rate:           0.1,
 		},
 	}
 
@@ -412,9 +412,9 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 			}
 			closeResponseBody(resp)
 		}
-		c1Percent := int((rule.rate + tolerance) * float64(totalShot))
-		cVersionToMigratePercent := int((rule.rate - tolerance) * float64(totalShot))
-		if (c1 <= c1Percent) && (cVersionToMigrate >= cVersionToMigratePercent) {
+
+		if isWithinPercentage(c1, totalShot, 1.0-rule.rate, tolerance) &&
+			isWithinPercentage(cVersionToMigrate, totalShot, rule.rate, tolerance) {
 			log.Infof(
 				"Success! Version migration acts as expected, "+
 					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
@@ -431,6 +431,12 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 func getBookinfoResourcePath(resource string) string {
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
 		resource+"."+yamlExtension))
+}
+
+func isWithinPercentage(count int, total int, rate float64, tolerance float64) bool {
+	minimum := int((rate - tolerance) * float64(total))
+	maximum := int((rate + tolerance) * float64(total))
+	return count >= minimum && count <= maximum
 }
 
 func setTestConfig() error {
