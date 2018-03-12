@@ -60,7 +60,6 @@ func init() {
 
 	flags.StringVar(&naConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
-
 	flags.StringVar(&naConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
 	flags.StringVar(&naConfig.CertChainFile, "cert-chain",
