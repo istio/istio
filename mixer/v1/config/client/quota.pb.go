@@ -10,7 +10,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -741,7 +741,7 @@ func (this *AttributeMatch) String() string {
 	for k, _ := range this.Clause {
 		keysForClause = append(keysForClause, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForClause)
+	sortkeys.Strings(keysForClause)
 	mapStringForClause := "map[string]*StringMatch{"
 	for _, k := range keysForClause {
 		mapStringForClause += fmt.Sprintf("%v: %v,", k, this.Clause[k])

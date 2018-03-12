@@ -1,10 +1,11 @@
 version: 2
 defaults: &defaults
-  working_directory: /go/src/istio.io/api
+  working_directory: /src/istio.io/api
   docker:
-    - image: istio/ci:go1.10-k8s1.9-helm2.7.2-minikube0.25
+    - image: gcr.io/istio-testing/protoc:2018-03-03
   environment:
     GOPATH: /go
+    OUT_PATH: /src
 
 jobs:
   build:

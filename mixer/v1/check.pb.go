@@ -14,11 +14,11 @@ import time "time"
 
 import strconv "strconv"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -379,8 +379,8 @@ func (m *CheckResponse_PreconditionResult) MarshalTo(dAtA []byte) (int, error) {
 	i += n5
 	dAtA[i] = 0x12
 	i++
-	i = encodeVarintCheck(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	i = encodeVarintCheck(dAtA, i, uint64(types.SizeOfStdDuration(m.ValidDuration)))
+	n6, err := types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -426,8 +426,8 @@ func (m *CheckResponse_QuotaResult) MarshalTo(dAtA []byte) (int, error) {
 	_ = l
 	dAtA[i] = 0xa
 	i++
-	i = encodeVarintCheck(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n9, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	i = encodeVarintCheck(dAtA, i, uint64(types.SizeOfStdDuration(m.ValidDuration)))
+	n9, err := types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -599,7 +599,7 @@ func (m *CheckResponse_PreconditionResult) Size() (n int) {
 	_ = l
 	l = m.Status.Size()
 	n += 1 + l + sovCheck(uint64(l))
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)
+	l = types.SizeOfStdDuration(m.ValidDuration)
 	n += 1 + l + sovCheck(uint64(l))
 	if m.ValidUseCount != 0 {
 		n += 1 + sovCheck(uint64(m.ValidUseCount))
@@ -614,7 +614,7 @@ func (m *CheckResponse_PreconditionResult) Size() (n int) {
 func (m *CheckResponse_QuotaResult) Size() (n int) {
 	var l int
 	_ = l
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)
+	l = types.SizeOfStdDuration(m.ValidDuration)
 	n += 1 + l + sovCheck(uint64(l))
 	if m.GrantedAmount != 0 {
 		n += 1 + sovCheck(uint64(m.GrantedAmount))
@@ -682,7 +682,7 @@ func (this *CheckRequest) String() string {
 	for k, _ := range this.Quotas {
 		keysForQuotas = append(keysForQuotas, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForQuotas)
+	sortkeys.Strings(keysForQuotas)
 	mapStringForQuotas := "map[string]CheckRequest_QuotaParams{"
 	for _, k := range keysForQuotas {
 		mapStringForQuotas += fmt.Sprintf("%v: %v,", k, this.Quotas[k])
@@ -716,7 +716,7 @@ func (this *CheckResponse) String() string {
 	for k, _ := range this.Quotas {
 		keysForQuotas = append(keysForQuotas, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForQuotas)
+	sortkeys.Strings(keysForQuotas)
 	mapStringForQuotas := "map[string]CheckResponse_QuotaResult{"
 	for _, k := range keysForQuotas {
 		mapStringForQuotas += fmt.Sprintf("%v: %v,", k, this.Quotas[k])
@@ -1415,7 +1415,7 @@ func (m *CheckResponse_PreconditionResult) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1574,7 +1574,7 @@ func (m *CheckResponse_QuotaResult) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.ValidDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

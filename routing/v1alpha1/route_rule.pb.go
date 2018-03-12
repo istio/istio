@@ -581,7 +581,9 @@ func (m *StringMatch) String() string            { return proto.CompactTextStrin
 func (*StringMatch) ProtoMessage()               {}
 func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{8} }
 
-type isStringMatch_MatchType interface{ isStringMatch_MatchType() }
+type isStringMatch_MatchType interface {
+	isStringMatch_MatchType()
+}
 
 type StringMatch_Exact struct {
 	Exact string `protobuf:"bytes,1,opt,name=exact,oneof"`
@@ -734,7 +736,9 @@ func (m *HTTPTimeout) String() string            { return proto.CompactTextStrin
 func (*HTTPTimeout) ProtoMessage()               {}
 func (*HTTPTimeout) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{9} }
 
-type isHTTPTimeout_TimeoutPolicy interface{ isHTTPTimeout_TimeoutPolicy() }
+type isHTTPTimeout_TimeoutPolicy interface {
+	isHTTPTimeout_TimeoutPolicy()
+}
 
 type HTTPTimeout_SimpleTimeout struct {
 	SimpleTimeout *HTTPTimeout_SimpleTimeoutPolicy `protobuf:"bytes,1,opt,name=simple_timeout,json=simpleTimeout,oneof"`
@@ -903,7 +907,9 @@ func (m *HTTPRetry) String() string            { return proto.CompactTextString(
 func (*HTTPRetry) ProtoMessage()               {}
 func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{10} }
 
-type isHTTPRetry_RetryPolicy interface{ isHTTPRetry_RetryPolicy() }
+type isHTTPRetry_RetryPolicy interface {
+	isHTTPRetry_RetryPolicy()
+}
 
 type HTTPRetry_SimpleRetry struct {
 	SimpleRetry *HTTPRetry_SimpleRetryPolicy `protobuf:"bytes,1,opt,name=simple_retry,json=simpleRetry,oneof"`

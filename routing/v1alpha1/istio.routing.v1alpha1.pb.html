@@ -456,7 +456,7 @@ specified, the value is inherited from the parent route rule.</p>
 </tr>
 <tr id="DestinationWeight.labels">
 <td><code>labels</code></td>
-<td><code>map&lt;string,string&gt;</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Sometimes required. Service version identifier for the destination service.
 (&ndash; N.B. The map is used instead of pstruct due to lack of serialization support
@@ -1213,7 +1213,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tr>
 <tr id="IstioService.labels">
 <td><code>labels</code></td>
-<td><code>map&lt;string,string&gt;</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Optional one or more labels that uniquely identify the service version.</p>
 
@@ -1581,7 +1581,7 @@ request header must be specified.</p>
 <tbody>
 <tr id="MatchRequest.headers">
 <td><code>headers</code></td>
-<td><code>map&lt;string,<a href="#StringMatch">StringMatch</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
 <td>
 <p>Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request
 metadata, such as <em>uri</em>, <em>scheme</em>, <em>authority</em>.  The header keys must be
@@ -1780,7 +1780,7 @@ further details about cross origin resource sharing.</p>
 </tr>
 <tr id="RouteRule.append_headers">
 <td><code>appendHeaders</code></td>
-<td><code>map&lt;string,string&gt;</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Additional HTTP headers to add before forwarding a request to the
 destnation service.</p>
