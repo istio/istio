@@ -383,7 +383,7 @@ func TestVersionMigration(t *testing.T) {
 
 func testMigration(t *testing.T, modelToMigrate string, migrationRate float64) {
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-        tolerance := 0.05
+	tolerance := 0.05
 	totalShot := 100
 	cookies := []http.Cookie{
 		{
