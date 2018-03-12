@@ -170,7 +170,7 @@ func TestConfig(t *testing.T) {
 		t.Errorf("Delete should not be allowed")
 	}
 
-	util.Eventually(ctl.HasSynced, t)
+	util.Eventually("HasSynced", ctl.HasSynced, t)
 }
 
 func TestIngressController(t *testing.T) {

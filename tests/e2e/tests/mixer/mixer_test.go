@@ -18,10 +18,12 @@ package mixer
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -69,7 +71,7 @@ const (
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway  string
+
 	rulesDir string
 }
 
@@ -87,7 +89,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	t.gateway = "http://" + tc.Kube.Ingress
 	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -204,12 +205,24 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 		return err
 	}
 	p.portFwdProcesses = append(p.portFwdProcesses, proc)
+
+	// Give it some time since process is launched in the background
+	time.Sleep(3 * time.Second)
+	if _, err = net.DialTimeout("tcp", ":"+localPort, 5*time.Second); err != nil {
+		log.Errorf("Failed to port forward: %s", err)
+		return err
+	}
+
 	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
 	return nil
 }
 
 func (p *promProxy) Setup() error {
 	var err error
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return errors.New("could not establish prometheus proxy: pods not running")
+	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
@@ -516,7 +529,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	t.Log("Sending traffic...")
 
-	url := fmt.Sprintf("%s/productpage", tc.gateway)
+	url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
@@ -734,7 +747,13 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
-	url := tc.gateway + "/productpage"
+
+	gateway, err := tc.Kube.Ingress()
+	if err != nil {
+		return err
+	}
+
+	url := gateway + "/productpage"
 
 	for {
 		status, _, err := get(clnt, url, headers...)

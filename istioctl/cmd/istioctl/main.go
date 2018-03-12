@@ -365,8 +365,12 @@ istioctl delete routerule productpage-default
 				if err != nil {
 					return err
 				}
+				ns, err := handleNamespaces(namespace)
+				if err != nil {
+					return err
+				}
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Type, args[i], namespace); err != nil {
+					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
