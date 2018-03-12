@@ -312,8 +312,6 @@ func CheckPodsRunning(n string) (ready bool) {
 	return true
 }
 
-<<<<<<< HEAD
-=======
 // CheckDeployment gets status of a deployment from a namespace
 func CheckDeployment(ctx context.Context, namespace, deployment string) error {
 	errc := make(chan error)
@@ -349,7 +347,6 @@ func CheckDeployments(namespace string, timeout time.Duration) error {
 	return g.Wait()
 }
 
->>>>>>> 84cf4d9a234716b1d07695aaff060e15d18be5a3
 // FetchAndSaveClusterLogs will dump the logs for a cluster.
 func FetchAndSaveClusterLogs(namespace string, tempDir string) error {
 	var multiErr error
