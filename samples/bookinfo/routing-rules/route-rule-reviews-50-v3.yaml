@@ -15,18 +15,3 @@ spec:
         name: reviews
         subset: v3
       weight: 50
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: reviews-destination
-spec:
-  name: reviews
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-  - name: v3
-    labels:
-      version: v3
----

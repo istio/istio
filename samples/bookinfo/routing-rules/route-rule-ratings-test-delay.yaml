@@ -19,15 +19,3 @@ spec:
         name: ratings
         subset: v1
       weight: 100
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: ratings-destination
-spec:
-  name: ratings
-  subsets:
-  - name: v1
-    labels:
-      version: v1
----

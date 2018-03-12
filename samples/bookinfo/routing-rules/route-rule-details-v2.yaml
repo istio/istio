@@ -11,15 +11,3 @@ spec:
         name: details
         subset: v2
       weight: 100
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: details-destination
-spec:
-  name: details
-  subsets:
-  - name: v2
-    labels:
-      version: v2
----
