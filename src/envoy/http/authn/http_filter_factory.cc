@@ -79,7 +79,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
 
     return [&](Http::FilterChainFactoryCallbacks& callbacks) -> void {
       callbacks.addStreamDecoderFilter(
-          std::make_shared<Http::AuthenticationFilter>(policy_));
+          std::make_shared<Http::Istio::AuthN::AuthenticationFilter>(policy_));
     };
   }
 
