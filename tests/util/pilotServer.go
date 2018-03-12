@@ -15,7 +15,6 @@
 package util
 
 import (
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -76,7 +75,7 @@ func setup() error {
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig:IstioSrc + "/.circleci/config",
+			KubeConfig: IstioSrc + "/.circleci/config",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
@@ -122,11 +121,4 @@ func Teardown() {
 
 	// Remove the temp dir.
 	_ = os.RemoveAll(fsRoot)
-}
-
-func createTempDir() string {
-	// Make the temporary directory
-	dir, _ := ioutil.TempDir("/tmp/", "monitor")
-	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
-	return dir
 }
