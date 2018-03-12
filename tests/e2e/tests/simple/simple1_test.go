@@ -90,7 +90,7 @@ func TestSimpleIngress(t *testing.T) {
 		resp, err := ctxhttp.Get(ctx, client, url)
 		if err != nil {
 			log.Warnf("Attempt %d : http.Get error %v", i, err)
-			return fmt.Errorf("Attempt %d : http.Get error %v", i, err)
+			return fmt.Errorf("attempt %d : http.Get error %v", i, err)
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)

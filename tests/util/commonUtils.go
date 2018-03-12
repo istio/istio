@@ -128,7 +128,7 @@ func Shell(format string, args ...interface{}) (string, error) {
 	return sh(context.Background(), format, true, true, args...)
 }
 
-// Shell run command on shell and get back output and error if get one
+// ShellContext run command on shell and get back output and error if get one
 func ShellContext(ctx context.Context, format string, args ...interface{}) (string, error) {
 	return sh(ctx, format, true, true, args...)
 }
