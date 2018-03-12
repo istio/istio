@@ -62,28 +62,30 @@ func valueTypeOrResMsg(ti modelgen.TypeInfo) bool {
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
+	return g.generateInternal(fdsFile, tmpl.InterfaceTemplate, tmpl.AugmentedProtoTmpl)
+}
+
+// Generate creates a Go interfaces for adapters to implement for a given Template.
+func (g *Generator) generateInternal(fdsFile string, interfaceTmpl, augmentedProtoTmpl string) error {
 
 	fds, err := getFileDescSet(fdsFile)
 	if err != nil {
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
 
-	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap, "")
-	if err != nil {
-		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
-	}
+	parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap, "")
 
 	model, err := modelgen.Create(parser)
 	if err != nil {
 		return err
 	}
 
-	interfaceFileData, err := g.getInterfaceGoContent(model)
+	interfaceFileData, err := g.getInterfaceGoContent(model, interfaceTmpl)
 	if err != nil {
 		return err
 	}
 
-	augProtoData, err := g.getAugmentedProtoContent(model)
+	augProtoData, err := g.getAugmentedProtoContent(model, model.PackageName, augmentedProtoTmpl)
 	if err != nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	return nil
 }
 
-func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error) {
+func (g *Generator) getInterfaceGoContent(model *modelgen.Model, interfaceTmpl string) ([]byte, error) {
 	imprts := make([]string, 0)
 	intfaceTmpl, err := template.New("ProcInterface").Funcs(
 		template.FuncMap{
@@ -139,7 +141,7 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 				// do nothing, just record the import so that we can add them later (only for the types that got printed)
 				return ""
 			},
-		}).Parse(tmpl.InterfaceTemplate)
+		}).Parse(interfaceTmpl)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load template: %v", err)
 	}
@@ -167,9 +169,9 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 
 type stringifyFn func(modelgen.TypeInfo) string
 
-func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, error) {
+func (g *Generator) getAugmentedProtoContent(model *modelgen.Model, pkgName string, augmentedProtoTmpl string) ([]byte, error) {
 	imports := make([]string, 0)
-	re := regexp.MustCompile(`(?i)` + model.PackageName + "\\.")
+	re := regexp.MustCompile(`(?i)` + pkgName + "\\.")
 
 	var stringify stringifyFn
 
@@ -220,7 +222,7 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, err
 				return s + resourceMsgInstParamSuffix
 			},
 		},
-	).Parse(tmpl.RevisedTemplateTmpl)
+	).Parse(augmentedProtoTmpl)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load template: %v", err)
 	}

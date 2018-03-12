@@ -109,12 +109,12 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
-ifeq ($(PROXY_TAG),)
-  export PROXY_TAG:=$(shell grep PROXY_TAG istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+ifeq ($(PROXY_REPO_SHA),)
+  export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-ISTIO_ENVOY_VERSION ?= ${PROXY_TAG}
+ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
 export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
@@ -379,17 +379,16 @@ istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
 # consider using -a with updateVersion.sh to simplify the input parameters
-${ISTIO_OUT}/archive: istioctl-all LICENSE README.md istio.VERSION install/updateVersion.sh release/create_release_archives.sh
+${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	install/updateVersion.sh -c "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -x "$(ISTIO_DOCKER_HUB),$(VERSION)" -p "$(ISTIO_DOCKER_HUB),$(VERSION)" \
+	install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
                                  -P "$(ISTIO_URL)/deb" \
-                                 -r "$(VERSION)" -d "${ISTIO_OUT}/archive"
+                                 -d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
@@ -415,7 +414,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going pilot-test mixer-test security-test broker-test galley-test common-test \
+	$(MAKE) --keep-going common-test mixer-test security-test broker-test galley-test pilot-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -548,9 +547,7 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 .PHONY: artifacts gcs.push.istioctl-all artifacts installgen
 
-# for now docker is limited to Linux compiles
-ifeq ($(GOOS),linux)
-
+# for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
 # if first part of URL (i.e., hostname) is gcr.io then upload istioctl and deb
@@ -563,8 +560,6 @@ gcs.push.istioctl-all: istioctl-all
 
 gcs.push.deb: deb
 	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
-
-endif # end of docker block that's restricted to Linux
 
 artifacts: docker
 	@echo 'To be added'

@@ -82,7 +82,7 @@ JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
 e2e_all: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo \
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard \
 	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 # Run the e2e tests, with auth enabled. A separate target is used for non-auth.
