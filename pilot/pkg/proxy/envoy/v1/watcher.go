@@ -57,7 +57,7 @@ type watcher struct {
 	agent         proxy.Agent
 	role          model.Proxy
 	config        meshconfig.ProxyConfig
-	optionalcerts []CertSource
+	optionalCerts []CertSource
 	requiredCerts []CertSource
 	pilotSAN      []string
 }
@@ -65,12 +65,12 @@ type watcher struct {
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
-	optionalcerts []CertSource, requiredCerts []CertSource, pilotSAN []string) Watcher {
+	optionalCerts []CertSource, requiredCerts []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:         agent,
 		role:          role,
 		config:        config,
-		optionalcerts: optionalcerts,
+		optionalCerts: optionalCerts,
 		requiredCerts: requiredCerts,
 		pilotSAN:      pilotSAN,
 	}
@@ -91,11 +91,11 @@ func (w *watcher) Run(ctx context.Context) {
 	w.Reload()
 
 	// monitor certificates
-	certDirs := make([]string, 0, len(w.optionalcerts)+len(w.requiredCerts))
-	for _, cert := range w.optionalcerts {
+	certDirs := make([]string, 0, len(w.optionalCerts)+len(w.requiredCerts))
+	for _, cert := range w.requiredCerts {
 		certDirs = append(certDirs, cert.Directory)
 	}
-	for _, cert := range w.requiredCerts {
+	for _, cert := range w.optionalCerts {
 		certDirs = append(certDirs, cert.Directory)
 	}
 
@@ -111,15 +111,15 @@ func (w *watcher) Reload() {
 
 	// compute hash of dependent certificates
 	h := sha256.New()
-	for _, cert := range w.optionalcerts {
-		generateCertHash(h, cert.Directory, cert.Files, false)
-	}
 	for _, cert := range w.requiredCerts {
-		if !generateCertHash(h, cert.Directory, cert.Files, true) {
+		if err := generateCertHash(h, cert.Directory, cert.Files, true); err != nil {
 			// If the cert files are required, they must present to start Envoy.
-			log.Warnf("Envoy is not started because required certificates are not ready.")
+			log.Warnf("Envoy is not started because required certificates are not ready: %v", err)
 			return
 		}
+	}
+	for _, cert := range w.optionalCerts {
+		generateCertHash(h, cert.Directory, cert.Files, false)
 	}
 	config.Hash = h.Sum(nil)
 
@@ -226,25 +226,16 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 
 // generateCertHash generates the hash value based on the contents of cert files in the certs directory.
 // It returns false if requireFiles is true and any of the files does not exist.
-func generateCertHash(h hash.Hash, certsDir string, files []string, requireFiles bool) bool {
-	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
-		return !requireFiles
-	}
-
+func generateCertHash(h hash.Hash, certsDir string, files []string, filesRequired bool) error {
 	for _, file := range files {
 		filename := path.Join(certsDir, file)
-		bs, err := ioutil.ReadFile(filename)
-		if err != nil {
-			if requireFiles {
-				return false
-			}
-			continue
-		}
-		if _, err := h.Write(bs); err != nil {
+		if bs, err := ioutil.ReadFile(filename); err != nil && filesRequired {
+			return err
+		} else if _, err := h.Write(bs); err != nil {
 			log.Warna(err)
 		}
 	}
-	return true
+	return nil
 }
 
 const (

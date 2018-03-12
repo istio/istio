@@ -187,9 +187,9 @@ var (
 				Files:     []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename},
 			}
 			if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-				optionalCerts = append(requiredCerts, mTLSCerts)
+				requiredCerts = append(requiredCerts, mTLSCerts)
 			} else {
-				requiredCerts = append(optionalCerts, mTLSCerts)
+				optionalCerts = append(optionalCerts, mTLSCerts)
 			}
 
 			if role.Type == model.Ingress {

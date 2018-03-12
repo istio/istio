@@ -75,7 +75,7 @@ func TestRunReload(t *testing.T) {
 	}{
 		{
 			name:          "Reload with optional certs not presented",
-			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "random"}},
+			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "missing_dir", Files: []string{"file1"}}},
 			requiredCerts: nil,
 			expectReload:  true,
 		},
@@ -88,7 +88,7 @@ func TestRunReload(t *testing.T) {
 		{
 			name:          "Fail reload with required files not presented",
 			optionalCerts: []CertSource{{Directory: certDir, Files: authFiles}},
-			requiredCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "random"}},
+			requiredCerts: []CertSource{{Directory: certDir, Files: authFiles}, {Directory: "missing_dir", Files: []string{"file1"}}},
 			expectReload:  false,
 		},
 		{
@@ -385,7 +385,7 @@ func TestGenerateCertHash(t *testing.T) {
 		dir            string
 		files          []string
 		requireCerts   bool
-		expectedReturn bool
+		expectedReturn string
 		expectedHash   []byte
 	}{
 		{
@@ -393,7 +393,7 @@ func TestGenerateCertHash(t *testing.T) {
 			dir:            certDir,
 			files:          authFiles,
 			requireCerts:   true,
-			expectedReturn: true,
+			expectedReturn: "",
 			expectedHash:   filesHash,
 		},
 		{
@@ -401,22 +401,22 @@ func TestGenerateCertHash(t *testing.T) {
 			dir:            certDir,
 			files:          authFiles,
 			requireCerts:   false,
-			expectedReturn: true,
+			expectedReturn: "",
 			expectedHash:   filesHash,
 		},
 		{
 			name:           "Required directory does not exit",
 			dir:            "dir_not_exist",
-			files:          []string{"file"},
+			files:          []string{"file1"},
 			requireCerts:   true,
-			expectedReturn: false,
+			expectedReturn: "open dir_not_exist/file1: no such file or directory",
 		},
 		{
 			name:           "Directory does not exit",
 			dir:            "dir_not_exist",
 			files:          []string{"file"},
 			requireCerts:   false,
-			expectedReturn: true,
+			expectedReturn: "",
 			expectedHash:   sha256.New().Sum(nil),
 		},
 		{
@@ -424,14 +424,14 @@ func TestGenerateCertHash(t *testing.T) {
 			dir:            certDir,
 			files:          append(authFiles, "missing-file"),
 			requireCerts:   true,
-			expectedReturn: false,
+			expectedReturn: "open " + certDir + "/missing-file: no such file or directory",
 		},
 		{
 			name:           "File does not exit",
 			dir:            certDir,
 			files:          append(authFiles, "missing-file"),
 			requireCerts:   false,
-			expectedReturn: true,
+			expectedReturn: "",
 			expectedHash:   filesHash,
 		},
 	}
@@ -440,10 +440,17 @@ func TestGenerateCertHash(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testHash := sha256.New()
 			returnValue := generateCertHash(testHash, tt.dir, tt.files, tt.requireCerts)
-			if returnValue != tt.expectedReturn {
-				t.Errorf("Unexpected return value: %v VS (expected) %v.", returnValue, tt.expectedReturn)
+			if len(tt.expectedReturn) != 0 {
+				if returnValue == nil {
+					t.Errorf("Expected error %v but got no error return.", returnValue)
+				} else if returnValue.Error() != tt.expectedReturn {
+					t.Errorf("Unexpected return value: %v VS (expected) %v.", returnValue.Error(), tt.expectedReturn)
+				}
+			} else if returnValue != nil {
+				t.Errorf("Unexpected error returned: %v. Expected no error.", returnValue)
 			}
-			if !tt.requireCerts && tt.expectedReturn {
+
+			if !tt.requireCerts && len(tt.expectedReturn) != 0 {
 				actualHash := testHash.Sum(nil)
 				if !bytes.Equal(actualHash, tt.expectedHash) {
 					t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)",
