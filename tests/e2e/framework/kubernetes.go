@@ -389,7 +389,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
