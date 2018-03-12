@@ -48,6 +48,8 @@ const (
 	allRule                            = bookinfoSampleDir + "/kube/route-rule-all-v1.yaml"
 	delayRule                          = bookinfoSampleDir + "/kube/route-rule-ratings-test-delay.yaml"
 	fiftyRule                          = bookinfoSampleDir + "/kube/route-rule-reviews-50-v3.yaml"
+	eightyRule                         = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-80-20.yaml"
+	ninetyRule                         = bookinfoSampleDir + "/istio.io_tutorial/route-rule-reviews-90-10.yaml"
 	testRule                           = bookinfoSampleDir + "/kube/route-rule-reviews-test-v2.yaml"
 	testDbRule                         = bookinfoSampleDir + "/kube/route-rule-ratings-db.yaml"
 	testMysqlRule                      = bookinfoSampleDir + "/kube/route-rule-ratings-mysql.yaml"
@@ -90,8 +92,8 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
-		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, eightyRule, ninetyRule, testRule, testDbRule,
+		testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(rule)
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -333,20 +335,56 @@ func TestFaultDelay(t *testing.T) {
 	}
 }
 
-func TestVersionMigration(t *testing.T) {
-	var rules = []string{fiftyRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
-	defer func() {
-		inspect(deleteRules(rules), fmt.Sprintf("failed to delete rules"), "", t)
-	}()
+type migrationRule struct {
+	key            string
+	rate           float64
+	modelToMigrate string
+}
 
-	// Percentage moved to new version
-	migrationRate := 0.5
-	tolerance := 0.05
-	totalShot := 100
-	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+func getRuleKeys(rules []migrationRule) (ruleKeys []string) {
+	for _, rule := range rules {
+		ruleKeys = append(ruleKeys, rule.key)
+	}
+	return
+}
+
+func TestVersionMigration(t *testing.T) {
+	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 
+	var rules = []migrationRule{
+		{
+			key:            fiftyRule,
+			modelToMigrate: modelV3,
+			rate:           0.5,
+		},
+		{
+			key:            eightyRule,
+			modelToMigrate: modelV2,
+			rate:           0.8,
+		},
+		{
+			key:            ninetyRule,
+			modelToMigrate: modelV2,
+			rate:           0.9,
+		},
+	}
+
+	ruleKeys := getRuleKeys(rules)
+	inspect(applyRules(ruleKeys), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(ruleKeys), fmt.Sprintf("failed to delete rules"), "", t)
+	}()
+
+	for _, rule := range rules {
+		testMigration(t, rule.modelToMigrate, rule.rate)
+	}
+}
+
+func testMigration(t *testing.T, modelToMigrate string, migrationRate float64) {
+	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+        tolerance := 0.05
+	totalShot := 100
 	cookies := []http.Cookie{
 		{
 			Name:  "foo",
@@ -359,7 +397,7 @@ func TestVersionMigration(t *testing.T) {
 	}
 
 	for i := 0; i < testRetryTimes; i++ {
-		c1, c3 := 0, 0
+		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t)), cookies)
 			inspect(err, "Failed to record", "", t)
@@ -374,23 +412,23 @@ func TestVersionMigration(t *testing.T) {
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
 				c1++
-			} else if err = util.CompareToFile(body, modelV3); err == nil {
-				c3++
+			} else if err = util.CompareToFile(body, modelToMigrate); err == nil {
+				cVersionToMigrate++
 			}
 			closeResponseBody(resp)
 		}
 		c1Percent := int((migrationRate + tolerance) * float64(totalShot))
-		c3Percent := int((migrationRate - tolerance) * float64(totalShot))
-		if (c1 <= c1Percent) && (c3 >= c3Percent) {
+		cVersionToMigratePercent := int((migrationRate - tolerance) * float64(totalShot))
+		if (c1 <= c1Percent) && (cVersionToMigrate >= cVersionToMigratePercent) {
 			log.Infof(
 				"Success! Version migration acts as expected, "+
-					"old version hit %d, new version hit %d", c1, c3)
+					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
 			break
 		}
 
 		if i == testRetryTimes-1 {
 			t.Errorf("Failed version migration test, "+
-				"old version hit %d, new version hit %d", c1, c3)
+				"old version hit %d, new version hit %d", c1, cVersionToMigrate)
 		}
 	}
 }
