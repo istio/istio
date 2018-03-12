@@ -18,6 +18,7 @@ package mixer
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -220,7 +221,7 @@ func (p *promProxy) Setup() error {
 	var err error
 
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+		return errors.New("could not establish prometheus proxy: pods not running")
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
