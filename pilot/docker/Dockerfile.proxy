@@ -11,5 +11,8 @@ COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json
 COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+# Control tracing using legacy runtime API
+COPY random_sampling /etc/istio/proxy/runtime/tracing/random_sampling
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

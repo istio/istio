@@ -14,6 +14,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -21,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/test/util"
 )
 
 // Generate configs for the default configs used by istio.
@@ -65,13 +67,14 @@ func TestGolden(t *testing.T) {
 				t.Error("Error reading generated file ", err)
 				return
 			}
-			golden, err := ioutil.ReadFile("testdata/" + c.base + "_golden.json")
-			if err != nil {
-				golden = []byte{}
+			golden := "testdata/" + c.base + "_golden.json"
+
+			var dat map[string]interface{}
+			if err = json.Unmarshal(real, &dat); err != nil {
+				t.Fatalf("Invalid json: %s\n%s", err.Error(), string(real))
 			}
-			if string(real) != string(golden) {
-				t.Error("Generated incorrect config, want:\n" + string(golden) + "\ngot:\n" + string(real))
-			}
+
+			util.CompareContent(real, golden, t)
 		})
 	}
 
