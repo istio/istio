@@ -42,7 +42,7 @@ import (
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
-// or virtual service. A virtual service is a subset of a real service, selected using labels.
+// service or a subset of a service, selected using labels.
 //
 // The source of info is a list of service registries.
 //
@@ -53,7 +53,7 @@ import (
 // after readiness check. At that point we have the 'real' Service. The Endpoint includes a list
 // of port numbers and names.
 //
-// For the virtual case, the Pod referenced in the Endpoint must be looked up, and pod checked
+// For the subset case, the Pod referenced in the Endpoint must be looked up, and pod checked
 // for labels.
 //
 // In addition, ExternalEndpoint includes IPs and labels directly and can be directly processed.
@@ -83,7 +83,7 @@ type EdsCluster struct {
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*EdsConnection
 
-	LoadAssignments *xdsapi.ClusterLoadAssignment
+	LoadAssignment *xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
@@ -114,7 +114,7 @@ type EdsConnection struct {
 }
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, serviceClusters []string) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
 	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
 	version := strconv.Itoa(version)
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
@@ -131,9 +131,9 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, serviceClusters []s
 		Nonce:       version + "-" + time.Now().String(),
 	}
 
-	out.Resources = make([]types.Any, 0, len(serviceClusters))
-	for _, serviceCluster := range serviceClusters {
-		clAssignmentRes := s.clusterEndpoints(ds, serviceCluster)
+	out.Resources = make([]types.Any, 0, len(clusterNames))
+	for _, clusterName := range clusterNames {
+		clAssignmentRes := s.clusterEndpoints(ds, clusterName)
 		if clAssignmentRes != nil {
 			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
@@ -143,17 +143,17 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, serviceClusters []s
 }
 
 // Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, serviceCluster string) *types.Any {
-	c := s.getOrAddEdsCluster(serviceCluster)
-	if c.LoadAssignments == nil { // fresh cluster
-		updateCluster(serviceCluster, c)
+func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, clusterName string) *types.Any {
+	c := s.getOrAddEdsCluster(clusterName)
+	if c.LoadAssignment == nil { // fresh cluster
+		updateCluster(clusterName, c)
 	}
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	// Previously computed load assignments. They are re-computed on cache invalidation or
 	// event, but don't have to be recomputed once for each sidecar.
-	clAssignmentRes, _ := types.MarshalAny(c.LoadAssignments)
+	clAssignmentRes, _ := types.MarshalAny(c.LoadAssignment)
 	return clAssignmentRes
 
 }
@@ -187,6 +187,7 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
 func updateCluster(clusterName string, edsCluster *EdsCluster) {
+	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	hostname, ports, labels := model.ParseServiceKey(clusterName)
 	instances, err := edsCluster.discovery.mesh.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
@@ -203,7 +204,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
-	edsCluster.LoadAssignments = &xdsapi.ClusterLoadAssignment{
+	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
@@ -319,25 +320,24 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			}
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
 			if discReq.ResponseNonce != "" {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if edsDebug {
 					log.Infof("EDS: ACK %s %s %s", node, discReq.VersionInfo, con.Clusters)
 				}
 				continue
-			} else {
-				if len(con.Clusters) > 0 {
-					// Should not happen
-					log.Infof("EDS REQ repeated %s %v/%v %v raw: %s ",
-						node, clusters2, con.Clusters, peerAddr, discReq.String())
-				}
-				// Initial request
-				if edsDebug {
-					log.Infof("EDS REQ %s %v %v raw: %s ",
-						node, clusters2, peerAddr, discReq.String())
-				}
 			}
+			if len(con.Clusters) > 0 {
+				// Should not happen
+				log.Infof("EDS REQ repeated %s %v/%v %v raw: %s ",
+					node, clusters2, con.Clusters, peerAddr, discReq.String())
+			}
+			// Initial request
+			if edsDebug {
+				log.Infof("EDS REQ %s %v %v raw: %s ",
+					node, clusters2, peerAddr, discReq.String())
+			}
+
 			if len(clusters2) > 0 {
 				con.Clusters = clusters2
 			}
@@ -426,7 +426,9 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 	if existing != nil {
 		existing.pushChannel <- false // force closing it
 	}
+	c.mutex.Lock()
 	c.EdsClients[node] = connection
+	c.mutex.Unlock()
 }
 
 // getEdsCluster returns a cluster.
@@ -467,7 +469,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	oldcon := c.EdsClients[node]
 	if oldcon != connection {
 		if edsDebug {
-			log.Infof("EDS: Envoy restart %s %v, old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
+			log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
 		}
 		return
 	}
