@@ -63,7 +63,7 @@ var (
 	tcpReplacer = strings.NewReplacer(
 		"$tcp_destination", "netcat-srv.*",
 		"istio-ingress", "netcat-client",
-		"unknown", "v1",
+		"unknown", "v1.*",
 	)
 
 	tc *testConfig
@@ -229,6 +229,12 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "_membership_") {
 			continue
 		}
+		if strings.Contains(query, "discovery_errors") {
+			continue
+		}
+		if strings.Contains(query, "update_failure") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -297,16 +303,16 @@ func (t *testConfig) Setup() (err error) {
 	}
 	t.promAPI = pAPI
 
-	if err := generateTCPInCluster(); err != nil {
-		return fmt.Errorf("generating TCP traffic failed: %v", err)
-	}
-
 	gateway, errGw := tc.Kube.Ingress()
 	if errGw != nil {
 		return errGw
 	}
 	if _, err := sendTrafficToCluster(gateway); err != nil {
 		return fmt.Errorf("generating HTTP traffic failed: %v", err)
+	}
+
+	if err := generateTCPInCluster(); err != nil {
+		return fmt.Errorf("generating TCP traffic failed: %v", err)
 	}
 
 	allowPrometheusSync()
