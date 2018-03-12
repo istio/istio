@@ -26,7 +26,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -365,8 +365,12 @@ istioctl delete routerule productpage-default
 				if err != nil {
 					return err
 				}
+				ns, err := handleNamespaces(namespace)
+				if err != nil {
+					return err
+				}
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Type, args[i], namespace); err != nil {
+					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -665,6 +669,7 @@ func newClient() (*crd.Client, error) {
 		model.QuotaSpecBinding,
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
+		model.AuthenticationPolicy,
 	}, "")
 }
 

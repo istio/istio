@@ -52,16 +52,28 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+      - run: make test/minikube/noauth/e2e_simple
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            mkdir -p /go/out/logs
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-simple.raw > /go/out/tests/test-report-noauth-simple.xml
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
       - store_artifacts:
           path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-dashboard:
     <<: *integrationDefaults
@@ -90,7 +102,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
@@ -128,7 +140,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -167,7 +179,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -208,16 +220,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run:
-          command: |
-            mkdir -p /go/out/tests
-            #trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
-            # Run the tests in env similar with recommended setup.
-            make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}" \
-               | tee -a /go/out/tests/go-test-report.out
+      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -225,8 +231,9 @@ jobs:
             # TODO: move to a make target 'dumpsys'.
             kubectl get all -o wide --all-namespaces
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
-            kubectl describe pods -n istio-test > /go/out/logs/pods-test.txt
+            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
@@ -237,7 +244,7 @@ jobs:
           path: /go/out/tests
 
 
-  e2e-pilot-noauth:
+  e2e-pilot-auth:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -264,12 +271,30 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=false -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot.raw > /go/out/tests/test-report-auth-pilot.xml
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-pilot-v1alpha1-and-v1alpha3:
     <<: *integrationDefaults
@@ -300,7 +325,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--skip-cleanup -mixer=true -auth_enable=true -v1alpha3=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
@@ -445,7 +470,7 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            make build test-bins
+            make build test-bins /go/bin/go-junit-report
       - persist_to_workspace:
           root: /go
           paths:
@@ -481,7 +506,7 @@ jobs:
 #          paths:
 #            - /go/pkg
 
-  docker-push:
+  nightly:
     <<: *defaults
     resource_class: xlarge
     environment:
@@ -491,12 +516,14 @@ jobs:
           at:  /go
       - setup_remote_docker:
           docker_layer_caching: true
+      - run: make istio-archive
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              make docker push
+              # The xenail debug image is built first, will be used in the next steps
+              make docker.push.basedebug docker.all push
             fi
 
   goxbuild:
@@ -551,7 +578,7 @@ workflows:
       - e2e-pilot:
           requires:
             - test
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - test
       - benchcheck:
@@ -561,13 +588,13 @@ workflows:
       - goxbuild:
           requires:
             - test
-      # Push to dockerhub
-      - docker-push:
+      # Nightly release
+      - nightly:
           context: org-global
           requires:
             - e2e-simple
             - e2e-pilot
-            - e2e-pilot-noauth
+            - e2e-pilot-auth
 
   periodic:
     triggers:
@@ -598,7 +625,7 @@ workflows:
       - e2e-pilot-v1alpha1-and-v1alpha3:
           requires:
             - build
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - build
       - benchcheck:
@@ -644,9 +671,12 @@ workflows:
       - e2e-pilot:
           requires:
             - build
-      - e2e-pilot-noauth:
+      - e2e-pilot-auth:
           requires:
             - build
       - e2e-simple:
+          requires:
+            - build
+      - e2e-dashboard:
           requires:
             - build

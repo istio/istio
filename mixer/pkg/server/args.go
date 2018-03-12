@@ -143,23 +143,24 @@ func (a *Args) validate() error {
 
 // String produces a stringified version of the arguments for debugging.
 func (a *Args) String() string {
-	var b bytes.Buffer
+	buf := &bytes.Buffer{}
 
-	b.WriteString(fmt.Sprint("MaxMessageSize: ", a.MaxMessageSize, "\n"))
-	b.WriteString(fmt.Sprint("MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n"))
-	b.WriteString(fmt.Sprint("APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
-	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
-	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
-	b.WriteString(fmt.Sprint("EnableProfiling: ", a.EnableProfiling, "\n"))
-	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
-	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
-	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
-	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
-	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
-	return b.String()
+	fmt.Fprint(buf, "MaxMessageSize: ", a.MaxMessageSize, "\n")
+	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
+	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n")
+	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
+	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
+	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
+	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
+	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
+	fmt.Fprint(buf, "UseNewRuntime: ", a.UseNewRuntime, "\n")
+	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
+	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
+
+	return buf.String()
 }

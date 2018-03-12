@@ -68,7 +68,7 @@ func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
 //	mock.CheckCacheFreshness(ctl, TestNamespace, t)
 //}
 //
-// func TestControllerClientSync(t *testing.T) {
-// 	store, ctl := makeCache(t)
-// 	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
-// }
+func TestControllerClientSync(t *testing.T) {
+	store, ctl := makeCache(t)
+	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
+}
