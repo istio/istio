@@ -67,7 +67,7 @@ func WriteFn(b *bytes.Buffer, code []uint32, f *il.Function, strings *il.StringT
 		if i > 0 {
 			b.WriteString(" ")
 		}
-		b.WriteString(fmt.Sprintf("%v", p))
+		fmt.Fprintf(b, "%v", p)
 	}
 	b.WriteString(") ")
 	b.WriteString(f.ReturnType.String())
@@ -75,7 +75,7 @@ func WriteFn(b *bytes.Buffer, code []uint32, f *il.Function, strings *il.StringT
 	for i := f.Address; i < f.Address+f.Length; i++ {
 		labelID, exists := labels[i]
 		if exists {
-			b.WriteString(fmt.Sprintf("L%d:\n", labelID))
+			fmt.Fprintf(b, "L%d:\n", labelID)
 		}
 
 		opIndex := i
@@ -95,25 +95,25 @@ func WriteFn(b *bytes.Buffer, code []uint32, f *il.Function, strings *il.StringT
 				b.WriteString("\"")
 
 			case il.OpcodeArgAddress:
-				b.WriteString(fmt.Sprintf("L%d", labels[val]))
+				fmt.Fprintf(b, "L%d", labels[val])
 
 			case il.OpcodeArgFunction:
 				str := strings.GetString(val)
 				b.WriteString(str)
 
 			case il.OpcodeArgRegister:
-				b.WriteString(fmt.Sprintf("r%d", val))
+				fmt.Fprintf(b, "r%d", val)
 
 			case il.OpcodeArgInt:
 				i++
 				val2 := code[i]
-				b.WriteString(fmt.Sprintf("%d", il.ByteCodeToInteger(val, val2)))
+				fmt.Fprintf(b, "%d", il.ByteCodeToInteger(val, val2))
 
 			case il.OpcodeArgDouble:
 				i++
 				val2 := code[i]
 				fl := il.ByteCodeToDouble(val, val2)
-				b.WriteString(fmt.Sprintf("%f", fl))
+				fmt.Fprintf(b, "%f", fl)
 
 			case il.OpcodeArgBool:
 				if il.ByteCodeToBool(val) {

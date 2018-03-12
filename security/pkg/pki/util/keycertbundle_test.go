@@ -28,8 +28,8 @@ const (
 	int2CertFile        = "../testdata/multilevelpki/int2-cert.pem"
 	int2KeyFile         = "../testdata/multilevelpki/int2-key.pem"
 	int2CertChainFile   = "../testdata/multilevelpki/int2-cert-chain.pem"
-	badCertFile         = "../testdata/cert-bad.pem"
-	badKeyFile          = "../testdata/key-bad.pem"
+	badCertFile         = "../testdata/cert-parse-fail.pem"
+	badKeyFile          = "../testdata/key-parse-fail.pem"
 	anotherKeyFile      = "../testdata/key.pem"
 	anotherRootCertFile = "../testdata/cert.pem"
 )

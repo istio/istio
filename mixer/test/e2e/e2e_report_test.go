@@ -49,7 +49,14 @@ spec:
         value_type: INT64
 ---
 `
-	reportSvcCfg = `
+)
+
+func TestReport(t *testing.T) {
+	tests := []testData{
+
+		{
+			name: "Basic Report",
+			cfg: `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -84,14 +91,7 @@ spec:
     - reportInstance.samplereport
 
 ---
-`
-)
-
-func TestReport(t *testing.T) {
-	tests := []testData{
-		{
-			name: "Basic Report",
-
+`,
 			attrs: map[string]interface{}{
 				"target.name": "somesrvcname",
 			},
@@ -116,13 +116,140 @@ func TestReport(t *testing.T) {
 				},
 			},
 		},
-	}
-	for _, tt := range tests {
-		// Set the defaults for the test.
-		if tt.cfg == "" {
-			tt.cfg = reportSvcCfg
-		}
 
+		{
+			name: "Multi Instance Report",
+			cfg: `
+apiVersion: "config.istio.io/v1alpha2"
+kind: fakeHandler
+metadata:
+  name: fakeHandlerConfig
+  namespace: istio-system
+
+---
+# Instance 1
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance1
+  namespace: istio-system
+spec:
+  value: "2"
+  dimensions:
+    source: source.name | "mysrc"
+    target_ip: target.name | "mytarget"
+
+---
+# Instance 2
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance2
+  namespace: istio-system
+spec:
+  value: "5"
+  dimensions:
+    source: source.name | "yoursrc"
+    target_ip: target.name | "yourtarget"
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-system
+spec:
+  selector: match(target.name, "*")
+  actions:
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance1.samplereport
+    - reportInstance2.samplereport
+
+---
+`,
+			attrs: map[string]interface{}{
+				"target.name": "somesrvcname",
+			},
+
+			expectSetTypes: map[string]interface{}{
+				"reportInstance1.samplereport.istio-system": &reportTmpl.Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
+				},
+				"reportInstance2.samplereport.istio-system": &reportTmpl.Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
+				},
+			},
+
+			expectCalls: []spyAdapter.CapturedCall{
+				{
+					Name: "HandleSampleReport",
+					Instances: []interface{}{
+						&reportTmpl.Instance{
+							Name:       "reportInstance1.samplereport.istio-system",
+							Value:      int64(2),
+							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
+						},
+						&reportTmpl.Instance{
+							Name:       "reportInstance2.samplereport.istio-system",
+							Value:      int64(5),
+							Dimensions: map[string]interface{}{"source": "yoursrc", "target_ip": "somesrvcname"},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name: "Conditional Report with No Success",
+			cfg: `
+apiVersion: "config.istio.io/v1alpha2"
+kind: fakeHandler
+metadata:
+  name: fakeHandlerConfig
+  namespace: istio-system
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance
+  namespace: istio-system
+spec:
+  value: "2"
+  dimensions:
+    source: source.name | "mysrc"
+    target_ip: target.name | "mytarget"
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-system
+spec:
+  selector: match(target.name, "some unknown thing")
+  actions:
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance.samplereport
+
+---
+`,
+			attrs: map[string]interface{}{
+				"target.name": "somesrvcname",
+			},
+
+			expectCalls: nil,
+		},
+	}
+
+	for _, tt := range tests {
 		if tt.templates == nil {
 			tt.templates = e2eTmpl.SupportedTmplInfo
 		}

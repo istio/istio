@@ -8,7 +8,7 @@
 		"lastStableSHA": "9d978d76653da8b7b4bd6421b7e8f9925d8c79ea"
 	},
 	{
-		"name": "PROXY_TAG",
+		"name": "PROXY_REPO_SHA",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "",
