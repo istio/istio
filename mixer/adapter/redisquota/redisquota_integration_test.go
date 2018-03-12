@@ -21,9 +21,7 @@ import (
 	"github.com/alicebob/miniredis"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/adapter"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
-	"istio.io/istio/mixer/template"
 )
 
 const (
@@ -204,18 +202,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		t.Run(id, func(t *testing.T) {
 			adapter_integration.RunTest(
 				t,
-				[]adapter.InfoFn{GetInfo},
-				template.SupportedTmplInfo,
-				func() (interface{}, error) {
-					mockRedis, err := miniredis.Run()
-					if err != nil {
-						t.Fatalf("Unable to start mock redis server: %v", err)
-					}
-					return mockRedis, nil
-				}, func(ctx interface{}) {
-					ctx.(*miniredis.Miniredis).Close()
-				},
-				func(ctx interface{}) (interface{}, error) { return nil, nil },
+				GetInfo,
 				adapter_integration.Scenario{
 					ParallelCalls: []adapter_integration.Call{
 						{
@@ -224,7 +211,20 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 							Quotas:   c.quotas,
 						},
 					},
-					Cfgs: []string{
+
+					Setup: func() (interface{}, error) {
+						mockRedis, err := miniredis.Run()
+						if err != nil {
+							t.Fatalf("Unable to start mock redis server: %v", err)
+						}
+						return mockRedis, nil
+					},
+
+					Teardown: func(ctx interface{}) {
+						ctx.(*miniredis.Miniredis).Close()
+					},
+
+					Configs: []string{
 						serviceCfg,
 					},
 					Want: c.want,

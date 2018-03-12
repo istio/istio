@@ -17,9 +17,7 @@ package list
 import (
 	"testing"
 
-	adapter2 "istio.io/istio/mixer/pkg/adapter"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
-	"istio.io/istio/mixer/template"
 )
 
 const (
@@ -59,11 +57,7 @@ spec:
 func TestReport(t *testing.T) {
 	adapter_integration.RunTest(
 		t,
-		[]adapter2.InfoFn{GetInfo},
-		template.SupportedTmplInfo,
-		nil, /*no setup*/
-		nil, /*no teardown*/
-		nil, /*no adapter specific state to test*/
+		GetInfo,
 		adapter_integration.Scenario{
 			ParallelCalls: []adapter_integration.Call{
 				{
@@ -74,7 +68,7 @@ func TestReport(t *testing.T) {
 					CallKind: adapter_integration.CHECK,
 				},
 			},
-			Cfgs: []string{
+			Configs: []string{
 				h1OverrideSrc1Src2,
 				r1H1I1,
 				i1ValSrcNameAttr,

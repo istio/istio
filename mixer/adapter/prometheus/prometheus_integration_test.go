@@ -20,9 +20,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/prom2json"
 
-	"istio.io/istio/mixer/pkg/adapter"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
-	"istio.io/istio/mixer/template"
 )
 
 const (
@@ -69,20 +67,7 @@ spec:
 func TestReport(t *testing.T) {
 	adapter_integration.RunTest(
 		t,
-		[]adapter.InfoFn{GetInfo},
-		template.SupportedTmplInfo,
-		nil, /*no setup*/
-		nil, /*no teardown*/
-		func(ctx interface{}) (interface{}, error) {
-			mfChan := make(chan *dto.MetricFamily, 1)
-			go prom2json.FetchMetricFamilies(prometheusMetricsURL, mfChan, "", "", true)
-			result := []prom2json.Family{}
-			for mf := range mfChan {
-				result = append(result, *prom2json.NewFamily(mf))
-			}
-			return result, nil
-		},
-
+		GetInfo,
 		adapter_integration.Scenario{
 			ParallelCalls: []adapter_integration.Call{
 				{
@@ -93,7 +78,17 @@ func TestReport(t *testing.T) {
 				},
 			},
 
-			Cfgs: []string{
+			GetState: func(ctx interface{}) (interface{}, error) {
+				mfChan := make(chan *dto.MetricFamily, 1)
+				go prom2json.FetchMetricFamilies(prometheusMetricsURL, mfChan, "", "", true)
+				result := []prom2json.Family{}
+				for mf := range mfChan {
+					result = append(result, *prom2json.NewFamily(mf))
+				}
+				return result, nil
+			},
+
+			Configs: []string{
 				requestCountToPromCfg,
 			},
 

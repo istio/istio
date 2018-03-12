@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
+	template2 "istio.io/istio/mixer/template"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -44,11 +45,34 @@ import (
 type (
 	// Scenario fully defines an adapter integration test
 	Scenario struct {
-		// Cfgs is a list of CRDs that Mixer will read.
-		Cfgs []string
+		// Configs is a list of CRDs that Mixer will read.
+		Configs []string
+
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
+
+		// Setup is a callback function that will be called at the beginning of the test. It is
+		// meant to be used for things like starting a local backend server. Setup function returns a
+		// context (interface{}) which is passed back into the Teardown and the GetState functions.
+		// pass nil if no setup needed
+		Setup SetupFn
+
+		// Teardown is a callback function that will be called at the end of the test. It is
+		// meant to be used for things like stopping a local backend server that might have been started during Setup.
+		// pass nil if no teardown is needed
+		Teardown TeardownFn
+
+		// GetState lets the test provide any (interface{}) adapter specific data to be part of baseline.
+		// Example: for prometheus adapter, the actual metric reported to the local backend can be embedded into the
+		// expected json baseline.
+		// pass nil if no adapter specific state is part of baseline.
+		GetState GetStateFn
+
+		// Templates supported by Mixer.
+		// If `tmpls` is not specified, the default templates inside istio.io/istio/mixer/template.SupportedTmplInfo
+		// are made available to the Mixer.
+		tmpls map[string]template.Info
 
 		// Want is the expected serialized json for the Result struct.
 		// Result.AdapterState is what the callback function `getState`, passed to `RunTest`, returns.
@@ -107,42 +131,37 @@ type (
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
 //
-// * adapters and tmpls provides the necessary adapter and template inventory for Mixer.
-// * setup and teardown are callback functions that will be called at the beginning and end of the test respectively. They
-// are meant to be used for things like starting and stopping a local backend server. setup function returns a
-// context (interface{}) which is passed back into the teardown and the getState functions.
-// * getState lets the test provide any (interface{}) adapter specific data to be part of baseline.
-// Example: for prometheus adapter, the actual metric reported to the local backend can be embedded into the expected
-// json baseline.
+// * adapterInfo provides the InfoFn for the adapter under test.
 // * Scenario provide the adapter/handler/rule configs along with the call parameters (check or report, and attributes)
+//   Optionally, it also takes the test specific SetupFn, TeardownFn, GetStateFn and list of supported templates.
 func RunTest(
 	t *testing.T,
-	adapters []adapter.InfoFn,
-	tmpls map[string]template.Info,
-	setup SetupFn,
-	teardown TeardownFn,
-	getState GetStateFn,
+	adapterInfo adapter.InfoFn,
 	scenario Scenario,
 ) {
 
 	// Let the test do some initial setup.
 	var ctx interface{}
 	var err error
-	if setup != nil {
-		ctx, err = setup()
+	if scenario.Setup != nil {
+		ctx, err = scenario.Setup()
 		// Teardown the initial setup
-		if teardown != nil {
-			defer teardown(ctx)
+		if scenario.Teardown != nil {
+			defer scenario.Teardown(ctx)
 		}
 		if err != nil {
 			t.Fatalf("initial setup failed: %v", err)
 		}
 	}
 
+	if len(scenario.tmpls) == 0 {
+		scenario.tmpls = template2.SupportedTmplInfo
+	}
+
 	// Start Mixer
 	var args *server.Args
 	var env *server.Server
-	if args, err = getServerArgs(tmpls, adapters, scenario.Cfgs); err != nil {
+	if args, err = getServerArgs(scenario.tmpls, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 	if env, err = server.New(args); err != nil {
@@ -174,8 +193,8 @@ func RunTest(
 	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshalling
 	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
 	// from the rich object returned by getState function.
-	if getState != nil {
-		adptState, _ := getState(ctx)
+	if scenario.GetState != nil {
+		adptState, _ := scenario.GetState(ctx)
 		var adptStateBytes []byte
 		if adptStateBytes, err = json.Marshal(adptState); err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", adptState, err)
