@@ -85,8 +85,8 @@ type compatBag struct {
 	parent attribute.Bag
 }
 
-func (c *compatBag) DebugString() string {
-	return c.parent.DebugString()
+func (c *compatBag) String() string {
+	return c.parent.String()
 }
 
 // if a destination.* attribute is missing, check the corresponding target.* attribute.
@@ -137,7 +137,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
 		out = status.WithError(err)
 	}
-	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+	if err := mutableBag.Merge(preprocResponseBag); err != nil {
 		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 	}
 
@@ -153,7 +153,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	if log.DebugEnabled() {
 		log.Debuga("Preprocess Check returned with: ", status.String(out))
 		log.Debug("Dispatching to main adapters after running processors")
-		log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+		log.Debuga("Attribute Bag: \n", mutableBag)
 		log.Debug("Dispatching Check")
 	}
 
@@ -299,7 +299,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
 			out = status.WithError(err)
 		}
-		if err = mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+		if err = mutableBag.Merge(preprocResponseBag); err != nil {
 			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 		}
 
@@ -315,7 +315,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		if log.DebugEnabled() {
 			log.Debuga("Preprocess returned with: ", status.String(out))
 			log.Debug("Dispatching to main adapters after running processors")
-			log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+			log.Debuga("Attribute Bag: \n", mutableBag)
 			log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
 		}
 		err = s.dispatcher.Report(legacyCtx, compatRespBag)

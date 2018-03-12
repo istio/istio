@@ -377,8 +377,6 @@ jobs:
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
       ISTIO_BIN: /go/bin
-      # Skip enforcement of coverage until integration tests are measured.
-      CODECOV_NO_ENFORCE: true
     steps:
       - checkout
       - run: make submodule-sync
@@ -649,9 +647,6 @@ workflows:
       - racetest:
           requires:
             - dependencies
-      - e2e-mixer:
-          requires:
-            - build
 
   all:
     jobs:
@@ -675,6 +670,9 @@ workflows:
           requires:
             - build
       - e2e-simple:
+          requires:
+            - build
+      - e2e-mixer:
           requires:
             - build
       - e2e-dashboard:

@@ -14,10 +14,9 @@
 
 package template
 
-// InterfaceTemplate defines the template used to generate the adapter
-// interfaces for Mixer for a given aspect.
+// BootstrapTemplate defines the template used to generate code that glues Mixer with generated template interfaces.
 // nolint:lll
-var InterfaceTemplate = `// Copyright 2017 Istio Authors
+var BootstrapTemplate = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,9 +100,9 @@ func (w *wrapperAttr) Done() {
     w.done()
 }
  
-// DebugString provides a dump of an attribute Bag that avoids affecting the
+// String provides a dump of an attribute Bag that avoids affecting the
 // calculation of referenced attributes.
-func (w *wrapperAttr) DebugString() string {
+func (w *wrapperAttr) String() string {
     return w.debugString()
 }
  
@@ -450,7 +449,7 @@ var (
                         },
                         func() []string {return attrs.Names()},
                         func() {attrs.Done()},
-                        func() string {return attrs.DebugString()},
+                        func() string {return attrs.String()},
                     )
                     }
                     resultBag := attribute.GetMutableBag(nil)
@@ -561,7 +560,7 @@ var (
                 },
                 func() []string {return attrs.Names()},
                 func() {attrs.Done()},
-                func() string {return attrs.DebugString()},
+                func() string {return attrs.String()},
             )
 
             // Mapper will map back $out values in the outBag into ambient attribute names, and return
@@ -825,16 +824,16 @@ var (
 								}
 								r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
 							{{else}}
-	                            if vIface, err = v.Evaluate(attrs); err != nil {
+	                            if {{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs); err != nil {
 	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
 	                            }
 	                            {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
-	                                r.{{$f.GoName}}[k] = vIface
+	                                r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
 	                            {{else}}
 	                                {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
-	                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}(vIface.({{getAliasType $f.GoType.MapValue.Name}}))
+	                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}({{getLocalVar $f.GoType.MapValue}}.({{getAliasType $f.GoType.MapValue.Name}}))
 	                                {{else}}
-	                                    r.{{$f.GoName}}[k] = vIface.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
+	                                    r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
 	                                {{end}}
 	                            {{end}}
 							{{end}}
@@ -854,7 +853,7 @@ var (
 							}
 							r.{{$f.GoName}} = {{getLocalVar $f.GoType}}
 						{{else}}
-	                        if vIface, err = b.{{builderFieldName $f}}.Evaluate(attrs); err != nil {
+	                        if vIface, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs); err != nil {
 	                            return nil, template.NewErrorPath("{{$f.GoName}}", err)
 	                        }
 	                        {{if containsValueTypeOrResMsg $f.GoType}}

@@ -74,6 +74,6 @@ message Params {
         map<string, string> tags = 3;
     }
 
-    // Map of a specific metric instance name -> info. If a metric's instnace name is not in the map then the metric will not be exported to DataDog.
+    // Map of a specific metric instance name -> info. If a metric's instance name is not in the map then the metric will not be exported to DataDog.
     map<string, MetricInfo> metrics = 6;
 }
