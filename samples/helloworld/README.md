@@ -31,7 +31,7 @@ kubectl create -f helloworld-istio.yaml
 Get the ingress URL and confirm it's running using curl.
 
 ```bash
-export HELLOWORLD_URL=$(kubectl get po -l istio=ingress -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -o 'jsonpath={.spec.ports[0].nodePort}')
+export HELLOWORLD_URL=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[0].nodePort}')
 curl http://$HELLOWORLD_URL/hello
 ```
 
