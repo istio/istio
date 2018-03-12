@@ -649,9 +649,6 @@ workflows:
       - racetest:
           requires:
             - dependencies
-      - e2e-mixer:
-          requires:
-            - build
 
   all:
     jobs:
@@ -675,6 +672,9 @@ workflows:
           requires:
             - build
       - e2e-simple:
+          requires:
+            - build
+      - e2e-mixer:
           requires:
             - build
       - e2e-dashboard:
