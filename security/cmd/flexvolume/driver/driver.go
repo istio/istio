@@ -16,18 +16,19 @@ package driver
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"log/syslog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	fv "istio.io/istio/security/pkg/flexvolume"
 )
 
-// Resp is the driver response
-type Resp struct {
+// Response is the driver response
+type Response struct {
 	// Status of the response
 	Status string `json:"status"`
 	// Response message of the response
@@ -46,9 +47,11 @@ type Capabilities struct {
 // We want to explicitly set and send Attach: false
 // that is why it is separated from the Response struct.
 type InitResponse struct {
-	Status  string `json:"status"`
+	// Status of the response
+	Status string `json:"status"`
+	// Response message of the response
 	Message string `json:"message"`
-	// Capability resp.
+	// Defines the driver's capability
 	Capabilities *Capabilities `json:",omitempty"`
 }
 
@@ -123,11 +126,11 @@ func InitCommand() error {
 		fmt.Println(string(resp))
 		return nil
 	}
-	return genericSucc("init", "", "Init ok.")
+	return genericSuccess("init", "", "Init ok.")
 }
 
 // produceWorkloadCredential converts input from the kubelet to WorkloadInfo
-func produceWorkloadCredential(opts string) (*fv.Credential, error) {
+func produceWorkloadCredential(opts string) (*fv.Credential, bool) {
 	ninputs := FlexVolumeInputs{}
 	err := json.Unmarshal([]byte(opts), &ninputs)
 	if err != nil {
@@ -140,7 +143,7 @@ func produceWorkloadCredential(opts string) (*fv.Credential, error) {
 		Namespace:      ninputs.Namespace,
 		ServiceAccount: ninputs.ServiceAccount,
 	}
-	return &wlInfo, nil
+	return &wlInfo, true
 }
 
 // doMount handles a new workload mounting the flex volume drive. It will:
@@ -156,28 +159,24 @@ func doMount(destinationDir string, cred *fv.Credential) error {
 
 	// Not really needed but attempt to workaround:
 	// https://github.com/kubernetes/kubernetes/blob/61ac9d46382884a8bd9e228da22bca5817f6d226/pkg/util/mount/mount_linux.go
-	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
-	err = cmdMount.Run()
+	err = getExecCmd("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", destinationDir).Run()
 	if err != nil {
 		_ = os.RemoveAll(newDir)
 		return err
 	}
 
-	newDstDir := dstDir + "/nodeagent"
-	err = os.MkdirAll(newDstDir, 0777)
+	newDestinationDir := filepath.Join(destinationDir, "nodeagent")
+	err = os.MkdirAll(newDestinationDir, 0777)
 	if err != nil {
-		cmd := exec.Command("/bin/unmount", dstDir)
-		_ = cmd.Run()
+		_ = getExecCmd("/bin/unmount", destinationDir).Run()
 		_ = os.RemoveAll(newDir)
 		return err
 	}
 
 	// Do a bind mount
-	cmd := exec.Command("/bin/mount", "--bind", newDir, newDstDir)
-	err = cmd.Run()
+	err = getExecCmd("/bin/mount", "--bind", newDir, newDestinationDir).Run()
 	if err != nil {
-		cmd = exec.Command("/bin/umount", dstDir)
-		_ = cmd.Run()
+		_ = getExecCmd("/bin/umount", destinationDir).Run()
 		_ = os.RemoveAll(newDir)
 		return err
 	}
@@ -197,48 +196,16 @@ func handleErrMount(destinationDir string, cred *fv.Credential) {
 	os.RemoveAll(filepath.Join(configuration.NodeAgentWorkloadHomeDir, cred.UID))
 }
 
-// addListener add the listener for the workload
-func addListener(ninputs *pb.WorkloadInfo) error {
-	client := nagent.ClientUds(nodeAgentMgmtAPI)
-	if client == nil {
-		return errors.New("failed to create Nodeagent client")
-	}
-
-	ninputs, err := produceWorkloadCredential(opts)
-	if err != nil {
-		return err
-	}
-
-	client.Close()
-	return nil
-}
-
-// delListener delete the listener for the workload
-func delListener(ninputs *pb.WorkloadInfo) error {
-	client := nagent.ClientUds(nodeAgentMgmtAPI)
-	if client == nil {
-		return errors.New("failed to create Nodeagent client")
-	}
-
-	_, err := client.WorkloadDeleted(ninputs)
-	if err != nil {
-		return err
-	}
-
-	client.Close()
-	return nil
-}
-
 // Mount mount the file path.
 func Mount(dir, opts string) error {
-	inp := dir + "|" + opts
+	inp := strings.Join([]string{dir, opts}, "|")
 
-	ninputs, s := checkValidMountOpts(opts)
+	ninputs, s := produceWorkloadCredential(opts)
 	if !s {
 		return failure("mount", inp, "Incomplete inputs")
 	}
 
-	if err := doMount(dir, ninputs.Attrs); err != nil {
+	if err := doMount(dir, ninputs); err != nil {
 		sErr := "Failure to mount: " + err.Error()
 		return failure("mount", inp, sErr)
 	}
@@ -249,14 +216,15 @@ func Mount(dir, opts string) error {
 		return failure("mount", inp, sErr)
 	}
 
-	return genericSucc("mount", inp, "Mount ok.")
+	return genericSuccess("mount", inp, "Mount ok.")
 }
 
 // Unmount unmount the file path.
 func Unmount(dir string) error {
+	var emsgs []string
 	comps := strings.Split(dir, "/")
 	if len(comps) < 6 {
-		sErr := fmt.Sprintf("Unmount failed with dir %s.", dir)
+		sErr := fmt.Sprintf("Unmount failed with dir %s", dir)
 		return failure("unmount", dir, sErr)
 	}
 
@@ -271,18 +239,26 @@ func Unmount(dir string) error {
 	}
 
 	// unmount the bind mount
-	_ = doUnmount(dir + "/nodeagent")
+	if err := getExecCmd("/bin/umount", filepath.Join(dir, "nodeagent")).Run(); err != nil {
+		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", filepath.Join(dir, "nodeagent")))
+	}
 	// unmount the tmpfs
-	_ = doUnmount(dir)
+	if err := getExecCmd("/bin/umount", dir).Run(); err != nil {
+		emsgs = append(emsgs, fmt.Sprintf("unmount of %s failed", dir))
+	}
 	// delete the directory that was created.
-	delDir := nodeAgentUdsHome + "/" + uid
+	delDir := filepath.Join(configuration.NodeAgentWorkloadHomeDir, uid)
 	err := os.Remove(delDir)
 	if err != nil {
-		estr := fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error())
-		return genericSucc("unmount", dir, estr)
+		emsgs = append(emsgs, fmt.Sprintf("unmount del failure %s: %s", delDir, err.Error()))
+		// go ahead and return ok
 	}
 
-	return genericSucc("unmount", dir, "Unmount ok.")
+	if len(emsgs) == 0 {
+		emsgs = append(emsgs, "Unmount Ok")
+	}
+
+	return genericSuccess("unmount", dir, strings.Join(emsgs, ","))
 }
 
 func printAndLog(caller, inp, s string) {
@@ -290,8 +266,8 @@ func printAndLog(caller, inp, s string) {
 	logToSys(caller, inp, s)
 }
 
-func genericSucc(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Resp{Status: "Success", Message: msg})
+func genericSuccess(caller, inp, msg string) error {
+	resp, err := json.Marshal(&Response{Status: "Success", Message: msg})
 	if err != nil {
 		return err
 	}
@@ -301,7 +277,7 @@ func genericSucc(caller, inp, msg string) error {
 }
 
 func failure(caller, inp, msg string) error {
-	resp, err := json.Marshal(&Resp{Status: "Failure", Message: msg})
+	resp, err := json.Marshal(&Response{Status: "Failure", Message: msg})
 	if err != nil {
 		return err
 	}
@@ -311,7 +287,7 @@ func failure(caller, inp, msg string) error {
 }
 
 func logToSys(caller, inp, opts string) {
-	if logWrt == nil {
+	if logWriter == nil {
 		return
 	}
 

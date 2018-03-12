@@ -19,12 +19,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	fv "istio.io/istio/security/pkg/flexvolume"
-
+	//	pb "istio.io/istio/security/proto"
 )
 
 var (
@@ -34,18 +38,84 @@ var (
 	pipeOut *os.File
 	// The channel for sending stdout back to test code.
 	outC chan string
+	// testDir is where all the artifacts are created.
+	testDir string
+	// environment vars to attach to exec command
+	envExec []string
 )
 
-// Will block waiting for data on the channel.
-func readStdOut() string {
-	pipeOut.Close() //nolint: errcheck
-	os.Stdout = oldOut
-	fmt.Println("Waiting for output")
-	return <-outC
+// Mock for the various OS commands used by the driver.
+func testGetExecCmd(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestHelperExecProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = append([]string{"GO_WANT_HELPER_PROCESS=1"}, envExec...)
+	return cmd
+}
+
+// TestHelperExecProcess is used to simulate calls to os.ExecCmd()
+// inspired by: https://github.com/golang/go/blob/master/src/os/exec/exec_test.go
+func TestHelperExecProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	if os.Getenv("RETURN_ERROR") == "1" {
+		os.Exit(2)
+	}
+
+	args := os.Args
+	for len(args) > 0 {
+		if args[0] == "--" {
+			args = args[1:]
+			break
+		}
+		args = args[1:]
+	}
+	// We now have the original args.
+	if len(args) == 0 {
+		os.Exit(2)
+	}
+
+	cmd, args := args[0], args[1:]
+	switch cmd {
+	case "/bin/mount":
+		if args[0] == "-t" {
+			if len(args) < 6 {
+				os.Exit(2)
+			}
+
+			tmpmount := os.Getenv("mountDir")
+			if len(tmpmount) > 0 && tmpmount != args[5] {
+				os.Exit(2)
+			}
+			os.Exit(0)
+		}
+		//bind mount
+		if args[0] == "--bind" {
+			if len(args) < 3 {
+				os.Exit(2)
+			}
+
+			fromBindDir := os.Getenv("BIND_FROM_DIR")
+			if len(fromBindDir) > 0 && fromBindDir != args[1] {
+				os.Exit(2)
+			}
+			toBindDir := os.Getenv("BIND_TO_DIR")
+			if len(toBindDir) > 0 && toBindDir != args[2] {
+				os.Exit(2)
+			}
+		}
+	case "/bin/unmount":
+		if len(args) < 1 {
+			os.Exit(2)
+		}
+	}
+	os.Exit(0)
 }
 
 // Redirect stdout to a pipe
-func testInitStdIo(t *testing.T) {
+func testInitStdIo() {
 	var r *os.File
 	oldOut = os.Stdout
 	r, pipeOut, _ = os.Pipe()
@@ -54,22 +124,36 @@ func testInitStdIo(t *testing.T) {
 	outC = make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, r); err != nil {
-			t.Errorf("failed to copy with error %v", err)
-		}
+		io.Copy(&buf, r) // nolint: errcheck
 		outC <- buf.String()
 	}()
 }
 
-func cmpStdOutput(expected, actual interface{}) error {
+// Will block waiting for data on the channel.
+func readStdOut() string {
+	pipeOut.Close() // nolint: errcheck
+	os.Stdout = oldOut
+	fmt.Println("Waiting for output")
+	return <-outC
+}
+
+func getGenericResp(_, _, msg string) Response {
+	return Response{Status: "Success", Message: msg}
+}
+
+func getFailure(_, _, msg string) Response {
+	return Response{Status: "Failure", Message: msg}
+}
+
+func cmpStdOutput(expected, got interface{}) error {
 	output := readStdOut()
-	err := json.Unmarshal([]byte(output), actual)
+	err := json.Unmarshal([]byte(output), got)
 	if err != nil {
 		return fmt.Errorf("for output %s error (%s)", output, err.Error())
 	}
 
-	if !reflect.DeepEqual(expected, actual) {
-		return fmt.Errorf("actual: %#v, expected: %#v", actual, expected)
+	if !reflect.DeepEqual(expected, got) {
+		return fmt.Errorf("got: %#v, expected: %#v", got, expected)
 	}
 
 	return nil
@@ -81,28 +165,28 @@ func TestInitCommandVer1_8(t *testing.T) {
 		Message:      "Init ok.",
 		Capabilities: &Capabilities{Attach: false}}
 
-
-	testInitStdIo(t)
-	if err := Init("1.8"); err != nil {
+	testInitStdIo()
+	if err := InitCommand(); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
 
-	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
 		t.Errorf("Failed to init. (%s)", err.Error())
 	}
 }
 
-func TestInitDefault(t *testing.T) {
-	var resp Resp
-	expectedResp := Resp{Status: "Success", Message: "Init ok."}
+func TestInitCommandDefault(t *testing.T) {
+	var gotResp Response
+	configuration.K8sVersion = "1.9"
+	expResp := getGenericResp("", "", "Init ok.")
 
 	testInitStdIo()
-	if err := GenericUnsupported("", "", "foo"); err != nil {
-		t.Errorf("Failed (%s)", err.Error())
+	if err := InitCommand(); err != nil {
+		t.Errorf("Failed to init.")
 	}
 
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
-		t.Errorf("Failed %s", err.Error())
+		t.Errorf("Failed to init (%s)", err.Error())
 	}
 }
 
@@ -151,7 +235,6 @@ func TestMountBasic(t *testing.T) {
 		if _, err = os.Stat(dir); err != nil {
 			t.Errorf("Failed directory %s not created", dir)
 		}
-		defer os.RemoveAll(dir)
 	}
 
 	// Check if credential file created & has the correct content.
@@ -182,19 +265,61 @@ func TestMountBasic(t *testing.T) {
 		t.Errorf("got: %+v, expected: %+v", gotAttrs, opts)
 	}
 
-	if err := cmpStdOutput(&expectedResp, &resp); err != nil {
-		t.Errorf("Failed to init. (%s)", err.Error())
+	// Check the response output
+	var gotResp Response
+	expResp := getGenericResp("", "", "Mount ok.")
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
 	}
 }
 
-func TestMount(t *testing.T) {
-	err := Mount("device", "opts")
-	if err != nil {
-		t.Errorf("Mount function failed.")
+func TestMountCmdMountFailure(t *testing.T) {
+	var err error
+	var mountInputs string
+	opts := FlexVolumeInputs{
+		UID:            "1111-1111-1111",
+		Name:           "foo",
+		Namespace:      "default",
+		ServiceAccount: "sa",
 	}
 
-	opts := `{"Uid": "myuid", "Nme": "myname", "Namespace": "mynamespace", "ServiceAccount": "myaccount"}`
-	err = Mount("/tmp", opts)
+	mountInputs, err = getMountInputs(&opts)
+	if err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+	envExec = []string{"RETURN_ERROR=1"}
+	defer func() { envExec = []string{} }()
+
+	testInitStdIo()
+	err = Mount("/foo/bar", mountInputs)
+	if err != nil {
+		t.Errorf("Failed. Expected error and mount command to fail")
+	}
+
+	// Check this path is not there:
+	checkPath := filepath.Join(configuration.NodeAgentWorkloadHomeDir, opts.UID)
+	if _, err := os.Stat(checkPath); err == nil {
+		t.Errorf("Mount failed but path %s still there", checkPath)
+	}
+
+	var gotResp Response
+	expResp := getFailure("", "", "Failure to mount: exit status 2")
+	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
+		t.Errorf("Failed %s", err.Error())
+	}
+}
+
+func TestMountCmdCredFailure(t *testing.T) {
+	var err error
+	var mountInputs string
+	opts := FlexVolumeInputs{
+		UID:            "1111-1111-1111",
+		Name:           "foo",
+		Namespace:      "default",
+		ServiceAccount: "sa",
+	}
+
+	mountInputs, err = getMountInputs(&opts)
 	if err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
@@ -207,7 +332,7 @@ func TestMount(t *testing.T) {
 	destDir := filepath.Join(testDir, "foo/bar")
 	testInitStdIo()
 	err = Mount(destDir, mountInputs)
-	if err == nil {
+	if err != nil {
 		t.Errorf("Failed. Expected error and mount command to fail")
 	}
 
@@ -228,8 +353,27 @@ func TestMount(t *testing.T) {
 	}
 }
 
+func getUnmountInputDir(uid string) (string, error) {
+	// Find out how many prefix to add s.t the testUID is correctly placed.
+	prefixCount := 5
+	prefixPath := strings.Split(testDir, "/")
+	if len(prefixPath) > 5 {
+		return "", fmt.Errorf("cannot create the correct test dir path temp dir prefix %d too long", len(prefixPath))
+	}
+
+	var prefix string
+	for i := 0; i < prefixCount-len(prefixPath); i++ {
+		prefix = filepath.Join(prefix, fmt.Sprintf("test%d", i))
+	}
+
+	// /tmp/testFlexvolumeDriver686209052/test0/test1/1111-1111-1111/volumes/nodeagent~uds/test-volume/nodeagent
+	// /var/lib/kubelet/pods/20154c76-bf4e-11e7-8a7e-080027631ab3/volumes/nodeagent~uds/test-volume/
+	return filepath.Join(testDir, prefix, uid, "volumes/nodeagent~uds/test-volume/nodeagent"), nil
+}
+
 func TestUnmount(t *testing.T) {
-	err := Unmount("/tmp")
+	testUID := "1111-1111-1111"
+	unmountInputDir, err := getUnmountInputDir(testUID)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -274,12 +418,12 @@ func TestUnmountInvalidDir(t *testing.T) {
 	unmountInputDir := filepath.Join(testDir, "1111-1111-1111")
 	testInitStdIo()
 	err := Unmount(unmountInputDir)
-	if err == nil {
+	if err != nil {
 		t.Errorf("Failed. Expected error and un-mount command to fail.")
 	}
 
 	var gotResp Response
-	expResp := getFailure("", "", fmt.Sprintf("Failure to notify nodeagent dir %s", unmountInputDir))
+	expResp := getFailure("", "", fmt.Sprintf("Unmount failed with dir %s", unmountInputDir))
 	if err := cmpStdOutput(&expResp, &gotResp); err != nil {
 		t.Errorf("Failed %s", err.Error())
 	}
