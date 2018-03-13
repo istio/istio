@@ -45,6 +45,60 @@
         ]
       },
       {
+        "name": "tls15005",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 15005
+          }
+        },
+        "filter_chains": [
+          {
+            "filter_chain_match": {
+              "sni_domains": []
+            },
+            "tls_context": {
+              "common_tls_context": {
+                "tls_certificates": [
+                  {
+                    "certificate_chain": {
+                      "filename": "/etc/certs/cert-chain.pem"
+                    },
+                    "private_key": {
+                      "filename": "/etc/certs/key.pem"
+                    }
+                  }
+                ],
+                "validation_context": {
+                  "trusted_ca": {
+                    "filename": "/etc/certs/root-cert.pem"
+                  }
+                }
+              },
+              "require_client_certificate": true
+            },
+            "filters": [
+              {
+                "name": "envoy.tcp_proxy",
+                "config": {
+                  "deprecated_v1": true,
+                  "value": {
+                    "stat_prefix": "tls15005",
+                    "route_config": {
+                      "routes": [
+                        {
+                          "cluster": "pilot_http"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "http15007",
         "address": {
           "socket_address": {
