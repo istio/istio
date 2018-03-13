@@ -93,14 +93,14 @@ e2e_pilot_noauth: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} -hub ${HUB} -tag ${TAG} --skip-cleanup -mixer=true -auth=disable -use-sidecar-injector=false
 
 test/minikube/auth/e2e_simple:
-	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
+	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
 test/minikube/noauth/e2e_simple:
 	mkdir -p ${OUT_DIR}/tests
-	go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
+	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
@@ -111,7 +111,7 @@ test/minikube/auth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/tests
 	kubectl create ns pilot-auth-system || true
 	kubectl create ns pilot-auth-test || true
-	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
 		--skip-cleanup --mixer=true --auth_enable=true \
 		-errorlogsdir=${OUT_DIR}/logs \
@@ -129,9 +129,9 @@ test/minikube/noauth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-system-test || true
-	kubectl create ns pilot-test || true
-	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+	kubectl create ns pilot-noauth-system || true
+	kubectl create ns pilot-noauth || true
+	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
@@ -148,9 +148,9 @@ test/minikube/auth/e2e_pilot_alpha1: istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-system-test || true
+	kubectl create ns pilot-auth-system || true
 	kubectl create ns pilot-test || true
-	go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
 		--skip-cleanup --mixer=true \
 		-errorlogsdir=${OUT_DIR}/logs \
