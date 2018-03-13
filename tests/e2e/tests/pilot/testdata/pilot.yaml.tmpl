@@ -97,6 +97,10 @@ spec:
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
+{{if .MultiCluster}}
+        - --clusterRegistriesDir
+        - /etc/istio/multicluster_config
+{{end}}
         - --rdsv2
         - "{{.RDSv2}}"
         ports:
@@ -124,6 +128,10 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+{{if .MultiCluster}}
+        - name: multicluster
+          mountPath: /etc/istio/multicluster_config
+{{end}}
 {{if .DebugPort}}
         - mountPath: "/data/debug"
           name: debug
@@ -180,4 +188,10 @@ spec:
         persistentVolumeClaim:
           claimName: pilot-debug-claim
 {{end}}
+{{if .MultiCluster}}
+      - name: multicluster
+        configMap:
+          name: multicluster
+{{end}}
+
 ---

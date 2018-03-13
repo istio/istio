@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/log"
 	testutil "istio.io/istio/tests/util"
 	"path"
+	"os"
 )
 
 const (
@@ -72,6 +73,8 @@ type Environment struct {
 	sidecarTemplate string
 
 	KubeClient [2]kubernetes.Interface
+
+	// stores the clusterregistry configuration used instead of KUBECONFIG
 	clusterStore      *clusterregistry.ClusterStore
 
 	// Directory where test data files are located.
@@ -121,6 +124,7 @@ type TemplateData struct {
 	PilotCustomConfigFile  string
 	MixerCustomConfigFile  string
 	CABundle               string
+	MultiCluster           string
 }
 
 // NewEnvironment creates a new test environment based on the configuration.
@@ -131,7 +135,6 @@ func NewEnvironment(config Config) *Environment {
 		testDataDir: "testdata/",
 		certDir:     "../../../../pilot/docker/certs/",
 		Auth:        meshconfig.MeshConfig_NONE,
-//JAJ
 		MixerCustomConfigFile: mixerConfigFile,
 		PilotCustomConfigFile: pilotConfigFile,
 	}
@@ -168,6 +171,7 @@ func (e *Environment) ToTemplateData() TemplateData {
 		CABundle:               e.CABundle,
 		RDSv2:                  e.Config.RDSv2,
 		ImagePullPolicy:        e.Config.ImagePullPolicy,
+		MultiCluster:           e.Config.ClusterRegistriesDir,
 	}
 }
 
@@ -179,7 +183,8 @@ func (e *Environment) Setup() error {
 			return err
 		}
         }
-
+	// CLusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG environment
+	// Variable.  The test config can be defined to use either a single cluster or 2 clusters
 	if e.Config.ClusterRegistriesDir != "" {
 		e.clusterStore, err = clusterregistry.ReadClusters(e.Config.ClusterRegistriesDir)
 		if e.clusterStore == nil {
@@ -193,14 +198,15 @@ func (e *Environment) Setup() error {
 			if _, e.KubeClient[0], err = kube.CreateInterface(kubeCfgFile); err != nil {
 				return err
 			}
-            // Note only a single remote cluster is currently supported.
+			// Note only a single remote cluster is currently supported.
 			clusters := e.clusterStore.GetPilotClusters()
 			for _, cluster := range clusters{
 				kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
 				e.Config.KubeConfig[1] = path.Join(e.Config.ClusterRegistriesDir, kubeconfig)
 
 				log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), e.Config.KubeConfig[1])
-				// Expecting only a single remote cluster so hard code this.
+				// Expecting only a single remote cluster so hard code this.  The code won't throw an error
+				// if more than 2 clusters are defined in the config files, but will only use the last cluster parsed.
 				if _, e.KubeClient[1], err = kube.CreateInterface(e.Config.KubeConfig[1]); err != nil {
 					return err
 				}
@@ -232,7 +238,7 @@ func (e *Environment) Setup() error {
 		}
 		// Create the namespace on the remote cluster if needed
 		if e.Config.KubeConfig[1] != "" {
-			if _, err = util.CreateNamedNamespace(e.KubeClient[1], e.Config.Namespace, e.Config.UseAutomaticInjection); err != nil { // nolint: lll
+			if _, err = util.CreateNamespaceWithName(e.KubeClient[1], e.Config.Namespace, e.Config.UseAutomaticInjection); err != nil { // nolint: lll
 				return err
 			}
 		}
@@ -301,6 +307,12 @@ func (e *Environment) Setup() error {
 		return err
 	}
 
+	if e.Config.ClusterRegistriesDir != "" {
+		if err = e.createMulticlusterConfig(); err != nil {
+			return err
+		}
+	}
+
 	if e.Config.UseAutomaticInjection {
 		// Automatic side car injection is not supported when multiple clusters are being tested.
 		if e.Config.KubeConfig[1] != "" {
@@ -340,7 +352,7 @@ func (e *Environment) Setup() error {
 		}
 	}
 
-	// JAJ probably need to augment this headless services
+	// TODO probably need to augment this headless services in the remote cluster
 	if err = deploy("headless.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
@@ -388,11 +400,7 @@ func (e *Environment) Setup() error {
 
 	nslist := []string{e.Config.IstioNamespace, e.Config.Namespace}
 	e.Apps, err = util.GetAppPods(e.KubeClient[0], e.Config.KubeConfig[0], nslist)
-		// TODO JAJ this is going to need some surgery in a couple places to get all the pods form both cluster
-		// When passing kubeClient[1] the remote pod names were returned but the status was never correct
-		// the KubeConfig is passed here to run a shell command to describe failing pods
-		// the kubeconfig passed is only valid for the base cluster additionally the shell
-		// command needs to be run on the remote cluster.   Refactor to use a kubeClient command.
+		// TODO This is going to need some surgery in a couple places to get all the pods from both cluster into a single list
 	return err
 }
 
@@ -417,14 +425,9 @@ func (e *Environment) deployApps() error {
 		return err
 	}
 	// If this is a multicluster test deploy some services on the remote cluster.
+	// TODO This is a placeholder since tests need to be written to utilize these remote pods
 	if e.Config.KubeConfig[1] != "" {
 		if err := e.deployApp("t-remote", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, true); err != nil {
-			return err
-		}
-		if err := e.deployApp("a-remote", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true); err != nil {
-			return err
-		}
-		if err := e.deployApp("b-remote", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true); err != nil {
 			return err
 		}
 	}
@@ -960,3 +963,50 @@ func (e *Environment) Fill(inFile string, values interface{}) (string, error) {
 	return out.String(), nil
 }
 
+func (e *Environment) createMulticlusterConfig() error {
+	// Although this function loops through all files in the configuration directory the tests assumes a single
+	// clusterregistry configuration file.
+
+	info, err := os.Stat(e.Config.ClusterRegistriesDir)
+	if err != nil {
+		switch err := err.(type) {
+		case *os.PathError:
+			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err.Err)
+		default:
+			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err)
+		}
+	}
+
+	if info.IsDir() {
+		if strings.Contains(e.Config.ClusterRegistriesDir, "=") {
+			return fmt.Errorf("cannot give a key name for a directory path.")
+		}
+		fileList, err := ioutil.ReadDir(e.Config.ClusterRegistriesDir)
+		if err != nil {
+			return fmt.Errorf("error listing files in %s: %v", e.Config.ClusterRegistriesDir, err)
+		}
+		var configData map[string]string
+		configData = make(map[string]string)
+		for _, item := range fileList {
+			itemPath := path.Join(e.Config.ClusterRegistriesDir, item.Name())
+			if item.Mode().IsRegular() {
+				keyName := item.Name()
+				Data, err := ioutil.ReadFile(itemPath)
+				configData[keyName] = string(Data)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if _, err = e.KubeClient[0].CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
+
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "multicluster",
+			},
+			Data: configData,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
