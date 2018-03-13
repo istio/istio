@@ -410,7 +410,7 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
+	demoApps := []framework.App{{AppYaml: getBookinfoResourcePath(bookinfoYaml),
 		KubeInject: true,
 	},
 		{AppYaml: getBookinfoResourcePath(bookinfoRatingsv2Yaml),
