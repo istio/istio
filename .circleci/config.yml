@@ -225,6 +225,11 @@ jobs:
       - run: docker images
       - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - run:
+          name: alpha1
+          when: always
+          command: |
+            make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
           name: dumpsys
           when: always
           command: |
