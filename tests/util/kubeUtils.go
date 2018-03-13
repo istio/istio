@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/golang/sync/errgroup"
+	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/istio/pkg/log"

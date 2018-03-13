@@ -460,14 +460,8 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
-      - attach_workspace:
-          at:  /go
-#      - restore_cache:
-#          keys:
-#            - test_cache_{{ checksum "/go/out/cache.stamp" }}
-      #- checkout
-      #- run: make git.pullmaster
-      #- run: make submodule-sync
+      - checkout
+      - run: make sync
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -476,11 +470,6 @@ jobs:
             make test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
-#      - save_cache:
-#          key: test_cache_{{ checksum "/go/out/cache.stamp" }}
-#          paths:
-#            - /go/pkg
-
 
   racetest:
     <<: *defaults
@@ -619,9 +608,6 @@ workflows:
           requires:
             - dependencies
       - test:
-          requires:
-            - dependencies
-            - build
       - e2e-simple:
           requires:
             - test
@@ -670,8 +656,6 @@ workflows:
           requires:
             - dependencies
       - test:
-          requires:
-            - dependencies
       - e2e-simple:
           requires:
             - build
@@ -723,8 +707,6 @@ workflows:
           requires:
             - dependencies
       - test:
-          requires:
-            - dependencies
       - codecov:
            requires:
             - build
