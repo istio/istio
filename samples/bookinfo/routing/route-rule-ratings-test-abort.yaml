@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: ratings-route
+  name: ratings
 spec:
   hosts:
   - ratings
@@ -11,11 +11,10 @@ spec:
         cookie:
           regex: "^(.*?;)?(user=jason)(;.*)?$"
     fault:
-      delay:
+      abort:
         percent: 100
-        fixedDelay: 7s
+        httpStatus: 500
   - route:
     - destination:
         name: ratings
         subset: v1
-      weight: 100

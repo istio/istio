@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: details-route
+  name: details
 spec:
   hosts:
   - details
@@ -10,4 +10,3 @@ spec:
     - destination:
         name: details
         subset: v2
-      weight: 100
