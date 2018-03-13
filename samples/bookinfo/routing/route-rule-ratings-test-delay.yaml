@@ -14,6 +14,10 @@ spec:
       delay:
         percent: 100
         fixedDelay: 7s
+    route:
+    - destination:
+        name: ratings
+        subset: v1
   - route:
     - destination:
         name: ratings
