@@ -260,7 +260,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey)
+		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
 			err = multierror.Append(err, e)
 		}
@@ -272,7 +272,7 @@ func deleteRules(ruleKeys []string) error {
 
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey)
+		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
 		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
