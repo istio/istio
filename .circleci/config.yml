@@ -252,6 +252,7 @@ jobs:
             - TEST_ENV: minikube-none
             - HUB: docker.io/dnerepo
             - TAG: dontpush
+            - SKIP_EGRESS: 1
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -275,7 +276,11 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
-      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: alpha1
+          when: always
+          command: |
+            make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -286,6 +291,57 @@ jobs:
             kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
             kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
             /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot.raw > /go/out/tests/test-report-auth-pilot.xml
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
+      - store_artifacts:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
+  # Until alpha1 is deprecated
+  e2e-pilot-auth-egress:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - run: make submodule-sync
+      - attach_workspace:
+          at:  /go
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
             /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
       - store_artifacts:
           path: /go/out/tests
@@ -647,6 +703,10 @@ workflows:
       - racetest:
           requires:
             - dependencies
+      - e2e-pilot-auth-egress:
+          requires:
+            - build
+
 
   all:
     jobs:

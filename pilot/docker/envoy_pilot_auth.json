@@ -238,6 +238,17 @@
             }
           }
         ]
+      },
+      {
+        "name": "in.15010",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:15010"
+          }
+        ]
       }
     ]
   }

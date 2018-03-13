@@ -606,6 +606,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	return nil
 }
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
+	// ServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
 			//			mock.HelloService.Hostname: mock.HelloService,
@@ -658,6 +659,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
+	envoy.V2ClearCache = envoyv2.EdsPushAll
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer, environment)
 
 	s.HTTPServer = &http.Server{

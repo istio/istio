@@ -136,6 +136,9 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
+			// Use an environment variable - this is not a common operation.
+			proxyConfig.ProxyBootstrapTemplatePath = os.Getenv("ISTIO_PROXY_CONFIG")
+
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
@@ -294,6 +297,7 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
+
 }
 
 func main() {
