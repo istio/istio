@@ -19,6 +19,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type headless struct {
@@ -36,7 +37,7 @@ func (t *headless) Setup() error {
 func (t *headless) Teardown() {
 }
 
-func (t *headless) Run() error {
+func (t *headless) Run(tt *testing.T) error {
 	if t.Auth == meshconfig.MeshConfig_MUTUAL_TLS {
 		return nil // TODO: mTLS
 	}

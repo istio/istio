@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type routingToEgress struct {
@@ -42,7 +43,7 @@ func (t *routingToEgress) Setup() error {
 	return nil
 }
 
-func (t *routingToEgress) Run() error {
+func (t *routingToEgress) Run(tt *testing.T) error {
 	// egress rules are v1alpha1
 	if !t.Config.V1alpha1 {
 		return nil

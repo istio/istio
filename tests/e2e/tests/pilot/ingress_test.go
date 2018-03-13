@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type ingress struct {
@@ -58,7 +59,7 @@ func (t *ingress) Setup() error {
 	return t.ApplyConfig("v1alpha1/rule-default-route.yaml.tmpl", nil)
 }
 
-func (t *ingress) Run() error {
+func (t *ingress) Run(tt *testing.T) error {
 	if !t.Config.Ingress {
 		log.Info("skipping test since ingress is missing")
 		return nil

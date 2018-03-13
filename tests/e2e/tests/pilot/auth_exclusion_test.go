@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type authExclusion struct {
@@ -36,7 +37,7 @@ func (r *authExclusion) Setup() error {
 
 func (r *authExclusion) Teardown() {}
 
-func (r *authExclusion) Run() error {
+func (r *authExclusion) Run(t *testing.T) error {
 	return r.makeRequests()
 }
 

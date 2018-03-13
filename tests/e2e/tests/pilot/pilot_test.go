@@ -152,7 +152,7 @@ func TestPilot(t *testing.T) {
 				}
 				defer test.Teardown()
 
-				if env.Err = test.Run(); env.Err != nil {
+				if env.Err = test.Run(t); env.Err != nil {
 					t.Error(env.Err)
 				}
 			})

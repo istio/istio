@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type routing struct {
@@ -42,7 +43,7 @@ func (t *routing) Setup() error {
 }
 
 // TODO: test negatives
-func (t *routing) Run() error {
+func (t *routing) Run(tt *testing.T) error {
 	versions := make([]string, 0)
 	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")

@@ -20,6 +20,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type tcp struct {
@@ -37,7 +38,7 @@ func (t *tcp) Setup() error {
 func (t *tcp) Teardown() {
 }
 
-func (t *tcp) Run() error {
+func (t *tcp) Run(tt *testing.T) error {
 	// TCP in Eureka is tested by the headless service test.
 	if serviceregistry.ServiceRegistry(t.Config.Registry) == serviceregistry.EurekaRegistry {
 		return nil

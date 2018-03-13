@@ -19,6 +19,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type grpc struct {
@@ -38,7 +39,7 @@ func (t *grpc) Setup() error {
 func (t *grpc) Teardown() {
 }
 
-func (t *grpc) Run() error {
+func (t *grpc) Run(tt *testing.T) error {
 	if err := t.makeRequests(); err != nil {
 		return err
 	}

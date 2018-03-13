@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type egressRules struct {
@@ -40,7 +41,7 @@ func (t *egressRules) Setup() error {
 }
 
 // TODO: test negatives
-func (t *egressRules) Run() error {
+func (t *egressRules) Run(tt *testing.T) error {
 	// egress rules are v1alpha1
 	if !t.Config.V1alpha1 {
 		return nil

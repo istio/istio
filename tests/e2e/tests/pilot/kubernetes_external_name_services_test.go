@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type kubernetesExternalNameServices struct {
@@ -40,7 +41,7 @@ func (t *kubernetesExternalNameServices) Teardown() {
 	}
 }
 
-func (t *kubernetesExternalNameServices) Run() error {
+func (t *kubernetesExternalNameServices) Run(tt *testing.T) error {
 
 	// map of source pods to test, to boolean that is true if the pod has Istio proxy
 	srcPods := map[string]bool{"a": true, "b": true, "t": false}

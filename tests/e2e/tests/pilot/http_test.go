@@ -21,6 +21,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
 type http struct {
@@ -40,7 +41,7 @@ func (r *http) Setup() error {
 func (r *http) Teardown() {
 }
 
-func (r *http) Run() error {
+func (r *http) Run(t *testing.T) error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
