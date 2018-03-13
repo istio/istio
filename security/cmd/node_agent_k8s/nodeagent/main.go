@@ -22,28 +22,32 @@ import (
 
 	"github.com/spf13/cobra"
 
-	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 	nam "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
-	wlh "istio.io/istio/security/cmd/node_agent_k8s/workloadhandler"
 )
 
 const (
-	// MgmtAPIPath is the path to call mgmt
+	// MgmtAPIPath is the path to call mgmt.
 	MgmtAPIPath string = "/tmp/udsuspver/mgmt.sock"
 
-	// WorkloadAPIUdsHome is the path for workload
+	// WorkloadAPIUdsHome is the path for workload.
 	WorkloadAPIUdsHome string = "/tmp/nodeagent"
+
+	WorkloadAPIUdsFile string = "/server.sock"
 )
 
 var (
-	// CfgMgmtAPIPath is the path for management api
+	// CfgMgmtAPIPath is the path for management api.
 	CfgMgmtAPIPath string
 
-	// CfgWldAPIUdsHome is the path for worklaod api
+	// CfgWldAPIUdsHome is the home directory for workload api.
 	CfgWldAPIUdsHome string
 
-	// RootCmd define the command for node agent
+	// CfgWldSockFile is the file name for workload api.
+	CfgWldSockFile string
+
+	// RootCmd defines the command for node agent.
 	RootCmd = &cobra.Command{
 		Use:   "nodeagent",
 		Short: "Node agent",
@@ -53,18 +57,15 @@ var (
 
 func init() {
 	RootCmd.PersistentFlags().StringVarP(&CfgMgmtAPIPath, "mgmtpath", "m", MgmtAPIPath, "Mgmt API Uds path")
-	RootCmd.PersistentFlags().StringVarP(&CfgWldAPIUdsHome, "wldpath", "w", WorkloadAPIUdsHome, "Workload API home path")
+	RootCmd.PersistentFlags().StringVarP(&CfgWldAPIUdsHome, "wldpath", "wp", WorkloadAPIUdsHome, "Workload API home path")
+	RootCmd.PersistentFlags().StringVarP(&CfgWldSockFile, "wldfile", "wf", WorkloadAPIUdsFile, "Workload API socket file name")
 }
 
 // MgmtAPI manage the api
 func MgmtAPI() {
-	// initialize the workload api.
-	wl := wlapi.NewWlAPIServer()
-	// initialize the workload api handler with the workload api.
-	wli := mwi.NewWlHandler(wl, wlh.NewServer)
-	// finally initialize the node mgmt interface with workload handler.
-	mgmtServer := nam.NewServer(CfgWldAPIUdsHome, wli)
-
+	mgmtServer := nam.NewServer(nam.ServerOptions{
+		WorkloadOpts: handler.Options{PathPrefix: CfgWldAPIUdsHome, SockFile: CfgWldSockFile, RegAPI: wlapi.RegisterGrpc},
+	})
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 	go func(s *nam.Server, c chan os.Signal) {
@@ -81,7 +82,7 @@ func main() {
 	if err := RootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
-	// Check if the base directory exisits
+	// Check if the base directory exists.
 	_, e := os.Stat(WorkloadAPIUdsHome)
 	if e != nil {
 		log.Fatalf("workloadApi directory not present (%v)", WorkloadAPIUdsHome)

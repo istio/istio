@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloadhandler
+package handler
 
 import (
 	"log"
@@ -20,20 +20,43 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
-
-	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
 	pbmgmt "istio.io/istio/security/proto"
 )
 
-// Server is the WorkloadHandler (one per workload).
-type Server struct {
+// WorkloadHandler support this given interface.
+// nodeagentmgmt invokes:
+// - Serve() as a go routine when a Workload is added.
+// - Stop() when a Workload is deleted.
+// - WaitDone() to wait for a response back from Workloadhandler
+type WorkloadHandler interface {
+	Serve()
+	Stop()
+	WaitDone()
+}
+
+// RegisterGrpcServer is used by WorkloadAPI to register itself as the grpc server.
+// It is invoked by the workload handler when it is initializing the workload socket.
+type RegisterGrpcServer func(s *grpc.Server)
+
+// Options contains the configuration for the workload service.
+type Options struct {
+	// PathPrefix is the uds path prefix for each workload service.
+	PathPrefix string
+	// Sockfile is the the uds file name for each workload service.
+	SockFile string
+	// RegAPI is the callback to invoke to connect the gRPC Server.
+	RegAPI RegisterGrpcServer
+}
+
+// handler implements the WorkloadHandler (one per workload).
+type handler struct {
 	creds    *CredInfo
 	filePath string
 	done     chan bool
-	wlS      *mwi.WlServer
+	regAPI   RegisterGrpcServer
 }
 
-// NewCreds return the new creds
+// NewCreds creates the CredInfo.
 func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 	return &CredInfo{
 		UID:            wli.Attrs.Uid,
@@ -43,21 +66,25 @@ func NewCreds(wli *pbmgmt.WorkloadInfo) *CredInfo {
 	}
 }
 
-// NewServer return the new server with default setup
-func NewServer(wli *pbmgmt.WorkloadInfo, wlS *mwi.WlServer, pathPrefix string) mwi.WorkloadMgmtInterface {
-	s := &Server{
+// NewHandler returns the new server with default setup.
+func NewHandler(wli *pbmgmt.WorkloadInfo, options Options) WorkloadHandler {
+	if options.RegAPI == nil {
+		return nil
+	}
+	s := &handler{
 		done:     make(chan bool, 1),
 		creds:    NewCreds(wli),
-		filePath: pathPrefix + "/" + wli.Attrs.Uid + wlS.SockFile,
-		wlS:      wlS,
+		filePath: options.PathPrefix + "/" + wli.Attrs.Uid + options.SockFile,
+		regAPI:   options.RegAPI,
 	}
 	return s
 }
 
 // Serve adherence to nodeagent workload management interface.
-func (s *Server) Serve() {
+func (s *handler) Serve() {
 	grpcServer := grpc.NewServer(grpc.Creds(s.GetCred()))
-	s.wlS.RegAPI(grpcServer)
+	//s.wlS.RegAPI(grpcServer)
+	s.regAPI(grpcServer)
 
 	var lis net.Listener
 	var err error
@@ -87,12 +114,12 @@ func (s *Server) Serve() {
 	_ = grpcServer.Serve(lis)
 }
 
-// Stop tell the server it should stop
-func (s *Server) Stop() {
+// Stop tells the server it should stop
+func (s *handler) Stop() {
 	s.done <- true
 }
 
-// WaitDone for the server to stop and then return
-func (s *Server) WaitDone() {
+// WaitDone notifies the handler to stop.
+func (s *handler) WaitDone() {
 	<-s.done
 }
