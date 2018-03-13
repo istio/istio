@@ -252,6 +252,7 @@ jobs:
             - TEST_ENV: minikube-none
             - HUB: docker.io/dnerepo
             - TAG: dontpush
+            - SKIP_EGRESS: 1
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -275,6 +276,7 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -285,6 +287,7 @@ jobs:
             kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
             kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
             /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot.raw > /go/out/tests/test-report-auth-pilot.xml
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
@@ -295,7 +298,7 @@ jobs:
           path: /go/out/tests
 
   # Until alpha1 is deprecated
-  e2e-pilot-auth-alpha1:
+  e2e-pilot-auth-egress:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -696,6 +699,10 @@ workflows:
       - racetest:
           requires:
             - dependencies
+      - e2e-pilot-auth-egress:
+          requires:
+            - build
+
 
   all:
     jobs:
@@ -716,9 +723,6 @@ workflows:
           requires:
             - build
       - e2e-pilot-auth:
-          requires:
-            - build
-      - e2e-pilot-auth-alpha1:
           requires:
             - build
       - e2e-simple:
