@@ -48,14 +48,14 @@ const (
 	bookinfoMysqlYaml                  = "bookinfo-mysql"
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
-	allRule                            = "route-rule-all-v1"
-	delayRule                          = "route-rule-ratings-test-delay"
-	fiftyRule                          = "route-rule-reviews-50-v3"
-	testRule                           = "route-rule-reviews-test-v2"
-	testDbRule                         = "route-rule-ratings-db"
-	testMysqlRule                      = "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = "route-rule-details-v2"
-	detailsExternalServiceEgressRule   = "egress-rule-google-apis"
+	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
+	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
+	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
 )
 
 var (
@@ -95,8 +95,8 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, routeRulesDir, rule+"."+yamlExtension))
-		dest := filepath.Join(t.rulesDir, routeRulesDir, rule)
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
