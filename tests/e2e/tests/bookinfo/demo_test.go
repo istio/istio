@@ -96,7 +96,7 @@ func (t *testConfig) Setup() error {
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-		dest := filepath.Join(t.rulesDir, rule)
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
