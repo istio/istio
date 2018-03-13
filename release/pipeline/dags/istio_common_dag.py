@@ -227,11 +227,13 @@ def MakeCommonDag(name='istio_daily_flow_test',
       task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
 
   test_command = """
-    chmod +x /home/airflow/gcs/data/githubctl
+    cp /home/airflow/gcs/data/githubctl /tmp/githubctl
+    chmod +x /tmp/githubctl
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
-    /home/airflow/gcs/data/githubctl \
+    ls -l    /tmp/githubctl
+    /tmp/githubctl \
     --token_file="{{ settings.TOKEN_FILE }}" \
     --op=dailyRelQual \
     --hub=gcr.io/{{ settings.GCR_STAGING_DEST }} \
