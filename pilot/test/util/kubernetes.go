@@ -45,27 +45,15 @@ func CreateNamespaceWithPrefixorName(cl kubernetes.Interface, prefix string, inj
 	if inject {
 		injectionValue = "enabled"
 	}
-	var err error
-	var ns *v1.Namespace
-	if namespace == "" {
-		ns, err = cl.CoreV1().Namespaces().Create(&v1.Namespace{
-			ObjectMeta: meta_v1.ObjectMeta{
-				GenerateName: prefix,
-				Labels: map[string]string{
-					"istio-injection": injectionValue,
-				},
+	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: namespace,
+			GenerateName: prefix,
+			Labels: map[string]string{
+				"istio-injection": injectionValue,
 			},
-		})
-	} else {
-		ns, err = cl.CoreV1().Namespaces().Create(&v1.Namespace{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					"istio-injection": injectionValue,
-				},
-			},
-		})
-	}
+		},
+	})
 	if err != nil {
 		return "", err
 	}

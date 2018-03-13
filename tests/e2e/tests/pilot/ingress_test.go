@@ -140,7 +140,7 @@ func (t *ingress) checkRouteRule() tutil.Status {
 
 // ensure that IPs/hostnames are in the ingress statuses
 func (t *ingress) checkIngressStatus() tutil.Status {
-	ings, err := t.KubeClient[0].ExtensionsV1beta1().Ingresses(t.Config.Namespace).List(metav1.ListOptions{})
+	ings, err := t.KubeClient.ExtensionsV1beta1().Ingresses(t.Config.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

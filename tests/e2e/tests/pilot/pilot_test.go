@@ -47,7 +47,7 @@ func init() {
 	flag.BoolVar(&config.CheckLogs, "logs", config.CheckLogs,
 		"Validate pod logs (expensive in long-running tests)")
 
-	flag.StringVar(&config.KubeConfig[0], "kubeconfig", config.KubeConfig[0],
+	flag.StringVar(&config.KubeConfig, "kubeconfig", config.KubeConfig,
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&config.TestCount, "count", config.TestCount, "Number of times to run each test")
 	flag.BoolVar(&config.Auth, "auth_enable", config.Auth, "Whether to use mTLS for all traffic within the mesh.")
@@ -102,7 +102,7 @@ func TestPilot(t *testing.T) {
 	}
 
 	// Only run the tests if the user has defined the KUBECONFIG environment variable or a cluster registry directory
-	if config.KubeConfig[0] == "" && config.ClusterRegistriesDir == "" {
+	if config.KubeConfig == "" && config.ClusterRegistriesDir == "" {
 		t.Skip("Neither Env variable KUBECONFIG nor ClusterRegistry set. Skipping tests")
 	}
 
