@@ -22,8 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	nam "istio.io/istio/security/cmd/node_agent/management"
 	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
-	nam "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	wlh "istio.io/istio/security/cmd/node_agent_k8s/workloadhandler"
 )
