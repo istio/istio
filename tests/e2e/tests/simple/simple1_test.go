@@ -60,7 +60,7 @@ var (
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if err := framework.InitLogging(); err != nil {
-		panic("cannot setup logging")
+		m.Fatal("cannot setup logging")
 	}
 	if err := setTestConfig(); err != nil {
 		log.Error("could not create TestConfig")
