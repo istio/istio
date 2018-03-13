@@ -16,7 +16,7 @@ RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
-# Allow non-root user can run envoy.
+# Allow non-root user to run envoy.
 RUN chmod 755 /usr/local/bin/envoy
 
 # The pilot-agent will bootstrap Envoy.
