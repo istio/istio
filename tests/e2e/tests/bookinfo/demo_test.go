@@ -37,7 +37,7 @@ import (
 const (
 	u1                                 = "normal-user"
 	u2                                 = "test-user"
-	bookinfoSampleDir                  = "samples/bookinfo/"
+	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
 	bookinfoYaml                       = "kube/bookinfo"
 	bookinfoRatingsv2Yaml              = "kube/bookinfo-ratings-v2"
