@@ -117,6 +117,10 @@ var (
 	clearCacheTimerSet bool
 	clearCacheMutex    sync.Mutex
 	clearCacheTime     = 1
+
+	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
+	// avoid adding a circular dependency from v1 to v2.
+	V2ClearCache func()
 )
 
 func init() {
@@ -486,6 +490,9 @@ func (ds *DiscoveryService) clearCache() {
 	ds.cdsCache.clear()
 	ds.rdsCache.clear()
 	ds.ldsCache.clear()
+	if V2ClearCache != nil {
+		V2ClearCache()
+	}
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key

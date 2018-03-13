@@ -15,39 +15,26 @@
 package v2
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"io"
+	"os"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
-	"istio.io/istio/pkg/log"
+)
+
+var (
+	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
+	// TODO: remove after events get enough testing
+	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 )
 
 const (
 	responseTickDuration  = time.Second * 15
 	unknownPeerAddressStr = "Unknown peer address"
 )
-
-// MeshDiscovery is a unified interface for Envoy's v2 xDS APIs and Pilot's older
-// data structure model.
-// For Envoy terminology: https://www.envoyproxy.io/docs/envoy/latest/api-v2/api
-// For Pilot older data structure model: istio.io/pilot/pkg/model
-//
-// Implementations of MeshDiscovery are required to be threadsafe.
-type MeshDiscovery interface {
-	// Endpoints implements EDS and returns a list of endpoints by subset for the list of supplied subsets.
-	// In Envoy's terminology a subset is service cluster.
-	Endpoints(serviceClusters []string) *xdsapi.DiscoveryResponse
-}
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
@@ -61,122 +48,30 @@ type DiscoveryServer struct {
 	Connections map[string]*EdsConnection
 }
 
-// EdsConnection represents a streaming connection from an envoy server
-type EdsConnection struct {
-}
-
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 
+	if len(periodicRefreshDuration) > 0 {
+		periodicRefresh()
+	}
+
 	return out
 }
 
-/***************************  Mesh EDS Implementation **********************************/
-// TODO: move to eds.go (separate PR for easier review of the changes)
-
-// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
-func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
+// Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
+// ( will be removed after change detection is implemented, to double check all changes are
+// captured)
+func periodicRefresh() {
+	responseTickDuration, err := time.ParseDuration(periodicRefreshDuration)
+	if err != nil {
+		return
+	}
 	ticker := time.NewTicker(responseTickDuration)
-	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := unknownPeerAddressStr
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
 	defer ticker.Stop()
-	var discReq *xdsapi.DiscoveryRequest
-	var receiveError error
-	var clusters []string
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-	go func() {
-		defer close(reqChannel)
-		for {
-			req, err := stream.Recv()
-			if err != nil {
-				if status.Code(err) == codes.Canceled || err == io.EOF {
-					return
-				}
-				receiveError = err
-				log.Errorf("EDS close for client %q terminated with errors %v", peerAddr, err)
-				return
-			}
-			reqChannel <- req
-		}
-	}()
-	for {
-		// Block until either a request is received or the ticker ticks
-		select {
-		case discReq, ok = <-reqChannel:
-			if !ok {
-				return receiveError
-			}
-			clusters2 := discReq.GetResourceNames()
-			// TODO: is it additive ? Does override ever happens ?
-			if len(clusters) > 0 && len(clusters2) > 0 {
-				log.Infof("Clusters override %v -> %v %s", clusters, clusters2, discReq.String())
-			}
-			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
-			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			// Only the first request is actually horored and processed. Pilot drains all other requests from this stream.
-			if discReq.ResponseNonce != "" {
-				log.Infof("EDS ACK %s from Envoy, existing clusters %v ",
-					discReq.String(), clusters)
-				continue
-			} else {
-				if len(clusters) > 0 {
-					log.Infof("EDS REQ %s from Envoy, existing clusters %v ",
-						discReq.String(), clusters)
-				} else {
-					log.Infof("EDS REQ %s %v", discReq.String(), peerAddr)
-				}
-			}
-			if len(clusters2) > 0 {
-				clusters = clusters2
-			}
-
-		case <-ticker.C:
-		}
-
-		if len(clusters) > 0 {
-			response := Endpoints(s.mesh, clusters)
-			err := stream.Send(response)
-			if err != nil {
-				return err
-			}
-
-			log.Infof("EDS RES for %q clusters %v, Response: \n%s %s \n", peerAddr,
-				clusters, response.String())
-		} else {
-			log.Infof("EDS empty clusters %v \n", peerAddr)
-		}
+	for range ticker.C {
+		EdsPushAll()
 	}
-}
-
-// FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
-func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	peerInfo, ok := peer.FromContext(ctx)
-	peerAddr := unknownPeerAddressStr
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-	clusters := req.GetResourceNames()
-	if len(clusters) == 0 {
-		return nil, fmt.Errorf("no clusters specified in EDS request from %q", peerAddr)
-	}
-	if log.DebugEnabled() {
-		log.Debugf("EDS request from  %q for clusters %v received.", peerAddr, clusters)
-	}
-	response := Endpoints(s.mesh, clusters)
-	if log.DebugEnabled() {
-		log.Debugf("\nEDS response from  %q for clusters %v, Response: \n%s\n\n", peerAddr, clusters, response.String())
-	}
-	return response, nil
-}
-
-// StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
-func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	// TODO: Change fake values to real load assignments
-	return errors.New("unsupported streaming method")
 }
