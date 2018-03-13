@@ -93,7 +93,7 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule, ".", yamlExtension))
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
@@ -397,7 +397,7 @@ func TestVersionMigration(t *testing.T) {
 }
 
 func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, resource, ",", yamlExtension))
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, resource+"."+yamlExtension))
 }
 
 func setTestConfig() error {
