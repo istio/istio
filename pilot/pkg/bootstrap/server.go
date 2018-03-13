@@ -208,6 +208,11 @@ func NewServer(args PilotArgs) (*Server, error) {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
 
+	// TODO: remove when no longer needed
+	if os.Getenv("PILOT_VALIDATE_CLUSTERS") == "false" {
+		envoy.ValidateClusters = false
+	}
+
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
