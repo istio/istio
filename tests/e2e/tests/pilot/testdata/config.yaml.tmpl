@@ -15,7 +15,7 @@ data:
 {{else}}
       discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15005
 {{end}}
-      discoveryRefreshDelay:  2s
+      discoveryRefreshDelay:  1s
       connectTimeout:         5s
       proxyAdminPort:         15000
       controlPlaneAuthPolicy:        {{ .Auth }}
@@ -28,7 +28,7 @@ data:
 {{end}}
     authPolicy:               {{ .Auth }}
     connectTimeout:           5s
-    rdsRefreshDelay:          4s
+    rdsRefreshDelay:          1s
     disablePolicyChecks:      false
     ingressClass:             {{.IstioNamespace}}
     ingressControllerMode:    STRICT

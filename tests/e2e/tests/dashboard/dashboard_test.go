@@ -220,6 +220,9 @@ func mixerQueryFilterFn(queries []string) []string {
 func pilotQueryFilterFn(queries []string) []string {
 	filtered := make([]string, 0, len(queries))
 	for _, query := range queries {
+		if strings.Contains(query, "cache_name") && strings.Contains(query, "sds") {
+			continue
+		}
 		if strings.Contains(query, "_rq_5xx") {
 			continue
 		}

@@ -18,6 +18,7 @@ package pilot
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -41,6 +42,9 @@ func (t *egressRules) Setup() error {
 
 // TODO: test negatives
 func (t *egressRules) Run() error {
+	if os.Getenv("SKIP_EGRESS") != "" {
+		return nil
+	}
 	// egress rules are v1alpha1
 	if !t.Config.V1alpha1 {
 		return nil
