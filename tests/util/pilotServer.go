@@ -15,7 +15,6 @@
 package util
 
 import (
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -55,7 +54,10 @@ func EnsureTestServer() *bootstrap.Server {
 }
 
 func setup() error {
-	fsRoot = createTempDir()
+	// TODO: point to test data directory
+	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
+	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
+	// This limits the options -
 	stop = make(chan struct{})
 
 	// Create a test pilot discovery service configured to watch the tempDir.
@@ -66,17 +68,19 @@ func setup() error {
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,
+			MonitoringPort:  9093,
 		},
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
-			FileDir: fsRoot,
+			KubeConfig: IstioSrc + "/.circleci/config",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
-			Registries: []string{string(bootstrap.MockRegistry)},
+			Registries: []string{
+				string(bootstrap.MockRegistry)},
 		},
 	}
 
@@ -117,11 +121,4 @@ func Teardown() {
 
 	// Remove the temp dir.
 	_ = os.RemoveAll(fsRoot)
-}
-
-func createTempDir() string {
-	// Make the temporary directory
-	dir, _ := ioutil.TempDir("/tmp/", "monitor")
-	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
-	return dir
 }

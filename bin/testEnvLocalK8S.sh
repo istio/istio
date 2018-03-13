@@ -13,6 +13,7 @@ export ISTIO_GO=${TOP}/src/istio.io/istio
 export GOPATH=${TOP}
 export PATH=${GOPATH}/bin:${PATH}
 export OUT=${TOP}/out
+export ISTIO_OUT=${ISTIO_OUT:-${TOP}/out/linux_amd64/release}
 
 # components used in the test (starting with circleci for consistency, eventually ci will use this)
 export K8S_VER=${K8S_VER:-v1.9.2}
@@ -114,12 +115,52 @@ function startLocalApiserver() {
     echo "Started local etcd and apiserver !"
 }
 
+function startIstio() {
+    ensureLocalApiServer
+    startPilot
+    startEnvoy
+    startMixer
+}
+
+function stopIstio() {
+  if [[ -f $LOG_DIR/pilot.pid ]] ; then
+    kill -9 $(cat $LOG_DIR/pilot.pid)
+    kill -9 $(cat $LOG_DIR/mixer.pid)
+    kill -9 $(cat $LOG_DIR/envoy4.pid)
+    rm $LOG_DIR/{pilot,mixer,envoy4}.pid
+  fi
+}
+
+function startPilot() {
+  POD_NAME=pilot POD_NAMESPACE=istio-system ${ISTIO_OUT}/pilot-discovery discovery \
+    -n default --kubeconfig .circleci/config &
+  echo $! > $LOG_DIR/pilot.pid
+}
+
+function startMixer() {
+  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
+    --kubeconfig .circleci/config &
+  echo $! > $LOG_DIR/mixer.pid
+}
+
+function startEnvoy() {
+    ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local.json \
+        --base-id 4 --service-cluster unittest --service-node local.test
+  echo $! > $LOG_DIR/envoy4.pid
+}
+
 function stopLocalApiserver() {
   if [[ -f $LOG_DIR/etcd.pid ]] ; then
     kill -9 $(cat $LOG_DIR/etcd.pid)
     kill -9 $(cat $LOG_DIR/apiserver.pid)
     rm $LOG_DIR/{etcd,apiserver}.pid
   fi
+}
+
+function startLocalServers() {
+    startLocalApiserver
+    startPilot
+    startEnvoy
 }
 
 function ensureLocalApiserver() {
@@ -130,6 +171,8 @@ CMD=${1:-help}
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;
+    startIstio) startIstio ;;
+    stopIstio) stopIstio ;;
     ensure) ensureLocalApiserver ;;
     *) echo "start stop ensure"
 esac
