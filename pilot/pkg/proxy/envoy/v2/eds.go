@@ -389,9 +389,11 @@ func EdsPushAll() {
 
 	for clusterName, edsCluster := range tmpMap {
 		updateCluster(clusterName, edsCluster)
+		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
 			edsCon.pushChannel <- true
 		}
+		edsCluster.mutex.Unlock()
 	}
 }
 
