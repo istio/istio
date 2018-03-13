@@ -296,7 +296,7 @@ type versionRoutingRule struct {
 
 func TestVersionRouting(t *testing.T) {
 	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
 	var rules = []versionRoutingRule{
 		{key: testRule,
@@ -309,7 +309,7 @@ func TestVersionRouting(t *testing.T) {
 				{
 					user:    u2,
 					version: "v2",
-					model:   v2Model,
+					model:   v2TestModel,
 				},
 			},
 		},
