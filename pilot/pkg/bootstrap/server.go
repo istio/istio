@@ -76,9 +76,9 @@ const (
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
-	// CloudFoundry CopilotClient timeout
+	// CopilotTimeout when to cancel remote gRPC call to copilot
 	CopilotTimeout = 5 * time.Second
-	// Config snapshot filepath walk interval
+	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
 )
 
