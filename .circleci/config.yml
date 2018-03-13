@@ -607,7 +607,7 @@ workflows:
       - build:
           requires:
             - dependencies
-      - test:
+      - test
       - e2e-simple:
           requires:
             - test
@@ -655,7 +655,7 @@ workflows:
       - build:
           requires:
             - dependencies
-      - test:
+      - test
       - e2e-simple:
           requires:
             - build
@@ -706,7 +706,7 @@ workflows:
       - build:
           requires:
             - dependencies
-      - test:
+      - test
       - codecov:
            requires:
             - build
