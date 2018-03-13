@@ -19,8 +19,9 @@ package pilot
 import (
 	"fmt"
 
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 	"testing"
+
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 type authExclusion struct {

@@ -17,9 +17,10 @@ package pilot
 import (
 	"fmt"
 
+	"testing"
+
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
-	"testing"
 )
 
 type kubernetesExternalNameServices struct {

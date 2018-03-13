@@ -20,10 +20,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"testing"
+
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
-	"testing"
 )
 
 type ingress struct {

@@ -21,8 +21,9 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 	"testing"
+
+	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
 const (

@@ -161,3 +161,22 @@ test/minikube/auth/e2e_pilot_alpha1: istioctl
         --ns pilot-auth-system \
         -n pilot-test \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
+
+# Target for running e2e pilot in a minikube env. Used by CI
+test/minikube/noauth/e2e_pilot_alpha1: istioctl
+	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${OUT_DIR}/tests
+	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
+	kubectl create ns pilot-auth-system || true
+	kubectl create ns pilot-test || true
+	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+		-hub ${HUB} -tag ${TAG} \
+		--skip-cleanup --mixer=true \
+		-errorlogsdir=${OUT_DIR}/logs \
+		--use-sidecar-injector=false \
+		--auth_enable=false \
+		-v1alpha3=false -v1alpha1=true \
+		--core-files-dir=${OUT_DIR}/logs \
+        --ns pilot-auth-system \
+        -n pilot-test \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot-v1.raw
