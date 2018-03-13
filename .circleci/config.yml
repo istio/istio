@@ -507,30 +507,16 @@ jobs:
     <<: *defaults
     resource_class: xlarge
     steps:
-      - attach_workspace:
-          at:  /go
-#      - restore_cache:
-#          keys:
-#            - build_cache_{{ checksum "/go/out/cache.stamp" }}
-      #- checkout
-      #- run: make git.pullmaster
-      #- run: make submodule-sync
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            make build test-bins /go/bin/go-junit-report
+      - checkout
+      - run: make sync
+      - run: make build test-bins /go/bin/go-junit-report
       - persist_to_workspace:
           root: /go
           paths:
-            # pkg may include 'dep'
             - pkg/linux_amd64
             - bin
             - out
       - run:  make sidecar.deb
-#      - save_cache:
-#          key: build_cache_{{ checksum "/go/out/cache.stamp" }}
-#          paths:
-#            - /go/pkg
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
@@ -540,19 +526,9 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
-      - attach_workspace:
-          at:  /go
-#      - restore_cache:
-#          keys:
-#            - lint_cache_{{ checksum "/go/out/cache.stamp" }}
-
-      #- checkout
-      #- run: make submodule-sync
+      - checkout
+      - run: make sync
       - run: make lint
-#      - save_cache:
-#          key: lint_cache_{{ checksum "/go/out/cache.stamp" }}
-#          paths:
-#            - /go/pkg
 
   nightly:
     <<: *defaults
@@ -604,9 +580,7 @@ workflows:
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - dependencies
-      - build:
-          requires:
-            - dependencies
+      - build
       - test
       - e2e-simple:
           requires:
@@ -652,9 +626,7 @@ workflows:
     jobs:
       - depupdate
       - dependencies
-      - build:
-          requires:
-            - dependencies
+      - build
       - test
       - e2e-simple:
           requires:
@@ -686,9 +658,7 @@ workflows:
     jobs:
       - depupdate
       - dependencies
-      - build:
-          requires:
-            - dependencies
+      - build
       - racetest:
           requires:
             - dependencies
@@ -700,12 +670,8 @@ workflows:
   all:
     jobs:
       - dependencies
-      - lint:
-          requires:
-            - dependencies
-      - build:
-          requires:
-            - dependencies
+      - lint
+      - build
       - test
       - codecov:
            requires:
