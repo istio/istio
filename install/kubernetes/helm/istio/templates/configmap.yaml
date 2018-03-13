@@ -28,8 +28,8 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
-    mixerCheckServer: istio-mixer-check.{{ .Release.Namespace }}:15004
-    mixerReportServer: istio-mixer-report.{{ .Release.Namespace }}:15004
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     #

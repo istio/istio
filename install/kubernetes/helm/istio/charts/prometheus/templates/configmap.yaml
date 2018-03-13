@@ -24,7 +24,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer-report;prometheus
+        regex: {{ .Release.Namespace }};istio-telemetry;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -52,7 +52,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer-check;http-monitoring
+        regex: {{ .Release.Namespace }};istio-policy;http-monitoring
 
     - job_name: 'mixer-report'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -66,7 +66,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer-report;http-monitoring
+        regex: {{ .Release.Namespace }};istio-telemetry;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
