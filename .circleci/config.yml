@@ -372,9 +372,6 @@ jobs:
       - attach_workspace:
           at:  /go
       - run: bin/testEnvRootMinikube.sh start
-#      - restore_cache:
-#          keys:
-#            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
