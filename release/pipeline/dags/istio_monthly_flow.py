@@ -33,7 +33,7 @@ monthly_release_template = """
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
 gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
 gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
-chmod +x *
+chmod u+x *
 ./start_gcb_publish.sh \
 -p "{{ settings.RELEASE_PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
@@ -54,7 +54,7 @@ daily_release_tag_github_template = """
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
 gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
 gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
-chmod +x *
+chmod u+x *
 ./start_gcb_tag.sh \
 -p "{{ settings.RELEASE_PROJECT_ID }}" \
 -h "{{ settings.GITHUB_ORG }}" -a "{{ settings.SVC_ACCT }}"  \
