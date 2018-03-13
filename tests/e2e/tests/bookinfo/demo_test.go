@@ -38,21 +38,22 @@ const (
 	u1                                 = "normal-user"
 	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo/"
-	bookinfoYaml                       = "kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml              = "kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml           = "kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml                     = "kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml                  = "kube/bookinfo-mysql.yaml"
-	bookinfoDetailsExternalServiceYaml = "kube/bookinfo-details-v2.yaml"
+	yamlExtension                      = "yaml"
+	bookinfoYaml                       = "kube/bookinfo"
+	bookinfoRatingsv2Yaml              = "kube/bookinfo-ratings-v2"
+	bookinfoRatingsMysqlYaml           = "kube/bookinfo-ratings-v2-mysql"
+	bookinfoDbYaml                     = "kube/bookinfo-db"
+	bookinfoMysqlYaml                  = "kube/bookinfo-mysql"
+	bookinfoDetailsExternalServiceYaml = "kube/bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
-	allRule                            = "kube/route-rule-all-v1.yaml"
-	delayRule                          = "kube/route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = "kube/route-rule-reviews-50-v3.yaml"
-	testRule                           = "kube/route-rule-reviews-test-v2.yaml"
-	testDbRule                         = "kube/route-rule-ratings-db.yaml"
-	testMysqlRule                      = "kube/route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = "kube/route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "kube/egress-rule-google-apis.yaml"
+	allRule                            = "kube/route-rule-all-v1"
+	delayRule                          = "kube/route-rule-ratings-test-delay"
+	fiftyRule                          = "kube/route-rule-reviews-50-v3"
+	testRule                           = "kube/route-rule-reviews-test-v2"
+	testDbRule                         = "kube/route-rule-ratings-db"
+	testMysqlRule                      = "kube/route-rule-ratings-mysql"
+	detailsExternalServiceRouteRule    = "kube/route-rule-details-v2"
+	detailsExternalServiceEgressRule   = "kube/egress-rule-google-apis"
 )
 
 var (
@@ -92,7 +93,7 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule))
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule, ".", yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
@@ -396,7 +397,7 @@ func TestVersionMigration(t *testing.T) {
 }
 
 func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, resource))
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, resource, ",", yamlExtension))
 }
 
 func setTestConfig() error {
