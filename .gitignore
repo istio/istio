@@ -29,6 +29,7 @@
 *.app
 
 .idea/
+.project
 
 # Bazel
 /bazel-*

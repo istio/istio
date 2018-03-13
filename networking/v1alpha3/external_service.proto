@@ -52,10 +52,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: tls-example
 //     spec:
-//       destination:
-//         name: example.com
-//       tls:
-//         mode: simple # initiates HTTPS when talking to example.com
+//       name: example.com
+//       trafficPolicy:
+//         tls:
+//           mode: SIMPLE # initiates HTTPS when talking to example.com
 //
 // The following specification specifies a static set of backend nodes for
 // a MongoDB cluster behind a set of virtual IPs, and sets up a destination
@@ -84,13 +84,13 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: mtls-mongocluster
 //     spec:
-//       destination:
-//         name: 192.192.192.192/24
-//       tls:
-//         mode: mutual
-//         clientCertificate: /etc/certs/myclientcert.pem
-//         privateKey: /etc/certs/client_private_key.pem
-//         caCertificates: /etc/certs/rootcacerts.pem
+//       name: 192.192.192.192/24
+//       trafficPolicy:
+//         tls:
+//           mode: MUTUAL
+//           clientCertificate: /etc/certs/myclientcert.pem
+//           privateKey: /etc/certs/client_private_key.pem
+//           caCertificates: /etc/certs/rootcacerts.pem
 //
 // The following example demonstrates the use of wildcards in the hosts. If
 // the connection has to be routed to the IP address requested by the
@@ -148,10 +148,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: tls-foobar
 //     spec:
-//       destination:
-//         name: foo.bar.com
-//       tls:
-//         mode: simple # initiates HTTPS
+//       name: foo.bar.com
+//       trafficPolicy:
+//         tls:
+//           mode: SIMPLE # initiates HTTPS
 //
 // With HTTP_PROXY=http://localhost:443, calls from the application to
 // http://foo.bar.com will be upgraded to HTTPS and load balanced across

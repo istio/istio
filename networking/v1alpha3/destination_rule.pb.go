@@ -546,8 +546,7 @@ func (m *LoadBalancerSettings_ConsistentHashLB) GetMinimumRingSize() uint32 {
 //     metadata:
 //       name: bookinfo-redis
 //     spec:
-//       destination:
-//         name: myredissrv
+//       name: myredissrv
 //       trafficPolicy:
 //         connectionPool:
 //           tcp:
@@ -678,8 +677,7 @@ func (m *ConnectionPoolSettings_HTTPSettings) GetMaxRetries() int32 {
 //     metadata:
 //       name: reviews-cb-policy
 //     spec:
-//       destination:
-//         name: reviews
+//       name: reviews
 //       trafficPolicy:
 //         connectionPool:
 //           tcp:
@@ -776,13 +774,13 @@ func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
 //     metadata:
 //       name: db-mtls
 //     spec:
-//       destination:
-//         name: mydbserver
-//       tls:
-//         mode: MUTUAL
-//         clientCertificate: /etc/certs/myclientcert.pem
-//         privateKey: /etc/certs/client_private_key.pem
-//         caCertificates: /etc/certs/rootcacerts.pem
+//       name: mydbserver
+//       trafficPolicy:
+//         tls:
+//           mode: MUTUAL
+//           clientCertificate: /etc/certs/myclientcert.pem
+//           privateKey: /etc/certs/client_private_key.pem
+//           caCertificates: /etc/certs/rootcacerts.pem
 //
 // The following rule configures a client to use TLS when talking to a foreign service whose domain matches *.foo.com.
 //
@@ -791,10 +789,10 @@ func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
 //     metadata:
 //       name: tls-foo
 //     spec:
-//       destination:
-//         name: *.foo.com
-//       tls:
-//         mode: SIMPLE
+//       name: *.foo.com
+//       trafficPolicy:
+//         tls:
+//           mode: SIMPLE
 //
 type TLSSettings struct {
 	// REQUIRED: Indicates whether connections to this port should be secured
