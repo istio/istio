@@ -76,6 +76,10 @@ const (
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+	// CloudFoundry CopilotClient timeout
+	CopilotTimeout = 5 * time.Second
+	// Config snapshot filepath walk interval
+	FilepathWalkInterval = 100 * time.Millisecond
 )
 
 var (
@@ -424,64 +428,90 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	var configController model.ConfigStoreCache
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
-		configController = memory.NewController(store)
-		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
-		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadConfigFiles)
+		configController := memory.NewController(store)
 
-		// Defer starting the file monitor until after the service is created.
-		s.addStartFunc(func(stop chan struct{}) error {
-			fileMonitor.Start(stop)
-			return nil
-		})
+		err := s.makeFileMonitor(args, configController)
+		if err != nil {
+			return err
+		}
 
 		if args.Config.CFConfig != "" {
-			// create copilot client
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			err = s.makeCopilotMonitor(args, configController)
 			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
+				return err
 			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-
-			copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"})
-			copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
-
-			s.addStartFunc(func(stop chan struct{}) error {
-				copilotMonitor.Start(stop)
-				return nil
-			})
 		}
 
+		s.configController = configController
 	} else {
-		kubeCfgFile := s.getKubeCfgFile(args)
-		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
-			args.Config.ControllerOptions.DomainSuffix)
+		controller, err := s.makeKubeConfigController(args)
 		if err != nil {
-			return multierror.Prefix(err, "failed to open a config client.")
+			return err
 		}
 
-		if err = configClient.RegisterResources(); err != nil {
-			return multierror.Prefix(err, "failed to register custom resources.")
-		}
-
-		configController = crd.NewController(configClient, args.Config.ControllerOptions)
+		s.configController = controller
 	}
 
 	// Defer starting the controller until after the service is created.
-	s.configController = configController
 	s.addStartFunc(func(stop chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
+
+	return nil
+}
+
+func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+	kubeCfgFile := s.getKubeCfgFile(args)
+	configClient, err := crd.NewClient(kubeCfgFile, configDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to open a config client.")
+	}
+
+	if err = configClient.RegisterResources(); err != nil {
+		return nil, multierror.Prefix(err, "failed to register custom resources.")
+	}
+
+	return crd.NewController(configClient, args.Config.ControllerOptions), nil
+}
+
+func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStoreCache) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+
+	// Defer starting the file monitor until after the service is created.
+	s.addStartFunc(func(stop chan struct{}) error {
+		fileMonitor.Start(stop)
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStoreCache) error {
+	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+	if err != nil {
+		return multierror.Prefix(err, "loading cloud foundry config")
+	}
+	tlsConfig, err := cfConfig.ClientTLSConfig()
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client tls config")
+	}
+	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client")
+	}
+
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"}, CopilotTimeout)
+	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
+
+	s.addStartFunc(func(stop chan struct{}) error {
+		copilotMonitor.Start(stop)
+		return nil
+	})
+
 	return nil
 }
 

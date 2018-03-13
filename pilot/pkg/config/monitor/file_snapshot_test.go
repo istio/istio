@@ -96,9 +96,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
 
-	routeRule := configs[0].Spec.(*networking.VirtualService)
-	g.Expect(routeRule.Hosts).To(gomega.Equal([]string{"some.example.com"}))
-	virtualService := configs[0].Spec.(*v3routing.VirtualService)
+	virtualService := configs[0].Spec.(*networking.VirtualService)
 	g.Expect(virtualService.Hosts).To(gomega.Equal([]string{"some.example.com"}))
 }
 

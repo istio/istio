@@ -17,13 +17,14 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
+	networking "istio.io/api/networking/v1alpha3"
 
-	v2routing "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
@@ -37,32 +38,37 @@ type CopilotSnapshot struct {
 	store             model.ConfigStore
 	client            CopilotClient
 	hostnameBlacklist []string
+	timeout           time.Duration
+	virtualServices   map[string]*model.Config
 }
 
 // NewCopilotSnapshot returns a CopilotSnapshot used for integration with Cloud Foundry.
 // The store is required to discover any existing gateways: the generated config will reference those gateways
 // The client is used to discover Cloud Foundry Routes from Copilot
 // The snapshot will not return routes for any hostnames which end with strings on the hostnameBlacklist
-func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, hostnameBlacklist []string) *CopilotSnapshot {
+func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, hostnameBlacklist []string, timeout time.Duration) *CopilotSnapshot {
 	return &CopilotSnapshot{
 		store:             store,
 		client:            client,
 		hostnameBlacklist: hostnameBlacklist,
+		timeout:           timeout,
+		virtualServices:   make(map[string]*model.Config),
 	}
 }
 
 // ReadConfigFiles returns a complete set of VirtualServices for all Cloud Foundry routes known to Copilot.
 // It may be used for the getSnapshotFunc when constructing a NewMonitor
 func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
-	resp, err := c.client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	resp, err := c.client.Routes(ctx, new(copilotapi.RoutesRequest))
 	if err != nil {
-		log.Warnf("Error connecting to copilot: %v", err)
 		return nil, err
 	}
 
 	gateways, err := c.store.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
-		log.Warnf("Error connecting to data store: %v", err)
 		return nil, err
 	}
 
@@ -71,7 +77,49 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
-	var virtualServices []*model.Config
+	filteredCopilotHostnames := c.removeBlacklistedHostnames(resp)
+
+	for _, hostname := range filteredCopilotHostnames {
+		if _, ok := c.virtualServices[hostname]; ok {
+			continue
+		}
+
+		c.virtualServices[hostname] = &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.VirtualService.Type,
+				Version: model.VirtualService.Version,
+				Name:    fmt.Sprintf("route-for-%s", hostname),
+			},
+			Spec: &networking.VirtualService{
+				Gateways: gatewayNames,
+				Hosts:    []string{hostname},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.DestinationWeight{
+							{
+								Destination: &networking.Destination{
+									Name: hostname,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	var cachedHostnames sort.StringSlice
+	for hostname := range c.virtualServices {
+		cachedHostnames = append(cachedHostnames, hostname)
+	}
+
+	cachedHostnames.Sort()
+
+	return c.collectVirtualServices(cachedHostnames, resp), nil
+}
+
+func (c *CopilotSnapshot) removeBlacklistedHostnames(resp *copilotapi.RoutesResponse) []string {
+	var filteredHostnames []string
 	for hostname := range resp.Backends {
 		var blacklisted bool
 
@@ -86,30 +134,22 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 			continue
 		}
 
-		config := &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.VirtualService.Type,
-				Version: model.VirtualService.Version,
-				Name:    fmt.Sprintf("route-for-%s", hostname),
-			},
-			Spec: &v2routing.VirtualService{
-				Gateways: gatewayNames,
-				Hosts:    []string{hostname},
-				Http: []*v2routing.HTTPRoute{
-					{
-						Route: []*v2routing.DestinationWeight{
-							{
-								Destination: &v2routing.Destination{
-									Name: hostname,
-								},
-							},
-						},
-					},
-				},
-			},
+		filteredHostnames = append(filteredHostnames, hostname)
+	}
+
+	return filteredHostnames
+}
+
+func (c *CopilotSnapshot) collectVirtualServices(cachedHostnames sort.StringSlice, resp *copilotapi.RoutesResponse) []*model.Config {
+	var virtualServices []*model.Config
+	for _, hostname := range cachedHostnames {
+		if _, ok := resp.Backends[hostname]; !ok {
+			delete(c.virtualServices, hostname)
+			continue
 		}
 
-		virtualServices = append(virtualServices, config)
+		virtualServices = append(virtualServices, c.virtualServices[hostname])
 	}
-	return virtualServices, nil
+
+	return virtualServices
 }

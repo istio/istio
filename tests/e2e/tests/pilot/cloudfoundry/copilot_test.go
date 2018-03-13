@@ -65,7 +65,7 @@ func pilotURL(path string) string {
 }
 
 var gatewayConfig = fmt.Sprintf(`
-apiVersion: config.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cloudfoundry-ingress
