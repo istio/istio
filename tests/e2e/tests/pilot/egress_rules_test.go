@@ -18,6 +18,7 @@ package pilot
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -41,6 +42,13 @@ func (t *egressRules) Setup() error {
 
 // TODO: test negatives
 func (t *egressRules) Run() error {
+	if os.Getenv("SKIP_EGRESS") != "" {
+		return nil
+	}
+	// egress rules are v1alpha1
+	if !t.Config.V1alpha1 {
+		return nil
+	}
 	cases := []struct {
 		description string
 		config      string
@@ -68,16 +76,22 @@ func (t *egressRules) Run() error {
 			},
 		},
 		{
-			description: "allow external http2 traffic to nghttp2.org",
-			config:      "v1alpha1/egress-rule-nghttp2.yaml.tmpl",
+			description: "allow external http2 traffic to google.com",
+			config:      "v1alpha1/egress-rule-google.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://nghttp2.org", true)
+				// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
+				// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
+				// If the application uses TLS, then no metrics will be collected for the request.
+				return t.verifyReachable("http://www.google.com:443", true)
 			},
 		},
 		{
 			description: "prohibit https to httbin.org",
 			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
+				// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
+				// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
+				// If the application uses TLS, then no metrics will be collected for the request.
 				return t.verifyReachable("http://httpbin.org:443/headers", false)
 			},
 		},

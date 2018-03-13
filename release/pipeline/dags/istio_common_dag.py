@@ -126,7 +126,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
         minor=minor_version,
         patch=patch,
         date=date.strftime('%Y%m%d'),
-        rc=date.strftime('%H-%M-%S'))
+        rc=date.strftime('%H-%M'))
     config_settings = dict(VERSION=default_conf['VERSION'])
     config_settings_name = [
         'PROJECT_ID',

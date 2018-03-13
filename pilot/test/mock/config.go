@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -514,7 +513,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(60 * time.Second)
 	added, deleted := 0, 0
 	for {
 		select {
@@ -536,8 +535,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 // CheckCacheFreshness validates operational invariants of a cache
 func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *testing.T) {
 	stop := make(chan struct{})
-	var doneMu sync.Mutex
-	done := false
+	done := make(chan bool)
 	o := Make(namespace, 0)
 
 	// validate cache consistency
@@ -577,9 +575,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			}
 			log.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
-			doneMu.Lock()
-			done = true
-			doneMu.Unlock()
+			done <- true
 		}
 	})
 
@@ -596,11 +592,13 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 		t.Error(err)
 	}
 
-	util.Eventually(func() bool {
-		doneMu.Lock()
-		defer doneMu.Unlock()
-		return done
-	}, t)
+	timeout := time.After(10 * time.Second)
+	select {
+	case <-timeout:
+		t.Fatalf("timeout waiting to be done")
+	case <-done:
+		return
+	}
 }
 
 // CheckCacheSync validates operational invariants of a cache against the
@@ -619,7 +617,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	stop := make(chan struct{})
 	defer close(stop)
 	go cache.Run(stop)
-	util.Eventually(func() bool { return cache.HasSynced() }, t)
+	util.Eventually("HasSynced", cache.HasSynced, t)
 	os, _ := cache.List(model.MockConfig.Type, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
@@ -633,7 +631,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check again in the controller cache
-	util.Eventually(func() bool {
+	util.Eventually("no elements in cache", func() bool {
 		os, _ = cache.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
@@ -647,7 +645,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check directly through the client
-	util.Eventually(func() bool {
+	util.Eventually("cache and backing store match", func() bool {
 		cs, _ := cache.List(model.MockConfig.Type, namespace)
 		os, _ := store.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)

@@ -43,6 +43,10 @@ func (t *routingToEgress) Setup() error {
 }
 
 func (t *routingToEgress) Run() error {
+	// egress rules are v1alpha1
+	if !t.Config.V1alpha1 {
+		return nil
+	}
 	cases := []struct {
 		description   string
 		configEgress  []string
@@ -74,14 +78,14 @@ func (t *routingToEgress) Run() error {
 			},
 		},
 		{
-			description:   "inject a http fault in traffic to nghttp2.org",
-			configEgress:  []string{"v1alpha1/egress-rule-nghttp2.yaml.tmpl"},
+			description:   "inject a http fault in traffic to google.com",
+			configEgress:  []string{"v1alpha1/egress-rule-google.yaml.tmpl"},
 			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingData: map[string]string{
-				"service": "nghttp2.org",
+				"service": "*google.com",
 			},
 			check: func() error {
-				return t.verifyFaultInjectionByResponseCode("a", "http://nghttp2.org", 418)
+				return t.verifyFaultInjectionByResponseCode("a", "http://www.google.com:443", 418)
 			},
 		},
 		// Append Headers
@@ -142,17 +146,17 @@ func (t *routingToEgress) Run() error {
 			},
 		},
 		{
-			description:   "redirect traffic from nghttp2.org/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-nghttp2.yaml.tmpl", "v1alpha1/egress-rule-httpbin.yaml.tmpl"},
+			description:   "redirect traffic from google.com/post to httpbin.org/get",
+			configEgress:  []string{"v1alpha1/egress-rule-google.yaml.tmpl", "v1alpha1/egress-rule-httpbin.yaml.tmpl"},
 			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingData: map[string]string{
-				"service":   "nghttp2.org",
+				"service":   "*google.com",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
 			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://nghttp2.org/post", "httpbin.org", "/get")
+				return t.verifyEgressRedirectRewrite("a", "http://www.google.com:443/post", "httpbin.org", "/get")
 			},
 		},
 		// Rewrite

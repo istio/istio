@@ -11,12 +11,12 @@ data:
       drainDuration:          2s
       parentShutdownDuration: 3s
 {{if eq .Auth.String "NONE"}}
-      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15007
+      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:8080
 {{else}}
       discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15005
 {{end}}
       discoveryRefreshDelay:  1s
-      connectTimeout:         1s
+      connectTimeout:         5s
       proxyAdminPort:         15000
       controlPlaneAuthPolicy:        {{ .Auth }}
 {{if .Zipkin}}
@@ -27,7 +27,7 @@ data:
     mixerReportServer:        istio-mixer.{{.IstioNamespace}}:15004
 {{end}}
     authPolicy:               {{ .Auth }}
-    connectTimeout:           1s
+    connectTimeout:           5s
     rdsRefreshDelay:          1s
     disablePolicyChecks:      false
     ingressClass:             {{.IstioNamespace}}

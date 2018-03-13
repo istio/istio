@@ -281,7 +281,7 @@ func createTestModel(t *testing.T, inputFDS string) (*Model, error) {
 
 	}
 
-	parser, _ := CreateFileDescriptorSetParser(fds, map[string]string{}, "")
+	parser := CreateFileDescriptorSetParser(fds, map[string]string{}, "")
 	return Create(parser)
 }
 
