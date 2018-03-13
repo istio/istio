@@ -37,22 +37,22 @@ import (
 const (
 	u1                                 = "normal-user"
 	u2                                 = "test-user"
-	bookinfoYaml                       = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml              = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml           = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml                     = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml                  = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	bookinfoDetailsExternalServiceYaml = "samples/bookinfo/kube/bookinfo-details-v2.yaml"
+	bookinfoSampleDir                  = "samples/bookinfo"
+	bookinfoYaml                       = bookinfoSampleDir + "/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml              = bookinfoSampleDir + "/kube/bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml           = bookinfoSampleDir + "/kube/bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml                     = bookinfoSampleDir + "/kube/bookinfo-db.yaml"
+	bookinfoMysqlYaml                  = bookinfoSampleDir + "/kube/bookinfo-mysql.yaml"
+	bookinfoDetailsExternalServiceYaml = bookinfoSampleDir + "/kube/bookinfo-details-v2.yaml"
 	modelDir                           = "tests/apps/bookinfo/output"
-	rulesDir                           = "samples/bookinfo/kube"
-	allRule                            = "route-rule-all-v1.yaml"
-	delayRule                          = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
-	testRule                           = "route-rule-reviews-test-v2.yaml"
-	testDbRule                         = "route-rule-ratings-db.yaml"
-	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
+	allRule                            = bookinfoSampleDir + "/kube/route-rule-all-v1.yaml"
+	delayRule                          = bookinfoSampleDir + "/kube/route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = bookinfoSampleDir + "/kube/route-rule-reviews-50-v3.yaml"
+	testRule                           = bookinfoSampleDir + "/kube/route-rule-reviews-test-v2.yaml"
+	testDbRule                         = bookinfoSampleDir + "/kube/route-rule-ratings-db.yaml"
+	testMysqlRule                      = bookinfoSampleDir + "/kube/route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = bookinfoSampleDir + "/kube/route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = bookinfoSampleDir + "/kube/egress-rule-google-apis.yaml"
 )
 
 var (
@@ -92,7 +92,7 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
+		src := util.GetResourcePath(rule)
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
@@ -101,6 +101,13 @@ func (t *testConfig) Setup() error {
 		}
 		content := string(ori)
 		content = strings.Replace(content, "jason", u2, -1)
+
+		err = os.MkdirAll(filepath.Dir(dest), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+			return err
+		}
+
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
@@ -273,25 +280,57 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
+type userVersion struct {
+	user    string
+	version string
+	model   string
+}
+
+type versionRoutingRule struct {
+	key          string
+	userVersions []userVersion
+}
+
 func TestVersionRouting(t *testing.T) {
-	var err error
-	var rules = []string{testRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+
+	var rules = []versionRoutingRule{
+		{key: testRule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v1",
+					model:   v1Model,
+				},
+				{
+					user:    u2,
+					version: "v2",
+					model:   v2TestModel,
+				},
+			},
+		},
+	}
+
+	for _, rule := range rules {
+		doTestVersionRouting(t, rule)
+	}
+}
+
+func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
+	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
-
-	_, err = checkRoutingResponse(u1, "v1", tc.Kube.IngressOrFail(t), v1File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
-		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.Kube.IngressOrFail(t), v2File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
-		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
+	for _, userVersion := range rule.userVersions {
+		_, err := checkRoutingResponse(userVersion.user, userVersion.version, tc.Kube.IngressOrFail(t),
+			userVersion.model)
+		inspect(
+			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.user, userVersion.version),
+			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.user,
+				userVersion.version), t)
+	}
 }
 
 func TestFaultDelay(t *testing.T) {
