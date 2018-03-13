@@ -38,21 +38,21 @@ const (
 	u1                                 = "normal-user"
 	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
-	bookinfoYaml                       = bookinfoSampleDir + "/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml              = bookinfoSampleDir + "/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml           = bookinfoSampleDir + "/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml                     = bookinfoSampleDir + "/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml                  = bookinfoSampleDir + "/kube/bookinfo-mysql.yaml"
-	bookinfoDetailsExternalServiceYaml = bookinfoSampleDir + "/kube/bookinfo-details-v2.yaml"
+	bookinfoYaml                       = "/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml              = "/kube/bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml           = "/kube/bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml                     = "/kube/bookinfo-db.yaml"
+	bookinfoMysqlYaml                  = "/kube/bookinfo-mysql.yaml"
+	bookinfoDetailsExternalServiceYaml = "/kube/bookinfo-details-v2.yaml"
 	modelDir                           = "tests/apps/bookinfo/output"
-	allRule                            = bookinfoSampleDir + "/kube/route-rule-all-v1.yaml"
-	delayRule                          = bookinfoSampleDir + "/kube/route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = bookinfoSampleDir + "/kube/route-rule-reviews-50-v3.yaml"
-	testRule                           = bookinfoSampleDir + "/kube/route-rule-reviews-test-v2.yaml"
-	testDbRule                         = bookinfoSampleDir + "/kube/route-rule-ratings-db.yaml"
-	testMysqlRule                      = bookinfoSampleDir + "/kube/route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = bookinfoSampleDir + "/kube/route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = bookinfoSampleDir + "/kube/egress-rule-google-apis.yaml"
+	allRule                            = "/kube/route-rule-all-v1.yaml"
+	delayRule                          = "/kube/route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = "/kube/route-rule-reviews-50-v3.yaml"
+	testRule                           = "/kube/route-rule-reviews-test-v2.yaml"
+	testDbRule                         = "/kube/route-rule-ratings-db.yaml"
+	testMysqlRule                      = "/kube/route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = "/kube/route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = "/kube/egress-rule-google-apis.yaml"
 )
 
 var (
@@ -92,7 +92,7 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
 		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(rule)
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
@@ -395,6 +395,10 @@ func TestVersionMigration(t *testing.T) {
 	}
 }
 
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, resource))
+}
+
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("demo_test")
 	if err != nil {
@@ -409,19 +413,19 @@ func setTestConfig() error {
 	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
 	},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoRatingsMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoDetailsExternalServiceYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoDetailsExternalServiceYaml),
 			KubeInject: true,
 		},
 	}
