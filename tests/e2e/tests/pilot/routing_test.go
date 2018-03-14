@@ -46,11 +46,13 @@ func (t *routing) Setup() error {
 // TODO: test negatives
 func (t *routing) Run(tt *testing.T) error {
 	versions := make([]string, 0)
+	suite := "v1alpha1"
 	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")
 	}
 	if t.Config.V1alpha3 {
 		versions = append(versions, "v1alpha3")
+		suite = "v1alpha3"
 	}
 
 	cases := []struct {
@@ -63,7 +65,11 @@ func (t *routing) Run(tt *testing.T) error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+				tt.Run("", func(tt *testing.T) {
+					t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+
+				})
+				return nil
 			},
 		},
 		{
@@ -151,12 +157,14 @@ func (t *routing) Run(tt *testing.T) error {
 				return err
 			}
 
-			if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
-				log.Infof("Failed the test with %v", err)
-				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
-			} else {
-				log.Info("Success!")
-			}
+			tt.Run(suite + "/" + cs.description, func(tt *testing.T) {
+				if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
+					log.Infof("Failed the test with %v", err)
+					errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
+				} else {
+					log.Info("Success!")
+				}
+			})
 		}
 		log.Infof("Cleaning up %s route rules...", version)
 		if err := t.DeleteAllConfigs(); err != nil {
