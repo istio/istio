@@ -132,8 +132,8 @@ spec:
    properties:
     iss: request.auth.token[&quot;iss&quot;]
  action:
-   namespace: target.namespace | &quot;default&quot;
-   service: target.service | &quot;&quot;
+   namespace: destination.namespace | &quot;default&quot;
+   service: destination.service | &quot;&quot;
    path: request.path | &quot;/&quot;
    method: request.method | &quot;post&quot;
    properties:

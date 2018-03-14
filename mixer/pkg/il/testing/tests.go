@@ -502,25 +502,25 @@ end`,
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:          `target.ip| ip("10.1.12.3")`,
+		E:          `destination.ip| ip("10.1.12.3")`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
 		R:          net.ParseIP("10.1.12.3"),
-		Referenced: []string{"target.ip"},
+		Referenced: []string{"destination.ip"},
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:    `target.ip| ip(2)`,
+		E:    `destination.ip| ip(2)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
-			"target.ip": "",
+			"destination.ip": "",
 		},
 		CompileErr: "ip(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'ip' func was not a string",
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:      `target.ip| ip("10.1.12")`,
+		E:      `destination.ip| ip("10.1.12")`,
 		Type:   descriptor.IP_ADDRESS,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
@@ -3462,7 +3462,7 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"headername": {
 		ValueType: descriptor.STRING,
 	},
-	"target.ip": {
+	"destination.ip": {
 		ValueType: descriptor.IP_ADDRESS,
 	},
 	"servicename": {
