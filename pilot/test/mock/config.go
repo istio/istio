@@ -29,6 +29,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+	rbac "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
@@ -245,6 +246,35 @@ var (
 		Peers: []*authn.PeerAuthenticationMethod{{
 			Params: &authn.PeerAuthenticationMethod_Mtls{},
 		}},
+	}
+
+	// ExampleServiceRole is an example rbac service role
+	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+		{
+			Services: []string{"service0"},
+			Methods:  []string{"GET", "POST"},
+			Constraints: []*rbac.AccessRule_Constraint{
+				{Key: "key", Values: []string{"value"}},
+				{Key: "key", Values: []string{"value"}},
+			},
+		},
+		{
+			Services: []string{"service0"},
+			Methods:  []string{"GET", "POST"},
+			Constraints: []*rbac.AccessRule_Constraint{
+				{Key: "key", Values: []string{"value"}},
+				{Key: "key", Values: []string{"value"}},
+			},
+		},
+	}}
+
+	// ExampleServiceRoleBinding is an example rbac service role binding
+	ExampleServiceRoleBinding = &rbac.ServiceRoleBinding{
+		Subjects: []*rbac.Subject{
+			{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+		},
+		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 	}
 )
 
@@ -465,6 +495,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
 			ExampleEndUserAuthenticationPolicySpecBinding},
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{ "ServiceRole", model.ServiceRole, ExampleServiceRole},
+		{ "ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
 	}
 
 	for _, c := range cases {
