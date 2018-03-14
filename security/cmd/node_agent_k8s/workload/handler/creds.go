@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloadhandler
+package handler
 
 import (
 	"net"
@@ -22,13 +22,13 @@ import (
 )
 
 // ClientHandshake return the client handshake info
-func (s *Server) ClientHandshake(_ context.Context, _ string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (s *handler) ClientHandshake(_ context.Context, _ string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	info := CredInfo{Err: ErrInvalidConnection}
 	return conn, info, nil
 }
 
 // ServerHandshake return the server handshake info
-func (s *Server) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (s *handler) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	var creds CredInfo
 
 	if s.creds == nil {
@@ -40,7 +40,7 @@ func (s *Server) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo,
 }
 
 // Info return the proto info
-func (s *Server) Info() credentials.ProtocolInfo {
+func (s *handler) Info() credentials.ProtocolInfo {
 	return credentials.ProtocolInfo{
 		SecurityProtocol: authType,
 		SecurityVersion:  "0.1",
@@ -49,16 +49,16 @@ func (s *Server) Info() credentials.ProtocolInfo {
 }
 
 // Clone return the clone info
-func (s *Server) Clone() credentials.TransportCredentials {
+func (s *handler) Clone() credentials.TransportCredentials {
 	return &(*s)
 }
 
 // OverrideServerName override server name
-func (s *Server) OverrideServerName(_ string) error {
+func (s *handler) OverrideServerName(_ string) error {
 	return nil
 }
 
 // GetCred get the cred
-func (s *Server) GetCred() credentials.TransportCredentials {
+func (s *handler) GetCred() credentials.TransportCredentials {
 	return s
 }
