@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -221,15 +220,15 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return errors.New("could not establish prometheus proxy: pods not running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
-	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=istio-telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 

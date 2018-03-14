@@ -307,6 +307,7 @@ func CheckPodsRunningWithMaxDuration(n string, maxDuration time.Duration) (ready
 		return nil
 	}
 	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		log.Errorf("Error ")
 		return false
 	}
 	log.Info("Get all pods running!")
@@ -425,4 +426,55 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string) error {
 		}
 	}
 	return multiErr
+}
+
+// WaitForDeploymentsReady wait up to 'timeout' duration
+func WaitForDeploymentsReady(ns string, timeout time.Duration) error {
+	retry := Retrier{
+		BaseDelay:   10 * time.Second,
+		MaxDelay:    10 * time.Second,
+		MaxDuration: timeout,
+		Retries:     20,
+	}
+
+	_, err := retry.Retry(context.Background(), func(_ context.Context, _ int) error {
+		nr, err := CheckDeploymentsReady(ns)
+		if err != nil {
+			return &Break{err}
+		}
+
+		if nr == 0 { // done
+			return nil
+		}
+		return fmt.Errorf("%d deployments not ready", nr)
+	})
+	return err
+}
+
+// CheckDeploymentsReady checks if deployment resources are ready.
+// get podsReady() sometimes gets pods created by the "Job" resource which never reach the "Running" steady state.
+func CheckDeploymentsReady(ns string) (int, error) {
+	CMD := "kubectl -n %s get deployments -ao jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
+		"{@.status.readyReplicas}{\"\\n\"}{end}'"
+	out, err := Shell(fmt.Sprintf(CMD, ns))
+
+	if err != nil {
+		return 0, fmt.Errorf("could not list deployments in namespace %q: %v", ns, err)
+	}
+
+	notReady := 0
+	for _, line := range strings.Split(out, "\n") {
+		flds := strings.Fields(line)
+		if len(flds) < 2 {
+			continue
+		}
+		if flds[1] == "0" { // no replicas ready
+			notReady++
+		}
+	}
+
+	if notReady == 0 {
+		log.Infof("All deployments are ready")
+	}
+	return notReady, nil
 }
