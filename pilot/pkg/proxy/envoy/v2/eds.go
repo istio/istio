@@ -250,7 +250,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	return out
 }
 
-func connectionId(node string) string {
+func connectionID(node string) string {
 	edsClusterMutex.Lock()
 	connectionNumber++
 	c := connectionNumber
@@ -314,7 +314,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			clusters2 := discReq.GetResourceNames()
 			// Should not change. A node monitors multiple clusters
 			if node == "" && discReq.Node != nil {
-				node = connectionId(discReq.Node.Id)
+				node = connectionID(discReq.Node.Id)
 
 			}
 
