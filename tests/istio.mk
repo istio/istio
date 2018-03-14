@@ -6,7 +6,7 @@ ifeq (${TEST_ENV},minikube)
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
 export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube
-MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
+MINIKUBE_FLAGS=--use_local_cluster --cluster_wide
 .PHONY: minikube
 
 # Prepare minikube
@@ -24,7 +24,7 @@ else ifeq (${TEST_ENV},minikube-none)
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
 export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube-none
-MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
+MINIKUBE_FLAGS=--use_local_cluster --cluster_wide
 .PHONY: minikube
 
 # Prepare minikube
@@ -47,15 +47,15 @@ endif
 E2E_ARGS ?=
 
 DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
-DEFAULT_EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
-DEFAULT_EXTRA_E2E_ARGS += --mixer_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --ca_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --ca_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIO_OUT}/istioctl
+DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
