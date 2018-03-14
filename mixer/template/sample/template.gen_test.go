@@ -682,7 +682,7 @@ duration: source.duration
 dimensions:
   source: source.string
   target: source.string
-  env: target.string
+  env: destination.string
 res1:
   value: source.int64
   int64Primitive: source.int64
@@ -694,7 +694,7 @@ res1:
   dimensions:
     source: source.string
     target: source.string
-    env: target.string
+    env: destination.string
 `,
 			cstrParam: &sample_quota.InstanceParam{},
 			wantType: &sample_quota.Type{

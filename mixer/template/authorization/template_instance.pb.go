@@ -65,8 +65,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //    properties:
 //     iss: request.auth.token["iss"]
 //  action:
-//    namespace: target.namespace | "default"
-//    service: target.service | ""
+//    namespace: destination.namespace | "default"
+//    service: destination.service | ""
 //    path: request.path | "/"
 //    method: request.method | "post"
 //    properties:

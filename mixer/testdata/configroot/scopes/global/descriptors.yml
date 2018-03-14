@@ -16,18 +16,6 @@ manifests:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
-      target.ip:
-        valueType: IP_ADDRESS
-      target.labels:
-        valueType: STRING_MAP
-      target.name:
-        valueType: STRING
-      target.namespace:
-        valueType: STRING
-      target.service:
-        valueType: STRING
-      target.serviceAccount:
-        valueType: STRING
       destination.ip:
         valueType: IP_ADDRESS
       destination.labels:
@@ -89,7 +77,7 @@ manifests:
         valueType: STRING
       source.user:
         valueType: STRING
-      target.uid:
+      destination.uid:
         valueType: STRING
       connection.id:
         valueType: STRING
