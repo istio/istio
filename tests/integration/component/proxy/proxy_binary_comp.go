@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 
 const (
 	sideCarEndpoint = "http://localhost:9090/echo"
+	sideCarPort     = "localhost:9090"
 )
 
 var (
@@ -114,11 +116,17 @@ func (proxyComp *LocalComponent) Start() (err error) {
 	return
 }
 
-// IsAlive check the process of local server is running
-// TODO: Process running doesn't guarantee server is ready
-// TODO: Need a better way to check if component is alive/running
+// IsAlive check the process of local proxy is listening on port.
 func (proxyComp *LocalComponent) IsAlive() (bool, error) {
-	return proxyComp.testProcess.IsRunning()
+	isRunning, err := proxyComp.testProcess.IsRunning()
+	if !isRunning || err != nil {
+		return isRunning, err
+	}
+	_, err = net.Dial("tcp", sideCarPort)
+	if err == nil {
+		return true, err
+	}
+	return false, err
 }
 
 // Stop stop this local component by kill the process
