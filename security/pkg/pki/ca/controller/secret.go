@@ -250,10 +250,11 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 		return
 	}
 
-	log.Infof("Re-create deleted Istio secret")
-
 	saName := scrt.Annotations[serviceAccountNameAnnotationKey]
-	sc.upsertSecret(saName, scrt.GetNamespace())
+	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
+		log.Infof("Re-create deleted Istio secret for existing service account.")
+		sc.upsertSecret(saName, scrt.GetNamespace())
+	}
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
