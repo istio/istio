@@ -1,0 +1,30 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: virtual-service
+metadata:
+  creationTimestamp: null
+  name: c
+  namespace: default
+spec:
+  hosts:
+  - c
+  http:
+  - fault:
+      abort:
+        httpStatus: 503
+        percent: 10000
+      delay:
+        fixedDelay: 5.000s
+        percent: 10000
+    match:
+    - headers:
+        version:
+          exact: v2
+    route:
+    - destination:
+        name: c
+        subset: version-v2
+  - route:
+    - destination:
+        name: c
+        subset: version-v1
+      weight: 100

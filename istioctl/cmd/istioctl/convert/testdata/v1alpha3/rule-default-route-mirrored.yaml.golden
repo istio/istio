@@ -1,0 +1,13 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: virtual-service
+metadata:
+  creationTimestamp: null
+  name: c
+  namespace: default
+spec:
+  hosts:
+  - c
+  http:
+  - mirror:
+      name: b
+    route: []

@@ -1,0 +1,69 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: external-service
+metadata:
+  creationTimestamp: null
+  name: 91.198.174.192/27
+  namespace: default
+spec:
+  hosts:
+  - 91.198.174.192/27
+  ports:
+  - name: tcp-443
+    number: 443
+    protocol: tcp
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: external-service
+metadata:
+  creationTimestamp: null
+  name: 103.102.166.224/27
+  namespace: default
+spec:
+  hosts:
+  - 103.102.166.224/27
+  ports:
+  - name: tcp-443
+    number: 443
+    protocol: tcp
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: external-service
+metadata:
+  creationTimestamp: null
+  name: 198.35.26.96/27
+  namespace: default
+spec:
+  hosts:
+  - 198.35.26.96/27
+  ports:
+  - name: tcp-443
+    number: 443
+    protocol: tcp
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: external-service
+metadata:
+  creationTimestamp: null
+  name: 208.80.153.224/27
+  namespace: default
+spec:
+  hosts:
+  - 208.80.153.224/27
+  ports:
+  - name: tcp-443
+    number: 443
+    protocol: tcp
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: external-service
+metadata:
+  creationTimestamp: null
+  name: 208.80.154.224/27
+  namespace: default
+spec:
+  hosts:
+  - 208.80.154.224/27
+  ports:
+  - name: tcp-443
+    number: 443
+    protocol: tcp
