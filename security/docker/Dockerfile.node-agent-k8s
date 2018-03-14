@@ -1,0 +1,5 @@
+FROM scratch
+
+WORKDIR /tmp
+ADD node_agent_k8s /usr/local/bin/node_agent_k8s
+ENTRYPOINT [ "/usr/local/bin/node_agent_k8s" ]

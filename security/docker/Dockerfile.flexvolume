@@ -1,0 +1,9 @@
+FROM alpine:latest
+
+WORKDIR /tmp
+ADD flexvolume.sh /usr/local/bin/
+ADD flexvolume /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/flexvolume.sh
+
+ENTRYPOINT ["/usr/local/bin/flexvolume.sh"]

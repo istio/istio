@@ -19,40 +19,27 @@ import (
 	"log"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
-	wlh "istio.io/istio/security/cmd/node_agent_k8s/workloadhandler"
+
+	"istio.io/istio/security/pkg/flexvolume/binder"
 	pb "istio.io/istio/security/proto"
 )
 
-const (
-	socName string = "/server.sock"
-)
+// WorkloadServer define the struct for workload server
+type WorkloadServer struct{}
 
-// WlServer define the struct for workload server
-type WlServer struct{}
-
-// NewWlAPIServer define the new api
-func NewWlAPIServer() *mwi.WlServer {
-	return &mwi.WlServer{
-		SockFile: socName,
-		RegAPI:   RegisterGrpc,
-	}
-}
-
-// RegisterGrpc register grpc
-func RegisterGrpc(s *grpc.Server) {
-	pb.RegisterWorkloadServiceServer(s, &WlServer{})
+// NewWorkloadAPIServer define the new api
+func NewWorkloadAPIServer() pb.WorkloadServiceServer {
+	return &WorkloadServer{}
 }
 
 // Check do the check
-func (s *WlServer) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
+func (s *WorkloadServer) Check(ctx context.Context, request *pb.CheckRequest) (*pb.CheckResponse, error) {
 
 	log.Printf("[%v]: %v Check called", s, request)
 	// Get the caller's credentials from the context.
-	creds, e := wlh.CallerFromContext(ctx)
+	creds, e := binder.CallerFromContext(ctx)
 	if !e {
 		resp := fmt.Sprint("Not able to get credentials")
 		status := &rpc.Status{Code: int32(rpc.PERMISSION_DENIED), Message: resp}

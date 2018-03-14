@@ -29,6 +29,7 @@ import (
 	"text/template"
 	"time"
 
+
 	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
@@ -311,6 +312,7 @@ func CheckPodsRunning(n string) (ready bool) {
 	log.Info("Get all pods running!")
 	return true
 }
+
 
 // CheckDeployment gets status of a deployment from a namespace
 func CheckDeployment(ctx context.Context, namespace, deployment string) error {

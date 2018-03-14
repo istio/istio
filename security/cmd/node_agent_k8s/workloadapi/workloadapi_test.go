@@ -19,15 +19,38 @@ import (
 
 	"golang.org/x/net/context"
 
+	"google.golang.org/grpc/peer"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	"istio.io/istio/security/pkg/flexvolume"
+	"istio.io/istio/security/pkg/flexvolume/binder"
 	pb "istio.io/istio/security/proto"
 )
 
-// TODO(wattli): add more tests.
-func TestCheck(t *testing.T) {
-	server := &WlServer{}
+func TestCheckWithPeerCredentials(t *testing.T) {
+	credential := binder.Credentials{
+		WorkloadCredentials: flexvolume.Credential{UID: "1111-1111-1111",
+			Workload:       "foo",
+			Namespace:      "default",
+			ServiceAccount: "serviceaccount"},
+	}
+	ctx := peer.NewContext(context.Background(), &peer.Peer{AuthInfo: credential})
 
 	req := &pb.CheckRequest{Name: "check"}
+	server := NewWorkloadAPIServer()
+	resp, err := server.Check(ctx, req)
+	if err != nil {
+		t.Errorf("Failed to check with error %v.", err)
+	}
+	if resp.Status.Code != int32(rpc.OK) {
+		t.Errorf("Failed to check with resp %v.", resp)
+	}
+}
+
+func TestCheckNoPeerCredentials(t *testing.T) {
+	req := &pb.CheckRequest{Name: "check"}
+	server := NewWorkloadAPIServer()
 	resp, err := server.Check(context.Background(), req)
 	if err != nil {
 		t.Errorf("Failed to check with error %v.", err)

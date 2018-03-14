@@ -14,9 +14,11 @@ spec:
         fsGroup: 0
       containers:
       - name: udsver-client
-        image: gcr.io/istio-testing/workload:latest
+        # TODO(saumoh): Point to istio-testing once the images are updated.
+        # image: gcr.io/istio-testing/workload:latest
+        image: quay.io/saurabh/workload:istio
         imagePullPolicy: IfNotPresent
-        args: ["-s", "/tmp/udsver/nodeagent/server.sock" ]
+        args: ["-s", "/tmp/udsver/socket" ]
         volumeMounts:
         - mountPath: /tmp/udsver
           name: test-volume

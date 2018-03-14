@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f security/proto/ca_service.proto
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f security/proto/workload_service.proto
-// nolint
-package istio_v1_auth
+package flexvolume
+
+// CredentialFileExtension of the credential file written by the driver.
+const CredentialFileExtension = ".json"
+
+// Credential of the workload published by the Flex volume driver
+type Credential struct {
+	// UID is the unique identifier for the workload.
+	UID string
+	// Workload is the name of the workload.
+	Workload string
+	// Namespace is the namespace of the workload.
+	Namespace string
+	// ServiceAccount is the service account of the workload.
+	ServiceAccount string
+}
