@@ -300,18 +300,18 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 
 	manager := &http_conn.HttpConnectionManager{
 		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
-			},
-		},
+		//AccessLog: []*accesslog.AccessLog{
+		//	{
+		//		Config: nil,
+		//	},
+		//},
 		HttpFilters:      filters,
 		StatPrefix:       "http",
 		RouteSpecifier:   rds,
-		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+//		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
-	if opts.mesh.AccessLogFile != "" {
+	if false && opts.mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
 			Path: opts.mesh.AccessLogFile,
 		}
@@ -320,10 +320,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	}
 
 	if opts.mesh.EnableTracing {
-		manager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			OperationName: opts.direction,
-		}
-		manager.GenerateRequestId = &google_protobuf.BoolValue{true}
+		//manager.Tracing = &http_conn.HttpConnectionManager_Tracing{
+		//	OperationName: opts.direction,
+		//}
+		//manager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
 
 	managerJson, _ := json.MarshalIndent(manager, "  ", "  ")
