@@ -1,0 +1,370 @@
+---
+title: logentry
+layout: protoc-gen-docs
+number_of_entries: 8
+---
+<p>The <code>logentry</code> template represents an individual entry within a log.</p>
+
+<p>The <code>logentry</code> template represents an individual entry within a log.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: logentry
+metadata:
+  name: accesslog
+  namespace: istio-system
+spec:
+  severity: '&quot;Default&quot;'
+  timestamp: request.time
+  variables:
+    sourceIp: source.ip | ip(&quot;0.0.0.0&quot;)
+    destinationIp: destination.ip | ip(&quot;0.0.0.0&quot;)
+    sourceUser: source.user | &quot;&quot;
+    method: request.method | &quot;&quot;
+    url: request.path | &quot;&quot;
+    protocol: request.scheme | &quot;http&quot;
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
+    latency: response.duration | &quot;0ms&quot;
+  monitored_resource_type: '&quot;UNSPECIFIED&quot;'
+</code></pre>
+
+<h2 id="Services">Services</h2>
+<h3 id="HandleLogEntryService">HandleLogEntryService</h3>
+<section>
+<p>HandleLogEntryService is implemented by backends that wants to handle request-time &lsquo;logentry&rsquo; instances.</p>
+
+<pre id="HandleLogEntryService.HandleLogEntry"><code class="language-proto">rpc HandleLogEntry(HandleLogEntryRequest) returns (istio.mixer.adapter.model.v1beta1.ReportResult)
+</code></pre>
+<p>HandleLogEntry is called by Mixer at request-time to deliver &lsquo;logentry&rsquo; instances to the backend.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="HandleLogEntryRequest">HandleLogEntryRequest</h3>
+<section>
+<p>Request message for HandleLogEntry method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HandleLogEntryRequest.instances">
+<td><code>instances</code></td>
+<td><code><a href="#InstanceMsg">InstanceMsg[]</a></code></td>
+<td>
+<p>&lsquo;logentry&rsquo; instances.</p>
+
+</td>
+</tr>
+<tr id="HandleLogEntryRequest.adapter_config">
+<td><code>adapterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>Adapter specific handler configuration.</p>
+
+<p>Note: Backends can also implement <em>InfrastructureBackend</em>
+service and therefore opt to receive handler configuration during session creation through <em>InfrastructureBackend.CreateSession</em>
+call. In that case, adapter<em>config will have type</em>url as &lsquo;google.protobuf.Any.type<em>url&rsquo; and would contain string
+value of session</em>id (returned from InfrastructureBackend.CreateSession).</p>
+
+</td>
+</tr>
+<tr id="HandleLogEntryRequest.dedup_id">
+<td><code>dedupId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Id to dedupe identical requests from Mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceMsg">InstanceMsg</h3>
+<section>
+<p>Contains instance payload for &lsquo;logentry&rsquo; template. This is passed to infrastructure backends during request-time
+through HandleLogEntryService.HandleLogEntry.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceMsg.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the instance as specified in configuration.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.variables">
+<td><code>variables</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td>
+<p>Variables that are delivered for each log entry.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.timestamp">
+<td><code>timestamp</code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td>
+<p>Timestamp is the time value for the log entry</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.severity">
+<td><code>severity</code></td>
+<td><code>string</code></td>
+<td>
+<p>Severity indicates the importance of the log entry.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.monitored_resource_type">
+<td><code>monitoredResourceType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. An expression to compute the type of the monitored resource this log entry is being recorded on.
+If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
+recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceParam">InstanceParam</h3>
+<section>
+<p>Represents instance configuration schema for &lsquo;logentry&rsquo; template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceParam.variables">
+<td><code>variables</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Variables that are delivered for each log entry.</p>
+
+</td>
+</tr>
+<tr id="InstanceParam.timestamp">
+<td><code>timestamp</code></td>
+<td><code>string</code></td>
+<td>
+<p>Timestamp is the time value for the log entry</p>
+
+</td>
+</tr>
+<tr id="InstanceParam.severity">
+<td><code>severity</code></td>
+<td><code>string</code></td>
+<td>
+<p>Severity indicates the importance of the log entry.</p>
+
+</td>
+</tr>
+<tr id="InstanceParam.monitored_resource_type">
+<td><code>monitoredResourceType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. An expression to compute the type of the monitored resource this log entry is being recorded on.
+If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+<tr id="InstanceParam.monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
+recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Type">Type</h3>
+<section>
+<p>Contains inferred type information about specific instance of &lsquo;logentry&rsquo; template. This is passed to
+infrastructure backends during configuration-time through <em>InfrastructureBackend.CreateSession</em>.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Type.variables">
+<td><code>variables</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</a>&gt;</code></td>
+<td>
+<p>Variables that are delivered for each log entry.</p>
+
+</td>
+</tr>
+<tr id="Type.monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</a>&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
+recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
+Otherwise these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h3>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
+<h3 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h3>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
+</section>
+<h3 id="istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</h3>
+<section>
+<p>ValueType describes the types that values in the Istio system can take. These
+are used to describe the type of Attributes at run time, describe the type of
+the result of evaluating an expression, and to describe the runtime type of
+fields of other descriptors.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.policy.v1beta1.ValueType.VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Invalid, default value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.STRING">
+<td><code>STRING</code></td>
+<td>
+<p>An undiscriminated variable-length string.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.INT64">
+<td><code>INT64</code></td>
+<td>
+<p>An undiscriminated 64-bit signed integer.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>An undiscriminated 64-bit floating-point value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>An undiscriminated boolean value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.TIMESTAMP">
+<td><code>TIMESTAMP</code></td>
+<td>
+<p>A point in time.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.IP_ADDRESS">
+<td><code>IP_ADDRESS</code></td>
+<td>
+<p>An IP address.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.EMAIL_ADDRESS">
+<td><code>EMAIL_ADDRESS</code></td>
+<td>
+<p>An email address.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.URI">
+<td><code>URI</code></td>
+<td>
+<p>A URI.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DNS_NAME">
+<td><code>DNS_NAME</code></td>
+<td>
+<p>A DNS name.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DURATION">
+<td><code>DURATION</code></td>
+<td>
+<p>A span between two points in time.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.STRING_MAP">
+<td><code>STRING_MAP</code></td>
+<td>
+<p>A map string -&gt; string, typically used by headers.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

@@ -4183,11 +4183,11 @@ func (b *builder_istio_mixer_adapter_sample_check_Template) build(
 // builder struct for constructing an instance of Res1.
 type builder_istio_mixer_adapter_sample_check_Res1 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -4520,11 +4520,11 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 // builder struct for constructing an instance of Res2.
 type builder_istio_mixer_adapter_sample_check_Res2 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -4655,7 +4655,7 @@ func (b *builder_istio_mixer_adapter_sample_check_Res2) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_adapter_sample_quota_Template struct {
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -4784,11 +4784,11 @@ func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
 // builder struct for constructing an instance of Res1.
 type builder_istio_mixer_adapter_sample_quota_Res1 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5121,11 +5121,11 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 // builder struct for constructing an instance of Res2.
 type builder_istio_mixer_adapter_sample_quota_Res2 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5256,11 +5256,11 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res2) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_adapter_sample_report_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5573,11 +5573,11 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 // builder struct for constructing an instance of Res1.
 type builder_istio_mixer_adapter_sample_report_Res1 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5910,11 +5910,11 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 // builder struct for constructing an instance of Res2.
 type builder_istio_mixer_adapter_sample_report_Res2 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 

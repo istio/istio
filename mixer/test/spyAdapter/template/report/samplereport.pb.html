@@ -1,0 +1,263 @@
+---
+title: samplereport
+layout: protoc-gen-docs
+number_of_entries: 7
+---
+<h2 id="Services">Services</h2>
+<h3 id="HandleSampleReportService">HandleSampleReportService</h3>
+<section>
+<p>HandleSampleReportService is implemented by backends that wants to handle request-time &lsquo;samplereport&rsquo; instances.</p>
+
+<pre id="HandleSampleReportService.HandleSampleReport"><code class="language-proto">rpc HandleSampleReport(HandleSampleReportRequest) returns (istio.mixer.adapter.model.v1beta1.ReportResult)
+</code></pre>
+<p>HandleSampleReport is called by Mixer at request-time to deliver &lsquo;samplereport&rsquo; instances to the backend.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="HandleSampleReportRequest">HandleSampleReportRequest</h3>
+<section>
+<p>Request message for HandleSampleReport method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HandleSampleReportRequest.instances">
+<td><code>instances</code></td>
+<td><code><a href="#InstanceMsg">InstanceMsg[]</a></code></td>
+<td>
+<p>&lsquo;samplereport&rsquo; instances.</p>
+
+</td>
+</tr>
+<tr id="HandleSampleReportRequest.adapter_config">
+<td><code>adapterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>Adapter specific handler configuration.</p>
+
+<p>Note: Backends can also implement <em>InfrastructureBackend</em>
+service and therefore opt to receive handler configuration during session creation through <em>InfrastructureBackend.CreateSession</em>
+call. In that case, adapter<em>config will have type</em>url as &lsquo;google.protobuf.Any.type<em>url&rsquo; and would contain string
+value of session</em>id (returned from InfrastructureBackend.CreateSession).</p>
+
+</td>
+</tr>
+<tr id="HandleSampleReportRequest.dedup_id">
+<td><code>dedupId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Id to dedupe identical requests from Mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceMsg">InstanceMsg</h3>
+<section>
+<p>Contains instance payload for &lsquo;samplereport&rsquo; template. This is passed to infrastructure backends during request-time
+through HandleSampleReportService.HandleSampleReport.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceMsg.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the instance as specified in configuration.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.value">
+<td><code>value</code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceParam">InstanceParam</h3>
+<section>
+<p>Represents instance configuration schema for &lsquo;samplereport&rsquo; template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceParam.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Type">Type</h3>
+<section>
+<p>Contains inferred type information about specific instance of &lsquo;samplereport&rsquo; template. This is passed to
+infrastructure backends during configuration-time through <em>InfrastructureBackend.CreateSession</em>.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Type.value">
+<td><code>value</code></td>
+<td><code><a href="#istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="Type.dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</a>&gt;</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h3>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
+</section>
+<h3 id="istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</h3>
+<section>
+<p>ValueType describes the types that values in the Istio system can take. These
+are used to describe the type of Attributes at run time, describe the type of
+the result of evaluating an expression, and to describe the runtime type of
+fields of other descriptors.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.policy.v1beta1.ValueType.VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Invalid, default value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.STRING">
+<td><code>STRING</code></td>
+<td>
+<p>An undiscriminated variable-length string.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.INT64">
+<td><code>INT64</code></td>
+<td>
+<p>An undiscriminated 64-bit signed integer.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>An undiscriminated 64-bit floating-point value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>An undiscriminated boolean value.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.TIMESTAMP">
+<td><code>TIMESTAMP</code></td>
+<td>
+<p>A point in time.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.IP_ADDRESS">
+<td><code>IP_ADDRESS</code></td>
+<td>
+<p>An IP address.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.EMAIL_ADDRESS">
+<td><code>EMAIL_ADDRESS</code></td>
+<td>
+<p>An email address.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.URI">
+<td><code>URI</code></td>
+<td>
+<p>A URI.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DNS_NAME">
+<td><code>DNS_NAME</code></td>
+<td>
+<p>A DNS name.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.DURATION">
+<td><code>DURATION</code></td>
+<td>
+<p>A span between two points in time.</p>
+
+</td>
+</tr>
+<tr id="istio.policy.v1beta1.ValueType.STRING_MAP">
+<td><code>STRING_MAP</code></td>
+<td>
+<p>A map string -&gt; string, typically used by headers.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

@@ -1127,11 +1127,11 @@ func (b *builder_samplecheck_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_samplereport_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 } // builder_samplereport_Template

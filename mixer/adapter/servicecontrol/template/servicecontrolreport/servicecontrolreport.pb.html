@@ -1,0 +1,304 @@
+---
+title: servicecontrolreport
+layout: protoc-gen-docs
+number_of_entries: 7
+---
+<p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/adapters/servicecontrol.html">Google Service Control</a>
+adapter.</p>
+
+<p>A template used by Google Service Control (servicecontrol) adapter. The adapter
+generates metrics and logentry for each request based on the data point
+defined by this template.</p>
+
+<p>Config example:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: servicecontrolreport
+metadata:
+  name: report
+  namespace: istio-system
+spec:
+  api_version : api.version | &quot;&quot;
+  api_operation : api.operation | &quot;&quot;
+  api_protocol : api.protocol | &quot;&quot;
+  api_service : api.service | &quot;&quot;
+  api_key : api.key | &quot;&quot;
+  request_time : request.time
+  request_method : request.method
+  request_path : request.path
+  request_bytes: request.size
+  response_time : response.time
+  response_code : response.code | 520
+  response_bytes : response.size | 0
+  response_latency : response.duration | &quot;0ms&quot;
+</code></pre>
+
+<h2 id="Services">Services</h2>
+<h3 id="HandleServicecontrolReportService">HandleServicecontrolReportService</h3>
+<section>
+<p>HandleServicecontrolReportService is implemented by backends that wants to handle request-time &lsquo;servicecontrolreport&rsquo; instances.</p>
+
+<pre id="HandleServicecontrolReportService.HandleServicecontrolReport"><code class="language-proto">rpc HandleServicecontrolReport(HandleServicecontrolReportRequest) returns (istio.mixer.adapter.model.v1beta1.ReportResult)
+</code></pre>
+<p>HandleServicecontrolReport is called by Mixer at request-time to deliver &lsquo;servicecontrolreport&rsquo; instances to the backend.</p>
+
+</section>
+<h2 id="Types">Types</h2>
+<h3 id="HandleServicecontrolReportRequest">HandleServicecontrolReportRequest</h3>
+<section>
+<p>Request message for HandleServicecontrolReport method.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HandleServicecontrolReportRequest.instances">
+<td><code>instances</code></td>
+<td><code><a href="#InstanceMsg">InstanceMsg[]</a></code></td>
+<td>
+<p>&lsquo;servicecontrolreport&rsquo; instances.</p>
+
+</td>
+</tr>
+<tr id="HandleServicecontrolReportRequest.adapter_config">
+<td><code>adapterConfig</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>Adapter specific handler configuration.</p>
+
+<p>Note: Backends can also implement <em>InfrastructureBackend</em>
+service and therefore opt to receive handler configuration during session creation through <em>InfrastructureBackend.CreateSession</em>
+call. In that case, adapter<em>config will have type</em>url as &lsquo;google.protobuf.Any.type<em>url&rsquo; and would contain string
+value of session</em>id (returned from InfrastructureBackend.CreateSession).</p>
+
+</td>
+</tr>
+<tr id="HandleServicecontrolReportRequest.dedup_id">
+<td><code>dedupId</code></td>
+<td><code>string</code></td>
+<td>
+<p>Id to dedupe identical requests from Mixer.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceMsg">InstanceMsg</h3>
+<section>
+<p>Contains instance payload for &lsquo;servicecontrolreport&rsquo; template. This is passed to infrastructure backends during request-time
+through HandleServicecontrolReportService.HandleServicecontrolReport.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceMsg.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the instance as specified in configuration.</p>
+
+</td>
+</tr>
+<tr id="InstanceMsg.api_version">
+<td><code>apiVersion</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.api_operation">
+<td><code>apiOperation</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.api_protocol">
+<td><code>apiProtocol</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.api_service">
+<td><code>apiService</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.api_key">
+<td><code>apiKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.request_time">
+<td><code>requestTime</code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.request_method">
+<td><code>requestMethod</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.request_path">
+<td><code>requestPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.request_bytes">
+<td><code>requestBytes</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.response_time">
+<td><code>responseTime</code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.response_code">
+<td><code>responseCode</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.response_bytes">
+<td><code>responseBytes</code></td>
+<td><code>int64</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceMsg.response_latency">
+<td><code>responseLatency</code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="InstanceParam">InstanceParam</h3>
+<section>
+<p>Represents instance configuration schema for &lsquo;servicecontrolreport&rsquo; template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="InstanceParam.api_version">
+<td><code>apiVersion</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.api_operation">
+<td><code>apiOperation</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.api_protocol">
+<td><code>apiProtocol</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.api_service">
+<td><code>apiService</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.api_key">
+<td><code>apiKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.request_time">
+<td><code>requestTime</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.request_method">
+<td><code>requestMethod</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.request_path">
+<td><code>requestPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.request_bytes">
+<td><code>requestBytes</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.response_time">
+<td><code>responseTime</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.response_code">
+<td><code>responseCode</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.response_bytes">
+<td><code>responseBytes</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="InstanceParam.response_latency">
+<td><code>responseLatency</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Type">Type</h3>
+<section>
+<p>Contains inferred type information about specific instance of &lsquo;servicecontrolreport&rsquo; template. This is passed to
+infrastructure backends during configuration-time through <em>InfrastructureBackend.CreateSession</em>.</p>
+
+</section>
+<h3 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h3>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h3 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h3>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
