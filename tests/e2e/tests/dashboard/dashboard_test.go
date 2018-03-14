@@ -63,7 +63,7 @@ var (
 	tcpReplacer = strings.NewReplacer(
 		"$tcp_destination", "netcat-srv.*",
 		"istio-ingress", "netcat-client",
-		"unknown", "v1",
+		"unknown", "v1.*",
 	)
 
 	tc *testConfig
@@ -220,6 +220,9 @@ func mixerQueryFilterFn(queries []string) []string {
 func pilotQueryFilterFn(queries []string) []string {
 	filtered := make([]string, 0, len(queries))
 	for _, query := range queries {
+		if strings.Contains(query, "cache_name") && strings.Contains(query, "sds") {
+			continue
+		}
 		if strings.Contains(query, "_rq_5xx") {
 			continue
 		}
@@ -227,6 +230,12 @@ func pilotQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "_membership_") {
+			continue
+		}
+		if strings.Contains(query, "discovery_errors") {
+			continue
+		}
+		if strings.Contains(query, "update_failure") {
 			continue
 		}
 		filtered = append(filtered, query)
@@ -297,16 +306,16 @@ func (t *testConfig) Setup() (err error) {
 	}
 	t.promAPI = pAPI
 
-	if err := generateTCPInCluster(); err != nil {
-		return fmt.Errorf("generating TCP traffic failed: %v", err)
-	}
-
 	gateway, errGw := tc.Kube.Ingress()
 	if errGw != nil {
 		return errGw
 	}
 	if _, err := sendTrafficToCluster(gateway); err != nil {
 		return fmt.Errorf("generating HTTP traffic failed: %v", err)
+	}
+
+	if err := generateTCPInCluster(); err != nil {
+		return fmt.Errorf("generating TCP traffic failed: %v", err)
 	}
 
 	allowPrometheusSync()

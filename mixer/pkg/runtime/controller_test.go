@@ -186,7 +186,7 @@ func TestController_workflow(t *testing.T) {
 	}
 	configState := map[store.Key]*store.Resource{
 		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
-			Match: "target.service == \"abc\"",
+			Match: "destination.service == \"abc\"",
 			Actions: []*cpb.Action{
 				{
 					Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -251,7 +251,7 @@ func TestController_workflow(t *testing.T) {
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
 			Value: &store.Resource{Spec: &cpb.Rule{
-				Match: "target.service == \"bcd\"",
+				Match: "destination.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
 						Handler:   "a1.AA." + DefaultConfigNamespace,

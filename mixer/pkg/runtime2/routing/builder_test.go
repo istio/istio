@@ -128,7 +128,7 @@ ID: 1
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
       [#0]
-        Condition: match(target.name, "foo*")
+        Condition: match(destination.name, "foo*")
         [#0] icheck1.tcheck.istio-system {I}
 `,
 	},
@@ -169,7 +169,7 @@ ID: 1
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
       [#0]
-        Condition: match(target.name, "foo*")
+        Condition: match(destination.name, "foo*")
         [#0] icheck1.tcheck.istio-system {I}
         [#1] icheck2.tcheck.istio-system {I}
 `,
@@ -193,13 +193,13 @@ ID: 1
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
       [#0]
-        Condition: match(target.name, "foo*")
-        [#0] icheck1.tcheck.istio-system {I}
-        [#1] icheck2.tcheck.istio-system {I}
-      [#1]
-        Condition: target.name.startsWith("foo")
+        Condition: destination.name.startsWith("foo")
         [#0] icheck2.tcheck.istio-system {I}
 		[#1] icheck3.tcheck.istio-system {I}
+      [#1]
+        Condition: match(destination.name, "foo*")
+        [#0] icheck1.tcheck.istio-system {I}
+        [#1] icheck2.tcheck.istio-system {I}
 `,
 	},
 
@@ -251,7 +251,7 @@ ID: 1
         Condition: <NONE>
         [#0] icheck1.tcheck.istio-system {I}
       [#1]
-        Condition: target.name.startsWith("foo")
+        Condition: destination.name.startsWith("foo")
         [#0] icheck2.tcheck.istio-system {I}
         [#1] icheck3.tcheck.istio-system {I}
 `,

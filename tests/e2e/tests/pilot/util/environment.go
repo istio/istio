@@ -230,7 +230,7 @@ func (e *Environment) Setup() error {
 		return err
 	}
 
-	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
+	if _, e.meshConfig, err = bootstrap.GetMeshConfig(e.KubeClient, e.Config.IstioNamespace, kube.IstioConfigMap); err != nil {
 		return err
 	}
 	debugMode := e.Config.DebugImagesAndMode
@@ -263,6 +263,11 @@ func (e *Environment) Setup() error {
 		}
 	}
 
+	if err = deploy("ca.yaml.tmpl", e.Config.IstioNamespace); err != nil {
+		return err
+	}
+	time.Sleep(time.Second * 20)
+
 	if err = deploy("pilot.yaml.tmpl", e.Config.IstioNamespace); err != nil {
 		return err
 	}
@@ -277,9 +282,6 @@ func (e *Environment) Setup() error {
 		}
 	}
 
-	if err = deploy("ca.yaml.tmpl", e.Config.IstioNamespace); err != nil {
-		return err
-	}
 	if err = deploy("headless.yaml.tmpl", e.Config.Namespace); err != nil {
 		return err
 	}
@@ -616,7 +618,7 @@ func (e *Environment) ApplyConfig(inFile string, data map[string]string) error {
 		}
 	}
 
-	sleepTime := time.Second * 3
+	sleepTime := time.Second * 10
 	log.Infof("Sleeping %v for the config to propagate", sleepTime)
 	time.Sleep(sleepTime)
 	return nil

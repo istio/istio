@@ -300,12 +300,9 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 						if err == nil {
 							lock.Lock()
 							defer lock.Unlock()
-							err = responseBag.Merge(mBag)
-
-							if err != nil {
-								log.Infof("Attributes merging failed %v", err)
+							if mBag != nil {
+								responseBag.Merge(mBag)
 							}
-
 						}
 						return &result{err, nil, call}
 					})
@@ -314,7 +311,7 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 		},
 	)
 
-	log.Debugf("Attributes generated from preprocess phase are %v", responseBag.DebugString())
+	log.Debugf("Attributes generated from preprocess phase are %v", responseBag)
 	return err
 }
 

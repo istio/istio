@@ -48,17 +48,17 @@ export GOARCH=${GOARCH:-'amd64'}
 LOCAL_OS="`uname`"
 case $LOCAL_OS in
   'Linux')
-    OS='Linux'
+    LOCAL_OS='linux'
     ;;
   'Darwin')
-    OS='Mac'
+    LOCAL_OS='darwin'
     ;;
   *)
     echo "This system's OS ${LOCAL_OS} isn't recognized/supported"
     exit 1
     ;;
 esac
-export GOOS=${GOOS:-LOCAL_OS}
+export GOOS=${GOOS:-${LOCAL_OS}}
 
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
@@ -98,6 +98,10 @@ set_download_command () {
     exit 1
 }
 
+if [ -z ${PROXY_REPO_SHA:-} ] ; then
+  export PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+fi
+
 # Normally set by the Makefile.
 ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
 ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_VERSION}.tar.gz}
@@ -106,10 +110,10 @@ ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.co
 # Normally set by the Makefile.
 # Variables for the extracted debug/release Envoy artifacts.
 ISTIO_ENVOY_DEBUG_DIR=${ISTIO_ENVOY_DEBUG_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/debug"}
-ISTIO_ENVOY_DEBUG_NAME=${ISTIO_ENVOY_DEBUG_NAME:-"envoy-debug-ISTIO_ENVOY_VERSION"}
+ISTIO_ENVOY_DEBUG_NAME=${ISTIO_ENVOY_DEBUG_NAME:-"envoy-debug-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_DEBUG_PATH=${ISTIO_ENVOY_DEBUG_PATH:-"$ISTIO_ENVOY_DEBUG_DIR/$ISTIO_ENVOY_DEBUG_NAME"}
 ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"{OUT_DIR}/${GOOS}_${GOARCH}/release"}
-ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-ISTIO_ENVOY_VERSION"}
+ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$ISTIO_ENVOY_RELEASE_NAME"}
 
 # Save envoy in $ISTIO_ENVOY_DIR
