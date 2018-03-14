@@ -634,8 +634,8 @@ ident                         : dest.istio-system
 			data.RuleCheck1WithMatchClause,
 		},
 		attr: map[string]interface{}{
-			"ident":       "dest.istio-system",
-			"target.name": "barf", // "foo*" is expected
+			"ident":            "dest.istio-system",
+			"destination.name": "barf", // "foo*" is expected
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK,
 		log:     ``, // log should be empty

@@ -162,7 +162,7 @@ func TestInputs_Matches(t *testing.T) {
 
 	// Value is in the bag, but does match the condition.
 	bag = attribute.GetFakeMutableBagForTesting(map[string]interface{}{
-		"target.name": "barfoo",
+		"destination.name": "barfoo",
 	})
 	if i.Matches(bag) {
 		t.Fatal("The group shouldn't have matched")
@@ -170,7 +170,7 @@ func TestInputs_Matches(t *testing.T) {
 
 	// Value is in the bag, and matches the condition
 	bag = attribute.GetFakeMutableBagForTesting(map[string]interface{}{
-		"target.name": "foobar",
+		"destination.name": "foobar",
 	})
 	if !i.Matches(bag) {
 		t.Fatal("The group should have matched")

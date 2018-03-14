@@ -27,7 +27,7 @@ spec:
     attributes:
       source.name:
         value_type: STRING
-      target.name:
+      destination.name:
         value_type: STRING
       response.count:
         value_type: INT64
@@ -327,7 +327,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  match: match(target.name, "foo*")
+  match: match(destination.name, "foo*")
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -342,7 +342,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  match: match(target.name, "foo*")
+  match: match(destination.name, "foo*")
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -372,7 +372,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: target.name
+  selector: destination.name
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -416,7 +416,7 @@ metadata:
   name: rcheck2
   namespace: istio-system
 spec:
-  match: target.name.startsWith("foo")
+  match: destination.name.startsWith("foo")
   actions:
   - handler: hcheck1.acheck
     instances:

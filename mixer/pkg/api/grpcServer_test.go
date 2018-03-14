@@ -205,15 +205,11 @@ func TestCheck(t *testing.T) {
 	}
 
 	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
-		responseBag.Set("A1", "override")
 		responseBag.Set("genAttrGen", "genAttrGenValue")
 		return nil
 	}
 
 	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-		if val, _ := requestBag.Get("A1"); val == "override" {
-			return nil, errors.New("attribute overriding not allowed in Check")
-		}
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
 			return nil, errors.New("generated attribute via preproc not part of check attributes")
 		}
@@ -371,15 +367,11 @@ func TestReport(t *testing.T) {
 	}
 
 	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
-		responseBag.Set("A1", "override")
 		responseBag.Set("genAttrGen", "genAttrGenValue")
 		return nil
 	}
 
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
-		if val, _ := requestBag.Get("A1"); val == "override" {
-			return errors.New("attribute overriding NOT allowed in Report")
-		}
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
 			return errors.New("generated attribute via preproc not part of report attributes")
 		}
