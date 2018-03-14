@@ -29,7 +29,7 @@ type Envoy struct {
 }
 
 // NewEnvoy creates a new Envoy struct.
-func NewEnvoy(stress, faultInject bool, v2 *V2Conf, ports *Ports) (*Envoy, error) {
+func NewEnvoy(stress, faultInject bool, v2 *V2Conf, ports *Ports, epoch int) (*Envoy, error) {
 	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
 	envoyPath := "envoy"
 	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
@@ -38,7 +38,9 @@ func NewEnvoy(stress, faultInject bool, v2 *V2Conf, ports *Ports) (*Envoy, error
 		return nil, err
 	}
 
-	args := []string{"-c", confPath, "--base-id", strconv.Itoa(int(ports.AdminPort))}
+	// Don't use hot-start, each Envoy re-start use different base-id
+	args := []string{"-c", confPath,
+		"--base-id", strconv.Itoa(int(ports.AdminPort) + epoch)}
 	if stress {
 		args = append(args, "--concurrency", "10")
 	} else {
