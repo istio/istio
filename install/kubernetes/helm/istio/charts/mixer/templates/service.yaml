@@ -10,9 +10,9 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: grpc-plain
+  - name: tcp-plain
     port: 9091
-  - name: grpc-mtls
+  - name: tcp-mtls
     port: 15004
   - name: http-monitoring
     port: 9093
