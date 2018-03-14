@@ -14,6 +14,7 @@
  */
 
 #include "src/envoy/http/authn/http_filter.h"
+#include "common/common/base64.h"
 #include "common/http/utility.h"
 #include "src/envoy/http/authn/origin_authenticator.h"
 #include "src/envoy/http/authn/peer_authenticator.h"
@@ -25,6 +26,10 @@ namespace Envoy {
 namespace Http {
 namespace Istio {
 namespace AuthN {
+
+// The HTTP header to pass verified authentication payload.
+const LowerCaseString AuthenticationFilter::kOutputHeaderLocation(
+    "sec-istio-authn-payload");
 
 AuthenticationFilter::AuthenticationFilter(
     const istio::authentication::v1alpha1::Policy& policy)
@@ -71,6 +76,16 @@ void AuthenticationFilter::onPeerAuthenticationDone(bool success) {
 void AuthenticationFilter::onOriginAuthenticationDone(bool success) {
   ENVOY_LOG(debug, "{}: success = {}", __func__, success);
   if (success) {
+    // Put authentication result to headers.
+    if (filter_context_ != nullptr) {
+      std::string payload_data;
+      filter_context_->authenticationResult().SerializeToString(&payload_data);
+      const std::string base64_data =
+          Base64::encode(payload_data.c_str(), payload_data.size());
+      filter_context_->headers()->addReferenceKey(kOutputHeaderLocation,
+                                                  base64_data);
+    }
+
     continueDecoding();
   } else {
     rejectRequest("Origin authentication failed.");

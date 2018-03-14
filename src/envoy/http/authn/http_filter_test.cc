@@ -15,11 +15,14 @@
 
 #include "src/envoy/http/authn/http_filter.h"
 #include "authentication/v1alpha1/policy.pb.h"
+#include "common/common/base64.h"
 #include "common/http/header_map_impl.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "src/envoy/http/authn/authenticator_base.h"
+#include "src/envoy/http/authn/test_utils.h"
 #include "test/mocks/http/mocks.h"
+#include "test/test_common/utility.h"
 
 using Envoy::Http::Istio::AuthN::AuthenticatorBase;
 using Envoy::Http::Istio::AuthN::FilterContext;
@@ -59,7 +62,12 @@ std::unique_ptr<AuthenticatorBase> createAlwaysPassAuthenticator(
     _local(FilterContext* filter_context,
            const AuthenticatorBase::DoneCallback& callback)
         : AuthenticatorBase(filter_context, callback) {}
-    void run() override { done(true); }
+    void run() override {
+      // Set some data to verify authentication result later.
+      auto payload = TestUtilities::CreateX509Payload("foo");
+      filter_context()->setPeerResult(&payload);
+      done(true);
+    }
   };
   return std::make_unique<_local>(filter_context, done_callback);
 }
@@ -81,11 +89,11 @@ class MockAuthenticationFilter : public AuthenticationFilter {
                    FilterContext*, const AuthenticatorBase::DoneCallback&));
 };
 
-class AuthentiationFilterTest : public testing::Test {
+class AuthenticationFilterTest : public testing::Test {
  public:
-  AuthentiationFilterTest()
+  AuthenticationFilterTest()
       : request_headers_{{":method", "GET"}, {":path", "/"}} {}
-  ~AuthentiationFilterTest() {}
+  ~AuthenticationFilterTest() {}
 
   void SetUp() override {
     filter_.setDecoderFilterCallbacks(decoder_callbacks_);
@@ -97,7 +105,7 @@ class AuthentiationFilterTest : public testing::Test {
   Http::TestHeaderMapImpl request_headers_;
 };
 
-TEST_F(AuthentiationFilterTest, PeerFail) {
+TEST_F(AuthenticationFilterTest, PeerFail) {
   // Peer authentication fail, request should be rejected with 401. No origin
   // authentiation needed.
   EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
@@ -110,9 +118,11 @@ TEST_F(AuthentiationFilterTest, PeerFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
+  EXPECT_FALSE(
+      request_headers_.has(AuthenticationFilter::kOutputHeaderLocation));
 }
 
-TEST_F(AuthentiationFilterTest, PeerPassOrginFail) {
+TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
   // Peer pass thus origin authentication must be called. Final result should
   // fail as origin authn fails.
   EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
@@ -128,9 +138,11 @@ TEST_F(AuthentiationFilterTest, PeerPassOrginFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
+  EXPECT_FALSE(
+      request_headers_.has(AuthenticationFilter::kOutputHeaderLocation));
 }
 
-TEST_F(AuthentiationFilterTest, AllPass) {
+TEST_F(AuthenticationFilterTest, AllPass) {
   EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
       .Times(1)
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
@@ -139,6 +151,11 @@ TEST_F(AuthentiationFilterTest, AllPass) {
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
             filter_.decodeHeaders(request_headers_, true));
+  Result authn;
+  EXPECT_TRUE(authn.ParseFromString(Base64::decode(
+      request_headers_.get_(AuthenticationFilter::kOutputHeaderLocation))));
+  EXPECT_TRUE(TestUtility::protoEqual(
+      TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"), authn));
 }
 
 }  // namespace

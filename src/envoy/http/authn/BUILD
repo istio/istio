@@ -135,6 +135,7 @@ envoy_cc_test(
     repository = "@envoy",
     deps = [
         ":filter_lib",
+        ":test_utils",
         "//external:authentication_policy_config_cc_proto",
         "@envoy//source/common/http:header_map_lib",
         "@envoy//test/mocks/http:http_mocks",
