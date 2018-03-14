@@ -23,10 +23,10 @@ import (
 	"os"
 	"sync"
 	"time"
+
 	"github.com/gogo/protobuf/types"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"golang.org/x/net/context"
@@ -85,9 +85,9 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	var nodeId string
 	node := model.Proxy{}
 	con := &LdsConnection{
-		pushChannel: make(chan bool, 1),
-		PeerAddr:    peerAddr,
-		Connect:     time.Now(),
+		pushChannel:   make(chan bool, 1),
+		PeerAddr:      peerAddr,
+		Connect:       time.Now(),
 		HTTPListeners: map[string]*xdsapi.Listener{},
 	}
 	go func() {

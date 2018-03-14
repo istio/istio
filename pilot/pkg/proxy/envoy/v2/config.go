@@ -317,7 +317,6 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	}
 }
 
-
 // MessageToStruct is the most inefficient way to pass a struct, but will do for first
 // iteration.
 func messageToStruct(msg proto.Message) (*types.Struct, error) {
