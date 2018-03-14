@@ -72,7 +72,7 @@ data:
       zipkinAddress: istio-zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-      statsdUdpAddress: statsd-prom-bridge.{{ .Release.Namespace }}:9125
+      statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
