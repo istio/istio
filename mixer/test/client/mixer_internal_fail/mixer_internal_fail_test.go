@@ -24,7 +24,7 @@ import (
 
 // Mixer server returns INTERNAL failure.
 func TestMixerInternalFail(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/pull/4258")
+	t.Skip("issue https://github.com/istio/istio/issues/4264")
 	s := env.NewTestSetup(env.MixerInternalFailTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
