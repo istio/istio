@@ -31,13 +31,13 @@ import (
 
 // StreamListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService_StreamListenersServer) error {
-	log.Info("StreamListeners")
 	ticker := time.NewTicker(responseTickDuration)
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := unknownPeerAddressStr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
+	log.Infof("LDS: StreamListeners %v", peerAddr)
 	defer ticker.Stop()
 	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
@@ -66,7 +66,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 				return receiveError
 			}
 			if !initialRequest {
-				log.Debugf("LDS ACK from Envoy for client %q has version %q and Nonce %q for request", discReq.GetVersionInfo(), discReq.GetResponseNonce())
+				log.Debugf("LDS: ACK from Envoy for client %q has version %q and Nonce %q for request", discReq.GetVersionInfo(), discReq.GetResponseNonce())
 				continue
 			}
 		case <-ticker.C:
@@ -77,7 +77,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		}
 		if initialRequest {
 			initialRequest = false
-			log.Debugf("LDS request from  %q received.", peerAddr)
+			log.Debugf("LDS: request from  %q received.", peerAddr)
 		}
 
 		nt, err := model.ParseServiceNode(discReq.Node.Id)
@@ -88,6 +88,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			ID:   discReq.Node.Id,
 			Type: nt.Type,
 		}
+		log.Infof("LDS: StreamListeners %v %s %s", peerAddr, nt.ID, discReq.String())
 		response, err := ListListenersResponse(s.env, node)
 		log.Info(response.String())
 		if err != nil {
@@ -97,17 +98,11 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		if err != nil {
 			return err
 		}
-		log.Debugf("\nLDS response from  %q, Response: \n%s\n\n", peerAddr, response.String())
+		log.Debugf("\nLDS: response from  %q, Response: \n%s\n\n", peerAddr, response.String())
 	}
 }
 
 // FetchListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	log.Info("FetchListeners")
-	node, err := model.ParseServiceNode(in.Node.Id)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("LDSv2 request for %s.", node.ID)
 	return nil, errors.New("function FetchListeners not implemented")
 }

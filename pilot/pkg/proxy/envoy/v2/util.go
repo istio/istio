@@ -98,10 +98,15 @@ func durationToTimeDuration(d *duration.Duration) time.Duration {
 }
 
 func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name:   name,
-		Config: buildProtoStruct(name, protoStr),
+	f := &http_conn.HttpFilter{
+		Name: name,
 	}
+	if len(protoStr) > 0 {
+		f.Config = buildProtoStruct(name, protoStr)
+	}
+
+	return f
+
 }
 
 func buildProtoStruct(name, value string) *google_protobuf.Struct {

@@ -16,10 +16,13 @@
 package v2
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -29,6 +32,9 @@ import (
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
 
@@ -42,7 +48,7 @@ import (
 
 const (
 	// filterNameRouter is the name for the router filter.
-	filterNameRouter = "router"
+	filterNameRouter = "envoy.router"
 )
 
 // ListListenersResponse returns a list of listeners for the given environment and source node.
@@ -51,12 +57,15 @@ func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.Dis
 	if err != nil {
 		return nil, err
 	}
-
 	resp := &xdsapi.DiscoveryResponse{}
+	typeUrl := ""
 	for _, ll := range ls {
+		log.Infof("LDS: %v", ll.String())
 		lr, _ := google_protobuf.MarshalAny(ll)
+		typeUrl = lr.TypeUrl
 		resp.Resources = append(resp.Resources, *lr)
 	}
+	resp.TypeUrl = typeUrl
 
 	return resp, nil
 }
@@ -256,25 +265,30 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
-	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(v1.CORSFilter, "")}
+	filters := []*http_conn.HttpFilter{}
+	//filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(v1.CORSFilter, "")}
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, buildHTTPFilterConfig(filterNameRouter, ""))
 
-	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
-		mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
-		filter := buildHTTPFilterConfig(v1.MixerFilter, mustMarshalToString(mixerConfig))
-		filters = append([]*http_conn.HttpFilter{filter}, filters...)
-	}
+	//if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+	//	mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+	//	filter := buildHTTPFilterConfig(v1.MixerFilter, mustMarshalToString(mixerConfig))
+	//	filters = append([]*http_conn.HttpFilter{filter}, filters...)
+	//}
+
+	refresh := 5 * time.Second
 
 	var rds *http_conn.HttpConnectionManager_Rds
 	if opts.rds != "" {
 		rds = &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
+				RouteConfigName: opts.rds,
 				ConfigSource: core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:      core.ApiConfigSource_GRPC,
-							ClusterNames: []string{v1.RDSName},
+							ApiType:      core.ApiConfigSource_REST_LEGACY,
+							ClusterNames: []string{"rds"},
+							RefreshDelay: &refresh,
 						},
 					},
 				},
@@ -301,7 +315,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		fl := &accesslog.FileAccessLog{
 			Path: opts.mesh.AccessLogFile,
 		}
-		manager.AccessLog = []*accesslog.AccessLog{{Config: buildProtoStruct("file_access_log", fl.String())}}
+		accessLogStruct, _ := messageToStruct(fl)
+		manager.AccessLog = []*accesslog.AccessLog{{Config: accessLogStruct}}
 	}
 
 	if opts.mesh.EnableTracing {
@@ -311,6 +326,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		manager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
 
+	managerJson, _ := json.MarshalIndent(manager, "  ", "  ")
+	log.Infof("LDS: %s \n", string(managerJson))
+	managerStruct, _ := messageToStruct(manager)
+
 	return &xdsapi.Listener{
 		Address: buildAddress(opts.ip, uint32(opts.port)),
 		Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
@@ -318,13 +337,29 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   v1.HTTPConnectionManager,
-						Config: buildProtoStruct(v1.HTTPConnectionManager, manager.String()),
+						Name:   "envoy.http_connection_manager",
+						Config: managerStruct,
 					},
 				},
 			},
 		},
 	}
+}
+
+// MessageToStruct is the most inefficient way to pass a struct, but will do for first
+// iteration.
+func messageToStruct(msg proto.Message) (*types.Struct, error) {
+	buf := &bytes.Buffer{}
+	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, msg); err != nil {
+		return nil, err
+	}
+
+	pbs := &types.Struct{}
+	if err := jsonpb.Unmarshal(buf, pbs); err != nil {
+		return nil, err
+	}
+
+	return pbs, nil
 }
 
 // consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
