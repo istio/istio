@@ -31,9 +31,10 @@ const (
 	// MgmtAPIPath is the path to call mgmt.
 	MgmtAPIPath string = "/tmp/udsuspver/mgmt.sock"
 
-	// WorkloadAPIUdsHome is the path for workload.
+	// WorkloadAPIUdsHome is the uds file directory for workload api.
 	WorkloadAPIUdsHome string = "/tmp/nodeagent"
 
+	// WorkloadAPIUdsFile is the uds file name for workload api.
 	WorkloadAPIUdsFile string = "/server.sock"
 )
 
@@ -57,8 +58,8 @@ var (
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&CfgMgmtAPIPath, "mgmtpath", MgmtAPIPath, "Mgmt API Uds path")
-	RootCmd.PersistentFlags().StringVar(&CfgWldAPIUdsHome, "wldpath",  WorkloadAPIUdsHome, "Workload API home path")
-	RootCmd.PersistentFlags().StringVar(&CfgWldSockFile, "wldfile",  WorkloadAPIUdsFile, "Workload API socket file name")
+	RootCmd.PersistentFlags().StringVar(&CfgWldAPIUdsHome, "wldpath", WorkloadAPIUdsHome, "Workload API home path")
+	RootCmd.PersistentFlags().StringVar(&CfgWldSockFile, "wldfile", WorkloadAPIUdsFile, "Workload API socket file name")
 }
 
 // MgmtAPI manage the api
