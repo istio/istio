@@ -17,12 +17,15 @@ package v2
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+	"github.com/gogo/protobuf/types"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -33,6 +36,10 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+)
+
+const (
+	envoy_http_connection_manager = "envoy.http_connection_manager"
 )
 
 var (
@@ -54,7 +61,10 @@ type LdsConnection struct {
 	pushChannel chan bool
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
-	HttpListeners map[string]*http_conn.HttpConnectionManager
+
+	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
+
+	HTTPListeners map[string]*xdsapi.Listener
 
 	// TODO: TcpListeners (may combine mongo/etc)
 }
@@ -78,6 +88,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		pushChannel: make(chan bool, 1),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
+		HTTPListeners: map[string]*xdsapi.Listener{},
 	}
 	go func() {
 		defer close(reqChannel)
@@ -201,4 +212,22 @@ func removeLdsCon(connection *LdsConnection, s string) {
 // FetchListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	return nil, errors.New("function FetchListeners not implemented")
+}
+
+func newHTTPListener(ip string, port int, name string, config *types.Struct) *xdsapi.Listener {
+	return &xdsapi.Listener{
+		Address: buildAddress(ip, uint32(port)),
+		Name:    fmt.Sprintf("http_%s_%d", ip, port),
+		FilterChains: []listener.FilterChain{
+			{
+				Filters: []listener.Filter{
+					{
+						Name:   "envoy.http_connection_manager",
+						Config: config,
+					},
+				},
+			},
+		},
+	}
+
 }

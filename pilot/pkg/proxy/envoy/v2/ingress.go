@@ -43,7 +43,12 @@ func (con *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, pro
 		store:            config,
 	}
 
-	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}
+	manager := buildHTTPConnectionManager(opts)
+	managerStruct, _ := messageToStruct(manager)
+	l := newHTTPListener(opts.ip, opts.port, envoy_http_connection_manager, managerStruct)
+	con.HTTPListeners[":80"] = l
+
+	listeners := []*xdsapi.Listener{l}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
@@ -51,7 +56,11 @@ func (con *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, pro
 	if secret != "" {
 		opts.port = 443
 		opts.rds = "443"
-		listener := buildHTTPListener(opts)
+		manager := buildHTTPConnectionManager(opts)
+		managerStruct, _ := messageToStruct(manager)
+		listener := newHTTPListener(opts.ip, opts.port, envoy_http_connection_manager, managerStruct)
+		con.HTTPListeners[":443"] = listener
+
 		// TODO(mostrowski)
 		/*listener.SSLContext = &SSLContext{
 			CertChainFile:  path.Join(model.IngressCertsPath, model.IngressCertFilename),

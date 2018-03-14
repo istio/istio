@@ -224,9 +224,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	store            model.IstioConfigStore
 }
 
-// buildHTTPListener constructs a listener for the network interface address and port.
-// Set RDS parameter to a non-empty value to enable RDS for the matching route name.
-func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConnectionManager {
 	filters := []*http_conn.HttpFilter{}
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: "envoy.cors",
@@ -276,7 +274,6 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		RouteSpecifier: rds,
 		//		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
-
 	if false && opts.mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
 			Path: opts.mesh.AccessLogFile,
@@ -294,6 +291,14 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 
 	managerJson, _ := json.MarshalIndent(manager, "  ", "  ")
 	log.Infof("LDS: %s \n", string(managerJson))
+	return manager
+}
+
+// buildHTTPListener constructs a listener for the network interface address and port.
+// Set RDS parameter to a non-empty value to enable RDS for the matching route name.
+func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	manager := buildHTTPConnectionManager(opts)
+
 	managerStruct, _ := messageToStruct(manager)
 
 	return &xdsapi.Listener{
@@ -311,6 +316,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		},
 	}
 }
+
 
 // MessageToStruct is the most inefficient way to pass a struct, but will do for first
 // iteration.
