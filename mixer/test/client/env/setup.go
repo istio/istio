@@ -146,7 +146,7 @@ func (s *TestSetup) TearDown() {
 func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
 	var err error
-	s.epoch += 1
+	s.epoch++
 	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports, s.epoch)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
