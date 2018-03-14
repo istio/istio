@@ -477,7 +477,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return crd.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
-func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStoreCache) error {
+func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
@@ -490,7 +490,7 @@ func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigS
 	return nil
 }
 
-func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStoreCache) error {
+func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStore) error {
 	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
 	if err != nil {
 		return multierror.Prefix(err, "loading cloud foundry config")
