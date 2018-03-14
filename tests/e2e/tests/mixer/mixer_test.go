@@ -228,7 +228,7 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	if err = p.portForward("istio-mixer-type=istio-telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 
