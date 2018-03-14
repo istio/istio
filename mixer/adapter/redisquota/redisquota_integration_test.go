@@ -199,38 +199,37 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 
-		t.Run(id, func(t *testing.T) {
-			adapter_integration.RunTest(
-				t,
-				GetInfo,
-				adapter_integration.Scenario{
-					ParallelCalls: []adapter_integration.Call{
-						{
-							CallKind: adapter_integration.CHECK,
-							Attrs:    c.attrs,
-							Quotas:   c.quotas,
-						},
+		t.Logf("**Executing test case '%s'**", id)
+		adapter_integration.RunTest(
+			t,
+			GetInfo,
+			adapter_integration.Scenario{
+				ParallelCalls: []adapter_integration.Call{
+					{
+						CallKind: adapter_integration.CHECK,
+						Attrs:    c.attrs,
+						Quotas:   c.quotas,
 					},
-
-					Setup: func() (interface{}, error) {
-						mockRedis, err := miniredis.Run()
-						if err != nil {
-							t.Fatalf("Unable to start mock redis server: %v", err)
-						}
-						return mockRedis, nil
-					},
-
-					Teardown: func(ctx interface{}) {
-						ctx.(*miniredis.Miniredis).Close()
-					},
-
-					Configs: []string{
-						serviceCfg,
-					},
-					Want: c.want,
 				},
-			)
-		})
+
+				Setup: func() (interface{}, error) {
+					mockRedis, err := miniredis.Run()
+					if err != nil {
+						t.Fatalf("Unable to start mock redis server: %v", err)
+					}
+					return mockRedis, nil
+				},
+
+				Teardown: func(ctx interface{}) {
+					ctx.(*miniredis.Miniredis).Close()
+				},
+
+				Configs: []string{
+					serviceCfg,
+				},
+				Want: c.want,
+			},
+		)
 	}
 }
 

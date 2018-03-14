@@ -130,6 +130,9 @@ type (
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
+// NOTE: DO NOT invoke this using `t.Run(string, func)` because that would execute func in a separate go routine.
+// Separate go routines would cause the test to fail randomly because fixed ports cannot be assigned and cleaned up
+// deterministically on each iteration.
 //
 // * adapterInfo provides the InfoFn for the adapter under test.
 // * Scenario provide the adapter/handler/rule configs along with the call parameters (check or report, and attributes)
