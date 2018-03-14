@@ -159,35 +159,25 @@
               {
                 "name": "envoy.http_connection_manager",
                 "config": {
+                  "codec_type": "AUTO",
                   "stat_prefix": "http80",
-                  "access_log": {
-                    "name": "envoy.file_access_log",
-                    "config": {
-                      "path": "/dev/stdout"
-                    }
-                  },
-                  "http_filters": [
-                    {
-                      "name": "envoy.router"
-                    }
-                  ],
-                  "rds": {
-                    "config_source": {
-                      "api_config_source": {
-                        "api_type": "REST_LEGACY",
-                        "cluster_names": [
-                          "rds"
-                        ],
-                        "refresh_delay": {
-                          "seconds": 30,
-                          "nanos": 0
+
+
+                  "route_specifier": {
+                    "rds": {
+                      "config_source": {
+
+                        "path": "/tmp/rds"
+
+                        "config_source_specifier": {
                         }
-                      }
-                    },
-                    "route_config_name": "80"
+                      },
+                      "route_config_name": "80"
+                    }
                   }
                 }
               }
+
             ]
           }
         ]
