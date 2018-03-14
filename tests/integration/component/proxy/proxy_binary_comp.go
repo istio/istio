@@ -125,9 +125,8 @@ func (proxyComp *LocalComponent) IsAlive() (bool, error) {
 	_, err = net.Dial("tcp", sideCarPort)
 	if err == nil {
 		return true, err
-	} else {
-		return false, err
 	}
+	return false, err
 }
 
 // Stop stop this local component by kill the process
