@@ -156,7 +156,11 @@ func (pb *ProtoBag) ClearReferencedAttributes() {
 
 // ResetReferencedAttributes sets the list of referenced attributes being tracked by this bag
 func (pb *ProtoBag) ResetReferencedAttributes(snap ReferencedAttributeSnapshot) {
-	pb.referencedAttrs = snap.referencedAttrs
+	ra := make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, len(snap.referencedAttrs))
+	for k, v := range snap.referencedAttrs {
+		ra[k] = v
+	}
+	pb.referencedAttrs = ra
 }
 
 // SnapshotReferencedAttributes grabs a snapshot of the currently referenced attributes
