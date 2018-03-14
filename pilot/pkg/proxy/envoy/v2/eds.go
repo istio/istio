@@ -72,6 +72,9 @@ var (
 	edsClusterMutex sync.Mutex
 	edsClusters     = map[string]*EdsCluster{}
 	version         = 1
+
+	// Tracks connections, increment on each new connection.
+	connectionNumber = int64(0)
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -247,6 +250,14 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	return out
 }
 
+func connectionId(node string) string {
+	edsClusterMutex.Lock()
+	connectionNumber++
+	c := connectionNumber
+	edsClusterMutex.Unlock()
+	return node + "-" + strconv.Itoa(int(c))
+}
+
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
 func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
@@ -263,6 +274,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		Clusters:    []string{},
 		Connect:     time.Now(),
 	}
+	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
+	// since multiple envoys may connect from the same pod.
 	var node string
 	go func() {
 		defer close(reqChannel)
@@ -301,7 +314,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			clusters2 := discReq.GetResourceNames()
 			// Should not change. A node monitors multiple clusters
 			if node == "" && discReq.Node != nil {
-				node = discReq.Node.Id
+				node = connectionId(discReq.Node.Id)
+
 			}
 
 			if node == "" {
@@ -477,7 +491,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		log.Infoa("EDS: remove unused cluster ", clusterName, edsClusters)
+		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
 		delete(edsClusters, clusterName)
