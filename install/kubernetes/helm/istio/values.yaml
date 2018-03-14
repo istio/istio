@@ -65,6 +65,9 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # Install binaries (e.g. envoy) under this directory
+  installPrefix: /usr/local
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false

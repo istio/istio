@@ -48,7 +48,7 @@ data:
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
       configPath: "/etc/istio/proxy"
-      binaryPath: "/usr/local/bin/envoy"
+      binaryPath: "{INSTALL_PREFIX}/bin/envoy"
       # The pseudo service name used for Envoy.
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy

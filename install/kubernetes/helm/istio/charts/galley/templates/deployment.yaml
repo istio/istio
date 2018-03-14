@@ -24,7 +24,7 @@ spec:
           ports:
           - containerPort: 443
           command:
-          - /usr/local/bin/gals
+          - {{ .Values.global.installPrefix }}/bin/gals
           - validator
           - --webhook-name=istio-galley
           - --pilot-webhook-name=pilot.validation.istio.io
@@ -41,7 +41,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/gals
+                - {{ .Values.global.installPrefix }}/bin/gals
                 - probe
                 - --probe-path=/health
                 - --interval=2s
@@ -50,7 +50,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/gals
+                - {{ .Values.global.installPrefix }}/bin/gals
                 - probe
                 - --probe-path=/health
                 - --interval=2s

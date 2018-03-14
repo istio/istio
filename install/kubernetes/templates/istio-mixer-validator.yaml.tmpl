@@ -40,7 +40,7 @@ spec:
         ports:
         - containerPort: 443
         command:
-        - /usr/local/bin/mixs
+        - {INSTALL_PREFIX}/bin/mixs
         - validator
         - --webhook-name=istio-mixer-validator
         - --namespace={ISTIO_NAMESPACE}
