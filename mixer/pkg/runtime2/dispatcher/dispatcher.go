@@ -298,10 +298,8 @@ func (d *Dispatcher) dispatch(session *session) error {
 			st = state.quotaResult.Status
 
 		case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
-			e := session.responseBag.Merge(state.outputBag)
-			if e != nil {
-				log.Infof("Attributes merging failed %v", err)
-				err = e
+			if state.outputBag != nil {
+				session.responseBag.Merge(state.outputBag)
 			}
 		}
 
