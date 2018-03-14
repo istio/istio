@@ -18,19 +18,32 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
 
-# No unset vars, print commands as they're executed, and exit on any non-zero
-# return code
-set -u
-set -x
+# Runs after a submit is merged to master:
+# - run the unit tests, in local environment
+# - push the docker images to gcr.io
+
+# Exit immediately for non zero status
 set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
 
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
-cd ${ROOT}
+cd $ROOT
+make init
 
-# Unit tests are run against a local apiserver and etcd.
-# Integration/e2e tests in the other scripts are run against GKE or real clusters.
-JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
-T="-v" \
-make build localTestEnv test
+echo 'Running Unit Tests'
+GOTEST_FLAG="-p 1 -parallel 1 -v"
+time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="${GOTEST_FLAG}" \
+PILOT_TEST_T="${GOTEST_FLAG}" \
+MIXER_TEST_T="${GOTEST_FLAG}" \
+make localTestEnv test
+
+HUB="gcr.io/istio-testing"
+TAG="${GIT_SHA}"
+# upload images
+time ISTIO_DOCKER_HUB="${HUB}" make push HUB="${HUB}" TAG="${TAG}"
