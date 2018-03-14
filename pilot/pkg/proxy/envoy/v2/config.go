@@ -49,35 +49,37 @@ import (
 const (
 	// filterNameRouter is the name for the router filter.
 	filterNameRouter = "envoy.router"
+	ldsType          = "type.googleapis.com/envoy.api.v2.Listener"
 )
 
-// ListListenersResponse returns a list of listeners for the given environment and source node.
-func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := buildListeners(env, node)
+// ldsDiscoveryResponse returns a list of listeners for the given environment and source node.
+func (con *LdsConnection) ldsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+	ls, err := con.buildListeners(env, node)
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("LDS: %s %s %s", node.ID, node.IPAddress, node.Type)
 	resp := &xdsapi.DiscoveryResponse{}
-	typeUrl := ""
 	for _, ll := range ls {
-		log.Infof("LDS: %v", ll.String())
+		log.Infof("LDS: sent %s: %v\n", node.ID, ll.String())
 		lr, _ := google_protobuf.MarshalAny(ll)
-		typeUrl = lr.TypeUrl
 		resp.Resources = append(resp.Resources, *lr)
 	}
-	resp.TypeUrl = typeUrl
+	resp.TypeUrl = ldsType
 
 	return resp, nil
 }
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
-func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (con *LdsConnection) buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		proxyInstances, err := env.GetProxyServiceInstances(node)
 		if err != nil {
 			return nil, err
 		}
+		// TODO: move to variable, only needs to be called once and invalidated (or updated
+		// by events in future)
 		services, err := env.Services()
 		if err != nil {
 			return nil, err
@@ -104,49 +106,9 @@ func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		if svc != nil {
 			insts = append(insts, &model.ServiceInstance{Service: svc})
 		}
-		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		return con.buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
-}
-
-func buildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
-	var clusters v1.Clusters
-	var proxyInstances []*model.ServiceInstance
-	var err error
-	switch node.Type {
-	case model.Sidecar, model.Router:
-		proxyInstances, err = env.GetProxyServiceInstances(node)
-		if err != nil {
-			return clusters, err
-		}
-		var services []*model.Service
-		services, err = env.Services()
-		if err != nil {
-			return clusters, err
-		}
-		_, clusters = buildSidecarListenersClusters(env.Mesh, proxyInstances,
-			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
-	case model.Ingress:
-		httpRouteConfigs, _ := v1.BuildIngressRoutes(env.Mesh, node, nil, env.ServiceDiscovery, env.IstioConfigStore)
-		clusters = httpRouteConfigs.Clusters().Normalize()
-	}
-
-	if err != nil {
-		return clusters, err
-	}
-
-	// apply custom policies for outbound clusters
-	for _, cluster := range clusters {
-		v1.ApplyClusterPolicy(cluster, proxyInstances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts, node.Domain)
-	}
-
-	// append Mixer service definition if necessary
-	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
-		clusters = append(clusters, v1.BuildMixerClusters(env.Mesh, node, env.MixerSAN)...)
-		clusters = append(clusters, v1.BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
-	}
-
-	return clusters, nil
 }
 
 // buildSidecarListenersClusters produces a list of listeners and referenced clusters for sidecar proxies
@@ -266,9 +228,13 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	filters := []*http_conn.HttpFilter{}
-	//filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(v1.CORSFilter, "")}
+	filters = append(filters, &http_conn.HttpFilter{
+		Name: "envoy.cors",
+	})
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
-	filters = append(filters, buildHTTPFilterConfig(filterNameRouter, ""))
+	filters = append(filters, &http_conn.HttpFilter{
+		Name: "envoy.router",
+	})
 
 	//if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 	//	mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
@@ -276,7 +242,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	//	filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	//}
 
-	refresh := 5 * time.Second
+	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
 
 	var rds *http_conn.HttpConnectionManager_Rds
 	if opts.rds != "" {
@@ -305,10 +271,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		//		Config: nil,
 		//	},
 		//},
-		HttpFilters:      filters,
-		StatPrefix:       "http",
-		RouteSpecifier:   rds,
-//		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+		HttpFilters:    filters,
+		StatPrefix:     "http",
+		RouteSpecifier: rds,
+		//		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
 	if false && opts.mesh.AccessLogFile != "" {
@@ -696,6 +662,8 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 	return tcpListeners, tcpClusters
 }
+
+// TODO: move to lds_inbound, will need special optimizations.
 
 // buildInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances. The function also returns

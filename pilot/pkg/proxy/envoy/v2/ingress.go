@@ -23,7 +23,9 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
-func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
+// TODO: rename to lds_ingress or ingress_lds
+
+func (con *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress model.Proxy) []*xdsapi.Listener {
 

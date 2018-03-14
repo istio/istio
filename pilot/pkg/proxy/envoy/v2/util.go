@@ -22,7 +22,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 )
@@ -95,18 +94,6 @@ func durationToProto(d time.Duration) *google_protobuf.Duration { // nolint
 // durationToTimeDuration converts d to time.Duration format.
 func durationToTimeDuration(d *duration.Duration) time.Duration {
 	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
-}
-
-func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
-	f := &http_conn.HttpFilter{
-		Name: name,
-	}
-	if len(protoStr) > 0 {
-		f.Config = buildProtoStruct(name, protoStr)
-	}
-
-	return f
-
 }
 
 func buildProtoStruct(name, value string) *google_protobuf.Struct {
