@@ -36,6 +36,23 @@ class EnvoyTimer : public ::istio::mixerclient::Timer {
   Event::TimerPtr timer_;
 };
 
+// Fork of Envoy::Grpc::AsyncClientFactoryImpl, workaround for
+// https://github.com/envoyproxy/envoy/issues/2762
+class EnvoyGrpcAsyncClientFactory : public Grpc::AsyncClientFactory {
+ public:
+  EnvoyGrpcAsyncClientFactory(Upstream::ClusterManager &cm,
+                              envoy::api::v2::core::GrpcService config)
+      : cm_(cm), config_(config) {}
+
+  Grpc::AsyncClientPtr create() override {
+    return std::make_unique<Grpc::AsyncClientImpl>(cm_, config_);
+  }
+
+ private:
+  Upstream::ClusterManager &cm_;
+  envoy::api::v2::core::GrpcService config_;
+};
+
 }  // namespace
 
 // Create all environment functions for mixerclient
@@ -64,7 +81,9 @@ Grpc::AsyncClientFactoryPtr GrpcClientFactoryForCluster(
   envoy::api::v2::core::GrpcService service;
   service.mutable_envoy_grpc()->set_cluster_name(cluster_name);
 
-  return cm.grpcAsyncClientManager().factoryForGrpcService(service, scope);
+  // Workaround for https://github.com/envoyproxy/envoy/issues/2762
+  UNREFERENCED_PARAMETER(scope);
+  return std::make_unique<EnvoyGrpcAsyncClientFactory>(cm, service);
 }
 
 }  // namespace Utils
