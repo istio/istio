@@ -15,6 +15,7 @@
 package testing
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -111,7 +112,8 @@ func newAPIServer() (*apiServer, error) {
 		"--expose=8080", "-p", "8080:"+localPort,
 		apiServerRepository+":"+apiServerTag)
 
-	if b, err := cmd.Output(); err != nil {
+	var b []byte
+	if b, err = cmd.Output(); err != nil {
 		stderr := ""
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			stderr = string(exitErr.Stderr)
