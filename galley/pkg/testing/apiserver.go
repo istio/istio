@@ -116,6 +116,12 @@ func newApiServer() (*apiServer, error) {
 		Host:          "localhost:" + port,
 	}
 
+	s := &apiServer{
+		dockerPool: pool,
+		container:  container,
+		baseConfig: baseConfig,
+	}
+
 	err = pool.Retry(func() error {
 		log.Debugf("Attempting to connect to the apiServer...")
 
@@ -135,15 +141,12 @@ func newApiServer() (*apiServer, error) {
 	})
 
 	if err != nil {
+		_ = s.close() // retry error takes precedence
 		log.Errorf("Could not connect to docker: %s", err)
 		return nil, err
 	}
 
-	return &apiServer{
-		dockerPool: pool,
-		container:  container,
-		baseConfig: baseConfig,
-	}, nil
+	return s, nil
 }
 
 // Close purges the container from docker.
