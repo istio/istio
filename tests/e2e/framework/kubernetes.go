@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"testing"
 	"time"
 
 	"istio.io/istio/pkg/log"
@@ -39,6 +41,9 @@ const (
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
+	mixerValidatorFile          = "istio-mixer-validator.yaml"
+
+	maxDeploymentRolloutTime = 120 * time.Second
 )
 
 var (
@@ -56,6 +61,7 @@ var (
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
 		"prometheus",
@@ -70,7 +76,9 @@ type KubeInfo struct {
 	TmpDir  string
 	yamlDir string
 
-	Ingress string
+	inglock    sync.Mutex
+	ingress    string
+	ingressErr error
 
 	localCluster     bool
 	namespaceCreated bool
@@ -154,17 +162,48 @@ func (k *KubeInfo) Setup() error {
 		}
 	}
 
-	var in string
-	if k.localCluster {
-		in, err = util.GetIngressPod(k.Namespace)
-	} else {
-		in, err = util.GetIngress(k.Namespace)
+	if *withMixerValidator {
+		// Run the script to set up the certificate.
+		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
+		if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
+			return err
+		}
+
 	}
-	if err != nil {
-		return err
-	}
-	k.Ingress = in
 	return nil
+}
+
+// IngressOrFail lazily initialize ingress and fail test if not found.
+func (k *KubeInfo) IngressOrFail(t *testing.T) string {
+	gw, err := k.Ingress()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// Ingress lazily initialize ingress
+func (k *KubeInfo) Ingress() (string, error) {
+	k.inglock.Lock()
+	defer k.inglock.Unlock()
+
+	// Previously fetched ingress or failed.
+	if k.ingressErr != nil || len(k.ingress) != 0 {
+		return k.ingress, k.ingressErr
+	}
+
+	if k.localCluster {
+		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace)
+	} else {
+		k.ingress, k.ingressErr = util.GetIngress(k.Namespace)
+	}
+
+	// So far we only do http ingress
+	if len(k.ingress) > 0 {
+		k.ingress = "http://" + k.ingress
+	}
+
+	return k.ingress, k.ingressErr
 }
 
 // Teardown clean up everything created by setup
@@ -220,18 +259,19 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 30
+	maxAttempts := 120
 	namespaceDeleted := false
+	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
 		if namespaceDeleted {
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
-		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
 		return nil
 	}
 
@@ -294,6 +334,19 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *withMixerValidator {
+		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
+		testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
+		if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
+			log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
+			log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
+			return err
+		}
+	}
+
 	if *useAutomaticInjection {
 		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
 		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
@@ -305,12 +358,8 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
 			return err
 		}
-
-		// alow time for sidecar injector to start
-		time.Sleep(60 * time.Second)
 	}
-
-	return nil
+	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime)
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
@@ -339,7 +388,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 

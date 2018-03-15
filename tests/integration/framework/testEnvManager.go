@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -104,11 +105,11 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
-		Retries:   5,
+		Retries:   8,
 	}
 
 	ready := false
-	retryFn := func(i int) error {
+	retryFn := func(_ context.Context, i int) error {
 		for _, comp := range envManager.testEnv.GetComponents() {
 			if alive, err := comp.IsAlive(); err != nil {
 				return fmt.Errorf("unable to comfirm compoment %s is alive %v", comp.GetName(), err)
@@ -122,7 +123,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 		return nil
 	}
 
-	_, err := retry.Retry(retryFn)
+	_, err := retry.Retry(context.Background(), retryFn)
 	return ready, err
 }
 

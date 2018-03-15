@@ -84,7 +84,6 @@ type Descriptor struct {
 	enums    []*EnumDescriptor // Inner enums, if any.
 	typename []string          // Cached typename vector.
 	path     string            // The SourceCodeInfo path as comma-separated integers.
-	group    bool
 }
 
 // EnumDescriptor wraps a EnumDescriptorProto.
@@ -101,15 +100,14 @@ type Object interface {
 	PackageName() string // The name we use in our output (a_b_c), possibly renamed for uniqueness.
 	TypeName() []string
 	File() *descriptor.FileDescriptorProto
-	Path() string
 }
 
 // CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
-func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string, packageImportPath string) (*FileDescriptorSetParser, error) {
+func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string, packageImportPath string) *FileDescriptorSetParser {
 	parser := &FileDescriptorSetParser{ImportMap: importMap, PackageImportPath: packageImportPath}
 	parser.WrapTypes(fds)
 	parser.BuildTypeNameMap()
-	return parser, nil
+	return parser
 }
 
 // WrapTypes creates wrapper types for messages, enumse and file inside the FileDescriptorSet.
@@ -187,23 +185,6 @@ func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *d
 	} else {
 		d.path = fmt.Sprintf("%s,%s,%d", parent.path, messageMessagePath, index)
 	}
-
-	// The only way to distinguish a group from a message is whether
-	// the containing message has a TYPE_GROUP field that matches.
-	if parent != nil {
-		parts := d.TypeName()
-		if file.Package != nil {
-			parts = append([]string{*file.Package}, parts...)
-		}
-		exp := "." + strings.Join(parts, ".")
-		for _, field := range parent.Field {
-			if field.GetType() == descriptor.FieldDescriptorProto_TYPE_GROUP && field.GetTypeName() == exp {
-				d.group = true
-				break
-			}
-		}
-	}
-
 	return d
 }
 
@@ -238,11 +219,6 @@ func (d *Descriptor) TypeName() []string {
 	}
 	d.typename = s
 	return s
-}
-
-// Path returns the path string associated with this Descriptor object.
-func (d *Descriptor) Path() string {
-	return d.path
 }
 
 // Enum methods ..
@@ -292,11 +268,6 @@ func (e *EnumDescriptor) TypeName() (s []string) {
 	s[len(s)-1] = name
 	e.typename = s
 	return s
-}
-
-// Path returns the path string associated with this EnumDescriptor object.
-func (e *EnumDescriptor) Path() string {
-	return e.path
 }
 
 // FileDescriptorSetParser methods

@@ -502,25 +502,25 @@ end`,
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:          `target.ip| ip("10.1.12.3")`,
+		E:          `destination.ip| ip("10.1.12.3")`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
 		R:          net.ParseIP("10.1.12.3"),
-		Referenced: []string{"target.ip"},
+		Referenced: []string{"destination.ip"},
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:    `target.ip| ip(2)`,
+		E:    `destination.ip| ip(2)`,
 		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
-			"target.ip": "",
+			"destination.ip": "",
 		},
 		CompileErr: "ip(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'ip' func was not a string",
 		conf:       exprEvalAttrs,
 	},
 	{
-		E:      `target.ip| ip("10.1.12")`,
+		E:      `destination.ip| ip("10.1.12")`,
 		Type:   descriptor.IP_ADDRESS,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
@@ -575,15 +575,16 @@ end
 		Referenced: []string{"source.labels"},
 		conf:       exprEvalAttrs,
 	},
-	// TODO: uncomment the following lines when short-circuiting for externs is added
-	//{
-	//	E:    `emptyStringMap() | source.labels`,
-	//	Type: descriptor.STRING_MAP,
-	//	I:    map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
-	//	R:    map[string]string{},
-	//	Referenced: []string{},
-	//	conf: exprEvalAttrs,
-	//},
+
+	{
+		E:          `emptyStringMap() | source.labels`,
+		Type:       descriptor.STRING_MAP,
+		I:          map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
+		R:          map[string]string{},
+		Referenced: []string{},
+		conf:       exprEvalAttrs,
+	},
+
 	// Tests from expr/eval_test.go TestCEXLEval
 	{
 		E: "a = 2",
@@ -1031,6 +1032,717 @@ fn eval() bool
   aeq_d 45.230000
   ret
 end`,
+	},
+
+	{
+		E:    `dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() string
+  apush_s "foo.bar.baz"
+  call dnsName
+  ret
+end`,
+	},
+
+	{
+		E:    `adns`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"adns": "foo.bar",
+		},
+		R: "foo.bar",
+		IL: `
+fn eval() string
+  resolve_s "adns"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `dnsName("")`,
+		Type: descriptor.DNS_NAME,
+		Err:  `error converting '' to dns name: 'idna: invalid label ""'`,
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "-foo.-bar",
+		},
+		Err: `error converting '-foo.-bar' to dns name: 'idna: invalid label "-foo"'`,
+	},
+
+	{
+		E:    `dnsName(as)`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "foo.bar",
+		},
+		R: "foo.bar",
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call dnsName
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() string
+  tresolve_s "adns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `adns | bdns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() string
+  tresolve_s "adns"
+  jnz L0
+  tresolve_s "bdns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz") | bdns`,
+		Type: descriptor.DNS_NAME,
+		I:    map[string]interface{}{},
+		R:    "foo.bar.baz",
+		IL: `
+fn eval() string
+  tresolve_s "adns"
+  jnz L0
+  apush_s "foo.bar.baz"
+  call dnsName
+  jmp L0
+  resolve_s "bdns"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `adns | dnsName("foo.bar.baz")`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"adns": "www.istio.io",
+		},
+		R: "www.istio.io",
+	},
+
+	{
+		E:    `adns == bdns`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "adns"
+  resolve_s "bdns"
+  call dnsName_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "fOO.bar.com",
+		},
+	},
+
+	{
+		E:    `dnsName(as | bs | "foo")`,
+		Type: descriptor.DNS_NAME,
+		R:    "foo",
+		IL: `
+ fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "foo"
+L0:
+  call dnsName
+  ret
+end`,
+	},
+
+	{
+		E:    `dnsName(as | bs | "foo")`,
+		Type: descriptor.DNS_NAME,
+		I: map[string]interface{}{
+			"as": "foo.bar.com",
+		},
+		R: "foo.bar.com",
+	},
+
+	{
+		E:    `adns == bdns`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "bar.foo.com",
+		},
+	},
+
+	{
+		E:    `adns != bdns`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "adns"
+  resolve_s "bdns"
+  call dnsName_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "bar.foo.com",
+		},
+	},
+
+	{
+		E:    `adns != bdns`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+			"bdns": "foo.bar.com",
+		},
+	},
+
+	{
+		E:          `adns == as`,
+		CompileErr: "EQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+	},
+
+	{
+		E:          `adns != as`,
+		CompileErr: "NEQ($adns, $as) arg 2 ($as) typeError got STRING, expected DNS_NAME",
+	},
+
+	{
+		E:    `dnsName("foo.bar.baz") == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(adns | dnsName("foo.bar.baz")) == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(adns | dnsName("foo.bar.baz")) == dnsName("foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"adns": "foo.bar.com",
+		},
+		R: false,
+	},
+
+	{
+		E:    `email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		R:    "istio@istio.io",
+		IL: `
+fn eval() string
+  apush_s "istio@istio.io"
+  call email
+  ret
+end`,
+	},
+
+	{
+		E:    `amail`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"amail": "foo@bar.com",
+		},
+		R: "foo@bar.com",
+		IL: `
+fn eval() string
+  resolve_s "amail"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `email("")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		Err:  `error converting '' to e-mail: 'mail: no address'`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "barfoo",
+		},
+		Err: `error converting 'barfoo' to e-mail: 'mail: no angle-addr'`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call email
+  ret
+end
+`,
+	},
+
+	{
+		E:    `email(as)`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": `"istio"@istio.io`, // The e-mail should not get normalized.
+		},
+		R: `"istio"@istio.io`,
+	},
+
+	{
+		E:    `amail | email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() string
+  tresolve_s "amail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `amail | bmail | email("istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() string
+  tresolve_s "amail"
+  jnz L0
+  tresolve_s "bmail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `amail | email("istio@istio.io") | bmail`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I:    map[string]interface{}{},
+		R:    "istio@istio.io",
+		IL: `
+fn eval() string
+  tresolve_s "amail"
+  jnz L0
+  apush_s "istio@istio.io"
+  call email
+  jmp L0
+  resolve_s "bmail"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `amail | email("kubernetes@kubernetes.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+	},
+
+	{
+		E:    `amail == bmail`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "amail"
+  resolve_s "bmail"
+  call email_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"amail": `"istio"@istio.io`,
+			"bmail": "istio@istio.io",
+		},
+	},
+
+	{
+		E:    `email(as | bs | "istio@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		R:    "istio@istio.io",
+		IL: `
+ fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "istio@istio.io"
+L0:
+  call email
+  ret
+end`,
+	},
+
+	{
+		E:    `email(as | bs | "pilot@istio.io")`,
+		Type: descriptor.EMAIL_ADDRESS,
+		I: map[string]interface{}{
+			"as": "istio@istio.io",
+		},
+		R: "istio@istio.io",
+	},
+
+	{
+		E:    `amail == bmail`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "pilot@istio.io",
+		},
+	},
+
+	{
+		E:    `amail != bmail`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "amail"
+  resolve_s "bmail"
+  call email_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "pilot@istio.io",
+		},
+	},
+
+	{
+		E:    `amail != bmail`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"amail": "istio@istio.io",
+			"bmail": "istio@istio.io",
+		},
+	},
+
+	{
+		E:          `amail == as`,
+		CompileErr: "EQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+	},
+
+	{
+		E:          `amail != as`,
+		CompileErr: "NEQ($amail, $as) arg 2 ($as) typeError got STRING, expected EMAIL_ADDRESS",
+	},
+
+	{
+		E:    `email("istio@istio.io") == email("istio@istio.io")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `uri("http://istio.io")`,
+		Type: descriptor.URI,
+		R:    "http://istio.io",
+		IL: `
+fn eval() string
+  apush_s "http://istio.io"
+  call uri
+  ret
+end`,
+	},
+
+	{
+		E:    `auri`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"auri": "http://istio.io",
+		},
+		R: "http://istio.io",
+		IL: `
+fn eval() string
+  resolve_s "auri"
+  ret
+end
+`,
+	},
+
+	{
+		E:    `uri("")`,
+		Type: descriptor.URI,
+		Err:  `error converting string to uri: empty string`,
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		Err:  "lookup failed: 'as'",
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": ":/",
+		},
+		Err: `error converting string to uri ':/': 'parse :/: missing protocol scheme'`,
+	},
+
+	{
+		E:    `uri(as)`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": "urn:foo",
+		},
+		R: "urn:foo",
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call uri
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("urn:foo")`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "urn:foo",
+		IL: `
+fn eval() string
+  tresolve_s "auri"
+  jnz L0
+  apush_s "urn:foo"
+  call uri
+L0:
+  ret
+end`,
+	},
+
+	{
+		E:    `auri | buri | uri("https://kubernetes.io")`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "https://kubernetes.io",
+		IL: `
+fn eval() string
+  tresolve_s "auri"
+  jnz L0
+  tresolve_s "buri"
+  jnz L0
+  apush_s "https://kubernetes.io"
+  call uri
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("https://kubernetes.io") | buri`,
+		Type: descriptor.URI,
+		I:    map[string]interface{}{},
+		R:    "https://kubernetes.io",
+		IL: `
+fn eval() string
+  tresolve_s "auri"
+  jnz L0
+  apush_s "https://kubernetes.io"
+  call uri
+  jmp L0
+  resolve_s "buri"
+L0:
+  ret
+end
+`,
+	},
+
+	{
+		E:    `auri | uri("https://kubernetes.io")`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"auri": "www.istio.io",
+		},
+		R: "www.istio.io",
+	},
+
+	{
+		E:    `auri == buri`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "auri"
+  resolve_s "buri"
+  call uri_equal
+  ret
+end`,
+		I: map[string]interface{}{
+			"auri": "http://foo.bar.com",
+			"buri": "http://fOO.bar.com",
+		},
+	},
+
+	{
+		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		Type: descriptor.URI,
+		R:    "ftp://ftp.istio.io/releases",
+		IL: `
+ fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "ftp://ftp.istio.io/releases"
+L0:
+  call uri
+  ret
+end`,
+	},
+
+	{
+		E:    `uri(as | bs | "ftp://ftp.istio.io/releases")`,
+		Type: descriptor.URI,
+		I: map[string]interface{}{
+			"as": "http://istio.io",
+		},
+		R: "http://istio.io",
+	},
+
+	{
+		E:    `auri == buri`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:81",
+		},
+	},
+
+	{
+		E:    `auri != buri`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `
+fn eval() bool
+  resolve_s "auri"
+  resolve_s "buri"
+  call uri_equal
+  not
+  ret
+end`,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:81",
+		},
+	},
+
+	{
+		E:    `auri != buri`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"auri": "http://istio.io:80",
+			"buri": "http://istio.io:80",
+		},
+	},
+
+	{
+		E:          `auri == as`,
+		CompileErr: "EQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+	},
+
+	{
+		E:          `auri != as`,
+		CompileErr: "NEQ($auri, $as) arg 2 ($as) typeError got STRING, expected URI",
+	},
+
+	{
+		E:    `uri("http://foo.bar.baz") == uri("http://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(auri | uri("http://foo.bar.baz")) == uri("http://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		R:    true,
+	},
+
+	{
+		E:    `(auri | uri("https://foo.bar.baz")) == uri("https://foo.Bar.baz.")`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"auri": "foo.bar.com",
+		},
+		R: false,
 	},
 
 	{
@@ -2750,7 +3462,7 @@ var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"headername": {
 		ValueType: descriptor.STRING,
 	},
-	"target.ip": {
+	"destination.ip": {
 		ValueType: descriptor.IP_ADDRESS,
 	},
 	"servicename": {
@@ -2787,6 +3499,15 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	"aip": {
 		ValueType: descriptor.IP_ADDRESS,
 	},
+	"adns": {
+		ValueType: descriptor.DNS_NAME,
+	},
+	"amail": {
+		ValueType: descriptor.EMAIL_ADDRESS,
+	},
+	"auri": {
+		ValueType: descriptor.URI,
+	},
 	"bi": {
 		ValueType: descriptor.INT64,
 	},
@@ -2804,6 +3525,15 @@ var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
 	},
 	"bdur": {
 		ValueType: descriptor.DURATION,
+	},
+	"bdns": {
+		ValueType: descriptor.DNS_NAME,
+	},
+	"bmail": {
+		ValueType: descriptor.EMAIL_ADDRESS,
+	},
+	"buri": {
+		ValueType: descriptor.URI,
 	},
 	"bt": {
 		ValueType: descriptor.TIMESTAMP,

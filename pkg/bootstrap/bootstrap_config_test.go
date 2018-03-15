@@ -23,6 +23,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
+// Generate configs for the default configs used by istio.
+// If the template is updated, copy the new golden files from out:
+// cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
 		base string
@@ -51,7 +56,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			fn, err := WriteBootstrap(cfg, 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"})
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

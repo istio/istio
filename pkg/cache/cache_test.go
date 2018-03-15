@@ -229,7 +229,7 @@ func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
 	c.SetWithExpiration("A", "A", 1*time.Millisecond)
 
 	// this is racy, but we're being generous enough that it should be fine
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	_, ok := c.Get("A")
 	if !ok {

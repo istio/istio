@@ -26,6 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -2988,5 +2989,82 @@ func TestValidateExternalServices(t *testing.T) {
 					got == nil, c.valid, got)
 			}
 		})
+	}
+}
+
+func TestValidateAuthenticationPolicy(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name:  "empty",
+			in:    &authn.Policy{},
+			valid: true,
+		},
+		{
+			name: "empty-with-destination",
+			in: &authn.Policy{
+				Destinations: []*networking.Destination{{
+					Name: "foo",
+				}},
+			},
+			valid: true,
+		},
+		{
+			name: "Source mTLS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
+				}},
+			},
+			valid: true,
+		},
+		{
+			name: "Source JWT",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Jwt{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				}},
+			},
+			valid: true,
+		},
+		{
+			name: "Origin",
+			in: &authn.Policy{
+				CredentialRules: []*authn.CredentialRule{{
+					Binding: authn.CredentialRule_USE_ORIGIN,
+					Origins: []*authn.OriginAuthenticationMethod{{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					}},
+				}},
+			},
+			valid: true,
+		},
+		{
+			name: "Origin without method",
+			in: &authn.Policy{
+				CredentialRules: []*authn.CredentialRule{{
+					Binding: authn.CredentialRule_USE_ORIGIN,
+				}},
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateAuthenticationPolicy(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
 	}
 }

@@ -8,10 +8,10 @@
 		"lastStableSHA": "9d978d76653da8b7b4bd6421b7e8f9925d8c79ea"
 	},
 	{
-		"name": "PROXY_TAG",
+		"name": "PROXY_REPO_SHA",
 		"repoName": "proxy",
 		"prodBranch": "master",
-		"file": "istio.VERSION",
+		"file": "",
 		"lastStableSHA": "80ec4f6c2a672b00e55d34ef9b5d26a42a98da42"
 	}
 ]

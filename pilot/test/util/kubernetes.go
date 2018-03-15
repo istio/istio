@@ -212,7 +212,8 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 }
 
 // Eventually retries until f() returns true, or it times out in error
-func Eventually(f func() bool, t *testing.T) {
+func Eventually(name string, f func() bool, t *testing.T) {
+	t.Helper()
 	interval := 64 * time.Millisecond
 	for i := 0; i < 10; i++ {
 		if f() {
@@ -222,5 +223,5 @@ func Eventually(f func() bool, t *testing.T) {
 		time.Sleep(interval)
 		interval = 2 * interval
 	}
-	t.Errorf("Failed to satisfy function")
+	t.Errorf("Failed to satisfy function %q", name)
 }

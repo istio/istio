@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/tests/integration/component/fortio_server"
+	fortio_server "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/component/proxy"
 	"istio.io/istio/tests/integration/example/environment/appOnlyEnv"
 	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
@@ -52,7 +52,7 @@ func TestSample1(t *testing.T) {
 
 	var url string
 	if testEM.GetEnv().GetName() == appOnlyEnvName {
-		fortioStatus, ok := testEM.GetEnv().GetComponents()[0].GetStatus().(fortioServer.LocalCompStatus)
+		fortioStatus, ok := testEM.GetEnv().GetComponents()[0].GetStatus().(fortio_server.LocalCompStatus)
 		if !ok {
 			t.Fatalf("failed to get fortio server status")
 		}

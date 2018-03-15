@@ -161,8 +161,8 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 				}
 				for _, rh := range allRulesWithHosts {
 					rule := rh.Rule
-					routesForThisVirtualHost := buildHTTPRoutes(configStore, rule, pseudoService,
-						pseudoServicePort, nil, node.Domain, buildOutboundCluster)
+					routesForThisVirtualHost := BuildHTTPRoutes(configStore, rule, pseudoService,
+						pseudoServicePort, nil, node.Domain, BuildOutboundCluster)
 
 					for _, host := range rh.Hosts {
 						virtualHosts = append(virtualHosts, &VirtualHost{
@@ -176,7 +176,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 		}
 	}
 
-	configs := (&HTTPRouteConfig{VirtualHosts: virtualHosts}).normalize()
+	configs := (&HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: virtualHosts}).Normalize()
 	return configs, nil
 }
 

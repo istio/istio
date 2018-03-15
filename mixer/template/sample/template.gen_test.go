@@ -143,7 +143,7 @@ type fakeBag struct{}
 func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
 func (f fakeBag) Names() []string                                 { return []string{} }
 func (f fakeBag) Done()                                           {}
-func (f fakeBag) DebugString() string                             { return "" }
+func (f fakeBag) String() string                                  { return "" }
 
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {
@@ -682,7 +682,7 @@ duration: source.duration
 dimensions:
   source: source.string
   target: source.string
-  env: target.string
+  env: destination.string
 res1:
   value: source.int64
   int64Primitive: source.int64
@@ -694,7 +694,7 @@ res1:
   dimensions:
     source: source.string
     target: source.string
-    env: target.string
+    env: destination.string
 `,
 			cstrParam: &sample_quota.InstanceParam{},
 			wantType: &sample_quota.Type{
@@ -1086,7 +1086,7 @@ func TestProcessReport(t *testing.T) {
 				"foo": &sample_report.InstanceParam{
 					// missing all fields
 					Res1: &sample_report.Res1InstanceParam{
-					// missing all fields
+						// missing all fields
 					},
 				},
 				"bar": &sample_report.InstanceParam{

@@ -15,16 +15,11 @@
 package e2e
 
 import (
-	"context"
 	"testing"
 
-	"google.golang.org/grpc"
-
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/config/storetest"
-	testEnv "istio.io/istio/mixer/pkg/server"
-	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
+	"istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -54,7 +49,14 @@ spec:
         value_type: INT64
 ---
 `
-	reportSvcCfg = `
+)
+
+func TestReport(t *testing.T) {
+	tests := []testData{
+
+		{
+			name: "Basic Report",
+			cfg: `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -89,82 +91,175 @@ spec:
     - reportInstance.samplereport
 
 ---
-`
-)
+`,
+			attrs: map[string]interface{}{
+				"target.name": "somesrvcname",
+			},
 
-func TestReport(t *testing.T) {
-	tests := []testData{
-		{
-			name:      "Report",
-			cfg:       reportSvcCfg,
-			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
-			templates: e2eTmpl.SupportedTmplInfo,
-			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
-			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adapter) {
+			expectSetTypes: map[string]interface{}{
+				"reportInstance.samplereport.istio-system": &reportTmpl.Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
+				},
+			},
 
-				adptr := spyAdpts[0]
-
-				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
-					map[string]interface{}{
-						"reportInstance.samplereport.istio-system": &reportTmpl.Type{
-							Value:      pb.INT64,
-							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
-						},
-					},
-				)
-
-				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
-					[]*reportTmpl.Instance{
-						{
+			expectCalls: []spyAdapter.CapturedCall{
+				{
+					Name: "HandleSampleReport",
+					Instances: []interface{}{
+						&reportTmpl.Instance{
 							Name:       "reportInstance.samplereport.istio-system",
 							Value:      int64(2),
 							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
 					},
-				)
+				},
 			},
 		},
+
+		{
+			name: "Multi Instance Report",
+			cfg: `
+apiVersion: "config.istio.io/v1alpha2"
+kind: fakeHandler
+metadata:
+  name: fakeHandlerConfig
+  namespace: istio-system
+
+---
+# Instance 1
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance1
+  namespace: istio-system
+spec:
+  value: "2"
+  dimensions:
+    source: source.name | "mysrc"
+    target_ip: target.name | "mytarget"
+
+---
+# Instance 2
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance2
+  namespace: istio-system
+spec:
+  value: "5"
+  dimensions:
+    source: source.name | "yoursrc"
+    target_ip: target.name | "yourtarget"
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-system
+spec:
+  selector: match(target.name, "*")
+  actions:
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance1.samplereport
+    - reportInstance2.samplereport
+
+---
+`,
+			attrs: map[string]interface{}{
+				"target.name": "somesrvcname",
+			},
+
+			expectSetTypes: map[string]interface{}{
+				"reportInstance1.samplereport.istio-system": &reportTmpl.Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
+				},
+				"reportInstance2.samplereport.istio-system": &reportTmpl.Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
+				},
+			},
+
+			expectCalls: []spyAdapter.CapturedCall{
+				{
+					Name: "HandleSampleReport",
+					Instances: []interface{}{
+						&reportTmpl.Instance{
+							Name:       "reportInstance1.samplereport.istio-system",
+							Value:      int64(2),
+							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
+						},
+						&reportTmpl.Instance{
+							Name:       "reportInstance2.samplereport.istio-system",
+							Value:      int64(5),
+							Dimensions: map[string]interface{}{"source": "yoursrc", "target_ip": "somesrvcname"},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name: "Conditional Report with No Success",
+			cfg: `
+apiVersion: "config.istio.io/v1alpha2"
+kind: fakeHandler
+metadata:
+  name: fakeHandlerConfig
+  namespace: istio-system
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplereport
+metadata:
+  name: reportInstance
+  namespace: istio-system
+spec:
+  value: "2"
+  dimensions:
+    source: source.name | "mysrc"
+    target_ip: target.name | "mytarget"
+
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule1
+  namespace: istio-system
+spec:
+  selector: match(target.name, "some unknown thing")
+  actions:
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance.samplereport
+
+---
+`,
+			attrs: map[string]interface{}{
+				"target.name": "somesrvcname",
+			},
+
+			expectCalls: nil,
+		},
 	}
+
 	for _, tt := range tests {
+		if tt.templates == nil {
+			tt.templates = e2eTmpl.SupportedTmplInfo
+		}
+
+		if tt.behaviors == nil {
+			tt.behaviors = []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}}
+		}
+
 		t.Run(tt.name, func(t *testing.T) {
-			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
-
-			args := testEnv.DefaultArgs()
-			args.APIPort = 0
-			args.MonitoringPort = 0
-			args.Templates = tt.templates
-			args.Adapters = adapterInfos
-			var cerr error
-			if args.ConfigStore, cerr = storetest.SetupStoreForTest(reportGlobalCfg, tt.cfg); cerr != nil {
-				t.Fatal(cerr)
-			}
-
-			env, err := testEnv.New(args)
-			if err != nil {
-				t.Fatalf("fail to create mixer: %v", err)
-			}
-
-			env.Run()
-
-			defer closeHelper(env)
-
-			conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
-			if err != nil {
-				t.Fatalf("Unable to connect to gRPC server: %v", err)
-			}
-
-			client := istio_mixer_v1.NewMixerClient(conn)
-			defer closeHelper(conn)
-
-			req := istio_mixer_v1.ReportRequest{
-				Attributes: []istio_mixer_v1.CompressedAttributes{
-					getAttrBag(tt.attrs,
-						args.ConfigIdentityAttribute,
-						args.ConfigIdentityAttributeDomain)},
-			}
-			_, err = client.Report(context.Background(), &req)
-
-			tt.validate(t, err, spyAdapters)
+			tt.run(t, v1beta1.TEMPLATE_VARIETY_REPORT, reportGlobalCfg)
 		})
 	}
 }

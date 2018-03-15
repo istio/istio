@@ -42,10 +42,14 @@ spec:
   type: LoadBalancer
 {{end}}
   ports:
+  - port: 8080
+    name: http-discovery-orig
   - port: 15003
     name: discovery
   - port: 15005
     name: https-discovery
+  - port: 15010
+    name: grpc-discovery
   - port: 15007
     name: http-discovery
 {{if .DebugPort}}
@@ -166,7 +170,11 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
+{{if eq .ControlPlaneAuthPolicy.String "NONE"}}
           optional: true
+{{else}}
+          optional: false
+{{end}}
 {{if .DebugPort}}
       - name: debug
         persistentVolumeClaim:

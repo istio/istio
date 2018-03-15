@@ -129,10 +129,14 @@ const (
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
-	// headers with special meaning in Envoy
-	headerMethod    = ":method"
-	headerAuthority = ":authority"
-	headerScheme    = ":scheme"
+	// Headers with special meaning in Envoy
+
+	// HeaderMethod is the method header.
+	HeaderMethod = ":method"
+	// HeaderAuthority is the authority header.
+	HeaderAuthority = ":authority"
+	// HeaderScheme is the scheme header.
+	HeaderScheme = ":scheme"
 
 	router  = "router"
 	auto    = "auto"
@@ -298,7 +302,7 @@ type HTTPRoute struct {
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes
-	clusters Clusters
+	Clusters Clusters `json:"-"`
 
 	// faults contains the set of referenced faults in the route; the field is special
 	// and used only to aggregate fault filter information after composing routes
@@ -395,14 +399,15 @@ type VirtualHost struct {
 func (host *VirtualHost) clusters() Clusters {
 	out := make(Clusters, 0)
 	for _, route := range host.Routes {
-		out = append(out, route.clusters...)
+		out = append(out, route.Clusters...)
 	}
 	return out
 }
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
+	ValidateClusters bool           `json:"validate_clusters"`
+	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -412,36 +417,38 @@ type HTTPRouteConfigs map[int]*HTTPRouteConfig
 func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := routes[port]
 	if !ok {
-		config = &HTTPRouteConfig{}
+		config = &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 		routes[port] = config
 	}
 	return config
 }
 
-func (routes HTTPRouteConfigs) clusters() Clusters {
+// Clusters returns the clusters corresponding to the given routes.
+func (routes HTTPRouteConfigs) Clusters() Clusters {
 	out := make(Clusters, 0)
 	for _, config := range routes {
-		out = append(out, config.clusters()...)
+		out = append(out, config.Clusters()...)
 	}
 	return out
 }
 
-func (routes HTTPRouteConfigs) normalize() HTTPRouteConfigs {
+// Normalize normalizes the route configs.
+func (routes HTTPRouteConfigs) Normalize() HTTPRouteConfigs {
 	out := make(HTTPRouteConfigs)
 
 	// sort HTTP routes by virtual hosts, rest should be deterministic
 	for port, routeConfig := range routes {
-		out[port] = routeConfig.normalize()
+		out[port] = routeConfig.Normalize()
 	}
 
 	return out
 }
 
-// combine creates a new route config that is the union of all HTTP routes.
+// Combine creates a new route config that is the union of all HTTP routes.
 // note that the virtual hosts without an explicit port suffix (IP:PORT) are stripped
 // for all routes except the route for port 80.
-func (routes HTTPRouteConfigs) combine() *HTTPRouteConfig {
-	out := &HTTPRouteConfig{}
+func (routes HTTPRouteConfigs) Combine() *HTTPRouteConfig {
+	out := &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 	for port, config := range routes {
 		for _, host := range config.VirtualHosts {
 			vhost := &VirtualHost{
@@ -459,7 +466,7 @@ func (routes HTTPRouteConfigs) combine() *HTTPRouteConfig {
 			}
 		}
 	}
-	return out.normalize()
+	return out.Normalize()
 }
 
 // faults aggregates fault filters across virtual hosts in single http_conn_man
@@ -473,7 +480,8 @@ func (rc *HTTPRouteConfig) faults() []*HTTPFilter {
 	return out
 }
 
-func (rc *HTTPRouteConfig) clusters() Clusters {
+// Clusters returns the clusters for the given route config.
+func (rc *HTTPRouteConfig) Clusters() Clusters {
 	out := make(Clusters, 0)
 	for _, host := range rc.VirtualHosts {
 		out = append(out, host.clusters()...)
@@ -481,11 +489,12 @@ func (rc *HTTPRouteConfig) clusters() Clusters {
 	return out
 }
 
-func (rc *HTTPRouteConfig) normalize() *HTTPRouteConfig {
+// Normalize normalizes the route config.
+func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{VirtualHosts: hosts}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
 }
 
 // AccessLog definition.
@@ -693,7 +702,7 @@ type Listener struct {
 // Listeners is a collection of listeners
 type Listeners []*Listener
 
-// normalize sorts and de-duplicates listeners by address
+// Normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
 	out := make(Listeners, 0, len(listeners))
 	set := make(map[string]bool)
@@ -766,8 +775,8 @@ type Cluster struct {
 
 	// special values used by the post-processing passes for outbound mesh-local clusters
 	outbound bool
-	hostname string
-	port     *model.Port
+	Hostname string      `json:"-"`
+	Port     *model.Port `json:"-"`
 	labels   model.Labels
 }
 
@@ -797,8 +806,8 @@ type OutlierDetection struct {
 // Clusters is a collection of clusters
 type Clusters []*Cluster
 
-// normalize deduplicates and sorts clusters by name
-func (clusters Clusters) normalize() Clusters {
+// Normalize deduplicates and sorts clusters by name
+func (clusters Clusters) Normalize() Clusters {
 	out := make(Clusters, 0, len(clusters))
 	set := make(map[string]bool)
 	for _, cluster := range clusters {

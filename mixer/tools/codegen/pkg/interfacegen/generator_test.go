@@ -21,7 +21,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
+
+	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 )
 
 type logFn func(string, ...interface{})
@@ -120,6 +123,68 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 	}
 }
 
+func TestGeneratorWithBadFdsPath(t *testing.T) {
+	g := Generator{}
+	err := g.Generate("bad file path")
+	validateHasError(t, err, "no such file")
+}
+
+func TestGeneratorWithBadFds(t *testing.T) {
+	g := Generator{}
+	err := g.Generate("testdata/check/template.proto")
+	validateHasError(t, err, "as a FileDescriptorSetProto")
+}
+
+func TestGeneratorBadInterfaceTmpl(t *testing.T) {
+	g := Generator{}
+	err := g.generateInternal("testdata/report/template_proto.descriptor_set", "{{foo}} bad tmpl", tmpl.AugmentedProtoTmpl)
+	validateHasError(t, err, "cannot load template")
+}
+
+func TestGeneratorBadAugmentedProtoTmpl(t *testing.T) {
+	g := Generator{}
+	err := g.generateInternal("testdata/report/template_proto.descriptor_set", tmpl.InterfaceTemplate, "{{foo}} bad tmpl")
+	validateHasError(t, err, "cannot load template")
+}
+
+func TestGeneratorBadOutputAugProto(t *testing.T) {
+	g := Generator{OutInterfacePath: "out1", OAugmentedTmplPath: ""}
+	defer func() { os.Remove("out1") }()
+	err := g.Generate("testdata/report/template_proto.descriptor_set")
+	validateHasError(t, err, "no such file")
+}
+
+func TestGeneratorBadOutputInstanceInterface(t *testing.T) {
+	g := Generator{OutInterfacePath: "", OAugmentedTmplPath: "out1"}
+	defer func() { os.Remove("out1") }()
+	err := g.Generate("testdata/report/template_proto.descriptor_set")
+	validateHasError(t, err, "no such file")
+}
+
+func TestGeneratorHandlerInterfaceBadModel(t *testing.T) {
+	g := Generator{}
+	_, err := g.getInterfaceGoContent(nil, tmpl.InterfaceTemplate)
+	validateHasError(t, err, "cannot execute the template")
+}
+
+func TestGeneratorAugmentedProtoBadModel(t *testing.T) {
+	g := Generator{}
+	_, err := g.getAugmentedProtoContent(nil, "", tmpl.AugmentedProtoTmpl)
+	validateHasError(t, err, "cannot execute the template")
+}
+
+func TestGeneratorCannotFormat(t *testing.T) {
+	g := Generator{}
+	err := g.generateInternal("testdata/report/template_proto.descriptor_set", ".. bad format", tmpl.AugmentedProtoTmpl)
+	validateHasError(t, err, "could not format")
+}
+
+func TestGeneratorCannotFixImport(t *testing.T) {
+	g := Generator{}
+	err := g.generateInternal("testdata/report/template_proto.descriptor_set", "badtmpl_cannot_fix_import", tmpl.AugmentedProtoTmpl)
+	validateHasError(t, err, "could not fix imports")
+}
+
 const chunkSize = 64000
 
 func fileCompare(actual, want string, logf logFn, skipSpaces bool) bool {
@@ -166,5 +231,11 @@ func fileCompare(actual, want string, logf logFn, skipSpaces bool) bool {
 				len(b1ToCmp), len(b2ToCmp), string(b1ToCmp), string(b2ToCmp), string(b1), string(b2))
 			return false
 		}
+	}
+}
+
+func validateHasError(t *testing.T, err error, want string) {
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error with msg \"%s\"; got %v", want, err)
 	}
 }

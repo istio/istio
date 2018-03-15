@@ -72,6 +72,21 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/alecthomas/template"
+  packages = [
+    ".",
+    "parse"
+  ]
+  revision = "a0175ee3bccc567396460bf5acd36800cb10c49c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/alecthomas/units"
+  packages = ["."]
+  revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
+
+[[projects]]
+  branch = "master"
   name = "github.com/alicebob/gopher-json"
   packages = ["."]
   revision = "5a6b3ba71ee69b77cf64febf8b5a7526ca5eaef0"
@@ -235,7 +250,12 @@
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
+    "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/redis_proxy/v2",
+    "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
     "pkg/cache",
     "pkg/log",
@@ -784,6 +804,7 @@
   packages = [
     "expfmt",
     "internal/bitbucket.org/ww/goautoneg",
+    "log",
     "model"
   ]
   revision = "6fb6fce6f8b75884b92e1889c150403fc0872c5e"
@@ -798,6 +819,12 @@
     "xfs"
   ]
   revision = "d274e363d5759d1c916232217be421f1cc89c5fe"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/prom2json"
+  packages = ["."]
+  revision = "daa2bca1c13fce65dabc24d4fbd5054d50cf66d9"
 
 [[projects]]
   name = "github.com/russross/blackfriday"
@@ -816,6 +843,12 @@
   name = "github.com/shurcooL/sanitized_anchor_name"
   packages = ["."]
   revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
+
+[[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
+  version = "v1.0.4"
 
 [[projects]]
   name = "github.com/spf13/cobra"
@@ -970,7 +1003,9 @@
   name = "golang.org/x/sys"
   packages = [
     "unix",
-    "windows"
+    "windows",
+    "windows/registry",
+    "windows/svc/eventlog"
   ]
   revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
 
@@ -1115,6 +1150,12 @@
   version = "v1.10.0"
 
 [[projects]]
+  name = "gopkg.in/alecthomas/kingpin.v2"
+  packages = ["."]
+  revision = "947dcec5ba9c011838740e680966fd7087a71d0d"
+  version = "v2.2.6"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4"
@@ -1151,6 +1192,7 @@
 [[projects]]
   name = "istio.io/api"
   packages = [
+    "authentication/v1alpha1",
     "broker/dev",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
@@ -1466,6 +1508,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d04ec627debd705ec001c0e2cfb3e004b6bcaf5b93c90a1042c1b020dab8990"
+  inputs-digest = "ab70c4a873b314fd5314f27756155b572ca0852859bb6e78517e2de6f6b1ab68"
   solver-name = "gps-cdcl"
   solver-version = 1
