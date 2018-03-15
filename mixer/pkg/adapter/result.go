@@ -15,7 +15,7 @@
 package adapter
 
 import (
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
 )
 
 // Result is the common interface supported by Results.

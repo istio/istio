@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -31,7 +32,6 @@ import (
 
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"

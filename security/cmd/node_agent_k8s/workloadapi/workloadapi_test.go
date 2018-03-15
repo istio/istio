@@ -17,9 +17,9 @@ package workloadapi
 import (
 	"testing"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	pb "istio.io/istio/security/proto"
 )
 

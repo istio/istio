@@ -280,7 +280,9 @@ func TranslateRoute(in *networking.HTTPRoute,
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
 				HostRedirect: redirect.Authority,
-				PathRedirect: redirect.Uri,
+				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
+					PathRedirect: redirect.Uri,
+				},
 			}}
 	} else {
 		action := &route.RouteAction{

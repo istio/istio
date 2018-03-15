@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc/balancer"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/pkg/probe"
 	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"

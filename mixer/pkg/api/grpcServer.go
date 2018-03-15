@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
@@ -25,7 +26,6 @@ import (
 	grpc "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
