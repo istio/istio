@@ -128,6 +128,7 @@ func TestPilot(t *testing.T) {
 		&zipkin{Environment: env},
 		&authExclusion{Environment: env},
 		&kubernetesExternalNameServices{Environment: env},
+		&authnPolicy{Environment: env},
 	}
 
 	for _, test := range tests {
