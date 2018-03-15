@@ -21,6 +21,7 @@
 #include "src/envoy/http/authn/context.pb.h"
 #include "src/envoy/http/authn/test_utils.h"
 #include "test/mocks/network/mocks.h"
+#include "test/mocks/ssl/mocks.h"
 #include "test/test_common/utility.h"
 
 using testing::NiceMock;
@@ -47,11 +48,12 @@ class AuthenticatorBaseTest : public testing::Test {
 
   Http::TestHeaderMapImpl request_headers_{};
   NiceMock<Envoy::Network::MockConnection> connection_{};
+  NiceMock<Envoy::Ssl::MockConnection> ssl_{};
   FilterContext filter_context_{&request_headers_, &connection_};
   MockAuthenticatorBase authenticator_{&filter_context_};
 };
 
-TEST_F(AuthenticatorBaseTest, ValidateX509) {
+TEST_F(AuthenticatorBaseTest, ValidateX509OnPlaintextConnection) {
   iaapi::MutualTls mTlsParams;
   authenticator_.validateX509(mTlsParams,
                               [](const Payload* payload, bool success) {
@@ -60,7 +62,67 @@ TEST_F(AuthenticatorBaseTest, ValidateX509) {
                               });
 }
 
-// TODO: more tests for other cases of x509 and Jwt.
+TEST_F(AuthenticatorBaseTest, ValidateX509OnSslConnectionWithNoPeerCert) {
+  iaapi::MutualTls mTlsParams;
+  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
+  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
+      .Times(1)
+      .WillOnce(Return(false));
+  authenticator_.validateX509(mTlsParams,
+                              [](const Payload* payload, bool success) {
+                                EXPECT_FALSE(payload);
+                                EXPECT_FALSE(success);
+                              });
+}
+
+TEST_F(AuthenticatorBaseTest, ValidateX509OnSslConnectionWithPeerCert) {
+  iaapi::MutualTls mTlsParams;
+  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
+  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
+      .Times(1)
+      .WillOnce(Return(true));
+  EXPECT_CALL(ssl_, uriSanPeerCertificate()).Times(1).WillOnce(Return("foo"));
+  authenticator_.validateX509(mTlsParams,
+                              [](const Payload* payload, bool success) {
+                                EXPECT_EQ(payload->x509().user(), "foo");
+                                EXPECT_TRUE(success);
+                              });
+}
+
+TEST_F(AuthenticatorBaseTest, ValidateX509OnSslConnectionWithPeerSpiffeCert) {
+  iaapi::MutualTls mTlsParams;
+  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
+  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
+      .Times(1)
+      .WillOnce(Return(true));
+  EXPECT_CALL(ssl_, uriSanPeerCertificate())
+      .Times(1)
+      .WillOnce(Return("spiffe://foo"));
+  authenticator_.validateX509(mTlsParams,
+                              [](const Payload* payload, bool success) {
+                                EXPECT_EQ(payload->x509().user(), "foo");
+                                EXPECT_TRUE(success);
+                              });
+}
+
+TEST_F(AuthenticatorBaseTest,
+       ValidateX509OnSslConnectionWithPeerMalformedSpiffeCert) {
+  iaapi::MutualTls mTlsParams;
+  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
+  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
+      .Times(1)
+      .WillOnce(Return(true));
+  EXPECT_CALL(ssl_, uriSanPeerCertificate())
+      .Times(1)
+      .WillOnce(Return("spiffe:foo"));
+  authenticator_.validateX509(mTlsParams,
+                              [](const Payload* payload, bool success) {
+                                EXPECT_EQ(payload->x509().user(), "spiffe:foo");
+                                EXPECT_TRUE(success);
+                              });
+}
+
+// TODO: more tests for Jwt.
 
 TEST(FindCredentialRuleTest, EmptyPolicy) {
   iaapi::Policy policy;
