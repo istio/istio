@@ -507,6 +507,26 @@ var (
 		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
 		file: "testdata/auth-spec-binding.yaml.golden",
 	}
+
+	authnPolicyNamespaceMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-off"},
+		file: "testdata/authn-namespace-mtls-off.yaml.golden",
+	}
+
+	authnPolicyNamespaceMTlsOn = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-on"},
+		file: "testdata/authn-namespace-mtls-on.yaml.golden",
+	}
+
+	authnPolicyHelloMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-off"},
+		file: "testdata/authn-hello-mtls-off.yaml.golden",
+	}
+
+	authnPolicyWorldMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
+		file: "testdata/authn-world-mtls-off.yaml.golden",
+	}
 )
 
 func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
