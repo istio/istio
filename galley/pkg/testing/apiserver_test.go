@@ -71,7 +71,6 @@ func TestSingleton_DoubleInit(t *testing.T) {
 	}
 }
 
-
 func TestSingleton_DoubleShutdown(t *testing.T) {
 	if err := InitApiServer(); err != nil {
 		t.Fatalf("InitApiServer error: %v", err)

@@ -15,9 +15,12 @@
 package testing
 
 import (
+	"errors"
+	"fmt"
+	"os/exec"
 	"sync"
+	"time"
 
-	"gopkg.in/ory-am/dockertest.v3"
 	"istio.io/istio/pkg/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,11 +32,18 @@ import (
 const (
 	apiServerRepository = "docker.io/ozevren/galley-testing"
 	apiServerTag        = "v1"
-	apiServerPort       = "8080/tcp"
+	connectionRetries   = 10
+	retryBackoff        = time.Second * 3
 )
 
 var singleton *apiServer
 var lock sync.Mutex
+
+func init() {
+	o := log.DefaultOptions()
+	o.SetOutputLevel(log.DebugLevel)
+	log.Configure(o)
+}
 
 // InitApiServer starts a container with API server. The handle is kept in a package-internal singleton.
 // This should be called from a test main to do one-time initialization of the API Server.
@@ -82,68 +92,71 @@ func GetBaseApiServerConfig() *rest.Config {
 
 // apiServer represents a Kubernetes Api Server that is launched within a container.
 type apiServer struct {
-	dockerPool *dockertest.Pool
-	container  *dockertest.Resource
-	baseConfig *rest.Config
+	containerName string
+	baseConfig    *rest.Config
 }
 
 // newApiServer returns a new apiServer instance.
 func newApiServer() (*apiServer, error) {
+	containerName := fmt.Sprintf("galley-testing-%d", time.Now().UnixNano())
 
-	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		log.Errorf("Could not connect to docker: %s", err)
+	// TODO: Auto-calculate a free local port.
+	localPort := "8080"
+
+	cmd := exec.Command(
+		"docker",
+		"run",
+		"-d",
+		"--name", containerName,
+		"--mount", "type=tmpfs,target=/app,tmpfs-mode=1770",
+		"--expose=8080", "-p", "8080:"+localPort,
+		apiServerRepository+":"+apiServerTag)
+
+	if b, err := cmd.Output(); err != nil {
+		log.Errorf("Could not start docker: %s\n %s", err, string(b))
 		return nil, err
 	}
-
-	// pulls an image, creates a container based on it and runs it
-	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: apiServerRepository,
-		Tag: apiServerTag,
-	})
-	if err != nil {
-		log.Errorf("Could not start container: %s", err)
-		return nil, err
-	}
-
-	port := container.GetPort(apiServerPort)
-	log.Debugf("apiServer container port is: %s", port)
 
 	baseConfig := &rest.Config{
 		APIPath:       "/apis",
 		ContentConfig: rest.ContentConfig{ContentType: runtime.ContentTypeJSON},
-		Host:          "localhost:" + port,
+		Host:          "localhost:" + localPort,
 	}
 
 	s := &apiServer{
-		dockerPool: pool,
-		container:  container,
-		baseConfig: baseConfig,
+		containerName: containerName,
+		baseConfig:    baseConfig,
 	}
 
-	err = pool.Retry(func() error {
+	completed := false
+	var err error
+	for i := 0; i < connectionRetries; i++ {
+		if i != 0 {
+			time.Sleep(retryBackoff)
+		}
+
 		log.Debugf("Attempting to connect to the apiServer...")
 
 		// Try connecting to the custom resource definitions.
 		var client *v1beta1.ApiextensionsV1beta1Client
 		if client, err = v1beta1.NewForConfig(baseConfig); err != nil {
 			log.Debugf("apiServer connection failure: %v", err)
-			return err
+			continue
 		}
 
 		if _, err = client.CustomResourceDefinitions().List(v1.ListOptions{}); err != nil {
 			log.Debugf("List CustomResourceDefinitions failure: %v", err)
-			return err
+			continue
 		}
 
-		return nil
-	})
+		completed = true
+		break
+	}
 
-	if err != nil {
-		_ = s.close() // retry error takes precedence
-		log.Errorf("Could not connect to docker: %s", err)
-		return nil, err
+	if !completed {
+		log.Errorf("Unable to connect to the Api Server, giving up...")
+		_ = s.close()
+		return nil, errors.New("unable to connect to the Api server, giving up")
 	}
 
 	return s, nil
@@ -151,10 +164,11 @@ func newApiServer() (*apiServer, error) {
 
 // Close purges the container from docker.
 func (s *apiServer) close() error {
-	if err := s.dockerPool.Purge(s.container); err != nil {
-		log.Errorf("Could not purge resource: %s", err)
+	cmd := exec.Command("docker", "container", "kill", s.containerName)
+	if b, err := cmd.Output(); err != nil {
+		log.Errorf("Error running 'docker container kill': %v", err)
+		log.Errorf("'docker container kill' output: \n%s\n", string(b))
 		return err
 	}
-
 	return nil
 }
