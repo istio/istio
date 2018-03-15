@@ -26,17 +26,18 @@ type Client interface {
 }
 
 type fileClient struct {
-	opt *Options
+	opt      *Options
+	statFunc func(path string) (os.FileInfo, error)
 }
 
 // NewFileClient creates an instance of Client based on the file status specified
 // in the path. The specified period is the interval of the probe, so if this
 func NewFileClient(opt *Options) Client {
-	return &fileClient{opt}
+	return &fileClient{opt: opt, statFunc: os.Stat}
 }
 
 func (fc *fileClient) GetStatus() error {
-	stat, err := os.Stat(fc.opt.Path)
+	stat, err := fc.statFunc(fc.opt.Path)
 	if err != nil {
 		return err
 	}
