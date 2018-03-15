@@ -151,7 +151,19 @@ func convertStringMatch(in *v1alpha1.StringMatch) *v1alpha3.StringMatch {
 
 func convertRoutes(in *v1alpha1.RouteRule) []*v1alpha3.DestinationWeight {
 	host := convertIstioService(in.Destination)
-	out := make([]*v1alpha3.DestinationWeight, 0)
+
+	var out []*v1alpha3.DestinationWeight
+	if in.Redirect == nil && len(in.Route) == 0 {
+		out = append(out, &v1alpha3.DestinationWeight{
+			Destination: &v1alpha3.Destination{
+				Name:   host,
+				Subset: "",
+				Port:   nil,
+			},
+			Weight: 100,
+		})
+	}
+
 	for _, route := range in.Route {
 		name := host
 		if route.Destination != nil {
@@ -319,7 +331,7 @@ func convertCORSPolicy(in *v1alpha1.CorsPolicy) *v1alpha3.CorsPolicy {
 }
 
 // FIXME: domain, namespace etc?
-// convert an Istio service to a v1alpha2 host
+// convert an Istio service to a v1alpha3 host
 func convertIstioService(service *v1alpha1.IstioService) string {
 	if service.Service != "" { // Favor FQDN
 		return service.Service

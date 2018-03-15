@@ -10,4 +10,7 @@ spec:
   http:
   - mirror:
       name: b
-    route: []
+    route:
+    - destination:
+        name: c
+      weight: 100

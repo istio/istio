@@ -15,7 +15,6 @@ spec:
     redirect:
       authority: b
       uri: /new/path
-    route: []
   - route:
     - destination:
         name: c
