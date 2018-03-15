@@ -15,13 +15,11 @@
 package testing
 
 import (
-	"errors"
 	"fmt"
-	"net"
-	"os/exec"
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/testing/docker"
 	"istio.io/istio/pkg/log"
 
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
@@ -31,11 +29,10 @@ import (
 )
 
 const (
-	//apiServerRepository = "gcr.io/oztest-mixer/galley-testing"
 	apiServerRepository = "docker.io/ozevren/galley-testing"
 	apiServerTag        = "v1"
 	connectionRetries   = 10
-	retryBackoff        = time.Second * 3
+	retryBackoff        = time.Second
 )
 
 var singleton *apiServer
@@ -51,12 +48,7 @@ func InitAPIServer() (err error) {
 		return
 	}
 
-	cmd := exec.Command(
-		"docker",
-		"pull",
-		apiServerRepository+":"+apiServerTag)
-	if err = cmd.Run(); err != nil {
-		log.Errorf("Unable to pull docker image: %v", err)
+	if err = docker.Pull(apiServerRepository + ":" + apiServerTag); err != nil {
 		return
 	}
 
@@ -102,46 +94,50 @@ type apiServer struct {
 }
 
 // newAPIServer returns a new apiServer instance.
-func newAPIServer() (*apiServer, error) {
+func newAPIServer() (s *apiServer, err error) {
 	containerName := fmt.Sprintf("galley-testing-%d", time.Now().UnixNano())
 
-	p, err := findEmptyPort()
-	if err != nil {
-		log.Errora("Unable to find empty port")
+	var instance *docker.Instance
+	if instance, err = docker.Start(docker.RunArgs{
+		Name:    containerName,
+		Mount:   "type=tmpfs,target=/app,tmpfs-mode=1770",
+		Expose:  "8080",
+		Publish: "8080",
+		Image:   apiServerRepository + ":" + apiServerTag,
+	}); err != nil {
+		log.Errorf("Could not start docker: vs", err)
 		return nil, err
 	}
-	localPort := fmt.Sprintf("%d", p)
 
-	log.Infof("Picked local port: %s", localPort)
-
-	cmd := exec.Command(
-		"docker",
-		"run",
-		"-d",
-		"--name", containerName,
-		"--mount", "type=tmpfs,target=/app,tmpfs-mode=1770",
-		"--expose=8080", "-p", localPort+":8080",
-		apiServerRepository+":"+apiServerTag)
-
-	var b []byte
-	if b, err = cmd.Output(); err != nil {
-		stderr := ""
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			stderr = string(exitErr.Stderr)
+	defer func() {
+		if s == nil {
+			// There was an error before the return. Kill the instance.
+			_, _ = instance.Kill() // Ignore the error and the output
 		}
-		log.Errorf("Could not start docker: %s\n out:\n%s\nerr:\n%s\n", err, string(b), stderr)
+	}()
+
+	port := ""
+	for i := 0; i < connectionRetries; i++ {
+		if i != 0 {
+			time.Sleep(retryBackoff)
+		}
+
+		if port, err = docker.GetExternalPort(containerName, "8080"); err != nil {
+			log.Warnf("Error running docker container port: %s", err)
+			continue
+		}
+
+		break
+	}
+
+	if port == "" {
 		return nil, err
 	}
 
 	baseConfig := &rest.Config{
 		APIPath:       "/apis",
 		ContentConfig: rest.ContentConfig{ContentType: runtime.ContentTypeJSON},
-		Host:          "localhost:" + localPort,
-	}
-
-	s := &apiServer{
-		containerName: containerName,
-		baseConfig:    baseConfig,
+		Host:          "localhost:" + port,
 	}
 
 	completed := false
@@ -170,40 +166,23 @@ func newAPIServer() (*apiServer, error) {
 
 	if !completed {
 		log.Errorf("Unable to connect to the Api Server, giving up: %v", err)
-		_ = s.close()
 		return nil, fmt.Errorf("unable to connect to the Api server: %v", err)
 	}
 
-	return s, nil
+	err = nil
+	s = &apiServer{
+		containerName: containerName,
+		baseConfig:    baseConfig,
+	}
+
+	return
 }
 
 // Close purges the container from docker.
-func (s *apiServer) close() error {
-	cmd := exec.Command("docker", "container", "kill", s.containerName)
-	if b, err := cmd.Output(); err != nil {
+func (s *apiServer) close() (err error) {
+	if err = docker.Kill(s.containerName); err != nil {
 		log.Errorf("Error running 'docker container kill': %v", err)
-		log.Errorf("'docker container kill' output: \n%s\n", string(b))
-		return err
-	}
-	return nil
-}
-
-func findEmptyPort() (int, error) {
-	basePort := 8080
-	for i := 0; i < 20; i++ {
-		port := basePort + i
-		addr := fmt.Sprintf(":%d", port)
-		l, err := net.Listen("tcp4", addr)
-		if err != nil {
-			continue
-		}
-
-		if err = l.Close(); err != nil {
-			continue
-		}
-
-		return port, nil
 	}
 
-	return 0, errors.New("no available port found")
+	return
 }
