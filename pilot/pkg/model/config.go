@@ -641,25 +641,9 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 }
 
 // TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
-// and a RouteRulesByDestination which goes something like this
-// For each rule
-//   for each instance
-//     serviceName := instance.Service.Hostname //TODO not a reliable field as I could have address as well
-//     for _, http := range rule.Http {
-//          check if this rule's destination includes this service instance
-//           if http.Route != nil {
-//              for _, dest := range http.Route {
-//                 if ResolveFQDNFromDestination(config.ConfigMeta, dest.Destination) == serviceName {
-//                    pick rule
-//                 }
-//               }
-//            } else if http.Redirect != nil {
-//                    TODO: API - Need to add destination support to Redirect
-//            } else if http.Mirror != nil {
-//              if ResolveFQDNFromDestination(config.ConfigMeta, http.Mirror) == serviceName {
-//                   pick rule
-//            }
-//     }
+// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
+// and matches these destinations against the input destination. The rules that match should be considered
+// for BuildInboundRoutesV2
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
 	configs := store.routeRulesByDestination(instances)
 	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
