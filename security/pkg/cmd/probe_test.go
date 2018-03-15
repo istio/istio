@@ -16,10 +16,11 @@ package cmd
 
 import (
 	"bytes"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
