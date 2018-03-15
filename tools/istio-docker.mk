@@ -14,9 +14,6 @@
 
 .PHONY: docker
 
-# scratch dir base
-ISTIO_DOCKER_BASE:=${ISTIO_OUT}/docker_scratch
-
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
 docker: build test-bins docker.all
@@ -95,13 +92,13 @@ docker.proxy: tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES}
 docker.proxy: $(ISTIO_OUT)/envoy
 docker.proxy: $(ISTIO_OUT)/pilot-agent
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
-	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
+	mkdir -p $(ISTIO_DOCKER)/proxy
+	cp $^ $(ISTIO_DOCKER)/proxy/
 ifeq ($(DEBUG_IMAGE),1)
-	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 else
-	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
 endif
 
@@ -109,30 +106,30 @@ docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER_BASE)/proxyd
-	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy
-	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/
-	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
+	mkdir -p $(ISTIO_DOCKER)/proxyd
+	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
+	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER)/proxyd/
+	time (cd $(ISTIO_DOCKER)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
-	mkdir -p $(ISTIO_DOCKER_BASE)/pilot
-	cp $^ $(ISTIO_DOCKER_BASE)/pilot/
-	time (cd $(ISTIO_DOCKER_BASE)/pilot && \
+	mkdir -p $(ISTIO_DOCKER)/pilot
+	cp $^ $(ISTIO_DOCKER)/pilot/
+	time (cd $(ISTIO_DOCKER)/pilot && \
 		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile.pilot .)
 
 # Test app for pilot integration
 docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
 			pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/Dockerfile.app
-	mkdir -p $(ISTIO_DOCKER_BASE)/pilotapp
-	cp $^ $(ISTIO_DOCKER_BASE)/pilotapp
+	mkdir -p $(ISTIO_DOCKER)/pilotapp
+	cp $^ $(ISTIO_DOCKER)/pilotapp
 ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
-	cp $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appd
+	cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
+	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
 endif
-	time (cd $(ISTIO_DOCKER_BASE)/pilotapp && \
+	time (cd $(ISTIO_DOCKER)/pilotapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
 
