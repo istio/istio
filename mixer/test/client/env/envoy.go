@@ -63,7 +63,6 @@ func (s *Envoy) Start() error {
 		WaitForHTTPServer(url)
 		WaitForPort(s.ports.ClientProxyPort)
 		WaitForPort(s.ports.ServerProxyPort)
-		WaitForPort(s.ports.TCPProxyPort)
 	}
 	return err
 }
