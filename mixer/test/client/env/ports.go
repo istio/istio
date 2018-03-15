@@ -35,7 +35,6 @@ const (
 	MixerInternalFailTest
 	NetworkFailureTest
 	ReportBatchTest
-	StressEnvoyTest
 	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest

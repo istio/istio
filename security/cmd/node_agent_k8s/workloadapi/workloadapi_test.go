@@ -25,7 +25,7 @@ import (
 
 // TODO(wattli): add more tests.
 func TestCheck(t *testing.T) {
-	server := &WlServer{}
+	server := &server{}
 
 	req := &pb.CheckRequest{Name: "check"}
 	resp, err := server.Check(context.Background(), req)
