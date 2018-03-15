@@ -97,31 +97,27 @@ resources:
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
+            # Setup automatic istio sidecar injection for the default namespace.
             {% if properties['installIstioRelease'] == "0.5.1" %}
-              # Setup automatic istio sidecar injection for the default namespace.
               # Note that the original 0.5.1-tagged version of this script had
               # a timing bug; here we pull one commit later.
               curl -s https://raw.githubusercontent.com/istio/istio/41203341818c4dada2ea5385cfedc7859c01e957/install/kubernetes/webhook-create-signed-cert.sh -o ./install/kubernetes/webhook-create-signed-cert.sh && chmod +x ./install/kubernetes/webhook-create-signed-cert.sh
               curl -s https://raw.githubusercontent.com/istio/istio/0.5.1/install/kubernetes/webhook-patch-ca-bundle.sh -o ./install/kubernetes/webhook-patch-ca-bundle.sh && chmod +x ./install/kubernetes/webhook-patch-ca-bundle.sh
 
-              ./install/kubernetes/webhook-create-signed-cert.sh \
-                  --service istio-sidecar-injector \
-                      --namespace istio-system \
-                      --secret sidecar-injector-certs
-              kubectl apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
-              cat install/kubernetes/istio-sidecar-injector.yaml | \
-                  ./install/kubernetes/webhook-patch-ca-bundle.sh > \
-                  install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
-              kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
-              # Wait for the deployment to finish
-              kubectl rollout status -n istio-system deploy/istio-sidecar-injector
-              kubectl label namespace default istio-injection=enabled
-            {% else %}
-              # Setup an initializer
-              kubectl apply -f install/kubernetes/istio-initializer.yaml
-              # Wait for the deployment to finish
-              kubectl rollout status -n istio-system deploy/istio-initializer
             {% endif %}
+
+            ./install/kubernetes/webhook-create-signed-cert.sh \
+                --service istio-sidecar-injector \
+                    --namespace istio-system \
+                    --secret sidecar-injector-certs
+            kubectl apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+            cat install/kubernetes/istio-sidecar-injector.yaml | \
+                ./install/kubernetes/webhook-patch-ca-bundle.sh > \
+                install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            # Wait for the deployment to finish
+            kubectl rollout status -n istio-system deploy/istio-sidecar-injector
+            kubectl label namespace default istio-injection=enabled
           {% endif %}
 
           {% if properties['enableGrafana'] or properties['enablePrometheus'] %}

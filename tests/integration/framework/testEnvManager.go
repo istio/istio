@@ -105,7 +105,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
-		Retries:   5,
+		Retries:   8,
 	}
 
 	ready := false
