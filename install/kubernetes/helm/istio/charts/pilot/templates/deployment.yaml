@@ -72,10 +72,17 @@ spec:
           - pilot
           - --discoveryAddress
           - localhost:8080
+        {{- if $.Values.global.securityEnabled }}
           - --controlPlaneAuthPolicy
-          - NONE #--controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_pilot_auth.json
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot.json
+        {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
           volumeMounts:

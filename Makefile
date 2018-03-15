@@ -601,15 +601,17 @@ istio.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
+                  --set global.securityEnabled=false \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 istio_auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
-		  		  --namespace=istio-system \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-	              --set global.mtlsDefault=true \
-			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+                  --set global.securityEnabled=true \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
