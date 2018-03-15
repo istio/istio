@@ -25,8 +25,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"testing"
-
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -44,15 +42,13 @@ func (t *routing) Setup() error {
 }
 
 // TODO: test negatives
-func (t *routing) Run(tt *testing.T) error {
+func (t *routing) Run() error {
 	versions := make([]string, 0)
-	suite := "v1alpha1"
 	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")
 	}
 	if t.Config.V1alpha3 {
 		versions = append(versions, "v1alpha3")
-		suite = "v1alpha3"
 	}
 
 	cases := []struct {
@@ -153,17 +149,12 @@ func (t *routing) Run(tt *testing.T) error {
 				return err
 			}
 
-			tt.Run(suite+"/"+cs.description, func(tt *testing.T) {
-				if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
-					log.Infof("Failed the test with %v", err)
-					errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
-					if err != nil {
-						tt.Error(err)
-					}
-				} else {
-					log.Info("Success!")
-				}
-			})
+			if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
+				log.Infof("Failed the test with %v", err)
+				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
+			} else {
+				log.Info("Success!")
+			}
 		}
 		log.Infof("Cleaning up %s route rules...", version)
 		if err := t.DeleteAllConfigs(); err != nil {

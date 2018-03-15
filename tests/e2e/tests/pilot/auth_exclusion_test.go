@@ -19,8 +19,6 @@ package pilot
 import (
 	"fmt"
 
-	"testing"
-
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
@@ -38,7 +36,7 @@ func (r *authExclusion) Setup() error {
 
 func (r *authExclusion) Teardown() {}
 
-func (r *authExclusion) Run(t *testing.T) error {
+func (r *authExclusion) Run() error {
 	return r.makeRequests()
 }
 

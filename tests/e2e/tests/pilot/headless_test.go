@@ -17,8 +17,6 @@ package pilot
 import (
 	"fmt"
 
-	"testing"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -38,7 +36,7 @@ func (t *headless) Setup() error {
 func (t *headless) Teardown() {
 }
 
-func (t *headless) Run(tt *testing.T) error {
+func (t *headless) Run() error {
 	if t.Auth == meshconfig.MeshConfig_MUTUAL_TLS {
 		return nil // TODO: mTLS
 	}

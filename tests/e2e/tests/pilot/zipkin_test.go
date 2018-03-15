@@ -21,8 +21,6 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"testing"
-
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
@@ -51,7 +49,7 @@ func (t *zipkin) Setup() error {
 }
 
 // ensure that requests are picked up by Zipkin
-func (t *zipkin) Run(tt *testing.T) error {
+func (t *zipkin) Run() error {
 	if !t.Config.Zipkin {
 		return nil
 	}

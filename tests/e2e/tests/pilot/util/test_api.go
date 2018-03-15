@@ -14,13 +14,11 @@
 
 package util
 
-import "testing"
-
 // Test is the interface for all integration tests.
 // TODO(nmittler): Remove this after all tests are converted to standard golang tests.
 type Test interface {
 	String() string
 	Setup() error
-	Run(t *testing.T) error
+	Run() error
 	Teardown()
 }

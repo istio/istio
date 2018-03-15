@@ -26,8 +26,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"testing"
-
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -44,7 +42,7 @@ func (t *routingToEgress) Setup() error {
 	return nil
 }
 
-func (t *routingToEgress) Run(tt *testing.T) error {
+func (t *routingToEgress) Run() error {
 	// egress rules are v1alpha1
 	if !t.Config.V1alpha1 {
 		return nil
@@ -218,15 +216,12 @@ func (t *routingToEgress) Run(tt *testing.T) error {
 			return err
 		}
 
-		tt.Run(cs.description, func(tt *testing.T) {
-			if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
-				log.Infof("Failed the test with %v", err)
-				errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-				tt.Error(err)
-			} else {
-				log.Info("Success!")
-			}
-		})
+		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
+			log.Infof("Failed the test with %v", err)
+			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
+		} else {
+			log.Info("Success!")
+		}
 
 		if err := t.DeleteConfig(cs.configRouting, cs.routingData); err != nil {
 			return err

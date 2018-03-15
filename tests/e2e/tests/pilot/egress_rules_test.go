@@ -24,8 +24,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"testing"
-
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -43,7 +41,7 @@ func (t *egressRules) Setup() error {
 }
 
 // TODO: test negatives
-func (t *egressRules) Run(tt *testing.T) error {
+func (t *egressRules) Run() error {
 	if os.Getenv("SKIP_EGRESS") != "" {
 		return nil
 	}

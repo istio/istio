@@ -19,8 +19,6 @@ package pilot
 import (
 	"fmt"
 
-	"testing"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -42,15 +40,15 @@ func (r *http) Setup() error {
 func (r *http) Teardown() {
 }
 
-func (r *http) Run(t *testing.T) error {
-	if err := r.makeRequests(t); err != nil {
+func (r *http) Run() error {
+	if err := r.makeRequests(); err != nil {
 		return err
 	}
 	return r.logs.check(r.Environment)
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
-func (r *http) makeRequests(t *testing.T) error {
+func (r *http) makeRequests() error {
 	// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
 	// We expect request from non-envoy client ("t") to d:80 should always fail,
 	// while to d:8080 should always success.

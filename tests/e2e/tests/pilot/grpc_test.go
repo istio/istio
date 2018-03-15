@@ -17,8 +17,6 @@ package pilot
 import (
 	"fmt"
 
-	"testing"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -40,7 +38,7 @@ func (t *grpc) Setup() error {
 func (t *grpc) Teardown() {
 }
 
-func (t *grpc) Run(tt *testing.T) error {
+func (t *grpc) Run() error {
 	if err := t.makeRequests(); err != nil {
 		return err
 	}
