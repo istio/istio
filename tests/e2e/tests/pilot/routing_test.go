@@ -66,8 +66,10 @@ func (t *routing) Run(tt *testing.T) error {
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
 				tt.Run("", func(tt *testing.T) {
-					t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
-
+					err := t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+					if err != nil {
+						tt.Error(err)
+					}
 				})
 				return nil
 			},
