@@ -103,6 +103,9 @@ func TestTCPMixerFilter(t *testing.T) {
 	}
 	defer s.TearDown()
 
+	// Make sure tcp port is ready before starting the test.
+	env.WaitForPort(s.Ports().TCPProxyPort)
+
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.

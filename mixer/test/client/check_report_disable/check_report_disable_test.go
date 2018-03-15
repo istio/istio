@@ -23,7 +23,6 @@ import (
 )
 
 func TestCheckReportDisable(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4265")
 	s := env.NewTestSetup(env.CheckReportDisableTest, t)
 
 	// Disable both Check and Report cache.
