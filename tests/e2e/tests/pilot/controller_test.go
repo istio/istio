@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crd
+package pilot
 
 import (
+	"os"
 	"testing"
+	"time"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/tests/k8s"
 )
 
-func kubeconfig(t *testing.T) string {
-	kubeconfig := k8s.Kubeconfig("/../../../platform/kube/config")
-	return kubeconfig
-}
+const (
+	resync = 1 * time.Second
+)
 
-func makeClient(t *testing.T, desc model.ConfigDescriptor) (*Client, error) {
-	cl, err := NewClient(kubeconfig(t), desc, "")
+func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) {
+	cl, err := crd.NewClient(os.Getenv("KUBECONFIG"), desc, "")
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +49,8 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*Client, error) {
 }
 
 // makeTempClient allocates a namespace and cleans it up on test completion
-func makeTempClient(t *testing.T) (*Client, string, func()) {
-	_, client, err := kube.CreateInterface(kubeconfig(t))
+func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
+	_, client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,4 +94,25 @@ func TestUnknownConfig(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expect client to fail with unknown types")
 	}
+}
+
+func TestControllerEvents(t *testing.T) {
+	cl, ns, cleanup := makeTempClient(t)
+	defer cleanup()
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
+}
+
+func TestControllerCacheFreshness(t *testing.T) {
+	cl, ns, cleanup := makeTempClient(t)
+	defer cleanup()
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheFreshness(ctl, ns, t)
+}
+
+func TestControllerClientSync(t *testing.T) {
+	cl, ns, cleanup := makeTempClient(t)
+	defer cleanup()
+	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }
