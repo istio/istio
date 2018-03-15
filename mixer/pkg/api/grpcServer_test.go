@@ -22,10 +22,10 @@ import (
 	"strings"
 	"testing"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"

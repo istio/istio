@@ -1214,7 +1214,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
+  revision = "cc0e5e493a556ed726ec528fcce2e03ff0eed66e"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1230,12 +1230,6 @@
     "version"
   ]
   revision = "latest_release"
-
-[[projects]]
-  branch = "master"
-  name = "istio.io/gogo-genproto"
-  packages = ["googleapis/google/rpc"]
-  revision = "dd2b5b6a8f1400838165245e704a011a30154a44"
 
 [[projects]]
   branch = "release-1.9"
@@ -1516,6 +1510,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "58096938e777e1214907acf1cbea8765f131132f824c91b8f664ca0490ff67c3"
+  inputs-digest = "9836695268a1e37d3296da37d8387b233589968270d3b178fccfc4850b238c0b"
   solver-name = "gps-cdcl"
   solver-version = 1

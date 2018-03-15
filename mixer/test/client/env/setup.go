@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // TestSetup store data for a test.
