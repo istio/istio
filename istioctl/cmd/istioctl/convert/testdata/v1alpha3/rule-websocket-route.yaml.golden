@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: virtual-service
+kind: VirtualService
 metadata:
   creationTimestamp: null
   name: c

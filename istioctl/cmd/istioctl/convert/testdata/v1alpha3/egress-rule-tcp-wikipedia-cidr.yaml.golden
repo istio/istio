@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: 91.198.174.192/27
@@ -13,7 +13,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: 103.102.166.224/27
@@ -27,7 +27,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: 198.35.26.96/27
@@ -41,7 +41,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: 208.80.153.224/27
@@ -55,7 +55,7 @@ spec:
     protocol: tcp
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: 208.80.154.224/27

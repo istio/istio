@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: external-service
+kind: ExternalService
 metadata:
   creationTimestamp: null
   name: '*google.com'
