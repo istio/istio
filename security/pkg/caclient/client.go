@@ -30,8 +30,8 @@ type CAClient interface {
 	RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error)
 }
 
-// The CAClient can wraps details of the CSR protocol.
-type cAClient struct {
+// The cAClientImpl wraps details of the CSR protocol.
+type cAClientImpl struct {
 	platformClient platform.Client
 	protocolClient grpc.CAGrpcClient
 	istioCAAddress string
@@ -56,7 +56,7 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 	if err != nil {
 		return nil, err
 	}
-	return &cAClient{
+	return &cAClientImpl{
 		platformClient:         pltfmc,
 		protocolClient:         ptclc,
 		istioCAAddress:         cAAddr,
@@ -72,7 +72,7 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 
 // RetrieveNewKeyCert sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
 // and cert, otherwise, it returns error. This is a blocking function.
-func (c *cAClient) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
+func (c *cAClientImpl) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
@@ -109,7 +109,7 @@ func (c *cAClient) RetrieveNewKeyCert() (newCert []byte, certChain []byte, priva
 	}
 }
 
-func (c *cAClient) createRequest() ([]byte, *pb.CsrRequest, error) {
+func (c *cAClientImpl) createRequest() ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
 		Host:       c.identity,
 		Org:        c.identityOrg,
