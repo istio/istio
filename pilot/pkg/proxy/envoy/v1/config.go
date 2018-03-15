@@ -293,7 +293,7 @@ func buildSidecarListenersClusters(
 		}
 
 		// only HTTP outbound clusters are needed
-		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
+		httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config)
 		httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
@@ -336,7 +336,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 		if err != nil {
 			return nil, err
 		}
-		httpConfigs = buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
+		httpConfigs = buildOutboundHTTPRoutes(node, proxyInstances, services, config)
 		httpConfigs = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
 		httpConfigs = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
 	case model.Router:
@@ -543,7 +543,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
-	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
+	httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config)
 	httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 	httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
@@ -649,7 +649,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
-func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Proxy,
+func buildOutboundHTTPRoutes(node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(node.Domain, ".")
