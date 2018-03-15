@@ -38,6 +38,7 @@ const (
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
 	return CreateNamespaceWithPrefix(cl, "istio-test-", false)
 }
+
 // CreateNamespaceWithPrefixorName creates a fresh namespace with either the provided prefix or the provided name
 func CreateNamespaceWithPrefixorName(cl kubernetes.Interface, prefix string, inject bool, namespace string) (string, error) {
 
@@ -47,7 +48,7 @@ func CreateNamespaceWithPrefixorName(cl kubernetes.Interface, prefix string, inj
 	}
 	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: namespace,
+			Name:         namespace,
 			GenerateName: prefix,
 			Labels: map[string]string{
 				"istio-injection": injectionValue,
@@ -71,6 +72,7 @@ func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string, inject bo
 	return ns, nil
 
 }
+
 // CreateNamespaceWithName creates a fresh namespace with the given prefix
 func CreateNamespaceWithName(cl kubernetes.Interface, namespace string, inject bool) (string, error) {
 	prefix := ""
@@ -80,6 +82,7 @@ func CreateNamespaceWithName(cl kubernetes.Interface, namespace string, inject b
 	}
 	return ns, nil
 }
+
 // DeleteNamespace removes a namespace
 func DeleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {

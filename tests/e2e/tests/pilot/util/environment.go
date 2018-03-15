@@ -40,10 +40,13 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"os"
+	"path"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -51,8 +54,6 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 	testutil "istio.io/istio/tests/util"
-	"path"
-	"os"
 )
 
 const (
@@ -75,10 +76,10 @@ type Environment struct {
 	KubeClient kubernetes.Interface
 
 	// Multicluster related parameters. A second instance of a kube client is needed while
-        // clusterStore stores the clusterregistry configuration used instead of KUBECONFIG
+	// clusterStore stores the clusterregistry configuration used instead of KUBECONFIG
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
-	clusterStore      *clusterregistry.ClusterStore
+	clusterStore     *clusterregistry.ClusterStore
 
 	// Directory where test data files are located.
 	testDataDir string
@@ -185,17 +186,17 @@ func (e *Environment) Setup() error {
 		if _, e.KubeClient, err = kube.CreateInterface(e.Config.KubeConfig); err != nil {
 			return err
 		}
-        }
-	// CLusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG environment
-	// Variable.  The test config can be defined to use either a single cluster or 2 clusters
+	}
+	// ClusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG
+	// environmental variable.  The test config can be defined to use either a single cluster or 2 clusters
 	if e.Config.ClusterRegistriesDir != "" {
 		e.clusterStore, err = clusterregistry.ReadClusters(e.Config.ClusterRegistriesDir)
 		if e.clusterStore == nil {
+			log.Errorf("Failed to clusters in the ClusterRegistriesDir %s\n", e.Config.ClusterRegistriesDir)
 			return err
 		}
 		if e.clusterStore != nil {
-
-			kubeCfgFile := e.clusterStore.GetPilotAccessConfig();
+			kubeCfgFile := e.clusterStore.GetPilotAccessConfig()
 			kubeCfgFile = path.Join(e.Config.ClusterRegistriesDir, kubeCfgFile)
 			e.Config.KubeConfig = kubeCfgFile
 			if _, e.KubeClient, err = kube.CreateInterface(kubeCfgFile); err != nil {
@@ -203,7 +204,7 @@ func (e *Environment) Setup() error {
 			}
 			// Note only a single remote cluster is currently supported.
 			clusters := e.clusterStore.GetPilotClusters()
-			for _, cluster := range clusters{
+			for _, cluster := range clusters {
 				kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
 				e.RemoteKubeConfig = path.Join(e.Config.ClusterRegistriesDir, kubeconfig)
 
@@ -317,7 +318,8 @@ func (e *Environment) Setup() error {
 	}
 
 	if e.Config.UseAutomaticInjection {
-		// Automatic side car injection is not supported when multiple clusters are being tested.
+		// Automatic side car injection is not supported when multiple clusters are being tested
+		// as all istio control plane components are only installed on the first cluster.
 		if e.RemoteKubeConfig != "" {
 			return err
 		}
@@ -403,7 +405,7 @@ func (e *Environment) Setup() error {
 
 	nslist := []string{e.Config.IstioNamespace, e.Config.Namespace}
 	e.Apps, err = util.GetAppPods(e.KubeClient, e.Config.KubeConfig, nslist)
-		// TODO This is going to need some surgery in a couple places to get all the pods from both cluster into a single list
+	// TODO This is going to need some surgery in a couple places to get all the pods from both cluster into a single list
 	return err
 }
 
@@ -581,10 +583,10 @@ func (e *Environment) dumpErrorLogs() {
 			filename = pod
 			content = util.FetchLogs(e.KubeClient, pod, e.Config.Namespace, inject.ProxyContainerName)
 			if e.RemoteKubeConfig != "" {
-				for _, remote_pod := range util.GetPods(e.RemoteKubeClient, e.Config.Namespace) {
-					Tlog("Proxy log", remote_pod)
-					filename = remote_pod
-					content = util.FetchLogs(e.RemoteKubeClient, remote_pod, e.Config.Namespace, inject.ProxyContainerName)
+				for _, remotePod := range util.GetPods(e.RemoteKubeClient, e.Config.Namespace) {
+					Tlog("Proxy log", remotePod)
+					filename = remotePod
+					content = util.FetchLogs(e.RemoteKubeClient, remotePod, e.Config.Namespace, inject.ProxyContainerName)
 				}
 			}
 		}
@@ -595,7 +597,7 @@ func (e *Environment) dumpErrorLogs() {
 				log.Info(content)
 			}
 		} else {
-				log.Info(content)
+			log.Info(content)
 		}
 	}
 }
@@ -605,10 +607,9 @@ func (e *Environment) KubeApply(yaml, namespace string, remote bool) error {
 	if remote {
 		return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
 			e.RemoteKubeConfig, namespace), yaml)
-	} else {
-		return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
-			e.Config.KubeConfig, namespace), yaml)
 	}
+	return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
+		e.Config.KubeConfig, namespace), yaml)
 }
 
 // KubeDelete runs kubectl delete with the given yaml and namespace.
@@ -616,7 +617,6 @@ func (e *Environment) KubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
 		e.Config.KubeConfig, namespace), yaml)
 }
-
 
 // Response represents a response to a client request.
 type Response struct {
@@ -983,19 +983,19 @@ func (e *Environment) createMulticlusterConfig() error {
 
 	if info.IsDir() {
 		if strings.Contains(e.Config.ClusterRegistriesDir, "=") {
-			return fmt.Errorf("cannot give a key name for a directory path.")
+			return fmt.Errorf("cannot give a key name for a directory path")
 		}
 		fileList, err := ioutil.ReadDir(e.Config.ClusterRegistriesDir)
 		if err != nil {
 			return fmt.Errorf("error listing files in %s: %v", e.Config.ClusterRegistriesDir, err)
 		}
-		var configData map[string]string
-		configData = make(map[string]string)
+		var Data []byte
+		configData := make(map[string]string)
 		for _, item := range fileList {
 			itemPath := path.Join(e.Config.ClusterRegistriesDir, item.Name())
 			if item.Mode().IsRegular() {
 				keyName := item.Name()
-				Data, err := ioutil.ReadFile(itemPath)
+				Data, err = ioutil.ReadFile(itemPath)
 				configData[keyName] = string(Data)
 				if err != nil {
 					return err

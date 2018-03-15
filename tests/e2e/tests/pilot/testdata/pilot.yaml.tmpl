@@ -129,7 +129,7 @@ spec:
         - name: config-volume
           mountPath: /etc/istio/config
 {{if .MultiCluster}}
-        - name: multicluster
+        - name: multicluster-volume
           mountPath: /etc/istio/multicluster_config
 {{end}}
 {{if .DebugPort}}
@@ -189,7 +189,7 @@ spec:
           claimName: pilot-debug-claim
 {{end}}
 {{if .MultiCluster}}
-      - name: multicluster
+      - name: multicluster-volume
         configMap:
           name: multicluster
 {{end}}
