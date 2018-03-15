@@ -92,46 +92,19 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV2 builds inbound routes using the V2 API.
-// Need a non default route when using websockets or route decorators for tracing
-// Need to invoke this for every instance that is the destination of a rule (either through forwarding/mirroring/redirect)
-func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
+// BuildInboundRoutesV2 builds inbound routes using the v1alpha3 API.
+// Only returns the non default routes when using websockets or route decorators for tracing
+// TODO : Need to handle port match in the route rule
+func BuildInboundRoutesV2(_ []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 
-	for _, instance := range proxyInstances {
-		serviceName := instance.Service.Hostname //TODO not a reliable field as I could have address as well
-
-		for _, http := range rule.Http {
-			// check if this rule's destination includes this service instance
-			if http.Route != nil {
-
-				for _, dest := range http.Route {
-					if model.ResolveFQDNFromDestination(config.ConfigMeta, dest.Destination) == serviceName {
-						// adds a default prefix match / and a default decorator
-						if len(http.Match) == 0 {
-							routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
-						} else {
-							for _, match := range http.Match {
-								routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
-							}
-						}
-						break
-					}
-				}
-			} else if http.Redirect != nil {
-				// TODO: API - Need to add destination support to Redirect
-			} else if http.Mirror != nil {
-				if model.ResolveFQDNFromDestination(config.ConfigMeta, http.Mirror) == serviceName {
-					// adds a default prefix match / and a default decorator
-					if len(http.Match) == 0 {
-						routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
-					} else {
-						for _, match := range http.Match {
-							routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
-						}
-					}
-
-				}
+	for _, http := range rule.Http {
+		// adds a default prefix match / and a default decorator
+		if len(http.Match) == 0 {
+			routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
+		} else {
+			for _, match := range http.Match {
+				routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
 			}
 		}
 	}
