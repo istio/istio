@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	//apiServerRepository = "docker.io/ozevren/galley-testing"
-	apiServerRepository = "gcr.io/oztest-mixer/galley-testing"
+	apiServerRepository = "docker.io/ozevren/galley-testing"
+	//apiServerRepository = "gcr.io/oztest-mixer/galley-testing"
 	apiServerTag        = "v1"
 	connectionRetries   = 10
 	retryBackoff        = time.Second * 3
@@ -48,6 +48,15 @@ func InitAPIServer() (err error) {
 	defer lock.Unlock()
 
 	if singleton != nil {
+		return
+	}
+
+	cmd := exec.Command(
+		"docker",
+		"pull",
+		apiServerRepository + ":" + apiServerTag)
+	if err = cmd.Run(); err != nil {
+		log.Errorf("Unable to pull docker image: %v", err)
 		return
 	}
 

@@ -15,8 +15,8 @@ ETCD_VER="${ETCD_VER:-v3.2.15}"
 TAG="v1"
 
 # TODO: A better location to publish the images.
-#HUB="docker.io/ozevren/galley-testing"
-HUB="gcr.io/oztest-mixer/galley-testing"
+HUB="docker.io/ozevren/galley-testing"
+#HUB="gcr.io/oztest-mixer/galley-testing"
 
 rm -rf "${SCRATCH_DIR}"
 mkdir -p "${SCRATCH_DIR}"

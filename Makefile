@@ -404,6 +404,7 @@ istioctl-install:
 .PHONY: test localTestEnv test-bins
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
 ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
