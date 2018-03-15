@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	apiServerRepository = "docker.io/ozevren/galley-testing"
 	//apiServerRepository = "gcr.io/oztest-mixer/galley-testing"
+	apiServerRepository = "docker.io/ozevren/galley-testing"
 	apiServerTag        = "v1"
 	connectionRetries   = 10
 	retryBackoff        = time.Second * 3
@@ -54,7 +54,7 @@ func InitAPIServer() (err error) {
 	cmd := exec.Command(
 		"docker",
 		"pull",
-		apiServerRepository + ":" + apiServerTag)
+		apiServerRepository+":"+apiServerTag)
 	if err = cmd.Run(); err != nil {
 		log.Errorf("Unable to pull docker image: %v", err)
 		return
@@ -112,13 +112,15 @@ func newAPIServer() (*apiServer, error) {
 	}
 	localPort := fmt.Sprintf("%d", p)
 
+	log.Infof("Picked local port: %s", localPort)
+
 	cmd := exec.Command(
 		"docker",
 		"run",
 		"-d",
 		"--name", containerName,
 		"--mount", "type=tmpfs,target=/app,tmpfs-mode=1770",
-		"--expose=8080", "-p", "8080:"+localPort,
+		"--expose=8080", "-p", localPort+":8080",
 		apiServerRepository+":"+apiServerTag)
 
 	var b []byte
@@ -167,9 +169,9 @@ func newAPIServer() (*apiServer, error) {
 	}
 
 	if !completed {
-		log.Errorf("Unable to connect to the Api Server, giving up...")
+		log.Errorf("Unable to connect to the Api Server, giving up: %v", err)
 		_ = s.close()
-		return nil, errors.New("unable to connect to the Api server, giving up")
+		return nil, fmt.Errorf("unable to connect to the Api server: %v", err)
 	}
 
 	return s, nil
@@ -190,8 +192,8 @@ func findEmptyPort() (int, error) {
 	basePort := 8080
 	for i := 0; i < 20; i++ {
 		port := basePort + i
-		addr := fmt.Sprintf("127.0.0.1:%d", port)
-		l, err := net.Listen("tcp", addr)
+		addr := fmt.Sprintf(":%d", port)
+		l, err := net.Listen("tcp4", addr)
 		if err != nil {
 			continue
 		}
