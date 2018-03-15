@@ -38,17 +38,34 @@ const (
 var singleton *apiServer
 var lock sync.Mutex
 
+var pulled bool
+var pullLock sync.Mutex
+
+func ensurePull() (err error) {
+	pullLock.Lock()
+	defer pullLock.Unlock()
+
+	if !pulled {
+		if err = docker.Pull(apiServerRepository + ":" + apiServerTag); err != nil {
+			return
+		}
+		pulled = true
+	}
+
+	return
+}
+
 // InitAPIServer starts a container with API server. The handle is kept in a package-internal singleton.
 // This should be called from a test main to do one-time initialization of the API Server.
 func InitAPIServer() (err error) {
+	if err = ensurePull(); err != nil {
+		return err
+	}
+
 	lock.Lock()
 	defer lock.Unlock()
 
 	if singleton != nil {
-		return
-	}
-
-	if err = docker.Pull(apiServerRepository + ":" + apiServerTag); err != nil {
 		return
 	}
 
@@ -95,6 +112,11 @@ type apiServer struct {
 
 // newAPIServer returns a new apiServer instance.
 func newAPIServer() (s *apiServer, err error) {
+	err = ensurePull()
+	if err != nil {
+		return nil, err
+	}
+
 	containerName := fmt.Sprintf("galley-testing-%d", time.Now().UnixNano())
 
 	var instance *docker.Instance
