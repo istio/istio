@@ -16,11 +16,10 @@
 package status
 
 import (
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	me "github.com/hashicorp/go-multierror"
-
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // OK represents a status with a code of rpc.OK

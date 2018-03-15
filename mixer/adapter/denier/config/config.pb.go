@@ -20,7 +20,7 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "github.com/gogo/protobuf/types"
-import google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+import google_rpc "github.com/gogo/googleapis/google/rpc"
 
 import time "time"
 
