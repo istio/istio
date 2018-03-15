@@ -82,8 +82,8 @@ func TestClientRunner(t *testing.T) {
 			updated:     false,
 			expectedErr: "",
 		},
-		"Client error": {
-			client:   &caclientmock.FakeClient{Err: fmt.Errorf("Error1")},
+		"CA Client error": {
+			client:   &caclientmock.FakeClient{Err: fmt.Errorf("error1")},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
 			bundle: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
@@ -92,7 +92,7 @@ func TestClientRunner(t *testing.T) {
 				RootCertBytes:  oldRootCert,
 			},
 			updated:     false,
-			expectedErr: "error retrieving the key and cert: Error1, abort auto rotation",
+			expectedErr: "error retrieving the key and cert: error1, abort auto rotation",
 		},
 		"Key/cert verification error": {
 			client: &caclientmock.FakeClient{
@@ -106,10 +106,10 @@ func TestClientRunner(t *testing.T) {
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
 				RootCertBytes:  oldRootCert,
-				ReturnErr:      fmt.Errorf("Error2"),
+				ReturnErr:      fmt.Errorf("error2"),
 			},
 			updated:     false,
-			expectedErr: "cannot verify the retrieved key and cert: Error2, abort auto rotation",
+			expectedErr: "cannot verify the retrieved key and cert: error2, abort auto rotation",
 		},
 	}
 
@@ -135,33 +135,33 @@ func TestClientRunner(t *testing.T) {
 
 		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.bundle.GetAllPem()
 		if tc.updated {
-			if bytes.Compare(certBytes, newCert) != 0 {
+			if !bytes.Equal(certBytes, newCert) {
 				t.Errorf("Test case [%s]: Cert bytes are different from expected value: %v VS %v.",
 					id, certBytes, newCert)
 			}
-			if bytes.Compare(keyBytes, newKey) != 0 {
+			if !bytes.Equal(keyBytes, newKey) {
 				t.Errorf("Test case [%s]: Key bytes are different from expected value: %v VS %v.",
 					id, keyBytes, newKey)
 			}
-			if bytes.Compare(certchainBytes, newCertChain) != 0 {
+			if !bytes.Equal(certchainBytes, newCertChain) {
 				t.Errorf("Test case [%s]: Cert chain bytes are different from expected value: %v VS %v.",
 					id, certchainBytes, newCertChain)
 			}
 		} else {
-			if bytes.Compare(certBytes, oldCert) != 0 {
+			if !bytes.Equal(certBytes, oldCert) {
 				t.Errorf("Test case [%s]: Cert bytes are different from expected value: %v VS %v.",
 					id, certBytes, oldCert)
 			}
-			if bytes.Compare(keyBytes, oldKey) != 0 {
+			if !bytes.Equal(keyBytes, oldKey) {
 				t.Errorf("Test case [%s]: Key bytes are different from expected value: %v VS %v.",
 					id, keyBytes, oldKey)
 			}
-			if bytes.Compare(certchainBytes, oldCertChain) != 0 {
+			if !bytes.Equal(certchainBytes, oldCertChain) {
 				t.Errorf("Test case [%s]: Cert chain bytes are different from expected value: %v VS %v.",
 					id, certchainBytes, oldCertChain)
 			}
 		}
-		if bytes.Compare(rootcertBytes, oldRootCert) != 0 {
+		if !bytes.Equal(rootcertBytes, oldRootCert) {
 			t.Errorf("Test case [%s]: Root cert bytes are different from expected value: %v VS %v.",
 				id, rootcertBytes, oldRootCert)
 		}
