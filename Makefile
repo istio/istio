@@ -406,7 +406,7 @@ istioctl-install:
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: junit-parser test localTestEnv test-bins
+.PHONY: test localTestEnv test-bins
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
@@ -439,13 +439,15 @@ localTestEnv: test-bins
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
+PILOT_TEST_T ?= ${GOTEST_P} ${T}
 pilot-test: pilot-agent
-	go test ${GOTEST_P} ${T} ./pilot/...
+	go test ${PILOT_TEST_T} ./pilot/...
 
 .PHONY: mixer-test
+MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${T} ${GOTEST_PARALLEL} ./...)
+	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: broker-test
 broker-test: depend

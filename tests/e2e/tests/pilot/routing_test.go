@@ -157,7 +157,7 @@ func (t *routing) Run(tt *testing.T) error {
 				return err
 			}
 
-			tt.Run(suite + "/" + cs.description, func(tt *testing.T) {
+			tt.Run(suite+"/"+cs.description, func(tt *testing.T) {
 				if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
 					log.Infof("Failed the test with %v", err)
 					errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
