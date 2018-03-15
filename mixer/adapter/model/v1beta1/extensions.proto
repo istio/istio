@@ -14,12 +14,6 @@
 
 syntax = "proto3";
 
-// $title: Mixer Adapter Model
-// $overview: Definitions used when creating Mixer templates
-// $location: https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html
-
-// This package defines the types that are used when creating Mixer templates. `ValueType` defined in this pacakge
-// is also used by adapters to know the underlying datatype of the instance fields.
 package istio.mixer.adapter.model.v1beta1;
 
 option go_package="istio.io/api/mixer/adapter/model/v1beta1";

@@ -4,14 +4,18 @@
 /*
 Package v1beta1 is a generated protocol buffer package.
 
-This package defines the types that are used when creating Mixer templates. `ValueType` defined in this pacakge
-is also used by adapters to know the underlying datatype of the instance fields.
-
 It is generated from these files:
 	mixer/adapter/model/v1beta1/extensions.proto
+	mixer/adapter/model/v1beta1/infrastructure_backend.proto
 	mixer/adapter/model/v1beta1/type.proto
 
 It has these top-level messages:
+	CreateSessionRequest
+	CreateSessionResponse
+	ValidateRequest
+	ValidateResponse
+	CloseSessionRequest
+	CloseSessionResponse
 	Value
 	IPAddress
 	Duration
