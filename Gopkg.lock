@@ -240,6 +240,7 @@
   version = "v2.6.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/api/v2",
@@ -257,12 +258,13 @@
     "envoy/config/filter/network/redis_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
+    "envoy/type",
     "pkg/cache",
     "pkg/log",
     "pkg/server",
     "pkg/util"
   ]
-  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
+  revision = "aa344ee5f4fff239fadab634413ca6764025511c"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -343,6 +345,15 @@
   ]
   revision = "5ccd90ef52e1e632236f7326478d4faa74f99438"
   version = "v0.2.3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gogo/googleapis"
+  packages = [
+    "google/api",
+    "google/rpc"
+  ]
+  revision = "0cd9801be74a10d5ac39d69626eac8255ffcd502"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -1223,10 +1234,7 @@
 [[projects]]
   branch = "master"
   name = "istio.io/gogo-genproto"
-  packages = [
-    "googleapis/google/api",
-    "googleapis/google/rpc"
-  ]
+  packages = ["googleapis/google/rpc"]
   revision = "dd2b5b6a8f1400838165245e704a011a30154a44"
 
 [[projects]]
@@ -1508,6 +1516,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ab70c4a873b314fd5314f27756155b572ca0852859bb6e78517e2de6f6b1ab68"
+  inputs-digest = "58096938e777e1214907acf1cbea8765f131132f824c91b8f664ca0490ff67c3"
   solver-name = "gps-cdcl"
   solver-version = 1
