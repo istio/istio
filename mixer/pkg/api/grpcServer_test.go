@@ -192,6 +192,38 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		// simulate an error condition
+		return nil, errors.New("BAD")
+	}
+
+	_, err = ts.client.Check(context.Background(), &request)
+	if err == nil {
+		t.Error("Got success, expecting failure")
+	}
+
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		// simulate a "no check performed" condition
+		return nil, nil
+	}
+
+	response, err = ts.client.Check(context.Background(), &request)
+	if response == nil {
+		t.Errorf("Got no response, expecting one")
+	} else if !status.IsOK(response.Precondition.Status) {
+		t.Errorf("Got status=%v, expecting OK", response.Precondition.Status)
+	}
+
+	if err != nil {
+		t.Errorf("Got %v, expecting success", err)
+	}
+
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		return &adapter.CheckResult{
+			Status: status.WithPermissionDenied("Not Implemented"),
+		}, nil
+	}
+
 	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 		return &adapter.QuotaResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
@@ -275,6 +307,33 @@ func TestCheckQuota(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
 	}
+
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		// simulate an error condition
+		return nil, errors.New("BAD")
+	}
+
+	_, err = ts.client.Check(context.Background(), &request)
+	if err != nil {
+		// errors in the quota path are absorbed by Mixer
+		t.Errorf("Got %v, expecting success", err)
+	}
+
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		// simulate an "no quotas applied" condition
+		return nil, nil
+	}
+
+	response, err = ts.client.Check(context.Background(), &request)
+	if response == nil {
+		t.Errorf("Got no response, expecting one")
+	} else if !status.IsOK(response.Precondition.Status) {
+		t.Errorf("Got status=%v, expecting OK", response.Precondition.Status)
+	}
+
+	if err != nil {
+		t.Errorf("Got %v, expecting success", err)
+	}
 }
 
 func TestReport(t *testing.T) {
@@ -288,7 +347,13 @@ func TestReport(t *testing.T) {
 		return nil
 	}
 
-	request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}}
+	request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{}}
+	_, err = ts.client.Report(context.Background(), &request)
+	if err != nil {
+		t.Errorf("Expected success, got error: %v", err)
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}}
 	_, err = ts.client.Report(context.Background(), &request)
 	if err != nil {
 		t.Errorf("Expected success, got error: %v", err)
@@ -380,6 +445,18 @@ func TestReport(t *testing.T) {
 
 	if _, err = ts.client.Report(context.Background(), &request); err != nil {
 		t.Errorf("Got unexpected error: %v", err)
+	}
+
+	badAttr := mixerpb.CompressedAttributes{
+		Words: []string{"A4"},
+		Int64S: map[int32]int64{
+			4646464: 31415692,
+		},
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{attr0, badAttr}}
+	if _, err = ts.client.Report(context.Background(), &request); err == nil {
+		t.Errorf("Got success, expected failure")
 	}
 }
 
