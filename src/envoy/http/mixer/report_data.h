@@ -30,11 +30,11 @@ const std::set<std::string> ResponseHeaderExclusives = {};
 }  // namespace
 
 class ReportData : public ::istio::control::http::ReportData {
-  const HeaderMap* headers_;
-  const RequestInfo::RequestInfo& info_;
+  const HeaderMap *headers_;
+  const RequestInfo::RequestInfo &info_;
 
  public:
-  ReportData(const HeaderMap* headers, const RequestInfo::RequestInfo& info)
+  ReportData(const HeaderMap *headers, const RequestInfo::RequestInfo &info)
       : headers_(headers), info_(info) {}
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
@@ -45,17 +45,14 @@ class ReportData : public ::istio::control::http::ReportData {
   }
 
   void GetReportInfo(
-      ::istio::control::http::ReportData::ReportInfo* data) const override {
+      ::istio::control::http::ReportData::ReportInfo *data) const override {
     data->received_bytes = info_.bytesReceived();
     data->send_bytes = info_.bytesSent();
     data->duration =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(info_.duration());
+        info_.requestComplete().value_or(std::chrono::nanoseconds{0});
     // responseCode is for the backend response. If it is not valid, the request
     // is rejected by Envoy. Set the response code for such requests as 500.
-    data->response_code = 500;
-    if (info_.responseCode().valid()) {
-      data->response_code = info_.responseCode().value();
-    }
+    data->response_code = info_.responseCode().value_or(500);
   }
 };
 

@@ -138,7 +138,7 @@ void JwtAuthenticator::FetchPubkey(PubkeyCacheItem* issuer) {
 
   ENVOY_LOG(debug, "fetch pubkey from [uri = {}]: start", uri_);
   request_ = cm_.httpAsyncClientForCluster(cluster).send(
-      std::move(message), *this, Optional<std::chrono::milliseconds>());
+      std::move(message), *this, absl::optional<std::chrono::milliseconds>());
 }
 
 void JwtAuthenticator::onSuccess(MessagePtr&& response) {

@@ -213,14 +213,14 @@ const std::string kGoodTokenAudService2 =
 
 class MockJwtAuthenticatorCallbacks : public JwtAuthenticator::Callbacks {
  public:
-  MOCK_METHOD1(onDone, void(const Status& status));
+  MOCK_METHOD1(onDone, void(const Status &status));
 };
 
 class JwtAuthenticatorTest : public ::testing::Test {
  public:
   void SetUp() { SetupConfig(kExampleConfig); }
 
-  void SetupConfig(const std::string& json_str) {
+  void SetupConfig(const std::string &json_str) {
     google::protobuf::util::Status status =
         ::google::protobuf::util::JsonStringToMessage(json_str, &config_);
     ASSERT_TRUE(status.ok());
@@ -238,14 +238,14 @@ class JwtAuthenticatorTest : public ::testing::Test {
 // A mock HTTP upstream with response body.
 class MockUpstream {
  public:
-  MockUpstream(Upstream::MockClusterManager& mock_cm,
-               const std::string& response_body)
+  MockUpstream(Upstream::MockClusterManager &mock_cm,
+               const std::string &response_body)
       : request_(&mock_cm.async_client_), response_body_(response_body) {
     ON_CALL(mock_cm.async_client_, send_(_, _, _))
         .WillByDefault(Invoke(
-            [this](MessagePtr&, AsyncClient::Callbacks& cb,
-                   const Optional<std::chrono::milliseconds>&)
-                -> AsyncClient::Request* {
+            [this](MessagePtr &, AsyncClient::Callbacks &cb,
+                   const absl::optional<std::chrono::milliseconds> &)
+                -> AsyncClient::Request * {
                   Http::MessagePtr response_message(new ResponseMessageImpl(
                       HeaderMapPtr{new TestHeaderMapImpl{{":status", "200"}}}));
                   response_message->body().reset(
@@ -274,7 +274,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTandCache) {
     MockJwtAuthenticatorCallbacks mock_cb;
     EXPECT_CALL(mock_cb, onDone(_))
         .WillOnce(Invoke(
-            [](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+            [](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
     auth_->Verify(headers, &mock_cb);
 
@@ -305,7 +305,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoAlg) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -338,7 +338,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoKid) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -364,7 +364,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -390,7 +390,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService1) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -416,7 +416,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService2) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -445,7 +445,7 @@ TEST_F(JwtAuthenticatorTest, TestForwardJwt) {
   MockJwtAuthenticatorCallbacks mock_cb;
   EXPECT_CALL(mock_cb, onDone(_))
       .WillOnce(
-          Invoke([](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          Invoke([](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -457,7 +457,7 @@ TEST_F(JwtAuthenticatorTest, TestMissedJWT) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
       .WillOnce(Invoke(
-          [](const Status& status) { ASSERT_EQ(status, Status::JWT_MISSED); }));
+          [](const Status &status) { ASSERT_EQ(status, Status::JWT_MISSED); }));
 
   // Empty headers.
   auto headers = TestHeaderMapImpl{};
@@ -471,13 +471,13 @@ TEST_F(JwtAuthenticatorTest, TestBypassJWT) {
   EXPECT_CALL(mock_cb_, onDone(_))
       .WillOnce(Invoke(
           // Empty header, rejected.
-          [](const Status& status) { ASSERT_EQ(status, Status::JWT_MISSED); }))
+          [](const Status &status) { ASSERT_EQ(status, Status::JWT_MISSED); }))
       .WillOnce(Invoke(
           // CORS header, OK
-          [](const Status& status) { ASSERT_EQ(status, Status::OK); }))
+          [](const Status &status) { ASSERT_EQ(status, Status::OK); }))
       .WillOnce(Invoke(
           // healthz header, OK
-          [](const Status& status) { ASSERT_EQ(status, Status::OK); }));
+          [](const Status &status) { ASSERT_EQ(status, Status::OK); }));
 
   // Empty headers.
   auto empty_headers = TestHeaderMapImpl{};
@@ -497,7 +497,7 @@ TEST_F(JwtAuthenticatorTest, TestBypassJWT) {
 TEST_F(JwtAuthenticatorTest, TestInvalidJWT) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::JWT_BAD_FORMAT);
       }));
 
@@ -510,7 +510,7 @@ TEST_F(JwtAuthenticatorTest, TestInvalidPrefix) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
       .WillOnce(Invoke(
-          [](const Status& status) { ASSERT_EQ(status, Status::JWT_MISSED); }));
+          [](const Status &status) { ASSERT_EQ(status, Status::JWT_MISSED); }));
 
   auto headers = TestHeaderMapImpl{{"Authorization", "Bearer-invalid"}};
   auth_->Verify(headers, &mock_cb_);
@@ -519,7 +519,7 @@ TEST_F(JwtAuthenticatorTest, TestInvalidPrefix) {
 TEST_F(JwtAuthenticatorTest, TestExpiredJWT) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::JWT_EXPIRED);
       }));
 
@@ -531,7 +531,7 @@ TEST_F(JwtAuthenticatorTest, TestExpiredJWT) {
 TEST_F(JwtAuthenticatorTest, TestNonMatchAudJWT) {
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::AUDIENCE_NOT_ALLOWED);
       }));
 
@@ -544,14 +544,14 @@ TEST_F(JwtAuthenticatorTest, TestWrongCluster) {
   // Get returns nullptr
   EXPECT_CALL(mock_cm_, get(_))
       .WillOnce(Invoke(
-          [](const std::string& cluster) -> Upstream::ThreadLocalCluster* {
+          [](const std::string &cluster) -> Upstream::ThreadLocalCluster * {
             EXPECT_EQ(cluster, "pubkey_cluster");
             return nullptr;
           }));
 
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::FAILED_FETCH_PUBKEY);
       }));
 
@@ -565,7 +565,7 @@ TEST_F(JwtAuthenticatorTest, TestIssuerNotFound) {
 
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::JWT_UNKNOWN_ISSUER);
       }));
 
@@ -576,17 +576,17 @@ TEST_F(JwtAuthenticatorTest, TestIssuerNotFound) {
 TEST_F(JwtAuthenticatorTest, TestPubkeyFetchFail) {
   NiceMock<Http::MockAsyncClient> async_client;
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_))
-      .WillOnce(Invoke([&](const std::string& cluster) -> Http::AsyncClient& {
+      .WillOnce(Invoke([&](const std::string &cluster) -> Http::AsyncClient & {
         EXPECT_EQ(cluster, "pubkey_cluster");
         return async_client;
       }));
 
   MockAsyncClientRequest request(&async_client);
-  AsyncClient::Callbacks* callbacks;
+  AsyncClient::Callbacks *callbacks;
   EXPECT_CALL(async_client, send_(_, _, _))
-      .WillOnce(Invoke([&](MessagePtr& message, AsyncClient::Callbacks& cb,
-                           const Optional<std::chrono::milliseconds>&)
-                           -> AsyncClient::Request* {
+      .WillOnce(Invoke([&](MessagePtr &message, AsyncClient::Callbacks &cb,
+                           const absl::optional<std::chrono::milliseconds> &)
+                           -> AsyncClient::Request * {
                              EXPECT_EQ((TestHeaderMapImpl{
                                            {":method", "GET"},
                                            {":path", "/pubkey_path"},
@@ -598,7 +598,7 @@ TEST_F(JwtAuthenticatorTest, TestPubkeyFetchFail) {
                            }));
 
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::FAILED_FETCH_PUBKEY);
       }));
 
@@ -613,17 +613,17 @@ TEST_F(JwtAuthenticatorTest, TestPubkeyFetchFail) {
 TEST_F(JwtAuthenticatorTest, TestInvalidPubkey) {
   NiceMock<Http::MockAsyncClient> async_client;
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_))
-      .WillOnce(Invoke([&](const std::string& cluster) -> Http::AsyncClient& {
+      .WillOnce(Invoke([&](const std::string &cluster) -> Http::AsyncClient & {
         EXPECT_EQ(cluster, "pubkey_cluster");
         return async_client;
       }));
 
   MockAsyncClientRequest request(&async_client);
-  AsyncClient::Callbacks* callbacks;
+  AsyncClient::Callbacks *callbacks;
   EXPECT_CALL(async_client, send_(_, _, _))
-      .WillOnce(Invoke([&](MessagePtr& message, AsyncClient::Callbacks& cb,
-                           const Optional<std::chrono::milliseconds>&)
-                           -> AsyncClient::Request* {
+      .WillOnce(Invoke([&](MessagePtr &message, AsyncClient::Callbacks &cb,
+                           const absl::optional<std::chrono::milliseconds> &)
+                           -> AsyncClient::Request * {
                              EXPECT_EQ((TestHeaderMapImpl{
                                            {":method", "GET"},
                                            {":path", "/pubkey_path"},
@@ -635,7 +635,7 @@ TEST_F(JwtAuthenticatorTest, TestInvalidPubkey) {
                            }));
 
   EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke([](const Status& status) {
+      .WillOnce(Invoke([](const Status &status) {
         ASSERT_EQ(status, Status::JWK_PARSE_ERROR);
       }));
 
@@ -651,17 +651,17 @@ TEST_F(JwtAuthenticatorTest, TestInvalidPubkey) {
 TEST_F(JwtAuthenticatorTest, TestOnDestroy) {
   NiceMock<Http::MockAsyncClient> async_client;
   EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_))
-      .WillOnce(Invoke([&](const std::string& cluster) -> Http::AsyncClient& {
+      .WillOnce(Invoke([&](const std::string &cluster) -> Http::AsyncClient & {
         EXPECT_EQ(cluster, "pubkey_cluster");
         return async_client;
       }));
 
   MockAsyncClientRequest request(&async_client);
-  AsyncClient::Callbacks* callbacks;
+  AsyncClient::Callbacks *callbacks;
   EXPECT_CALL(async_client, send_(_, _, _))
-      .WillOnce(Invoke([&](MessagePtr& message, AsyncClient::Callbacks& cb,
-                           const Optional<std::chrono::milliseconds>&)
-                           -> AsyncClient::Request* {
+      .WillOnce(Invoke([&](MessagePtr &message, AsyncClient::Callbacks &cb,
+                           const absl::optional<std::chrono::milliseconds> &)
+                           -> AsyncClient::Request * {
                              EXPECT_EQ((TestHeaderMapImpl{
                                            {":method", "GET"},
                                            {":path", "/pubkey_path"},

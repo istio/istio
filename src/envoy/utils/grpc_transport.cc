@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "src/envoy/utils/grpc_transport.h"
+#include "absl/types/optional.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -34,9 +35,9 @@ const Http::LowerCaseString kB3Sampled("x-b3-sampled");
 const Http::LowerCaseString kB3Flags("x-b3-flags");
 const Http::LowerCaseString kOtSpanContext("x-ot-span-context");
 
-inline void CopyHeaderEntry(const Http::HeaderEntry* entry,
-                            const Http::LowerCaseString& key,
-                            Http::HeaderMap& headers) {
+inline void CopyHeaderEntry(const Http::HeaderEntry *entry,
+                            const Http::LowerCaseString &key,
+                            Http::HeaderMap &headers) {
   if (entry) {
     std::string val(entry->value().c_str(), entry->value().size());
     headers.addReferenceKey(key, val);
@@ -47,8 +48,8 @@ inline void CopyHeaderEntry(const Http::HeaderEntry* entry,
 
 template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
-    Grpc::AsyncClientPtr async_client, const RequestType& request,
-    const Http::HeaderMap* headers, ResponseType* response,
+    Grpc::AsyncClientPtr async_client, const RequestType &request,
+    const Http::HeaderMap *headers, ResponseType *response,
     istio::mixerclient::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       headers_(headers),
@@ -56,14 +57,14 @@ GrpcTransport<RequestType, ResponseType>::GrpcTransport(
       on_done_(on_done),
       request_(async_client_->send(
           descriptor(), request, *this, Tracing::NullSpan::instance(),
-          Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))) {
+          absl::optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))) {
   ENVOY_LOG(debug, "Sending {} request: {}", descriptor().name(),
             request.DebugString());
 }
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(
-    Http::HeaderMap& metadata) {
+    Http::HeaderMap &metadata) {
   if (!headers_) return;
 
   CopyHeaderEntry(headers_->RequestId(), kRequestId, metadata);
@@ -79,7 +80,7 @@ void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onSuccess(
-    std::unique_ptr<ResponseType>&& response, Tracing::Span&) {
+    std::unique_ptr<ResponseType> &&response, Tracing::Span &) {
   ENVOY_LOG(debug, "{} response: {}", descriptor().name(),
             response->DebugString());
   response->Swap(response_);
@@ -89,8 +90,8 @@ void GrpcTransport<RequestType, ResponseType>::onSuccess(
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onFailure(
-    Grpc::Status::GrpcStatus status, const std::string& message,
-    Tracing::Span&) {
+    Grpc::Status::GrpcStatus status, const std::string &message,
+    Tracing::Span &) {
   ENVOY_LOG(debug, "{} failed with code: {}, {}", descriptor().name(), status,
             message);
   on_done_(Status(static_cast<StatusCode>(status), message));
@@ -106,8 +107,8 @@ void GrpcTransport<RequestType, ResponseType>::Cancel() {
 template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(
-    Grpc::AsyncClientFactory& factory, const Http::HeaderMap* headers) {
-  return [&factory, headers](const RequestType& request, ResponseType* response,
+    Grpc::AsyncClientFactory &factory, const Http::HeaderMap *headers) {
+  return [&factory, headers](const RequestType &request, ResponseType *response,
                              istio::mixerclient::DoneFunc on_done)
              -> istio::mixerclient::CancelFunc {
                auto transport = new GrpcTransport<RequestType, ResponseType>(
@@ -117,8 +118,8 @@ GrpcTransport<RequestType, ResponseType>::GetFunc(
 }
 
 template <>
-const google::protobuf::MethodDescriptor& CheckTransport::descriptor() {
-  static const google::protobuf::MethodDescriptor* check_descriptor =
+const google::protobuf::MethodDescriptor &CheckTransport::descriptor() {
+  static const google::protobuf::MethodDescriptor *check_descriptor =
       istio::mixer::v1::Mixer::descriptor()->FindMethodByName("Check");
   ASSERT(check_descriptor);
 
@@ -126,8 +127,8 @@ const google::protobuf::MethodDescriptor& CheckTransport::descriptor() {
 }
 
 template <>
-const google::protobuf::MethodDescriptor& ReportTransport::descriptor() {
-  static const google::protobuf::MethodDescriptor* report_descriptor =
+const google::protobuf::MethodDescriptor &ReportTransport::descriptor() {
+  static const google::protobuf::MethodDescriptor *report_descriptor =
       istio::mixer::v1::Mixer::descriptor()->FindMethodByName("Report");
   ASSERT(report_descriptor);
 
@@ -136,9 +137,9 @@ const google::protobuf::MethodDescriptor& ReportTransport::descriptor() {
 
 // explicitly instantiate CheckTransport and ReportTransport
 template CheckTransport::Func CheckTransport::GetFunc(
-    Grpc::AsyncClientFactory& factory, const Http::HeaderMap* headers);
+    Grpc::AsyncClientFactory &factory, const Http::HeaderMap *headers);
 template ReportTransport::Func ReportTransport::GetFunc(
-    Grpc::AsyncClientFactory& factory, const Http::HeaderMap* headers);
+    Grpc::AsyncClientFactory &factory, const Http::HeaderMap *headers);
 
 }  // namespace Utils
 }  // namespace Envoy
