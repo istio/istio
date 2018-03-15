@@ -112,7 +112,11 @@ func newAPIServer() (*apiServer, error) {
 		apiServerRepository+":"+apiServerTag)
 
 	if b, err := cmd.Output(); err != nil {
-		log.Errorf("Could not start docker: %s\n %s", err, string(b))
+		stderr := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		log.Errorf("Could not start docker: %s\n out:\n%s\nerr:\n%s\n", err, string(b), stderr)
 		return nil, err
 	}
 
