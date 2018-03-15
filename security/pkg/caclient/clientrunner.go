@@ -67,7 +67,6 @@ func (c *clientRunner) Run(stopCh <-chan struct{}, errCh chan<- error) {
 		log.Infof("Retrieve new key and certs.")
 		certBytes, certChainBytes, privateKeyBytes, err := c.client.RetrieveNewKeyCert()
 		if err != nil {
-			//log.Errorf("error retrieving the key and cert %v, abort auto rotation", err)
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
 			return
 		}
