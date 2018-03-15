@@ -209,6 +209,11 @@ pull:
 git.pullmaster:
 	git merge master
 
+# Sync target will pull from master and sync the modules. It is the first step of the
+# circleCI build, developers should call it periodically.
+sync: git.pullmaster submodule-sync init
+	mkdir -p ${OUT_DIR}/logs
+
 .PHONY: submodule pull submodule-sync git.pullmaster
 
 # I tried to make this dependent on what I thought was the appropriate

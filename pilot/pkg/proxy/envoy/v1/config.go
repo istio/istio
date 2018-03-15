@@ -28,6 +28,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -448,28 +449,9 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	}
 }
 
-// consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
-// returns mesh policy.
-func consolidateAuthPolicy(mesh *meshconfig.MeshConfig, serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy {
-	if serviceAuthPolicy != meshconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
-	}
-	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
-	switch mesh.AuthPolicy {
-	case meshconfig.MeshConfig_MUTUAL_TLS:
-		return meshconfig.AuthenticationPolicy_MUTUAL_TLS
-	case meshconfig.MeshConfig_NONE:
-		return meshconfig.AuthenticationPolicy_NONE
-	default:
-		// Never get here, there are no other enum value for mesh.AuthPolicy.
-		panic(fmt.Sprintf("Unknown mesh auth policy: %v\n", mesh.AuthPolicy))
-	}
-}
-
-// mayApplyInboundAuth adds ssl_context to the listener if consolidateAuthPolicy.
-func mayApplyInboundAuth(listener *Listener, mesh *meshconfig.MeshConfig,
-	serviceAuthPolicy meshconfig.AuthenticationPolicy) {
-	if consolidateAuthPolicy(mesh, serviceAuthPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+// mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
+func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
+	if requireTLS(authenticationPolicy) {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
 	}
 }
@@ -903,7 +885,9 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			mayApplyInboundAuth(listener, mesh, endpoint.ServicePort.AuthenticationPolicy)
+			authenticationPolicy := getConsolidateAuthenticationPolicy(mesh,
+				config, instance.Service.Hostname, endpoint.ServicePort)
+			mayApplyInboundAuth(listener, authenticationPolicy)
 			listeners = append(listeners, listener)
 		}
 	}
