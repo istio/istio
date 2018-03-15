@@ -21,13 +21,14 @@ import (
 	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
 	oldjson "encoding/json"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
+
 	"istio.io/istio/pkg/log"
 )
 

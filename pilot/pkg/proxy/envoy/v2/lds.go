@@ -45,6 +45,7 @@ var (
 	ldsClients      = map[string]*LdsConnection{}
 )
 
+// LdsConnection is a listener connection type.
 type LdsConnection struct {
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
@@ -78,7 +79,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	var receiveError error
 	initialRequest := true
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-	var nodeId string
+	var nodeID string
 	node := model.Proxy{}
 	con := &LdsConnection{
 		pushChannel:   make(chan struct{}, 1),
@@ -88,12 +89,12 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	}
 	go func() {
 		defer close(reqChannel)
-		defer removeLdsCon(nodeId)
+		defer removeLdsCon(nodeID)
 		for {
 			req, err := stream.Recv()
 			if err != nil {
 				log.Errorf("LDS close for client %s %q terminated with errors %v",
-					nodeId, peerAddr, err)
+					nodeID, peerAddr, err)
 				if status.Code(err) == codes.Canceled || err == io.EOF {
 					return
 				}
@@ -121,8 +122,8 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			node.ID = discReq.Node.Id
 			node.Type = nt.Type
 
-			nodeId = nt.ID
-			addLdsCon(nodeId, con)
+			nodeID = nt.ID
+			addLdsCon(nodeID, con)
 			log.Infof("LDS: StreamListeners %v %s %s", peerAddr, nt.ID, discReq.String())
 
 		case <-ticker.C:

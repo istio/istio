@@ -205,8 +205,7 @@ func buildSidecarListenersClusters(
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct {
-	// nolint: maligned
+type buildHTTPListenerOpts struct { // nolint: maligned
 	config           model.Config
 	env              model.Environment
 	mesh             *meshconfig.MeshConfig
@@ -281,16 +280,16 @@ func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConne
 		manager.AccessLog = []*accesslog.AccessLog{{Config: messageToStruct(fl)}}
 	}
 
-	if opts.mesh.EnableTracing {
-		//manager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-		//	OperationName: opts.direction,
-		//}
-		//manager.GenerateRequestId = &google_protobuf.BoolValue{true}
-	}
+	/*if opts.mesh.EnableTracing {
+		manager.Tracing = &http_conn.HttpConnectionManager_Tracing{
+			OperationName: opts.direction,
+		}
+		manager.GenerateRequestId = &google_protobuf.BoolValue{true}
+	}*/
 
-	managerJson, _ := json.MarshalIndent(manager, "  ", "  ")
+	managerJSON, _ := json.MarshalIndent(manager, "  ", "  ")
 	if ldsDebug {
-		log.Infof("LDS: %s \n", string(managerJson))
+		log.Infof("LDS: %s \n", string(managerJSON))
 	}
 	return manager
 }
