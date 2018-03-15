@@ -455,6 +455,8 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
       - attach_workspace:
           at:  /go
 #      - restore_cache:
