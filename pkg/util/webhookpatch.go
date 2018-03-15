@@ -32,7 +32,7 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	if err != nil {
 		return err
 	}
-	old, err := json.Marshal(config)
+	prev, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
@@ -45,13 +45,13 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		}
 	}
 	if !found {
-		return fmt.Errorf("webhook entry not found in config")
+		return fmt.Errorf("webhook entry %q not found in config %q", webhookName, webhookConfigName)
 	}
-	new, err := json.Marshal(config)
+	curr, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(old, new, admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, admissionregistrationv1beta1.MutatingWebhookConfiguration{})
 	if err != nil {
 		return err
 	}

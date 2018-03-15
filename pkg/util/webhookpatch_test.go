@@ -27,13 +27,15 @@ import (
 
 func TestWebhookPatch(t *testing.T) {
 	ts := []struct {
+		name        string
 		configs     admissionregistrationv1beta1.MutatingWebhookConfigurationList
 		configName  string
 		webhookName string
 		pemData     []byte
-		expected    string
+		err         string
 	}{
 		{
+			"WebhookConfigNotFound",
 			admissionregistrationv1beta1.MutatingWebhookConfigurationList{},
 			"config1",
 			"webhook1",
@@ -41,6 +43,7 @@ func TestWebhookPatch(t *testing.T) {
 			"mutatingwebhookconfigurations.admissionregistration.k8s.io \"config1\" not found",
 		},
 		{
+			"WebhookEntryNotFound",
 			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
 				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
 					{
@@ -53,9 +56,10 @@ func TestWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			"webhook entry not found in config",
+			"webhook entry \"webhook1\" not found in config \"config1\"",
 		},
 		{
+			"SuccessfullyPatched",
 			admissionregistrationv1beta1.MutatingWebhookConfigurationList{
 				Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{
 					{
@@ -78,27 +82,25 @@ func TestWebhookPatch(t *testing.T) {
 		},
 	}
 	for _, tc := range ts {
-		client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-		err := PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-			tc.configName, tc.webhookName, tc.pemData)
-		if err != nil {
-			if err.Error() != tc.expected {
-				t.Errorf("Expected %s, Got %s", tc.expected, err)
-			}
-		} else {
-			if err != nil {
-				t.Errorf("Unexpected error: %s", err)
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
+			err := PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+				tc.configName, tc.webhookName, tc.pemData)
+			if tc.err != "" {
+				if err.Error() != tc.err {
+					t.Fatalf("Expected %q, Got %q", tc.err, err)
+				}
 			} else {
 				config := admissionregistrationv1beta1.MutatingWebhookConfiguration{}
 				patch := client.Actions()[1].(k8stesting.PatchAction).GetPatch()
 				err = json.Unmarshal(patch, &config)
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Fatalf("Fail to parse the patch: %s", err.Error())
 				}
 				if !bytes.Equal(config.Webhooks[0].ClientConfig.CABundle, tc.pemData) {
-					t.Errorf("Incorrect CA bundle: expect %s got %s", tc.pemData, config.Webhooks[0].ClientConfig.CABundle)
+					t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, config.Webhooks[0].ClientConfig.CABundle)
 				}
 			}
-		}
+		})
 	}
 }
