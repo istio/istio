@@ -17,6 +17,7 @@ package testing
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os/exec"
 	"sync"
 	"time"
@@ -94,8 +95,12 @@ type apiServer struct {
 func newAPIServer() (*apiServer, error) {
 	containerName := fmt.Sprintf("galley-testing-%d", time.Now().UnixNano())
 
-	// TODO: Auto-calculate a free local port.
-	localPort := "8080"
+	p, err := findEmptyPort()
+	if err != nil {
+		log.Errora("Unable to find empty port")
+		return nil, err
+	}
+	localPort := fmt.Sprintf("%d", p)
 
 	cmd := exec.Command(
 		"docker",
@@ -123,7 +128,6 @@ func newAPIServer() (*apiServer, error) {
 	}
 
 	completed := false
-	var err error
 	for i := 0; i < connectionRetries; i++ {
 		if i != 0 {
 			time.Sleep(retryBackoff)
@@ -165,4 +169,24 @@ func (s *apiServer) close() error {
 		return err
 	}
 	return nil
+}
+
+func findEmptyPort() (int, error) {
+	basePort := 8080
+	for i := 0; i < 20; i++ {
+		port := basePort + i
+		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			continue
+		}
+
+		if err = l.Close(); err != nil {
+			continue
+		}
+
+		return port, nil
+	}
+
+	return 0, errors.New("no available port found")
 }
