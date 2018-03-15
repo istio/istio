@@ -15,7 +15,8 @@ ETCD_VER="${ETCD_VER:-v3.2.15}"
 TAG="v1"
 
 # TODO: A better location to publish the images.
-HUB="docker.io/ozevren/galley-testing"
+#HUB="docker.io/ozevren/galley-testing"
+HUB="gcr.io/oztest-mixer/galley-testing"
 
 rm -rf "${SCRATCH_DIR}"
 mkdir -p "${SCRATCH_DIR}"
@@ -28,6 +29,6 @@ curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD
 cp "${SCRIPT_DIR}/Dockerfile" "${SCRATCH_DIR}/Dockerfile"
 cp "${SCRIPT_DIR}/init.sh" "${SCRATCH_DIR}/init.sh"
 
-docker build "${SCRATCH_DIR}" --tag "${TAG}"
+docker build "${SCRATCH_DIR}" --tag "${HUB}:${TAG}"
 
 docker image push ${HUB}:${TAG}

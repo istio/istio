@@ -15,7 +15,6 @@
 package testing
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -32,7 +31,8 @@ import (
 )
 
 const (
-	apiServerRepository = "docker.io/ozevren/galley-testing"
+	//apiServerRepository = "docker.io/ozevren/galley-testing"
+	apiServerRepository = "gcr.io/oztest-mixer/galley-testing"
 	apiServerTag        = "v1"
 	connectionRetries   = 10
 	retryBackoff        = time.Second * 3
