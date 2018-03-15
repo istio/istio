@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 )
 
 const (
@@ -39,15 +39,9 @@ const (
 var singleton *apiServer
 var lock sync.Mutex
 
-func init() {
-	o := log.DefaultOptions()
-	o.SetOutputLevel(log.DebugLevel)
-	log.Configure(o)
-}
-
-// InitApiServer starts a container with API server. The handle is kept in a package-internal singleton.
+// InitAPIServer starts a container with API server. The handle is kept in a package-internal singleton.
 // This should be called from a test main to do one-time initialization of the API Server.
-func InitApiServer() (err error) {
+func InitAPIServer() (err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -55,16 +49,16 @@ func InitApiServer() (err error) {
 		return
 	}
 
-	if singleton, err = newApiServer(); err != nil {
+	if singleton, err = newAPIServer(); err != nil {
 		singleton = nil
 	}
 
 	return
 }
 
-// ShutdownApiServer gracefully cleans up the container with the API server. The container is resilient
+// ShutdownAPIServer gracefully cleans up the container with the API server. The container is resilient
 // to non-graceful terminations: it will self-terminate eventually.
-func ShutdownApiServer() (err error) {
+func ShutdownAPIServer() (err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -77,9 +71,9 @@ func ShutdownApiServer() (err error) {
 	return
 }
 
-// GetBaseApiServerConfig returns a base configuration that can be used to connect to the API server that
+// GetBaseAPIServerConfig returns a base configuration that can be used to connect to the API server that
 // is running within the container.
-func GetBaseApiServerConfig() *rest.Config {
+func GetBaseAPIServerConfig() *rest.Config {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -96,8 +90,8 @@ type apiServer struct {
 	baseConfig    *rest.Config
 }
 
-// newApiServer returns a new apiServer instance.
-func newApiServer() (*apiServer, error) {
+// newAPIServer returns a new apiServer instance.
+func newAPIServer() (*apiServer, error) {
 	containerName := fmt.Sprintf("galley-testing-%d", time.Now().UnixNano())
 
 	// TODO: Auto-calculate a free local port.

@@ -19,9 +19,9 @@ import (
 )
 
 func TestApiServer(t *testing.T) {
-	a, err := newApiServer()
+	a, err := newAPIServer()
 	if err != nil {
-		t.Fatalf("newApiServer error: %v", err)
+		t.Fatalf("newAPIServer error: %v", err)
 	}
 
 	if err = a.close(); err != nil {
@@ -30,57 +30,57 @@ func TestApiServer(t *testing.T) {
 }
 
 func TestSingleton(t *testing.T) {
-	cfg := GetBaseApiServerConfig()
+	cfg := GetBaseAPIServerConfig()
 	if cfg != nil {
 		t.Fatalf("non-nil base config before init")
 	}
 
-	if err := InitApiServer(); err != nil {
-		t.Fatalf("InitApiServer error: %v", err)
+	if err := InitAPIServer(); err != nil {
+		t.Fatalf("InitAPIServer error: %v", err)
 	}
 
-	if cfg = GetBaseApiServerConfig(); cfg == nil {
+	if cfg = GetBaseAPIServerConfig(); cfg == nil {
 		t.Fatalf("nil base config after init")
 	}
 
-	if err := ShutdownApiServer(); err != nil {
-		t.Fatalf("ShutdownApiServer error: %v", err)
+	if err := ShutdownAPIServer(); err != nil {
+		t.Fatalf("ShutdownAPIServer error: %v", err)
 	}
 
-	if cfg = GetBaseApiServerConfig(); cfg != nil {
+	if cfg = GetBaseAPIServerConfig(); cfg != nil {
 		t.Fatalf("non-nil base config after shutdown")
 	}
 }
 
 func TestSingleton_DoubleInit(t *testing.T) {
-	if err := InitApiServer(); err != nil {
-		t.Fatalf("InitApiServer error: %v", err)
+	if err := InitAPIServer(); err != nil {
+		t.Fatalf("InitAPIServer error: %v", err)
 	}
 
-	if err := InitApiServer(); err != nil {
-		t.Fatalf("InitApiServer error during second invocation: %v", err)
+	if err := InitAPIServer(); err != nil {
+		t.Fatalf("InitAPIServer error during second invocation: %v", err)
 	}
 
-	if err := ShutdownApiServer(); err != nil {
-		t.Fatalf("ShutdownApiServer error: %v", err)
+	if err := ShutdownAPIServer(); err != nil {
+		t.Fatalf("ShutdownAPIServer error: %v", err)
 	}
 
 	// use config as a way to check for shutdown detection.
-	if cfg := GetBaseApiServerConfig(); cfg != nil {
+	if cfg := GetBaseAPIServerConfig(); cfg != nil {
 		t.Fatalf("non-nil base config after shutdown")
 	}
 }
 
 func TestSingleton_DoubleShutdown(t *testing.T) {
-	if err := InitApiServer(); err != nil {
-		t.Fatalf("InitApiServer error: %v", err)
+	if err := InitAPIServer(); err != nil {
+		t.Fatalf("InitAPIServer error: %v", err)
 	}
 
-	if err := ShutdownApiServer(); err != nil {
-		t.Fatalf("ShutdownApiServer error: %v", err)
+	if err := ShutdownAPIServer(); err != nil {
+		t.Fatalf("ShutdownAPIServer error: %v", err)
 	}
 
-	if err := ShutdownApiServer(); err != nil {
-		t.Fatalf("ShutdownApiServer error during second invocation: %v", err)
+	if err := ShutdownAPIServer(); err != nil {
+		t.Fatalf("ShutdownAPIServer error during second invocation: %v", err)
 	}
 }
