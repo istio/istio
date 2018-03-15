@@ -127,7 +127,7 @@ func newAPIServer() (s *apiServer, err error) {
 		Publish: "8080",
 		Image:   apiServerRepository + ":" + apiServerTag,
 	}); err != nil {
-		log.Errorf("Could not start docker: vs", err)
+		log.Errorf("Could not start docker: %v", err)
 		return nil, err
 	}
 

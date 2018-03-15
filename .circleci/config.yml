@@ -434,6 +434,8 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
       ISTIO_BIN: /go/bin
     steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
       - checkout
       - run: make submodule-sync
       - run:

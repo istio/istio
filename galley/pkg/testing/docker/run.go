@@ -18,6 +18,9 @@ import (
 	"bytes"
 	"errors"
 	"os/exec"
+	"strings"
+
+	"istio.io/istio/pkg/log"
 )
 
 // RunArgs are arguments to supply to "docker run".
@@ -71,13 +74,18 @@ func Start(a RunArgs) (*Instance, error) {
 		return nil, err
 	}
 
+	log.Infof("docker %s", strings.Join(args, " "))
+
 	return &Instance{c}, nil
 }
 
 // Kill a running "docker run" process.
 func (i *Instance) Kill() (out string, err error) {
 	err = i.cmd.Process.Kill()
-	i.cmd.Process.Wait()
+	_, err2 := i.cmd.Process.Wait()
+	if err == nil { // Kill's error takes precedence
+		err = err2
+	}
 
 	out = (i.cmd.Stderr).(*bytes.Buffer).String()
 	return
