@@ -65,13 +65,7 @@ func (t *routing) Run(tt *testing.T) error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				tt.Run("", func(tt *testing.T) {
-					err := t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
-					if err != nil {
-						tt.Error(err)
-					}
-				})
-				return nil
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
 			},
 		},
 		{
@@ -163,6 +157,9 @@ func (t *routing) Run(tt *testing.T) error {
 				if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
 					log.Infof("Failed the test with %v", err)
 					errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
+					if err != nil {
+						tt.Error(err)
+					}
 				} else {
 					log.Info("Success!")
 				}

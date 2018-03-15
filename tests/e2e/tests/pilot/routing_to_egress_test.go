@@ -218,12 +218,15 @@ func (t *routingToEgress) Run(tt *testing.T) error {
 			return err
 		}
 
-		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
-			log.Infof("Failed the test with %v", err)
-			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-		} else {
-			log.Info("Success!")
-		}
+		tt.Run(cs.description, func(tt *testing.T) {
+			if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
+				log.Infof("Failed the test with %v", err)
+				errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
+				tt.Error(err)
+			} else {
+				log.Info("Success!")
+			}
+		})
 
 		if err := t.DeleteConfig(cs.configRouting, cs.routingData); err != nil {
 			return err
