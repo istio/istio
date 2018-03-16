@@ -32,29 +32,29 @@ func convertPort(port *networking.Port) *model.Port {
 
 func convertService(externalService *networking.ExternalService) []*model.Service {
 	out := make([]*model.Service, 0)
-	ports := make(map[int]*model.Port)
 
 	for _, host := range externalService.Hosts {
-		service := &model.Service{}
-		service.MeshExternal = true
-		service.Hostname = host
-		service.Ports = make([]*model.Port, len(externalService.Ports))
+		var resolution model.Resolution
 		switch externalService.Discovery {
 		case networking.ExternalService_NONE:
-			service.Resolution = model.Passthrough
+			resolution = model.Passthrough
 		case networking.ExternalService_DNS:
-			service.Resolution = model.DNSLB
+			resolution = model.DNSLB
 		case networking.ExternalService_STATIC:
-			service.Resolution = model.ClientSideLB
+			resolution = model.ClientSideLB
 		}
 
-		svcPorts := make(model.PortList, 0, len(ports))
+		svcPorts := make(model.PortList, 0, len(externalService.Ports))
 		for _, port := range externalService.Ports {
 			svcPorts = append(svcPorts, convertPort(port))
 		}
 
-		service.Ports = svcPorts
-		out = append(out, service)
+		out = append(out, &model.Service{
+			MeshExternal: true,
+			Hostname:     host,
+			Ports:        svcPorts,
+			Resolution:   resolution,
+		})
 	}
 
 	return out
