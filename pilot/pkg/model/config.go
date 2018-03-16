@@ -201,6 +201,9 @@ type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
 
+	// Gogo is true for gogo protobuf messages
+	Gogo bool
+
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(config proto.Message) error
@@ -344,6 +347,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
+		Gogo:        true,
 		Validate:    ValidateVirtualService,
 	}
 
@@ -354,6 +358,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
+		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
 
@@ -384,6 +389,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ExternalService",
+		Gogo:        true,
 		Validate:    ValidateExternalService,
 	}
 
