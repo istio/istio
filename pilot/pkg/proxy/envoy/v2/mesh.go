@@ -288,7 +288,7 @@ type subsetEndpoints map[string]endpointSet
 
 // RuleChange encapsulates changes to Route Destination Rules
 type RuleChange struct {
-	// Rule routing/v1alpha2/destination_rule.proto
+	// Rule networking/v1alpha3/destination_rule.proto
 	Rule *networking.DestinationRule
 	// Type of destination rule config change
 	Type ConfigChangeType

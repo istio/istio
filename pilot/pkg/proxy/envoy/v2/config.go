@@ -503,8 +503,8 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		useDefaultRoute := true
 		rules := config.RouteRules(proxyInstances, service.Hostname, node.Domain)
 		// sort for output uniqueness
-		// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
-		// because v1alpha2 rules are unique per host.
+		// if v1alpha3 rules are returned, len(rules) <= 1 is guaranteed
+		// because v1alpha3 rules are unique per host.
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
@@ -713,8 +713,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				rules := config.RouteRulesByDestination(proxyInstances, node.Domain)
 
 				// sort for output uniqueness
-				// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
-				// because v1alpha2 rules are unique per host.
+				// if v1alpha3 rules are returned, len(rules) <= 1 is guaranteed
+				// because v1alpha3 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
 					switch config.Spec.(type) {

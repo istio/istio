@@ -1795,11 +1795,11 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 	return errs
 }
 
-// ValidateVirtualService checks that a v1alpha2 route rule is well-formed.
+// ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 func ValidateVirtualService(msg proto.Message) (errs error) {
 	routeRule, ok := msg.(*networking.VirtualService)
 	if !ok {
-		return errors.New("cannot cast to v1alpha2 routing rule")
+		return errors.New("cannot cast to v1alpha3 routing rule")
 	}
 
 	// TODO: routeRule.Gateways

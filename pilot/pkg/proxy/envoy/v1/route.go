@@ -408,8 +408,8 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	return route
 }
 
-// TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
-// In v1alpha2, cluster names will be built using the subset name instead of labels.
+// TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha3.
+// In v1alpha3, cluster names will be built using the subset name instead of labels.
 // This will allow us to remove this function, which is very inefficient.
 func fetchSubsetLabels(store model.IstioConfigStore, fqdn, subsetName, domain string) (labels model.Labels) {
 	if subsetName == "" {

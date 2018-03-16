@@ -280,7 +280,7 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 		{configs: []fileConfig{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
 			response: "testdata/cds-circuit-breaker.json"},
 		{configs: []fileConfig{cbRouteRuleV3, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
-			response: "testdata/cds-circuit-breaker-v1alpha2.json"},
+			response: "testdata/cds-circuit-breaker-v1alpha3.json"},
 	}
 
 	for _, tc := range tests {
@@ -507,7 +507,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightedConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -521,7 +521,7 @@ func TestRouteDiscoveryFault(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, faultConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -539,7 +539,7 @@ func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, multiMatchFaultRouteRuleV3, t)
 
-	// TODO: v1alpha2 only
+	// TODO: v1alpha3 only
 	addConfig(registry, destinationRuleWorld, t)
 
 	// fault rule is source based: we check that the rule only affects v0 and not v1
@@ -557,7 +557,7 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, mirrorConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleHello, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -627,7 +627,7 @@ func TestRouteDiscoveryMultiMatchRewrite(t *testing.T) {
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha2.json", t)
+	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha3.json", t)
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
@@ -664,7 +664,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 		addIngressRoutes(registry, t)
 		addConfig(registry, weightConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
@@ -859,7 +859,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			_, registry, ds := commonSetup(t)
 
 			if testCase.name != "none" {
-				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha2 only
+				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha3 only
 				addConfig(registry, testCase.file, t)
 			}
 

@@ -337,7 +337,7 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
-	// VirtualService describes v1alpha2 route rules
+	// VirtualService describes v1alpha3 route rules
 	VirtualService = ProtoSchema{
 		Type:        "virtual-service",
 		Plural:      "virtual-services",
