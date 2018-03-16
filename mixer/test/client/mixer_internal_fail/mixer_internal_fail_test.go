@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
 // Mixer server returns INTERNAL failure.
 func TestMixerInternalFail(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4264")
 	s := env.NewTestSetup(env.MixerInternalFailTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

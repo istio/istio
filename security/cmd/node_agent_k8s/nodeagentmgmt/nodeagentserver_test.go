@@ -17,19 +17,26 @@ package nodeagentmgmt
 import (
 	"testing"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-	mwi "istio.io/istio/security/cmd/node_agent_k8s/mgmtwlhintf"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	pb "istio.io/istio/security/proto"
 )
 
 // TODO(wattli): add more tests.
 func TestWorkloadAddedService(t *testing.T) {
-	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
-		"testid": nil,
+	server := &Server{
+		handlerMap: map[string]handler.WorkloadHandler{},
+		done:       make(chan bool),
+		opts: ServerOptions{
+			WorkloadOpts: handler.Options{
+				RegAPI: wapi.RegisterGrpc,
+			},
+		},
 	}
-	server := &Server{wlmgmts, "path", make(chan bool), nil}
+	server.handlerMap["testid"] = nil
 
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}
@@ -44,10 +51,17 @@ func TestWorkloadAddedService(t *testing.T) {
 }
 
 func TestWorkloadDeletedService(t *testing.T) {
-	wlmgmts := map[string]mwi.WorkloadMgmtInterface{
-		"testid": nil,
+	server := &Server{
+		handlerMap: map[string]handler.WorkloadHandler{},
+		done:       make(chan bool),
+		opts: ServerOptions{
+			WorkloadOpts: handler.Options{
+				SockFile: "path",
+				RegAPI:   wapi.RegisterGrpc,
+			},
+		},
 	}
-	server := &Server{wlmgmts, "path", make(chan bool), nil}
+	server.handlerMap["testid"] = nil
 
 	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid2"}
 	naInp := &pb.WorkloadInfo{Attrs: &attrs}

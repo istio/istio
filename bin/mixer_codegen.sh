@@ -135,9 +135,9 @@ mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
   "google/protobuf/any.proto=github.com/gogo/protobuf/types"
   "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
-  "google/rpc/status.proto=istio.io/gogo-genproto/googleapis/google/rpc"
-  "google/rpc/code.proto=istio.io/gogo-genproto/googleapis/google/rpc"
-  "google/rpc/error_details.proto=istio.io/gogo-genproto/googleapis/google/rpc"
+  "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
+  "google/rpc/code.proto=github.com/gogo/googleapis/google/rpc"
+  "google/rpc/error_details.proto=github.com/gogo/googleapis/google/rpc"
 )
 
 MAPPINGS=""

@@ -6,5 +6,8 @@ spec:
   hosts:
     - c
   http:
-    - mirror:
+    - route:
+      - destination:
+          name: c
+      mirror:
         name: b

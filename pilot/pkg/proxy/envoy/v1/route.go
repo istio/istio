@@ -92,26 +92,29 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV2 builds inbound routes using the V2 API.
-func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
+// BuildInboundRoutesV2 builds inbound routes using the v1alpha3 API.
+// Only returns the non default routes when using websockets or route decorators for tracing
+// TODO : Need to handle port match in the route rule
+func BuildInboundRoutesV2(_ []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
+
 	for _, http := range rule.Http {
+		// adds a default prefix match / and a default decorator
 		if len(http.Match) == 0 {
 			routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
-		}
-		for _, match := range http.Match {
-			for _, instance := range proxyInstances {
-				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
-					break
-				}
+		} else {
+			for _, match := range http.Match {
+				routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
 			}
 		}
 	}
+
 	return routes
 }
 
 // BuildInboundRouteV2 builds an inbound route using the v2 API.
+// Uses same match condition as the outbound route if and only if there
+// is a websocket for this route, or a special decorator has been set for this route
 func BuildInboundRouteV2(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
 	route := buildHTTPRouteMatchV2(match)
 
@@ -306,7 +309,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
 		}
 		if rule.CorsPolicy.MaxAge != nil {
-			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
+			route.CORSPolicy.MaxAge = convertDuration(rule.CorsPolicy.MaxAge).String()
 		}
 	}
 
@@ -338,16 +341,6 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 			}
 		}
 	}
-	if len(rule.Http) == 0 {
-		route := &HTTPRoute{
-			Prefix: "/",
-		}
-		// default route for the destination
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.Clusters = append(route.Clusters, cluster)
-		routes = append(routes, route)
-	}
 
 	return routes
 }
@@ -356,41 +349,41 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
-
-	if len(http.Route) == 0 { // build default cluster
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.Clusters = append(route.Clusters, cluster)
+	if http.Redirect != nil {
+		route.HostRedirect = http.Redirect.Authority
+		route.PathRedirect = http.Redirect.Uri
 	} else {
-		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
+		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
 			route.Clusters = append(route.Clusters, cluster)
-			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
+			clusters = append(clusters,
 				&WeightedClusterEntry{
 					Name:   cluster.Name,
 					Weight: int(dst.Weight),
 				})
 		}
 
-		// rewrite to a single cluster if there is only weighted cluster
-		if len(route.WeightedClusters.Clusters) == 1 {
-			route.Cluster = route.WeightedClusters.Clusters[0].Name
-			route.WeightedClusters = nil
+		if len(clusters) == 1 {
+			route.Cluster = clusters[0].Name
+		} else {
+			route.WeightedClusters = &WeightedCluster{Clusters: clusters}
 		}
 	}
 
+	if http.Rewrite != nil {
+		route.HostRewrite = http.Rewrite.Authority
+		route.PrefixRewrite = http.Rewrite.Uri
+	}
+
 	if http.Timeout != nil &&
-		protoDurationToMS(http.Timeout) > 0 {
-		route.TimeoutMS = protoDurationToMS(http.Timeout)
+		protoDurationToMSGogo(http.Timeout) > 0 {
+		route.TimeoutMS = protoDurationToMSGogo(http.Timeout)
 	}
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
-
-	applyRedirect(route, http.Redirect)
-	applyRewrite(route, http.Rewrite)
 
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if http.Fault != nil {
@@ -421,17 +414,17 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 // TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
 // In v1alpha2, cluster names will be built using the subset name instead of labels.
 // This will allow us to remove this function, which is very inefficient.
-func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
+func fetchSubsetLabels(store model.IstioConfigStore, fqdn, subsetName, domain string) (labels model.Labels) {
 	if subsetName == "" {
 		return
 	}
 
-	destinationRuleConfig := store.DestinationRule(name, domain)
-	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
+	config := store.DestinationRule(fqdn, domain)
+	if config != nil {
+		rule := config.Spec.(*networking.DestinationRule)
 
 		var found bool
-		for _, subset := range destinationRule.Subsets {
+		for _, subset := range rule.Subsets {
 			if subset.Name == subsetName {
 				labels = model.Labels(subset.Labels)
 				found = true
@@ -447,32 +440,17 @@ func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain st
 	return
 }
 
-func applyRedirect(route *HTTPRoute, redirect *networking.HTTPRedirect) {
-	if redirect != nil {
-		route.HostRedirect = redirect.Authority
-		route.PathRedirect = redirect.Uri
-		route.Cluster = ""
-	}
-}
-
 func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 	if retries != nil && retries.Attempts > 0 {
 		policy = &RetryPolicy{
 			NumRetries: int(retries.GetAttempts()),
 			Policy:     "5xx,connect-failure,refused-stream",
 		}
-		if protoDurationToMS(retries.PerTryTimeout) > 0 {
-			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
+		if protoDurationToMSGogo(retries.PerTryTimeout) > 0 {
+			policy.PerTryTimeoutMS = protoDurationToMSGogo(retries.PerTryTimeout)
 		}
 	}
 	return
-}
-
-func applyRewrite(route *HTTPRoute, rewrite *networking.HTTPRewrite) {
-	if rewrite != nil {
-		route.HostRewrite = rewrite.Authority
-		route.PrefixRewrite = rewrite.Uri
-	}
 }
 
 func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
@@ -492,20 +470,14 @@ func buildCORSPolicy(policy *networking.CorsPolicy) *CORSPolicy {
 	}
 
 	out := &CORSPolicy{
-		AllowOrigin: policy.AllowOrigin,
-		Enabled:     true,
+		AllowOrigin:   policy.AllowOrigin,
+		AllowHeaders:  strings.Join(policy.AllowHeaders, ","),
+		AllowMethods:  strings.Join(policy.AllowMethods, ","),
+		ExposeHeaders: strings.Join(policy.ExposeHeaders, ","),
+		Enabled:       true,
 	}
 	if policy.AllowCredentials != nil {
 		out.AllowCredentials = policy.AllowCredentials.Value
-	}
-	if len(policy.AllowHeaders) > 0 {
-		out.AllowHeaders = strings.Join(policy.AllowHeaders, ",")
-	}
-	if len(policy.AllowMethods) > 0 {
-		out.AllowMethods = strings.Join(policy.AllowMethods, ",")
-	}
-	if len(policy.ExposeHeaders) > 0 {
-		out.ExposeHeaders = strings.Join(policy.ExposeHeaders, ",")
 	}
 	if policy.MaxAge != nil {
 		out.MaxAge = policy.MaxAge.String()
@@ -527,6 +499,7 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 	}
 }
 
+// TODO: With multiple rules per VirtualService, this is no longer useful.
 func buildDecorator(config model.Config) *Decorator {
 	if config.ConfigMeta.Name != "" {
 		return &Decorator{

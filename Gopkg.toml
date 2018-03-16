@@ -129,11 +129,11 @@ required = [
 # TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  revision = "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
+  branch = "master"
 
 ### Begin Mixer codegen dep pinning
 

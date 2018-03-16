@@ -711,7 +711,7 @@ func TestReferenceTracking(t *testing.T) {
 		t.Errorf("Expecting no attributes matches, got %d", len(ra.AttributeMatches))
 	}
 
-	b.ResetReferencedAttributes(snap)
+	b.RestoreReferencedAttributes(snap)
 
 	ra = b.GetReferencedAttributes(globalDict, len(globalDict))
 	if len(ra.AttributeMatches) != 5 {

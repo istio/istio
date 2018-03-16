@@ -44,6 +44,7 @@ func (t testServer) Start(adapter.Env, http.Handler) error {
 	return nil
 }
 
+func (testServer) Port() int    { return 0 }
 func (testServer) Close() error { return nil }
 
 func newBuilder(s server) *builder {

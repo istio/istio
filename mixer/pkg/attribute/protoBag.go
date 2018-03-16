@@ -33,8 +33,8 @@ type attributeRef struct {
 
 // ReferencedAttributeSnapshot keeps track of the attribute reference state for a mutable bag.
 // You can snapshot the referenced attributes with SnapshotReferencedAttributes and later
-// reinstall them with ResetReferencedAttributes. Note that a snapshot can only be used
-// once, the ResetReferencedAttributes call is destructive.
+// reinstall them with RestoreReferencedAttributes. Note that a snapshot can only be used
+// once, the RestoreReferencedAttributes call is destructive.
 type ReferencedAttributeSnapshot struct {
 	referencedAttrs map[attributeRef]mixerpb.ReferencedAttributes_Condition
 }
@@ -154,8 +154,8 @@ func (pb *ProtoBag) ClearReferencedAttributes() {
 	}
 }
 
-// ResetReferencedAttributes sets the list of referenced attributes being tracked by this bag
-func (pb *ProtoBag) ResetReferencedAttributes(snap ReferencedAttributeSnapshot) {
+// RestoreReferencedAttributes sets the list of referenced attributes being tracked by this bag
+func (pb *ProtoBag) RestoreReferencedAttributes(snap ReferencedAttributeSnapshot) {
 	ra := make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, len(snap.referencedAttrs))
 	for k, v := range snap.referencedAttrs {
 		ra[k] = v
