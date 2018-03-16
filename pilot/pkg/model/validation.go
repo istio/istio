@@ -1108,7 +1108,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
-		validateTls(policy.Tls))
+		validateTLS(policy.Tls))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
@@ -1180,7 +1180,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
-func validateTls(settings *networking.TLSSettings) (errs error) {
+func validateTLS(settings *networking.TLSSettings) (errs error) {
 	if settings == nil {
 		return
 	}
