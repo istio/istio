@@ -1101,13 +1101,14 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
-	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil {
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil && policy.Tls == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
-		validateLoadBalancer(policy.LoadBalancer))
+		validateLoadBalancer(policy.LoadBalancer),
+		validateTls(policy.Tls))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
@@ -1175,6 +1176,23 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 
 	// simple load balancing is always valid
 	// TODO: settings.GetConsistentHash()
+
+	return
+}
+
+func validateTls(settings *networking.TLSSettings) (errs error) {
+	if settings == nil {
+		return
+	}
+
+	if settings.Mode == networking.TLSSettings_MUTUAL {
+		if settings.ClientCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("client certificate requred for mutual tls"))
+		}
+		if settings.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("private key requred for mutual tls"))
+		}
+	}
 
 	return
 }
