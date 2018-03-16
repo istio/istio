@@ -17,10 +17,11 @@ package convert
 import (
 	"strings"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	"istio.io/api/routing/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -57,10 +58,10 @@ func convertRouteRules(configs []model.Config) []model.Config {
 	for host, virtualService := range virtualServices {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:            model.VirtualService.Type,
-				Name:            host,
-				Namespace:       configs[0].Namespace,
-				Domain:          configs[0].Domain,
+				Type:      model.VirtualService.Type,
+				Name:      host,
+				Namespace: configs[0].Namespace,
+				Domain:    configs[0].Domain,
 			},
 			Spec: virtualService,
 		})
@@ -201,7 +202,7 @@ func convertRewrite(in *v1alpha1.HTTPRewrite) *v1alpha3.HTTPRewrite {
 	return &out
 }
 
-func convertHTTPTimeout(in *v1alpha1.HTTPTimeout) *duration.Duration {
+func convertHTTPTimeout(in *v1alpha1.HTTPTimeout) *types.Duration {
 	if in == nil {
 		return nil
 	}
@@ -211,7 +212,7 @@ func convertHTTPTimeout(in *v1alpha1.HTTPTimeout) *duration.Duration {
 			log.Warn("Timeout override header name not supported, ignored")
 		}
 
-		return st.Timeout
+		return convertGogoDuration(st.Timeout)
 	}
 
 	if ct := in.GetCustom(); ct != nil {
@@ -234,7 +235,7 @@ func convertRetry(in *v1alpha1.HTTPRetry) *v1alpha3.HTTPRetry {
 
 		return &v1alpha3.HTTPRetry{
 			Attempts:      v.SimpleRetry.Attempts,
-			PerTryTimeout: v.SimpleRetry.PerTryTimeout,
+			PerTryTimeout: convertGogoDuration(v.SimpleRetry.PerTryTimeout),
 		}
 	case *v1alpha1.HTTPRetry_Custom:
 		log.Warn("Custom retry not supported")
@@ -296,7 +297,8 @@ func convertFaultDelay(in *v1alpha1.HTTPFaultInjection_Delay) *v1alpha3.HTTPFaul
 		log.Warn("Exponential delay is not supported")
 		return nil
 	case *v1alpha1.HTTPFaultInjection_Delay_FixedDelay:
-		out.HttpDelayType = &v1alpha3.HTTPFaultInjection_Delay_FixedDelay{FixedDelay: v.FixedDelay}
+		out.HttpDelayType = &v1alpha3.HTTPFaultInjection_Delay_FixedDelay{
+			FixedDelay: convertGogoDuration(v.FixedDelay)}
 	}
 
 	return out
@@ -326,8 +328,14 @@ func convertCORSPolicy(in *v1alpha1.CorsPolicy) *v1alpha3.CorsPolicy {
 		return nil
 	}
 
-	out := v1alpha3.CorsPolicy(*in) // structs are identical
-	return &out
+	return &v1alpha3.CorsPolicy{
+		AllowOrigin:      in.AllowOrigin,
+		AllowMethods:     in.AllowMethods,
+		AllowHeaders:     in.AllowHeaders,
+		ExposeHeaders:    in.ExposeHeaders,
+		MaxAge:           convertGogoDuration(in.MaxAge),
+		AllowCredentials: &types.BoolValue{Value: in.AllowCredentials.Value},
+	}
 }
 
 // FIXME: domain, namespace etc?
@@ -342,4 +350,11 @@ func convertIstioService(service *v1alpha1.IstioService) string {
 // create an unique DNS1123 friendly string
 func labelsToSubsetName(labels model.Labels) string {
 	return strings.Replace(labels.String(), "=", "-", -1)
+}
+
+func convertGogoDuration(in *duration.Duration) *types.Duration {
+	return &types.Duration{
+		Seconds: in.Seconds,
+		Nanos:   in.Nanos,
+	}
 }

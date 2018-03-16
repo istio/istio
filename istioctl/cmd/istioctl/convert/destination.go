@@ -17,6 +17,7 @@ package convert
 import (
 	"istio.io/api/routing/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -127,9 +128,9 @@ func convertDestinationPolicy(in *v1alpha1.DestinationPolicy) *v1alpha3.Subset {
 			// TODO: out.TrafficPolicy.ConnectionPool.Tcp.MaxConnections =
 			out.TrafficPolicy.OutlierDetection = &v1alpha3.OutlierDetection{
 				Http: &v1alpha3.OutlierDetection_HTTPSettings{
-					Interval:           cb.HttpDetectionInterval,
+					Interval:           convertGogoDuration(cb.HttpDetectionInterval),
 					ConsecutiveErrors:  cb.HttpConsecutiveErrors,
-					BaseEjectionTime:   cb.SleepWindow,
+					BaseEjectionTime:   convertGogoDuration(cb.SleepWindow),
 					MaxEjectionPercent: cb.HttpMaxEjectionPercent,
 				},
 			}
