@@ -109,9 +109,17 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                   "forward_attributes": {
-                      "source.uid": "POD11",
-                      "source.namespace": "XYZ11"
+                  "v2": {
+                     "forwardAttributes": {
+                        "attributes": {
+                           "source.uid": {
+                              "stringValue": "POD11"
+                           },
+                           "source.namespace": {
+                              "stringValue": "XYZ11"
+                           }
+                        }
+                     }
                    }
                 }
               },
@@ -133,11 +141,7 @@
           "type": "both",
           "name": "mixer",
           "config": {
-              "mixer_attributes": {
-                  "destination.uid": "POD222",
-                  "destination.service": "foo.svc.cluster.local"
-               },
-               "quota_name": "RequestCount"
+             "v2": {}
           }
         },
         {
