@@ -24,12 +24,14 @@ import (
 )
 
 // ClientRunner interacts with the upstream CA to maintain the KeyCertBundle valid.
+// TODO: Consider a better name.
 type ClientRunner interface {
 	// Run the ClientRunner loop (blocking call)
 	Run(stopCh <-chan struct{}, errCh chan<- error)
 }
 
 type clientRunner struct {
+	// TODO: Support multiple KeyCertBundles.
 	keycert  pkiutil.KeyCertBundle
 	certUtil util.CertUtil
 	client   CAClient
