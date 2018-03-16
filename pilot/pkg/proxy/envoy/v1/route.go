@@ -92,7 +92,7 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV2 builds inbound routes using the v1alpha3 API.
+// BuildInboundRoutesV3 builds inbound routes using the v1alpha3 API.
 // Only returns the non default routes when using websockets or route decorators for tracing
 // TODO : Need to handle port match in the route rule
 func BuildInboundRoutesV3(_ []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
@@ -113,7 +113,7 @@ func BuildInboundRoutesV3(_ []*model.ServiceInstance, config model.Config, rule 
 	return routes
 }
 
-// BuildInboundRouteV2 builds an inbound route using the v2 API.
+// BuildInboundRouteV3 builds an inbound route using the v1alpha3 API.
 // Uses same match condition as the outbound route if and only if there
 // is a websocket for this route, or a special decorator has been set for this route
 func BuildInboundRouteV3(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
