@@ -1,6 +1,24 @@
 {
   "stats_config": {
-    "use_all_default_tags": false
+    "use_all_default_tags": true,
+    "stats_tags": [
+      {
+        "tag_name": "istio_service_cluster",
+        "fixed_value": "{{ .config.ServiceCluster }}"
+      },
+      {
+        "tag_name": "istio_service_node",
+        "fixed_value": "{{ .instance.service_node }}"
+      },
+      {
+        "tag_name": "pod_uid",
+        "fixed_value": "{{ .instance.pod_uid }}"
+      },
+      {
+        "tag_name": "pod_name",
+        "fixed_value": "{{ .instance.pod_name }}"
+      }
+    ]
   },
   "admin": {
     "access_log_path": "/dev/stdout",
@@ -177,7 +195,7 @@
   {{ if .statsd }}
   "stats_sinks": [
     {
-      "name": "envoy.statsd",
+      "name": "envoy.dog_statsd",
       "config": {
         "address": {
           "socket_address": {{ .statsd }}

@@ -256,6 +256,25 @@ func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pil
 	e := proxy.(envoy)
 	e.v2 = true
 	e.pilotSAN = pilotSAN
+
+	// Aspen Mesh mods:
+	// Pull the POD_UID out of the environment
+	podUID := os.Getenv("POD_UID")
+	if podUID == "" {
+		podUID = "UNKNOWN"
+	}
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		podName = "UNKNOWN"
+	}
+	// Add pod_uid and other config as opts, which get added to properties available to bootstrap template
+	e.opts = map[string]interface{}{
+		"instance": map[string]interface{}{
+			"service_node": node,
+			"pod_uid":      podUID,
+			"pod_name":     podName,
+		},
+	}
 	return e
 }
 
