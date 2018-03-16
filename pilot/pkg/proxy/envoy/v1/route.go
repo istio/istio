@@ -92,26 +92,29 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV2 builds inbound routes using the V2 API.
-func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
+// BuildInboundRoutesV2 builds inbound routes using the v1alpha3 API.
+// Only returns the non default routes when using websockets or route decorators for tracing
+// TODO : Need to handle port match in the route rule
+func BuildInboundRoutesV2(_ []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
+
 	for _, http := range rule.Http {
+		// adds a default prefix match / and a default decorator
 		if len(http.Match) == 0 {
 			routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
-		}
-		for _, match := range http.Match {
-			for _, instance := range proxyInstances {
-				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
-					break
-				}
+		} else {
+			for _, match := range http.Match {
+				routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
 			}
 		}
 	}
+
 	return routes
 }
 
 // BuildInboundRouteV2 builds an inbound route using the v2 API.
+// Uses same match condition as the outbound route if and only if there
+// is a websocket for this route, or a special decorator has been set for this route
 func BuildInboundRouteV2(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
 	route := buildHTTPRouteMatchV2(match)
 
@@ -496,6 +499,7 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 	}
 }
 
+// TODO: With multiple rules per VirtualService, this is no longer useful.
 func buildDecorator(config model.Config) *Decorator {
 	if config.ConfigMeta.Name != "" {
 		return &Decorator{

@@ -644,6 +644,10 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 	return out
 }
 
+// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
+// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
+// and matches these destinations against the input destination. The rules that match should be considered
+// for BuildInboundRoutesV2
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
 	configs := store.routeRulesByDestination(instances)
 	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
