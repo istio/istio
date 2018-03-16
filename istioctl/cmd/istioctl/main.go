@@ -100,22 +100,20 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRun: getRealKubeConfig,
-
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			getRealKubeConfig(cmd, args)
 			defaultNamespace = getDefaultNamespace(kubeconfig)
 			return nil
 		},
 	}
 
 	postCmd = &cobra.Command{
-		Use:              "create",
-		Short:            "Create policies and rules",
-		Example:          "istioctl create -f example-routing.yaml",
-		PersistentPreRun: getRealKubeConfig,
+		Use:     "create",
+		Short:   "Create policies and rules",
+		Example: "istioctl create -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -183,10 +181,9 @@ and destination policies.
 	}
 
 	putCmd = &cobra.Command{
-		Use:              "replace",
-		Short:            "Replace existing policies and rules",
-		Example:          "istioctl replace -f example-routing.yaml",
-		PersistentPreRun: getRealKubeConfig,
+		Use:     "replace",
+		Short:   "Replace existing policies and rules",
+		Example: "istioctl replace -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -288,7 +285,6 @@ istioctl get destinationpolicies
 # Get a specific rule named productpage-default
 istioctl get routerule productpage-default
 `,
-		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := newClient()
 			if err != nil {
@@ -349,7 +345,6 @@ istioctl delete -f example-routing.yaml
 # Delete the rule productpage-default
 istioctl delete routerule productpage-default
 `,
-		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, errs := newClient()
 			if errs != nil {
@@ -446,7 +441,6 @@ istioctl delete routerule productpage-default
 		Example: `# Create a config file for the api server.
 istioctl context-create --api-server http://127.0.0.1:8080
 `,
-		PersistentPreRun: getRealKubeConfig,
 		RunE: func(c *cobra.Command, args []string) error {
 			if istioAPIServer == "" {
 				c.Println(c.UsageString())
