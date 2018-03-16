@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	pb "istio.io/istio/security/proto"
 )
 

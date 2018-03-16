@@ -18,10 +18,10 @@ import (
 	"net"
 	"os"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	pb "istio.io/istio/security/proto"

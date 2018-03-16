@@ -1852,6 +1852,8 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		if http.WebsocketUpgrade {
 			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
 		}
+	} else if len(http.Route) == 0 {
+		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
 	}
 
 	for name := range http.AppendHeaders {
