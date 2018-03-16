@@ -31,6 +31,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+	rbac "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -3065,6 +3066,227 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateServiceRole(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to ServiceRole",
+		},
+		{
+			name:         "empty rules",
+			in:           &rbac.ServiceRole{},
+			expectErrMsg: "at least 1 rule must be specified",
+		},
+		{
+			name: "no service",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 service must be specified for rule 1",
+		},
+		{
+			name: "no method",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 method must be specified for rule 1",
+		},
+		{
+			name: "no key in constraint",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "key cannot be empty for constraint 1 in rule 1",
+		},
+		{
+			name: "no value in constraint",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 value must be specified for constraint 1 in rule 1",
+		},
+		{
+			name: "success proto",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateServiceRole(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateServiceRole(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateServiceRole(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateServiceRoleBinding(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to ServiceRoleBinding",
+		},
+		{
+			name: "no subject",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{},
+				RoleRef:  &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "at least 1 subject must be specified",
+		},
+		{
+			name: "no user, group and properties",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "", Group: "", Properties: map[string]string{}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+		},
+		{
+			name: "no roleRef",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+			},
+			expectErrMsg: "roleRef must be specified",
+		},
+		{
+			name: "incorrect kind",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRoleTypo", Name: "ServiceRole001"},
+			},
+			expectErrMsg: `kind set to "ServiceRoleTypo", currently the only supported value is "ServiceRole"`,
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
+			},
+			expectErrMsg: "name cannot be empty",
+		},
+		{
+			name: "success proto",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateServiceRoleBinding(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateServiceRoleBinding(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

@@ -483,6 +483,26 @@ var (
 		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
 	}
 
+	// ServiceRole describes an RBAC service role.
+	ServiceRole = ProtoSchema{
+		Type:        "service-role",
+		Plural:      "service-roles",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRole",
+		Validate:    ValidateServiceRole,
+	}
+
+	// ServiceRoleBinding describes an RBAC service role.
+	ServiceRoleBinding = ProtoSchema{
+		Type:        "service-role-binding",
+		Plural:      "service-role-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRoleBinding",
+		Validate:    ValidateServiceRoleBinding,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -500,6 +520,8 @@ var (
 		EndUserAuthenticationPolicySpec,
 		EndUserAuthenticationPolicySpecBinding,
 		AuthenticationPolicy,
+		ServiceRole,
+		ServiceRoleBinding,
 	}
 )
 
