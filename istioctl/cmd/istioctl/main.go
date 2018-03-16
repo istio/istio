@@ -111,9 +111,9 @@ and destination policies.
 	}
 
 	postCmd = &cobra.Command{
-		Use:              "create",
-		Short:            "Create policies and rules",
-		Example:          "istioctl create -f example-routing.yaml",
+		Use:     "create",
+		Short:   "Create policies and rules",
+		Example: "istioctl create -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -181,9 +181,9 @@ and destination policies.
 	}
 
 	putCmd = &cobra.Command{
-		Use:              "replace",
-		Short:            "Replace existing policies and rules",
-		Example:          "istioctl replace -f example-routing.yaml",
+		Use:     "replace",
+		Short:   "Replace existing policies and rules",
+		Example: "istioctl replace -f example-routing.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
