@@ -45,6 +45,11 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
+  
+ 
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 #
 # ingress configuration
@@ -282,3 +287,4 @@ zipkin:
     #  cpu: 100m
     #  memory: 128Mi
   nodeSelector: {}
+

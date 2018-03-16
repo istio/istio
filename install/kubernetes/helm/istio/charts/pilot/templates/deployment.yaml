@@ -29,6 +29,10 @@ spec:
           - "discovery"
           - "--admission-service"
           - "istio-pilot"
+{{- if $.Values.global.oneNamespace }}
+          - "-a"
+          - {{ .Release.Namespace }}
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
