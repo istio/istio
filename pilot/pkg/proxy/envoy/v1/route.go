@@ -376,8 +376,8 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	}
 
 	if http.Timeout != nil &&
-		protoDurationToMS(http.Timeout) > 0 {
-		route.TimeoutMS = protoDurationToMS(http.Timeout)
+		protoDurationToMSGogo(http.Timeout) > 0 {
+		route.TimeoutMS = protoDurationToMSGogo(http.Timeout)
 	}
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
@@ -443,8 +443,8 @@ func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 			NumRetries: int(retries.GetAttempts()),
 			Policy:     "5xx,connect-failure,refused-stream",
 		}
-		if protoDurationToMS(retries.PerTryTimeout) > 0 {
-			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
+		if protoDurationToMSGogo(retries.PerTryTimeout) > 0 {
+			policy.PerTryTimeoutMS = protoDurationToMSGogo(retries.PerTryTimeout)
 		}
 	}
 	return
