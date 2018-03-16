@@ -1,7 +1,10 @@
 hosts:
   - world
 http:
-  - match:
+  - route:
+    - destination:
+        name: world
+    match:
       - uri:
           prefix: /old/path
     rewrite:

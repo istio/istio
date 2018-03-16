@@ -1,0 +1,6 @@
+destinations:
+- name: world
+  port:
+    name: "http"
+peers:
+- none: null
