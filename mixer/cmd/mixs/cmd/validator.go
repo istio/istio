@@ -28,25 +28,40 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/il/evaluator"
+	runtimeConfig "istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime2/validator"
 	"istio.io/istio/mixer/pkg/template"
 )
 
+type runtimeValidatorOptions struct {
+	configStoreURL    string
+	identityAttribute string
+	adapters          map[string]*adapter.Info
+	templates         map[string]*template.Info
+}
+
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
-	var kubeconfig string
 	tmplRepo := template.NewRepository(info)
-	kinds := runtime.KindMap(config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate), info)
+	tmplInfo := make(map[string]*template.Info, len(info))
+	for k := range info {
+		t := info[k]
+		tmplInfo[k] = &t
+	}
+	ainfo := config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate)
+	rvc := runtimeValidatorOptions{adapters: ainfo, templates: tmplInfo}
+	var kubeconfig string
+	kinds := runtimeConfig.KindMap(ainfo, tmplInfo)
 	vc.ResourceNames = make([]string, 0, len(kinds))
 	for name := range kinds {
 		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))
 	}
-	vc.Validator = store.NewValidator(nil, kinds)
 	validatorCmd := &cobra.Command{
 		Use:   "validator",
 		Short: "Runs an https server for validations. Works as an external admission webhook for k8s",
 		Run: func(cmd *cobra.Command, args []string) {
-			runValidator(vc, kinds, kubeconfig, printf, fatalf)
+			runValidator(vc, rvc, kinds, kubeconfig, printf, fatalf)
 		},
 	}
 	validatorCmd.PersistentFlags().StringVar(&vc.ExternalAdmissionWebhookName, "external-admission-webook-name", "mixer-webhook.istio.io",
@@ -60,22 +75,51 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	validatorCmd.PersistentFlags().DurationVar(&vc.RegistrationDelay, "registration-delay", 5*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 	validatorCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Use a Kubernetes configuration file instead of in-cluster configuration")
+	validatorCmd.PersistentFlags().StringVarP(&rvc.configStoreURL, "configStoreURL", "", "",
+		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+	validatorCmd.PersistentFlags().StringVarP(&rvc.identityAttribute, "configIdentityAttribute", "", "destination.service",
+		"Attribute that is used to identify applicable scopes.")
+	if err := validatorCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
+		fatalf("unable to hide: %v", err)
+	}
+
 	return validatorCmd
 }
 
 func createK8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	return kubernetes.NewForConfig(config)
+	return kubernetes.NewForConfig(cfg)
 }
 
-func runValidator(vc crd.ControllerOptions, kinds map[string]proto.Message, kubeconfig string, printf, fatalf shared.FormatFn) {
+func newValidator(rvc runtimeValidatorOptions, kinds map[string]proto.Message) (store.BackendValidator, error) {
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(rvc.configStoreURL)
+	if err != nil {
+		return nil, err
+	}
+	eval, err := evaluator.NewILEvaluator(evaluator.DefaultCacheSize)
+	if err != nil {
+		return nil, err
+	}
+	rv, err := validator.New(eval, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
+	if err != nil {
+		return nil, err
+	}
+	return store.NewValidator(rv, kinds), nil
+}
+
+func runValidator(vc crd.ControllerOptions, rvc runtimeValidatorOptions, kinds map[string]proto.Message, kubeconfig string, printf, fatalf shared.FormatFn) {
 	client, err := createK8sClient(kubeconfig)
 	if err != nil {
 		fatalf("Failed to create kubernetes client: %v", err)
 	}
+	v, err := newValidator(rvc, kinds)
+	if err != nil {
+		fatalf("Failed to create the validatgor: %v", err)
+	}
+	vc.Validator = v
 	vs, err := crd.NewController(client, vc)
 	if err != nil {
 		fatalf("Failed to create validator server: %v", err)

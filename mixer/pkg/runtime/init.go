@@ -110,6 +110,6 @@ func startController(s store.Store, adapterInfo map[string]*adapter.Info,
 
 	c.publishSnapShot()
 	log.Infof("Config controller has started with %d config elements", len(c.configState))
-	go watchChanges(watchChan, c.applyEvents)
+	go watchChanges(watchChan, watchFlushDuration, c.applyEvents)
 	return nil
 }
