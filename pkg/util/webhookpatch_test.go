@@ -17,6 +17,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -40,7 +41,7 @@ func TestWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			[]byte("fake CA"),
-			"mutatingwebhookconfigurations.admissionregistration.k8s.io \"config1\" not found",
+			"\"config1\" not found",
 		},
 		{
 			"WebhookEntryNotFound",
@@ -86,9 +87,12 @@ func TestWebhookPatch(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
 			err := PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 				tc.configName, tc.webhookName, tc.pemData)
-			if tc.err != "" {
-				if err.Error() != tc.err {
-					t.Fatalf("Expected %q, Got %q", tc.err, err)
+			if (err != nil) != (tc.err != "") {
+				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
+			}
+			if err != nil {
+				if !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("Got %q, want %q", err, tc.err)
 				}
 			} else {
 				config := admissionregistrationv1beta1.MutatingWebhookConfiguration{}

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -45,7 +46,8 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		}
 	}
 	if !found {
-		return fmt.Errorf("webhook entry %q not found in config %q", webhookName, webhookConfigName)
+		return apierrors.NewInternalError(fmt.Errorf(
+			"webhook entry %q not found in config %q", webhookName, webhookConfigName))
 	}
 	curr, err := json.Marshal(config)
 	if err != nil {
