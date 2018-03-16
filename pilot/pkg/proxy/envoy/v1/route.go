@@ -306,7 +306,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
 		}
 		if rule.CorsPolicy.MaxAge != nil {
-			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
+			route.CORSPolicy.MaxAge = convertDuration(rule.CorsPolicy.MaxAge).String()
 		}
 	}
 
