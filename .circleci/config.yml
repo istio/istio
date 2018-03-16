@@ -458,6 +458,7 @@ jobs:
           path: /go/out/tests
 
   dependencies:
+    <<: *defaults
     steps:
       - run: echo "Placeholder until an admin removes the required job"
 
