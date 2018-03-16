@@ -6,7 +6,7 @@ package v1beta1
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf1 "github.com/gogo/protobuf/types"
+import google_protobuf2 "github.com/gogo/protobuf/types"
 import google_rpc "github.com/gogo/googleapis/google/rpc"
 
 import strings "strings"
@@ -26,9 +26,9 @@ var _ = math.Inf
 // Request message for `CreateSession` method.
 type CreateSessionRequest struct {
 	// Adapter specific configuration.
-	AdapterConfig *google_protobuf1.Any `protobuf:"bytes,1,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
+	AdapterConfig *google_protobuf2.Any `protobuf:"bytes,1,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
 	// Map of instance names to their template-specific inferred type.
-	InferredTypes map[string]*google_protobuf1.Any `protobuf:"bytes,2,rep,name=inferred_types,json=inferredTypes" json:"inferred_types,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	InferredTypes map[string]*google_protobuf2.Any `protobuf:"bytes,2,rep,name=inferred_types,json=inferredTypes" json:"inferred_types,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *CreateSessionRequest) Reset()      { *m = CreateSessionRequest{} }
@@ -37,14 +37,14 @@ func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptorInfrastructureBackend, []int{0}
 }
 
-func (m *CreateSessionRequest) GetAdapterConfig() *google_protobuf1.Any {
+func (m *CreateSessionRequest) GetAdapterConfig() *google_protobuf2.Any {
 	if m != nil {
 		return m.AdapterConfig
 	}
 	return nil
 }
 
-func (m *CreateSessionRequest) GetInferredTypes() map[string]*google_protobuf1.Any {
+func (m *CreateSessionRequest) GetInferredTypes() map[string]*google_protobuf2.Any {
 	if m != nil {
 		return m.InferredTypes
 	}
@@ -82,9 +82,9 @@ func (m *CreateSessionResponse) GetStatus() *google_rpc.Status {
 // Request message for `Validate` method.
 type ValidateRequest struct {
 	// Adapter specific configuration.
-	AdapterConfig *google_protobuf1.Any `protobuf:"bytes,1,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
+	AdapterConfig *google_protobuf2.Any `protobuf:"bytes,1,opt,name=adapter_config,json=adapterConfig" json:"adapter_config,omitempty"`
 	// Map of instance names to their template-specific inferred type.
-	InferredTypes map[string]*google_protobuf1.Any `protobuf:"bytes,2,rep,name=inferred_types,json=inferredTypes" json:"inferred_types,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	InferredTypes map[string]*google_protobuf2.Any `protobuf:"bytes,2,rep,name=inferred_types,json=inferredTypes" json:"inferred_types,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *ValidateRequest) Reset()      { *m = ValidateRequest{} }
@@ -93,14 +93,14 @@ func (*ValidateRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptorInfrastructureBackend, []int{2}
 }
 
-func (m *ValidateRequest) GetAdapterConfig() *google_protobuf1.Any {
+func (m *ValidateRequest) GetAdapterConfig() *google_protobuf2.Any {
 	if m != nil {
 		return m.AdapterConfig
 	}
 	return nil
 }
 
-func (m *ValidateRequest) GetInferredTypes() map[string]*google_protobuf1.Any {
+func (m *ValidateRequest) GetInferredTypes() map[string]*google_protobuf2.Any {
 	if m != nil {
 		return m.InferredTypes
 	}
@@ -349,7 +349,7 @@ func (this *CreateSessionRequest) GoString() string {
 		keysForInferredTypes = append(keysForInferredTypes, k)
 	}
 	sortkeys.Strings(keysForInferredTypes)
-	mapStringForInferredTypes := "map[string]*google_protobuf1.Any{"
+	mapStringForInferredTypes := "map[string]*google_protobuf2.Any{"
 	for _, k := range keysForInferredTypes {
 		mapStringForInferredTypes += fmt.Sprintf("%#v: %#v,", k, this.InferredTypes[k])
 	}
@@ -387,7 +387,7 @@ func (this *ValidateRequest) GoString() string {
 		keysForInferredTypes = append(keysForInferredTypes, k)
 	}
 	sortkeys.Strings(keysForInferredTypes)
-	mapStringForInferredTypes := "map[string]*google_protobuf1.Any{"
+	mapStringForInferredTypes := "map[string]*google_protobuf2.Any{"
 	for _, k := range keysForInferredTypes {
 		mapStringForInferredTypes += fmt.Sprintf("%#v: %#v,", k, this.InferredTypes[k])
 	}
@@ -976,13 +976,13 @@ func (this *CreateSessionRequest) String() string {
 		keysForInferredTypes = append(keysForInferredTypes, k)
 	}
 	sortkeys.Strings(keysForInferredTypes)
-	mapStringForInferredTypes := "map[string]*google_protobuf1.Any{"
+	mapStringForInferredTypes := "map[string]*google_protobuf2.Any{"
 	for _, k := range keysForInferredTypes {
 		mapStringForInferredTypes += fmt.Sprintf("%v: %v,", k, this.InferredTypes[k])
 	}
 	mapStringForInferredTypes += "}"
 	s := strings.Join([]string{`&CreateSessionRequest{`,
-		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf1.Any", 1) + `,`,
+		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf2.Any", 1) + `,`,
 		`InferredTypes:` + mapStringForInferredTypes + `,`,
 		`}`,
 	}, "")
@@ -1008,13 +1008,13 @@ func (this *ValidateRequest) String() string {
 		keysForInferredTypes = append(keysForInferredTypes, k)
 	}
 	sortkeys.Strings(keysForInferredTypes)
-	mapStringForInferredTypes := "map[string]*google_protobuf1.Any{"
+	mapStringForInferredTypes := "map[string]*google_protobuf2.Any{"
 	for _, k := range keysForInferredTypes {
 		mapStringForInferredTypes += fmt.Sprintf("%v: %v,", k, this.InferredTypes[k])
 	}
 	mapStringForInferredTypes += "}"
 	s := strings.Join([]string{`&ValidateRequest{`,
-		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf1.Any", 1) + `,`,
+		`AdapterConfig:` + strings.Replace(fmt.Sprintf("%v", this.AdapterConfig), "Any", "google_protobuf2.Any", 1) + `,`,
 		`InferredTypes:` + mapStringForInferredTypes + `,`,
 		`}`,
 	}, "")
@@ -1114,7 +1114,7 @@ func (m *CreateSessionRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AdapterConfig == nil {
-				m.AdapterConfig = &google_protobuf1.Any{}
+				m.AdapterConfig = &google_protobuf2.Any{}
 			}
 			if err := m.AdapterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1147,10 +1147,10 @@ func (m *CreateSessionRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InferredTypes == nil {
-				m.InferredTypes = make(map[string]*google_protobuf1.Any)
+				m.InferredTypes = make(map[string]*google_protobuf2.Any)
 			}
 			var mapkey string
-			var mapvalue *google_protobuf1.Any
+			var mapvalue *google_protobuf2.Any
 			for iNdEx < postIndex {
 				entryPreIndex := iNdEx
 				var wire uint64
@@ -1221,7 +1221,7 @@ func (m *CreateSessionRequest) Unmarshal(dAtA []byte) error {
 					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = &google_protobuf1.Any{}
+					mapvalue = &google_protobuf2.Any{}
 					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
 						return err
 					}
@@ -1432,7 +1432,7 @@ func (m *ValidateRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AdapterConfig == nil {
-				m.AdapterConfig = &google_protobuf1.Any{}
+				m.AdapterConfig = &google_protobuf2.Any{}
 			}
 			if err := m.AdapterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1465,10 +1465,10 @@ func (m *ValidateRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InferredTypes == nil {
-				m.InferredTypes = make(map[string]*google_protobuf1.Any)
+				m.InferredTypes = make(map[string]*google_protobuf2.Any)
 			}
 			var mapkey string
-			var mapvalue *google_protobuf1.Any
+			var mapvalue *google_protobuf2.Any
 			for iNdEx < postIndex {
 				entryPreIndex := iNdEx
 				var wire uint64
@@ -1539,7 +1539,7 @@ func (m *ValidateRequest) Unmarshal(dAtA []byte) error {
 					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = &google_protobuf1.Any{}
+					mapvalue = &google_protobuf2.Any{}
 					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
 						return err
 					}

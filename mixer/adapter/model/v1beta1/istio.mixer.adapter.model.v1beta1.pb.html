@@ -3,7 +3,7 @@ title: Mixer Adapter Model
 overview: Definitions used to create adapters and templates
 location: https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 16
+number_of_entries: 22
 ---
 <p>This package defines the service and types used by adapter code to serve requests from Mixer.
 This package also defines the types that are used to create Mixer templates.</p>
@@ -60,6 +60,47 @@ with the session_id referenced by CloseSessionRequest.</p>
 
 </section>
 <h2 id="Types">Types</h2>
+<h3 id="CheckResult">CheckResult</h3>
+<section>
+<p>Expresses the result of a precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CheckResult.status">
+<td><code>status</code></td>
+<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td>
+<p>A status code of OK indicates preconditions were satisfied. Any other code indicates preconditions were not
+satisfied and details describe why.</p>
+
+</td>
+</tr>
+<tr id="CheckResult.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="CheckResult.valid_use_count">
+<td><code>validUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>The number of uses for which this result can be considered valid.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="CloseSessionRequest">CloseSessionRequest</h3>
 <section>
 <p>Request message for <code>CloseSession</code> method.</p>
@@ -191,6 +232,124 @@ DO NOT USE !! Under Development</p>
 <h3 id="IPAddress">IPAddress</h3>
 <section>
 <p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
+
+</section>
+<h3 id="QuotaRequest">QuotaRequest</h3>
+<section>
+<p>Expresses the quota allocation request.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaRequest.quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaRequest.QuotaParams">QuotaRequest.QuotaParams</a>&gt;</code></td>
+<td>
+<p>The individual quotas to allocate</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaRequest.QuotaParams">QuotaRequest.QuotaParams</h3>
+<section>
+<p>parameters for a quota allocation</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaRequest.QuotaParams.amount">
+<td><code>amount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Amount of quota to allocate</p>
+
+</td>
+</tr>
+<tr id="QuotaRequest.QuotaParams.best_effort">
+<td><code>bestEffort</code></td>
+<td><code>bool</code></td>
+<td>
+<p>When true, supports returning less quota than what was requested.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaResult">QuotaResult</h3>
+<section>
+<p>Expresses the result of multiple quota allocations.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaResult.quotas">
+<td><code>quotas</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#QuotaResult">QuotaResult</a>&gt;</code></td>
+<td>
+<p>The resulting quota, one entry per requested quota.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="QuotaResult.Result">QuotaResult.Result</h3>
+<section>
+<p>Expresses the result of a quota allocation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="QuotaResult.Result.valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The amount of time for which this result can be considered valid.</p>
+
+</td>
+</tr>
+<tr id="QuotaResult.Result.granted_amount">
+<td><code>grantedAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The amount of granted quota. When <code>QuotaParams.best_effort</code> is true, this will be &gt;= 0.
+If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;= <code>QuotaParams.amount</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="ReportRequest">ReportRequest</h3>
+<section>
+<p>Expresses the result of a report call.</p>
 
 </section>
 <h3 id="TemplateVariety">TemplateVariety</h3>
