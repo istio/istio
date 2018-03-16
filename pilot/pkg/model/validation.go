@@ -1187,10 +1187,10 @@ func validateTls(settings *networking.TLSSettings) (errs error) {
 
 	if settings.Mode == networking.TLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("client certificate requred for mutual tls"))
+			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
 		}
 		if settings.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("private key requred for mutual tls"))
+			errs = appendErrors(errs, fmt.Errorf("private key required for mutual tls"))
 		}
 	}
 
