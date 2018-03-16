@@ -15,17 +15,19 @@
 package prometheus
 
 import (
+	"fmt"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/prom2json"
 
+	"istio.io/istio/mixer/pkg/adapter"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 const (
-	prometheusMetricsURL  = "http://localhost:42422/metrics"
-	requestCountToPromCfg = `
+	prometheusMetricsURLTemplate = "http://localhost:%d/metrics"
+	requestCountToPromCfg        = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: prometheus
 metadata:
@@ -65,9 +67,13 @@ spec:
 )
 
 func TestReport(t *testing.T) {
+	info, pServer := getInfo(":0")
+	defer pServer.Close()
 	adapter_integration.RunTest(
 		t,
-		GetInfo,
+		func() adapter.Info {
+			return info
+		},
 		adapter_integration.Scenario{
 			ParallelCalls: []adapter_integration.Call{
 				{
@@ -80,7 +86,7 @@ func TestReport(t *testing.T) {
 
 			GetState: func(ctx interface{}) (interface{}, error) {
 				mfChan := make(chan *dto.MetricFamily, 1)
-				go prom2json.FetchMetricFamilies(prometheusMetricsURL, mfChan, "", "", true)
+				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, pServer.Port()), mfChan, "", "", true)
 				result := []prom2json.Family{}
 				for mf := range mfChan {
 					result = append(result, *prom2json.NewFamily(mf))
