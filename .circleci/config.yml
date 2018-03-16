@@ -457,6 +457,10 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  dependencies:
+    steps:
+      - run: echo "Placeholder until an admin removes the required job"
+
   racetest:
     <<: *defaults
     environment:
@@ -668,6 +672,7 @@ workflows:
 
   all:
     jobs:
+      - dependencies
       - lint
       - build
       - test
