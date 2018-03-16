@@ -85,12 +85,15 @@ func TestSingleUdsPath(t *testing.T) {
 	tmpdir, _ := ioutil.TempDir("", "uds")
 	udsPath := filepath.Join(tmpdir, "test_path")
 
-	err := server.RegisterUdsPath(udsPath)
-	if err != nil {
+	if err := server.RegisterUdsPath(udsPath); err != nil {
 		t.Fatalf("Unexpected Error: %v", err)
 	}
 
 	VerifySecrets(t, FetchSecrets(t, udsPath), "certificate", "private key")
+
+	if err := server.DeregisterUdsPath(udsPath); err != nil {
+		t.Errorf("failed to deregister udsPath: %s (error: %v)", udsPath, err)
+	}
 }
 
 func TestMultipleUdsPaths(t *testing.T) {
@@ -113,6 +116,19 @@ func TestMultipleUdsPaths(t *testing.T) {
 	VerifySecrets(t, FetchSecrets(t, udsPath1), "certificate", "private key")
 	VerifySecrets(t, FetchSecrets(t, udsPath2), "certificate", "private key")
 	VerifySecrets(t, FetchSecrets(t, udsPath3), "certificate", "private key")
+
+	if err := server.DeregisterUdsPath(udsPath1); err != nil {
+		t.Errorf("failed to deregister udsPath: %s (error: %v)", udsPath1, err)
+	}
+
+	if err := server.DeregisterUdsPath(udsPath2); err != nil {
+		t.Errorf("failed to deregister udsPath: %s (error: %v)", udsPath2, err)
+	}
+
+	if err := server.DeregisterUdsPath(udsPath3); err != nil {
+		t.Errorf("failed to deregister udsPath: %s (error: %v)", udsPath3, err)
+	}
+
 }
 
 func TestDuplicateUdsPaths(t *testing.T) {
@@ -128,5 +144,9 @@ func TestDuplicateUdsPaths(t *testing.T) {
 	expectedErr := fmt.Sprintf("UDS path %v already exists", udsPath)
 	if err == nil || err.Error() != expectedErr {
 		t.Fatalf("Expect error: %v, Actual error: %v", expectedErr, err)
+	}
+
+	if err := server.DeregisterUdsPath(udsPath); err != nil {
+		t.Errorf("failed to deregister udsPath: %s (error: %v)", udsPath, err)
 	}
 }

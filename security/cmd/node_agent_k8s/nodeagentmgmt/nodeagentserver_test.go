@@ -17,9 +17,9 @@ package nodeagentmgmt
 import (
 	"testing"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	pb "istio.io/istio/security/proto"
