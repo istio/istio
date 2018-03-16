@@ -126,7 +126,7 @@ func buildDelayConfigV3(delayRule *networking.HTTPFaultInjection_Delay) *DelayFi
 		return nil
 	}
 
-	ms := protoDurationToMS(delayRule.GetFixedDelay())
+	ms := protoDurationToMSGogo(delayRule.GetFixedDelay())
 	if ms == 0 {
 		return nil
 	}

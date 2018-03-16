@@ -189,17 +189,21 @@ const maxEvents = 50
 // watchChanges watches for changes on a channel and
 // publishes a batch of changes via applyEvents.
 // watchChanges is started in a goroutine.
-func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
+func watchChanges(wch <-chan store.Event, duration time.Duration, applyEvents applyEventsFn) {
 	// consume changes and apply them to data indefinitely
 	var timeChan <-chan time.Time
 	var timer *time.Timer
 	events := make([]*store.Event, 0, maxEvents)
 
+loop:
 	for {
 		select {
-		case ev := <-wch:
+		case ev, ok := <-wch:
+			if !ok {
+				break loop
+			}
 			if len(events) == 0 {
-				timer = time.NewTimer(watchFlushDuration)
+				timer = time.NewTimer(duration)
 				timeChan = timer.C
 			}
 			events = append(events, &ev)

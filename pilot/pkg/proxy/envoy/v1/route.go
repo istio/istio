@@ -92,26 +92,30 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV3 builds inbound routes using the V3 API.
-func BuildInboundRoutesV3(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
+// BuildInboundRoutesV2 builds inbound routes using the v1alpha3 API.
+// Only returns the non default routes when using websockets or route decorators for tracing
+// TODO : Need to handle port match in the route rule
+func BuildInboundRoutesV3(_ []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
+
 	for _, http := range rule.Http {
+		// adds a default prefix match / and a default decorator
 		if len(http.Match) == 0 {
+
 			routes = append(routes, BuildInboundRouteV3(config, cluster, http, nil))
-		}
-		for _, match := range http.Match {
-			for _, instance := range proxyInstances {
-				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, BuildInboundRouteV3(config, cluster, http, match))
-					break
-				}
+		} else {
+			for _, match := range http.Match {
+				routes = append(routes, BuildInboundRouteV3(config, cluster, http, match))
 			}
 		}
 	}
+
 	return routes
 }
 
-// BuildInboundRouteV3 builds an inbound route using the v2 API.
+// BuildInboundRouteV2 builds an inbound route using the v2 API.
+// Uses same match condition as the outbound route if and only if there
+// is a websocket for this route, or a special decorator has been set for this route
 func BuildInboundRouteV3(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
 	route := buildHTTPRouteMatchV3(match)
 
@@ -306,7 +310,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
 		}
 		if rule.CorsPolicy.MaxAge != nil {
-			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
+			route.CORSPolicy.MaxAge = convertDuration(rule.CorsPolicy.MaxAge).String()
 		}
 	}
 
@@ -376,8 +380,8 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	}
 
 	if http.Timeout != nil &&
-		protoDurationToMS(http.Timeout) > 0 {
-		route.TimeoutMS = protoDurationToMS(http.Timeout)
+		protoDurationToMSGogo(http.Timeout) > 0 {
+		route.TimeoutMS = protoDurationToMSGogo(http.Timeout)
 	}
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
@@ -443,8 +447,8 @@ func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
 			NumRetries: int(retries.GetAttempts()),
 			Policy:     "5xx,connect-failure,refused-stream",
 		}
-		if protoDurationToMS(retries.PerTryTimeout) > 0 {
-			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
+		if protoDurationToMSGogo(retries.PerTryTimeout) > 0 {
+			policy.PerTryTimeoutMS = protoDurationToMSGogo(retries.PerTryTimeout)
 		}
 	}
 	return
@@ -496,6 +500,7 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 	}
 }
 
+// TODO: With multiple rules per VirtualService, this is no longer useful.
 func buildDecorator(config model.Config) *Decorator {
 	if config.ConfigMeta.Name != "" {
 		return &Decorator{

@@ -1120,13 +1120,13 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 
 	http := outlier.Http
 	if http.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDuration(http.BaseEjectionTime))
+		errs = appendErrors(errs, ValidateDurationGogo(http.BaseEjectionTime))
 	}
 	if http.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
 	if http.Interval != nil {
-		errs = appendErrors(errs, ValidateDuration(http.Interval))
+		errs = appendErrors(errs, ValidateDurationGogo(http.Interval))
 	}
 	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
 
@@ -1161,7 +1161,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, fmt.Errorf("max connections must be non-negative"))
 		}
 		if tcp.ConnectTimeout != nil {
-			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
+			errs = appendErrors(errs, ValidateDurationGogo(tcp.ConnectTimeout))
 		}
 	}
 
@@ -1241,6 +1241,21 @@ func ValidateProxyAddress(hostAddr string) error {
 		}
 	}
 
+	return nil
+}
+
+// ValidateDurationGogo checks that a gogo proto duration is well-formed
+func ValidateDurationGogo(pd *types.Duration) error {
+	dur, err := types.DurationFromProto(pd)
+	if err != nil {
+		return err
+	}
+	if dur < time.Millisecond {
+		return errors.New("duration must be greater than 1ms")
+	}
+	if dur%time.Millisecond != 0 {
+		return errors.New("only durations to ms precision are supported")
+	}
 	return nil
 }
 
@@ -1886,7 +1901,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		errs = appendErrors(errs, ValidatePercent(route.Weight))
 	}
 	if http.Timeout != nil {
-		errs = appendErrors(errs, ValidateDuration(http.Timeout))
+		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
 
 	return
@@ -1912,7 +1927,7 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	if policy.MaxAge != nil {
-		errs = appendErrors(errs, ValidateDuration(policy.MaxAge))
+		errs = appendErrors(errs, ValidateDurationGogo(policy.MaxAge))
 		if policy.MaxAge.Nanos > 0 {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
@@ -1981,9 +1996,9 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 	errs = appendErrors(errs, ValidatePercent(delay.Percent))
 	switch v := delay.HttpDelayType.(type) {
 	case *networking.HTTPFaultInjection_Delay_FixedDelay:
-		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
+		errs = appendErrors(errs, ValidateDurationGogo(v.FixedDelay))
 	case *networking.HTTPFaultInjection_Delay_ExponentialDelay:
-		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
+		errs = appendErrors(errs, ValidateDurationGogo(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
 	return
@@ -2041,7 +2056,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		errs = multierror.Append(errs, errors.New("attempts must be positive"))
 	}
 	if retries.PerTryTimeout != nil {
-		errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
 	}
 	return
 }
