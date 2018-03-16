@@ -7,7 +7,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+import google_rpc "github.com/gogo/googleapis/google/rpc"
 
 import strings "strings"
 import reflect "reflect"

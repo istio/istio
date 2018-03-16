@@ -33,6 +33,7 @@ protoc_gen_go_plugin := $(protoc_gen_go_prefix):$(out_path)
 ########################
 
 gogo_plugin_prefix := --gogo_out=plugins=grpc,
+gogofast_plugin_prefix := --gogofast_out=plugins=grpc,
 gogoslick_plugin_prefix := --gogoslick_out=plugins=grpc,
 
 comma := ,
@@ -54,6 +55,7 @@ mapping_with_spaces := $(foreach map,$(importmaps),M$(map),)
 gogo_mapping := $(subst $(space),$(empty),$(mapping_with_spaces))
 
 gogo_plugin := $(gogo_plugin_prefix)$(gogo_mapping):$(out_path)
+gogofast_plugin := $(gogofast_plugin_prefix)$(gogo_mapping):$(out_path)
 gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping):$(out_path)
 
 ########################
@@ -216,7 +218,7 @@ $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos
 
 $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
+	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
 clean-routing:
 	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
