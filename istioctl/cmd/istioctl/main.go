@@ -101,6 +101,7 @@ and destination policies.
 
 `,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			getRealKubeConfig(cmd, args)
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
@@ -302,15 +303,15 @@ istioctl get routerule productpage-default
 				return err
 			}
 
-			ns, _ := handleNamespaces(v1.NamespaceAll)
 			var configs []model.Config
 			if len(args) > 1 {
+				ns, _ := handleNamespaces(v1.NamespaceAll)
 				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, ns)
+				configs, err = configClient.List(typ.Type, namespace)
 				if err != nil {
 					return err
 				}
