@@ -17,8 +17,8 @@ package convert
 import (
 	"fmt"
 
-	"istio.io/api/routing/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -59,10 +59,10 @@ func convertEgressRules(configs []model.Config) []model.Config {
 	for _, externalService := range externalServices {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:            model.ExternalService.Type,
-				Name:            externalService.Hosts[0],
-				Namespace:       configs[0].Namespace,
-				Domain:          configs[0].Domain,
+				Type:      model.ExternalService.Type,
+				Name:      externalService.Hosts[0],
+				Namespace: configs[0].Namespace,
+				Domain:    configs[0].Domain,
 			},
 			Spec: externalService,
 		})
