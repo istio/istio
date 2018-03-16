@@ -32,7 +32,7 @@ import (
 // Make creates a new instance of the proto message
 func (ps *ProtoSchema) Make() (proto.Message, error) {
 	pbt := proto.MessageType(ps.MessageName)
-	if pbt == nil {
+	if ps.Gogo || pbt == nil {
 		// goproto and gogoproto maintain their own separate registry
 		// of linked proto files. istio.io/api/proxy protobufs use
 		// goproto and istio.io/api/mixer protobufs use

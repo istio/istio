@@ -129,7 +129,7 @@ required = [
 # TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  revision = "cc0e5e493a556ed726ec528fcce2e03ff0eed66e"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"

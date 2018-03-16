@@ -2236,25 +2236,25 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: true},
 		{name: "bad method", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "PUTT"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad header", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"HEADER3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad max age", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2, Nanos: 42},
+			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
 	}
 
@@ -2340,24 +2340,24 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 		{name: "valid fixed", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPFaultInjection_Delay{
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "invalid percent", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 101,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
 		{name: "invalid delay", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3, Nanos: 42},
+				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
 	}
@@ -2380,22 +2380,22 @@ func TestValidateHTTPRetry(t *testing.T) {
 	}{
 		{name: "valid", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Seconds: 2},
+			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
 		{name: "bad attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
-			PerTryTimeout: &duration.Duration{Seconds: 2},
+			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "invalid timeout", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Seconds: 2, Nanos: 1},
+			PerTryTimeout: &types.Duration{Seconds: 2, Nanos: 1},
 		}, valid: false},
 		{name: "timeout too small", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Nanos: 999},
+			PerTryTimeout: &types.Duration{Nanos: 999},
 		}, valid: false},
 	}
 
@@ -2663,7 +2663,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		{name: "valid connection pool, tcp and http", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
-				ConnectTimeout: &duration.Duration{Seconds: 2},
+				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
@@ -2677,7 +2677,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		{name: "valid connection pool, tcp only", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
-				ConnectTimeout: &duration.Duration{Seconds: 2},
+				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
 		},
 			valid: true},
@@ -2700,7 +2700,7 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: &duration.Duration{Seconds: 2, Nanos: 5}}},
+				ConnectTimeout: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid connection pool, bad max pending requests", in: networking.ConnectionPoolSettings{
@@ -2737,8 +2737,8 @@ func TestValidateOutlierDetection(t *testing.T) {
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Http: &networking.OutlierDetection_HTTPSettings{
 				ConsecutiveErrors:  5,
-				Interval:           &duration.Duration{Seconds: 2},
-				BaseEjectionTime:   &duration.Duration{Seconds: 2},
+				Interval:           &types.Duration{Seconds: 2},
+				BaseEjectionTime:   &types.Duration{Seconds: 2},
 				MaxEjectionPercent: 50,
 			},
 		}, valid: true},
@@ -2748,11 +2748,11 @@ func TestValidateOutlierDetection(t *testing.T) {
 			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{Interval: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			Http: &networking.OutlierDetection_HTTPSettings{Interval: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
