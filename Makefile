@@ -602,6 +602,7 @@ istio.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.securityEnabled=false \
+		  --set=rbacEnabled=true \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
@@ -610,6 +611,7 @@ istio_auth.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.securityEnabled=true \
+		  --set=rbacEnabled=true \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
