@@ -677,14 +677,14 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
-			//			mock.HelloService.Hostname: mock.HelloService,
+		//			mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	s.MemoryServiceDiscovery = discovery1
 
 	discovery2 := mock.NewDiscovery(
 		map[string]*model.Service{
-			//			mock.WorldService.Hostname: mock.WorldService,
+		//			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{

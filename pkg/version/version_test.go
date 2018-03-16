@@ -18,10 +18,11 @@ import "testing"
 
 func TestBuildInfo(t *testing.T) {
 	cases := []struct {
-		name     string
-		in       BuildInfo
-		want     string
-		longWant string
+		name        string
+		in          BuildInfo
+		want        string
+		longWant    string
+		longWantAlt string
 	}{
 		{"all specified", BuildInfo{
 			Version:       "VER",
@@ -37,13 +38,21 @@ User: USER@HOST
 Hub: DH
 GolangVersion: GOLANGVER
 BuildStatus: STATUS
-`},
+`,
+			``},
 
 		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", `Version: unknown
 GitRevision: unknown
 User: unknown@unknown
 Hub: unknown
 GolangVersion: go1.10
+BuildStatus: unknown
+`,
+			`Version: unknown
+GitRevision: unknown
+User: unknown@unknown
+Hub: unknown
+GolangVersion: go1.9.3
 BuildStatus: unknown
 `},
 	}
@@ -54,8 +63,8 @@ BuildStatus: unknown
 				t.Errorf("got %s; want %s", v.in.String(), v.want)
 			}
 
-			if v.in.LongForm() != v.longWant {
-				t.Errorf("got\n%s\nwant\n%s", v.in.LongForm(), v.longWant)
+			if v.in.LongForm() != v.longWant && (len(v.longWant) == 0 || v.in.LongForm() != v.longWantAlt) {
+				t.Errorf("got\n%s\nwant either \n%s\nor\n%s\n", v.in.LongForm(), v.longWant, v.longWantAlt)
 			}
 		})
 	}
