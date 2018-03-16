@@ -357,7 +357,7 @@ type CORSPolicy struct {
 	AllowMethods     string   `json:"allow_methods,omitempty"`
 	AllowHeaders     string   `json:"allow_headers,omitempty"`
 	ExposeHeaders    string   `json:"expose_headers,omitempty"`
-	MaxAge           string   `json:"max_age,omitempty"`
+	MaxAge           int      `json:"max_age,string,omitempty"`
 	AllowOrigin      []string `json:"allow_origin,omitempty"`
 }
 
