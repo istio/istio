@@ -61,6 +61,9 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
+
+	// File path to kubernetes cluster CA certificate bundle.
+	k8SCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -282,21 +285,21 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.upstreamCAAddress != "" {
 		log.Info("Rely on upstream CA to provision CA certificate")
 		caOpts, err = ca.NewIntegratedIstioCAOptions(opts.upstreamCAAddress, opts.upstreamCACertFile,
-			opts.upstreamAuth, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+			opts.upstreamAuth, opts.workloadCertTTL, opts.maxWorkloadCertTTL, k8SCACertPath)
 		if err != nil {
 			fatalf("Failed to create a integrated Istio CA (error: %v)", err)
 		}
 	} else if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core, k8SCACertPath)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
-			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL, k8SCACertPath)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}

@@ -42,6 +42,9 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	namespaceKey = "NAMESPACE"
+
+	// File path to kubernetes cluster CA certificate bundle.
+	k8SCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 type cliOptions struct {
@@ -169,14 +172,14 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		log.Info("Use self-signed certificate as the CA certificate")
 
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.signingCertTTL, 0, /* unused */
-			opts.maxIssuedCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxIssuedCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core, k8SCACertPath)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio Multicluster CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
-			opts.rootCertFile, 0 /* unused */, opts.maxIssuedCertTTL)
+			opts.rootCertFile, 0 /* unused */, opts.maxIssuedCertTTL, k8SCACertPath)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
