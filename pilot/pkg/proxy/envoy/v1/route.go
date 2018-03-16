@@ -92,17 +92,17 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-// BuildInboundRoutesV2 builds inbound routes using the V2 API.
-func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
+// BuildInboundRoutesV3 builds inbound routes using the V3 API.
+func BuildInboundRoutesV3(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
+			routes = append(routes, BuildInboundRouteV3(config, cluster, http, nil))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
+					routes = append(routes, BuildInboundRouteV3(config, cluster, http, match))
 					break
 				}
 			}
@@ -111,9 +111,9 @@ func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.
 	return routes
 }
 
-// BuildInboundRouteV2 builds an inbound route using the v2 API.
-func BuildInboundRouteV2(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
-	route := buildHTTPRouteMatchV2(match)
+// BuildInboundRouteV3 builds an inbound route using the v2 API.
+func BuildInboundRouteV3(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
+	route := buildHTTPRouteMatchV3(match)
 
 	route.Cluster = cluster.Name
 	route.Clusters = []*Cluster{cluster}
@@ -189,7 +189,7 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *networking.VirtualService:
-		return buildHTTPRoutesV2(store, config, service, port, proxyInstances, domain, buildCluster)
+		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, buildCluster)
 	default:
 		panic("unsupported rule")
 	}
@@ -319,7 +319,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*networking.VirtualService)
@@ -327,12 +327,12 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain, buildCluster))
+			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, buildCluster))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain, buildCluster))
+					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, buildCluster))
 					break
 				}
 			}
@@ -342,10 +342,10 @@ func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, servic
 	return routes
 }
 
-func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
 
-	route := buildHTTPRouteMatchV2(match)
+	route := buildHTTPRouteMatchV3(match)
 	if http.Redirect != nil {
 		route.HostRedirect = http.Redirect.Authority
 		route.PathRedirect = http.Redirect.Uri
@@ -386,7 +386,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	if http.Fault != nil {
 		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
 		for _, cluster := range route.Clusters {
-			if fault := buildHTTPFaultFilterV2(cluster.Name, http.Fault, route.Headers); fault != nil {
+			if fault := buildHTTPFaultFilterV3(cluster.Name, http.Fault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
 		}

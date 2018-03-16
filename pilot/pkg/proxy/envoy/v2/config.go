@@ -735,7 +735,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 						rule := config.Spec.(*networking.VirtualService)
 
 						// if no routes are returned, it is a TCP RouteRule
-						routes := v1.BuildInboundRoutesV2(proxyInstances, config, rule, cluster)
+						routes := v1.BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
 						for _, route := range routes {
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
