@@ -212,10 +212,8 @@ func TestCloudFoundrySnapshotTimeoutError(t *testing.T) {
 
 	mockCopilotClient := &fakes.CopilotClient{}
 	mockCopilotClient.RoutesStub = func(ctx context.Context, in *copilotapi.RoutesRequest, opts ...grpc.CallOption) (*copilotapi.RoutesResponse, error) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		<-ctx.Done()
+		return nil, ctx.Err()
 	}
 
 	configDescriptor := model.ConfigDescriptor{}
