@@ -22,7 +22,7 @@
 		CloseSessionResponse
 		QuotaRequest
 		QuotaResult
-		ReportRequest
+		ReportResult
 		Value
 		IPAddress
 		Duration

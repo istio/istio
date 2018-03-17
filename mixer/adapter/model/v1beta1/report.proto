@@ -25,5 +25,4 @@ option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
 // Expresses the result of a report call.
-message ReportRequest {}
-
+message ReportResult {}
