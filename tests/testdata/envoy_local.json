@@ -93,7 +93,7 @@
           }
         },
         "use_original_dst": {
-            "value": true
+          "value": true
         },
         "filter_chains": [
           {
@@ -130,16 +130,62 @@
                   "codec_type": "AUTO",
                   "stat_prefix": "http_proxy",
                   "http_filters": [
-                    {"name": "envoy.router"
+                    {
+                      "name": "envoy.router"
                     }
                   ],
                   "route_config": {
-
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true
                   }
-
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "http_80",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 17080
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.http_connection_manager",
+                "config": {
+                  "stat_prefix": "http80",
+                  "access_log": {
+                    "name": "envoy.file_access_log",
+                    "config": {
+                      "path": "/dev/stdout"
+                    }
+                  },
+                  "http_filters": [
+                    {
+                      "name": "envoy.router"
+                    }
+                  ],
+                  "rds": {
+                    "config_source": {
+                      "api_config_source": {
+                        "api_type": "REST_LEGACY",
+                        "cluster_names": [
+                          "rds"
+                        ],
+                        "refresh_delay": {
+                          "seconds": 30,
+                          "nanos": 0
+                        }
+                      }
+                    },
+                    "route_config_name": "80"
+                  }
                 }
               }
             ]
@@ -228,7 +274,6 @@
           }
         ]
       }
-
     ],
     "clusters": [
       {
@@ -301,7 +346,6 @@
           }
         ]
       }
-
     ]
   }
 }
