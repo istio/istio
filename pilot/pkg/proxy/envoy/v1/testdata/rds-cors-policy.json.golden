@@ -80,7 +80,7 @@
        "allow_methods": "POST,GET,OPTIONS",
        "allow_headers": "content-type",
        "expose_headers": "x-custom-header",
-       "max_age": "seconds:300 ",
+       "max_age": "5m0s",
        "allow_origin": [
         "http://foo.example"
        ]

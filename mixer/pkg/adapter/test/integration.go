@@ -167,6 +167,11 @@ func RunTest(
 	if args, err = getServerArgs(scenario.tmpls, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
+
+	// Setting zero will make Mixer pick any available port.
+	args.APIPort = 0
+	args.MonitoringPort = 0
+
 	if env, err = server.New(args); err != nil {
 		t.Fatalf("fail to new mixer: %v", err)
 	}

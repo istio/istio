@@ -24,9 +24,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -280,7 +277,9 @@ func TranslateRoute(in *networking.HTTPRoute,
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
 				HostRedirect: redirect.Authority,
-				PathRedirect: redirect.Uri,
+				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
+					PathRedirect: redirect.Uri,
+				},
 			}}
 	} else {
 		action := &route.RouteAction{
@@ -436,9 +435,7 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		AllowOrigin: in.AllowOrigin,
 		Enabled:     &types.BoolValue{Value: true},
 	}
-	if in.AllowCredentials != nil {
-		out.AllowCredentials = TranslateBool(in.AllowCredentials)
-	}
+	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -448,20 +445,12 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
-// TranslateBool converts bool wrapper.
-func TranslateBool(in *wrappers.BoolValue) *types.BoolValue {
-	if in == nil {
-		return nil
-	}
-	return &types.BoolValue{Value: in.Value}
-}
-
 // TranslateTime converts time protos.
-func TranslateTime(in *duration.Duration) *time.Duration {
+func TranslateTime(in *types.Duration) *time.Duration {
 	if in == nil {
 		return nil
 	}
-	out, err := ptypes.Duration(in)
+	out, err := types.DurationFromProto(in)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
