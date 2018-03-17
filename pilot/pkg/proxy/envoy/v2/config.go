@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v2 is a port of package v1 from using the Envoy v1 API (JSON based) to v2 API (proto based).
 package v2
 
 import (
@@ -82,22 +81,6 @@ const (
 	// IstioIngress is the name of the service running the Istio Ingress controller
 	IstioIngress = "istio-ingress"
 )
-
-// ListListenersResponse returns a list of listeners for the given environment and source node.
-func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := buildListeners(env, node)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &xdsapi.DiscoveryResponse{}
-	for _, ll := range ls {
-		lr, _ := google_protobuf.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
-	}
-
-	return resp, nil
-}
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
 func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
