@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"bytes"
 	"sort"
 	"time"
 	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
@@ -22,9 +23,13 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
+
+	"istio.io/istio/pkg/log"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -97,13 +102,6 @@ func durationToTimeDuration(d *duration.Duration) time.Duration {
 	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
 }
 
-func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name:   name,
-		Config: buildProtoStruct(name, protoStr),
-	}
-}
-
 func buildProtoStruct(name, value string) *google_protobuf.Struct {
 	return &google_protobuf.Struct{
 		Fields: map[string]*google_protobuf.Value{
@@ -114,4 +112,22 @@ func buildProtoStruct(name, value string) *google_protobuf.Struct {
 			},
 		},
 	}
+}
+
+// messageToStruct is the most inefficient way to pass a struct, but will do for first
+// iteration.
+func messageToStruct(msg proto.Message) *types.Struct {
+	buf := &bytes.Buffer{}
+	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, msg); err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+
+	pbs := &types.Struct{}
+	if err := jsonpb.Unmarshal(buf, pbs); err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+
+	return pbs
 }
