@@ -20,6 +20,8 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	google_protobuf "github.com/gogo/protobuf/types"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -110,4 +112,20 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 	}
 	log.Debugf("LDSv2 request for %s.", node.ID)
 	return nil, errors.New("function FetchListeners not implemented")
+}
+
+// ListListenersResponse returns a list of listeners for the given environment and source node.
+func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+	ls, err := buildListeners(env, node)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &xdsapi.DiscoveryResponse{}
+	for _, ll := range ls {
+		lr, _ := google_protobuf.MarshalAny(ll)
+		resp.Resources = append(resp.Resources, *lr)
+	}
+
+	return resp, nil
 }
