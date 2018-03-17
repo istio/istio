@@ -99,6 +99,8 @@ var (
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
 	}
 )
 

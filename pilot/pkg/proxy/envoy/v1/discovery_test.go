@@ -279,8 +279,8 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	}{
 		{configs: []fileConfig{weightedRouteRule, cbPolicy, egressRule, egressRuleCBPolicy},
 			response: "testdata/cds-circuit-breaker.json"},
-		{configs: []fileConfig{cbRouteRuleV2, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
-			response: "testdata/cds-circuit-breaker-v1alpha2.json"},
+		{configs: []fileConfig{cbRouteRuleV3, destinationRuleWorldCB, externalServiceRule, destinationRuleGoogleCB},
+			response: "testdata/cds-circuit-breaker-v1alpha3.json"},
 	}
 
 	for _, tc := range tests {
@@ -488,7 +488,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	tests := [][]fileConfig{
 		{timeoutRouteRule, egressRule, egressRuleTimeoutRule},
-		{timeoutRouteRuleV2, externalServiceRule, googleTimeoutRuleV2},
+		{timeoutRouteRuleV3, externalServiceRule, googleTimeoutRuleV3},
 	}
 
 	for _, configs := range tests {
@@ -503,11 +503,11 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 }
 
 func TestRouteDiscoveryWeighted(t *testing.T) {
-	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
+	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightedConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -517,11 +517,11 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 }
 
 func TestRouteDiscoveryFault(t *testing.T) {
-	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV2} {
+	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, faultConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -537,9 +537,9 @@ func TestRouteDiscoveryFault(t *testing.T) {
 
 func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, multiMatchFaultRouteRuleV2, t)
+	addConfig(registry, multiMatchFaultRouteRuleV3, t)
 
-	// TODO: v1alpha2 only
+	// TODO: v1alpha3 only
 	addConfig(registry, destinationRuleWorld, t)
 
 	// fault rule is source based: we check that the rule only affects v0 and not v1
@@ -553,11 +553,11 @@ func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
 }
 
 func TestRouteDiscoveryMirror(t *testing.T) {
-	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV2} {
+	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, mirrorConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleHello, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -567,7 +567,7 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 }
 
 func TestRouteDiscoveryAppendHeaders(t *testing.T) {
-	for _, addHeaderConfig := range []fileConfig{addHeaderRule, addHeaderRuleV2} {
+	for _, addHeaderConfig := range []fileConfig{addHeaderRule, addHeaderRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, addHeaderConfig, t)
 
@@ -578,7 +578,7 @@ func TestRouteDiscoveryAppendHeaders(t *testing.T) {
 }
 
 func TestRouteDiscoveryCORSPolicy(t *testing.T) {
-	for _, corsConfig := range []fileConfig{corsPolicyRule, corsPolicyRuleV2} {
+	for _, corsConfig := range []fileConfig{corsPolicyRule, corsPolicyRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, corsConfig, t)
 
@@ -589,7 +589,7 @@ func TestRouteDiscoveryCORSPolicy(t *testing.T) {
 }
 
 func TestRouteDiscoveryRedirect(t *testing.T) {
-	for _, redirectConfig := range []fileConfig{redirectRouteRule, redirectRouteRuleV2} {
+	for _, redirectConfig := range []fileConfig{redirectRouteRule, redirectRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, redirectConfig, t)
 
@@ -611,7 +611,7 @@ func TestRouteDiscoveryEgressRedirect(t *testing.T) {
 }
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
-	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV2} {
+	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, rewriteConfig, t)
 
@@ -623,15 +623,15 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 
 func TestRouteDiscoveryMultiMatchRewrite(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, multiMatchRewriteRouteRuleV2, t)
+	addConfig(registry, multiMatchRewriteRouteRuleV3, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha2.json", t)
+	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha3.json", t)
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
-	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV2} {
+	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, websocketConfig, t)
 
@@ -659,12 +659,12 @@ func TestRouteDiscoveryIngress(t *testing.T) {
 }
 
 func TestRouteDiscoveryIngressWeighted(t *testing.T) {
-	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
+	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addIngressRoutes(registry, t)
 		addConfig(registry, weightConfig, t)
 
-		// TODO: v1alpha2 only
+		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
@@ -822,7 +822,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "weighted",
-			file: weightedRouteRuleV2,
+			file: weightedRouteRuleV3,
 		},
 		{
 			name: "fault",
@@ -830,11 +830,11 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "fault",
-			file: faultRouteRuleV2,
+			file: faultRouteRuleV3,
 		},
 		{
 			name: "multi-match-fault",
-			file: multiMatchFaultRouteRuleV2,
+			file: multiMatchFaultRouteRuleV3,
 		},
 		{
 			name: "egress-rule",
@@ -859,7 +859,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			_, registry, ds := commonSetup(t)
 
 			if testCase.name != "none" {
-				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha2 only
+				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha3 only
 				addConfig(registry, testCase.file, t)
 			}
 

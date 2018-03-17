@@ -12,34 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime2
+package store
 
 import (
 	"errors"
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/probe"
 )
+
+const watchFlushDuration = time.Millisecond
 
 func TestStartWatch_Basic(t *testing.T) {
 	s := &mockStore{
 		initErrorToReturn:    nil,
-		watchChannelToReturn: make(chan store.Event),
+		watchChannelToReturn: make(chan Event),
 		watchErrorToReturn:   nil,
-		listResultToReturn:   make(map[store.Key]*store.Resource),
+		listResultToReturn:   make(map[Key]*Resource),
 	}
-	s.listResultToReturn[store.Key{Name: "Foo"}] = &store.Resource{Metadata: store.ResourceMeta{Name: "Bar"}}
+	s.listResultToReturn[Key{Name: "Foo"}] = &Resource{Metadata: ResourceMeta{Name: "Bar"}}
 
 	kinds := map[string]proto.Message{
 		"foo": &mockProto{},
 	}
 
-	initialResources, _, err := startWatch(s, kinds)
+	initialResources, _, err := StartWatch(s, kinds)
 
 	if !s.initCalled {
 		t.Fatal("Init should have been called")
@@ -75,7 +77,7 @@ func TestStartWatch_InitFailure(t *testing.T) {
 		"foo": &mockProto{},
 	}
 
-	_, _, err := startWatch(s, kinds)
+	_, _, err := StartWatch(s, kinds)
 	if err != s.initErrorToReturn {
 		t.Fatalf("Expected error was not returned: %v", err)
 	}
@@ -90,18 +92,18 @@ func TestStartWatch_WatchFailure(t *testing.T) {
 		"foo": &mockProto{},
 	}
 
-	_, _, err := startWatch(s, kinds)
+	_, _, err := StartWatch(s, kinds)
 	if err != s.watchErrorToReturn {
 		t.Fatalf("Expected error was not returned: %v", err)
 	}
 }
 
 func TestWatchChanges(t *testing.T) {
-	wch := make(chan store.Event)
+	wch := make(chan Event)
 	sch := make(chan struct{})
 
-	evt := make(chan store.Event)
-	fn := func(events []*store.Event) {
+	evt := make(chan Event)
+	fn := func(events []*Event) {
 		for _, e := range events {
 			evt <- *e
 		}
@@ -110,11 +112,11 @@ func TestWatchChanges(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		watchChanges(wch, sch, fn)
+		WatchChanges(wch, sch, watchFlushDuration, fn)
 		wg.Done()
 	}()
 
-	expected := store.Event{Type: store.Update, Value: &store.Resource{Metadata: store.ResourceMeta{Name: "FOO"}}}
+	expected := Event{Type: Update, Value: &Resource{Metadata: ResourceMeta{Name: "FOO"}}}
 	wch <- expected
 
 	actual := <-evt
@@ -136,15 +138,15 @@ type mockStore struct {
 
 	// Watch method related fields
 	watchCalled          bool
-	watchChannelToReturn chan store.Event
+	watchChannelToReturn chan Event
 	watchErrorToReturn   error
 
 	// List method related fields
 	listCalled         bool
-	listResultToReturn map[store.Key]*store.Resource
+	listResultToReturn map[Key]*Resource
 }
 
-var _ store.Store = &mockStore{}
+var _ Store = &mockStore{}
 
 func (m *mockStore) Stop() {
 }
@@ -158,19 +160,19 @@ func (m *mockStore) Init(kinds map[string]proto.Message) error {
 
 // Watch creates a channel to receive the events. A store can conduct a single
 // watch channel at the same time. Multiple calls lead to an error.
-func (m *mockStore) Watch() (<-chan store.Event, error) {
+func (m *mockStore) Watch() (<-chan Event, error) {
 	m.watchCalled = true
 
 	return m.watchChannelToReturn, m.watchErrorToReturn
 }
 
 // Get returns a resource's spec to the key.
-func (m *mockStore) Get(key store.Key, spec proto.Message) error {
-	return nil
+func (m *mockStore) Get(key Key) (*Resource, error) {
+	return nil, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.
-func (m *mockStore) List() map[store.Key]*store.Resource {
+func (m *mockStore) List() map[Key]*Resource {
 	m.listCalled = true
 	return m.listResultToReturn
 }
