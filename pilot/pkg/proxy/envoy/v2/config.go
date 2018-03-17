@@ -18,7 +18,6 @@ package v2
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -34,7 +33,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
@@ -203,17 +201,16 @@ func buildSidecarListenersClusters(
 	if mesh.ProxyHttpPort > 0 {
 		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
-		listenAddress := v1.LocalhostAddress
+		listenAddress := LocalhostAddress
 
 		if node.Type == model.Router {
 			useRemoteAddress = true
 			traceOperation = http_conn.INGRESS
-			listenAddress = v1.WildcardAddress
+			listenAddress = WildcardAddress
 		}
 
 		// only HTTP outbound clusters are needed
 		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
-		httpOutbound = v1.BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
@@ -223,7 +220,7 @@ func buildSidecarListenersClusters(
 			routeConfig:      nil,
 			ip:               listenAddress,
 			port:             int(mesh.ProxyHttpPort),
-			rds:              v1.RDSAll,
+			rds:              RDSAll,
 			useRemoteAddress: useRemoteAddress,
 			direction:        traceOperation,
 			outboundListener: true,
@@ -256,13 +253,13 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
-	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(v1.CORSFilter, "")}
+	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(CORSFilter, "")}
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, buildHTTPFilterConfig(filterNameRouter, ""))
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
-		filter := buildHTTPFilterConfig(v1.MixerFilter, mustMarshalToString(mixerConfig))
+		filter := buildHTTPFilterConfig(MixerFilter, mustMarshalToString(mixerConfig))
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	}
 
@@ -274,7 +271,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType:      core.ApiConfigSource_GRPC,
-							ClusterNames: []string{v1.RDSName},
+							ClusterNames: []string{RDSName},
 						},
 					},
 				},
@@ -318,8 +315,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   v1.HTTPConnectionManager,
-						Config: buildProtoStruct(v1.HTTPConnectionManager, manager.String()),
+						Name:   HTTPConnectionManager,
+						Config: buildProtoStruct(HTTPConnectionManager, manager.String()),
 					},
 				},
 			},
@@ -357,14 +354,15 @@ func mayApplyInboundAuth(listener *xdsapi.Listener, mesh *meshconfig.MeshConfig,
 
 // buildTCPListener constructs a listener for the TCP proxy
 // in addition, it enables mongo proxy filter based on the protocol
+// NOTE: The TCP listeners setup so far will not work as we are not setting up tcp routes properly
 func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, protocol model.Protocol) *xdsapi.Listener {
 	config := tcp_proxy.TcpProxy{
 		StatPrefix: "tcp",
-		// RouteConfig is deprecated.
+		// TODO: add tcp routes using deprecated v1 config as filter chain match is incomplete
 	}
 	baseTCPProxy := listener.Filter{
-		Name:   v1.TCPProxyFilter,
-		Config: buildProtoStruct(v1.TCPProxyFilter, config.String()),
+		Name:   TCPProxyFilter,
+		Config: buildProtoStruct(TCPProxyFilter, config.String()),
 	}
 
 	// Use Envoy's TCP proxy for TCP and Redis protocols. Currently, Envoy does not support CDS clusters
@@ -388,8 +386,8 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 				{
 					Filters: []listener.Filter{
 						{
-							Name:   v1.MongoProxyFilter,
-							Config: buildProtoStruct(v1.MongoProxyFilter, config.String()),
+							Name:   MongoProxyFilter,
+							Config: buildProtoStruct(MongoProxyFilter, config.String()),
 						},
 						baseTCPProxy,
 					},
@@ -406,7 +404,7 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 
 		// Unlike Mongo, Redis is a standalone filter, that is not
 		// stacked on top of tcp_proxy
-		td := v1.RedisDefaultOpTimeout
+		td := RedisDefaultOpTimeout
 		if len(tcpConfig.Routes) == 1 {
 			config := &redis_proxy.RedisProxy{
 				Cluster:    tcpConfig.Routes[0].Cluster,
@@ -422,8 +420,8 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 					{
 						Filters: []listener.Filter{
 							{
-								Name:   v1.RedisProxyFilter,
-								Config: buildProtoStruct(v1.RedisProxyFilter, config.String()),
+								Name:   RedisProxyFilter,
+								Config: buildProtoStruct(RedisProxyFilter, config.String()),
 							},
 							baseTCPProxy,
 						},
@@ -445,17 +443,12 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	services []*model.Service, config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
 	listeners, clusters := buildOutboundTCPListeners(mesh, node, services)
 
-	egressTCPListeners, egressTCPClusters := buildEgressTCPListeners(mesh, node, config)
-	listeners = append(listeners, egressTCPListeners...)
-	clusters = append(clusters, egressTCPClusters...)
-
 	externalServiceTCPListeners, externalServiceTCPClusters := buildExternalServiceTCPListeners(mesh, config)
 	listeners = append(listeners, externalServiceTCPListeners...)
 	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
-	httpOutbound = v1.BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 	httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
 	for port, routeConfig := range httpOutbound {
@@ -473,7 +466,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			proxy:            node,
 			proxyInstances:   proxyInstances,
 			routeConfig:      routeConfig,
-			ip:               v1.WildcardAddress,
+			ip:               WildcardAddress,
 			port:             port,
 			rds:              fmt.Sprintf("%d", port),
 			useRemoteAddress: useRemoteAddress,
@@ -644,7 +637,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 					route := v1.BuildTCPRoute(cluster, nil)
 					config := &v1.TCPRouteConfig{Routes: []*v1.TCPRoute{route}}
 					listener := buildTCPListener(
-						config, v1.WildcardAddress, uint32(servicePort.Port), servicePort.Protocol)
+						config, WildcardAddress, uint32(servicePort.Port), servicePort.Protocol)
 					tcpListeners = append(tcpListeners, listener)
 				} else {
 					cluster := v1.BuildOutboundCluster(service.Hostname, servicePort, nil, service.External())
@@ -717,39 +710,21 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				// because v1alpha2 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					switch config.Spec.(type) {
-					case *routing.RouteRule:
-						rule := config.Spec.(*routing.RouteRule)
-						if route := v1.BuildInboundRoute(config, rule, cluster); route != nil {
-							// set server-side mixer filter config for inbound HTTP routes
-							// Note: websocket routes do not call the filter chain. Will be
-							// resolved in future.
-							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-									instance.Service.Hostname)
-							}
+					rule := config.Spec.(*networking.VirtualService)
 
-							host.Routes = append(host.Routes, route)
+					// if no routes are returned, it is a TCP RouteRule
+					routes := v1.BuildInboundRoutesV2(proxyInstances, config, rule, cluster)
+					for _, route := range routes {
+						// set server-side mixer filter config for inbound HTTP routes
+						// Note: websocket routes do not call the filter chain. Will be
+						// resolved in future.
+						if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+							route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+								instance.Service.Hostname)
 						}
-					case *networking.VirtualService:
-						rule := config.Spec.(*networking.VirtualService)
-
-						// if no routes are returned, it is a TCP RouteRule
-						routes := v1.BuildInboundRoutesV2(proxyInstances, config, rule, cluster)
-						for _, route := range routes {
-							// set server-side mixer filter config for inbound HTTP routes
-							// Note: websocket routes do not call the filter chain. Will be
-							// resolved in future.
-							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-									instance.Service.Hostname)
-							}
-						}
-
-						host.Routes = append(host.Routes, routes...)
-					default:
-						panic("unsupported rule")
 					}
+
+					host.Routes = append(host.Routes, routes...)
 				}
 			}
 
@@ -781,7 +756,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				l.FilterChains = append(l.FilterChains, listener.FilterChain{
 					Filters: []listener.Filter{
 						{
-							Config: buildProtoStruct(v1.MixerFilter, mustMarshalToString(config)),
+							Config: buildProtoStruct(MixerFilter, mustMarshalToString(config)),
 						},
 					},
 				})
@@ -798,153 +773,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	return listeners, clusters
-}
-
-func appendPortToDomains(domains []string, port int) []string { // nolint
-	domainsWithPorts := make([]string, len(domains), 2*len(domains))
-	copy(domainsWithPorts, domains)
-
-	for _, domain := range domains {
-		domainsWithPorts = append(domainsWithPorts, domain+":"+strconv.Itoa(port))
-	}
-
-	return domainsWithPorts
-}
-
-func buildEgressVirtualHost(serviceName string, destination string, // nolint
-	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
-	config model.IstioConfigStore) *v1.VirtualHost {
-	var externalTrafficCluster *v1.Cluster
-
-	protocolToHandle := port.Protocol
-	if protocolToHandle == model.ProtocolGRPC {
-		protocolToHandle = model.ProtocolHTTP2
-	}
-
-	// Create a unique orig dst cluster for each service defined by egress rule
-	// So that we can apply circuit breakers, outlier detections, etc., later.
-	svc := model.Service{Hostname: destination}
-	key := svc.Key(port, nil)
-	externalTrafficCluster = v1.BuildOriginalDSTCluster(key, mesh.ConnectTimeout)
-	externalTrafficCluster.ServiceName = key
-	externalTrafficCluster.Hostname = destination
-	externalTrafficCluster.Port = port
-	if protocolToHandle == model.ProtocolHTTPS {
-		externalTrafficCluster.SSLContext = &v1.SSLContextExternal{}
-	}
-
-	if protocolToHandle == model.ProtocolHTTP2 {
-		externalTrafficCluster.Features = v1.ClusterFeatureHTTP2
-	}
-
-	if protocolToHandle == model.ProtocolHTTPS {
-		// temporarily set the protocol to HTTP because we require applications
-		// to use http to talk to external services (and we do TLS origination).
-		// buildDestinationHTTPRoutes does not generate route blocks for HTTPS services
-		port.Protocol = model.ProtocolHTTP
-	}
-
-	dest := &model.Service{Hostname: destination}
-	routes := buildDestinationHTTPRoutes(node, dest, port, proxyInstances, config, v1.BuildOutboundCluster)
-	// reset the protocol to the original value
-	port.Protocol = protocolToHandle
-
-	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-		oc := v1.BuildMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
-		for _, route := range routes {
-			route.OpaqueConfig = oc
-		}
-	}
-
-	// Set the destination clusters to the cluster we computed above.
-	// Services defined via egress rules do not have labels and hence no weighted clusters
-	for _, route := range routes {
-		// redirect rules must have empty Cluster name
-		if !route.Redirect() {
-			route.Cluster = externalTrafficCluster.Name
-		}
-		// cluster for default route must be defined
-		route.Clusters = []*v1.Cluster{externalTrafficCluster}
-	}
-
-	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)
-	return &v1.VirtualHost{
-		Name:    virtualHostName,
-		Domains: appendPortToDomains([]string{destination}, port.Port),
-		Routes:  routes,
-	}
-}
-
-// buildEgressTCPListeners builds a listener on 0.0.0.0 per each distinct port of all TCP egress
-// rules and a cluster per each TCP egress rule
-func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
-
-	tcpListeners := make([]*xdsapi.Listener, 0)
-	tcpClusters := make(v1.Clusters, 0)
-
-	if node.Type == model.Router {
-		// No egress rule support for Routers. As semantics are not clear.
-		return tcpListeners, tcpClusters
-	}
-
-	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
-	if errs != nil {
-		log.Warnf("Rejected rules: %v", errs)
-	}
-
-	tcpRulesByPort := make(map[int][]*routing.EgressRule)
-	tcpProtocolByPort := make(map[int]model.Protocol)
-
-	for _, r := range egressRules {
-		rule, _ := r.Spec.(*routing.EgressRule)
-		for _, port := range rule.Ports {
-			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
-			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
-				continue
-			}
-			intPort := int(port.Port)
-			tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
-			tcpProtocolByPort[intPort] = protocol
-		}
-	}
-
-	for intPort, rules := range tcpRulesByPort {
-		protocol := tcpProtocolByPort[intPort]
-		modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
-			Port: intPort, Protocol: protocol}
-
-		tcpRoutes := make([]*v1.TCPRoute, 0)
-		for _, rule := range rules {
-			tcpRoute, tcpCluster := buildEgressTCPRoute(rule.Destination.Service, mesh, modelPort)
-			tcpRoutes = append(tcpRoutes, tcpRoute)
-			tcpClusters = append(tcpClusters, tcpCluster)
-		}
-
-		config := &v1.TCPRouteConfig{Routes: tcpRoutes}
-		tcpListener := buildTCPListener(config, v1.WildcardAddress, uint32(intPort), protocol)
-		tcpListeners = append(tcpListeners, tcpListener)
-	}
-
-	return tcpListeners, tcpClusters
-}
-
-// buildEgressTCPRoute builds a tcp route and a cluster per port of a TCP egress service
-// see comment to buildOutboundTCPListeners
-func buildEgressTCPRoute(destination string,
-	mesh *meshconfig.MeshConfig, port *model.Port) (*v1.TCPRoute, *v1.Cluster) {
-
-	// Create a unique orig dst cluster for each service defined by egress rule
-	// So that we can apply circuit breakers, outlier detections, etc., later.
-	svc := model.Service{Hostname: destination}
-	key := svc.Key(port, nil)
-	externalTrafficCluster := v1.BuildOriginalDSTCluster(key, mesh.ConnectTimeout)
-	externalTrafficCluster.Port = port
-	externalTrafficCluster.ServiceName = key
-	externalTrafficCluster.Hostname = destination
-
-	route := v1.BuildTCPRoute(externalTrafficCluster, []string{destination})
-	return route, externalTrafficCluster
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
