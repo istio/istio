@@ -35,8 +35,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -117,7 +115,7 @@ type EdsConnection struct {
 }
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
 	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
 	version := strconv.Itoa(version)
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
@@ -136,7 +134,7 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []stri
 
 	out.Resources = make([]types.Any, 0, len(clusterNames))
 	for _, clusterName := range clusterNames {
-		clAssignmentRes := s.clusterEndpoints(ds, clusterName)
+		clAssignmentRes := s.clusterEndpoints(clusterName)
 		if clAssignmentRes != nil {
 			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
@@ -146,7 +144,7 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []stri
 }
 
 // Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, clusterName string) *types.Any {
+func (s *DiscoveryServer) clusterEndpoints(clusterName string) *types.Any {
 	c := s.getOrAddEdsCluster(clusterName)
 	if c.LoadAssignment == nil { // fresh cluster
 		updateCluster(clusterName, c)
@@ -367,7 +365,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		}
 
 		if len(con.Clusters) > 0 {
-			response := s.endpoints(s.mesh, con.Clusters)
+			response := s.endpoints(con.Clusters)
 			err := stream.Send(response)
 			if err != nil {
 				return err
