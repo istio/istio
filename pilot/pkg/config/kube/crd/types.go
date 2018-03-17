@@ -39,7 +39,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.MockConfig,
 		object: &MockConfig{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.MockConfig.Type,
+				Kind:       "MockConfig",
 				APIVersion: apiVersion(&model.MockConfig),
 			},
 		},
@@ -49,7 +49,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.RouteRule,
 		object: &RouteRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.RouteRule.Type,
+				Kind:       "RouteRule",
 				APIVersion: apiVersion(&model.RouteRule),
 			},
 		},
@@ -59,7 +59,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.VirtualService,
 		object: &VirtualService{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.VirtualService.Type,
+				Kind:       "VirtualService",
 				APIVersion: apiVersion(&model.VirtualService),
 			},
 		},
@@ -69,7 +69,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.IngressRule,
 		object: &IngressRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.IngressRule.Type,
+				Kind:       "IngressRule",
 				APIVersion: apiVersion(&model.IngressRule),
 			},
 		},
@@ -79,7 +79,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.Gateway,
 		object: &Gateway{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.Gateway.Type,
+				Kind:       "Gateway",
 				APIVersion: apiVersion(&model.Gateway),
 			},
 		},
@@ -89,7 +89,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EgressRule,
 		object: &EgressRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.EgressRule.Type,
+				Kind:       "EgressRule",
 				APIVersion: apiVersion(&model.EgressRule),
 			},
 		},
@@ -99,7 +99,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.ExternalService,
 		object: &ExternalService{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.ExternalService.Type,
+				Kind:       "ExternalService",
 				APIVersion: apiVersion(&model.ExternalService),
 			},
 		},
@@ -109,7 +109,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.DestinationPolicy,
 		object: &DestinationPolicy{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.DestinationPolicy.Type,
+				Kind:       "DestinationPolicy",
 				APIVersion: apiVersion(&model.DestinationPolicy),
 			},
 		},
@@ -119,7 +119,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.DestinationRule,
 		object: &DestinationRule{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.DestinationRule.Type,
+				Kind:       "DestinationRule",
 				APIVersion: apiVersion(&model.DestinationRule),
 			},
 		},
@@ -129,7 +129,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.HTTPAPISpec,
 		object: &HTTPAPISpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.HTTPAPISpec.Type,
+				Kind:       "HTTPAPISpec",
 				APIVersion: apiVersion(&model.HTTPAPISpec),
 			},
 		},
@@ -139,7 +139,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.HTTPAPISpecBinding,
 		object: &HTTPAPISpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.HTTPAPISpecBinding.Type,
+				Kind:       "HTTPAPISpecBinding",
 				APIVersion: apiVersion(&model.HTTPAPISpecBinding),
 			},
 		},
@@ -149,7 +149,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.QuotaSpec,
 		object: &QuotaSpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.QuotaSpec.Type,
+				Kind:       "QuotaSpec",
 				APIVersion: apiVersion(&model.QuotaSpec),
 			},
 		},
@@ -159,7 +159,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.QuotaSpecBinding,
 		object: &QuotaSpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.QuotaSpecBinding.Type,
+				Kind:       "QuotaSpecBinding",
 				APIVersion: apiVersion(&model.QuotaSpecBinding),
 			},
 		},
@@ -169,7 +169,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EndUserAuthenticationPolicySpec,
 		object: &EndUserAuthenticationPolicySpec{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.EndUserAuthenticationPolicySpec.Type,
+				Kind:       "EndUserAuthenticationPolicySpec",
 				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpec),
 			},
 		},
@@ -179,7 +179,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.EndUserAuthenticationPolicySpecBinding,
 		object: &EndUserAuthenticationPolicySpecBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.EndUserAuthenticationPolicySpecBinding.Type,
+				Kind:       "EndUserAuthenticationPolicySpecBinding",
 				APIVersion: apiVersion(&model.EndUserAuthenticationPolicySpecBinding),
 			},
 		},
@@ -189,11 +189,31 @@ var knownTypes = map[string]schemaType{
 		schema: model.AuthenticationPolicy,
 		object: &Policy{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.AuthenticationPolicy.Type,
+				Kind:       "Policy",
 				APIVersion: apiVersion(&model.AuthenticationPolicy),
 			},
 		},
 		collection: &PolicyList{},
+	},
+	model.ServiceRole.Type: {
+		schema: model.ServiceRole,
+		object: &ServiceRole{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       model.ServiceRole.Type,
+				APIVersion: apiVersion(&model.ServiceRole),
+			},
+		},
+		collection: &ServiceRoleList{},
+	},
+	model.ServiceRoleBinding.Type: {
+		schema: model.ServiceRoleBinding,
+		object: &ServiceRoleBinding{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       model.ServiceRoleBinding.Type,
+				APIVersion: apiVersion(&model.ServiceRoleBinding),
+			},
+		},
+		collection: &ServiceRoleBindingList{},
 	},
 }
 
@@ -1838,6 +1858,212 @@ func (in *PolicyList) DeepCopy() *PolicyList {
 
 // DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
 func (in *PolicyList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// ServiceRole is the generic Kubernetes API object wrapper
+type ServiceRole struct {
+	meta_v1.TypeMeta   `json:",inline"`
+	meta_v1.ObjectMeta `json:"metadata"`
+	Spec               map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *ServiceRole) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *ServiceRole) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *ServiceRole) GetObjectMeta() meta_v1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *ServiceRole) SetObjectMeta(metadata meta_v1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// ServiceRoleList is the generic Kubernetes API list wrapper
+type ServiceRoleList struct {
+	meta_v1.TypeMeta `json:",inline"`
+	meta_v1.ListMeta `json:"metadata"`
+	Items            []ServiceRole `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *ServiceRoleList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *ServiceRole) DeepCopyInto(out *ServiceRole) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRole.
+func (in *ServiceRole) DeepCopy() *ServiceRole {
+	if in == nil {
+		return nil
+	}
+	out := new(ServiceRole)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *ServiceRole) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *ServiceRoleList) DeepCopyInto(out *ServiceRoleList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]ServiceRole, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleList.
+func (in *ServiceRoleList) DeepCopy() *ServiceRoleList {
+	if in == nil {
+		return nil
+	}
+	out := new(ServiceRoleList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *ServiceRoleList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// ServiceRoleBinding is the generic Kubernetes API object wrapper
+type ServiceRoleBinding struct {
+	meta_v1.TypeMeta   `json:",inline"`
+	meta_v1.ObjectMeta `json:"metadata"`
+	Spec               map[string]interface{} `json:"spec"`
+}
+
+// GetSpec from a wrapper
+func (in *ServiceRoleBinding) GetSpec() map[string]interface{} {
+	return in.Spec
+}
+
+// SetSpec for a wrapper
+func (in *ServiceRoleBinding) SetSpec(spec map[string]interface{}) {
+	in.Spec = spec
+}
+
+// GetObjectMeta from a wrapper
+func (in *ServiceRoleBinding) GetObjectMeta() meta_v1.ObjectMeta {
+	return in.ObjectMeta
+}
+
+// SetObjectMeta for a wrapper
+func (in *ServiceRoleBinding) SetObjectMeta(metadata meta_v1.ObjectMeta) {
+	in.ObjectMeta = metadata
+}
+
+// ServiceRoleBindingList is the generic Kubernetes API list wrapper
+type ServiceRoleBindingList struct {
+	meta_v1.TypeMeta `json:",inline"`
+	meta_v1.ListMeta `json:"metadata"`
+	Items            []ServiceRoleBinding `json:"items"`
+}
+
+// GetItems from a wrapper
+func (in *ServiceRoleBindingList) GetItems() []IstioObject {
+	out := make([]IstioObject, len(in.Items))
+	for i := range in.Items {
+		out[i] = &in.Items[i]
+	}
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *ServiceRoleBinding) DeepCopyInto(out *ServiceRoleBinding) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Spec = in.Spec
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleBinding.
+func (in *ServiceRoleBinding) DeepCopy() *ServiceRoleBinding {
+	if in == nil {
+		return nil
+	}
+	out := new(ServiceRoleBinding)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *ServiceRoleBinding) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	}
+
+	return nil
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *ServiceRoleBindingList) DeepCopyInto(out *ServiceRoleBindingList) {
+	*out = *in
+	out.TypeMeta = in.TypeMeta
+	out.ListMeta = in.ListMeta
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]ServiceRoleBinding, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ServiceRoleBindingList.
+func (in *ServiceRoleBindingList) DeepCopy() *ServiceRoleBindingList {
+	if in == nil {
+		return nil
+	}
+	out := new(ServiceRoleBindingList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *ServiceRoleBindingList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	}

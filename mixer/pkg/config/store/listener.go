@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime2
+package store
 
 import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
 )
 
-// startWatch registers with store, initiates a watch, and returns the current config state.
-func startWatch(s store.Store, kinds map[string]proto.Message) (
-	map[store.Key]*store.Resource, <-chan store.Event, error) {
+// StartWatch registers with store, initiates a watch, and returns the current config state.
+func StartWatch(s Store, kinds map[string]proto.Message) (map[Key]*Resource, <-chan Event, error) {
 
 	if err := s.Init(kinds); err != nil {
 		return nil, nil, err
@@ -38,23 +36,21 @@ func startWatch(s store.Store, kinds map[string]proto.Message) (
 	return s.List(), watchChan, nil
 }
 
-var watchFlushDuration = time.Second
-
 // maxEvents is the likely maximum number of events
 // we can expect in a second. It is used to avoid slice reallocation.
 const maxEvents = 50
 
-// applyEventsFn is used for testing
-type applyEventsFn func(events []*store.Event)
+// ApplyEventsFn is used for testing
+type ApplyEventsFn func(events []*Event)
 
-// watchChanges watches for changes on a channel and
+// WatchChanges watches for changes on a channel and
 // publishes a batch of changes via applyEvents.
-// watchChanges is started in a goroutine.
-func watchChanges(wch <-chan store.Event, stop <-chan struct{}, applyEvents applyEventsFn) {
+// WatchChanges is started in a goroutine.
+func WatchChanges(wch <-chan Event, stop <-chan struct{}, watchFlushDuration time.Duration, applyEvents ApplyEventsFn) {
 	// consume changes and apply them to data indefinitely
 	var timeChan <-chan time.Time
 	var timer *time.Timer
-	events := make([]*store.Event, 0, maxEvents)
+	events := make([]*Event, 0, maxEvents)
 
 	for {
 		select {
