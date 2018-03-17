@@ -80,7 +80,7 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 	}
 }
 
-// TranslateVirtualHosts creates the entire routing table for Istio v1alpha2 configs.
+// TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
@@ -235,7 +235,7 @@ type GuardedRoute struct {
 	Gateways []string
 }
 
-// TranslateRoutes creates virtual host routes from the v1alpha2 config.
+// TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
