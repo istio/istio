@@ -31,6 +31,8 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
 
+	"time"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -39,8 +41,46 @@ import (
 )
 
 const (
-	// filterNameRouter is the name for the router filter.
-	filterNameRouter = "router"
+	// RouterFilter is the name for the router filter.
+	RouterFilter = "envoy.router"
+
+	// HTTPConnectionManagerFilter is the name of HTTP filter.
+	HTTPConnectionManagerFilter = "envoy.http_connection_manager"
+
+	// TCPProxyFilter is the name of the TCP Proxy network filter.
+	TCPProxyFilter = "envoy.tcp_proxy"
+
+	// CORSFilter is the name of the CORS network filter
+	CORSFilter = "envoy.cors"
+
+	// MongoProxyFilter is the name of the Mongo Proxy network filter.
+	MongoProxyFilter = "envoy.mongo_proxy"
+
+	// RedisProxyFilter is the name of the Redis Proxy network filter.
+	RedisProxyFilter = "envoy.redis_proxy"
+
+	// RedisDefaultOpTimeout is the op timeout used for Redis Proxy filter
+	// Currently it is set to 30s (conversion happens in the filter)
+	// TODO - Allow this to be configured.
+	RedisDefaultOpTimeout = 30 * time.Second
+
+	// RDSName is the name of route-discovery-service (RDS) cluster
+	RDSName = "rds"
+
+	// RDSHttpProxy is the special name for HTTP PROXY route
+	RDSHttpProxy = "http_proxy"
+
+	// WildcardAddress binds to all IP addresses
+	WildcardAddress = "0.0.0.0"
+
+	// LocalhostAddress for local binding
+	LocalhostAddress = "127.0.0.1"
+
+	// MixerFilter name and its attributes
+	MixerFilter = "mixer"
+
+	// IstioIngress is the name of the service running the Istio Ingress controller
+	IstioIngress = "istio-ingress"
 )
 
 // ListListenersResponse returns a list of listeners for the given environment and source node.
@@ -84,7 +124,7 @@ func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		}
 		var svc *model.Service
 		for _, s := range services {
-			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+			if strings.HasPrefix(s.Hostname, IstioIngress) {
 				svc = s
 				break
 			}
@@ -220,7 +260,7 @@ func buildSidecarListenersClusters(
 			routeConfig:      nil,
 			ip:               listenAddress,
 			port:             int(mesh.ProxyHttpPort),
-			rds:              RDSAll,
+			rds:              RDSHttpProxy,
 			useRemoteAddress: useRemoteAddress,
 			direction:        traceOperation,
 			outboundListener: true,
@@ -255,7 +295,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(CORSFilter, "")}
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
-	filters = append(filters, buildHTTPFilterConfig(filterNameRouter, ""))
+	filters = append(filters, buildHTTPFilterConfig(RouterFilter, ""))
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
@@ -315,8 +355,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   HTTPConnectionManager,
-						Config: buildProtoStruct(HTTPConnectionManager, manager.String()),
+						Name:   HTTPConnectionManagerFilter,
+						Config: buildProtoStruct(HTTPConnectionManagerFilter, manager.String()),
 					},
 				},
 			},
@@ -354,7 +394,7 @@ func mayApplyInboundAuth(listener *xdsapi.Listener, mesh *meshconfig.MeshConfig,
 
 // buildTCPListener constructs a listener for the TCP proxy
 // in addition, it enables mongo proxy filter based on the protocol
-// NOTE: The TCP listeners setup so far will not work as we are not setting up tcp routes properly
+// TODO: The TCP listeners setup so far will not work as we are not setting up tcp routes properly
 func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, protocol model.Protocol) *xdsapi.Listener {
 	config := tcp_proxy.TcpProxy{
 		StatPrefix: "tcp",
@@ -710,18 +750,18 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				// because v1alpha3 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-						rule := config.Spec.(*networking.VirtualService)
+					rule := config.Spec.(*networking.VirtualService)
 
-						// if no routes are returned, it is a TCP RouteRule
-						routes := v1.BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
-						for _, route := range routes {
-							// set server-side mixer filter config for inbound HTTP routes
-							// Note: websocket routes do not call the filter chain. Will be
-							// resolved in future.
-							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-									instance.Service.Hostname)
-							}
+					// if no routes are returned, it is a TCP RouteRule
+					routes := v1.BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
+					for _, route := range routes {
+						// set server-side mixer filter config for inbound HTTP routes
+						// Note: websocket routes do not call the filter chain. Will be
+						// resolved in future.
+						if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+							route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+								instance.Service.Hostname)
+						}
 					}
 
 					host.Routes = append(host.Routes, routes...)
