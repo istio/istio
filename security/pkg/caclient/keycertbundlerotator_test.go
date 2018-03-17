@@ -27,7 +27,7 @@ import (
 	utilmock "istio.io/istio/security/pkg/util/mock"
 )
 
-func TestClientRunner(t *testing.T) {
+func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
 		[]byte("old_cert"), []byte("old_key"), []byte("old_certchain"), []byte("root")
 	newCert, newCertChain, newKey := []byte("new_cert"), []byte("new_certchain"), []byte("new_key")
@@ -114,10 +114,9 @@ func TestClientRunner(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		clientRunner := NewClientRunner(tc.bundle, tc.certutil, tc.client)
-		stopCh := make(chan struct{})
+		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.client)
 		errCh := make(chan error)
-		go clientRunner.Run(stopCh, errCh)
+		go rotator.Start(errCh)
 
 		select {
 		case err := <-errCh:
@@ -125,13 +124,12 @@ func TestClientRunner(t *testing.T) {
 				t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
 					id, err.Error(), tc.expectedErr)
 			}
-			// The ClientRunner exists when an error happens.
 		case <-time.After(time.Millisecond * 500):
 			if len(tc.expectedErr) != 0 {
 				t.Errorf("Test case [%s]: Expected error (%s) but got no error.", id, tc.expectedErr)
 			}
-			stopCh <- struct{}{} // Terminate the ClientRunner.
 		}
+		rotator.Stop() // Stop the KeyCertBundleRotator anyway.
 
 		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.bundle.GetAllPem()
 		if tc.updated {

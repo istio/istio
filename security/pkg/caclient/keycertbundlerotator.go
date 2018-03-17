@@ -23,60 +23,80 @@ import (
 	"istio.io/istio/security/pkg/util"
 )
 
-// ClientRunner interacts with the upstream CA to maintain the KeyCertBundle valid.
-// TODO: Consider a better name.
-type ClientRunner interface {
-	// Run the ClientRunner loop (blocking call)
-	Run(stopCh <-chan struct{}, errCh chan<- error)
+// KeyCertBundleRotator continuously interacts with the upstream CA to maintain the KeyCertBundle valid.
+type KeyCertBundleRotator interface {
+	// Start the KeyCertBundleRotator loop (blocking call).
+	Start(errCh chan<- error)
+	// Stop the KeyCertBundleRotator loop.
+	Stop()
 }
 
-type clientRunner struct {
+type keyCertBundleRotatorImpl struct {
 	// TODO: Support multiple KeyCertBundles.
 	keycert  pkiutil.KeyCertBundle
 	certUtil util.CertUtil
 	client   CAClient
+	stopCh   chan bool
+	stopped  bool
 }
 
-// NewClientRunner creates a new clientReunner instance.
-func NewClientRunner(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, client CAClient) ClientRunner {
-	return &clientRunner{
+// NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
+func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, client CAClient) KeyCertBundleRotator {
+	return &keyCertBundleRotatorImpl{
 		keycert:  keycert,
 		certUtil: certUtil,
 		client:   client,
+		stopCh:   make(chan bool, 1),
+		stopped:  true,
 	}
 }
 
-// Run periodically rotates the key/cert of the Istio CA by interacting with the upstream Istio CA.
+// Start periodically rotates the KeyCertBundle by interacting with the upstream CA.
 // It is a blocking function that should run as a go routine.
-func (c *clientRunner) Run(stopCh <-chan struct{}, errCh chan<- error) {
+func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
+	if !c.stopped {
+		errCh <- fmt.Errorf("rotator already started")
+		return
+	}
+	c.stopped = false
 	for {
 		certBytes, _, _, _ := c.keycert.GetAllPem()
 		if len(certBytes) != 0 {
 			waitTime, ttlErr := c.certUtil.GetWaitTime(certBytes, time.Now())
-			if ttlErr == nil {
+			if ttlErr != nil {
+				log.Errorf("Error getting TTL from cert: %v. Rotate immediately.", ttlErr)
+			} else {
 				timer := time.NewTimer(waitTime)
 				log.Infof("Will rotate key and cert in %v.", waitTime)
 				select {
-				case <-stopCh:
+				case <-c.stopCh:
 					return
 				case <-timer.C:
 					// Continue in the loop.
 				}
-			} else {
-				log.Errorf("Error getting TTL from cert: %v. Rotate immediately.", ttlErr)
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
 		certBytes, certChainBytes, privateKeyBytes, err := c.client.RetrieveNewKeyCert()
 		if err != nil {
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
+			c.stopped = true
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
 		if err = c.keycert.VerifyAndSetAll(certBytes, privateKeyBytes, certChainBytes, rootCertBytes); err != nil {
 			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
+			c.stopped = true
 			return
 		}
 		log.Infof("Successfully retrieved new key and certs.")
+	}
+}
+
+// Stops the loop. Not thread safe.
+func (c *keyCertBundleRotatorImpl) Stop() {
+	if !c.stopped {
+		c.stopped = true
+		c.stopCh <- true
 	}
 }
