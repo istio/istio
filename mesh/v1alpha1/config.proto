@@ -41,16 +41,6 @@ enum AuthenticationPolicy {
   INHERIT = 1000;
 }
 
-// ServerAddress specifies the address of Istio components like mixer, pilot, etc.
-// At least one of the field needs to be specified.
-message ServerAddress {
-  // The address for mTLS server, e.g., (_istio-pilot:15003_)
-  string mutual_tls = 1;
-
-  // The address for plain text server, e.g., (_istio-pilot:15005_)
-  string plain_text = 2;
-}
-
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
   // Path to the generated configuration file directory.
@@ -84,7 +74,7 @@ message ProxyConfig {
   // MUST BE greater than _drain_duration_ parameter.
   google.protobuf.Duration parent_shutdown_duration = 5;
 
-  // Deprecated, use server_address instead.
+  // Address of the discovery service exposing xDS with mTLS connection.
   string discovery_address = 6;
 
   // Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS). (MUST BE >=1ms)
@@ -123,26 +113,25 @@ message ProxyConfig {
   // The number of worker threads to run. Default value is number of cores on the machine.
   int32 concurrency = 16;
 
-  // Deprecated, use discovery_mtls_address/discovery_plain_address instead.
-  ServerAddress pilot = 17;
-
-  // Address of the discovery service exposing xDS with mTLS connection.
-  string discovery_mtls_address = 18;
-
-  // Address of the discovery service exposing xDS with plain text connection.
-  string discovery_plain_address = 19;
-
   // Path to the proxy bootstrap template file
-  string proxy_bootstrap_template_path = 20;
+  string proxy_bootstrap_template_path = 17;
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
 message MeshConfig {
-  // Deprecated, use mixer_check instead.
+  // Address of the server that will be used by the proxies for policy
+  // check calls. By using different names for mixerCheckServer and
+  // mixerReportServer, it is possible to have one set of mixer servers handle
+  // policy check calls while another set of mixer servers handle telemetry
+  // calls.
+  //
+  // NOTE: Omitting mixerCheckServer while specifying mixerReportServer is
+  // equivalent to setting disablePolicyChecks to true.
   string mixer_check_server = 1;
 
-  // Deprecated, use mixer_report instead.
+  // Address of the server that will be used by the proxies for policy report
+  // calls.
   string mixer_report_server = 2;
 
   // Disable policy checks by the mixer service. Default
@@ -232,17 +221,4 @@ message MeshConfig {
   // DEPRECATED. Mixer address. This option will be removed soon. Please
   // use mixer_check and mixer_report.
   string mixer_address = 16;
-
-  // Address of the server that will be used by the proxies for policy
-  // check calls. By using different names for mixerCheck and mixerReport, it
-  // is possible to have one set of mixer servers handle policy check calls,
-  // while another set of mixer servers handle telemetry calls.
-  //
-  // NOTE: Omitting mixerCheck while specifying mixerReport is
-  // equivalent to setting disablePolicyChecks to true.
-  ServerAddress mixer_check = 17;
-
-  // Address of the server that will be used by the proxies for policy report
-  // calls.
-  ServerAddress mixer_report = 18;
 }
