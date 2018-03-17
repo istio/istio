@@ -59,14 +59,14 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 	}
 }
 
-func buildHTTPRouteMatchV2(match *networking.HTTPMatchRequest) *HTTPRoute {
+func buildHTTPRouteMatchV3(match *networking.HTTPMatchRequest) *HTTPRoute {
 	if match == nil {
 		return &HTTPRoute{Prefix: "/"}
 	}
 
 	route := &HTTPRoute{}
 	for name, stringMatch := range match.Headers {
-		route.Headers = append(route.Headers, buildHeaderV2(name, stringMatch))
+		route.Headers = append(route.Headers, buildHeaderV3(name, stringMatch))
 	}
 
 	// guarantee ordering of headers
@@ -91,15 +91,15 @@ func buildHTTPRouteMatchV2(match *networking.HTTPMatchRequest) *HTTPRoute {
 	}
 
 	if match.Method != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderMethod, match.Method))
+		route.Headers = append(route.Headers, buildHeaderV3(HeaderMethod, match.Method))
 	}
 
 	if match.Authority != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderAuthority, match.Authority))
+		route.Headers = append(route.Headers, buildHeaderV3(HeaderAuthority, match.Authority))
 	}
 
 	if match.Scheme != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderScheme, match.Scheme))
+		route.Headers = append(route.Headers, buildHeaderV3(HeaderScheme, match.Scheme))
 	}
 
 	// TODO: match.DestinationPorts
@@ -126,7 +126,7 @@ func buildHeader(name string, match *routing.StringMatch) Header {
 	return header
 }
 
-func buildHeaderV2(name string, match *networking.StringMatch) Header {
+func buildHeaderV3(name string, match *networking.StringMatch) Header {
 	header := Header{Name: name}
 
 	switch m := match.MatchType.(type) {

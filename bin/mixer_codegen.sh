@@ -97,29 +97,12 @@ popd
 echo "Done."
 fi
 
-# TODO: vendor those too like istio.io/api without pruning protos
-
-GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
-GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
-
-if [ ! -e ${ROOT}/vendor/github.com/googleapis/googleapis ]; then
-echo "Pull down source protos from googleapis..."
-
-mkdir -p ${ROOT}/vendor/github.com/googleapis/googleapis
-
-# all the google_rpc protos
-mkdir -p ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/status.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/status.proto
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/code.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/code.proto
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/error_details.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/error_details.proto
-fi
-
 imports=(
  "${ROOT}"
  "${ROOT}/vendor/istio.io/api"
  "${ROOT}/vendor/github.com/gogo/protobuf"
+ "${ROOT}/vendor/github.com/gogo/googleapis"
  "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
- "${ROOT}/vendor/github.com/googleapis/googleapis"
 )
 
 IMPORTS=""

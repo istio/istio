@@ -159,13 +159,13 @@ func buildOutlierDetection(outlier *networking.OutlierDetection) *OutlierDetecti
 		}
 
 		if outlier.Http.BaseEjectionTime != nil {
-			out.BaseEjectionTimeMS = protoDurationToMS(outlier.Http.BaseEjectionTime)
+			out.BaseEjectionTimeMS = protoDurationToMSGogo(outlier.Http.BaseEjectionTime)
 		}
 		if outlier.Http.ConsecutiveErrors > 0 {
 			out.ConsecutiveErrors = int(outlier.Http.ConsecutiveErrors)
 		}
 		if outlier.Http.Interval != nil {
-			out.IntervalMS = protoDurationToMS(outlier.Http.Interval)
+			out.IntervalMS = protoDurationToMSGogo(outlier.Http.Interval)
 		}
 		if outlier.Http.MaxEjectionPercent > 0 {
 			out.MaxEjectionPercent = int(outlier.Http.MaxEjectionPercent)
@@ -216,7 +216,7 @@ func applyConnectionPool(cluster *Cluster, settings *networking.ConnectionPoolSe
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeoutMs = protoDurationToMS(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeoutMs = protoDurationToMSGogo(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {

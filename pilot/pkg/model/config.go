@@ -201,6 +201,9 @@ type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
 
+	// Gogo is true for gogo protobuf messages
+	Gogo bool
+
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(config proto.Message) error
@@ -337,13 +340,14 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
-	// VirtualService describes v1alpha2 route rules
+	// VirtualService describes v1alpha3 route rules
 	VirtualService = ProtoSchema{
 		Type:        "virtual-service",
 		Plural:      "virtual-services",
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
+		Gogo:        true,
 		Validate:    ValidateVirtualService,
 	}
 
@@ -354,6 +358,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
+		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
 
@@ -384,6 +389,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ExternalService",
+		Gogo:        true,
 		Validate:    ValidateExternalService,
 	}
 
@@ -477,6 +483,26 @@ var (
 		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
 	}
 
+	// ServiceRole describes an RBAC service role.
+	ServiceRole = ProtoSchema{
+		Type:        "service-role",
+		Plural:      "service-roles",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRole",
+		Validate:    ValidateServiceRole,
+	}
+
+	// ServiceRoleBinding describes an RBAC service role.
+	ServiceRoleBinding = ProtoSchema{
+		Type:        "service-role-binding",
+		Plural:      "service-role-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRoleBinding",
+		Validate:    ValidateServiceRoleBinding,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -494,6 +520,8 @@ var (
 		EndUserAuthenticationPolicySpec,
 		EndUserAuthenticationPolicySpecBinding,
 		AuthenticationPolicy,
+		ServiceRole,
+		ServiceRoleBinding,
 	}
 )
 
@@ -638,6 +666,10 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 	return out
 }
 
+// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
+// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
+// and matches these destinations against the input destination. The rules that match should be considered
+// for BuildInboundRoutesV2
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
 	configs := store.routeRulesByDestination(instances)
 	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)

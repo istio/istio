@@ -24,9 +24,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -83,7 +80,7 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 	}
 }
 
-// TranslateVirtualHosts creates the entire routing table for Istio v1alpha2 configs.
+// TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
@@ -238,7 +235,7 @@ type GuardedRoute struct {
 	Gateways []string
 }
 
-// TranslateRoutes creates virtual host routes from the v1alpha2 config.
+// TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
@@ -438,9 +435,7 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		AllowOrigin: in.AllowOrigin,
 		Enabled:     &types.BoolValue{Value: true},
 	}
-	if in.AllowCredentials != nil {
-		out.AllowCredentials = TranslateBool(in.AllowCredentials)
-	}
+	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -450,20 +445,12 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
-// TranslateBool converts bool wrapper.
-func TranslateBool(in *wrappers.BoolValue) *types.BoolValue {
-	if in == nil {
-		return nil
-	}
-	return &types.BoolValue{Value: in.Value}
-}
-
 // TranslateTime converts time protos.
-func TranslateTime(in *duration.Duration) *time.Duration {
+func TranslateTime(in *types.Duration) *time.Duration {
 	if in == nil {
 		return nil
 	}
-	out, err := ptypes.Duration(in)
+	out, err := types.DurationFromProto(in)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
