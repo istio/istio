@@ -593,8 +593,7 @@ installgen:
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	$(MAKE) istio.yaml
+	./install/updateVersion.sh -a ${HUB},${TAG} 
 
 
 istio.yaml:
@@ -603,9 +602,20 @@ istio.yaml:
                   --set global.hub=${HUB} \
                   --set global.securityEnabled=false \
 		  --set global.rbacEnabled=true \
-		  --set istiotesting.oneNamespace=true \
+		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+
+istio-one-namespace.yaml:
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+                  --set global.securityEnabled=false \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=true \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace.yaml
+
 
 istio_auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
@@ -613,8 +623,21 @@ istio_auth.yaml:
                   --set global.hub=${HUB} \
                   --set global.securityEnabled=true \
 		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+				install/kubernetes/helm/istio > install/kubernetes/istio_auth.yaml
+
+istio-one-namespace-auth.yaml:
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+                  --set global.securityEnabled=false \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=true \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace-auth.yaml
+
+
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
