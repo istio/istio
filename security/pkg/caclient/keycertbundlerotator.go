@@ -33,9 +33,9 @@ type KeyCertBundleRotator interface {
 
 type keyCertBundleRotatorImpl struct {
 	// TODO: Support multiple KeyCertBundles.
-	keycert  pkiutil.KeyCertBundle
 	certUtil util.CertUtil
 	client   CAClient
+	keycert  pkiutil.KeyCertBundle
 	stopCh   chan bool
 	stopped  bool
 }
@@ -43,16 +43,16 @@ type keyCertBundleRotatorImpl struct {
 // NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
 func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, client CAClient) KeyCertBundleRotator {
 	return &keyCertBundleRotatorImpl{
-		keycert:  keycert,
 		certUtil: certUtil,
 		client:   client,
+		keycert:  keycert,
 		stopCh:   make(chan bool, 1),
 		stopped:  true,
 	}
 }
 
 // Start periodically rotates the KeyCertBundle by interacting with the upstream CA.
-// It is a blocking function that should run as a go routine.
+// It is a blocking function that should run as a go routine. Not thread safe.
 func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 	if !c.stopped {
 		errCh <- fmt.Errorf("rotator already started")
