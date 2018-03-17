@@ -1,8 +1,7 @@
 package template
 
-// nolint:lll
-
 // AugmentedProtoTmpl defines the modified template proto with Type and InstanceParams
+// nolint:lll
 var AugmentedProtoTmpl = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
