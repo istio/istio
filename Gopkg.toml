@@ -54,6 +54,14 @@ required = [
     name = "github.com/envoyproxy/go-control-plane"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/googleapis"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/protobuf"
+    non-go = false
+    unused-packages = false
 ###
 
 [[constraint]]
