@@ -34,6 +34,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
@@ -733,21 +734,39 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				// because v1alpha3 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					rule := config.Spec.(*networking.VirtualService)
+					switch config.Spec.(type) {
+					case *v1alpha1.RouteRule:
+						rule := config.Spec.(*v1alpha1.RouteRule)
+						if route := v1.BuildInboundRoute(config, rule, cluster); route != nil {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
 
-					// if no routes are returned, it is a TCP RouteRule
-					routes := v1.BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
-					for _, route := range routes {
-						// set server-side mixer filter config for inbound HTTP routes
-						// Note: websocket routes do not call the filter chain. Will be
-						// resolved in future.
-						if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-							route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-								instance.Service.Hostname)
+							host.Routes = append(host.Routes, route)
 						}
-					}
+					case *networking.VirtualService:
+						rule := config.Spec.(*networking.VirtualService)
 
-					host.Routes = append(host.Routes, routes...)
+						// if no routes are returned, it is a TCP RouteRule
+						routes := v1.BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
+						for _, route := range routes {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
+						}
+
+						host.Routes = append(host.Routes, routes...)
+					default:
+						panic("unsupported rule")
+					}
 				}
 			}
 
