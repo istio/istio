@@ -1,0 +1,27 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRole
+metadata:
+  name: service-viewer
+  namespace: istio-system
+spec:
+  rules:
+  - services: ["*"]
+    methods: ["GET"]
+    constraints:
+    - key: "app"
+      values: ["productpage", "details", "reviews"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-service-viewer
+  namespace: istio-system
+spec:
+  subjects:
+  - properties:
+      namespace: "default"
+  - properties:
+      namespace: "istio-system"
+  roleRef:
+    kind: ServiceRole
+    name: "service-viewer"
