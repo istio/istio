@@ -28,8 +28,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pilot/pkg/networking/deprecated"
+	"istio.io/istio/pkg/log"
 )
 
 // StreamListeners implements the DiscoveryServer interface.

@@ -17,15 +17,12 @@ package deprecated
 import (
 	"fmt"
 	"regexp"
-	"sort"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
 func buildHTTPHeaderMatcher(matches *routing.MatchCondition) []*route.HeaderMatcher {
