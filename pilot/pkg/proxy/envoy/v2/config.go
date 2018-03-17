@@ -353,7 +353,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 func mayApplyInboundAuth(listener *xdsapi.Listener, authenticationPolicy *authn.Policy) {
 	if requireTLS(authenticationPolicy) {
 		// TODO(mostrowski): figure out SSL
-		log.Debugf("Applying authN policy %#v for %#v\n", authenticationPolicy, listener)
+		log.Debugf("TODO Apply authN policy %#v for %#v\n", authenticationPolicy, listener)
 	}
 }
 
