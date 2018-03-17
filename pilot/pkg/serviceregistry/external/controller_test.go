@@ -12,45 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package eureka
+package external
 
 import (
 	"sync"
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
-	resync          = 5 * time.Millisecond
-	notifyThreshold = resync * 10
+	notifyThreshold = 5 * time.Millisecond
 )
-
-type mockSyncClient struct {
-	mutex sync.Mutex
-	apps  []*application
-}
-
-func (m *mockSyncClient) Applications() ([]*application, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	apps := make([]*application, len(m.apps))
-	copy(apps, m.apps)
-	return apps, nil
-}
-
-func (m *mockSyncClient) SetApplications(apps []*application) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.apps = apps
-}
-
-var _ Client = (*mockSyncClient)(nil)
 
 // TODO: ensure this test is reliable (no timing issues) on different systems
 func TestController(t *testing.T) {
-	cl := &mockSyncClient{}
+	configDescriptor := model.ConfigDescriptor{
+		model.ExternalService,
+	}
+	store := memory.Make(configDescriptor)
+	configController := memory.NewController(store)
 
 	countMutex := sync.Mutex{}
 	count := 0
@@ -68,7 +51,7 @@ func TestController(t *testing.T) {
 		return c
 	}
 
-	ctl := NewController(cl, resync)
+	ctl := NewController(configController)
 	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
 	if err != nil {
 		t.Errorf("AppendInstanceHandler() => %q", err)
@@ -80,6 +63,7 @@ func TestController(t *testing.T) {
 	}
 
 	stop := make(chan struct{})
+	go configController.Run(stop)
 	go ctl.Run(stop)
 	defer close(stop)
 
@@ -88,17 +72,23 @@ func TestController(t *testing.T) {
 		t.Errorf("got %d notifications from controller, want %d", c, 0)
 	}
 
-	cl.SetApplications([]*application{
-		{
-			Name: "APP",
-			Instances: []*instance{
-				makeInstance("hello.world.local", "10.0.0.1", 8080, -1, nil),
-				makeInstance("hello.world.local", "10.0.0.2", 8080, -1, nil),
-			},
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.ExternalService.Type,
+			Name:      "example",
+			Namespace: "default",
+			Domain:    "cluster.local",
 		},
-	})
+		Spec: httpStatic,
+	}
+
+	_, err = configController.Create(config)
+	if err != nil {
+		t.Errorf("error occurred crearting ExternalService config: %v", err)
+	}
+
 	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 2 {
-		t.Errorf("got %d notifications from controller, want %d", c, 2)
+	if c := getCountAndReset(); c != 7 {
+		t.Errorf("got %d notifications from controller, want %d", c, 7)
 	}
 }
