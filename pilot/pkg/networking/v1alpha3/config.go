@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v1alpha3
 
 import (
 	"fmt"
@@ -34,7 +34,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
@@ -84,7 +83,7 @@ const (
 )
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
-func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		proxyInstances, err := env.GetProxyServiceInstances(node)
@@ -117,12 +116,13 @@ func buildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		if svc != nil {
 			insts = append(insts, &model.ServiceInstance{Service: svc})
 		}
-		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		// TODO : Need v1alpha3 equivalent of buildIngressGateway
+		// return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }
 
-func buildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
+func BuildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
 	var clusters v1.Clusters
 	var proxyInstances []*model.ServiceInstance
 	var err error
@@ -278,7 +278,8 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	filters := []*http_conn.HttpFilter{buildHTTPFilterConfig(CORSFilter, "")}
-	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
+	// TODO: Need v1alpha3 equivalent of fault filters
+	//filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, buildHTTPFilterConfig(RouterFilter, ""))
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
@@ -735,19 +736,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				model.SortRouteRules(rules)
 				for _, config := range rules {
 					switch config.Spec.(type) {
-					case *v1alpha1.RouteRule:
-						rule := config.Spec.(*v1alpha1.RouteRule)
-						if route := v1.BuildInboundRoute(config, rule, cluster); route != nil {
-							// set server-side mixer filter config for inbound HTTP routes
-							// Note: websocket routes do not call the filter chain. Will be
-							// resolved in future.
-							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-								route.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-									instance.Service.Hostname)
-							}
-
-							host.Routes = append(host.Routes, route)
-						}
 					case *networking.VirtualService:
 						rule := config.Spec.(*networking.VirtualService)
 

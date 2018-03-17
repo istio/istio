@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package deprecated
 
 import (
 	"fmt"
@@ -51,41 +51,6 @@ func buildHTTPHeaderMatcher(matches *routing.MatchCondition) []*route.HeaderMatc
 	return out
 }
 
-func buildHTTPHeaderMatcherV2(match *networking.HTTPMatchRequest) []*route.HeaderMatcher { // nolint
-	if match == nil {
-		return nil
-	}
-
-	var out []*route.HeaderMatcher
-	for name, stringMatch := range match.Headers {
-		out = append(out, buildHeaderMatcherV2(name, stringMatch))
-	}
-
-	// guarantee ordering of headers
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Name == out[j].Name {
-			return out[i].Value < out[j].Value
-		}
-		return out[i].Name < out[j].Name
-	})
-
-	if match.Method != nil {
-		out = append(out, buildHeaderMatcherV2(v1.HeaderMethod, match.Method))
-	}
-
-	if match.Authority != nil {
-		out = append(out, buildHeaderMatcherV2(v1.HeaderAuthority, match.Authority))
-	}
-
-	if match.Scheme != nil {
-		out = append(out, buildHeaderMatcherV2(v1.HeaderScheme, match.Scheme))
-	}
-
-	// TODO: match.DestinationPorts
-
-	return out
-}
-
 func buildHeaderMatcher(name string, match *routing.StringMatch) *route.HeaderMatcher {
 	header := &route.HeaderMatcher{Name: name}
 
@@ -98,25 +63,6 @@ func buildHeaderMatcher(name string, match *routing.StringMatch) *route.HeaderMa
 		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
 		header.Regex = &google_protobuf.BoolValue{true}
 	case *routing.StringMatch_Regex:
-		header.Value = m.Regex
-		header.Regex = &google_protobuf.BoolValue{true}
-	}
-
-	return header
-}
-
-func buildHeaderMatcherV2(name string, match *networking.StringMatch) *route.HeaderMatcher { // nolint
-	header := &route.HeaderMatcher{Name: name}
-
-	switch m := match.MatchType.(type) {
-	case *networking.StringMatch_Exact:
-		header.Value = m.Exact
-	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
-		// Golang has a slightly different regex grammar
-		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
-		header.Regex = &google_protobuf.BoolValue{true}
-	case *networking.StringMatch_Regex:
 		header.Value = m.Regex
 		header.Regex = &google_protobuf.BoolValue{true}
 	}

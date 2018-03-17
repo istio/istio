@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/pkg/networking/deprecated"
 )
 
 // StreamListeners implements the DiscoveryServer interface.
@@ -116,7 +117,7 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 
 // ListListenersResponse returns a list of listeners for the given environment and source node.
 func ListListenersResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := buildListeners(env, node)
+	ls, err := deprecated.BuildListeners(env, node)
 	if err != nil {
 		return nil, err
 	}
