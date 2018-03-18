@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type debug struct {
+	envoyAdminAddress    string
+	staticConfigLocation string
+}
+
 var (
 	configTypes = map[string]struct{}{
 		"all":       {},
@@ -39,39 +44,48 @@ var (
 		Short: "Debug local envoy",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			configType := args[0]
-			if err := validateConfigType(configType); err != nil {
-				return err
+			d := &debug{
+				envoyAdminAddress:    "http://127.0.0.1:15000",
+				staticConfigLocation: "/etc/istio/proxy",
 			}
-
-			if configType == "static" {
-				return printStaticConfig()
-			} else if configType == "all" {
-				for ct := range configTypes {
-					switch ct {
-					case "clusters", "listeners", "routes":
-						if err := printDynamicConfig(ct); err != nil {
-							return err
-						}
-					case "static":
-						return printStaticConfig()
-					}
-				}
-				return nil
-			}
-			return printDynamicConfig(configType)
+			return d.run(args)
 		},
 	}
 )
 
-func printStaticConfig() error {
-	dir := "/etc/istio/proxy"
-	files, err := ioutil.ReadDir(dir)
+func (d *debug) run(args []string) error {
+	configType := args[0]
+	if err := validateConfigType(configType); err != nil {
+		return err
+	}
+
+	if configType == "static" {
+		return d.printStaticConfig()
+	} else if configType == "all" {
+		for ct := range configTypes {
+			switch ct {
+			case "clusters", "listeners", "routes":
+				if err := d.printDynamicConfig(ct); err != nil {
+					return err
+				}
+			case "static":
+				if err := d.printStaticConfig(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return d.printDynamicConfig(configType)
+}
+
+func (d *debug) printStaticConfig() error {
+	files, err := ioutil.ReadDir(d.staticConfigLocation)
 	if err != nil {
 		return fmt.Errorf("error reading default config directory: %v", err)
 	}
 	for _, f := range files {
-		filePath := filepath.Join(dir, f.Name())
+		filePath := filepath.Join(d.staticConfigLocation, f.Name())
 		contents, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return fmt.Errorf("error reading config file %q: %v", filePath, err)
@@ -81,18 +95,23 @@ func printStaticConfig() error {
 	return nil
 }
 
-func printDynamicConfig(typ string) error {
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:15000/%s", typ))
+func (d *debug) printDynamicConfig(typ string) error {
+	resp, err := http.Get(fmt.Sprintf("http://%v/%s", d.envoyAdminAddress, typ))
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			log.Errorf("Error closing response body: %v", err)
 		}
 	}()
 	bytes, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bytes))
+	if resp.StatusCode == 200 {
+		fmt.Println(string(bytes))
+	} else {
+		return fmt.Errorf("received %v status from Envoy: %v", resp.StatusCode, string(bytes))
+	}
 	return nil
 }
 
