@@ -54,17 +54,24 @@ ifeq ($(GO),)
   $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
 endif
 
-export GOARCH ?= amd64
+LOCAL_ARCH := $(shell uname -m)
+ifeq ($(LOCAL_ARCH),x86_64)
+LOCAL_GOARCH := amd64
+else
+LOCAL_GOARCH := $(LOCAL_ARCH)
+endif
+export GOARCH ?= $(LOCAL_GOARCH)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   export GOOS ?= linux
+   LOCAL_GOOS := linux
 else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS ?= darwin
+   LOCAL_GOOS := darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
 endif
+export GOOS ?= $(LOCAL_GOOS)
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -141,7 +148,7 @@ ifeq ($(TAG),)
 endif
 
 DEP       := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
-HELM      := $(shell which helm   2>/dev/null || echo "${ISTIO_OUT}/helm$(HELM_VER)" )
+HELM      := $(shell which helm   2>/dev/null || echo "${ISTIO_BIN}/helm$(HELM_VER)" )
 FORTIO    := $(shell which fortio 2>/dev/null || echo "${ISTIO_BIN}/fortio" )
 GEN_CERT  := ${ISTIO_BIN}/generate_cert
 
@@ -274,7 +281,7 @@ $(ISTIO_OUT)/vendor_checked: Gopkg.toml Gopkg.lock | $(ISTIO_OUT) $(GRPC_DIR)
 	touch $(ISTIO_OUT)/vendor_checked
 
 ${GEN_CERT}:
-	unset GOOS && unset GOARCH && bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(LOCAL_GOOS) GOARCH=$(LOCAL_GOARCH) bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 # If CGO_ENABLED=0 then go get tries to install in system directories.
 # If -pkgdir <dir> is also used then various additional .a files are present.
@@ -284,12 +291,12 @@ ${ISTIO_BIN}/dep:
 fortio ${ISTIO_BIN}/fortio: | $(ISTIO_OUT)/vendor_checked ${ISTIO_BIN}
 	unset GOOS && unset GOARCH && cd vendor/istio.io/fortio/ && go install .
 
-${ISTIO_OUT}/helm$(HELM_VER): | ${ISTIO_OUT} $(FORTIO)
+${ISTIO_BIN}/helm$(HELM_VER): | ${ISTIO_BIN} $(FORTIO)
 	cd /tmp && \
-        $(FORTIO) curl -stdclient https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz > /tmp/helm.tgz && \
-        tar xfz helm.tgz linux-amd64/helm && \
-        mv linux-amd64/helm ${ISTIO_OUT}/helm${HELM_VER} && \
-        rm -rf helm.tgz linux-amd64
+        $(FORTIO) curl -stdclient https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_GOOS}-amd64.tar.gz > /tmp/helm.tgz && \
+        tar xfz helm.tgz ${LOCAL_GOOS}-amd64/helm && \
+        mv ${LOCAL_GOOS}-amd64/helm ${ISTIO_BIN}/helm${HELM_VER} && \
+        rm -rf helm.tgz ${LOCAL_GOOS}-amd64
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -351,11 +358,11 @@ istioctl ${ISTIO_OUT}/istioctl: $(INIT_LIST)
 # Non-static istioctls. These are typically a build artifact.
 ISTIOCTL_ALL:=${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
 ${ISTIO_OUT}/istioctl-linux: $(INIT_LIST)
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux   GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: $(INIT_LIST)
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin  GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: $(INIT_LIST)
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 $(foreach ITEM,$(MIXER_GO_BINS),$(eval $(notdir $(ITEM)) $(ITEM): $(INIT_LIST); \
@@ -420,7 +427,7 @@ JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}
 
 ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
