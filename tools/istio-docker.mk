@@ -103,10 +103,10 @@ docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
 ifeq ($(DEBUG_IMAGE),1)
 	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 else
 	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy .)
 endif
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
@@ -117,13 +117,13 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER_BASE)/proxyd/envoy
 	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER_BASE)/proxyd/
 	time (cd $(ISTIO_DOCKER_BASE)/proxyd && \
-		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy_debug$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER_BASE)/pilot
 	cp $^ $(ISTIO_DOCKER_BASE)/pilot/
 	time (cd $(ISTIO_DOCKER_BASE)/pilot && \
-		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile.pilot .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)pilot$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.pilot .)
 
 # Test app for pilot integration
 docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
@@ -134,10 +134,10 @@ ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
 	cp $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.app $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appd
+	sed -e "s,FROM scratch,FROM $(HUB)$(HUB_IMG_DELIM)proxy_debug$(IMG_TAG_DELIM)$(TAG)," $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER_BASE)/pilotapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER_BASE)/pilotapp && \
-		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)app$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.app .)
 
 
 PILOT_DOCKER:=docker.eurekamirror \

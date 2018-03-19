@@ -79,7 +79,7 @@ node('docker') {
         sh "cd $wkdir && make " +
          "HUB_IMG_DELIM=: " +
          "IMG_TAG_DELIM=- " +
-         "HUB=quay.io/aspenmesh/istio-private " +
+         "HUB=quay.io/aspenmesh/jenkins-artifacts " +
          "TAG=$BUILD_TAG " +
          "docker push"
         gitTag = getTag(wkdir)
@@ -89,7 +89,7 @@ node('docker') {
           sh "cd $wkdir && make " +
            "HUB_IMG_DELIM=: " +
            "IMG_TAG_DELIM=- " +
-           "HUB=quay.io/aspenmesh/istio-private " +
+           "HUB=quay.io/aspenmesh/jenkins-artifacts " +
            "TAG=$gitTag " +
            "docker push"
         }
