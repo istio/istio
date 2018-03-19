@@ -28,6 +28,7 @@ var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
+	responseTickDuration  = time.Second * 15
 )
 
 const (
