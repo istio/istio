@@ -354,7 +354,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if consolidateAuthPolicy.
 func mayApplyInboundAuth(listener *xdsapi.Listener, authenticationPolicy *authn.Policy) {
-	if authplugin.RequireTLS(authenticationPolicy) {
+	if model.RequireTLS(authenticationPolicy) {
 		// TODO(mostrowski): figure out SSL
 		log.Debugf("TODO Apply authN policy %#v for %#v\n", authenticationPolicy, listener)
 	}
@@ -780,7 +780,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if l != nil {
-			authenticationPolicy := authplugin.GetConsolidatedAuthenticationPolicy(mesh, config, instance.Service.Hostname, servicePort)
+			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh, config, instance.Service.Hostname, servicePort)
 			mayApplyInboundAuth(l, authenticationPolicy)
 			listeners = append(listeners, l)
 		}
