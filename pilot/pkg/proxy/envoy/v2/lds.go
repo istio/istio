@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/deprecated"
+	"istio.io/istio/pilot/pkg/dataplane/networking/deprecated"
 	"istio.io/istio/pkg/log"
 )
 
