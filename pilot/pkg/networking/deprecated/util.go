@@ -22,9 +22,12 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
+
+	"istio.io/istio/pkg/log"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -77,16 +80,16 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 }
 
 // protoDurationToTimeDuration converts d to time.Duration format.
-func protoDurationToTimeDuration(d *google_protobuf.Duration) time.Duration { //nolint
+func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
 	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
 }
 
 // google_protobufToProto converts d to google protobuf Duration format.
-func durationToProto(d time.Duration) *google_protobuf.Duration { // nolint
+func durationToProto(d time.Duration) *types.Duration { // nolint
 	nanos := d.Nanoseconds()
 	secs := nanos / 1e9
 	nanos -= secs * 1e9
-	return &google_protobuf.Duration{
+	return &types.Duration{
 		Seconds: secs,
 		Nanos:   int32(nanos),
 	}
@@ -97,21 +100,23 @@ func durationToTimeDuration(d *duration.Duration) time.Duration {
 	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
 }
 
-func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name:   name,
-		Config: buildProtoStruct(name, protoStr),
-	}
-}
-
-func buildProtoStruct(name, value string) *google_protobuf.Struct {
-	return &google_protobuf.Struct{
-		Fields: map[string]*google_protobuf.Value{
+func buildProtoStruct(name, value string) *types.Struct {
+	return &types.Struct{
+		Fields: map[string]*types.Value{
 			name: {
-				Kind: &google_protobuf.Value_StringValue{
+				Kind: &types.Value_StringValue{
 					StringValue: value,
 				},
 			},
 		},
 	}
+}
+
+func messageToStruct(msg proto.Message) *types.Struct {
+	s, err := util.MessageToStruct(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
+	}
+	return s
 }

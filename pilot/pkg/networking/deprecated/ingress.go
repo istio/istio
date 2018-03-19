@@ -15,15 +15,23 @@
 package deprecated
 
 import (
+	"path"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
-func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
+// TODO: rename to lds_ingress or ingress_lds
+
+func (lc *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress model.Proxy) []*xdsapi.Listener {
 
@@ -41,7 +49,11 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 		store:            config,
 	}
 
-	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}
+	manager := buildHTTPConnectionManager(opts)
+	l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
+	lc.HTTPListeners[":80"] = l
+
+	listeners := []*xdsapi.Listener{l}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
@@ -49,14 +61,48 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 	if secret != "" {
 		opts.port = 443
 		opts.rds = "443"
-		listener := buildHTTPListener(opts)
-		// TODO(mostrowski)
-		/*listener.SSLContext = &SSLContext{
-			CertChainFile:  path.Join(model.IngressCertsPath, model.IngressCertFilename),
-			PrivateKeyFile: path.Join(model.IngressCertsPath, model.IngressKeyFilename),
-			ALPNProtocols:  strings.Join(ListenersALPNProtocols, ","),
-		} */
-		listeners = append(listeners, listener)
+		manager := buildHTTPConnectionManager(opts)
+		l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
+		lc.HTTPListeners[":443"] = l
+
+		l.FilterChains = []listener.FilterChain{
+			{
+				TlsContext: &envoy_api_v2_auth.DownstreamTlsContext{
+					CommonTlsContext: &envoy_api_v2_auth.CommonTlsContext{
+						ValidationContext: &envoy_api_v2_auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "./security/samples/plugin_ca_certs/cert-chain.pem",
+								},
+							},
+						},
+						AlpnProtocols: v1.ListenersALPNProtocols,
+						TlsCertificates: []*envoy_api_v2_auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: path.Join(model.IngressCertsPath, model.IngressCertFilename),
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: path.Join(model.IngressCertsPath, model.IngressKeyFilename),
+									},
+								},
+							},
+						},
+					},
+				},
+				Filters: []listener.Filter{
+					{
+						Name:   filterHTTPConnectionManager,
+						Config: messageToStruct(manager),
+					},
+				},
+			},
+		}
+
+		listeners = append(listeners, l)
 	}
 
 	return listeners
