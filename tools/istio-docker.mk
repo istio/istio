@@ -100,7 +100,7 @@ docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) addons/grafana/dashboard
                 addons/grafana/datasources.yaml addons/grafana/grafana.ini addons/grafana/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 DOCKER_RULE=time (mkdir -p $(ISTIO_DOCKER)/$@ && cp -r $^ $(ISTIO_DOCKER)/$@/ && cd $(ISTIO_DOCKER)/$@/ && \
             docker build $(DOCKER_OPT$(suffix $@)) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .) && \
