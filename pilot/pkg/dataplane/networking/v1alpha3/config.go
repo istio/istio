@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
-	authplugin "istio.io/istio/pilot/pkg/dataplane/plugins/auth"
 )
 
 const (

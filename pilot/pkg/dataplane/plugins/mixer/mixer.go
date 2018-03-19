@@ -14,7 +14,7 @@
 
 package mixer
 
-// Place holder file.
+// DoNothing holder file.
 func DoNothing() {
 	// do nothing.
 }
