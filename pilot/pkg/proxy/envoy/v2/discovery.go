@@ -28,10 +28,10 @@ var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
+	responseTickDuration    = time.Second * 15
 )
 
 const (
-	responseTickDuration  = time.Second * 15
 	unknownPeerAddressStr = "Unknown peer address"
 )
 
@@ -64,7 +64,8 @@ func NewDiscoveryServer(mesh model.ServiceDiscovery, grpcServer *grpc.Server, en
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func periodicRefresh() {
-	responseTickDuration, err := time.ParseDuration(periodicRefreshDuration)
+	var err error
+	responseTickDuration, err = time.ParseDuration(periodicRefreshDuration)
 	if err != nil {
 		return
 	}
