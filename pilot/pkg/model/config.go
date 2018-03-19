@@ -260,9 +260,9 @@ type IstioConfigStore interface {
 	// destination instances.
 	RouteRulesByDestination(destination []*ServiceInstance, domain string) []Config
 
-	// Policy returns a policy for a service version that match at least one of
+	// DestinationPolicy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
-	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
+	DestinationPolicy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
 	// Name can be short name or FQDN.
@@ -528,6 +528,7 @@ var (
 // ResolveHostname uses metadata information to resolve a service reference to
 // a fully qualified hostname. The metadata namespace and domain are used as
 // fallback values to fill up the complete name.
+// TODO: Deprecated. Get rid of this method
 func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
@@ -619,6 +620,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	return configs
 }
 
+// route rules by source to a destination
 func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
@@ -646,6 +648,7 @@ func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destinat
 	return out
 }
 
+// route rules to a destination
 func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
@@ -666,16 +669,14 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 	return out
 }
 
-// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
-// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
-// and matches these destinations against the input destination. The rules that match should be considered
-// for BuildInboundRoutesV2
+
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
 	configs := store.routeRulesByDestination(instances)
 	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
 	return configs
 }
 
+// Routes to destination
 func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
@@ -699,6 +700,10 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 
 // This logic assumes there is at most one route rule for a given host.
 // If there is more than one the output may be non-deterministic.
+
+// TODO: This is wrong per V1alpha3. We need to scan the entire rule for destinations (in route, redirect, mirror blocks)
+// and match these destinations against the input destination. The rules that match should be considered
+// for BuildInboundRoutesV2
 func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
@@ -735,7 +740,7 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
-func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
+func (store *istioConfigStore) DestinationPolicy(instances []*ServiceInstance, destination string, labels Labels) *Config {
 	configs, err := store.List(DestinationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -824,6 +829,7 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
 		for _, service := range b.Services {
+			// TODO: fix me, we don't have IstioService in v1alpha3
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.ApiSpecs {
