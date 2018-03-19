@@ -584,10 +584,11 @@ func TestReloadCert(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
 		return checkCert(t, wh, rotatedCert, rotatedKey)
-	}, "10s", "1s").Should(gomega.BeTrue())
+	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 
 func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
+	t.Helper()
 	actual, err := wh.getCert(nil)
 	if err != nil {
 		t.Fatalf("fail to get certificate from webhook: %s", err)
