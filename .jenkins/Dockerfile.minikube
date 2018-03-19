@@ -14,6 +14,9 @@
 
 FROM debian:jessie
 
+ARG     K8S_VER=v1.9.2
+ARG     MINIKUBE_VER=v0.25.0
+
 # Install minikube dependencies
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
   DEBIAN_FRONTEND=noninteractive apt-get -yy -q --no-install-recommends install \
@@ -54,7 +57,8 @@ VOLUME /var/lib/docker
 EXPOSE 2375
 
 # Install minikube
-RUN curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && chmod +x minikube
+RUN curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 \
+ && chmod +x minikube
 ENV MINIKUBE_WANTUPDATENOTIFICATION=false
 ENV MINIKUBE_WANTREPORTERRORPROMPT=false
 ENV CHANGE_MINIKUBE_NONE_USER=true
@@ -65,9 +69,9 @@ COPY fake-systemctl.sh /usr/local/bin/systemctl
 EXPOSE 8443
 
 # Install kubectl
-RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.9.1/bin/linux/amd64/kubectl && \
-  chmod a+x kubectl && \
-  mv kubectl /usr/local/bin
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl \
+ && chmod a+x kubectl \
+ && mv kubectl /usr/local/bin
 
 # Copy local start.sh
 COPY start.sh /start.sh

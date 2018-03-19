@@ -70,7 +70,6 @@ node('docker') {
       }
 
       stage('Test') {
-        // sh "cp kubeconfig $wkdir/pilot/platform/kube/config"
         sh "cd $wkdir && ./.jenkins/run-tests.sh"
       }
 

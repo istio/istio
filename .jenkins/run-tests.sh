@@ -2,6 +2,7 @@
 
 set -e
 set -x
+set -o pipefail
 
 #
 # This is a replica of .circleci.yaml test target
