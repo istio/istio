@@ -100,10 +100,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard SKIP_REBUILD_CHECK=1 E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -145,7 +145,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make SKIP_REBUILD_CHECK=1 e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+                  make e2e_mixer SKIP_REBUILD_CHECK=1 E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -183,7 +183,7 @@ jobs:
             no_output_timeout: 20m
             when: always
             command: |
-              make SKIP_REBUILD_CHECK=1 e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+              make e2e_bookinfo SKIP_REBUILD_CHECK=1 E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -220,7 +220,7 @@ jobs:
             make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/noauth/e2e_pilot_alpha1 SKIP_REBUILD_CHECK=1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
