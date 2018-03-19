@@ -158,8 +158,8 @@ test/minikube/noauth/e2e_pilot: ${ISTIO_OUT}/istioctl
 		--auth_enable=false \
 		-v1alpha3=true -v1alpha1=false \
 		--core-files-dir=${OUT_DIR}/logs \
-        	--ns pilot-noauth-system \
-        	-n pilot-noauth \
+		--ns pilot-noauth-system \
+		-n pilot-noauth \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
@@ -182,7 +182,7 @@ test/minikube/auth/e2e_pilot_alpha1: ${ISTIO_OUT}/istioctl
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
 
 # Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot: ${ISTIO_OUT}/istioctl
+test/minikube/noauth/e2e_pilot_alpha1: ${ISTIO_OUT}/istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
 	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
