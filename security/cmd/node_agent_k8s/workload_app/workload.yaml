@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: udsver-client
 spec:
-  replicas: 3
+  replicas: 2
   template:
     metadata:
       labels:
@@ -14,9 +14,8 @@ spec:
         fsGroup: 0
       containers:
       - name: udsver-client
-        image: gcr.io/jianfeih-test/workload-app:latest
+        image: gcr.io/istio-testing/workload:latest
         imagePullPolicy: IfNotPresent
-        command: ["/main"]
         args: ["-s", "/tmp/udsver/nodeagent/server.sock" ]
         volumeMounts:
         - mountPath: /tmp/udsver
