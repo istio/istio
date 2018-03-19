@@ -12,7 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#                                                                                                                                                                      ################################################################################
+#
+################################################################################
 
 set -o errexit
 set -o nounset
@@ -65,6 +66,24 @@ function parse_json_for_string() {
     return 0
   fi
   RESULT=$(grep -Eo " *\"${KEY}\": *\".*\",?" ${FILENAME} |
+           sed "s/ *\"${KEY}\": *\"\(.*\)\",*/\1/")
+  echo $RESULT
+  return 0
+}
+
+# parse for a key with a quoted string and return the string contents
+# parse this when you expect multiple instances but will settle for the first
+function parse_json_for_first_string() {
+  local FILENAME=$1
+  local KEY=$2
+  local RESULT=""
+
+  local LINE_COUNT=$(grep -c -Eo " *\"${KEY}\":.*?[^\\\\]\",?" ${FILENAME})
+  if [ "$LINE_COUNT" == "0" ]; then
+    echo "Missing line for ${KEY}: $LINE_COUNT" >&2
+    return 0
+  fi
+  RESULT=$(grep -Eo " *\"${KEY}\": *\".*\",?" ${FILENAME} | head --lines=1 |
            sed "s/ *\"${KEY}\": *\"\(.*\)\",*/\1/")
   echo $RESULT
   return 0

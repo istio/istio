@@ -8,7 +8,7 @@
 	}
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.4.6",
-      "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/" ],
+      "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/ && echo \"$_MFEST_VER\" > /output/green_build_sha.txt" ],
       "entrypoint": "bash"
     },
     {

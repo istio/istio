@@ -131,7 +131,7 @@ func TestDiscoveryLDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'listeners': [ {'name': 'Hello-LDS-WebHook'}]")
+		fmt.Fprintln(w, `{"listeners": [ {"name": "Hello-LDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -149,7 +149,7 @@ func TestDiscoveryCDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'clusters': [ {'name': 'Hello-CDS-WebHook'}]")
+		fmt.Fprintln(w, `{"clusters": [ {"name": "Hello-CDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -167,7 +167,7 @@ func TestDiscoveryRDSWebHooks(t *testing.T) {
 		if r.URL.Path != url {
 			t.Errorf("WebHook expected URL: %s, got %s", url, r.URL.Path)
 		}
-		fmt.Fprintln(w, "'routes': [ {'name': 'Hello-RDS-WebHook'}]")
+		fmt.Fprintln(w, `{"routes": [ {"name": "Hello-RDS-WebHook"}]}`)
 	}))
 	defer ts.Close()
 
@@ -675,6 +675,7 @@ func TestExternalServicesDiscoveryMode(t *testing.T) {
 	}{
 		{name: "http-none", file: externalServiceRule},
 		{name: "http-dns", file: externalServiceRuleDNS},
+		{name: "http-dns-no-endpoints", file: externalServiceRuleDNSNoEndpoints},
 		{name: "http-static", file: externalServiceRuleStatic},
 		{name: "tcp-none", file: externalServiceRuleTCP},
 		{name: "tcp-dns", file: externalServiceRuleTCPDNS},

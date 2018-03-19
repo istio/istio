@@ -16,10 +16,15 @@ package bootstrapgen
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"strings"
 	"testing"
+
+	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
+	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
 type logFn func(string, ...interface{})
@@ -28,10 +33,10 @@ type logFn func(string, ...interface{})
 // and compares them against the golden files.
 func TestGenerator_Generate(t *testing.T) {
 	importmap := map[string]string{
-		"mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
-		"mixer/v1/template/extensions.proto":          "istio.io/api/mixer/v1/template",
-		"gogoproto/gogo.proto":                        "github.com/gogo/protobuf/gogoproto",
-		"google/protobuf/duration.proto":              "github.com/gogo/protobuf/types",
+		"policy/v1beta1/value_type.proto":              "istio.io/api/policy/v1beta1",
+		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/api/mixer/adapter/model/v1beta1",
+		"gogoproto/gogo.proto":                         "github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/duration.proto":               "github.com/gogo/protobuf/types",
 	}
 
 	tests := []struct {
@@ -78,6 +83,94 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 }
 
+func TestGeneratorWithBadFds(t *testing.T) {
+	g := Generator{OutFilePath: ""}
+	err := g.Generate(
+		// testdata/check/template.proto" is not a fds
+		map[string]string{"testdata/check/template.proto": "istio.io/istio/mixer/template/list"},
+	)
+	validateHasError(t, err, "as a FileDescriptorSetProto")
+}
+
+func TestGeneratorWithBadFdsPath(t *testing.T) {
+	g := Generator{OutFilePath: ""}
+	err := g.Generate(map[string]string{"bad file path": "bad file path"})
+	validateHasError(t, err, "no such file")
+}
+
+func TestGeneratorWithBadOutFilePath(t *testing.T) {
+	g := Generator{OutFilePath: "bad/bad"}
+	err := g.Generate(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"})
+	validateHasError(t, err, "no such file or directory")
+}
+
+func TestGeneratorBadTmpl(t *testing.T) {
+	g := Generator{OutFilePath: "bad/bad"}
+	err := g.generateInternal(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		"{{getResourcMessageInterfaceParamTypeName bad}}", modelgen.Create)
+	validateHasError(t, err, "cannot load template")
+}
+
+func TestGeneratorBadModel(t *testing.T) {
+	testTmpDir := path.Join(os.TempDir(), "TestGeneratorBadModel")
+	_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+	outFile, err := os.Create(path.Join(testTmpDir, "o.out"))
+	g := Generator{OutFilePath: outFile.Name()}
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.generateInternal(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) {
+			return nil, fmt.Errorf("bad model")
+		})
+	validateHasError(t, err, "bad model")
+}
+
+func TestGeneratorNilModel(t *testing.T) {
+	testTmpDir := path.Join(os.TempDir(), "TestGeneratorNilModel")
+	_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+	outFile, err := os.Create(path.Join(testTmpDir, "o.out"))
+	g := Generator{OutFilePath: outFile.Name()}
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.generateInternal(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) { return nil, nil })
+	validateHasError(t, err, "cannot execute the template")
+}
+
+func TestGeneratorCannotFormat(t *testing.T) {
+	testTmpDir := path.Join(os.TempDir(), "TestGeneratorNilModel")
+	_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+	outFile, err := os.Create(path.Join(testTmpDir, "o.out"))
+	g := Generator{OutFilePath: outFile.Name()}
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.generateInternal(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		". . badtmpl_cannot_be_formatted", modelgen.Create)
+	validateHasError(t, err, "could not format")
+}
+
+func TestGeneratorCannotFixImport(t *testing.T) {
+	testTmpDir := path.Join(os.TempDir(), "TestGeneratorNilModel")
+	_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+	outFile, err := os.Create(path.Join(testTmpDir, "o.out"))
+	g := Generator{OutFilePath: outFile.Name()}
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.generateInternal(
+		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		"badtmpl_cannot_fix_import", modelgen.Create)
+	validateHasError(t, err, "could not fix imports")
+}
+
 const chunkSize = 64000
 
 func fileCompare(file1, file2 string, logf logFn) bool {
@@ -112,5 +205,11 @@ func fileCompare(file1, file2 string, logf logFn) bool {
 			logf("bytes don't match (sizes: %d, %d):\n%s\n%s", s1, s2, string(b1), string(b2))
 			return false
 		}
+	}
+}
+
+func validateHasError(t *testing.T, err error, want string) {
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error with msg \"%s\"; got %v", want, err)
 	}
 }

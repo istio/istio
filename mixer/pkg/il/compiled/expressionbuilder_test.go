@@ -17,7 +17,7 @@ package compiled
 import (
 	"testing"
 
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
+	istio_mixer_v1_config_descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
@@ -85,7 +85,11 @@ func TestCompiledExpressions(t *testing.T) {
 					return
 				}
 
-			case istio_mixer_v1_config_descriptor.STRING:
+			case istio_mixer_v1_config_descriptor.STRING,
+				istio_mixer_v1_config_descriptor.URI,
+				istio_mixer_v1_config_descriptor.EMAIL_ADDRESS,
+				istio_mixer_v1_config_descriptor.DNS_NAME:
+
 				actual, err := compiled.EvaluateString(bag)
 				if e := test.CheckEvaluationResult(actual, err); e != nil {
 					tt.Fatalf(e.Error())

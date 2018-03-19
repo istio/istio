@@ -11,8 +11,8 @@
     "logging/internal",
     "monitoring/apiv3"
   ]
-  revision = "767c40d6a2e058483c25fa193e963a22da17236d"
-  version = "v0.18.0"
+  revision = "20d4028b8a750c2aca76bf9fefa8ed2d0109b573"
+  version = "v0.19.0"
 
 [[projects]]
   name = "code.cloudfoundry.org/copilot"
@@ -72,6 +72,21 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/alecthomas/template"
+  packages = [
+    ".",
+    "parse"
+  ]
+  revision = "a0175ee3bccc567396460bf5acd36800cb10c49c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/alecthomas/units"
+  packages = ["."]
+  revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
+
+[[projects]]
+  branch = "master"
   name = "github.com/alicebob/gopher-json"
   packages = ["."]
   revision = "5a6b3ba71ee69b77cf64febf8b5a7526ca5eaef0"
@@ -126,8 +141,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "adeb60566bc8c9202b0f1be7e3a675beedbc11f0"
-  version = "v1.13.2"
+  revision = "9a79087b1148376f4dd860c188c948479e2def3b"
+  version = "v1.13.7"
 
 [[projects]]
   branch = "master"
@@ -204,7 +219,7 @@
     "digestset",
     "reference"
   ]
-  revision = "6664ec703991875e14419ff4960921cce7678bab"
+  revision = "6fca8d6e6713acbdf3f9ca40cf6370fc5ee5ee53"
 
 [[projects]]
   branch = "master"
@@ -227,11 +242,27 @@
 [[projects]]
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
-    "api",
+    "envoy/api/v2",
+    "envoy/api/v2/auth",
+    "envoy/api/v2/cluster",
+    "envoy/api/v2/core",
+    "envoy/api/v2/endpoint",
+    "envoy/api/v2/listener",
+    "envoy/api/v2/route",
+    "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/fault/v2",
+    "envoy/config/filter/network/http_connection_manager/v2",
+    "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/redis_proxy/v2",
+    "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/service/discovery/v2",
     "pkg/cache",
-    "pkg/server"
+    "pkg/log",
+    "pkg/server",
+    "pkg/util"
   ]
-  revision = "cd217031c55a80342a864f9aff3b7a7f22205891"
+  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -245,8 +276,8 @@
     "internal",
     "redis"
   ]
-  revision = "d1ed5c67e5794de818ea85e6b522fda02623a484"
-  version = "v1.5.0"
+  revision = "a69d19351219b6dd56f274f96d85a7014a2ec34e"
+  version = "v1.6.0"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -281,7 +312,7 @@
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+  revision = "0d03ad0b6405ada874d59d97c416b5cf4234e154"
 
 [[projects]]
   name = "github.com/go-redis/redis"
@@ -292,10 +323,11 @@
     "internal/hashtag",
     "internal/pool",
     "internal/proto",
-    "internal/singleflight"
+    "internal/singleflight",
+    "internal/util"
   ]
-  revision = "fa7f64f7f27348658ecfa71dd71dfb2d112e2f86"
-  version = "v6.9.0"
+  revision = "68362cfda1eeb3a69316e7bc00169a9a8de4823a"
+  version = "v6.9.2"
 
 [[projects]]
   name = "github.com/gobwas/glob"
@@ -339,10 +371,12 @@
     "protoc-gen-gogo/grpc",
     "protoc-gen-gogo/plugin",
     "protoc-gen-gogoslick",
+    "protoc-min-version",
     "sortkeys",
     "types",
     "vanity",
-    "vanity/command"
+    "vanity/command",
+    "version"
   ]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
   version = "v0.5"
@@ -351,7 +385,8 @@
   branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
-  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+  revision = "2cc4b790554d1a0c48fcc3aeb891e3de70cf8de0"
+  source = "github.com/istio/glog"
 
 [[projects]]
   branch = "master"
@@ -441,7 +476,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "6c823a6861b8e5dcf93a9a5a6937d592370aacb6"
+  revision = "afbf0422412f5dc726fa12be280fa0c3cb31fcbd"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -474,7 +509,7 @@
   branch = "master"
   name = "github.com/grpc-ecosystem/go-grpc-middleware"
   packages = ["."]
-  revision = "d0c54e68681ec7999ac17864470f3bee6521ba2b"
+  revision = "f7cbcd2ed22c7f17a07b5d8d5523a41626fc60fb"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -572,7 +607,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "c1ea7d6432304074075e2d4011a024e0d73f01d3"
+  revision = "362a2b16a4fc3877e6667d89df688bae514de4dd"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -582,8 +617,8 @@
 [[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
-  revision = "be70f29b04dea7efb4d82a8989c33aee989b74d1"
-  version = "1.1.0"
+  revision = "3353055b2a1a5ae1b6a8dfde887a524e7088f3a2"
+  version = "1.1.2"
 
 [[projects]]
   name = "github.com/juju/ratelimit"
@@ -620,6 +655,18 @@
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
+  name = "github.com/modern-go/concurrent"
+  packages = ["."]
+  revision = "938152ca6a933f501bb238954eebd3cbcbf489ff"
+  version = "1.0.2"
+
+[[projects]]
+  name = "github.com/modern-go/reflect2"
+  packages = ["."]
+  revision = "1df9eeb2bb81f327b96228865c5687bc2194af3f"
+  version = "1.0.0"
+
+[[projects]]
   name = "github.com/natefinch/lumberjack"
   packages = ["."]
   revision = "a96e63847dc3c67d17befa69c303767e2f84e54f"
@@ -649,7 +696,8 @@
     "matchers/support/goraph/util",
     "types"
   ]
-  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
+  revision = "003f63b7f4cff3fc95357005358af2de0f5fe152"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/open-policy-agent/opa"
@@ -756,9 +804,10 @@
   packages = [
     "expfmt",
     "internal/bitbucket.org/ww/goautoneg",
+    "log",
     "model"
   ]
-  revision = "89604d197083d4781071d3c65855d24ecfb0a563"
+  revision = "6fb6fce6f8b75884b92e1889c150403fc0872c5e"
 
 [[projects]]
   branch = "master"
@@ -769,13 +818,19 @@
     "nfs",
     "xfs"
   ]
-  revision = "282c8707aa210456a825798969cc27edda34992a"
+  revision = "d274e363d5759d1c916232217be421f1cc89c5fe"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/prom2json"
+  packages = ["."]
+  revision = "daa2bca1c13fce65dabc24d4fbd5054d50cf66d9"
 
 [[projects]]
   name = "github.com/russross/blackfriday"
   packages = ["."]
-  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
-  version = "v1.5"
+  revision = "55d61fa8aa702f59229e6cff85793c22e580eaf5"
+  version = "v1.5.1"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
@@ -788,6 +843,12 @@
   name = "github.com/shurcooL/sanitized_anchor_name"
   packages = ["."]
   revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
+
+[[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
+  version = "v1.0.4"
 
 [[projects]]
   name = "github.com/spf13/cobra"
@@ -853,15 +914,6 @@
   version = "v1.3.1"
 
 [[projects]]
-  name = "github.com/v2pro/plz"
-  packages = [
-    "concurrent",
-    "reflect2"
-  ]
-  revision = "571356917fca907b069b7b47a14cd32ba0b340d4"
-  version = "0.9.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/yuin/gopher-lua"
   packages = [
@@ -908,7 +960,7 @@
     "scrypt",
     "ssh/terminal"
   ]
-  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
+  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [[projects]]
   branch = "master"
@@ -938,7 +990,7 @@
     "jws",
     "jwt"
   ]
-  revision = "543e37812f10c46c622c9575afd7ad22f22a12ba"
+  revision = "2f32c3ac0fa4fb807a0fcefb0b6f2468a0d99bd0"
 
 [[projects]]
   branch = "master"
@@ -951,9 +1003,11 @@
   name = "golang.org/x/sys"
   packages = [
     "unix",
-    "windows"
+    "windows",
+    "windows/registry",
+    "windows/svc/eventlog"
   ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -1002,7 +1056,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "f8f2f88271bf2c23f28a09d288d26507a9503c97"
+  revision = "73e16cff9e0d4a802937444bebb562458548241d"
 
 [[projects]]
   branch = "master"
@@ -1057,7 +1111,7 @@
     "googleapis/rpc/status",
     "protobuf/field_mask"
   ]
-  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
+  revision = "2d9486acae19cf9bd0c093d7dc236a323726a9e4"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -1096,6 +1150,12 @@
   version = "v1.10.0"
 
 [[projects]]
+  name = "gopkg.in/alecthomas/kingpin.v2"
+  packages = ["."]
+  revision = "947dcec5ba9c011838740e680966fd7087a71d0d"
+  version = "v2.2.6"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4"
@@ -1114,8 +1174,8 @@
     "cipher",
     "json"
   ]
-  revision = "f8f38de21b4dcd69d0413faf231983f5fd6634b1"
-  version = "v2.1.3"
+  revision = "6ee92191fea850cdcab9a18867abf5f521cdbadb"
+  version = "v2.1.4"
 
 [[projects]]
   branch = "v2"
@@ -1124,26 +1184,26 @@
   revision = "59c90c7046f643cbe0d4e7c8776c42a84ce75910"
 
 [[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
+  version = "v2.1.1"
 
 [[projects]]
   name = "istio.io/api"
   packages = [
+    "authentication/v1alpha1",
     "broker/dev",
     "mesh/v1alpha1",
+    "mixer/adapter/model/v1beta1",
     "mixer/v1",
-    "mixer/v1/config",
     "mixer/v1/config/client",
-    "mixer/v1/config/descriptor",
-    "mixer/v1/template",
+    "networking/v1alpha3",
+    "policy/v1beta1",
     "rbac/v1alpha1",
-    "routing/v1alpha1",
-    "routing/v1alpha2"
+    "routing/v1alpha1"
   ]
-  revision = "24209c4d7c9713900ac7571dfc38dd2eeea3f167"
+  revision = "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1158,8 +1218,7 @@
     "ui",
     "version"
   ]
-  revision = "56d9eab3a9acf6be3546f50d12c31b2c154a02a9"
-  version = "v0.7.1"
+  revision = "latest_release"
 
 [[projects]]
   branch = "master"
@@ -1217,7 +1276,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "b89f5ce12ce6e022fc3e9d7586d61346e694d56e"
+  revision = "8cc229a989f288859cf7d7088705c5ee80117966"
 
 [[projects]]
   branch = "release-1.9"
@@ -1279,7 +1338,7 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "340af4b1e3bc0849088579387c93cc73ec37f4de"
+  revision = "74a8a89814a24637e718e271b747a717c24da88f"
 
 [[projects]]
   branch = "release-6.0"
@@ -1444,11 +1503,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "1d6e114ce7a090d80b87b6eb0ca88d4eca98de7f"
+  revision = "3a9f96237f34694167716afcbde53e7365a4ca84"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "beffe12b8cf5f8de6a15f880ef14da18366914c119e13315e27feb25ebab2184"
+  inputs-digest = "ab70c4a873b314fd5314f27756155b572ca0852859bb6e78517e2de6f6b1ab68"
   solver-name = "gps-cdcl"
   solver-version = 1

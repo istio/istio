@@ -24,8 +24,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	cpb "istio.io/api/mixer/v1/config"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
@@ -186,7 +186,7 @@ func TestController_workflow(t *testing.T) {
 	}
 	configState := map[store.Key]*store.Resource{
 		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
-			Match: "target.service == \"abc\"",
+			Match: "destination.service == \"abc\"",
 			Actions: []*cpb.Action{
 				{
 					Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -251,7 +251,7 @@ func TestController_workflow(t *testing.T) {
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
 			Value: &store.Resource{Spec: &cpb.Rule{
-				Match: "target.service == \"bcd\"",
+				Match: "destination.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
 						Handler:   "a1.AA." + DefaultConfigNamespace,

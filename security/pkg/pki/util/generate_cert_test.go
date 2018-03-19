@@ -15,7 +15,11 @@
 package util
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
+	"math/big"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -188,7 +192,72 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 	}
 }
 
-// TODO(myidpt): Add test cases for GenCertFromCSR.
+func TestGenCertFromCSR(t *testing.T) {
+	// First Creates a self-signed CA cert.
+	caPK, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Errorf("failed to generate ca's key pair %v", err)
+	}
+	caTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(-1),
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		SignatureAlgorithm:    x509.SHA256WithRSA,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caPK.PublicKey, caPK)
+	if err != nil {
+		t.Errorf("failed to Create self signed ca cert %v", err)
+	}
+	caCert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Errorf("failed to parse generated ca certificate %v", err)
+	}
+
+	// Then generates signee's key pairs.
+	signeePK, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Errorf("failed to generate signee key pair %v", err)
+	}
+
+	tmpl := &x509.CertificateRequest{
+		SignatureAlgorithm: x509.SHA256WithRSA,
+		DNSNames:           []string{"test.example.com"},
+		Version:            3,
+	}
+	derBytes, err := x509.CreateCertificateRequest(rand.Reader, tmpl, signeePK)
+	if err != nil {
+		t.Error("failed to create certificate request")
+	}
+	csr, err := x509.ParseCertificateRequest(derBytes)
+	if err != nil {
+		t.Errorf("failed to parse certificate request %v", err)
+	}
+
+	derBytes, err = GenCertFromCSR(csr, caCert, &signeePK.PublicKey, caPK, time.Hour, false)
+	if err != nil {
+		t.Errorf("failed to GenCertFromCSR, error %v", err)
+	}
+
+	// Verifies the certificate.
+	out, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		t.Errorf("failed to parse generated certificate %v", err)
+	}
+	if !reflect.DeepEqual(out.DNSNames, tmpl.DNSNames) {
+		t.Errorf("generated cert dns name is unexpected, got %v, want %v", out.DNSNames, tmpl.DNSNames)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(caCert)
+	vo := x509.VerifyOptions{
+		Roots: pool,
+	}
+	if _, err := out.Verify(vo); err != nil {
+		t.Errorf("verification of the signed certificate failed %v", err)
+	}
+}
 
 func TestLoadSignerCredsFromFiles(t *testing.T) {
 	testCases := map[string]struct {
@@ -197,28 +266,28 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		expectedErr string
 	}{
 		"Good certificates": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key.pem",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key.pem",
 			expectedErr: "",
 		},
 		"Missing cert files": {
-			certFile:    "testdata/cert-not-exist.pem",
-			keyFile:     "testdata/key.pem",
-			expectedErr: "certificate file reading failure (open testdata/cert-not-exist.pem: no such file or directory)",
+			certFile:    "../testdata/cert-not-exist.pem",
+			keyFile:     "../testdata/key.pem",
+			expectedErr: "certificate file reading failure (open ../testdata/cert-not-exist.pem: no such file or directory)",
 		},
 		"Missing key files": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key-not-exist.pem",
-			expectedErr: "private key file reading failure (open testdata/key-not-exist.pem: no such file or directory)",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key-not-exist.pem",
+			expectedErr: "private key file reading failure (open ../testdata/key-not-exist.pem: no such file or directory)",
 		},
 		"Bad cert files": {
-			certFile:    "testdata/cert-bad.pem",
-			keyFile:     "testdata/key.pem",
+			certFile:    "../testdata/cert-parse-fail.pem",
+			keyFile:     "../testdata/key.pem",
 			expectedErr: "pem encoded cert parsing failure (invalid PEM encoded certificate)",
 		},
 		"Bad key files": {
-			certFile:    "testdata/cert.pem",
-			keyFile:     "testdata/key-bad.pem",
+			certFile:    "../testdata/cert.pem",
+			keyFile:     "../testdata/key-parse-fail.pem",
 			expectedErr: "pem encoded key parsing failure (invalid PEM-encoded key)",
 		},
 	}

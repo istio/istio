@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
 export K8S_VER=${K8S_VER:-v1.9.2}
+export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}
+set -x
 
 if [ ! -f /usr/local/bin/minikube ]; then
-   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+   time curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 fi
 if [ ! -f /usr/local/bin/kubectl ]; then
-   curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+   time curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 
 
@@ -16,14 +18,24 @@ function waitMinikube() {
     set +e
     kubectl cluster-info
     # this for loop waits until kubectl can access the api server that Minikube has created
-    for i in {1..150}; do # timeout for 5 minutes
-       kubectl get po &> /dev/null
+    for i in {1..30}; do # timeout for 1 minutes
+       kubectl get po --all-namespaces #&> /dev/null
        if [ $? -ne 1 ]; then
           break
       fi
       sleep 2
     done
-    kubectl get svc --all-namespaces
+    kubectl get all --all-namespaces
+    if [ $? -ne 0 ]; then
+        echo "Kubernetes failed to start"
+        ps ax
+        netstat -an
+        docker images
+        cat /var/lib/localkube/localkube.err
+        echo "\n\n\n"
+        kubectl cluster-info dump
+        #exit 1
+    fi
     echo "Minikube is running"
 }
 
@@ -35,8 +47,8 @@ function startMinikubeNone() {
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
     sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
+            --kubernetes-version=v1.9.0 --vm-driver=none
+#--extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
     sudo -E minikube update-context
     sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
 }

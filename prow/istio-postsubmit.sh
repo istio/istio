@@ -36,7 +36,12 @@ cd $ROOT
 make init
 
 echo 'Running Unit Tests'
-time make localTestEnv test
+GOTEST_FLAG="-p 1 -parallel 1 -v"
+time JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="${GOTEST_FLAG}" \
+PILOT_TEST_T="${GOTEST_FLAG}" \
+MIXER_TEST_T="${GOTEST_FLAG}" \
+make localTestEnv test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"

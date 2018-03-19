@@ -19,11 +19,9 @@ import (
 	"fmt"
 	"os"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pilot/cmd"
@@ -47,7 +45,7 @@ var (
 		healthCheckFile     string
 		probeOptions        probe.Options
 	}{
-		loggingOptions: log.NewOptions(),
+		loggingOptions: log.DefaultOptions(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -133,9 +131,6 @@ func init() {
 }
 
 func main() {
-	// Needed to avoid "logging before flag.Parse" error with glog.
-	cmd.SupressGlogWarnings()
-
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}

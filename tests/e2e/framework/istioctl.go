@@ -21,8 +21,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -49,6 +47,8 @@ type Istioctl struct {
 	proxyHub   string
 	proxyTag   string
 	yamlDir    string
+	// If true, will ignore proxyHub and proxyTag but use the default one.
+	defaultProxy bool
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
@@ -66,13 +66,14 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	}
 
 	return &Istioctl{
-		localPath:  *localPath,
-		remotePath: *remotePath,
-		binaryPath: filepath.Join(tmpDir, "istioctl"),
-		namespace:  namespace,
-		proxyHub:   proxyHub,
-		proxyTag:   proxyTag,
-		yamlDir:    filepath.Join(yamlDir, "istioctl"),
+		localPath:    *localPath,
+		remotePath:   *remotePath,
+		binaryPath:   filepath.Join(tmpDir, "istioctl"),
+		namespace:    namespace,
+		proxyHub:     proxyHub,
+		proxyTag:     proxyTag,
+		yamlDir:      filepath.Join(yamlDir, "istioctl"),
+		defaultProxy: *defaultProxy,
 	}, nil
 }
 
@@ -140,7 +141,7 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	if *defaultProxy {
+	if i.defaultProxy {
 		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
 			src, dest, i.namespace, i.namespace)
 	}

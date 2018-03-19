@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"log"
 	"sync"
 
 	"k8s.io/api/core/v1"
@@ -28,7 +29,8 @@ type PodCache struct {
 	cacheHandler
 
 	// keys maintains stable pod IP to name key mapping
-	// this allows us to retrieve the latest status by pod IP
+	// this allows us to retrieve the latest status by pod IP.
+	// This should only contain RUNNING or PENDING pods with an allocated IP.
 	keys map[string]string
 }
 
@@ -44,17 +46,46 @@ func newPodCache(ch cacheHandler) *PodCache {
 
 		pod := *obj.(*v1.Pod)
 		ip := pod.Status.PodIP
+
+		log.Printf("Handle pod %s in namespace %s -> %v", pod.Name, pod.Namespace, pod.Status.PodIP)
+
 		if len(ip) > 0 {
+			key := KeyFunc(pod.Name, pod.Namespace)
 			switch ev {
-			case model.EventAdd, model.EventUpdate:
-				out.keys[ip] = KeyFunc(pod.Name, pod.Namespace)
+			case model.EventAdd:
+				switch pod.Status.Phase {
+				case v1.PodPending, v1.PodRunning:
+					// add to cache if the pod is running or pending
+					out.keys[ip] = key
+				}
+			case model.EventUpdate:
+				switch pod.Status.Phase {
+				case v1.PodPending, v1.PodRunning:
+					// add to cache if the pod is running or pending
+					out.keys[ip] = key
+				default:
+					// delete if the pod switched to other states and is in the cache
+					if out.keys[ip] == key {
+						delete(out.keys, ip)
+					}
+				}
 			case model.EventDelete:
-				delete(out.keys, ip)
+				// delete only if this pod was in the cache
+				if out.keys[ip] == key {
+					delete(out.keys, ip)
+				}
 			}
 		}
 		return nil
 	})
 	return out
+}
+
+func (pc *PodCache) getPodKey(addr string) (string, bool) {
+	pc.rwMu.RLock()
+	defer pc.rwMu.RUnlock()
+	key, exists := pc.keys[addr]
+	return key, exists
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred

@@ -18,14 +18,14 @@ import "time"
 
 // FakeCertUtil is a mocked CertUtil for testing.
 type FakeCertUtil struct {
-	duration time.Duration
-	err      error
+	Duration time.Duration
+	Err      error
 }
 
 // GetWaitTime returns duration if err is nil, otherwise, it returns err.
-func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPercentage int) (time.Duration, error) {
-	if f.err != nil {
-		return time.Duration(0), f.err
+func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time) (time.Duration, error) {
+	if f.Err != nil {
+		return time.Duration(0), f.Err
 	}
-	return f.duration, nil
+	return f.Duration, nil
 }

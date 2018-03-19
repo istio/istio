@@ -29,8 +29,8 @@ import (
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	cpb "istio.io/api/mixer/v1/config"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	cpb "istio.io/api/policy/v1beta1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -300,12 +300,9 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 						if err == nil {
 							lock.Lock()
 							defer lock.Unlock()
-							err = responseBag.Merge(mBag)
-
-							if err != nil {
-								log.Infof("Attributes merging failed %v", err)
+							if mBag != nil {
+								responseBag.Merge(mBag)
 							}
-
 						}
 						return &result{err, nil, call}
 					})
@@ -314,7 +311,7 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 		},
 	)
 
-	log.Debugf("Attributes generated from preprocess phase are %v", responseBag.DebugString())
+	log.Debugf("Attributes generated from preprocess phase are %v", responseBag)
 	return err
 }
 

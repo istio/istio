@@ -55,7 +55,7 @@ enforcement within Istio. It is primarily concerned with enabling Mixer</p>
 </tr>
 <tr id="Action.properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional data about the action for use in policy.</p>
 
@@ -99,7 +99,7 @@ the template.</p>
 </tr>
 <tr id="Subject.properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.v1.template.html#Value">istio.mixer.v1.template.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional attributes about the subject.</p>
 
@@ -132,8 +132,8 @@ spec:
    properties:
     iss: request.auth.token[&quot;iss&quot;]
  action:
-   namespace: target.namespace | &quot;default&quot;
-   service: target.service | &quot;&quot;
+   namespace: destination.namespace | &quot;default&quot;
+   service: destination.service | &quot;&quot;
    path: request.path | &quot;/&quot;
    method: request.method | &quot;post&quot;
    properties:

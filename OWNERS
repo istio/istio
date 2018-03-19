@@ -5,7 +5,9 @@ reviewers:
   - Douglas-reid
   - frankbu
   - geeknoid
+  - gihanson
   - hklai
+  - ijsnellf
   - kyessenov
   - ldemailly
   - linsun
@@ -13,13 +15,16 @@ reviewers:
   - rshriram
   - sebastienvas
   - wattli
+  - ZackButcher
 approvers:
   - andraxylia
   - costinm
   - Douglas-reid
   - frankbu
   - geeknoid
+  - gihanson
   - hklai
+  - ijsnellf
   - kyessenov
   - ldemailly
   - linsun
@@ -27,3 +32,4 @@ approvers:
   - rshriram
   - sebastienvas
   - wattli
+  - ZackButcher
