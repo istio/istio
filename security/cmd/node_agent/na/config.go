@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 )
 
 const (
@@ -45,7 +46,7 @@ type Config struct {
 	// The environment this node agent is running on.
 	Env string
 
-	// The cluster management platform this ndoe agent is running on.
+	// The cluster management platform this ndoe agent is running on, e.g k8s.
 	Platform string
 
 	// CSRInitialRetrialInterval is the retrial interval for certificate requests.
@@ -69,6 +70,9 @@ type Config struct {
 
 	// RootCertFile defines the root cert of node agent.
 	RootCertFile string
+
+	// WorkloadOpts configures how to create handler for each workload api.
+	WorkloadOpts handler.Options
 }
 
 // NewConfig creates a new Config instance with default values.

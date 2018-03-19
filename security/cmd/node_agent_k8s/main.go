@@ -22,7 +22,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	nam "istio.io/istio/security/cmd/node_agent_k8s/nodeagentmgmt"
+	"time"
+
+	nam "istio.io/istio/security/cmd/node_agent"
+	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 )
@@ -54,19 +57,50 @@ var (
 		Short: "Node agent",
 		Long:  "Node agent with both mgmt and workload api interfaces.",
 	}
+
+	naConfig na.Config
 )
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&CfgMgmtAPIPath, "mgmtpath", MgmtAPIPath, "Mgmt API Uds path")
 	RootCmd.PersistentFlags().StringVar(&CfgWldAPIUdsHome, "wldpath", WorkloadAPIUdsHome, "Workload API home path")
 	RootCmd.PersistentFlags().StringVar(&CfgWldSockFile, "wldfile", WorkloadAPIUdsFile, "Workload API socket file name")
+
+	flags := RootCmd.Flags()
+
+	// Old Flags for VM mode Server.
+	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
+	flags.DurationVar(&naConfig.WorkloadCertTTL, "workload-cert-ttl", 19*time.Hour,
+		"The requested TTL for the workload")
+	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+
+	// TODO(incfly): is it better to check ca address reachability when program starts? Also refactor this address into some constants package.
+	flags.StringVar(&naConfig.IstioCAAddress, "ca-address",
+		"istio-ca.istio-system.svc.cluster.local:8060", "Istio CA address")
+
+	flags.StringVar(&naConfig.Env, "env", "unspecified",
+		"Node Environment : unspecified | onprem | gcp | aws")
+	flags.StringVar(&naConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
+
+	flags.StringVar(&naConfig.CertChainFile, "cert-chain",
+		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
+	flags.StringVar(&naConfig.KeyFile,
+		"key", "/etc/certs/key.pem", "Node Agent private key file")
+	flags.StringVar(&naConfig.RootCertFile, "root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file")
 }
 
 // MgmtAPI manage the api
 func MgmtAPI() {
-	mgmtServer := nam.NewServer(nam.ServerOptions{
-		WorkloadOpts: handler.Options{PathPrefix: CfgWldAPIUdsHome, SockFile: CfgWldSockFile, RegAPI: wlapi.RegisterGrpc},
-	})
+	naConfig.WorkloadOpts = handler.Options{
+		PathPrefix: CfgWldAPIUdsHome,
+		SockFile:   CfgWldSockFile,
+		RegAPI:     wlapi.RegisterGrpc,
+	}
+	mgmtServer, err := nam.New(&naConfig)
+	if err != nil {
+		log.Fatalf("failed to create node agent management server %v", err)
+	}
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 	go func(s *nam.Server, c chan os.Signal) {
