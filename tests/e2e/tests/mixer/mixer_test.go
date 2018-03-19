@@ -27,12 +27,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -58,12 +56,6 @@ const (
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	tcpDbRule                = "route-rule-ratings-db.yaml"
-	rbacRulesDir             = "tests/e2e/tests/mixer/testdata"
-	rbacEnableRule           = "rbac-enable.yaml"
-	rbacNamespaceRule        = "rbac-namespace.yaml"
-	rbacProductPageRule      = "rbac-productpage.yaml"
-	rbacDetailsRule          = "rbac-details.yaml"
-	rbacReviewsRule          = "rbac-reviews.yaml"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -88,13 +80,18 @@ var (
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
 		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
-	rbacRules = []string{rbacEnableRule, rbacNamespaceRule, rbacProductPageRule, rbacDetailsRule, rbacReviewsRule}
 )
 
-func updateRules(sourceDir string, rules []string, t *testConfig) (err error) {
+func (t *testConfig) Setup() (err error) {
+	defer func() {
+		if err != nil {
+			dumpK8Env()
+		}
+	}()
+
 	var srcBytes []byte
 	for _, rule := range rules {
-		src := util.GetResourcePath(filepath.Join(sourceDir, rule))
+		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
@@ -107,22 +104,6 @@ func updateRules(sourceDir string, rules []string, t *testConfig) (err error) {
 			return err
 		}
 	}
-	return err
-}
-
-func (t *testConfig) Setup() (err error) {
-	defer func() {
-		if err != nil {
-			dumpK8Env()
-		}
-	}()
-
-	if err = updateRules(rulesDir, rules, t); err != nil {
-		return err
-	}
-	if err = updateRules(rbacRulesDir, rbacRules, t); err != nil {
-		return err
-	}
 
 	err = createDefaultRoutingRules()
 
@@ -133,7 +114,7 @@ func (t *testConfig) Setup() (err error) {
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
-	if _, err = visitProductPage(30*time.Second, 200); err != nil {
+	if err = visitProductPage(30*time.Second, 200); err != nil {
 		log.Infof("initial product page request failed: %v", err)
 	}
 
@@ -320,7 +301,7 @@ func checkMetricReport(t *testing.T, serviceName string) {
 	t.Log("Visiting product page...")
 
 	// visit product page.
-	if _, errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
+	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
 	allowPrometheusSync()
@@ -361,7 +342,7 @@ func TestTcpMetrics(t *testing.T) {
 	}()
 	allowRuleSync()
 
-	if _, err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 	allowPrometheusSync()
@@ -426,7 +407,7 @@ func TestNewMetrics(t *testing.T) {
 	dumpK8Env()
 	allowRuleSync()
 
-	if _, err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
 
@@ -468,7 +449,7 @@ func TestIngressDenials(t *testing.T) {
 
 // testDenials checks that the given rule could deny requests to productpage unless x-user is set in header.
 func testDenials(t *testing.T, rule string) {
-	if _, err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
 
@@ -489,13 +470,13 @@ func testDenials(t *testing.T, rule string) {
 
 	// Product page should not be accessible anymore.
 	log.Infof("Denials: ensure productpage is denied access")
-	if _, err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
 
 	// Product page *should be* accessible with x-user header.
 	log.Infof("Denials: ensure productpage is accessible for testuser")
-	if _, err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
 
@@ -657,114 +638,6 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 }
 
-// RBAC related e2e tests.
-
-func TestRBACNamespaceRule(t *testing.T) {
-	detailsPattern := regexp.MustCompile("details are currently unavailable")
-	reviewsPattern := regexp.MustCompile("reviews are currently unavailable")
-	testRBACRule(rbacNamespaceRule, "productpage, details and reviews", t,
-		func(contents string) error {
-			var err error
-			if detailsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("details is not accessible"))
-			}
-			if reviewsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("reviews is not accessible"))
-			}
-			return err
-		})
-}
-
-func TestRBACProductPageRule(t *testing.T) {
-	detailsPattern := regexp.MustCompile("details are currently unavailable")
-	reviewsPattern := regexp.MustCompile("reviews are currently unavailable")
-	testRBACRule(rbacProductPageRule, "productpage", t,
-		func(contents string) error {
-			var err error
-			if !detailsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("details shouldn't be accessible"))
-			}
-			if !reviewsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("reviews shouldn't be accessible"))
-			}
-			return err
-		})
-}
-
-func TestRBACDetailsRule(t *testing.T) {
-	detailsPattern := regexp.MustCompile("details are currently unavailable")
-	reviewsPattern := regexp.MustCompile("reviews are currently unavailable")
-	testRBACRule(rbacDetailsRule, "productpage and details", t,
-		func(contents string) error {
-			var err error
-			if detailsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("details is not accessible"))
-			}
-			if !reviewsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("reviews shouldn't be accessible"))
-			}
-			return err
-		})
-}
-
-func TestRBACReviewsRule(t *testing.T) {
-	detailsPattern := regexp.MustCompile("details are currently unavailable")
-	reviewsPattern := regexp.MustCompile("reviews are currently unavailable")
-	testRBACRule(rbacReviewsRule, "productpage and reviews", t,
-		func(contents string) error {
-			var err error
-			if !detailsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("details shouldn't be accessible"))
-			}
-			if reviewsPattern.MatchString(contents) {
-				err = multierror.Append(err, errors.New("reviews is not accessible"))
-			}
-			return err
-		})
-}
-
-func testRBACRule(rule string, target string, t *testing.T, checkContents func(contents string) error) {
-	log.Infof("RBAC: checking test app setup")
-	if _, err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
-		fatalf(t, "RBAC: test app setup failure: %v", err)
-	}
-
-	log.Infof("RBAC: enabling RBAC in istio")
-	if err := applyMixerRule(rbacEnableRule); err != nil {
-		fatalf(t, "RBAC: could not enable RBAC: %v", err)
-	}
-	defer func() {
-		if err := deleteMixerRule(rbacEnableRule); err != nil {
-			fatalf(t, "RBAC: could not disable RBAC: %v", err)
-		}
-	}()
-
-	// productpage should be denied access by default when RBAC is just enabled.
-	log.Infof("RBAC: ensure productpage is denied access by default")
-	if _, err := visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
-		fatalf(t, "RBAC: productpage is not denied access by default: %v", err)
-	}
-
-	log.Infof("RBAC: applying rule to allow access to %v", target)
-	if err := applyMixerRule(rule); err != nil {
-		fatalf(t, "RBAC: could not apply rule: %v", err)
-	}
-	defer func() {
-		if err := deleteMixerRule(rule); err != nil {
-			fatalf(t, "RBAC: could not clear rule: %v", err)
-		}
-	}()
-
-	log.Infof("RBAC: ensure access to %v", target)
-	contents, err := visitProductPage(productPageTimeout, http.StatusOK)
-	if err != nil {
-		fatalf(t, "RBAC: failed to ensure access to %v: %v", target, err)
-	}
-	if err := checkContents(contents); err != nil {
-		fatalf(t, "RBAC: rule not working correctly: %v", err)
-	}
-}
-
 func allowRuleSync() {
 	log.Info("Sleeping to allow rules to take effect...")
 	time.Sleep(1 * time.Minute)
@@ -869,7 +742,7 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 	return
 }
 
-func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) (contents string, err error) {
+func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
 	start := time.Now()
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
@@ -877,30 +750,31 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 	gateway, err := tc.Kube.Ingress()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	url := gateway + "/productpage"
 
 	for {
-		status, content, err := get(clnt, url, headers...)
+		status, _, err := get(clnt, url, headers...)
 		if err != nil {
 			log.Warnf("Unable to connect to product page: %v", err)
 		}
 
 		if status == wantStatus {
 			log.Infof("Got %d response from product page!", wantStatus)
-			return content, nil
+			return nil
 		}
 
 		if time.Since(start) > timeout {
 			dumpMixerMetrics()
 			checkProductPageDirect()
-			return contents, fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
+			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
 		}
 
 		// see what is happening
 		dumpK8Env()
+
 		time.Sleep(3 * time.Second)
 	}
 }
