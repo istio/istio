@@ -16,6 +16,10 @@
 
 docker: docker.all
 
+# Set to ':' and '-' to put all images in one repository
+HUB_IMG_DELIM ?= /
+IMG_TAG_DELIM ?= :
+
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
 
@@ -128,7 +132,7 @@ docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-            docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
+            docker build -t $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$@)$(IMG_TAG_DELIM)$(TAG) -f Dockerfile$(suffix $@) .)
 
 docker.all: $(DOCKER_TARGETS)
 
@@ -136,7 +140,7 @@ docker.all: $(DOCKER_TARGETS)
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
-   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && \
+   time (docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG) && \
          gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
@@ -154,7 +158,7 @@ $(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time ($(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+        time ($(DOCKER_PUSH_CMD) $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=

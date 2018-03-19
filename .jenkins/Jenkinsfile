@@ -51,40 +51,47 @@ node('docker') {
       "-e DOCKER_HOST=\"tcp://kubernetes:2375\" " +
       "--link ${k8s.id}:kubernetes"
     ) {
-      stage('Check') {
+      stage('PreClean') {
         sh "ls -al"
 
         // If there are old credentials from a previous build, destroy them -
         // we will only load them when needed in the push stage
         sh "rm -f ~/.dockercfg"
+      }
 
-        sh "cd $wkdir && go get -u github.com/golang/lint/golint"
-        sh "cd $wkdir && make check"
+      stage('Dependencies') {
+        sh "cd $wkdir && make submodule-sync"
+        sh "cd $wkdir && make init"
       }
 
       stage('Build') {
-        sh "cd $wkdir && make depend"
-        sh "cd $wkdir && make build"
+        sh "cd $wkdir && make build test-bins"
+        sh "cd $wkdir && make sidecar.deb"
       }
 
       stage('Test') {
-        sh "cp kubeconfig $wkdir/pilot/platform/kube/config"
-        sh """PROXYVERSION=\$(grep envoy-debug $wkdir/pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2) &&
-          PROXY=debug-\$PROXYVERSION &&
-          curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-\$PROXY.tar.gz | tar xz &&
-          mv usr/local/bin/envoy ${pwd()}/bin/envoy &&
-          rm -r usr/"""
-        sh "cd $wkdir && make test"
+        // sh "cp kubeconfig $wkdir/pilot/platform/kube/config"
+        sh "cd $wkdir && ./.jenkins/run-tests.sh"
       }
 
       stage('Push') {
         sh "cd && ln -sf .dockercfg-quay-creds .dockercfg"
-        sh "cd $wkdir && " +
-          "make HUB=quay.io/aspenmesh/istio-private TAG=$BUILD_TAG push"
+        sh "cd $wkdir && make " +
+         "HUB_IMG_DELIM=: " +
+         "IMG_TAG_DELIM=- " +
+         "HUB=quay.io/aspenmesh/istio-private " +
+         "TAG=$BUILD_TAG " +
+         "docker push"
         gitTag = getTag(wkdir)
         if (gitTag) {
+          echo 'Building tag'
           sh "cd $wkdir && " +
-            "make HUB=quay.io/aspenmesh/istio-private TAG=$gitTag push"
+          sh "cd $wkdir && make " +
+           "HUB_IMG_DELIM=: " +
+           "IMG_TAG_DELIM=- " +
+           "HUB=quay.io/aspenmesh/istio-private " +
+           "TAG=$gitTag " +
+           "docker push"
         }
         sh "cd && rm .dockercfg"
       }
