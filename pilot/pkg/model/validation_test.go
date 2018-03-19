@@ -829,13 +829,18 @@ func TestValidatePort(t *testing.T) {
 
 func TestValidateProxyAddress(t *testing.T) {
 	addresses := map[string]bool{
-		"istio-pilot:80":     true,
-		"istio-pilot":        false,
-		"isti..:80":          false,
-		"10.0.0.100:9090":    true,
-		"10.0.0.100":         false,
-		"istio-pilot:port":   false,
-		"istio-pilot:100000": false,
+		"istio-pilot:80":        true,
+		"istio-pilot":           false,
+		"isti..:80":             false,
+		"10.0.0.100:9090":       true,
+		"10.0.0.100":            false,
+		"istio-pilot:port":      false,
+		"istio-pilot:100000":    false,
+		"[2001:db8::100]:80":    true,
+		"[2001:db8::10::20]:80": false,
+		"[2001:db8::100]":       false,
+		"[2001:db8::100]:port":  false,
+		"2001:db8::100:80":      false,
 	}
 	for addr, valid := range addresses {
 		if got := ValidateProxyAddress(addr); (got == nil) != valid {

@@ -1223,22 +1223,21 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 
 // ValidateProxyAddress checks that a network address is well-formed
 func ValidateProxyAddress(hostAddr string) error {
-	colon := strings.Index(hostAddr, ":")
-	if colon < 0 {
-		return fmt.Errorf("':' separator not found in %q, host address must be of the form <DNS name>:<port> or <IP>:<port>",
-			hostAddr)
-	}
-	port, err := strconv.Atoi(hostAddr[colon+1:])
+	host, p, err := net.SplitHostPort(hostAddr)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to split %q: %v", hostAddr, err)
+	}
+	port, err := strconv.Atoi(p)
+	if err != nil {
+		return fmt.Errorf("port (%s) is not a number: %v", p, err)
 	}
 	if err = ValidatePort(port); err != nil {
 		return err
 	}
-	host := hostAddr[:colon]
 	if err = ValidateFQDN(host); err != nil {
-		if err = ValidateIPv4Address(host); err != nil {
-			return fmt.Errorf("%q is not a valid hostname or an IPv4 address", host)
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return fmt.Errorf("%q is not a valid hostname or an IP address", host)
 		}
 	}
 
@@ -1441,7 +1440,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 
 	if config.StatsdUdpAddress != "" {
 		if err := ValidateProxyAddress(config.StatsdUdpAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid statsd udp address:"))
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid statsd udp address %q:", config.StatsdUdpAddress)))
 		}
 	}
 
