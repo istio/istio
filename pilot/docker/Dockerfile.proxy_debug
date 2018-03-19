@@ -1,7 +1,8 @@
 FROM istionightly/base_debug
 
 # Install Envoy.
-ADD envoy /usr/local/bin/envoy
+ARG ENVOY_DEBUG_NAME
+ADD ${ENVOY_DEBUG_NAME} /usr/local/bin/envoy
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 

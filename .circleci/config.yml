@@ -51,7 +51,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make test/minikube/noauth/e2e_simple
@@ -137,7 +137,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -145,7 +145,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+                  make SKIP_REBUILD_CHECK=1 e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -176,14 +176,14 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+              make SKIP_REBUILD_CHECK=1 e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -217,7 +217,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run: make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
@@ -268,10 +268,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/noauth/e2e_pilot SKIP_REBUILD_CHECK=1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -319,15 +319,15 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/auth/e2e_pilot SKIP_REBUILD_CHECK=1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: alpha1
           when: always
           command: |
-            make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+            make test/minikube/auth/e2e_pilot_alpha1 SKIP_REBUILD_CHECK=1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -375,10 +375,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make SKIP_REBUILD_CHECK=1 docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/auth/e2e_pilot_alpha1 SKIP_REBUILD_CHECK=1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -507,7 +507,7 @@ jobs:
             - pkg/linux_amd64
             - bin
             - out
-      - run:  make sidecar.deb
+      - run:  make SKIP_REBUILD_CHECK=1 sidecar.deb
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
@@ -538,7 +538,7 @@ jobs:
               echo "Pushing docker images"
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               # The xenail debug image is built first, will be used in the next steps
-              make docker.push.basedebug docker.all push
+              make SKIP_REBUILD_CHECK=1 docker.push.basedebug docker.all push
             fi
 
   goxbuild:
