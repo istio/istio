@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"sort"
-	"time"
 	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
 	oldjson "encoding/json"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	google_protobuf "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/duration"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
