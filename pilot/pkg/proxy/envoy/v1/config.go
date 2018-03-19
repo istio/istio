@@ -292,6 +292,8 @@ func buildSidecarListenersClusters(
 			UseOriginalDst: true,
 			Filters:        []*NetworkFilter{passthruTCPFilters},
 		})
+
+		clusters = append(clusters, passthruCluster)
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
