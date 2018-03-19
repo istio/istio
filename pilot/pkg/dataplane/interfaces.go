@@ -21,46 +21,46 @@ import (
 )
 
 // Dataplane represents the interfaces to be implemented by code that generates xDS responses
-type Dataplane interface {
+type Dataplane struct {
 	// BuildListeners returns the list of listeners for the given proxy. This is the LDS output
-	BuildListeners(env model.Environment, node model.Proxy) []*v2.Listener
+	BuildListeners func(env model.Environment, node model.Proxy) []*v2.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster
+	BuildClusters func(env model.Environment, node model.Proxy) []*v2.Cluster
 
 	// BuildRoutes returns the list of routes for the given proxy. This is the RDS output
-	BuildRoutes(env model.Environment, node model.Proxy, routeName string) []*v2.RouteConfiguration
+	BuildRoutes func(env model.Environment, node model.Proxy, routeName string) []*v2.RouteConfiguration
 }
 
 // PluginCallbacks represents the interfaces implemented by code that modifies the default output of
 // networking. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 // TODO: determine the function params after looking at use cases
-type PluginCallbacks interface {
+type PluginCallbacks struct {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 	// Can be used to add additional filters on the outbound path
-	OnOutboundListener(env model.Environment, node model.Proxy, service *model.Service, listener *v2.Listener) *v2.Listener
+	OnOutboundListener func(env model.Environment, node model.Proxy, service *model.Service, listener *v2.Listener) *v2.Listener
 
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 	// on the inbound path
-	OnInboundListener(env model.Environment, node model.Proxy, service *model.Service, listener *v2.Listener) *v2.Listener
+	OnInboundListener func(env model.Environment, node model.Proxy, service *model.Service, listener *v2.Listener) *v2.Listener
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output
 	// Typically used by AuthN plugin to add mTLS settings
-	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, cluster *v2.Cluster) *v2.Cluster
+	OnOutboundCluster func(env model.Environment, node model.Proxy, service *model.Service, cluster *v2.Cluster) *v2.Cluster
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output
 	// Not used typically
-	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, cluster *v2.Cluster) *v2.Cluster
+	OnInboundCluster func(env model.Environment, node model.Proxy, service *model.Service, cluster *v2.Cluster) *v2.Cluster
 
 	// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
 	// RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-	OnOutboundRoute(env model.Environment, node model.Proxy, service model.Service, route *v2.RouteConfiguration) *v2.RouteConfiguration
+	OnOutboundRoute func(env model.Environment, node model.Proxy, service model.Service, route *v2.RouteConfiguration) *v2.RouteConfiguration
 
 	// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
 	// Can be used to enable route specific stuff like Lua filters or other metadata.
-	OnInboundRoute(env model.Environment, node model.Proxy, service model.Service, route *v2.RouteConfiguration) *v2.RouteConfiguration
+	OnInboundRoute func(env model.Environment, node model.Proxy, service model.Service, route *v2.RouteConfiguration) *v2.RouteConfiguration
 }
 
 // NewDataplane creates a new instance of dataplane configuration generator
