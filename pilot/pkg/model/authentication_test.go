@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package model
 
 import (
 	"reflect"
@@ -53,7 +53,7 @@ func TestRequireTls(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := requireTLS(&c.in); got != c.expected {
+		if got := RequireTLS(&c.in); got != c.expected {
 			t.Errorf("requireTLS(%v): got(%v) != want(%v)\n", c.in, got, c.expected)
 		}
 	}
