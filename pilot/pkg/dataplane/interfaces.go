@@ -14,9 +14,11 @@
 
 package dataplane
 
-import "istio.io/istio/pilot/pkg/model"
-import "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-import "istio.io/istio/pilot/pkg/dataplane/networking/v1alpha3"
+import (
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+
+	"istio.io/istio/pilot/pkg/model"
+)
 
 // Dataplane represents the interfaces to be implemented by code that generates xDS responses
 type Dataplane interface {
