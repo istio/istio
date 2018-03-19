@@ -1,10 +1,14 @@
 ---
-title: quota
+title: Quota
+overview: A template that represents a quota allocation request
+location: https://istio.io/docs/reference/config/template/quota.html
 layout: protoc-gen-docs
-number_of_entries: 8
+number_of_entries: 2
 ---
 <p>The <code>quota</code> template represents an item for which to check quota.</p>
 
+<h2 id="Template">Template</h2>
+<section>
 <p>The <code>quota</code> template represents a piece of data to check Quota for.</p>
 
 <p>When writing the configuration, the value for the fields associated with this template can either be a
@@ -26,21 +30,6 @@ spec:
     destinationVersion: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
 </code></pre>
 
-<h2 id="Services">Services</h2>
-<h3 id="HandleQuotaService">HandleQuotaService</h3>
-<section>
-<p>HandleQuotaService is implemented by backends that wants to handle request-time &lsquo;quota&rsquo; instances.</p>
-
-<pre id="HandleQuotaService.HandleQuota"><code class="language-proto">rpc HandleQuota(HandleQuotaRequest) returns (istio.mixer.adapter.model.v1beta1.QuotaResult)
-</code></pre>
-<p>HandleQuota is called by Mixer at request-time to deliver &lsquo;quota&rsquo; instances to the backend.</p>
-
-</section>
-<h2 id="Types">Types</h2>
-<h3 id="HandleQuotaRequest">HandleQuotaRequest</h3>
-<section>
-<p>Request message for HandleQuota method.</p>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -50,69 +39,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HandleQuotaRequest.instance">
-<td><code>instance</code></td>
-<td><code><a href="#InstanceMsg">InstanceMsg</a></code></td>
-<td>
-<p>&lsquo;quota&rsquo; instance.</p>
-
-</td>
-</tr>
-<tr id="HandleQuotaRequest.adapter_config">
-<td><code>adapterConfig</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
-<td>
-<p>Adapter specific handler configuration.</p>
-
-<p>Note: Backends can also implement <em>InfrastructureBackend</em>
-service and therefore opt to receive handler configuration during session creation through <em>InfrastructureBackend.CreateSession</em>
-call. In that case, adapter<em>config will have type</em>url as &lsquo;google.protobuf.Any.type<em>url&rsquo; and would contain string
-value of session</em>id (returned from InfrastructureBackend.CreateSession).</p>
-
-</td>
-</tr>
-<tr id="HandleQuotaRequest.dedup_id">
-<td><code>dedupId</code></td>
-<td><code>string</code></td>
-<td>
-<p>Id to dedupe identical requests from Mixer.</p>
-
-</td>
-</tr>
-<tr id="HandleQuotaRequest.quota_request">
-<td><code>quotaRequest</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.QuotaRequest">istio.mixer.adapter.model.v1beta1.QuotaRequest</a></code></td>
-<td>
-<p>Expresses the quota allocation request.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="InstanceMsg">InstanceMsg</h3>
-<section>
-<p>Contains instance payload for &lsquo;quota&rsquo; template. This is passed to infrastructure backends during request-time
-through HandleQuotaService.HandleQuota.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="InstanceMsg.name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of the instance as specified in configuration.</p>
-
-</td>
-</tr>
-<tr id="InstanceMsg.dimensions">
+<tr id="Template.dimensions">
 <td><code>dimensions</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
@@ -123,184 +50,9 @@ through HandleQuotaService.HandleQuota.</p>
 </tbody>
 </table>
 </section>
-<h3 id="InstanceParam">InstanceParam</h3>
-<section>
-<p>Represents instance configuration schema for &lsquo;quota&rsquo; template.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="InstanceParam.dimensions">
-<td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>The unique identity of the particular quota to manipulate.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Type">Type</h3>
-<section>
-<p>Contains inferred type information about specific instance of &lsquo;quota&rsquo; template. This is passed to
-infrastructure backends during configuration-time through <em>InfrastructureBackend.CreateSession</em>.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Type.dimensions">
-<td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</a>&gt;</code></td>
-<td>
-<p>The unique identity of the particular quota to manipulate.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="istio.mixer.adapter.model.v1beta1.QuotaRequest">istio.mixer.adapter.model.v1beta1.QuotaRequest</h3>
-<section>
-<p>Expresses the quota allocation request.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.QuotaRequest.quotas">
-<td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams">istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams</a>&gt;</code></td>
-<td>
-<p>The individual quotas to allocate</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h3>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
 <section>
 <p>Value is used inside templates for fields that have dynamic types. The actual datatype
 of the field depends on the datatype of the expression used in the operator configuration.</p>
 
-</section>
-<h3 id="istio.policy.v1beta1.ValueType">istio.policy.v1beta1.ValueType</h3>
-<section>
-<p>ValueType describes the types that values in the Istio system can take. These
-are used to describe the type of Attributes at run time, describe the type of
-the result of evaluating an expression, and to describe the runtime type of
-fields of other descriptors.</p>
-
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio.policy.v1beta1.ValueType.VALUE_TYPE_UNSPECIFIED">
-<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
-<td>
-<p>Invalid, default value.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.STRING">
-<td><code>STRING</code></td>
-<td>
-<p>An undiscriminated variable-length string.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.INT64">
-<td><code>INT64</code></td>
-<td>
-<p>An undiscriminated 64-bit signed integer.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.DOUBLE">
-<td><code>DOUBLE</code></td>
-<td>
-<p>An undiscriminated 64-bit floating-point value.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.BOOL">
-<td><code>BOOL</code></td>
-<td>
-<p>An undiscriminated boolean value.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.TIMESTAMP">
-<td><code>TIMESTAMP</code></td>
-<td>
-<p>A point in time.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.IP_ADDRESS">
-<td><code>IP_ADDRESS</code></td>
-<td>
-<p>An IP address.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.EMAIL_ADDRESS">
-<td><code>EMAIL_ADDRESS</code></td>
-<td>
-<p>An email address.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.URI">
-<td><code>URI</code></td>
-<td>
-<p>A URI.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.DNS_NAME">
-<td><code>DNS_NAME</code></td>
-<td>
-<p>A DNS name.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.DURATION">
-<td><code>DURATION</code></td>
-<td>
-<p>A span between two points in time.</p>
-
-</td>
-</tr>
-<tr id="istio.policy.v1beta1.ValueType.STRING_MAP">
-<td><code>STRING_MAP</code></td>
-<td>
-<p>A map string -&gt; string, typically used by headers.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
 </section>

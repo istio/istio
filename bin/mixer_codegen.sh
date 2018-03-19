@@ -169,7 +169,7 @@ if [ "$opttemplate" = true ]; then
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
-  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -179,11 +179,6 @@ if [ "$opttemplate" = true ]; then
   err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
-  fi
-
-  err=`$protoc $IMPORTS $GENDOCS_PLUGIN_TEMPLATE $templateHSP`
-  if [ ! -z "$err" ]; then
-    die "template doc generation failure: $err";
   fi
 
   rm $templatePG
