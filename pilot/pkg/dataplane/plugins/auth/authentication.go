@@ -23,13 +23,13 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// getConsolidateAuthenticationPolicy returns the authentication policy for
+// GetConsolidatedAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
 // If not, it generates and output a policy that is equivalent to the legacy flag
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func getConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname string, port *model.Port) *authn.Policy {
+func GetConsolidatedAuthenticationPolicy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname string, port *model.Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config == nil {
 		legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
@@ -73,7 +73,7 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 }
 
 // requireTLS returns true if the policy use mTLS for (peer) authentication.
-func requireTLS(policy *authn.Policy) bool {
+func RequireTLS(policy *authn.Policy) bool {
 	if policy == nil {
 		return false
 	}
