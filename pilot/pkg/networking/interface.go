@@ -20,9 +20,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Dataplane represents the interfaces to be implemented by code that generates xDS responses
-type Dataplane struct {
+// Networking represents the interfaces to be implemented by code that generates xDS responses
+type Networking struct {
 	// BuildListeners returns the list of listeners for the given proxy. This is the LDS output
+	// Internally, the computation will be optimized to ensure that listeners are computed only
+	// once and shared across multiple invocations of this function.
 	BuildListeners func(env model.Environment, node model.Proxy) []*v2.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
@@ -64,7 +66,7 @@ type PluginCallbacks struct {
 }
 
 // NewDataplane creates a new instance of dataplane configuration generator
-func NewDataplane() *Dataplane {
+func NewDataplane() *Networking {
 	//dataplane := v1alpha3.NewDataplane() // can be swapped with other versions in future
 	//return dataplane
 	return nil
