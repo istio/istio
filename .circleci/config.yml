@@ -693,4 +693,4 @@ workflows:
             - build
       - racetest:
           requires:
-            - dependencies
+            - test
