@@ -514,6 +514,7 @@ func (e *Environment) KubeApply(yaml, namespace string) error {
 		e.Config.KubeConfig, namespace), yaml)
 }
 
+// KubeDelete runs kubectl delete with the given yaml and namespace.
 func (e *Environment) KubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
 		e.Config.KubeConfig, namespace), yaml)

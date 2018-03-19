@@ -48,17 +48,16 @@ func (t *istioRBAC) Setup() error {
 	if err = t.KubeApply(yamlEnable, t.Config.IstioNamespace); err != nil {
 		log.Warn("Failed to enable istio RBAC")
 		return err
-	} else {
-		log.Info("Istio RBAC enabled")
-		t.rbacEnableYaml = yamlEnable
 	}
+	log.Info("Istio RBAC enabled")
+	t.rbacEnableYaml = yamlEnable
+
 	if err = t.KubeApply(yamlRules, t.Config.Namespace); err != nil {
 		log.Warn("Failed to apply istio RBAC rules")
 		return err
-	} else {
-		log.Info("Istio RBAC rules applied")
-		t.rbacRulesYaml = yamlRules
 	}
+	log.Info("Istio RBAC rules applied")
+	t.rbacRulesYaml = yamlRules
 
 	return nil
 }
@@ -90,26 +89,26 @@ func (t *istioRBAC) Run() error {
 		{dst: "a", src: "c", path: "/", expect: "403"},
 		{dst: "a", src: "d", path: "/", expect: "403"},
 
-		{dst: "b", src:"a", path:"/xyz", expect:"200"},
-		{dst: "b", src:"a", path:"/", expect:"200"},
-		{dst: "b", src:"c", path:"/", expect:"200"},
-		{dst: "b", src:"d", path:"/", expect:"200"},
+		{dst: "b", src: "a", path: "/xyz", expect: "200"},
+		{dst: "b", src: "a", path: "/", expect: "200"},
+		{dst: "b", src: "c", path: "/", expect: "200"},
+		{dst: "b", src: "d", path: "/", expect: "200"},
 
-		{dst: "c", src:"a", path:"/", expect:"403"},
-		{dst: "c", src:"a", path:"/good", expect:"403"},
-		{dst: "c", src:"a", path:"/prefixXYZ", expect:"403"},
-		{dst: "c", src:"a", path:"/xyz/suffix", expect:"403"},
+		{dst: "c", src: "a", path: "/", expect: "403"},
+		{dst: "c", src: "a", path: "/good", expect: "403"},
+		{dst: "c", src: "a", path: "/prefixXYZ", expect: "403"},
+		{dst: "c", src: "a", path: "/xyz/suffix", expect: "403"},
 
-		{dst: "c", src:"b", path:"/", expect:"403"},
-		{dst: "c", src:"b", path:"/good", expect:"403"},
-		{dst: "c", src:"b", path:"/prefixXYZ", expect:"403"},
-		{dst: "c", src:"b", path:"/xyz/suffix", expect:"403"},
+		{dst: "c", src: "b", path: "/", expect: "403"},
+		{dst: "c", src: "b", path: "/good", expect: "403"},
+		{dst: "c", src: "b", path: "/prefixXYZ", expect: "403"},
+		{dst: "c", src: "b", path: "/xyz/suffix", expect: "403"},
 
-		{dst: "c", src:"d", path:"/", expect:"403"},
-		{dst: "c", src:"d", path:"/xyz", expect:"403"},
-		{dst: "c", src:"d", path:"/good", expect:"200"},
-		{dst: "c", src:"d", path:"/prefixXYZ", expect:"200"},
-		{dst: "c", src:"d", path:"/xyz/suffix", expect:"200"},
+		{dst: "c", src: "d", path: "/", expect: "403"},
+		{dst: "c", src: "d", path: "/xyz", expect: "403"},
+		{dst: "c", src: "d", path: "/good", expect: "200"},
+		{dst: "c", src: "d", path: "/prefixXYZ", expect: "200"},
+		{dst: "c", src: "d", path: "/xyz/suffix", expect: "200"},
 
 		{dst: "d", src: "a", path: "/xyz", expect: "200"},
 		{dst: "d", src: "b", path: "/", expect: "200"},
@@ -130,8 +129,5 @@ func (t *istioRBAC) Run() error {
 		})(req.src, req.dst, req.path, req.expect)
 	}
 
-	if err := tutil.Parallel(funcs); err != nil {
-		return err
-	}
-	return nil
+	return tutil.Parallel(funcs)
 }
