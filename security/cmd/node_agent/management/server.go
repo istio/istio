@@ -22,7 +22,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/pkg/log"
@@ -51,24 +50,12 @@ type Server struct {
 	ss workload.SecretServer
 }
 
-// determineEnv chooses the right platform. If the env is specified in cfg.Env,
-// then we will use it. Otherwise nodeagent will detect the platform for you.
-func determineEnv(cfg *na.Config) string {
-	if cfg.Env != "unspecified" {
-		return cfg.Env
-	}
-	if metadata.OnGCE() {
-		return "gcp"
-	}
-	return "onprem"
-}
-
 // New creates an NodeAgent server.
 func New(cfg *na.Config) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
-	env := determineEnv(cfg)
+	env := na.DetermineEnv(cfg)
 	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
 		cfg.CertChainFile, cfg.IstioCAAddress)
 	if err != nil {
