@@ -581,8 +581,8 @@ func TestReloadCert(t *testing.T) {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
 	}
-	gomega.RegisterTestingT(t)
-	gomega.Eventually(func() bool {
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
 		return checkCert(t, wh, rotatedCert, rotatedKey)
 	}, "10s", "1s").Should(gomega.BeTrue())
 }
