@@ -600,7 +600,8 @@ istio.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-                  --set global.securityEnabled=false \
+                  --set global.controlPlaneSecurityEnabled=false \
+                  --set global.mtls.enabled=false \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
@@ -610,7 +611,8 @@ istio-one-namespace.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-                  --set global.securityEnabled=false \
+                  --set global.controlPlaneSecurityEnabled=false \
+                  --set global.mtls.enabled=false \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=true \
                   --set prometheus.enabled=true \
@@ -621,7 +623,8 @@ istio_auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-                  --set global.securityEnabled=true \
+                  --set global.controlPlaneSecurityEnabled=true \
+                  --set global.mtls.enabled=true \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
@@ -631,7 +634,8 @@ istio-one-namespace-auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-                  --set global.securityEnabled=false \
+                  --set global.controlPlaneSecurityEnabled=true \
+                  --set global.mtls.enabled=true \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=true \
                   --set prometheus.enabled=true \

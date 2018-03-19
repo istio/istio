@@ -76,7 +76,7 @@ spec:
           - pilot
           - --discoveryAddress
           - localhost:8080
-        {{- if $.Values.global.securityEnabled }}
+        {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --customConfigFile

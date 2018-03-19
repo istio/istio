@@ -35,7 +35,7 @@
         args:
         - proxy
         - mixer
-      {{- if $.Values.global.securityEnabled }}
+      {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
         - --customConfigFile
