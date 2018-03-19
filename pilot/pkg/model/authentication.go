@@ -12,26 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// AuthN filter configuration
-
-package v1
+package model
 
 import (
 	"fmt"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
-// getConsolidateAuthenticationPolicy returns the authentication policy for
+// GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
 // If not, it generates and output a policy that is equivalent to the legacy flag
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func getConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname string, port *model.Port) *authn.Policy {
+func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname string, port *Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config == nil {
 		legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
@@ -74,8 +71,8 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 	return nil
 }
 
-// requireTLS returns true if the policy use mTLS for (peer) authentication.
-func requireTLS(policy *authn.Policy) bool {
+// RequireTLS returns true if the policy use mTLS for (peer) authentication.
+func RequireTLS(policy *authn.Policy) bool {
 	if policy == nil {
 		return false
 	}
