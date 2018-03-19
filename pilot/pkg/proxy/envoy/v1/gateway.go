@@ -122,7 +122,7 @@ func tlsToSSLContext(tls *networking.Server_TLSOptions, protocol string) *SSLCon
 }
 
 // buildGatewayHTTPRoutes creates HTTP route configs for a single external port on a gateway
-func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Proxy, listenerPort int) (*HTTPRouteConfig, error) {
+func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Proxy, listenerPort int, includeSubsets bool) (*HTTPRouteConfig, error) {
 	gateways, err := configStore.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 				for _, rh := range allRulesWithHosts {
 					rule := rh.Rule
 					routesForThisVirtualHost := BuildHTTPRoutes(configStore, rule, pseudoService,
-						pseudoServicePort, nil, node.Domain, BuildOutboundCluster)
+						pseudoServicePort, nil, node.Domain, BuildOutboundCluster, includeSubsets)
 
 					for _, host := range rh.Hosts {
 						virtualHosts = append(virtualHosts, &VirtualHost{

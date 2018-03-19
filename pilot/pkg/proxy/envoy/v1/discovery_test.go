@@ -295,6 +295,28 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	}
 }
 
+func TestClusterDiscoveryDestinationRule(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	// TODO: v1alpha2 only
+	addConfig(registry, destinationRuleWorld, t)
+
+	addConfig(registry, weightedRouteRuleV3, t)
+
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-destination-rule.json", t)
+
+	url = "/v1/registration/" + mock.WorldService.Key(mock.WorldService.Ports[0],
+		map[string]string{"version": "v1"})
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/world-sds-v1.json", t)
+
+	url = fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.WorldProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-weighted.json", t)
+}
+
 func TestClusterDiscoveryEgressRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, egressRule, t)
@@ -662,10 +684,10 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV3} {
 		_, registry, ds := commonSetup(t)
 		addIngressRoutes(registry, t)
-		addConfig(registry, weightConfig, t)
 
 		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
+		addConfig(registry, weightConfig, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)

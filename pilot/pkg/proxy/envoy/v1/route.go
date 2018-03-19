@@ -185,15 +185,48 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
+// BuildOutboundCluster builds an outbound cluster.
+func BuildOutboundClusterSubset(subset *networking.Subset,
+	serviceName, domain, port string, timeout *duration.Duration) *Cluster {
+
+	if subset == nil {
+		return nil
+	}
+
+	fqdn := model.ResolveFQDN(serviceName, domain)
+	fqdn += "|" + port
+
+	if subset != nil {
+		fqdn += "|"
+		for label, value := range subset.GetLabels() {
+			fqdn += label + "=" + value
+		}
+	}
+
+	//name := "out." + subset.Name + "."
+	name := "out." + fqdn
+
+	cluster := &Cluster{
+		Name:             name,
+		ServiceName:      fqdn,
+		Type:             ClusterTypeSDS,
+		LbType:           DefaultLbType,
+		ConnectTimeoutMs: protoDurationToMS(timeout),
+		labels:           subset.Labels,
+	}
+	return cluster
+}
+
 // BuildHTTPRoutes translates a route rule to an Envoy route
 func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
+	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc,
+	includeSubsets bool) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *networking.VirtualService:
-		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, buildCluster)
+		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, buildCluster, includeSubsets)
 	default:
 		panic("unsupported rule")
 	}
@@ -324,19 +357,20 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc,
+	includeSubsets bool) []*HTTPRoute {
 
 	rule := config.Spec.(*networking.VirtualService)
 	routes := make([]*HTTPRoute, 0)
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, buildCluster))
+			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, buildCluster, includeSubsets))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, buildCluster))
+					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, buildCluster, includeSubsets))
 					break
 				}
 			}
@@ -347,7 +381,8 @@ func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, servic
 }
 
 func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
+	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc,
+	includeSubsets bool) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV3(match)
 	if http.Redirect != nil {
@@ -356,15 +391,31 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	} else {
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
-			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
-			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
-			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
-			route.Clusters = append(route.Clusters, cluster)
-			clusters = append(clusters,
-				&WeightedClusterEntry{
-					Name:   cluster.Name,
-					Weight: int(dst.Weight),
-				})
+			var cluster *Cluster
+			if includeSubsets == false {
+
+				fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+
+				labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
+				cluster = buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
+			} else {
+
+				if dst.Destination != nil {
+					subset, _ := GetSubset(dst.Destination.Subset, store)
+					cluster = BuildOutboundClusterSubset(subset, dst.Destination.Name, domain, port.Name,
+						&duration.Duration{Seconds: 1})
+				}
+			}
+
+			if cluster != nil {
+				route.Clusters = append(route.Clusters, cluster)
+				clusters = append(clusters,
+					&WeightedClusterEntry{
+						Name:   cluster.Name,
+						Weight: int(dst.Weight),
+					})
+			}
+
 		}
 
 		if len(clusters) == 1 {

@@ -56,6 +56,20 @@ var (
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
+	WorldInstanceV0 = MakeIP(WorldService, 0)
+	WorldInstanceV1 = MakeIP(WorldService, 1)
+	WorldProxyV0    = model.Proxy{
+		Type:      model.Sidecar,
+		IPAddress: WorldInstanceV0,
+		ID:        "v0.default",
+		Domain:    "default.svc.cluster.local",
+	}
+	WorldProxyV1 = model.Proxy{
+		Type:      model.Sidecar,
+		IPAddress: WorldInstanceV1,
+		ID:        "v1.default",
+		Domain:    "default.svc.cluster.local",
+	}
 	Ingress = model.Proxy{
 		Type:      model.Ingress,
 		IPAddress: "10.3.3.3",

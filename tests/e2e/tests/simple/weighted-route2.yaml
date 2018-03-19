@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: weighted-route-2
+spec:
+  hosts:
+    - echosrv
+  http:
+    - route:
+      - destination:
+          name: echosrv
+          subset: subset-v1
+        weight: 10
+      - destination:
+          name: echosrv
+          subset: subset-v2
+        weight: 90

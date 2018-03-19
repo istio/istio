@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: weighted-route-2
+spec:
+  hosts:
+    - echosrv
+  http:
+  - match:
+    - uri:
+          prefix: /fortio/
+    rewrite:
+      uri: /
+    route:
+      - destination:
+          name: echosrv
+          subset: subset-v1
+        weight: 75
+      - destination:
+          name: echosrv
+          subset: subset-v2
+        weight: 25
+  - route:
+    - destination:
+        name: echosrv
+        subset: subset-v1
+      weight: 75
+    - destination:
+        name: echosrv
+        subset: subset-v2
+      weight: 25

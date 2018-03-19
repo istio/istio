@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route
+spec:
+  hosts:
+    - echosrv
+  http:
+  - match:
+    - headers:
+        uri:
+          prefix: /fortio/
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        name: echosrv
+

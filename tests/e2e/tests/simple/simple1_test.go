@@ -39,14 +39,19 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 const (
-	servicesYaml    = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
-	nonInjectedYaml = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	servicesYaml       = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
+	nonInjectedYaml    = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	defaultRouteYaml   = "tests/e2e/tests/simple/default-route.yaml"
+	weightedRoute1Yaml = "tests/e2e/tests/simple/weighted-route1.yaml"
+	weightedRoute2Yaml = "tests/e2e/tests/simple/weighted-route2.yaml"
+	routingRNPYaml     = "tests/e2e/tests/simple/routingruleNoPods.yaml"
 )
 
 type testConfig struct {
@@ -194,6 +199,117 @@ func TestAuth(t *testing.T) {
 		}
 	}
 }
+
+func Test503sDuringChanges(t *testing.T) {
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return
+	}
+	url := gateway + "/debug"
+	/*
+		go func() {
+
+			time.Sleep(10 * time.Second)
+
+			defaultRoutePath := util.GetResourcePath(defaultRouteYaml)
+			if err := tc.Kube.Istioctl.CreateRule(defaultRoutePath); err != nil {
+				t.Errorf("istioctl rule create %s failed", defaultRouteYaml)
+				return
+			}
+
+			time.Sleep(15 * time.Second)
+
+			log.Infof("Changing rules mid run to v1/v2")
+			weightedRoute1Path := util.GetResourcePath(weightedRoute1Yaml)
+			if err := tc.Kube.Istioctl.CreateRule(weightedRoute1Path); err != nil {
+				t.Errorf("istioctl rule create %s failed", weightedRoute1Yaml)
+				return
+			}
+
+			time.Sleep(15 * time.Second)
+
+			log.Infof("Changing rules weight mid run to v1/v2")
+			weightedRoute2Path := util.GetResourcePath(weightedRoute2Yaml)
+			if err := tc.Kube.Istioctl.CreateRule(weightedRoute1Path); err != nil {
+				t.Errorf("istioctl rule create %s failed", weightedRoute2Yaml)
+				return
+			}
+
+			time.Sleep(15 * time.Second)
+
+			util.KubeDelete(tc.Kube.Namespace, weightedRoute2Path) // nolint:errcheck
+
+			time.Sleep(15 * time.Second)
+			util.KubeDelete(tc.Kube.Namespace, weightedRoute1Path) // nolint:errcheck
+			time.Sleep(15 * time.Second)
+			util.KubeDelete(tc.Kube.Namespace, defaultRoutePath) // nolint:errcheck
+
+		}()*/
+
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        8,
+			Duration:   120 * time.Second,
+			NumThreads: 1,
+		},
+	}
+	opts.URL = url
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	if num200s != numRequests {
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
+	}
+}
+
+/*
+func Test503sWithBadClusters(t *testing.T) {
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return
+	}
+	url := gateway + "/fortio/debug"
+	rulePath := util.GetResourcePath(routingRNPYaml)
+
+	go func() {
+		time.Sleep(9 * time.Second)
+		log.Infof("Changing rules with some non existent destination, mid run")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
+			t.Errorf("istiocrl create rule %s failed", routingRNPYaml)
+			return
+		}
+	}()
+
+	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
+
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        8,
+			Duration:   20 * time.Second,
+			NumThreads: 8,
+		},
+	}
+	opts.URL = url
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	numErrors := numRequests - num200s
+	// 1 or a handful of 503s (1 per connection) is maybe ok, but not much more
+	if numErrors > int64(opts.NumThreads)*2 {
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
+	}
+}
+*/
 
 type fortioTemplate struct {
 	FortioImage string

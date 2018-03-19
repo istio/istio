@@ -234,7 +234,7 @@ func buildSidecarListenersClusters(
 		}
 
 		// only HTTP outbound clusters are needed
-		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
+		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config, true)
 		httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
@@ -472,7 +472,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
-	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
+	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config, false)
 	httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
 	for port, routeConfig := range httpOutbound {
@@ -510,6 +510,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	buildCluster v1.BuildClusterFunc,
+	includeSubsets bool,
 ) []*v1.HTTPRoute {
 	protocol := servicePort.Protocol
 	switch protocol {
@@ -517,7 +518,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		routes := make([]*v1.HTTPRoute, 0)
 
 		// collect route rules
-		useDefaultRoute := true
+		//useDefaultRoute := true
 		rules := config.RouteRules(proxyInstances, service.Hostname, node.Domain)
 		// sort for output uniqueness
 		// if v1alpha3 rules are returned, len(rules) <= 1 is guaranteed
@@ -525,7 +526,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := v1.BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, buildCluster)
+			httpRoutes := v1.BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, buildCluster, includeSubsets)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
@@ -535,23 +536,24 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 			// "catchAll" flag indicating if the route that was built was a catch all route.
 			// When such a route is encountered, we stop building further routes for the
 			// destination and we will not add the default route after the for loop.
-			for _, httpRoute := range httpRoutes {
-				if httpRoute.CatchAll() {
-					useDefaultRoute = false
-					break
+			/*
+				for _, httpRoute := range httpRoutes {
+					if httpRoute.CatchAll() {
+						useDefaultRoute = false
+						break
+					}
 				}
-			}
 
-			if !useDefaultRoute {
-				break
-			}
+				if !useDefaultRoute {
+					break
+				}*/
 		}
 
-		if useDefaultRoute {
-			// default route for the destination is always the lowest priority route
-			cluster := buildCluster(service.Hostname, servicePort, nil, service.External())
-			routes = append(routes, v1.BuildDefaultRoute(cluster))
-		}
+		//if useDefaultRoute {
+		// default route for the destination is always the lowest priority route
+		cluster := buildCluster(service.Hostname, servicePort, nil, service.External())
+		routes = append(routes, v1.BuildDefaultRoute(cluster))
+		//}
 
 		return routes
 
@@ -575,7 +577,8 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
 func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) v1.HTTPRouteConfigs {
+	proxyInstances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore,
+	includeSubsets bool) v1.HTTPRouteConfigs {
 	httpConfigs := make(v1.HTTPRouteConfigs)
 	suffix := strings.Split(node.Domain, ".")
 
@@ -583,7 +586,8 @@ func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Proxy,
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, v1.BuildOutboundCluster)
+			routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config,
+				v1.BuildOutboundCluster, includeSubsets)
 
 			if len(routes) > 0 {
 				host := v1.BuildVirtualHost(service, servicePort, suffix, routes)

@@ -172,7 +172,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, BuildOutboundCluster, false)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)
@@ -191,9 +191,10 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 		// route block, wherein a prefix match occurs first before another route with same
 		// prefix match+prefix rewrite. A quick fix is to disable combining with the catchAll route if there
 		// are other routes. A long term fix is to stop combining routes from two different configuration sources.
-		if route.CatchAll() && len(routes) > 1 {
-			continue
-		}
+		/*
+			if route.CatchAll() && len(routes) > 1 {
+				continue
+			}*/
 
 		// enable mixer check on the route
 		if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
