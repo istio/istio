@@ -25,10 +25,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -581,11 +581,13 @@ func TestReloadCert(t *testing.T) {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
 	}
-	time.Sleep(5 * watchDebounceDelay)
-	checkCert(t, wh, rotatedCert, rotatedKey)
+	gomega.RegisterTestingT(t)
+	gomega.Eventually(func() bool {
+		return checkCert(t, wh, rotatedCert, rotatedKey)
+	}, "10s", "1s").Should(gomega.BeTrue())
 }
 
-func checkCert(t *testing.T, wh *Webhook, cert, key []byte) {
+func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 	actual, err := wh.getCert(nil)
 	if err != nil {
 		t.Fatalf("fail to get certificate from webhook: %s", err)
@@ -594,9 +596,7 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) {
 	if err != nil {
 		t.Fatalf("fail to load test certs.")
 	}
-	if !bytes.Equal(actual.Certificate[0], expected.Certificate[0]) {
-		t.Fatalf("Certificate do not match.")
-	}
+	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
 func BenchmarkInjectServe(b *testing.B) {

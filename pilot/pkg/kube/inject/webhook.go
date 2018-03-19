@@ -242,8 +242,8 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 }
 
 func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	defer wh.mu.Unlock()
 	wh.mu.Lock()
+	defer wh.mu.Unlock()
 	return wh.cert, nil
 }
 
