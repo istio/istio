@@ -69,13 +69,6 @@ func (lc *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, prox
 			{
 				TlsContext: &envoy_api_v2_auth.DownstreamTlsContext{
 					CommonTlsContext: &envoy_api_v2_auth.CommonTlsContext{
-						ValidationContext: &envoy_api_v2_auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_InlineString{
-									InlineString: "./security/samples/plugin_ca_certs/cert-chain.pem",
-								},
-							},
-						},
 						AlpnProtocols: v1.ListenersALPNProtocols,
 						TlsCertificates: []*envoy_api_v2_auth.TlsCertificate{
 							{

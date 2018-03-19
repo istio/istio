@@ -112,6 +112,20 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	time (cd $(ISTIO_DOCKER)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
+# Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
+# will scale better and have v2-specific features. Not built automatically until it passes
+# all tests. Developers working on v2 are currently expected to call this manually as
+# make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
+docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
+docker.proxyv2: $(ISTIO_OUT)/envoy
+docker.proxyv2: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
+	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
+	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
+	cp $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_v2.json $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_tmpl.json
+	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
+
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
 	cp $^ $(ISTIO_DOCKER)/pilot/
