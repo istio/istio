@@ -32,6 +32,7 @@ import (
 
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -345,32 +346,12 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	}
 }
 
-// consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
-// returns mesh policy.
-func consolidateAuthPolicy(mesh *meshconfig.MeshConfig, serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy { // nolint
-	if serviceAuthPolicy != meshconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
-	}
-	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
-	switch mesh.AuthPolicy {
-	case meshconfig.MeshConfig_MUTUAL_TLS:
-		return meshconfig.AuthenticationPolicy_MUTUAL_TLS
-	case meshconfig.MeshConfig_NONE:
-		return meshconfig.AuthenticationPolicy_NONE
-	default:
-		// Never get here, there are no other enum value for mesh.AuthPolicy.
-		panic(fmt.Sprintf("Unknown mesh auth policy: %v\n", mesh.AuthPolicy))
-	}
-}
-
 // mayApplyInboundAuth adds ssl_context to the listener if consolidateAuthPolicy.
-func mayApplyInboundAuth(listener *xdsapi.Listener, mesh *meshconfig.MeshConfig,
-	serviceAuthPolicy meshconfig.AuthenticationPolicy) {
-	// TODO(mostrowski): figure out SSL
-	/*	if consolidateAuthPolicy(mesh, serviceAuthPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-			listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
-		}
-	*/
+func mayApplyInboundAuth(listener *xdsapi.Listener, authenticationPolicy *authn.Policy) {
+	if requireTLS(authenticationPolicy) {
+		// TODO(mostrowski): figure out SSL
+		log.Debugf("TODO Apply authN policy %#v for %#v\n", authenticationPolicy, listener)
+	}
 }
 
 // buildTCPListener constructs a listener for the TCP proxy
@@ -786,7 +767,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if l != nil {
-			mayApplyInboundAuth(l, mesh, endpoint.ServicePort.AuthenticationPolicy)
+			authenticationPolicy := getConsolidateAuthenticationPolicy(mesh, config, instance.Service.Hostname, servicePort)
+			mayApplyInboundAuth(l, authenticationPolicy)
 			listeners = append(listeners, l)
 		}
 	}
