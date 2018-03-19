@@ -31,7 +31,6 @@ var (
 )
 
 const (
-	responseTickDuration  = time.Second * 15
 	unknownPeerAddressStr = "Unknown peer address"
 )
 

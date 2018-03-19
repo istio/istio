@@ -76,27 +76,6 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
-// protoDurationToTimeDuration converts d to time.Duration format.
-func protoDurationToTimeDuration(d *google_protobuf.Duration) time.Duration { //nolint
-	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
-}
-
-// google_protobufToProto converts d to google protobuf Duration format.
-func durationToProto(d time.Duration) *google_protobuf.Duration { // nolint
-	nanos := d.Nanoseconds()
-	secs := nanos / 1e9
-	nanos -= secs * 1e9
-	return &google_protobuf.Duration{
-		Seconds: secs,
-		Nanos:   int32(nanos),
-	}
-}
-
-// durationToTimeDuration converts d to time.Duration format.
-func durationToTimeDuration(d *duration.Duration) time.Duration {
-	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
-}
-
 func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name:   name,

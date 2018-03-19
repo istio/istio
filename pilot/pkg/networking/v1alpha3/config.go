@@ -82,7 +82,7 @@ const (
 	IstioIngress = "istio-ingress"
 )
 
-// buildListeners produces a list of listeners and referenced clusters for all proxies
+// BuildListeners produces a list of listeners for the proxy (LDS output)
 func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
@@ -122,6 +122,7 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 	return nil, nil
 }
 
+// BuildClusters produces a list of clusters for the proxy (CDS output)
 func BuildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
 	var clusters v1.Clusters
 	var proxyInstances []*model.ServiceInstance
@@ -468,13 +469,13 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	services []*model.Service, config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
 	listeners, clusters := buildOutboundTCPListeners(mesh, node, services)
 
-	externalServiceTCPListeners, externalServiceTCPClusters := buildExternalServiceTCPListeners(mesh, config)
-	listeners = append(listeners, externalServiceTCPListeners...)
-	clusters = append(clusters, externalServiceTCPClusters...)
+	//externalServiceTCPListeners, externalServiceTCPClusters := buildExternalServiceTCPListeners(mesh, config)
+	//listeners = append(listeners, externalServiceTCPListeners...)
+	//clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
-	httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
+	//httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
 	for port, routeConfig := range httpOutbound {
 		operation := http_conn.EGRESS

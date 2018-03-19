@@ -82,7 +82,7 @@ const (
 	IstioIngress = "istio-ingress"
 )
 
-// buildListeners produces a list of listeners and referenced clusters for all proxies
+// BuildListeners produces a list of listeners for the proxy (LDS response)
 func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
@@ -118,6 +118,7 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 	return nil, nil
 }
 
+// BuildClusters returns the list of clusters for a proxy
 func BuildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
 	var clusters v1.Clusters
 	var proxyInstances []*model.ServiceInstance
