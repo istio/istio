@@ -11,7 +11,7 @@ GOOS=
 GOARCH=
 
 if [[ -z $SKIP_INIT ]];then
-  bin/init.sh
+  make init
 fi
 
 echo 'Checking licenses'

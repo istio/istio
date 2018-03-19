@@ -64,9 +64,9 @@ export GOARCH ?= $(LOCAL_GOARCH)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   LOCAL_GOOS := linux
+   export LOCAL_GOOS := linux
 else ifeq ($(LOCAL_OS),Darwin)
-   LOCAL_GOOS := darwin
+   export LOCAL_GOOS := darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
