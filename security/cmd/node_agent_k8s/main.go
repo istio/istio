@@ -24,7 +24,7 @@ import (
 
 	"time"
 
-	nam "istio.io/istio/security/cmd/node_agent"
+	nam "istio.io/istio/security/cmd/node_agent/management"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
