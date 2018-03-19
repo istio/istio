@@ -1,7 +1,8 @@
 FROM ubuntu:xenial
 
 # Install Envoy.
-ADD envoy /usr/local/bin/envoy
+ARG ENVOY_NAME
+ADD ${ENVOY_NAME} /usr/local/bin/envoy
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 

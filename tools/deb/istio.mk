@@ -15,9 +15,7 @@ deb/build-in-docker:
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
-
-deb: ${ISTIO_OUT}/istio-sidecar.deb
+deb sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
 
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
@@ -49,11 +47,7 @@ ISTIO_DEB_NAME ?= istio-sidecar
 # a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
-	$(MAKE) deb/fpm
-
-# This got way too complex - used only to run fpm in a container.
-deb/fpm:
+deb/fpm ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
 		--url http://istio.io  \
