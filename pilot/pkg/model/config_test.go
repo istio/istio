@@ -526,7 +526,7 @@ func TestEgressRules(t *testing.T) {
 	}
 }
 
-func TestPolicy(t *testing.T) {
+func TestDestinationPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
 	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
@@ -557,21 +557,21 @@ func TestPolicy(t *testing.T) {
 	}
 	if out := store.Policy(instances, mock.WorldService.Hostname, labels); out == nil ||
 		!reflect.DeepEqual(policy1, out.Spec) {
-		t.Errorf("Policy() => expected %#v but got %#v", policy1, out)
+		t.Errorf("DestinationPolicy() => expected %#v but got %#v", policy1, out)
 	}
 	if out := store.Policy(instances, mock.HelloService.Hostname, labels); out != nil {
-		t.Error("Policy() => expected no match for destination-matched policy")
+		t.Error("DestinationPolicy() => expected no match for destination-matched policy")
 	}
 	if out := store.Policy(instances, mock.WorldService.Hostname, nil); out != nil {
-		t.Error("Policy() => expected no match for labels-matched policy")
+		t.Error("DestinationPolicy() => expected no match for labels-matched policy")
 	}
 	if out := store.Policy(nil, mock.WorldService.Hostname, labels); out != nil {
-		t.Error("Policy() => expected no match for source-matched policy")
+		t.Error("DestinationPolicy() => expected no match for source-matched policy")
 	}
 
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
-		t.Errorf("Policy() => expected nil but got %v", out)
+		t.Errorf("DestinationPolicy() => expected nil but got %v", out)
 	}
 }
 

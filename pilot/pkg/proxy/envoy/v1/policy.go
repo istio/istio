@@ -63,7 +63,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(proxyInstances, cluster.Hostname, cluster.labels)
+	policyConfig := config.DestinationPolicy(proxyInstances, cluster.Hostname, cluster.labels)
 
 	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {

@@ -955,7 +955,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	port.Protocol = protocolToHandle
 
 	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-		oc := BuildMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
+		oc := BuildExternalServiceMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
 		for _, route := range routes {
 			route.OpaqueConfig = oc
 		}
