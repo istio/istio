@@ -57,9 +57,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -216,6 +221,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "tracespan.Type")
 	proto.RegisterType((*InstanceParam)(nil), "tracespan.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleTraceSpanService service
+
+type HandleTraceSpanServiceClient interface {
+	// HandleTraceSpan is called by Mixer at request-time to deliver 'tracespan' instances to the backend.
+	HandleTraceSpan(ctx context.Context, in *HandleTraceSpanRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleTraceSpanServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleTraceSpanServiceClient(cc *grpc.ClientConn) HandleTraceSpanServiceClient {
+	return &handleTraceSpanServiceClient{cc}
+}
+
+func (c *handleTraceSpanServiceClient) HandleTraceSpan(ctx context.Context, in *HandleTraceSpanRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/tracespan.HandleTraceSpanService/HandleTraceSpan", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleTraceSpanService service
+
+type HandleTraceSpanServiceServer interface {
+	// HandleTraceSpan is called by Mixer at request-time to deliver 'tracespan' instances to the backend.
+	HandleTraceSpan(context.Context, *HandleTraceSpanRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleTraceSpanServiceServer(s *grpc.Server, srv HandleTraceSpanServiceServer) {
+	s.RegisterService(&_HandleTraceSpanService_serviceDesc, srv)
+}
+
+func _HandleTraceSpanService_HandleTraceSpan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleTraceSpanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleTraceSpanServiceServer).HandleTraceSpan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tracespan.HandleTraceSpanService/HandleTraceSpan",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleTraceSpanServiceServer).HandleTraceSpan(ctx, req.(*HandleTraceSpanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleTraceSpanService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "tracespan.HandleTraceSpanService",
+	HandlerType: (*HandleTraceSpanServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleTraceSpan",
+			Handler:    _HandleTraceSpanService_HandleTraceSpan_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/tracespan/tracespan_handler_service.proto",
+}
+
 func (m *HandleTraceSpanRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

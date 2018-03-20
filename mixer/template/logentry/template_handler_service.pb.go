@@ -53,9 +53,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -167,6 +172,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "logentry.Type")
 	proto.RegisterType((*InstanceParam)(nil), "logentry.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleLogEntryService service
+
+type HandleLogEntryServiceClient interface {
+	// HandleLogEntry is called by Mixer at request-time to deliver 'logentry' instances to the backend.
+	HandleLogEntry(ctx context.Context, in *HandleLogEntryRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleLogEntryServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleLogEntryServiceClient(cc *grpc.ClientConn) HandleLogEntryServiceClient {
+	return &handleLogEntryServiceClient{cc}
+}
+
+func (c *handleLogEntryServiceClient) HandleLogEntry(ctx context.Context, in *HandleLogEntryRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/logentry.HandleLogEntryService/HandleLogEntry", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleLogEntryService service
+
+type HandleLogEntryServiceServer interface {
+	// HandleLogEntry is called by Mixer at request-time to deliver 'logentry' instances to the backend.
+	HandleLogEntry(context.Context, *HandleLogEntryRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleLogEntryServiceServer(s *grpc.Server, srv HandleLogEntryServiceServer) {
+	s.RegisterService(&_HandleLogEntryService_serviceDesc, srv)
+}
+
+func _HandleLogEntryService_HandleLogEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleLogEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleLogEntryServiceServer).HandleLogEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/logentry.HandleLogEntryService/HandleLogEntry",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleLogEntryServiceServer).HandleLogEntry(ctx, req.(*HandleLogEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleLogEntryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "logentry.HandleLogEntryService",
+	HandlerType: (*HandleLogEntryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleLogEntry",
+			Handler:    _HandleLogEntryService_HandleLogEntry_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/logentry/template_handler_service.proto",
+}
+
 func (m *HandleLogEntryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

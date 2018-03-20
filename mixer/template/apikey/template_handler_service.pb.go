@@ -41,8 +41,13 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -139,6 +144,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "apikey.Type")
 	proto.RegisterType((*InstanceParam)(nil), "apikey.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleApiKeyService service
+
+type HandleApiKeyServiceClient interface {
+	// HandleApiKey is called by Mixer at request-time to deliver 'apikey' instances to the backend.
+	HandleApiKey(ctx context.Context, in *HandleApiKeyRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleApiKeyServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleApiKeyServiceClient(cc *grpc.ClientConn) HandleApiKeyServiceClient {
+	return &handleApiKeyServiceClient{cc}
+}
+
+func (c *handleApiKeyServiceClient) HandleApiKey(ctx context.Context, in *HandleApiKeyRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/apikey.HandleApiKeyService/HandleApiKey", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleApiKeyService service
+
+type HandleApiKeyServiceServer interface {
+	// HandleApiKey is called by Mixer at request-time to deliver 'apikey' instances to the backend.
+	HandleApiKey(context.Context, *HandleApiKeyRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleApiKeyServiceServer(s *grpc.Server, srv HandleApiKeyServiceServer) {
+	s.RegisterService(&_HandleApiKeyService_serviceDesc, srv)
+}
+
+func _HandleApiKeyService_HandleApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleApiKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleApiKeyServiceServer).HandleApiKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apikey.HandleApiKeyService/HandleApiKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleApiKeyServiceServer).HandleApiKey(ctx, req.(*HandleApiKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleApiKeyService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "apikey.HandleApiKeyService",
+	HandlerType: (*HandleApiKeyServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleApiKey",
+			Handler:    _HandleApiKeyService_HandleApiKey_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/apikey/template_handler_service.proto",
+}
+
 func (m *HandleApiKeyRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

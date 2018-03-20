@@ -42,7 +42,12 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -123,6 +128,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "listentry.Type")
 	proto.RegisterType((*InstanceParam)(nil), "listentry.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleListEntryService service
+
+type HandleListEntryServiceClient interface {
+	// HandleListEntry is called by Mixer at request-time to deliver 'listentry' instances to the backend.
+	HandleListEntry(ctx context.Context, in *HandleListEntryRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleListEntryServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleListEntryServiceClient(cc *grpc.ClientConn) HandleListEntryServiceClient {
+	return &handleListEntryServiceClient{cc}
+}
+
+func (c *handleListEntryServiceClient) HandleListEntry(ctx context.Context, in *HandleListEntryRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/listentry.HandleListEntryService/HandleListEntry", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleListEntryService service
+
+type HandleListEntryServiceServer interface {
+	// HandleListEntry is called by Mixer at request-time to deliver 'listentry' instances to the backend.
+	HandleListEntry(context.Context, *HandleListEntryRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleListEntryServiceServer(s *grpc.Server, srv HandleListEntryServiceServer) {
+	s.RegisterService(&_HandleListEntryService_serviceDesc, srv)
+}
+
+func _HandleListEntryService_HandleListEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleListEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleListEntryServiceServer).HandleListEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/listentry.HandleListEntryService/HandleListEntry",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleListEntryServiceServer).HandleListEntry(ctx, req.(*HandleListEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleListEntryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "listentry.HandleListEntryService",
+	HandlerType: (*HandleListEntryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleListEntry",
+			Handler:    _HandleListEntryService_HandleListEntry_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/listentry/template_handler_service.proto",
+}
+
 func (m *HandleListEntryRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
