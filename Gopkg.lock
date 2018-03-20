@@ -1209,15 +1209,13 @@
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
-    "mixer/v1/config",
     "mixer/v1/config/client",
-    "mixer/v1/config/descriptor",
     "networking/v1alpha3",
     "policy/v1beta1",
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "10c6d3aa4f2f1dec0927331401b63137d4e0e635"
+  revision = "ebc984a0e2efff5d23c85c86d2cc44a3be3e238b"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1513,6 +1511,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "69d4f0b300945d3929b747bf5fde5fb8ed31ddcf9343b70d485530383971d706"
+  inputs-digest = "2630239b08bc42774b92e99157414b13ea59db25d6dc92110e8f054713034385"
   solver-name = "gps-cdcl"
   solver-version = 1
