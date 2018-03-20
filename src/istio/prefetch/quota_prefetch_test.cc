@@ -316,74 +316,82 @@ class QuotaPrefetchTest : public ::testing::Test {
 
 TEST_F(QuotaPrefetchTest, TestBigRollingWindow) {
   TestSingleClient(true,  // use rolling window,
-                   kPerMinuteWindow, {.margin1 = 0.0,
-                                      .margin2 = 0.006,
-                                      .margin3 = 0.0015,
-                                      .margin4 = 0.0,
-                                      .margin5 = 0.06});
+                   kPerMinuteWindow,
+                   {.margin1 = 0.0,
+                    .margin2 = 0.006,
+                    .margin3 = 0.0015,
+                    .margin4 = 0.0,
+                    .margin5 = 0.06});
 }
 
 TEST_F(QuotaPrefetchTest, TestSmallRollingWindow) {
   TestSingleClient(true,  // use rolling window,
-                   kPerSecondWindow, {.margin1 = 0.26,
-                                      .margin2 = 0.23,
-                                      .margin3 = 0.25,
-                                      .margin4 = 0.04,
-                                      .margin5 = 0.23});
+                   kPerSecondWindow,
+                   {.margin1 = 0.26,
+                    .margin2 = 0.23,
+                    .margin3 = 0.25,
+                    .margin4 = 0.04,
+                    .margin5 = 0.23});
 }
 
 TEST_F(QuotaPrefetchTest, TestBigTimeBased) {
   TestSingleClient(false,  // use time based.
-                   kPerMinuteWindow, {.margin1 = 0.0,
-                                      .margin2 = 0.0,
-                                      .margin3 = 0.08,
-                                      .margin4 = 0.0,
-                                      .margin5 = 0.1});
+                   kPerMinuteWindow,
+                   {.margin1 = 0.0,
+                    .margin2 = 0.0,
+                    .margin3 = 0.08,
+                    .margin4 = 0.0,
+                    .margin5 = 0.1});
 }
 
 TEST_F(QuotaPrefetchTest, TestSmallTimeBased) {
   TestSingleClient(false,  // use time based
-                   kPerSecondWindow, {.margin1 = 0.0,
-                                      .margin2 = 0.0,
-                                      .margin3 = 0.035,
-                                      .margin4 = 0.03,
-                                      .margin5 = 0.23});
+                   kPerSecondWindow,
+                   {.margin1 = 0.0,
+                    .margin2 = 0.0,
+                    .margin3 = 0.035,
+                    .margin4 = 0.03,
+                    .margin5 = 0.23});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientBigRollingWindow) {
   TestTwoClients(true,  // use rolling window,
-                 kPerMinuteWindow, {.margin1 = 0.0,
-                                    .margin2 = 0.006,
-                                    .margin3 = 0.0015,
-                                    .margin4 = 0.001,
-                                    .margin5 = 0.057});
+                 kPerMinuteWindow,
+                 {.margin1 = 0.0,
+                  .margin2 = 0.006,
+                  .margin3 = 0.0015,
+                  .margin4 = 0.001,
+                  .margin5 = 0.057});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientSmallRollingWindow) {
   TestTwoClients(true,  // use rolling window,
-                 kPerSecondWindow, {.margin1 = 0.33,
-                                    .margin2 = 0.30,
-                                    .margin3 = 0.30,
-                                    .margin4 = 0.14,
-                                    .margin5 = 0.22});
+                 kPerSecondWindow,
+                 {.margin1 = 0.33,
+                  .margin2 = 0.30,
+                  .margin3 = 0.30,
+                  .margin4 = 0.14,
+                  .margin5 = 0.22});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientBigTimeBased) {
   TestTwoClients(false,  // use time based
-                 kPerMinuteWindow, {.margin1 = 0.0,
-                                    .margin2 = 0.0,
-                                    .margin3 = 0.055,
-                                    .margin4 = 0.0,
-                                    .margin5 = 0.0005});
+                 kPerMinuteWindow,
+                 {.margin1 = 0.0,
+                  .margin2 = 0.0,
+                  .margin3 = 0.055,
+                  .margin4 = 0.0,
+                  .margin5 = 0.0005});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientSmallTimeBased) {
   TestTwoClients(false,  // use time based
-                 kPerSecondWindow, {.margin1 = 0.062,
-                                    .margin2 = 0.14,
-                                    .margin3 = 0.15,
-                                    .margin4 = 0.05,
-                                    .margin5 = 0.17});
+                 kPerSecondWindow,
+                 {.margin1 = 0.062,
+                  .margin2 = 0.14,
+                  .margin3 = 0.15,
+                  .margin4 = 0.05,
+                  .margin5 = 0.17});
 }
 
 TEST_F(QuotaPrefetchTest, TestNotEnoughAmount) {

@@ -17,9 +17,9 @@
 #include "gtest/gtest.h"
 #include "test/test_common/utility.h"
 
-using ::testing::_;
 using ::testing::Invoke;
 using ::testing::NiceMock;
+using ::testing::_;
 
 namespace Envoy {
 namespace Http {

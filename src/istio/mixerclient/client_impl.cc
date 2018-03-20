@@ -15,13 +15,13 @@
 #include "src/istio/mixerclient/client_impl.h"
 #include "include/istio/utils/protobuf.h"
 
+using ::google::protobuf::util::Status;
+using ::google::protobuf::util::error::Code;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
-using ::google::protobuf::util::Status;
-using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixerclient {
@@ -112,8 +112,9 @@ CancelFunc MixerClientImpl::Check(
   }
 
   return transport(
-      request, response, [this, request_copy, response, raw_check_result,
-                          raw_quota_result, on_done](const Status &status) {
+      request, response,
+      [this, request_copy, response, raw_check_result, raw_quota_result,
+       on_done](const Status &status) {
         raw_check_result->SetResponse(status, *request_copy, *response);
         raw_quota_result->SetResponse(status, *request_copy, *response);
         if (on_done) {

@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/http_filter.h"
 #include "authentication/v1alpha1/policy.pb.h"
 #include "envoy/registry/registry.h"
 #include "google/protobuf/util/json_util.h"
+#include "src/envoy/http/authn/http_filter.h"
 #include "src/envoy/utils/utils.h"
 
 namespace Envoy {

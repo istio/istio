@@ -19,14 +19,14 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Install required clang version to a folder and cache it.
-CLANG_VERSION_REQUIRED="3.8.0"
+CLANG_VERSION_REQUIRED="5.0.0"
 CLANG_DIRECTORY="${HOME}/clang"
 CLANG_FORMAT="${CLANG_DIRECTORY}/bin/clang-format"
 
 if [ "$(uname)" == "Darwin" ]; then
     CLANG_BIN="x86_64-apple-darwin.tar.xz"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-    CLANG_BIN="x86_64-linux-gnu-ubuntu-14.04.tar.xz"
+    CLANG_BIN="linux-x86_64-ubuntu14.04.tar.xz"
 else
     echo "Unsupported environment." ; exit 1 ;
 fi

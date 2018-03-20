@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/jwt_auth/http_filter.h"
 #include "envoy/registry/registry.h"
 #include "google/protobuf/util/json_util.h"
 #include "src/envoy/http/jwt_auth/auth_store.h"
 #include "src/envoy/http/jwt_auth/config.pb.validate.h"
+#include "src/envoy/http/jwt_auth/http_filter.h"
 
 namespace Envoy {
 namespace Server {
@@ -72,6 +72,6 @@ static Registry::RegisterFactory<JwtVerificationFilterConfig,
                                  NamedHttpFilterConfigFactory>
     register_;
 
-}  // Configuration
-}  // Server
-}  // Envoy
+}  // namespace Configuration
+}  // namespace Server
+}  // namespace Envoy

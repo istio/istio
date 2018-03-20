@@ -69,7 +69,7 @@ class QuotaPrefetch {
   virtual bool Check(int amount, Tick t) = 0;
 };
 
-}  // namespace mixer_client
+}  // namespace prefetch
 }  // namespace istio
 
 #endif  // ISTIO_PREFETCH_QUOTA_PREFETCH_H_

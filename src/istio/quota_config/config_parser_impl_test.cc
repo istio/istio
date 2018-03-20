@@ -19,10 +19,10 @@
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 
-using ::istio::mixer::v1::Attributes;
-using ::istio::utils::AttributesBuilder;
 using ::google::protobuf::TextFormat;
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::QuotaSpec;
+using ::istio::utils::AttributesBuilder;
 
 namespace istio {
 namespace quota_config {

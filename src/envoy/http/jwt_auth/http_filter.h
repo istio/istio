@@ -59,5 +59,5 @@ class JwtVerificationFilter : public StreamDecoderFilter,
   bool stopped_ = false;
 };
 
-}  // Http
-}  // Envoy
+}  // namespace Http
+}  // namespace Envoy

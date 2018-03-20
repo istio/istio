@@ -17,14 +17,14 @@
 #include "include/istio/utils/protobuf.h"
 
 using namespace std::chrono;
+using ::google::protobuf::util::Status;
+using ::google::protobuf::util::error::Code;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::prefetch::QuotaPrefetch;
 using ::istio::quota_config::Requirement;
-using ::google::protobuf::util::Status;
-using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixerclient {
@@ -40,8 +40,9 @@ QuotaCache::CacheElem::CacheElem(const std::string& name) : name_(name) {
 void QuotaCache::CacheElem::Alloc(int amount, QuotaPrefetch::DoneFunc fn) {
   quota_->amount = amount;
   quota_->best_effort = true;
-  quota_->response_func = [fn](
-      const Attributes&, const CheckResponse::QuotaResult* result) -> bool {
+  quota_->response_func =
+      [fn](const Attributes&,
+           const CheckResponse::QuotaResult* result) -> bool {
     int amount = -1;
     milliseconds expire = duration_cast<milliseconds>(minutes(1));
     if (result != nullptr) {
@@ -117,8 +118,8 @@ void QuotaCache::CheckResult::SetResponse(const Status& status,
         if (it != quotas.end()) {
           result = &it->second;
         } else {
-          GOOGLE_LOG(ERROR) << "Quota response did not have quota for: "
-                            << quota.name;
+          GOOGLE_LOG(ERROR)
+              << "Quota response did not have quota for: " << quota.name;
         }
       }
       if (!quota.response_func(attributes, result)) {
@@ -159,8 +160,9 @@ void QuotaCache::CheckCache(const Attributes& request, bool check_use_cache,
   if (!cache_ || !check_use_cache) {
     quota->best_effort = false;
     quota->result = CheckResult::Quota::Pending;
-    quota->response_func = [](
-        const Attributes&, const CheckResponse::QuotaResult* result) -> bool {
+    quota->response_func =
+        [](const Attributes&,
+           const CheckResponse::QuotaResult* result) -> bool {
       // nullptr means connection error, for quota, it is fail open for
       // connection error.
       return result == nullptr || result->granted_amount() > 0;
@@ -192,8 +194,8 @@ void QuotaCache::CheckCache(const Attributes& request, bool check_use_cache,
   auto saved_func = quota->response_func;
   std::string quota_name = quota->name;
   quota->response_func = [saved_func, quota_name, this](
-      const Attributes& attributes,
-      const CheckResponse::QuotaResult* result) -> bool {
+                             const Attributes& attributes,
+                             const CheckResponse::QuotaResult* result) -> bool {
     SetResponse(attributes, quota_name, result);
     if (saved_func) {
       return saved_func(attributes, result);

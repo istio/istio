@@ -25,13 +25,13 @@
 
 namespace iaapi = istio::authentication::v1alpha1;
 
-using testing::_;
 using testing::DoAll;
 using testing::MockFunction;
 using testing::NiceMock;
 using testing::Return;
 using testing::SetArgPointee;
 using testing::StrictMock;
+using testing::_;
 
 namespace Envoy {
 namespace Http {

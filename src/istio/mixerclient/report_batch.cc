@@ -16,11 +16,11 @@
 #include "src/istio/mixerclient/report_batch.h"
 #include "include/istio/utils/protobuf.h"
 
+using ::google::protobuf::util::Status;
+using ::google::protobuf::util::error::Code;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
-using ::google::protobuf::util::Status;
-using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixerclient {

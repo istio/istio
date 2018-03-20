@@ -92,7 +92,7 @@ class AttributesBuilder {
   ::istio::mixer::v1::Attributes* attributes_;
 };
 
-}  // namespace mixerclient
+}  // namespace utils
 }  // namespace istio
 
 #endif  // ISTIO_MIXERCLIENT_ATTRIBUTES_BUILDER_H

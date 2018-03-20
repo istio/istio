@@ -25,16 +25,16 @@
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::Attributes;
-using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixer::v1::config::client::HttpClientConfig;
+using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixerclient::CancelFunc;
-using ::istio::mixerclient::TransportCheckFunc;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::MixerClient;
+using ::istio::mixerclient::TransportCheckFunc;
 using ::istio::quota_config::Requirement;
 
-using ::testing::_;
 using ::testing::Invoke;
+using ::testing::_;
 
 namespace istio {
 namespace control {

@@ -111,10 +111,10 @@ GrpcTransport<RequestType, ResponseType>::GetFunc(
   return [&factory, headers](const RequestType &request, ResponseType *response,
                              istio::mixerclient::DoneFunc on_done)
              -> istio::mixerclient::CancelFunc {
-               auto transport = new GrpcTransport<RequestType, ResponseType>(
-                   factory.create(), request, headers, response, on_done);
-               return [transport]() { transport->Cancel(); };
-             };
+    auto transport = new GrpcTransport<RequestType, ResponseType>(
+        factory.create(), request, headers, response, on_done);
+    return [transport]() { transport->Cancel(); };
+  };
 }
 
 template <>

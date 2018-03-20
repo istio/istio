@@ -44,4 +44,4 @@ TEST(UtilsTest, ParseMessageWithUnknownField) {
   EXPECT_EQ(http_config.default_destination_service(),
             "service.svc.cluster.local");
 }
-}
+}  // namespace

@@ -246,11 +246,11 @@ TEST_F(PathMatcherTest, VariableBindings) {
             bindings);
 
   EXPECT_EQ(Lookup("GET", "/a/hello/b/world/c", &bindings), a_b_c);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "a/hello"}, Binding{FieldPath{"y"}, "world"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "a/hello"},
+                Binding{FieldPath{"y"}, "world"},
+            }),
+            bindings);
 
   EXPECT_EQ(Lookup("GET", "/a/b/zoo/d/animal/tiger", &bindings), ab_d__);
   EXPECT_EQ(Bindings({
@@ -261,11 +261,11 @@ TEST_F(PathMatcherTest, VariableBindings) {
 
   EXPECT_EQ(Lookup("GET", "/alpha/dog/beta/eat/bones/gamma", &bindings),
             alpha_beta__gamma);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "dog"}, Binding{FieldPath{"y"}, "eat/bones"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "dog"},
+                Binding{FieldPath{"y"}, "eat/bones"},
+            }),
+            bindings);
 
   EXPECT_EQ(Lookup("GET", "/foo/a", &bindings), _a);
   EXPECT_EQ(Bindings({
@@ -292,11 +292,11 @@ TEST_F(PathMatcherTest, VariableBindings) {
             bindings);
 
   EXPECT_EQ(Lookup("GET", "/foo/d/e/f/bar/baz", &bindings), _def__);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "foo"}, Binding{FieldPath{"y"}, "bar/baz"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "foo"},
+                Binding{FieldPath{"y"}, "bar/baz"},
+            }),
+            bindings);
 }
 
 TEST_F(PathMatcherTest, PercentEscapesUnescapedForSingleSegment) {
@@ -325,7 +325,7 @@ char HexDigit(unsigned char digit, bool uppercase) {
   }
 }
 
-}  // namespace {
+}  // namespace
 
 TEST_F(PathMatcherTest, PercentEscapesUnescapedForSingleSegmentAllAsciiChars) {
   MethodInfo* a_c = AddGetPath("/{x}");
@@ -717,23 +717,23 @@ TEST_F(PathMatcherTest, VariableBindingsWithQueryParams) {
 
   EXPECT_EQ(LookupWithParams("GET", "/a/book/b", "y=shelf&z=author", &bindings),
             a_b);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "book"}, Binding{FieldPath{"y"}, "shelf"},
-          Binding{FieldPath{"z"}, "author"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "book"},
+                Binding{FieldPath{"y"}, "shelf"},
+                Binding{FieldPath{"z"}, "author"},
+            }),
+            bindings);
 
   EXPECT_EQ(LookupWithParams("GET", "/a/hello/b/endpoints/c",
                              "z=server&t=proxy", &bindings),
             a_b_c);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "hello"},
-          Binding{FieldPath{"y"}, "endpoints"},
-          Binding{FieldPath{"z"}, "server"}, Binding{FieldPath{"t"}, "proxy"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "hello"},
+                Binding{FieldPath{"y"}, "endpoints"},
+                Binding{FieldPath{"z"}, "server"},
+                Binding{FieldPath{"t"}, "proxy"},
+            }),
+            bindings);
 }
 
 TEST_F(PathMatcherTest, VariableBindingsWithQueryParamsEncoding) {
@@ -767,19 +767,19 @@ TEST_F(PathMatcherTest, VariableBindingsWithQueryParamsAndSystemParams) {
   EXPECT_EQ(LookupWithParams("GET", "/a/hello/b", "y=world&api_key=secret",
                              &bindings),
             a_b);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "hello"}, Binding{FieldPath{"y"}, "world"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "hello"},
+                Binding{FieldPath{"y"}, "world"},
+            }),
+            bindings);
   EXPECT_EQ(
       LookupWithParams("GET", "/a/hello/b", "key=secret&y=world", &bindings),
       a_b);
-  EXPECT_EQ(
-      Bindings({
-          Binding{FieldPath{"x"}, "hello"}, Binding{FieldPath{"y"}, "world"},
-      }),
-      bindings);
+  EXPECT_EQ(Bindings({
+                Binding{FieldPath{"x"}, "hello"},
+                Binding{FieldPath{"y"}, "world"},
+            }),
+            bindings);
 }
 
 }  // namespace

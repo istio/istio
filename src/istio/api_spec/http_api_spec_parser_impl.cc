@@ -46,8 +46,8 @@ void HttpApiSpecParserImpl::BuildPathMatcher() {
     if (pattern.pattern_case() == HTTPAPISpecPattern::kUriTemplate) {
       if (!pmb.Register(pattern.http_method(), pattern.uri_template(),
                         std::string(), &pattern.attributes())) {
-        GOOGLE_LOG(WARNING) << "Invalid uri_template: "
-                            << pattern.uri_template();
+        GOOGLE_LOG(WARNING)
+            << "Invalid uri_template: " << pattern.uri_template();
       }
     } else {
       regex_list_.emplace_back(pattern.regex(), pattern.http_method(),

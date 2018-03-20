@@ -21,8 +21,8 @@
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 
-using ::istio::mixer::v1::Attributes;
 using ::google::protobuf::TextFormat;
+using ::istio::mixer::v1::Attributes;
 
 namespace istio {
 namespace mixerclient {

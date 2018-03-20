@@ -331,4 +331,4 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
                    "JWT_BAD_FORMAT");
 }
 
-}  // Envoy
+}  // namespace Envoy

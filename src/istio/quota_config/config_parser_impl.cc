@@ -18,9 +18,9 @@
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::config::client::AttributeMatch;
-using ::istio::mixer::v1::config::client::StringMatch;
 using ::istio::mixer::v1::config::client::QuotaRule;
 using ::istio::mixer::v1::config::client::QuotaSpec;
+using ::istio::mixer::v1::config::client::StringMatch;
 
 namespace istio {
 namespace quota_config {

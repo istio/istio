@@ -21,11 +21,11 @@
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
 
-using std::string;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::Attributes_StringMap;
 using ::istio::mixer::v1::CompressedAttributes;
+using std::string;
 
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;

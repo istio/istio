@@ -66,9 +66,9 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
 
   env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
       -> std::unique_ptr<::istio::mixerclient::Timer> {
-        return std::unique_ptr<::istio::mixerclient::Timer>(
-            new EnvoyTimer(dispatcher.createTimer(timer_cb)));
-      };
+    return std::unique_ptr<::istio::mixerclient::Timer>(
+        new EnvoyTimer(dispatcher.createTimer(timer_cb)));
+  };
 
   env->uuid_generate_func = [&random]() -> std::string {
     return random.uuid();

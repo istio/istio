@@ -18,8 +18,8 @@
 
 #include <set>
 
-using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::google::protobuf::util::MessageDifferencer;
+using ::istio::mixer::v1::Attributes_AttributeValue;
 
 namespace istio {
 namespace mixerclient {

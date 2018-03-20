@@ -26,9 +26,9 @@
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;
 
-using ::testing::_;
 using ::testing::Invoke;
 using ::testing::Return;
+using ::testing::_;
 
 namespace istio {
 namespace control {
@@ -254,8 +254,9 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         *port = 8080;
         return true;
       }));
-  EXPECT_CALL(mock_data, IsMutualTLS())
-      .WillOnce(Invoke([]() -> bool { return true; }));
+  EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
+    return true;
+  }));
   EXPECT_CALL(mock_data, GetSourceUser(_))
       .WillOnce(Invoke([](std::string* user) -> bool {
         *user = "test_user";

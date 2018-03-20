@@ -22,7 +22,7 @@ namespace utils {
 // Convert Status::code to HTTP code
 int StatusHttpCode(int code);
 
-}  // utils
+}  // namespace utils
 }  // namespace istio
 
 #endif  // MIXERCONTROL_UTILS_STATUS_H

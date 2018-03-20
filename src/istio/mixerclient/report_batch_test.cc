@@ -18,11 +18,11 @@
 #include "gtest/gtest.h"
 #include "include/istio/utils/attributes_builder.h"
 
+using ::google::protobuf::util::Status;
+using ::google::protobuf::util::error::Code;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
-using ::google::protobuf::util::Status;
-using ::google::protobuf::util::error::Code;
 using ::testing::Invoke;
 using ::testing::_;
 

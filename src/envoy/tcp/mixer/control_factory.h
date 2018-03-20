@@ -40,10 +40,9 @@ class ControlFactory : public Logger::Loggable<Logger::Id::filter> {
     Stats::Scope& scope = context.scope();
     tls_->set([this, &random, &scope](Event::Dispatcher& dispatcher)
                   -> ThreadLocal::ThreadLocalObjectSharedPtr {
-                    return ThreadLocal::ThreadLocalObjectSharedPtr(
-                        new Control(*config_, cm_, dispatcher, random, scope,
-                                    stats_, uuid_));
-                  });
+      return ThreadLocal::ThreadLocalObjectSharedPtr(
+          new Control(*config_, cm_, dispatcher, random, scope, stats_, uuid_));
+    });
   }
 
   // Get the per-thread control

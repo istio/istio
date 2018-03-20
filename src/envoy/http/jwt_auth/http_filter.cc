@@ -99,5 +99,5 @@ void JwtVerificationFilter::setDecoderFilterCallbacks(
   decoder_callbacks_ = &callbacks;
 }
 
-}  // Http
-}  // Envoy
+}  // namespace Http
+}  // namespace Envoy
