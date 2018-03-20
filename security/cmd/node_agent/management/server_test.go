@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagentmgmt
+package management
 
 import (
 	"testing"
@@ -20,6 +20,7 @@ import (
 	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
+	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	pb "istio.io/istio/security/proto"
@@ -30,9 +31,10 @@ func TestWorkloadAddedService(t *testing.T) {
 	server := &Server{
 		handlerMap: map[string]handler.WorkloadHandler{},
 		done:       make(chan bool),
-		opts: ServerOptions{
+		config: &na.Config{
 			WorkloadOpts: handler.Options{
-				RegAPI: wapi.RegisterGrpc,
+				SockFile: "path",
+				RegAPI:   wapi.RegisterGrpc,
 			},
 		},
 	}
@@ -54,7 +56,7 @@ func TestWorkloadDeletedService(t *testing.T) {
 	server := &Server{
 		handlerMap: map[string]handler.WorkloadHandler{},
 		done:       make(chan bool),
-		opts: ServerOptions{
+		config: &na.Config{
 			WorkloadOpts: handler.Options{
 				SockFile: "path",
 				RegAPI:   wapi.RegisterGrpc,
