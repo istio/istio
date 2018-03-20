@@ -1215,12 +1215,13 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "ebc984a0e2efff5d23c85c86d2cc44a3be3e238b"
+  revision = "3c1a4e62eb905aee4fb06f39e044081898c1dab1"
 
 [[projects]]
   name = "istio.io/fortio"
   packages = [
     ".",
+    "bincommon",
     "fgrpc",
     "fhttp",
     "fnet",
@@ -1230,7 +1231,8 @@
     "ui",
     "version"
   ]
-  revision = "v0.8.0"
+  revision = "0e1347b31d9eb6d190f29b81b2ee710697b6c6c3"
+  version = "v0.8.1"
 
 [[projects]]
   branch = "release-1.9"
