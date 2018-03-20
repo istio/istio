@@ -62,6 +62,8 @@ func startMonitor(port int) (*monitor, error) {
 	})
 	mux.HandleFunc("/debug/edsz", envoyv2.Edsz)
 
+	mux.HandleFunc("/debug/cdsz", envoyv2.Cdsz)
+
 	m.monitoringServer = &http.Server{
 		Handler: mux,
 	}
