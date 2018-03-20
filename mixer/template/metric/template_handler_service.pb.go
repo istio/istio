@@ -48,9 +48,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -160,6 +165,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "metric.Type")
 	proto.RegisterType((*InstanceParam)(nil), "metric.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleMetricService service
+
+type HandleMetricServiceClient interface {
+	// HandleMetric is called by Mixer at request-time to deliver 'metric' instances to the backend.
+	HandleMetric(ctx context.Context, in *HandleMetricRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleMetricServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleMetricServiceClient(cc *grpc.ClientConn) HandleMetricServiceClient {
+	return &handleMetricServiceClient{cc}
+}
+
+func (c *handleMetricServiceClient) HandleMetric(ctx context.Context, in *HandleMetricRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/metric.HandleMetricService/HandleMetric", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleMetricService service
+
+type HandleMetricServiceServer interface {
+	// HandleMetric is called by Mixer at request-time to deliver 'metric' instances to the backend.
+	HandleMetric(context.Context, *HandleMetricRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleMetricServiceServer(s *grpc.Server, srv HandleMetricServiceServer) {
+	s.RegisterService(&_HandleMetricService_serviceDesc, srv)
+}
+
+func _HandleMetricService_HandleMetric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleMetricRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleMetricServiceServer).HandleMetric(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/metric.HandleMetricService/HandleMetric",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleMetricServiceServer).HandleMetric(ctx, req.(*HandleMetricRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleMetricService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "metric.HandleMetricService",
+	HandlerType: (*HandleMetricServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleMetric",
+			Handler:    _HandleMetricService_HandleMetric_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/metric/template_handler_service.proto",
+}
+
 func (m *HandleMetricRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

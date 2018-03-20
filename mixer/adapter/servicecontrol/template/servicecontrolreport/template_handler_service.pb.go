@@ -51,8 +51,13 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -155,6 +160,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "servicecontrolreport.Type")
 	proto.RegisterType((*InstanceParam)(nil), "servicecontrolreport.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleServicecontrolReportService service
+
+type HandleServicecontrolReportServiceClient interface {
+	// HandleServicecontrolReport is called by Mixer at request-time to deliver 'servicecontrolreport' instances to the backend.
+	HandleServicecontrolReport(ctx context.Context, in *HandleServicecontrolReportRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleServicecontrolReportServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleServicecontrolReportServiceClient(cc *grpc.ClientConn) HandleServicecontrolReportServiceClient {
+	return &handleServicecontrolReportServiceClient{cc}
+}
+
+func (c *handleServicecontrolReportServiceClient) HandleServicecontrolReport(ctx context.Context, in *HandleServicecontrolReportRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/servicecontrolreport.HandleServicecontrolReportService/HandleServicecontrolReport", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleServicecontrolReportService service
+
+type HandleServicecontrolReportServiceServer interface {
+	// HandleServicecontrolReport is called by Mixer at request-time to deliver 'servicecontrolreport' instances to the backend.
+	HandleServicecontrolReport(context.Context, *HandleServicecontrolReportRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleServicecontrolReportServiceServer(s *grpc.Server, srv HandleServicecontrolReportServiceServer) {
+	s.RegisterService(&_HandleServicecontrolReportService_serviceDesc, srv)
+}
+
+func _HandleServicecontrolReportService_HandleServicecontrolReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleServicecontrolReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleServicecontrolReportServiceServer).HandleServicecontrolReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/servicecontrolreport.HandleServicecontrolReportService/HandleServicecontrolReport",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleServicecontrolReportServiceServer).HandleServicecontrolReport(ctx, req.(*HandleServicecontrolReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleServicecontrolReportService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "servicecontrolreport.HandleServicecontrolReportService",
+	HandlerType: (*HandleServicecontrolReportServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleServicecontrolReport",
+			Handler:    _HandleServicecontrolReportService_HandleServicecontrolReport_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/adapter/servicecontrol/template/servicecontrolreport/template_handler_service.proto",
+}
+
 func (m *HandleServicecontrolReportRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

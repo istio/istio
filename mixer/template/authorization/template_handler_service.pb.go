@@ -61,9 +61,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -261,6 +266,81 @@ func init() {
 	proto.RegisterType((*SubjectInstanceParam)(nil), "authorization.SubjectInstanceParam")
 	proto.RegisterType((*ActionInstanceParam)(nil), "authorization.ActionInstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleAuthorizationService service
+
+type HandleAuthorizationServiceClient interface {
+	// HandleAuthorization is called by Mixer at request-time to deliver 'authorization' instances to the backend.
+	HandleAuthorization(ctx context.Context, in *HandleAuthorizationRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleAuthorizationServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleAuthorizationServiceClient(cc *grpc.ClientConn) HandleAuthorizationServiceClient {
+	return &handleAuthorizationServiceClient{cc}
+}
+
+func (c *handleAuthorizationServiceClient) HandleAuthorization(ctx context.Context, in *HandleAuthorizationRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/authorization.HandleAuthorizationService/HandleAuthorization", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleAuthorizationService service
+
+type HandleAuthorizationServiceServer interface {
+	// HandleAuthorization is called by Mixer at request-time to deliver 'authorization' instances to the backend.
+	HandleAuthorization(context.Context, *HandleAuthorizationRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleAuthorizationServiceServer(s *grpc.Server, srv HandleAuthorizationServiceServer) {
+	s.RegisterService(&_HandleAuthorizationService_serviceDesc, srv)
+}
+
+func _HandleAuthorizationService_HandleAuthorization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleAuthorizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleAuthorizationServiceServer).HandleAuthorization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/authorization.HandleAuthorizationService/HandleAuthorization",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleAuthorizationServiceServer).HandleAuthorization(ctx, req.(*HandleAuthorizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleAuthorizationService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "authorization.HandleAuthorizationService",
+	HandlerType: (*HandleAuthorizationServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleAuthorization",
+			Handler:    _HandleAuthorizationService_HandleAuthorization_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/authorization/template_handler_service.proto",
+}
+
 func (m *HandleAuthorizationRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

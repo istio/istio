@@ -38,7 +38,12 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -115,6 +120,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "checknothing.Type")
 	proto.RegisterType((*InstanceParam)(nil), "checknothing.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleCheckNothingService service
+
+type HandleCheckNothingServiceClient interface {
+	// HandleCheckNothing is called by Mixer at request-time to deliver 'checknothing' instances to the backend.
+	HandleCheckNothing(ctx context.Context, in *HandleCheckNothingRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleCheckNothingServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleCheckNothingServiceClient(cc *grpc.ClientConn) HandleCheckNothingServiceClient {
+	return &handleCheckNothingServiceClient{cc}
+}
+
+func (c *handleCheckNothingServiceClient) HandleCheckNothing(ctx context.Context, in *HandleCheckNothingRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/checknothing.HandleCheckNothingService/HandleCheckNothing", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleCheckNothingService service
+
+type HandleCheckNothingServiceServer interface {
+	// HandleCheckNothing is called by Mixer at request-time to deliver 'checknothing' instances to the backend.
+	HandleCheckNothing(context.Context, *HandleCheckNothingRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleCheckNothingServiceServer(s *grpc.Server, srv HandleCheckNothingServiceServer) {
+	s.RegisterService(&_HandleCheckNothingService_serviceDesc, srv)
+}
+
+func _HandleCheckNothingService_HandleCheckNothing_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleCheckNothingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleCheckNothingServiceServer).HandleCheckNothing(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/checknothing.HandleCheckNothingService/HandleCheckNothing",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleCheckNothingServiceServer).HandleCheckNothing(ctx, req.(*HandleCheckNothingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleCheckNothingService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "checknothing.HandleCheckNothingService",
+	HandlerType: (*HandleCheckNothingServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleCheckNothing",
+			Handler:    _HandleCheckNothingService_HandleCheckNothing_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/checknothing/template_handler_service.proto",
+}
+
 func (m *HandleCheckNothingRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

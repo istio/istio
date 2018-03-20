@@ -27,9 +27,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import encoding_binary "encoding/binary"
 
@@ -212,6 +217,81 @@ func init() {
 	proto.RegisterType((*Res1InstanceParam)(nil), "istio.mixer.adapter.sample.check.Res1InstanceParam")
 	proto.RegisterType((*Res2InstanceParam)(nil), "istio.mixer.adapter.sample.check.Res2InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleCheckService service
+
+type HandleCheckServiceClient interface {
+	// HandleCheck is called by Mixer at request-time to deliver 'check' instances to the backend.
+	HandleCheck(ctx context.Context, in *HandleCheckRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleCheckServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleCheckServiceClient(cc *grpc.ClientConn) HandleCheckServiceClient {
+	return &handleCheckServiceClient{cc}
+}
+
+func (c *handleCheckServiceClient) HandleCheck(ctx context.Context, in *HandleCheckRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/istio.mixer.adapter.sample.check.HandleCheckService/HandleCheck", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleCheckService service
+
+type HandleCheckServiceServer interface {
+	// HandleCheck is called by Mixer at request-time to deliver 'check' instances to the backend.
+	HandleCheck(context.Context, *HandleCheckRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleCheckServiceServer(s *grpc.Server, srv HandleCheckServiceServer) {
+	s.RegisterService(&_HandleCheckService_serviceDesc, srv)
+}
+
+func _HandleCheckService_HandleCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleCheckServiceServer).HandleCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/istio.mixer.adapter.sample.check.HandleCheckService/HandleCheck",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleCheckServiceServer).HandleCheck(ctx, req.(*HandleCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleCheckService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "istio.mixer.adapter.sample.check.HandleCheckService",
+	HandlerType: (*HandleCheckServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleCheck",
+			Handler:    _HandleCheckService_HandleCheck_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/sample/check/CheckTesterTemplate_handler_service.proto",
+}
+
 func (m *HandleCheckRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
