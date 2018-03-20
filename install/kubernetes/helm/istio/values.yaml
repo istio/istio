@@ -94,7 +94,7 @@ sidecar-injector:
 
   # Base64-encoded CA Bundle 
   # The default cA bundle can be retrieved for a given cluster with the following command
-  # `  kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'`
+  # `kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'`
   CA: ""
 
 #
