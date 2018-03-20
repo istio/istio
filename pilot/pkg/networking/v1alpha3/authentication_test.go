@@ -21,6 +21,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -55,7 +56,7 @@ func TestBuildJwtFilter(t *testing.T) {
 				Name: "jwt-auth",
 				Config: &types.Struct{
 					Fields: map[string]*types.Value{
-						"jwt-auth": &types.Value{
+						"jwt-auth": {
 							Kind: &types.Value_StringValue{
 								StringValue: `&EndUserAuthenticationPolicySpec{Jwts:[&JWT{Issuer:,Audiences:[],JwksUri:http://abc.com,ForwardJwt:true,PublicKeyCacheDuration:5m0s,Locations:[],JwksUriEnvoyCluster:jwks.abc.com|http,}],}`,
 							},
@@ -107,7 +108,7 @@ func makeGoldenCluster(mode int) *v1.Cluster {
 		LbType:           "round_robin",
 		MaxRequestsPerConnection: 0,
 		Hosts: []v1.Host{
-			v1.Host{URL: host},
+			{URL: host},
 		},
 		SSLContext: ssl,
 		Features:   "",

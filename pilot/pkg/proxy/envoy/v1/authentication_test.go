@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/duration"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -106,7 +107,7 @@ func makeGoldenCluster(mode int) *Cluster {
 		LbType:           "round_robin",
 		MaxRequestsPerConnection: 0,
 		Hosts: []Host{
-			Host{URL: host},
+			{URL: host},
 		},
 		SSLContext: ssl,
 		Features:   "",
