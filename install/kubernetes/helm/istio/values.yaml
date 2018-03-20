@@ -92,10 +92,10 @@ sidecar-injector:
   # be allowed by the sidecar
   includeIPRanges: {}
 
-  # Force admission registration webhook when using `helm template`
-  # This capability is automatically populated as a cluster capability when using `helm install`
-  # or `helm upgrade` but must be manually specified if using `helm template`
-  useAdmissionRegistration: false
+  # Base64-encoded CA Bundle 
+  # The default cA bundle can be retrieved for a given cluster with the following command
+  # `  kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'`
+  CA: ""
 
 #
 # mixer configuration
