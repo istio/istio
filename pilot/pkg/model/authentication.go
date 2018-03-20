@@ -27,11 +27,6 @@ import (
 )
 
 const (
-	// jwtFilterName is the name for the Jwt filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	jwtFilterName = "jwt-auth"
-
 	// Defautl cache duration for JWT public key.
 	jwtPublicKeyCacheSeconds = 60 * 5
 )
@@ -116,22 +111,24 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	if err != nil {
 		return "", nil, false, err
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
+
+	var useSSL bool
+	var portNumber int
+	switch u.Scheme {
+	case "http":
+		useSSL = false
+		portNumber = 80
+	case "https":
+		useSSL = true
+		portNumber = 443
+	default:
 		return "", nil, false, fmt.Errorf("URI scheme %s is not supported", u.Scheme)
 	}
 
-	useSSL := (u.Scheme == "https")
-	var portNumber int
 	if u.Port() != "" {
 		portNumber, err = strconv.Atoi(u.Port())
 		if err != nil {
 			return "", nil, useSSL, err
-		}
-	} else {
-		if useSSL {
-			portNumber = 443
-		} else {
-			portNumber = 80
 		}
 	}
 
