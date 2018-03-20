@@ -53,5 +53,5 @@ message QuotaResult {
   }
 
   // The resulting quota, one entry per requested quota.
-  map<string, QuotaResult> quotas = 1 [(gogoproto.nullable) = false];
+  map<string, Result> quotas = 1 [(gogoproto.nullable) = false];
 }
