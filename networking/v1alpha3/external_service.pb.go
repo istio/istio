@@ -137,7 +137,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       name: external-svc-wildcard-example
 //     spec:
 //       hosts:
-//       - *.bar.com
+//       - "*.bar.com"
 //       ports:
 //       - number: 80
 //         name: http
@@ -167,13 +167,13 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       endpoints:
 //       - address: us.foo.bar.com
 //         ports:
-//         - https: 8443
+//           https: 8443
 //       - address: uk.foo.bar.com
 //         ports:
-//         - https: 9443
+//           https: 9443
 //       - address: in.foo.bar.com
 //         ports:
-//         - https: 7443
+//           https: 7443
 //
 // and a destination rule to initiate TLS connections to the external service.
 //

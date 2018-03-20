@@ -678,7 +678,7 @@ metadata:
   name: external-svc-wildcard-example
 spec:
   hosts:
-  - *.bar.com
+  - &quot;*.bar.com&quot;
   ports:
   - number: 80
     name: http
@@ -709,13 +709,13 @@ spec:
   endpoints:
   - address: us.foo.bar.com
     ports:
-    - https: 8443
+      https: 8443
   - address: uk.foo.bar.com
     ports:
-    - https: 9443
+      https: 9443
   - address: in.foo.bar.com
     ports:
-    - https: 7443
+      https: 7443
 </code></pre>
 
 <p>and a destination rule to initiate TLS connections to the external service.</p>
@@ -2458,7 +2458,7 @@ kind: DestinationRule
 metadata:
   name: tls-foo
 spec:
-  name: *.foo.com
+  name: &quot;*.foo.com&quot;
   trafficPolicy:
     tls:
       mode: SIMPLE

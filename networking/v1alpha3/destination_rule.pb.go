@@ -799,7 +799,7 @@ func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
 //     metadata:
 //       name: tls-foo
 //     spec:
-//       name: *.foo.com
+//       name: "*.foo.com"
 //       trafficPolicy:
 //         tls:
 //           mode: SIMPLE
