@@ -1232,7 +1232,7 @@
     "ui",
     "version"
   ]
-  revision = "latest_release"
+  revision = "v0.8.0"
 
 [[projects]]
   branch = "release-1.9"
