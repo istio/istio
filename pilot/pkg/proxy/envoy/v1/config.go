@@ -214,6 +214,10 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 		clusters = append(clusters, BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
 	}
 
+	// append cluster for JwksUri (for Jwt authentication) if necessary.
+	clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+		env.Mesh, env.IstioConfigStore, proxyInstances)...)
+
 	return clusters, nil
 }
 
@@ -309,6 +313,7 @@ func buildSidecarListenersClusters(
 			direction:        traceOperation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
@@ -378,6 +383,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	direction        string
 	outboundListener bool
 	store            model.IstioConfigStore
+	authnPolicy      *authn.Policy
 }
 
 // buildHTTPListener constructs a listener for the network interface address and port.
@@ -405,6 +411,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 			Config: mixerConfig,
 		}
 		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
 	}
 
 	config := &HTTPFilterConfig{
@@ -569,6 +579,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			direction:        operation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 		}))
 		clusters = append(clusters, routeConfig.Clusters()...)
 	}
@@ -779,6 +790,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 		var listener *Listener
 
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort)
 		// Local service instances can be accessed through one of three
 		// addresses: localhost, endpoint IP, and service
 		// VIP. Localhost bypasses the proxy and doesn't need any TCP
@@ -863,6 +876,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				direction:        IngressTraceOperation,
 				outboundListener: false,
 				store:            config,
+				authnPolicy:      authenticationPolicy,
 			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:

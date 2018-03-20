@@ -1,0 +1,12 @@
+destinations:
+- name: hello
+  port:
+    name: "http"
+credentialRules:
+- binding: USE_ORIGIN
+  origins:
+  - jwt:
+      issuer: "https://securetoken.google.com"
+      jwks_uri: "https://www.googleapis.com/oauth2/v1/certs"
+      jwt_headers:
+      - "x-goog-iap-jwt-assertion"

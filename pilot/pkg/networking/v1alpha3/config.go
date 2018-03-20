@@ -134,6 +134,7 @@ func buildSidecarListeners(
 			listenAddress = v1.WildcardAddress
 		}
 
+
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
@@ -175,6 +176,10 @@ func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConne
 		}
 	*/
 	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]*http_conn.HttpFilter{filter}, filters...)
+	}
 
 	var rds *http_conn.HttpConnectionManager_Rds
 	if opts.rds != "" {
