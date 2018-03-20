@@ -11,6 +11,9 @@
          "codec_type": "http2",
          "stat_prefix": "grpc",
          "generate_request_id": false,
+         "tracing": {
+           "operation_name": "ingress"
+         },
          "route_config": {
            "virtual_hosts":[
              {
@@ -20,17 +23,31 @@
                ],
                "routes": [
                  {
-                   "prefix": "/",
+                   "prefix": "/istio.mixer.v1.Mixer/Check",
                    "cluster": "mixer_server",
                    "timeout_ms": 0,
                    "opaque_config": {
-                     "destination.service": "istio-mixer.istio-system.svc.cluster.local",
+                     "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
                      "mixer_check": "off",
                      "mixer_forward": "off",
                      "mixer_report": "on"
                    },
                    "decorator": {
-                     "operation": "default-route"
+                     "operation": "Check"
+                   }
+                 },
+                 {
+                   "prefix": "/istio.mixer.v1.Mixer/Report",
+                   "cluster": "mixer_server",
+                   "timeout_ms": 0,
+                   "opaque_config": {
+                     "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                     "mixer_check": "off",
+                     "mixer_forward": "off",
+                     "mixer_report": "on"
+                   },
+                   "decorator": {
+                     "operation": "Report"
                    }
                  }
                ]
@@ -43,9 +60,13 @@
              "name": "mixer",
              "config": {
                "v2": {
-                 "defaultDestinationService": "istio-mixer.istio-system.svc.cluster.local",
+                 "defaultDestinationService": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
                  "mixerAttributes": {
-                   "attributes": {}
+                   "attributes": {
+                     "destination.uid": {
+                       "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
+                     }
+                   }
                  },
                  "serviceConfigs": {
                    "istio-mixer.istio-system.svc.cluster.local": {
@@ -54,7 +75,10 @@
                      "mixerAttributes": {
                        "attributes": {
                          "destination.service": {
-                           "stringValue": "istio-mixer.istio-system.svc.cluster.local"
+                           "stringValue": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local"
+                         },
+                         "destination.uid": {
+                           "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
                          }
                        }
                      }
@@ -130,7 +154,29 @@
             "url": "tcp://127.0.0.1:9091"
           }
         ]
+      },
+      {
+        "name": "zipkin",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://zipkin.istio-system:9411"
+          }
+        ]
       }
     ]
+  },
+  "tracing": {
+    "http": {
+      "driver": {
+        "type": "zipkin",
+        "config": {
+          "collector_cluster": "zipkin",
+          "collector_endpoint": "/api/v1/spans"
+        }
+      }
+    }
   }
 }

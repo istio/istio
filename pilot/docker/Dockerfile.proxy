@@ -5,6 +5,10 @@ ADD envoy /usr/local/bin/envoy
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 
+ADD mixer_bootstrap.sh /usr/local/bin/mixer_bootstrap.sh
+
+RUN chmod +x /usr/local/bin/mixer_bootstrap.sh
+
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
 COPY envoy_pilot_auth.json /etc/istio/proxy/envoy_pilot_auth.json
 COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json

@@ -1,54 +1,121 @@
 {
   "listeners": [
    {
-    "address": "tcp://0.0.0.0:15004",
-    "name": "tcp_0.0.0.0_15004",
-    "filters": [
-      {
-        "type": "both",
-        "name": "mixer",
-        "config": {
-          "v2": {
-            "mixerAttributes": {
-              "attributes": {
-                "destination.service": {
-                  "stringValue": "istio-mixer.istio-system.svc.cluster.local"
-                }
-              }
-            },
-            "transport": {
-              "reportCluster": "in.9091"
-            }
-          }
-        }
-      },
-      {
-        "type": "read",
-        "name": "tcp_proxy",
-        "config": {
-          "stat_prefix": "tcp",
-          "route_config": {
-            "routes": [
-              {
-                "cluster": "in.9091"
-              }
-            ]
-          },
-          "access_log": [
-            {
-              "path" : "/etc/istio/proxy/envoy_access_log.txt"
-            }
-          ]
-        }
-      }
-    ],
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "require_client_certificate": true
-    },
-    "bind_to_port": true
+     "address": "tcp://0.0.0.0:15004",
+     "name": "tcp_0.0.0.0_15004",
+     "filters": [
+       {
+         "type": "read",
+         "name": "http_connection_manager",
+         "config": {
+           "codec_type": "http2",
+           "stat_prefix": "grpc",
+           "generate_request_id": true,
+           "tracing": {
+             "operation_name": "egress"
+           },
+           "route_config": {
+             "virtual_hosts":[
+               {
+                 "name": "in|9091",
+                 "domains": [
+                   "*"
+                 ],
+                 "routes": [
+                   {
+                     "prefix": "/istio.mixer.v1.Mixer/Check",
+                     "cluster": "mixer_server",
+                     "timeout_ms": 0,
+                     "opaque_config": {
+                       "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                       "mixer_check": "off",
+                       "mixer_forward": "off",
+                       "mixer_report": "on"
+                     },
+                     "decorator": {
+                       "operation": "Check"
+                     }
+                   },
+                   {
+                     "prefix": "/istio.mixer.v1.Mixer/Report",
+                     "cluster": "mixer_server",
+                     "timeout_ms": 0,
+                     "opaque_config": {
+                       "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                       "mixer_check": "off",
+                       "mixer_forward": "off",
+                       "mixer_report": "on"
+                     },
+                     "decorator": {
+                       "operation": "Report"
+                     }
+                   }
+                 ]
+               }
+             ]
+           },
+           "filters": [
+             {
+               "type": "decoder",
+               "name": "mixer",
+               "config": {
+                 "v2": {
+                   "defaultDestinationService": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                   "mixerAttributes": {
+                     "attributes": {
+                       "destination.uid": {
+                         "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
+                       }
+                     }
+                   },
+                   "serviceConfigs": {
+                     "istio-mixer.istio-system.svc.cluster.local": {
+                       "disableCheckCalls": true,
+                       "disableReportCalls": false,
+                       "mixerAttributes": {
+                         "attributes": {
+                           "destination.service": {
+                             "stringValue": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local"
+                           },
+                           "destination.uid": {
+                             "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
+                           }
+                         }
+                       }
+                     }
+                   },
+                   "transport": {
+                     "reportCluster": "mixer_server"
+                   }
+                 }
+               }
+             },
+             {
+               "type": "",
+               "name": "cors",
+               "config": {}
+             },
+             {
+               "type": "decoder",
+               "name": "router",
+               "config": {}
+             }
+           ],
+           "access_log": [
+             {
+               "path": "/etc/istio/proxy/envoy_access_log.txt"
+             }
+           ]
+         }
+       }
+     ],
+     "ssl_context": {
+       "cert_chain_file": "/etc/certs/cert-chain.pem",
+       "private_key_file": "/etc/certs/key.pem",
+       "ca_cert_file": "/etc/certs/root-cert.pem",
+       "require_client_certificate": true
+     },
+     "bind_to_port": true
    }
   ],
   "admin": {
@@ -74,7 +141,49 @@
             "max_requests": 100000
           }
         }
+      },
+      {
+        "name": "mixer_server",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "circuit_breakers": {
+          "default": {
+            "max_connections": 100000,
+            "max_pending_requests": 10000,
+            "max_requests": 10000
+          }
+        },
+        "lb_type": "round_robin",
+        "features": "http2",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:9091"
+          }
+        ]
+      },
+      {
+        "name": "zipkin",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://zipkin.istio-system:9411"
+          }
+        ]
       }
     ]
+  },
+  "statsd_udp_ip_address": "127.0.0.1:9125",
+  "tracing": {
+    "http": {
+      "driver": {
+        "type": "zipkin",
+        "config": {
+          "collector_cluster": "zipkin",
+          "collector_endpoint": "/api/v1/spans"
+        }
+      }
+    }
   }
 }
