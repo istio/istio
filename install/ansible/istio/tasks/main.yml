@@ -21,7 +21,7 @@
 
 - name: Extract server version
   shell: |
-    {{ cmd_path }} version | sed -En "{{'s/kubernetes.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p' if cluster_flavour == 'ocp' else 's/Server Version.*GitVersion.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p'}}" | head -1
+    {{ cmd_path }} version | sed -En "{{'s/kubernetes.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p' if cluster_flavour == 'ocp' else 's/Server Version.*GitVersion.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p'}}" | tail -1
   register: vo
 
 - assert:
