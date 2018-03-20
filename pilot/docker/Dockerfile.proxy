@@ -16,7 +16,9 @@ RUN chmod 755 /usr/local/bin/envoy
 
 # We need to replacing http health-checking to a `curl localhost` command
 # when mTLS is enabled.
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
