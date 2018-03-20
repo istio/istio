@@ -14,5 +14,9 @@ COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 # Allow non-root user to run envoy.
 RUN chmod 755 /usr/local/bin/envoy
 
+# We need to replacing http health-checking to a `curl localhost` command
+# when mTLS is enabled.
+RUN apt-get update && apt-get install -y curl
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
