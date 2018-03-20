@@ -38,7 +38,12 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -115,6 +120,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "reportnothing.Type")
 	proto.RegisterType((*InstanceParam)(nil), "reportnothing.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleReportNothingService service
+
+type HandleReportNothingServiceClient interface {
+	// HandleReportNothing is called by Mixer at request-time to deliver 'reportnothing' instances to the backend.
+	HandleReportNothing(ctx context.Context, in *HandleReportNothingRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleReportNothingServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleReportNothingServiceClient(cc *grpc.ClientConn) HandleReportNothingServiceClient {
+	return &handleReportNothingServiceClient{cc}
+}
+
+func (c *handleReportNothingServiceClient) HandleReportNothing(ctx context.Context, in *HandleReportNothingRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/reportnothing.HandleReportNothingService/HandleReportNothing", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleReportNothingService service
+
+type HandleReportNothingServiceServer interface {
+	// HandleReportNothing is called by Mixer at request-time to deliver 'reportnothing' instances to the backend.
+	HandleReportNothing(context.Context, *HandleReportNothingRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleReportNothingServiceServer(s *grpc.Server, srv HandleReportNothingServiceServer) {
+	s.RegisterService(&_HandleReportNothingService_serviceDesc, srv)
+}
+
+func _HandleReportNothingService_HandleReportNothing_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleReportNothingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleReportNothingServiceServer).HandleReportNothing(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/reportnothing.HandleReportNothingService/HandleReportNothing",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleReportNothingServiceServer).HandleReportNothing(ctx, req.(*HandleReportNothingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleReportNothingService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "reportnothing.HandleReportNothingService",
+	HandlerType: (*HandleReportNothingServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleReportNothing",
+			Handler:    _HandleReportNothingService_HandleReportNothing_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/template/reportnothing/template_handler_service.proto",
+}
+
 func (m *HandleReportNothingRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

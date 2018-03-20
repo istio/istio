@@ -21,9 +21,14 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -107,6 +112,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "samplereport.Type")
 	proto.RegisterType((*InstanceParam)(nil), "samplereport.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleSampleReportService service
+
+type HandleSampleReportServiceClient interface {
+	// HandleSampleReport is called by Mixer at request-time to deliver 'samplereport' instances to the backend.
+	HandleSampleReport(ctx context.Context, in *HandleSampleReportRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+type handleSampleReportServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleSampleReportServiceClient(cc *grpc.ClientConn) HandleSampleReportServiceClient {
+	return &handleSampleReportServiceClient{cc}
+}
+
+func (c *handleSampleReportServiceClient) HandleSampleReport(ctx context.Context, in *HandleSampleReportRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.ReportResult)
+	err := grpc.Invoke(ctx, "/samplereport.HandleSampleReportService/HandleSampleReport", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleSampleReportService service
+
+type HandleSampleReportServiceServer interface {
+	// HandleSampleReport is called by Mixer at request-time to deliver 'samplereport' instances to the backend.
+	HandleSampleReport(context.Context, *HandleSampleReportRequest) (*istio_mixer_adapter_model_v1beta11.ReportResult, error)
+}
+
+func RegisterHandleSampleReportServiceServer(s *grpc.Server, srv HandleSampleReportServiceServer) {
+	s.RegisterService(&_HandleSampleReportService_serviceDesc, srv)
+}
+
+func _HandleSampleReportService_HandleSampleReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleSampleReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleSampleReportServiceServer).HandleSampleReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/samplereport.HandleSampleReportService/HandleSampleReport",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleSampleReportServiceServer).HandleSampleReport(ctx, req.(*HandleSampleReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleSampleReportService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "samplereport.HandleSampleReportService",
+	HandlerType: (*HandleSampleReportServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleSampleReport",
+			Handler:    _HandleSampleReportService_HandleSampleReport_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/test/spyAdapter/template/report/reporttmpl_handler_service.proto",
+}
+
 func (m *HandleSampleReportRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)

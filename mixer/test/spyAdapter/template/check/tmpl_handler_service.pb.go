@@ -21,7 +21,12 @@ import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import strings "strings"
 import reflect "reflect"
@@ -96,6 +101,81 @@ func init() {
 	proto.RegisterType((*Type)(nil), "samplecheck.Type")
 	proto.RegisterType((*InstanceParam)(nil), "samplecheck.InstanceParam")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for HandleSampleCheckService service
+
+type HandleSampleCheckServiceClient interface {
+	// HandleSampleCheck is called by Mixer at request-time to deliver 'samplecheck' instances to the backend.
+	HandleSampleCheck(ctx context.Context, in *HandleSampleCheckRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+type handleSampleCheckServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHandleSampleCheckServiceClient(cc *grpc.ClientConn) HandleSampleCheckServiceClient {
+	return &handleSampleCheckServiceClient{cc}
+}
+
+func (c *handleSampleCheckServiceClient) HandleSampleCheck(ctx context.Context, in *HandleSampleCheckRequest, opts ...grpc.CallOption) (*istio_mixer_adapter_model_v1beta11.CheckResult, error) {
+	out := new(istio_mixer_adapter_model_v1beta11.CheckResult)
+	err := grpc.Invoke(ctx, "/samplecheck.HandleSampleCheckService/HandleSampleCheck", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for HandleSampleCheckService service
+
+type HandleSampleCheckServiceServer interface {
+	// HandleSampleCheck is called by Mixer at request-time to deliver 'samplecheck' instances to the backend.
+	HandleSampleCheck(context.Context, *HandleSampleCheckRequest) (*istio_mixer_adapter_model_v1beta11.CheckResult, error)
+}
+
+func RegisterHandleSampleCheckServiceServer(s *grpc.Server, srv HandleSampleCheckServiceServer) {
+	s.RegisterService(&_HandleSampleCheckService_serviceDesc, srv)
+}
+
+func _HandleSampleCheckService_HandleSampleCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleSampleCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HandleSampleCheckServiceServer).HandleSampleCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/samplecheck.HandleSampleCheckService/HandleSampleCheck",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HandleSampleCheckServiceServer).HandleSampleCheck(ctx, req.(*HandleSampleCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HandleSampleCheckService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "samplecheck.HandleSampleCheckService",
+	HandlerType: (*HandleSampleCheckServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "HandleSampleCheck",
+			Handler:    _HandleSampleCheckService_HandleSampleCheck_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "mixer/test/spyAdapter/template/check/tmpl_handler_service.proto",
+}
+
 func (m *HandleSampleCheckRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
