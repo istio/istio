@@ -56,7 +56,7 @@ HUB="gcr.io/istio-testing"
 cd ${GOPATH}/src/istio.io/istio
 
 # Run tests with auth disabled
-make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS=" -mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=false -v1alpha3=true"
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS=" -mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=false -v1alpha3=true -v1alpha1=false"
 
 # Run tests with auth enabled
-make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=true -v1alpha3=true"
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=true -v1alpha3=true -v1alpha1=false"
