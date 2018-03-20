@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
-	nagent "istio.io/istio/security/cmd/node_agent"
+	nagent "istio.io/istio/security/cmd/node_agent/management"
 	pb "istio.io/istio/security/proto"
 )
 

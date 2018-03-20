@@ -132,7 +132,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 
 	// Sends CSR request to CA.
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
-	id := fmt.Sprintf("spiffe://cluster.local/ns/default/sa/%s", sa)
+	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", request.Attrs.Namespace, sa)
 	priv, csrReq, err := s.createRequest(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
