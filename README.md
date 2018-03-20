@@ -5,6 +5,8 @@
 [![GoDoc](https://godoc.org/github.com/istio/istio?status.svg)](https://godoc.org/github.com/istio/istio)
 [![codecov.io](https://codecov.io/github/istio/istio/coverage.svg?branch=master)](https://codecov.io/github/istio/istio?branch=master)
 
+TESTING A PR - a DUMMY CHANGE IN README.
+
 An open platform to connect, manage, and secure microservices.
 
 - [Introduction](#introduction)
