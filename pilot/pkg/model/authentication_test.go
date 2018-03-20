@@ -16,6 +16,7 @@ package model
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
         "github.com/gogo/protobuf/types"
@@ -129,6 +130,13 @@ func TestJwksURIClusterName(t *testing.T) {
 			hostname: "foo.bar.com",
 			port:     &Port{Name: "http", Port: 80},
 			expected: "jwks.foo.bar.com|http",
+		},
+		{
+			hostname: "very.l" + strings.Repeat("o", 180) + "ng.hostname.com",
+			port:     &Port{Name: "http", Port: 80},
+			expected: "jwks.very.loooooooooooooooooooooooooooooooooooooooooooooooooo" +
+				"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
+				"ooooooooooooooooooooooooa96644bbd2fd09d9b6f9f0114d6c4dc792fa7efe",
 		},
 	}
 	for _, c := range cases {

@@ -15,6 +15,7 @@
 package model
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -142,7 +143,15 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 // to override the name for outbound cluster that are added for Jwks URI so that they
 // can be referred correctly in the JWT filter config.
 func JwksURIClusterName(hostname string, port *Port) string {
-	return "jwks." + hostname + "|" + port.Name
+	const clusterPrefix = "jwks."
+	const maxClusterNameLength = 189 - len(clusterPrefix)
+	name := hostname + "|" + port.Name
+	if len(name) > maxClusterNameLength {
+		prefix := name[:maxClusterNameLength-sha1.Size*2]
+		sum := sha1.Sum([]byte(name))
+		name = fmt.Sprintf("%s%x", prefix, sum)
+	}
+	return clusterPrefix + name
 }
 
 // CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
