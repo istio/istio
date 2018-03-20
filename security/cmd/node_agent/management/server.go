@@ -107,7 +107,7 @@ func (s *Server) Serve(path string) {
 	}
 	lis, err = net.Listen("unix", path)
 	if err != nil {
-		log.Errorf("failed to %v", err)
+		log.Errorf("failed to listen at unix domain socket %v", err)
 	}
 
 	go func(ln net.Listener, s *Server) {
@@ -134,6 +134,8 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	// Sends CSR request to CA.
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
 	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
+
+	// TODO(incfly): uses caClient's own createRequest when it supports multiple identity.
 	priv, csrReq, err := s.createRequest(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)

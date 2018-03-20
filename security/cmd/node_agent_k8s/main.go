@@ -90,8 +90,8 @@ func init() {
 		"/etc/certs/root-cert.pem", "Root Certificate file")
 }
 
-// MgmtAPI manage the api
-func MgmtAPI() {
+// creates the NodeAgent server to manage the workload identity provision.
+func startManagement() {
 	naConfig.WorkloadOpts = handler.Options{
 		PathPrefix: CfgWldAPIUdsHome,
 		SockFile:   CfgWldSockFile,
@@ -122,5 +122,5 @@ func main() {
 	if e != nil {
 		log.Fatalf("workloadApi directory not present (%v)", WorkloadAPIUdsHome)
 	}
-	MgmtAPI()
+	startManagement()
 }
