@@ -29,7 +29,6 @@ import (
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
@@ -47,8 +46,6 @@ const (
 	filterNameRouter            = util.Router
 	filterNameCors              = util.CORS
 	filterHTTPConnectionManager = util.HTTPConnectionManager
-
-	ldsType = cache.ListenerType
 
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"

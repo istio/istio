@@ -31,7 +31,7 @@ import (
 
 // TODO: rename to lds_ingress or ingress_lds
 
-func (lc *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
+func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance, discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress model.Proxy) []*xdsapi.Listener {
 
@@ -51,7 +51,6 @@ func (lc *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, prox
 
 	manager := buildHTTPConnectionManager(opts)
 	l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
-	lc.HTTPListeners[":80"] = l
 
 	listeners := []*xdsapi.Listener{l}
 
@@ -63,7 +62,6 @@ func (lc *LdsConnection) buildIngressListeners(mesh *meshconfig.MeshConfig, prox
 		opts.rds = "443"
 		manager := buildHTTPConnectionManager(opts)
 		l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
-		lc.HTTPListeners[":443"] = l
 
 		l.FilterChains = []listener.FilterChain{
 			{

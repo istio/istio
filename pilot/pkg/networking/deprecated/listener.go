@@ -16,7 +16,6 @@ package deprecated
 
 import (
 	"fmt"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -24,54 +23,13 @@ import (
 
 	"strings"
 
-	"github.com/kylelemons/godebug/pretty"
-
-	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
-// LdsConnection is a listener connection type.
-type LdsConnection struct {
-	// PeerAddr is the address of the client envoy, from network layer
-	PeerAddr string
-
-	// Time of connection, for debugging
-	Connect time.Time
-
-	// Sending on this channel results in  push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
-	PushChannel chan struct{}
-
-	// TODO: migrate other fields as needed from model.Proxy and replace it
-
-	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
-
-	HTTPListeners map[string]*xdsapi.Listener
-
-	// TODO: TcpListeners (may combine mongo/etc)
-}
-
-// LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func (lc *LdsConnection) LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := lc.BuildListeners(env, node)
-	if err != nil {
-		return nil, err
-	}
-	log.Infof("LDS: %s %s %s: \n%s", node.ID, node.IPAddress, node.Type, pretty.Sprint(ls))
-	resp := &xdsapi.DiscoveryResponse{TypeUrl: ldsType}
-	for _, ll := range ls {
-		lr, _ := google_protobuf.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
-	}
-
-	return resp, nil
-}
-
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
-func (lc *LdsConnection) BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		proxyInstances, err := env.GetProxyServiceInstances(node)
@@ -101,7 +59,7 @@ func (lc *LdsConnection) BuildListeners(env model.Environment, node model.Proxy)
 		if svc != nil {
 			insts = append(insts, &model.ServiceInstance{Service: svc})
 		}
-		return lc.buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
 }

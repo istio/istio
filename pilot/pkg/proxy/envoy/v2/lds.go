@@ -24,6 +24,9 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	"github.com/gogo/protobuf/types"
+	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -34,12 +37,37 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	ldsType = cache.ListenerType
+)
+
 var (
 	ldsDebug = len(os.Getenv("PILOT_DEBUG_LDS")) == 0
 
 	ldsClientsMutex sync.RWMutex
-	ldsClients      = map[string]*deprecated.LdsConnection{}
+	ldsClients      = map[string]*LdsConnection{}
 )
+
+// LdsConnection is a listener connection type.
+type LdsConnection struct {
+	// PeerAddr is the address of the client envoy, from network layer
+	PeerAddr string
+
+	// Time of connection, for debugging
+	Connect time.Time
+
+	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// same info can be sent to all clients, without recomputing.
+	PushChannel chan struct{}
+
+	// TODO: migrate other fields as needed from model.Proxy and replace it
+
+	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
+
+	HTTPListeners map[string]*xdsapi.Listener
+
+	// TODO: TcpListeners (may combine mongo/etc)
+}
 
 // StreamListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService_StreamListenersServer) error {
@@ -57,7 +85,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	var nodeID string
 	node := model.Proxy{}
-	con := &deprecated.LdsConnection{
+	con := &LdsConnection{
 		PushChannel:   make(chan struct{}, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
@@ -111,7 +139,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.PushChannel:
 		}
 
-		response, err := con.LdsDiscoveryResponse(s.env, node)
+		response, err := LdsDiscoveryResponse(s.env, node)
 		if err != nil {
 			return err
 		}
@@ -132,7 +160,7 @@ func ldsPushAll() {
 	}
 	ldsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*deprecated.LdsConnection{}
+	tmpMap := map[string]*LdsConnection{}
 	for k, v := range ldsClients {
 		tmpMap[k] = v
 	}
@@ -165,7 +193,7 @@ func LDSz(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(data)
 }
 
-func addLdsCon(s string, connection *deprecated.LdsConnection) {
+func addLdsCon(s string, connection *LdsConnection) {
 	ldsClientsMutex.Lock()
 	defer ldsClientsMutex.Unlock()
 	ldsClients[s] = connection
@@ -184,4 +212,20 @@ func removeLdsCon(s string) {
 // FetchListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	return nil, errors.New("function FetchListeners not implemented")
+}
+
+// LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
+func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+	ls, err := deprecated.BuildListeners(env, node)
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("LDS: %s %s %s: \n%s", node.ID, node.IPAddress, node.Type, pretty.Sprint(ls))
+	resp := &xdsapi.DiscoveryResponse{TypeUrl: ldsType}
+	for _, ll := range ls {
+		lr, _ := types.MarshalAny(ll)
+		resp.Resources = append(resp.Resources, *lr)
+	}
+
+	return resp, nil
 }
