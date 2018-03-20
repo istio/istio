@@ -23,14 +23,13 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
