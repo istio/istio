@@ -263,6 +263,9 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
+
+	log.Infof("EDS: request from peer " + peerAddr)
+
 	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
