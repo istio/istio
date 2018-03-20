@@ -141,9 +141,7 @@ GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
 if [ "$opttemplate" = true ]; then
 
   template_mappings=(
-    "mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor"
-    "mixer/v1/template/extensions.proto:istio.io/api/mixer/v1/template"
-    "mixer/v1/template/standard_types.proto:istio.io/api/mixer/v1/template"
+    "google/protobuf/any.proto:github.com/gogo/protobuf/types"
     "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
   )
@@ -162,29 +160,27 @@ if [ "$opttemplate" = true ]; then
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
-  instance_proto="_instance.proto"
+  handler_service="_handler_service.proto"
   pb_go=".pb.go"
 
   templateDS=${template/.proto/$descriptor_set}
   templateHG=${template/.proto/$handler_gen_go}
-  templateIP=${template/.proto/$instance_proto}
+  templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
-
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
   err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
   if [ ! -z "$err" ]; then
-    die "template generation failure: $err"; 
-  fi
-  
-  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateIP $TMPL_GEN_MAP  
-
-  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateIP`
-  if [ ! -z "$err" ]; then 
-    die "template generation failure: $err"; 
+    die "template generation failure: $err";
   fi
 
-  rm $templateIP
+  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateHSP $TMPL_GEN_MAP
+
+  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
+  if [ ! -z "$err" ]; then
+    die "template generation failure: $err";
+  fi
+
   rm $templatePG
 
   exit 0

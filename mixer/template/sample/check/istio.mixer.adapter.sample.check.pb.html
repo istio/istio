@@ -1,7 +1,7 @@
 ---
 title: istio.mixer.adapter.sample.check
 layout: protoc-gen-docs
-number_of_entries: 3
+number_of_entries: 6
 ---
 <h2 id="Res1">Res1</h2>
 <section>
@@ -16,13 +16,13 @@ number_of_entries: 3
 <tbody>
 <tr id="Res1.value">
 <td><code>value</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Res1.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 </td>
 </tr>
@@ -58,13 +58,13 @@ number_of_entries: 3
 </tr>
 <tr id="Res1.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Res1.duration">
 <td><code>duration</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
@@ -96,13 +96,13 @@ number_of_entries: 3
 <tbody>
 <tr id="Res2.value">
 <td><code>value</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Res2.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 </td>
 </tr>
@@ -146,4 +146,20 @@ number_of_entries: 3
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h2>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
 </section>
