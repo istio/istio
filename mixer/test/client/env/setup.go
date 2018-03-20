@@ -32,13 +32,13 @@ type TestSetup struct {
 	stress      bool
 	faultInject bool
 	noMixer     bool
-	mfConf    *mixerFilterConf
+	mfConf      *mixerFilterConf
 	ports       *Ports
 
-	envoy   *Envoy
-	mixer   *MixerServer
-	backend *HTTPServer
-	epoch   int
+	envoy         *Envoy
+	mixer         *MixerServer
+	backend       *HTTPServer
+	epoch         int
 	mfConfVersion string
 }
 
