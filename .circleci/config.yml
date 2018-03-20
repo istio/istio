@@ -527,11 +527,15 @@ jobs:
     environment:
       TAG: circleci-nightly
     steps:
+      - checkout
       - attach_workspace:
           at:  /go
+      - run: make sync
       - setup_remote_docker:
           docker_layer_caching: true
       - run: make istio-archive
+      # Build the docker+extra
+      - run: make docker.push.basedebug
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -573,10 +577,6 @@ workflows:
       - build
       - test
       - e2e-simple:
-          requires:
-            - test
-            - build
-      - e2e-bookinfo:
           requires:
             - test
             - build
@@ -635,9 +635,6 @@ workflows:
       - e2e-dashboard:
           requires:
             - build
-      - e2e-bookinfo:
-          requires:
-            - build
       - e2e-pilot-alpha3:
           requires:
             - build
@@ -667,6 +664,10 @@ workflows:
       - build
       - racetest
       - e2e-pilot-auth-egress:
+          requires:
+            - build
+      # Bookinfo requires 3 nodes, not a good fit for CircleCI.
+      - e2e-bookinfo:
           requires:
             - build
 
