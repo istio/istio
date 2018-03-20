@@ -33,7 +33,8 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
                                           const std::string& prefix,
                                           FactoryContext& context) override {
     HttpClientConfig config_pb;
-    if (!Utils::ReadV2Config(config_json, &config_pb)) {
+    if (!Utils::ReadV2Config(config_json, &config_pb) &&
+        !Utils::ReadV1Config(config_json, &config_pb)) {
       throw EnvoyException("Failed to parse JSON config");
     }
 

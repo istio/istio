@@ -29,5 +29,8 @@ void SetDefaultMixerClusters(
 bool ReadV2Config(const Json::Object &json,
                   ::google::protobuf::Message *message);
 
+// Read Mixer filter v1 config.
+bool ReadV1Config(const Json::Object &json,
+                  ::google::protobuf::Message *message);
 }  // namespace Utils
 }  // namespace Envoy

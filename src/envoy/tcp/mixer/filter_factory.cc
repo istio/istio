@@ -29,7 +29,8 @@ class FilterFactory : public NamedNetworkFilterConfigFactory {
   NetworkFilterFactoryCb createFilterFactory(const Json::Object& config_json,
                                              FactoryContext& context) override {
     TcpClientConfig config_pb;
-    if (!Utils::ReadV2Config(config_json, &config_pb)) {
+    if (!Utils::ReadV2Config(config_json, &config_pb) &&
+        !Utils::ReadV1Config(config_json, &config_pb)) {
       throw EnvoyException("Failed to parse JSON config");
     }
 
