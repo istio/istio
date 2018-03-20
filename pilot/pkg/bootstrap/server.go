@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
@@ -651,6 +652,16 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
+	configStore := model.MakeIstioStore(s.configController)
+
+	// add external service registry to aggregator by default
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             "ExternalServices",
+			Controller:       external.NewController(s.configController),
+			ServiceDiscovery: external.NewServiceDiscovery(configStore),
+			ServiceAccounts:  external.NewServiceAccounts(),
+		})
 
 	s.ServiceController = serviceControllers
 
