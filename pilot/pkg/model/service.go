@@ -56,6 +56,7 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
@@ -66,6 +67,7 @@ type Service struct {
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
