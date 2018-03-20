@@ -278,6 +278,19 @@ func buildSidecarListenersClusters(
 			UseOriginalDst: true,
 			Filters:        make([]*NetworkFilter, 0),
 		})
+		if os.Getenv("USE_ORIGINAL_DST_FOR_TCP_ON_443") == "true" {
+			listener := buildTCPListener(&TCPRouteConfig{
+				Routes: []*TCPRoute{&TCPRoute{
+					Cluster: "original_dst",
+				}}},
+				WildcardAddress,
+				443,
+				model.ProtocolHTTPS,
+			)
+			listeners = append(listeners, listener)
+
+			clusters = append(clusters, BuildOriginalDSTCluster("all-https", mesh.ConnectTimeout))
+		}
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
