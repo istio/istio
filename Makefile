@@ -528,7 +528,7 @@ galley-racetest: depend
 
 .PHONY: security-racetest
 security-racetest:
-	RACE_TEST=true go test ${T} -race ./security/...
+	RACE_TEST=true go test ${T} -race ./security/pkg/... ./security/cmd/...
 
 .PHONY: common-racetest
 common-racetest:

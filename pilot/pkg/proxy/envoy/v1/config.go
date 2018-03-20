@@ -451,7 +451,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if requireTLS(authenticationPolicy) {
+	if model.RequireTLS(authenticationPolicy) {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
 	}
 }
@@ -885,7 +885,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			authenticationPolicy := getConsolidateAuthenticationPolicy(mesh,
+			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
 				config, instance.Service.Hostname, endpoint.ServicePort)
 			mayApplyInboundAuth(listener, authenticationPolicy)
 			listeners = append(listeners, listener)
