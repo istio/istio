@@ -123,7 +123,8 @@ func (s *Server) Serve(path string) {
 func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*pb.NodeAgentMgmtResponse, error) {
 	uid := request.Attrs.Uid
 	sa := request.Attrs.Serviceaccount
-	log.Infof("workload uid = %v, service account = %v added", uid, sa)
+	ns := request.Attrs.Namespace
+	log.Infof("workload uid = %v, ns = %v, service account = %v added", uid, ns, sa)
 	if _, ok := s.handlerMap[uid]; ok {
 		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
 		log.Infof("workload %v already exists", request)
@@ -132,7 +133,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 
 	// Sends CSR request to CA.
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", request.Attrs.Namespace, sa)
+	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
 	priv, csrReq, err := s.createRequest(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
