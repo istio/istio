@@ -30,9 +30,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
 	jwtFilterName = "jwt-auth"
-
-	// Defautl cache duration for JWT public key.
-	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.

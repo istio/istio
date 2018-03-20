@@ -58,7 +58,13 @@ func TestBuildJwtFilter(t *testing.T) {
 					Fields: map[string]*types.Value{
 						"jwt-auth": {
 							Kind: &types.Value_StringValue{
-								StringValue: `&EndUserAuthenticationPolicySpec{Jwts:[&JWT{Issuer:,Audiences:[],JwksUri:http://abc.com,ForwardJwt:true,PublicKeyCacheDuration:5m0s,Locations:[],JwksUriEnvoyCluster:jwks.abc.com|http,}],}`,
+								StringValue: "&EndUserAuthenticationPolicySpec{" +
+									"Jwts:[&JWT{Issuer:,Audiences:[]," +
+									"JwksUri:http://abc.com," +
+									"ForwardJwt:true," +
+									"PublicKeyCacheDuration:5m0s," +
+									"Locations:[]," +
+									"JwksUriEnvoyCluster:jwks.abc.com|http,}],}",
 							},
 						},
 					},
