@@ -23,6 +23,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	google_protobuf "github.com/gogo/protobuf/types"
+	"time"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pkg/log"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -91,4 +95,15 @@ func buildProtoStruct(name, value string) *google_protobuf.Struct {
 			},
 		},
 	}
+}
+
+func convertDurationGogo(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
 }
