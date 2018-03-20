@@ -26,7 +26,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/gogo/protobuf/types"
-	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -220,7 +219,7 @@ func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.Disc
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("LDS: %s %s %s: \n%s", node.ID, node.IPAddress, node.Type, pretty.Sprint(ls))
+	log.Infof("LDS: %s %s %s: \n%v", node.ID, node.IPAddress, node.Type, ls)
 	resp := &xdsapi.DiscoveryResponse{TypeUrl: ldsType}
 	for _, ll := range ls {
 		lr, _ := types.MarshalAny(ll)
