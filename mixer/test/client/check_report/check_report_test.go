@@ -190,7 +190,7 @@ var expectedStats = map[string]int{
 
 func TestCheckReportAttributes(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportAttributesTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -219,4 +219,15 @@ func TestCheckReportAttributes(t *testing.T) {
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
+
+	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
+	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	s.ReStartEnvoy()
+
+	// Issues a POST request.
+	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesOkPost)
 }

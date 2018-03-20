@@ -32,28 +32,39 @@ type TestSetup struct {
 	stress      bool
 	faultInject bool
 	noMixer     bool
-	v2          *V2Conf
+	mfConf    *mixerFilterConf
 	ports       *Ports
 
 	envoy   *Envoy
 	mixer   *MixerServer
 	backend *HTTPServer
 	epoch   int
+	mfConfVersion string
 }
+
+const MixerFilterConfigV1 = "\"v1\": "
+
+const MixerFilterConfigV2 = "\"v2\": "
 
 // NewTestSetup creates a new test setup
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
-		t:     t,
-		v2:    GetDefaultV2Conf(),
-		ports: NewPorts(name),
+		t:             t,
+		mfConf:        GetDefaultMixerFilterConf(),
+		ports:         NewPorts(name),
+		mfConfVersion: MixerFilterConfigV2,
 	}
 }
 
-// V2 get v2 config
-func (s *TestSetup) V2() *V2Conf {
-	return s.v2
+// MfConfig get Mixer filter config
+func (s *TestSetup) MfConfig() *mixerFilterConf {
+	return s.mfConf
+}
+
+// SetMixerQuotaLimit set mock quota limit
+func (s *TestSetup) SetMixerFilterConfVersion(ver string) {
+	s.mfConfVersion = ver
 }
 
 // Ports get ports object
@@ -109,7 +120,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports, s.epoch)
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -148,7 +159,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
 	var err error
 	s.epoch++
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports, s.epoch)
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
