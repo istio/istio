@@ -20,7 +20,6 @@ TEMP_DIR="/tmp"
 # Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
 COMPONENT_FILES=false
-
 set -o errexit
 set -o pipefail
 

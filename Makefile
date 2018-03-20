@@ -619,7 +619,7 @@ istio-one-namespace.yaml:
 				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace.yaml
 
 
-istio_auth.yaml:
+istio-auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
@@ -628,7 +628,7 @@ istio_auth.yaml:
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio_auth.yaml
+				install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml
 
 istio-one-namespace-auth.yaml:
 	$(HELM) template --set global.tag=${TAG} \
