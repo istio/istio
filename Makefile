@@ -225,15 +225,26 @@ authn_v1alpha1_protos := $(shell find $(authn_v1alpha1_path) -type f -name '*.pr
 authn_v1alpha1_pb_gos := $(authn_v1alpha1_protos:.proto=.pb.go)
 authn_v1alpha1_pb_doc := $(authn_v1alpha1_path)/istio.authentication.v1alpha1.pb.html
 
-generate-authn-go: $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc)
+authn_v1alpha2_path := authentication/v1alpha2
+authn_v1alpha2_protos := $(shell find $(authn_v1alpha2_path) -type f -name '*.proto' | sort)
+authn_v1alpha2_pb_gos := $(authn_v1alpha2_protos:.proto=.pb.go)
+authn_v1alpha2_pb_doc := $(authn_v1alpha2_path)/istio.authentication.pb.v1alpha2.html
+
+generate-authn-go: $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc) $(authn_v1alpha2_pb_gos) $(authn_v1alpha2_pb_doc)
 
 $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc): $(authn_v1alpha1_protos)
 	## Generate authentication/v1alpha1/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(authn_v1alpha1_path) $^
 
+$(authn_v1alpha2_pb_gos) $(authn_v1alpha2_pb_doc): $(authn_v1alpha2_protos)
+	## Generate authentication/v1alpha2/*.pb.go
+	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(authn_v1alpha2_path) $^
+
 clean-authn:
 	rm -f $(authn_v1alpha1_pb_gos)
 	rm -f $(authn_v1alpha1_pb_doc)
+	rm -f $(authn_v1alpha2_pb_gos)
+	rm -f $(authn_v1alpha2_pb_doc)
 
 
 #####################
