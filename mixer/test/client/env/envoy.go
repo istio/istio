@@ -30,7 +30,7 @@ type Envoy struct {
 
 // NewEnvoy creates a new Envoy struct.
 func NewEnvoy(stress, faultInject bool, v2 *V2Conf, ports *Ports, epoch int) (*Envoy, error) {
-	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
+	// Asssume test environment has copied latest envoy to $HOME/go/bin via make init
 	envoyPath := "envoy"
 	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
 	log.Printf("Envoy config: in %v\n", confPath)

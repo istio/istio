@@ -18,166 +18,93 @@
 # It does not upload to a registry.
 docker: build test-bins docker.all
 
-$(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
+$(ISTIO_DOCKER_TAR):
 	mkdir -p $@
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
-# static files/directories that are copied from source tree
+DOCKER_OPT.proxy:=--build-arg ENVOY_NAME=$(notdir $(ISTIO_ENVOY_RELEASE_PATH))
+DOCKER_OPT.proxy_debug:=--build-arg ENVOY_DEBUG_NAME=$(notdir $(ISTIO_ENVOY_DEBUG_PATH))
 
-PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
-                  pilot/docker/envoy_pilot_auth.json \
-                  pilot/docker/envoy_mixer.json \
-                  pilot/docker/envoy_mixer_auth.json
-
-NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
-                       security/docker/app.js
-
-FLEXVOLUMEDRIVER_FILES:=security/docker/start_driver.sh
-
-GRAFANA_FILES:=addons/grafana/dashboards.yaml \
-               addons/grafana/datasources.yaml \
-               addons/grafana/grafana.ini
-
-# note that "dashboards" is a directory rather than a file
-$(ISTIO_DOCKER)/dashboards: addons/grafana/$$(notdir $$@) | $(ISTIO_DOCKER)
-	cp -r $< $(@D)
-
-# note that "js" and "force" are directories rather than a file
-$(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $(ISTIO_DOCKER)
-	cp -r $< $(@D)
-
-# generated content
-$(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
-	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
-                    --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
+# generated content. These are generated in ISTIO_OUT rather than ISTIO_DOCKER to help
+# keep the crt and key files the same across images even if/when ISTIO_DOCKER is deleted.
+$(ISTIO_OUT)/istio_ca.crt $(ISTIO_OUT)/istio_ca.key: ${GEN_CERT} | ${ISTIO_OUT}
+	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_OUT}/istio_ca.crt \
+                    --out-priv=${ISTIO_OUT}/istio_ca.key --organization="k8s.cluster.local" \
                     --self-signed=true --ca=true
-$(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
-	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
-                    --out-priv=${ISTIO_DOCKER}/node_agent.key --organization="NodeAgent" \
-                    --host="nodeagent.google.com" --signer-cert=${ISTIO_DOCKER}/istio_ca.crt \
-                    --signer-priv=${ISTIO_DOCKER}/istio_ca.key
-
-# directives to copy files to docker scratch directory
-
-# tell make which files are copied form go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
-                             pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca flexvolume node_agent multicluster_ca
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
-
-# This generates rules like:
-#$(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
-# 	cp $$< $$(@D))
-
-# tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
-                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
-$(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
-        $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
-
-# Copy the envoy images, but use standard file names (without the version) in docker
-$(ISTIO_DOCKER)/envoy: ${ISTIO_ENVOY_RELEASE_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/envoy
-$(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/envoy-debug
+$(ISTIO_OUT)/node_agent.crt $(ISTIO_OUT)/node_agent.key: ${GEN_CERT} $(ISTIO_OUT)/istio_ca.crt $(ISTIO_OUT)/istio_ca.key
+	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_OUT}/node_agent.crt \
+                    --out-priv=${ISTIO_OUT}/node_agent.key --organization="NodeAgent" \
+                    --host="nodeagent.google.com" --signer-cert=${ISTIO_OUT}/istio_ca.crt \
+                    --signer-priv=${ISTIO_OUT}/istio_ca.key
 
 # pilot docker images
 
-docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
-docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
-
-docker.proxy: tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES}
-docker.proxy: $(ISTIO_OUT)/envoy
-docker.proxy: $(ISTIO_OUT)/pilot-agent
-docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxy
-	cp $^ $(ISTIO_DOCKER)/proxy/
-ifeq ($(DEBUG_IMAGE),1)
-	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
-else
-	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
-endif
-
-docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
-docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
-docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
-docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxyd
-	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER)/proxyd/
-	time (cd $(ISTIO_DOCKER)/proxyd && \
-		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
-
-docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
-	mkdir -p $(ISTIO_DOCKER)/pilot
-	cp $^ $(ISTIO_DOCKER)/pilot/
-	time (cd $(ISTIO_DOCKER)/pilot && \
-		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile.pilot .)
-
-# Test app for pilot integration
+# ifeq ($(DEBUG_IMAGE),1)
+# cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
+# sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
+# endif
 docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
-			pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/Dockerfile.app
-	mkdir -p $(ISTIO_DOCKER)/pilotapp
-	cp $^ $(ISTIO_DOCKER)/pilotapp
-ifeq ($(DEBUG_IMAGE),1)
-	# It is extremely helpful to debug from the test app. The savings in size are not worth the
-	# developer pain
-	cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
-endif
-	time (cd $(ISTIO_DOCKER)/pilotapp && \
-		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+            pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+docker.eurekamirror: $(ISTIO_OUT)/pilot-test-eurekamirror
+# ifeq ($(DEBUG_IMAGE),1)
+# use Dockerfile.proxy_debug rather than Dockerfile.proxy for "proxy" image
+# endif
+docker.pilot:        $(ISTIO_OUT)/pilot-discovery
+docker.proxy docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
+docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
+docker.proxy docker.proxy_debug: pilot/docker/envoy_pilot.json pilot/docker/envoy_pilot_auth.json \
+                  pilot/docker/envoy_mixer.json pilot/docker/envoy_mixer_auth.json
+docker.proxy docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy_init: pilot/docker/prepare_proxy.sh
+docker.sidecar_injector: $(ISTIO_OUT)/sidecar-injector
 
-
-PILOT_DOCKER:=docker.eurekamirror \
-              docker.proxy_init docker.sidecar_injector
-$(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
+PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
+              docker.proxy_debug docker.proxy_init docker.sidecar_injector
+$(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
 # addons docker images
 
 SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
 $(SERVICEGRAPH_DOCKER): addons/servicegraph/docker/Dockerfile$$(suffix $$@) \
-		$(ISTIO_DOCKER)/servicegraph $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force | $(ISTIO_DOCKER)
+		$(ISTIO_OUT)/servicegraph addons/servicegraph/js addons/servicegraph/force
 	$(DOCKER_RULE)
 
 # mixer docker images
 
 MIXER_DOCKER:=docker.mixer docker.mixer_debug
 $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
-		$(ISTIO_DOCKER)/ca-certificates.tgz $(ISTIO_DOCKER)/mixs | $(ISTIO_DOCKER)
+		 docker/ca-certificates.tgz $(ISTIO_OUT)/mixs
 	$(DOCKER_RULE)
 
 # security docker images
 
-docker.istio-ca:        $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
-docker.istio-ca-test:   $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
-docker.node-agent:      $(ISTIO_DOCKER)/node_agent
-docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
-                        $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
-docker.multicluster-ca: $(ISTIO_DOCKER)/multicluster_ca
-docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
-$(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-$(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
+docker.istio-ca:        $(ISTIO_OUT)/istio_ca docker/ca-certificates.tgz
+docker.istio-ca-test:   $(ISTIO_OUT)/istio_ca $(ISTIO_OUT)/istio_ca.crt $(ISTIO_OUT)/istio_ca.key
+docker.node-agent:      $(ISTIO_OUT)/node_agent
+docker.node-agent-test: $(ISTIO_OUT)/node_agent $(ISTIO_OUT)/istio_ca.crt \
+                        $(ISTIO_OUT)/node_agent.crt $(ISTIO_OUT)/node_agent.key \
+                        security/docker/start_app.sh security/docker/app.js
+docker.multicluster-ca: $(ISTIO_OUT)/multicluster_ca
+docker.flexvolumedriver: $(ISTIO_OUT)/flexvolume security/docker/start_driver.sh
 
 SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca docker.flexvolumedriver
-$(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
+$(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
 # grafana image
 
-$(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
+docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) addons/grafana/dashboards.yaml \
+                addons/grafana/datasources.yaml addons/grafana/grafana.ini addons/grafana/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
-DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
-            docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
+DOCKER_RULE=time (mkdir -p $(ISTIO_DOCKER)/$@ && cp -r $^ $(ISTIO_DOCKER)/$@/ && cd $(ISTIO_DOCKER)/$@/ && \
+            docker build $(DOCKER_OPT$(suffix $@)) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .) && \
+            cd .. && rm -rf $(ISTIO_DOCKER)/$@
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.

@@ -21,6 +21,7 @@ SHELL := /bin/bash
 
 # Current version, updated after a release.
 VERSION ?= 0.5.0
+HELM_VER ?= v2.7.2
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -53,17 +54,24 @@ ifeq ($(GO),)
   $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
 endif
 
-export GOARCH ?= amd64
+LOCAL_ARCH := $(shell uname -m)
+ifeq ($(LOCAL_ARCH),x86_64)
+LOCAL_GOARCH := amd64
+else
+LOCAL_GOARCH := $(LOCAL_ARCH)
+endif
+export GOARCH ?= $(LOCAL_GOARCH)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   export GOOS ?= linux
+   export LOCAL_GOOS := linux
 else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS ?= darwin
+   export LOCAL_GOOS := darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
 endif
+export GOOS ?= $(LOCAL_GOOS)
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -139,13 +147,16 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-GEN_CERT := ${ISTIO_BIN}/generate_cert
+DEP       := $(shell which dep    2>/dev/null || echo "${ISTIO_BIN}/dep" )
+HELM      := $(shell which helm   2>/dev/null || echo "${ISTIO_BIN}/helm$(HELM_VER)" )
+FORTIO    := $(shell which fortio 2>/dev/null || echo "${ISTIO_BIN}/fortio" )
+GEN_CERT  := ${ISTIO_BIN}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
 
 .PHONY: default
-default: depend build test
+default: build test
 
 # The point of these is to allow scripts to query where artifacts
 # are stored so that tests and other consumers of the build don't
@@ -172,8 +183,7 @@ VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1
 
 # using a sentinel file so this check is only performed once per version.  Performance is
 # being favored over the unlikely situation that go gets downgraded to an older version
-check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED): | ${ISTIO_BIN}
 	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
                  $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
@@ -181,7 +191,8 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
+INIT_LIST:=$(ISTIO_OUT)/vendor_checked ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED) $(ISTIO_ENVOY_DEBUG_PATH) $(ISTIO_ENVOY_RELEASE_PATH)
+depend init: $(INIT_LIST)
 
 # Marker for whether vendor submodule is here or not already
 GRPC_DIR:=./vendor/google.golang.org/grpc
@@ -216,29 +227,34 @@ sync: git.pullmaster submodule-sync init
 
 .PHONY: submodule pull submodule-sync git.pullmaster
 
-# I tried to make this dependent on what I thought was the appropriate
-# lock file, but it caused the rule for that file to get run (which
-# seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | ${ISTIO_OUT}
-	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
-	touch $(ISTIO_OUT)/istio_is_init
+# The bare "envoy" files depend on istio.deps because their contents can depend on the
+# commit hash stores in that file.  The ISTIO_ENVOY_[RELEASE|DEBUG]_PATH contain the commit
+# sha that was read from istio.deps--they were computed from istio.deps and don't
+# need to depend on when the file was last updated (i.e., if the commit hash in istio.deps
+# changes then the path will update so we only care if the files exist or not).
+$(ISTIO_BIN)/envoy $(ISTIO_OUT)/envoy: istio.deps
+$(ISTIO_BIN)/envoy $(ISTIO_OUT)/envoy $(ISTIO_ENVOY_DEBUG_PATH): | ${FORTIO} ${ISTIO_OUT} ${ISTIO_BIN}
+	$(FORTIO) curl -L -stdclient -timeout 15m $(ISTIO_ENVOY_DEBUG_URL) > ${ISTIO_OUT}/envoy_debug.tar.gz
+	cd ${ISTIO_OUT}; tar xvf envoy_debug.tar.gz ./usr/local/bin/envoy
+	cp ${ISTIO_OUT}/usr/local/bin/envoy ${ISTIO_BIN}/envoy
+	cp ${ISTIO_OUT}/usr/local/bin/envoy ${ISTIO_OUT}/envoy
+	mkdir -p $(dir $(ISTIO_ENVOY_DEBUG_PATH))
+	cp ${ISTIO_OUT}/usr/local/bin/envoy $(ISTIO_ENVOY_DEBUG_PATH)
+	rm -rf ${ISTIO_OUT}/usr ${ISTIO_OUT}/envoy_debug.tar.gz
 
-# init.sh downloads envoy
-${ISTIO_OUT}/envoy: init
-${ISTIO_ENVOY_DEBUG_PATH}: init
-${ISTIO_ENVOY_RELEASE_PATH}: init
-
-# Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps or
-# make pull to pull recent changes in the submodule.
-depend: init | $(ISTIO_OUT)
+$(ISTIO_ENVOY_RELEASE_PATH): | ${FORTIO} ${ISTIO_OUT}
+	$(FORTIO) curl -L -stdclient -timeout 15m $(ISTIO_ENVOY_RELEASE_URL) > ${ISTIO_OUT}/envoy.tar.gz
+	cd ${ISTIO_OUT}; tar xvf envoy.tar.gz ./usr/local/bin/envoy
+	mkdir -p $(dir $(ISTIO_ENVOY_RELEASE_PATH))
+	cp ${ISTIO_OUT}/usr/local/bin/envoy $(ISTIO_ENVOY_RELEASE_PATH)
+	rm -rf ${ISTIO_OUT}/usr ${ISTIO_OUT}/envoy.tar.gz
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-depend.status: | $(ISTIO_OUT)
+depend.status: | $(ISTIO_OUT) $(DEP)
 	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
-	dep status -dot > $(ISTIO_OUT)/dep.dot
+	$(DEP) status -dot > $(ISTIO_OUT)/dep.dot
 	cp Gopkg.* vendor/
 
 $(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
@@ -250,22 +266,37 @@ depend.update.full: depend.cleanlock depend.update
 depend.cleanlock:
 	-rm Gopkg.lock
 
-depend.update:
+depend.update: | $(DEP)
 	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
-	time dep ensure $(DEPARGS)
+	time $(DEP) ensure $(DEPARGS)
 	cp Gopkg.* vendor/
 	@echo "now check the diff in vendor/ and make a PR"
 
-vendor.check:
-	@echo "Checking that Gopkg.* are in sync with vendor/ submodule:"
-	@echo "if this fails, 'make pull' and/or seek on-call help"
-	diff Gopkg.toml vendor/
-	diff Gopkg.lock vendor/
-
 .PHONY: vendor.check
+vendor.check: $(ISTIO_OUT)/vendor_checked
+
+$(ISTIO_OUT)/vendor_checked: Gopkg.toml Gopkg.lock | $(ISTIO_OUT) $(GRPC_DIR)
+	@diff Gopkg.toml vendor/ || (echo "vendor/ out-of-sync, run 'make pull' and/or seek on-call help" && exit 1)
+	@diff Gopkg.lock vendor/ || (echo "vendor/ out-of-sync, run 'make pull' and/or seek on-call help" && exit 2)
+	touch $(ISTIO_OUT)/vendor_checked
 
 ${GEN_CERT}:
-	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(LOCAL_GOOS) GOARCH=$(LOCAL_GOARCH) bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+
+# If CGO_ENABLED=0 then go get tries to install in system directories.
+# If -pkgdir <dir> is also used then various additional .a files are present.
+${ISTIO_BIN}/dep:
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/golang/dep/cmd/dep
+
+fortio ${ISTIO_BIN}/fortio: | $(ISTIO_OUT)/vendor_checked ${ISTIO_BIN}
+	unset GOOS && unset GOARCH && cd vendor/istio.io/fortio/ && go install .
+
+${ISTIO_BIN}/helm$(HELM_VER): | ${ISTIO_BIN} $(FORTIO)
+	cd /tmp && \
+        $(FORTIO) curl -L -stdclient -timeout 15m https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_GOOS}-amd64.tar.gz > /tmp/helm.tgz && \
+        tar xfz helm.tgz ${LOCAL_GOOS}-amd64/helm && \
+        mv ${LOCAL_GOOS}-amd64/helm ${ISTIO_BIN}/helm${HELM_VER} && \
+        rm -rf helm.tgz ${LOCAL_GOOS}-amd64
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -302,52 +333,50 @@ lint: buildcache
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
 
+# The following is used to force go binaries to always be rebuilt (we rely on 'go build'
+# to decide what, if anything, should be recompiled).  Build machines or known
+# clean/unmodified trees can set SKIP_REBUILD_CHECK=1 to skip rebuilds.  Note that
+# .FORCE is added ot the front of INIT_LIST to avoid it from being added
+# as an order-only dependency at the end of the list.
+.PHONY: .FORCE
+.FORCE:
+ifeq ($(origin SKIP_REBUILD_CHECK), undefined)
+INIT_LIST:=.FORCE $(INIT_LIST)
+else ifeq ($(SKIP_REBUILD_CHECK),0)
+INIT_LIST:=.FORCE $(INIT_LIST)
+endif
+
 PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
                ${ISTIO_OUT}/sidecar-injector
-PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
-define pilotbuild
-$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
-
-${ISTIO_OUT}/$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
-endef
-$(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
+$(foreach ITEM,$(PILOT_GO_BINS),$(eval $(notdir $(ITEM)) $(ITEM): $(INIT_LIST); \
+	bin/gobuild.sh $(ITEM) istio.io/istio/pkg/version ./pilot/cmd/$(notdir $(ITEM)) ) )
 
 .PHONY: istioctl
-istioctl ${ISTIO_OUT}/istioctl:
+istioctl ${ISTIO_OUT}/istioctl: $(INIT_LIST)
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
-${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+ISTIOCTL_ALL:=${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
+${ISTIO_OUT}/istioctl-linux: $(INIT_LIST)
+	STATIC=0 GOOS=linux   GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+${ISTIO_OUT}/istioctl-osx: $(INIT_LIST)
+	STATIC=0 GOOS=darwin  GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+${ISTIO_OUT}/istioctl-win.exe: $(INIT_LIST)
+	STATIC=0 GOOS=windows GOARCH=amd64 bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
-mixc:
-	bin/gobuild.sh ${ISTIO_OUT}/mixc istio.io/istio/pkg/version ./mixer/cmd/mixc
-mixs:
-	bin/gobuild.sh ${ISTIO_OUT}/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
+$(foreach ITEM,$(MIXER_GO_BINS),$(eval $(notdir $(ITEM)) $(ITEM): $(INIT_LIST); \
+    bin/gobuild.sh $(ITEM) istio.io/istio/pkg/version ./mixer/cmd/$(notdir $(ITEM)) ) )
 
-$(MIXER_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
-
-servicegraph:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
-
-${ISTIO_OUT}/servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
+servicegraph ${ISTIO_OUT}/servicegraph: $(INIT_LIST)
+	bin/gobuild.sh ${ISTIO_OUT}/servicegraph istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
-$(SECURITY_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+$(foreach ITEM,$(SECURITY_GO_BINS),$(eval $(notdir $(ITEM)) $(ITEM): $(INIT_LIST); \
+    bin/gobuild.sh $(ITEM) istio.io/istio/pkg/version ./security/cmd/$(notdir $(ITEM)) ) )
 
 .PHONY: build
-# Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
+build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS) ${ISTIO_OUT}/istioctl
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -355,36 +384,22 @@ build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume mu
 #
 # This is intended for developer use - will rebuild the package.
 
-.PHONY: istio-ca
-istio-ca:
-	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
-
-.PHONY: node-agent
-node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
-
-.PHONY: flexvolumedriver
-flexvolumedriver:
-	bin/gobuild.sh ${ISTIO_OUT}/flexvolume istio.io/istio/pkg/version ./security/cmd/flexvolume
-
-.PHONY: pilot
+.PHONY: istio-ca node-agent flexvolumedriver pilot
+istio-ca: istio_ca
+node-agent: node_agent
+flexvolumedriver: flexvolume
 pilot: pilot-discovery
-
-.PHONY: multicluster_ca node_agent istio_ca flexvolume
-multicluster_ca node_agent istio_ca flexvolume:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
+istioctl-all: ${ISTIOCTL_ALL}
 
 .PHONY: istio-archive
-
 istio-archive: ${ISTIO_OUT}/archive
 
 # TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
 # consider using -a with updateVersion.sh to simplify the input parameters
-${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
+${ISTIO_OUT}/archive: $(ISTIOCTL_ALL) LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
 	rm -rf ${ISTIO_OUT}/archive
 	mkdir -p ${ISTIO_OUT}/archive/istioctl
 	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
@@ -412,7 +427,7 @@ JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}
 
 ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
@@ -433,28 +448,28 @@ $(PILOT_TEST_BINS):
 
 test-bins: $(PILOT_TEST_BINS)
 
-localTestEnv: test-bins
+localTestEnv: $(PILOT_TEST_BINS)
 	bin/testEnvLocalK8S.sh ensure
 
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 PILOT_TEST_T ?= ${GOTEST_P} ${T}
-pilot-test: pilot-agent
+pilot-test: ${ISTIO_OUT}/pilot-agent
 	go test ${PILOT_TEST_T} ./pilot/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
-mixer-test: mixs
+mixer-test: ${ISTIO_OUT}/mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: broker-test
-broker-test: depend
+broker-test: $(INIT_LIST)
 	go test ${T} ./broker/...
 
 .PHONY: galley-test
-galley-test: depend
+galley-test: $(INIT_LIST)
 	go test ${T} ./galley/...
 
 .PHONY: security-test
@@ -510,20 +525,20 @@ common-coverage:
 racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
 
 .PHONY: pilot-racetest
-pilot-racetest: pilot-agent
+pilot-racetest: ${ISTIO_OUT}/pilot-agent
 	RACE_TEST=true go test ${GOTEST_P} ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
-mixer-racetest: mixs
+mixer-racetest: ${ISTIO_OUT}/mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-racetest
-broker-racetest: depend
+broker-racetest: $(INIT_LIST)
 	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
-galley-racetest: depend
+galley-racetest: $(INIT_LIST)
 	RACE_TEST=true go test ${T} -race ./galley/...
 
 .PHONY: security-racetest
@@ -580,23 +595,23 @@ generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 
 
-istio.yaml:
-	helm template --set global.tag=${TAG} \
+istio.yaml: | $(HELM)
+	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-istio_auth.yaml:
-	helm template --set global.tag=${TAG} \
-		  		  --namespace=istio-system \
+istio_auth.yaml: | $(HELM)
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
 	              --set global.mtlsDefault=true \
 			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-deploy/all:
+deploy/all: | $(HELM)
 	kubectl create ns istio-system > /dev/null || true
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 		          --namespace=istio-system \
                   --set global.hub=${HUB} \
 		      	  --set sidecar-injector.enabled=true \
