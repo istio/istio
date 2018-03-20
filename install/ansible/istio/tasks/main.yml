@@ -24,9 +24,17 @@
     {{ cmd_path }} version | sed -En "{{'s/kubernetes.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p' if cluster_flavour == 'ocp' else 's/Server Version.*GitVersion.*v([[:digit:]]\.[[:digit:]]\.[[:digit:]]).*/\1/p'}}" | tail -1
   register: vo
 
+- name: Set kubernetes server version
+  set_fact:
+    cluster_version: "{{ vo.stdout }}"
+
+- name: Print cluster version
+  debug:
+    msg: "Target cluster version is {{ cluster_version }}"
+
 - assert:
     that:
-      - "vo.stdout >= minimum_cluster_version"
+      - "cluster_version >= minimum_cluster_version"
     msg: "Cluster version must be at least {{ minimum_cluster_version }}"
 
 - include_tasks: assert_oc_admin.yml
@@ -41,5 +49,7 @@
 - include_tasks: change_scc.yml
   when: cluster_flavour == 'ocp'
 - include_tasks: install_on_cluster.yml
+- include_tasks: enable_mutating_webhooks.yml
+  when: (istio_version_to_use >= minimum_istio_version_for_webhooks) and (cluster_version >= minimum_cluster_version_for_webhooks)
 - include_tasks: install_samples.yml
   when: (istio.samples is iterable) and (istio.samples | length > 0)

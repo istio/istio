@@ -3,6 +3,8 @@ github_url: https://api.github.com/repos
 istio_repo: istio/istio
 default_github_api_headers: {}
 minimum_cluster_version: 1.7.0
+minimum_cluster_version_for_webhooks: 1.9.0
+minimum_istio_version_for_webhooks: 0.5.0
 addons_needing_sa:
   - "grafana"
   - "prometheus"
