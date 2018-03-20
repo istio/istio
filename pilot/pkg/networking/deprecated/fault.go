@@ -15,7 +15,7 @@
 // Functions related to translation from the control policies to Envoy config
 // Policies apply to Envoy upstream clusters but may appear in the route section.
 
-package v2
+package deprecated
 
 import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -35,7 +35,7 @@ func buildFaultFilters(config model.Config, env model.Environment, node model.Pr
 	}
 	rule := config.Spec.(*routing.RouteRule)
 	// TODO(mostrowski): need a lightweight function to get list of cluster names.
-	clusters, err := buildClusters(env, node)
+	clusters, err := BuildClusters(env, node)
 	if err != nil {
 		panic(err)
 	}
@@ -95,67 +95,6 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *fault.FaultD
 	}
 
 	d := durationToTimeDuration(delayRule.GetFixedDelay())
-	return &fault.FaultDelay{
-		Type: fault.FaultDelay_FIXED,
-		FaultDelayType: &fault.FaultDelay_FixedDelay{
-			FixedDelay: &d,
-		},
-		Percent: uint32(delayRule.Percent),
-	}
-}
-
-func buildHTTPFaultFilterV2(cluster string, faultRule *routing.HTTPFaultInjection, headers []*route.HeaderMatcher) *http_conn.HttpFilter { // nolint
-	abort := buildAbortConfigV2(faultRule.Abort)
-	delay := buildDelayConfigV2(faultRule.Delay)
-	if abort == nil && delay == nil {
-		return nil
-	}
-
-	config := &http_fault.HTTPFault{
-		UpstreamCluster: cluster,
-		Headers:         headers,
-		Abort:           abort,
-		Delay:           delay,
-	}
-
-	return &http_conn.HttpFilter{
-		Name:   "fault",
-		Config: buildProtoStruct("fault", config.String()),
-	}
-}
-
-func buildAbortConfigV2(abortRule *routing.HTTPFaultInjection_Abort) *http_fault.FaultAbort { // nolint
-	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
-		return nil
-	}
-
-	percent := uint32(abortRule.Percent)
-	if percent == 0 {
-		percent = 100 // default to 100 percent
-	}
-
-	return &http_fault.FaultAbort{
-		Percent:   percent,
-		ErrorType: &http_fault.FaultAbort_HttpStatus{HttpStatus: uint32(abortRule.GetHttpStatus())},
-	}
-}
-
-func buildDelayConfigV2(delayRule *routing.HTTPFaultInjection_Delay) *fault.FaultDelay { // nolint
-	if delayRule == nil {
-		return nil
-	}
-
-	d := protoDurationToTimeDuration(nil) // delayRule.GetFixedDelay())
-	if d.Nanoseconds() == 0 {
-		return nil
-	}
-
-	percent := int(delayRule.Percent)
-	if percent == 0 {
-		// default to 100 percent
-		percent = 100 // nolint
-	}
-
 	return &fault.FaultDelay{
 		Type: fault.FaultDelay_FIXED,
 		FaultDelayType: &fault.FaultDelay_FixedDelay{

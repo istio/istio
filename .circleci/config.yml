@@ -670,7 +670,6 @@ workflows:
           requires:
             - build
 
-
   all:
     jobs:
       - dependencies
@@ -692,3 +691,6 @@ workflows:
       - e2e-simple:
           requires:
             - build
+      - racetest:
+          requires:
+            - test
