@@ -151,21 +151,22 @@ func testSimpleTemplateFields(msgInfo MessageInfo, t *testing.T) {
 		"FieldDouble", TypeInfo{Name: "float64"}, "")
 	testField(t, testFileName, msgInfo,
 		"val",
-		TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true}, "Val",
-		TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true}, "single line block comment")
+		TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"}, "Val",
+		TypeInfo{Name: "interface{}", IsValueType: true}, "single line block comment")
 	testField(t, testFileName, msgInfo,
 		"dimensions",
-		TypeInfo{Name: "map<string, istio.policy.v1beta1.ValueType>",
+		TypeInfo{Name: "map<string, istio.mixer.adapter.model.v1beta1.Value>",
 			IsMap:    true,
+			Import:   "mixer/adapter/model/v1beta1/type.proto",
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"},
 		},
 		"Dimensions",
 		TypeInfo{
-			Name:     "map[string]istio_policy_v1beta1.ValueType",
+			Name:     "map[string]interface{}",
 			IsMap:    true,
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "interface{}", IsValueType: true},
 		}, "single line comment")
 	testField(t, testFileName, msgInfo,
 		"dimensionsConstInt64Val",
