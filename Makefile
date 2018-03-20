@@ -601,6 +601,7 @@ istio.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.controlPlaneSecurityEnabled=false \
+		  --set global.refreshInterval=1s \
                   --set global.mtls.enabled=false \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=false \
@@ -612,6 +613,7 @@ istio-one-namespace.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.controlPlaneSecurityEnabled=false \
+		  --set global.refreshInterval=1s \
                   --set global.mtls.enabled=false \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=true \
@@ -624,6 +626,7 @@ istio-auth.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.controlPlaneSecurityEnabled=true \
+		  --set global.refreshInterval=1s \
                   --set global.mtls.enabled=true \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=false \
@@ -635,6 +638,7 @@ istio-one-namespace-auth.yaml:
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
                   --set global.controlPlaneSecurityEnabled=true \
+		  --set global.refreshInterval=1s \
                   --set global.mtls.enabled=true \
 		  --set global.rbacEnabled=true \
 		  --set istiotesting.oneNamespace=true \
