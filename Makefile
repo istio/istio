@@ -234,7 +234,7 @@ sync: git.pullmaster submodule-sync init
 # changes then the path will update so we only care if the files exist or not).
 $(ISTIO_BIN)/envoy $(ISTIO_OUT)/envoy: istio.deps
 $(ISTIO_BIN)/envoy $(ISTIO_OUT)/envoy $(ISTIO_ENVOY_DEBUG_PATH): | ${FORTIO} ${ISTIO_OUT} ${ISTIO_BIN}
-	$(FORTIO) curl -stdclient $(ISTIO_ENVOY_DEBUG_URL) > ${ISTIO_OUT}/envoy_debug.tar.gz
+	$(FORTIO) curl -L -stdclient -timeout 15m $(ISTIO_ENVOY_DEBUG_URL) > ${ISTIO_OUT}/envoy_debug.tar.gz
 	cd ${ISTIO_OUT}; tar xvf envoy_debug.tar.gz ./usr/local/bin/envoy
 	cp ${ISTIO_OUT}/usr/local/bin/envoy ${ISTIO_BIN}/envoy
 	cp ${ISTIO_OUT}/usr/local/bin/envoy ${ISTIO_OUT}/envoy
@@ -243,7 +243,7 @@ $(ISTIO_BIN)/envoy $(ISTIO_OUT)/envoy $(ISTIO_ENVOY_DEBUG_PATH): | ${FORTIO} ${I
 	rm -rf ${ISTIO_OUT}/usr ${ISTIO_OUT}/envoy_debug.tar.gz
 
 $(ISTIO_ENVOY_RELEASE_PATH): | ${FORTIO} ${ISTIO_OUT}
-	$(FORTIO) curl -stdclient $(ISTIO_ENVOY_RELEASE_URL) > ${ISTIO_OUT}/envoy.tar.gz
+	$(FORTIO) curl -L -stdclient -timeout 15m $(ISTIO_ENVOY_RELEASE_URL) > ${ISTIO_OUT}/envoy.tar.gz
 	cd ${ISTIO_OUT}; tar xvf envoy.tar.gz ./usr/local/bin/envoy
 	mkdir -p $(dir $(ISTIO_ENVOY_RELEASE_PATH))
 	cp ${ISTIO_OUT}/usr/local/bin/envoy $(ISTIO_ENVOY_RELEASE_PATH)
@@ -293,7 +293,7 @@ fortio ${ISTIO_BIN}/fortio: | $(ISTIO_OUT)/vendor_checked ${ISTIO_BIN}
 
 ${ISTIO_BIN}/helm$(HELM_VER): | ${ISTIO_BIN} $(FORTIO)
 	cd /tmp && \
-        $(FORTIO) curl -stdclient https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_GOOS}-amd64.tar.gz > /tmp/helm.tgz && \
+        $(FORTIO) curl -L -stdclient -timeout 15m https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_GOOS}-amd64.tar.gz > /tmp/helm.tgz && \
         tar xfz helm.tgz ${LOCAL_GOOS}-amd64/helm && \
         mv ${LOCAL_GOOS}-amd64/helm ${ISTIO_BIN}/helm${HELM_VER} && \
         rm -rf helm.tgz ${LOCAL_GOOS}-amd64
