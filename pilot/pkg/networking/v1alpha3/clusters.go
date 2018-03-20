@@ -29,8 +29,8 @@ import (
 )
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
-	var clusters []*v2.Cluster
+func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
+	clusters := make([]*v2.Cluster, 0)
 
 	// TODO node type router
 
@@ -38,17 +38,15 @@ func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
 	services, err := env.Services()
 	if err != nil {
 		log.Errorf("Failed for retrieve services: %v", err)
-		return clusters
+		return nil
 	}
 
-
-	// build Outbound Clusters
+	// build outbound clusters
 	for _, service := range services {
 		config := env.IstioConfigStore.DestinationRule(service.Hostname, "")
 		if config != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			for _, svcPort := range service.Ports {
-
 				var hosts []*core.Address
 				if service.Resolution == model.DNSLB {
 					// FIXME port name not required if only one port
@@ -58,7 +56,7 @@ func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
 					} else {
 						for _, instance := range instances {
 							hosts = append(hosts, &core.Address{Address: &core.SocketAddress{
-								Address: instance.Endpoint.Address,
+								Address:  instance.Endpoint.Address,
 								Protocol: core.TCP,
 								PortSpecifier: &core.SocketAddress_PortValue{
 									PortValue: uint32(instance.Endpoint.Port),
@@ -70,8 +68,8 @@ func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
 
 				// create default cluster
 				cluster := &v2.Cluster{
-					Name: buildClusterName(service.Hostname, "", svcPort.Name),
-					Type: convertResolution(service.Resolution),
+					Name:  buildClusterName(service.Hostname, "", svcPort.Name),
+					Type:  convertResolution(service.Resolution),
 					Hosts: hosts,
 				}
 				applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
@@ -79,8 +77,8 @@ func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
 
 				for _, subset := range destinationRule.Subsets {
 					cluster := &v2.Cluster{
-						Name: buildClusterName(service.Hostname, subset.Name, svcPort.Name),
-						Type: convertResolution(service.Resolution),
+						Name:  buildClusterName(service.Hostname, subset.Name, svcPort.Name),
+						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
 					applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
@@ -89,19 +87,34 @@ func BuildClusters(env model.Environment, node model.Proxy) []*v2.Cluster {
 					clusters = append(clusters, cluster)
 				}
 
-				// TODO HTTP2 cluster feature
+				// TODO HTTP2 feature
 
 			}
 		}
 	}
 
 	// TODO build inbound clusters
+	instances, err := env.GetProxyServiceInstances(proxy)
+	for _, instance := range instances {
+		clusters = append(clusters, &v2.Cluster{
+			Name: "",
+			Type: v2.Cluster_STATIC,
+			ConnectTimeout: 0,
+			LbPolicy: v2.Cluster_ROUND_ROBIN,
+			Hosts: []*core.Address{{Address: &core.SocketAddress{
+				Address: instance.Endpoint.Address,
+				Protocol: core.TCP,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(instance.Endpoint.Port),
+				},
+			}}},
+		})
+		// TODO: HTTP2 feature
+	}
 
-	// TODO build TCP clusters in/out
+	// TODO add original dst cluster
 
-	// TODO add one original dest cluster
-
-	return clusters
+	return clusters // TODO: guaranteed ordering?
 }
 
 // TODO port name is not mandatory if only one port defined
@@ -123,64 +136,39 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.OutlierDetection {
-	if outlier != nil && outlier.Http != nil {
-		out := &v2_cluster.OutlierDetection{
-			Consecutive_5Xx:    5,
-			Interval:           types.Duration{Seconds: 10},
-			BaseEjectionTime:   types.Duration{Seconds: 30},
-			MaxEjectionPercent: 10,
-		}
-
-		if outlier.Http.BaseEjectionTime != nil {
-			out.BaseEjectionTime = convertDurationGogo(outlier.Http.BaseEjectionTime)
-		}
-		if outlier.Http.ConsecutiveErrors > 0 {
-			out.Consecutive_5Xx = int(outlier.Http.ConsecutiveErrors)
-		}
-		if outlier.Http.Interval != nil {
-			out.Interval = convertDurationGogo(outlier.Http.Interval)
-		}
-		if outlier.Http.MaxEjectionPercent > 0 {
-			out.MaxEjectionPercent = int(outlier.Http.MaxEjectionPercent)
-		}
-
-		return out
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
+	if policy == nil {
+		return
 	}
-	return nil
+	applyConnectionPool(cluster, policy.ConnectionPool)
+	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
 }
 
+// FIXME: there isn't a way to distinguish between unset values and zero values
 func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
-	cluster.MaxRequestsPerConnection = 1024 // TODO: set during cluster construction?
-
 	if settings == nil {
 		return
 	}
 
-	threshold := &v2_cluster.CircuitBreakers_Thresholds{
-		MaxConnections:     1024, // TODO: what is the Istio default?
-		MaxPendingRequests: 1024,
-		MaxRequests:        1024,
-		MaxRetries:         3,
-	}
+	threshold := &v2_cluster.CircuitBreakers_Thresholds{}
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
-			threshold.MaxRequests = int(settings.Http.Http2MaxRequests)
+			threshold.MaxRequests = types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			threshold.MaxPendingRequests = int(settings.Http.Http1MaxPendingRequests)
+			threshold.MaxPendingRequests = types.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 
 		if settings.Http.MaxRequestsPerConnection > 0 {
-			cluster.MaxRequestsPerConnection = int(settings.Http.MaxRequestsPerConnection)
+			cluster.MaxRequestsPerConnection = types.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
 		}
 
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default value of 3
 		if settings.Http.MaxRetries > 0 {
-			threshold.MaxRetries = int(settings.Http.MaxRetries)
+			threshold.MaxRetries = types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 	}
 
@@ -190,21 +178,33 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
-			threshold.MaxConnections = int(settings.Tcp.MaxConnections)
+			threshold.MaxConnections = types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 	}
 
-	// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head) and
-	// outlier detection (which is per pod circuit breaker)
 	cluster.CircuitBreakers = &v2_cluster.CircuitBreakers{
 		Thresholds: []*v2_cluster.CircuitBreakers_Thresholds{threshold},
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
-	if policy == nil {
-		return
+// FIXME: there isn't a way to distinguish between unset values and zero values
+func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.OutlierDetection {
+	if outlier == nil || outlier.Http == nil {
+		return nil
 	}
-	applyConnectionPool(cluster, policy.ConnectionPool)
-	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
+
+	out := &v2_cluster.OutlierDetection{}
+	if outlier.Http.BaseEjectionTime != nil {
+		out.BaseEjectionTime = convertDurationGogo(outlier.Http.BaseEjectionTime)
+	}
+	if outlier.Http.ConsecutiveErrors > 0 {
+		out.Consecutive_5Xx = types.UInt32Value{Value: uint32(outlier.Http.ConsecutiveErrors)}
+	}
+	if outlier.Http.Interval != nil {
+		out.Interval = convertDurationGogo(outlier.Http.Interval)
+	}
+	if outlier.Http.MaxEjectionPercent > 0 {
+		out.MaxEjectionPercent = types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
+	}
+	return out
 }
