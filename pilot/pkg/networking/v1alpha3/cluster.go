@@ -55,6 +55,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 				var hosts []*core.Address
 				if service.Resolution == model.DNSLB {
 					// FIXME port name not required if only one port
+					// nolint: vetshadow
 					instances, err := env.ServiceDiscovery.Instances(service.Hostname, []string{svcPort.Name}, nil)
 					if err != nil {
 						log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
