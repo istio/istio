@@ -19,7 +19,6 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -88,27 +87,4 @@ func RequireTLS(policy *authn.Policy) bool {
 		}
 	}
 	return false
-}
-
-// Converts authn1.PortSelector proto to networking.PortSelector proto.
-func AuthnPortSelectorToNetworkingPortSelector(port *authn.PortSelector) *networking.PortSelector {
-	if port == nil {
-		return nil
-	}
-	switch port.Port.(type) {
-	case *authn.PortSelector_Name:
-		return &networking.PortSelector{
-			Port: &networking.PortSelector_Name{
-				Name: port.GetName(),
-			},
-		}
-	case *authn.PortSelector_Number:
-		return &networking.PortSelector{
-			Port: &networking.PortSelector_Number{
-				Number: port.GetNumber(),
-			},
-		}
-	default:
-		return &networking.PortSelector{}
-	}
 }

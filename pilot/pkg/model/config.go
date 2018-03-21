@@ -919,7 +919,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 				if len(dest.Ports) > 0 {
 					portMatched := false
 					for _, portSelector := range dest.Ports {
-						if port.Match(AuthnPortSelectorToNetworkingPortSelector(portSelector)) {
+						if port.Match(portSelector) {
 							portMatched = true
 							break
 						}
