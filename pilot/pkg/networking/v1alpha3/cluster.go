@@ -103,7 +103,8 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 
 	hosts := make([]*core.Address, 0)
 	for _, instance := range instances {
-		hosts = append(hosts, buildAddress(instance.Endpoint.Address, instance.Endpoint.Port))
+		host := buildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
+		hosts = append(hosts, &host)
 	}
 
 	return hosts
@@ -114,13 +115,14 @@ func buildInboundClusters(instances []*model.ServiceInstance) []*v2.Cluster {
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
+		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		clusters = append(clusters, &v2.Cluster{
 			Name:     clusterName,
 			Type:     v2.Cluster_STATIC,
 			LbPolicy: v2.Cluster_ROUND_ROBIN,
 			// TODO: HTTP2 feature
 			// TODO timeout
-			Hosts: []*core.Address{buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))},
+			Hosts: []*core.Address{&address},
 		})
 	}
 	return clusters
