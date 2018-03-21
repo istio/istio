@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 )
 

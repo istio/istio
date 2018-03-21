@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// Defautl cache duration for JWT public key.
+	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
@@ -167,10 +167,8 @@ func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 			ret = append(ret, method.GetJwt())
 		}
 	}
-	for _, rule := range policy.CredentialRules {
-		for _, method := range rule.Origins {
-			ret = append(ret, method.Jwt)
-		}
+	for _, method := range policy.Origins {
+		ret = append(ret, method.Jwt)
 	}
 	return ret
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
@@ -56,15 +56,38 @@ func TestBuildJwtFilter(t *testing.T) {
 				Name: "jwt-auth",
 				Config: &types.Struct{
 					Fields: map[string]*types.Value{
-						"jwt-auth": {
-							Kind: &types.Value_StringValue{
-								StringValue: "&EndUserAuthenticationPolicySpec{" +
-									"Jwts:[&JWT{Issuer:,Audiences:[]," +
-									"JwksUri:http://abc.com," +
-									"ForwardJwt:true," +
-									"PublicKeyCacheDuration:5m0s," +
-									"Locations:[]," +
-									"JwksUriEnvoyCluster:jwks.abc.com|http,}],}",
+						"jwts": &types.Value{
+							Kind: &types.Value_ListValue{
+								ListValue: &types.ListValue{
+									Values: []*types.Value{
+										&types.Value{
+											Kind: &types.Value_StructValue{
+												StructValue: &types.Struct{
+													Fields: map[string]*types.Value{
+														"forward_jwt": &types.Value{
+															Kind: &types.Value_BoolValue{BoolValue: true},
+														},
+														"jwks_uri": &types.Value{
+															Kind: &types.Value_StringValue{
+																StringValue: "http://abc.com",
+															},
+														},
+														"jwks_uri_envoy_cluster": &types.Value{
+															Kind: &types.Value_StringValue{
+																StringValue: "jwks.abc.com|http",
+															},
+														},
+														"public_key_cache_duration": &types.Value{
+															Kind: &types.Value_StringValue{
+																StringValue: "300.000s",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},

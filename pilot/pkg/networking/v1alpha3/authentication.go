@@ -18,7 +18,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -38,8 +38,10 @@ func buildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	if filterConfigProto == nil {
 		return nil
 	}
-	// TODO(diemtvu): check what is the right way to set config using proto.
-	return buildHTTPFilterConfig(jwtFilterName, filterConfigProto.String())
+	return &http_conn.HttpFilter{
+		Name:   jwtFilterName,
+		Config: messageToStruct(filterConfigProto),
+	}
 }
 
 // buildJwksURIClustersForProxyInstances checks the authentication policy for the

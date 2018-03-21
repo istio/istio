@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-        "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -218,13 +218,13 @@ func TestCollectJwtSpecs(t *testing.T) {
 						Params: &authn.PeerAuthenticationMethod_Mtls{},
 					},
 				},
-				CredentialRules: []*authn.CredentialRule{{
-					Origins: []*authn.OriginAuthenticationMethod{{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
 						Jwt: &authn.Jwt{
 							JwksUri: "http://xyz.com",
 						},
-					}},
-				}},
+					},
+				},
 			},
 			expectedSize: 2,
 		},
@@ -241,19 +241,18 @@ func TestCollectJwtSpecs(t *testing.T) {
 						Params: &authn.PeerAuthenticationMethod_Mtls{},
 					},
 				},
-				CredentialRules: []*authn.CredentialRule{{
-					Origins: []*authn.OriginAuthenticationMethod{
-						{
-							Jwt: &authn.Jwt{
-								JwksUri: "http://xyz.com",
-							},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							JwksUri: "http://xyz.com",
 						},
-						{
-							Jwt: &authn.Jwt{
-								JwksUri: "http://abc.com",
-							},
-						}},
-				}},
+					},
+					{
+						Jwt: &authn.Jwt{
+							JwksUri: "http://abc.com",
+						},
+					},
+				},
 			},
 			expectedSize: 3,
 		},
@@ -343,17 +342,15 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						Params: &authn.PeerAuthenticationMethod_Mtls{},
 					},
 				},
-				CredentialRules: []*authn.CredentialRule{{
-					Origins: []*authn.OriginAuthenticationMethod{
-						{
-							Jwt: &authn.Jwt{
-								Issuer:    "bar",
-								JwksUri:   "https://xyz.com",
-								JwtParams: []string{"x-jwt-bar"},
-							},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:    "bar",
+							JwksUri:   "https://xyz.com",
+							JwtParams: []string{"x-jwt-bar"},
 						},
 					},
-				}},
+				},
 			},
 			expected: &mccpb.EndUserAuthenticationPolicySpec{
 				Jwts: []*mccpb.JWT{
@@ -403,19 +400,18 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						Params: &authn.PeerAuthenticationMethod_Mtls{},
 					},
 				},
-				CredentialRules: []*authn.CredentialRule{{
-					Origins: []*authn.OriginAuthenticationMethod{
-						{
-							Jwt: &authn.Jwt{
-								JwksUri: "https://xyz.com",
-							},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							JwksUri: "https://xyz.com",
 						},
-						{
-							Jwt: &authn.Jwt{
-								JwksUri: "http://abc.com",
-							},
-						}},
-				}},
+					},
+					{
+						Jwt: &authn.Jwt{
+							JwksUri: "http://abc.com",
+						},
+					},
+				},
 			},
 			expected: &mccpb.EndUserAuthenticationPolicySpec{
 				Jwts: []*mccpb.JWT{
