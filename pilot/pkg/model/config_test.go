@@ -175,6 +175,38 @@ func TestServiceKey(t *testing.T) {
 	}
 }
 
+func TestBuildSubsetKey(t *testing.T) {
+	hostname := "hostname"
+	cases := []struct {
+		subset string
+		port   *model.Port
+		want   string
+	}{
+		{
+			port:   &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			subset: "subset",
+			want:   "outbound|http|subset|hostname",
+		},
+		{
+			port:   &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
+			subset: "subset",
+			want:   "outbound|subset|hostname",
+		},
+		{
+			port:   &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			subset: "",
+			want:   "outbound|http||hostname",
+		},
+	}
+
+	for _, c := range cases {
+		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+	}
+}
+
 func TestLabelsEquals(t *testing.T) {
 	cases := []struct {
 		a, b model.Labels
@@ -526,7 +558,7 @@ func TestEgressRules(t *testing.T) {
 	}
 }
 
-func TestPolicy(t *testing.T) {
+func TestDestinationPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
 	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}

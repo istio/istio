@@ -144,6 +144,16 @@ const (
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
+// TrafficDirection defines whether traffic exists a service instance or enters a service instance
+type TrafficDirection string
+
+const (
+	// TrafficDirectionInbound indicates inbound traffic
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionOutbound indicates outbound traffic
+	TrafficDirectionOutbound TrafficDirection = "outbound"
+)
+
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
 func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
 	switch strings.ToLower(protocolAsString) {
@@ -397,12 +407,14 @@ func (s *Service) External() bool {
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
+// Deprecated
 func (s *Service) Key(port *Port, labels Labels) string {
 	// TODO: check port is non nil and membership of port in service
 	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
+// Deprecated
 func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
@@ -454,6 +466,7 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 }
 
 // ParseServiceKey is the inverse of the Service.String() method
+// Deprecated
 func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
 	hostname = parts[0]
@@ -474,6 +487,23 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 			labels = append(labels, ParseLabelsString(tag))
 		}
 	}
+	return
+}
+
+// SubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, port *Port) string {
+	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+}
+
+// ParseSubsetKey is the inverse of the BuildSubsetKey method
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
+	parts := strings.Split(s, "|")
+	// we ignore direction since its typically not used by the consuming functions
+	port = &Port{Name: parts[1]}
+	subsetName = parts[2]
+	hostname = parts[3]
+
 	return
 }
 

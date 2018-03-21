@@ -15,8 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
@@ -26,11 +24,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-)
-
-const (
-	outboundClusterPrefix = "out"
-	inboundClusterPrefix  = "in"
 )
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
@@ -75,7 +68,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				// create default cluster
 				cluster := &v2.Cluster{
-					Name:  buildClusterName(outboundClusterPrefix, service.Hostname, "", svcPort.Name),
+					Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, svcPort),
 					Type:  convertResolution(service.Resolution),
 					Hosts: hosts,
 				}
@@ -84,7 +77,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				for _, subset := range destinationRule.Subsets {
 					cluster := &v2.Cluster{
-						Name:  buildClusterName(outboundClusterPrefix, service.Hostname, subset.Name, svcPort.Name),
+						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, svcPort),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
@@ -107,7 +100,9 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	}
 	for _, instance := range instances {
 		// FIXME timeout
-		clusters = append(clusters, BuildInboundCluster(instance.Endpoint.Port))
+		// This cluster name is mainly for stats.
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
+		clusters = append(clusters, BuildInboundCluster(clusterName, instance.Endpoint.Port))
 	}
 
 	// TODO add original dst cluster
@@ -116,10 +111,10 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 }
 
 // BuildInboundCluster builds an inbound cluster.
-func BuildInboundCluster(port int) *v2.Cluster {
+func BuildInboundCluster(clusterName string, port int) *v2.Cluster {
 	cluster := &v2.Cluster{
 		// TODO currently using original inbound cluster naming convention
-		Name:     fmt.Sprintf("%s|%d", inboundClusterPrefix, port),
+		Name:     clusterName,
 		Type:     v2.Cluster_STATIC,
 		LbPolicy: v2.Cluster_ROUND_ROBIN,
 		// TODO: HTTP2 feature
@@ -134,12 +129,6 @@ func BuildInboundCluster(port int) *v2.Cluster {
 				},
 			}}}}}
 	return cluster
-}
-
-// TODO port name is not mandatory if only one port defined
-// TODO subset name can be empty
-func buildClusterName(prefix, hostname, subsetName, portName string) string {
-	return fmt.Sprintf("%s|%s|%s|%s", prefix, subsetName, hostname, portName)
 }
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
