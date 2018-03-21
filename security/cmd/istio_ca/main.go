@@ -61,11 +61,6 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
-
-	// ServiceAccount/DNS pair for generating DNS names in certificates.
-	// TODO: move it to a configmap later when we have more services to support.
-	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
-	sidecarInjectorSvc        = "istio-sidecar-injector"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -119,6 +114,18 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
+	}
+	// ServiceAccount/DNS pair for generating DNS names in certificates.
+	// TODO: move it to a configmap later when we have more services to support.
+	webhookServiceAccounts = []string{
+		"istio-sidecar-injector-service-account",
+		"istio-mixer-validator-service-account",
+		"istio-pilot-service-account",
+	}
+	webhookServiceNames = []string{
+		"istio-sidecar-injector",
+		"istio-mixer-validator-service",
+		"istio-pilot-service",
 	}
 )
 
@@ -231,10 +238,15 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
-	var webhooks map[string]string
+	var webhooks map[string]controller.WebhookEntry
 	if opts.appendDNSNames {
-		webhooks = make(map[string]string)
-		webhooks[sidecarInjectorSvcAccount] = sidecarInjectorSvc
+		webhooks = make(map[string]controller.WebhookEntry)
+		for i, svcAccount := range webhookServiceAccounts {
+			webhooks[svcAccount] = controller.WebhookEntry{
+				ServiceName: webhookServiceNames[i],
+				Namespace:   opts.istioCaStorageNamespace,
+			}
+		}
 	}
 
 	cs := createClientset()

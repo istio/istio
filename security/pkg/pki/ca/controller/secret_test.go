@@ -119,8 +119,11 @@ func TestSecretController(t *testing.T) {
 			})
 		}
 
-		webhooks := map[string]string{
-			sidecarInjectorSvcAccount: sidecarInjectorSvc,
+		webhooks := map[string]WebhookEntry{
+			sidecarInjectorSvcAccount: {
+				ServiceName: sidecarInjectorSvc,
+				Namespace:   "test-ns",
+			},
 		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
 			client.CoreV1(), metav1.NamespaceAll, webhooks)
