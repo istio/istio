@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -161,8 +162,22 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
+func convertDurationGogo(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
+}
 func protoDurationToMS(dur *duration.Duration) int64 {
 	return int64(convertDuration(dur) / time.Millisecond)
+}
+
+func protoDurationToMSGogo(dur *types.Duration) int64 {
+	return int64(convertDurationGogo(dur) / time.Millisecond)
 }
 
 // Config defines the schema for Envoy JSON configuration format
@@ -357,7 +372,7 @@ type CORSPolicy struct {
 	AllowMethods     string   `json:"allow_methods,omitempty"`
 	AllowHeaders     string   `json:"allow_headers,omitempty"`
 	ExposeHeaders    string   `json:"expose_headers,omitempty"`
-	MaxAge           string   `json:"max_age,omitempty"`
+	MaxAge           int      `json:"max_age,string,omitempty"`
 	AllowOrigin      []string `json:"allow_origin,omitempty"`
 }
 

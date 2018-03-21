@@ -56,14 +56,41 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ExternalService spec.
+	MeshExternal bool
+
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
+
+	// Resolution indicates how the service instances need to be resolved before routing
+	// traffic. Most services in the service registry will use static load balancing wherein
+	// the proxy will decide the service instance that will receive the traffic. External services
+	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
+	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
+	// by the caller)
+	Resolution Resolution
 }
+
+// Resolution indicates how the service instances need to be resolved before routing
+// traffic.
+type Resolution int
+
+const (
+	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
+	ClientSideLB Resolution = iota
+	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSLB
+	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
+	Passthrough
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol

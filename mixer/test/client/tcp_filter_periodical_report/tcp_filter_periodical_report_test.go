@@ -85,6 +85,9 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	}
 	defer s.TearDown()
 
+	// Make sure tcp port is ready before starting the test.
+	env.WaitForPort(s.Ports().TCPProxyPort)
+
 	// Sends a request with parameter delay=3, so that server sleeps 3 seconds and sends response.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
 	// second.

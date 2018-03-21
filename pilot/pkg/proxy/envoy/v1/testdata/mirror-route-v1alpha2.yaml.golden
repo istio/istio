@@ -1,6 +1,0 @@
-hosts:
-  - world
-http:
-  - mirror:
-      name: hello
-      subset: v1

@@ -54,6 +54,14 @@ required = [
     name = "github.com/envoyproxy/go-control-plane"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/googleapis"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/protobuf"
+    non-go = false
+    unused-packages = false
 ###
 
 [[constraint]]
@@ -122,18 +130,16 @@ required = [
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
-[[constraint]]
-  name = "istio.io/fortio"
-  revision = "latest_release"
+# Default behavior of dep is to get the latest tagged version for fortio
+# which is what we want.
 
-# TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
-  revision = "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "c517738a012f46dda2754ccfbc1da2628e0905ca"
+  branch = "master"
 
 ### Begin Mixer codegen dep pinning
 

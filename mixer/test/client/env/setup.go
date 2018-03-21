@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // TestSetup store data for a test.
@@ -37,6 +38,7 @@ type TestSetup struct {
 	envoy   *Envoy
 	mixer   *MixerServer
 	backend *HTTPServer
+	epoch   int
 }
 
 // NewTestSetup creates a new test setup
@@ -107,7 +109,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports, s.epoch)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -145,7 +147,8 @@ func (s *TestSetup) TearDown() {
 func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
+	s.epoch++
+	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports, s.epoch)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {

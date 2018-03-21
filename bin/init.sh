@@ -112,12 +112,15 @@ ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.co
 ISTIO_ENVOY_DEBUG_DIR=${ISTIO_ENVOY_DEBUG_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/debug"}
 ISTIO_ENVOY_DEBUG_NAME=${ISTIO_ENVOY_DEBUG_NAME:-"envoy-debug-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_DEBUG_PATH=${ISTIO_ENVOY_DEBUG_PATH:-"$ISTIO_ENVOY_DEBUG_DIR/$ISTIO_ENVOY_DEBUG_NAME"}
-ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"{OUT_DIR}/${GOOS}_${GOARCH}/release"}
+ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/release"}
 ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$ISTIO_ENVOY_RELEASE_NAME"}
 
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
+    # Clear out any old versions of Envoy.
+    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
+
     # Set the value of DOWNLOAD_COMMAND (either curl or wget)
     set_download_command
 
@@ -138,9 +141,6 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
     rm -rf usr
     popd
-
-    # Clear out any old versions of Envoy.
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
 fi
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.

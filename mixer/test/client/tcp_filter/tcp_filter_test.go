@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -102,6 +103,9 @@ func TestTCPMixerFilter(t *testing.T) {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
+
+	// Make sure tcp port is ready before starting the test.
+	env.WaitForPort(s.Ports().TCPProxyPort)
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
