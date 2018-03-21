@@ -88,16 +88,18 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy: tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES}
-docker.proxy: $(ISTIO_OUT)/envoy
-docker.proxy: $(ISTIO_OUT)/pilot-agent
+docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxy
 	cp $^ $(ISTIO_DOCKER)/proxy/
 ifeq ($(DEBUG_IMAGE),1)
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 else
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/proxy/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
 endif
@@ -107,8 +109,8 @@ docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxyd
-	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER)/proxyd/
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
+	cp $^ $(ISTIO_DOCKER)/proxyd/
 	time (cd $(ISTIO_DOCKER)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
