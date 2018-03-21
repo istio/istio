@@ -29,7 +29,7 @@ type Envoy struct {
 }
 
 // NewEnvoy creates a new Envoy struct.
-func NewEnvoy(stress, faultInject bool, mfConf *mixerFilterConf, ports *Ports, epoch int,
+func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
 	confVersion string) (*Envoy, error) {
 	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
 	envoyPath := "envoy"

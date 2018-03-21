@@ -255,7 +255,7 @@ func (c *confParam) write(path string) error {
 }
 
 // CreateEnvoyConf create envoy config.
-func CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *mixerFilterConf, ports *Ports,
+func CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *MixerFilterConf, ports *Ports,
 	confVersion string) error {
 	c := &confParam{
 		ClientPort:      ports.ClientProxyPort,

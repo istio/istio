@@ -32,7 +32,7 @@ type TestSetup struct {
 	stress      bool
 	faultInject bool
 	noMixer     bool
-	mfConf      *mixerFilterConf
+	mfConf      *MixerFilterConf
 	ports       *Ports
 
 	envoy         *Envoy
@@ -42,8 +42,10 @@ type TestSetup struct {
 	mfConfVersion string
 }
 
+// MixerFilterConfigV1 is version v1 for Mixer filter config.
 const MixerFilterConfigV1 = "\"v1\": "
 
+// MixerFilterConfigV2 is version v2 for Mixer filter config.
 const MixerFilterConfigV2 = "\"v2\": "
 
 // NewTestSetup creates a new test setup
@@ -58,11 +60,11 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 }
 
 // MfConfig get Mixer filter config
-func (s *TestSetup) MfConfig() *mixerFilterConf {
+func (s *TestSetup) MfConfig() *MixerFilterConf {
 	return s.mfConf
 }
 
-// SetMixerQuotaLimit set mock quota limit
+// SetMixerFilterConfVersion sets Mixer filter config version into Envoy config.
 func (s *TestSetup) SetMixerFilterConfVersion(ver string) {
 	s.mfConfVersion = ver
 }

@@ -28,8 +28,8 @@ var (
 	meshIP3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
 )
 
-// mixerFilterConf stores config for Mixer filter.
-type mixerFilterConf struct {
+// MixerFilterConf stores config for Mixer filter.
+type MixerFilterConf struct {
 	PerRouteConf   *mccpb.ServiceConfig
 	HTTPServerConf *mccpb.HttpClientConfig
 	HTTPClientConf *mccpb.HttpClientConfig
@@ -37,8 +37,8 @@ type mixerFilterConf struct {
 }
 
 // GetDefaultMixerFilterConf get config for Mixer filter
-func GetDefaultMixerFilterConf() *mixerFilterConf {
-	return &mixerFilterConf{
+func GetDefaultMixerFilterConf() *MixerFilterConf {
+	return &MixerFilterConf{
 		PerRouteConf:   GetDefaultServiceConfig(),
 		HTTPServerConf: GetDefaultHTTPServerConf(),
 		HTTPClientConf: GetDefaultHTTPClientConf(),
@@ -135,13 +135,13 @@ func DisableTCPClientCache(mfConf *mccpb.TcpClientConfig, checkCache, quotaCache
 }
 
 // DisableHTTPCheckReport disable HTTP check report
-func DisableHTTPCheckReport(mfConf *mixerFilterConf, disableCheck, disableReport bool) {
+func DisableHTTPCheckReport(mfConf *MixerFilterConf, disableCheck, disableReport bool) {
 	mfConf.PerRouteConf.DisableCheckCalls = disableCheck
 	mfConf.PerRouteConf.DisableReportCalls = disableReport
 }
 
 // AddHTTPQuota add HTTP quota config
-func AddHTTPQuota(mfConf *mixerFilterConf, quota string, charge int64) {
+func AddHTTPQuota(mfConf *MixerFilterConf, quota string, charge int64) {
 	q := &mccpb.QuotaSpec{
 		Rules: make([]*mccpb.QuotaRule, 1),
 	}
@@ -164,7 +164,7 @@ func DisableTCPCheckReport(mfConf *mccpb.TcpClientConfig, disableCheck, disableR
 }
 
 // AddJwtAuth add JWT auth.
-func AddJwtAuth(mfConf *mixerFilterConf, jwt *mccpb.JWT) {
+func AddJwtAuth(mfConf *MixerFilterConf, jwt *mccpb.JWT) {
 	mfConf.PerRouteConf.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
 	mfConf.PerRouteConf.EndUserAuthnSpec.Jwts = append(mfConf.PerRouteConf.EndUserAuthnSpec.Jwts, jwt)
 
@@ -184,7 +184,7 @@ func SetTCPReportInterval(mfConf *mccpb.TcpClientConfig, reportInterval int64) {
 }
 
 // SetStatsUpdateInterval sets stats update interval for Mixer client filters in seconds.
-func SetStatsUpdateInterval(mfConf *mixerFilterConf, updateInterval int64) {
+func SetStatsUpdateInterval(mfConf *MixerFilterConf, updateInterval int64) {
 	if mfConf.HTTPServerConf.Transport == nil {
 		mfConf.HTTPServerConf.Transport = &mccpb.TransportConfig{}
 	}
@@ -200,7 +200,7 @@ func SetStatsUpdateInterval(mfConf *mixerFilterConf, updateInterval int64) {
 }
 
 // SetDefaultServiceConfigMap set the default service config to the service config map
-func SetDefaultServiceConfigMap(mfConf *mixerFilterConf) {
+func SetDefaultServiceConfigMap(mfConf *MixerFilterConf) {
 	service := ":default"
 	mfConf.HTTPServerConf.DefaultDestinationService = service
 
