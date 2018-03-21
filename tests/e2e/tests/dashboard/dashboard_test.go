@@ -422,7 +422,7 @@ func waitForMixerConfigResolution() error {
 	configQuery := `sum(mixer_config_handler_config_count)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
-		fmt.Printf("waiting for Mixer to be configured with correct handlers: %v\n", duration)
+		log.Infof("waiting for Mixer to be configured with correct handlers: %v", duration)
 		time.Sleep(duration)
 		val, err := getMetricValue(configQuery)
 		if err == nil && val >= 3.0 {
@@ -443,7 +443,7 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 	}
 
 	for _, duration := range waitDurations {
-		t.Logf("waiting for prometheus metrics: %v", duration)
+		t.Logf("Waiting for prometheus metrics: %v", duration)
 		time.Sleep(duration)
 
 		i := 0
