@@ -18,34 +18,36 @@ import (
 	"reflect"
 	"testing"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn1 "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestRequireTls(t *testing.T) {
 	cases := []struct {
-		in       authn.Policy
+		in       authn1.Policy
 		expected bool
 	}{
 		{
-			in:       authn.Policy{},
+			in:       authn1.Policy{},
 			expected: false,
 		},
 		{
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
+			in: authn1.Policy{
+				Peers: []*authn1.PeerAuthenticationMethod{{
+					Params: &authn1.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
 			expected: true,
 		},
 		{
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{},
+			in: authn1.Policy{
+				Peers: []*authn1.PeerAuthenticationMethod{{
+					Params: &authn1.PeerAuthenticationMethod_Jwt{},
 				},
 					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
+						Params: &authn1.PeerAuthenticationMethod_Mtls{},
 					},
 				},
 			},
@@ -62,13 +64,13 @@ func TestRequireTls(t *testing.T) {
 func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 	cases := []struct {
 		in       meshconfig.AuthenticationPolicy
-		expected *authn.Policy
+		expected *authn1.Policy
 	}{
 		{
 			in: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-			expected: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
+			expected: &authn1.Policy{
+				Peers: []*authn1.PeerAuthenticationMethod{{
+					Params: &authn1.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
 		},
@@ -81,6 +83,51 @@ func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := legacyAuthenticationPolicyToPolicy(c.in); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("legacyAuthenticationPolicyToPolicy(%v): got(%#v) != want(%#v)\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestAuthnPortSelectorToNetworkingPortSelector(t *testing.T) {
+	cases := []struct {
+		in       *authn.PortSelector
+		expected *networking.PortSelector
+	}{
+		{
+			in:       nil,
+			expected: nil,
+		},
+		{
+			in:       &authn.PortSelector{},
+			expected: &networking.PortSelector{},
+		},
+		{
+			in: &authn.PortSelector{
+				Port: &authn.PortSelector_Name{
+					Name: "http",
+				},
+			},
+			expected: &networking.PortSelector{
+				Port: &networking.PortSelector_Name{
+					Name: "http",
+				},
+			},
+		},
+		{
+			in: &authn.PortSelector{
+				Port: &authn.PortSelector_Number{
+					Number: 8888,
+				},
+			},
+			expected: &networking.PortSelector{
+				Port: &networking.PortSelector_Number{
+					Number: 8888,
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		if got := AuthnPortSelectorToNetworkingPortSelector(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("AuthnPortSelectorToNetworkingPortSelector(%v): got(%v) != want(%v)\n", c.in, got, c.expected)
 		}
 	}
 }

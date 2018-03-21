@@ -32,7 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -1691,25 +1691,17 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 	}
 	var errs error
 
-	for _, dest := range in.Destinations {
-		errs = appendErrors(errs, validateDestination(dest))
+	for _, target := range in.Targets {
+		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 	}
 
 	for _, method := range in.Peers {
 		errs = appendErrors(errs, validateJwt(method.GetJwt()))
 	}
-
-	for _, rule := range in.CredentialRules {
-		if rule.Binding == authn.CredentialRule_USE_ORIGIN {
-			if len(rule.Origins) == 0 {
-				errs = multierror.Append(
-					errs, errors.New("credential use origin must define at least one method"))
-			}
-		}
-		for _, method := range rule.Origins {
-			errs = appendErrors(errs, validateJwt(method.Jwt))
-		}
+	for _, method := range in.Origins {
+		errs = appendErrors(errs, validateJwt(method.Jwt))
 	}
+
 	return errs
 }
 
@@ -1805,6 +1797,22 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
 		}
 	}
+	return
+}
+
+func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
+	if target == nil {
+		return
+	}
+
+	errs = appendErrors(errs, validateHost(target.Name))
+	if target.Subset != "" {
+		errs = appendErrors(errs, validateSubsetName(target.Subset))
+	}
+	for _, port := range target.Ports {
+		errs = appendErrors(errs, validateAuthNPortSelector(port))
+	}
+
 	return
 }
 
@@ -2108,6 +2116,23 @@ func validateSubsetName(name string) error {
 }
 
 func validatePortSelector(selector *networking.PortSelector) error {
+	if selector == nil {
+		return nil
+	}
+
+	// port selector is either a name or a number
+	name := selector.GetName()
+	number := int(selector.GetNumber())
+	if name == "" && number == 0 {
+		// an unset value is indistinguishable from a zero value, so return both errors
+		return appendErrors(validateSubsetName(name), ValidatePort(number))
+	} else if number != 0 {
+		return ValidatePort(number)
+	}
+	return validateSubsetName(name)
+}
+
+func validateAuthNPortSelector(selector *authn.PortSelector) error {
 	if selector == nil {
 		return nil
 	}
