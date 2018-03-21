@@ -25,18 +25,12 @@ bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
 package simple
 
 import (
-	"context"
+	"bytes"
 	"flag"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/golang/sync/errgroup"
-	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/fortio/fhttp"
 	"istio.io/istio/pkg/log"
@@ -72,50 +66,36 @@ func TestMain(m *testing.M) {
 // TODO: need an "is cluster ready" before running any tests
 
 func TestSimpleIngress(t *testing.T) {
-	// Tests the rewrite/dropping of the /fortio/ prefix as fortio only replies
-	// with "echo debug server ..." on the /debug uri.
+	// Tests that a simple ingress with rewrite/dropping of the /fortio/ prefix
+	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+
 	log.Infof("Fetching '%s'", url)
+	needle := []byte("echo debug server up")
 
-	retry := util.Retrier{
-		BaseDelay:   time.Second,
-		MaxDelay:    time.Second,
-		Retries:     1000,
-		MaxDuration: 105 * time.Second,
+	o := fhttp.NewHTTPOptions(url)
+	var (
+		code      int
+		data      []byte
+		dataDebug string
+	)
+	for i := 1; i <= 100; i++ { // Wait max ~100s
+		code, data = fhttp.Fetch(o)
+		dataDebug = fhttp.DebugSummary(data, 512) // not for searching, only for logging
+		if code != 200 {
+			log.Infof("Iter %d : ingress+svc not ready, code %d data %s", code, dataDebug)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if !bytes.Contains(data, needle) {
+			log.Errorf("Iter %d : unexpected content despite 200: %s", i)
+		}
+		// Test success:
+		log.Infof("Iter %d : ingress->Svc is up! Found %s", i, dataDebug)
+		return
 	}
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	_, err := retry.Retry(context.Background(), func(ctx context.Context, i int) error {
-		resp, err := ctxhttp.Get(ctx, client, url)
-		if err != nil {
-			log.Warnf("Attempt %d : http.Get error %v", i, err)
-			return fmt.Errorf("attempt %d : http.Get error %v", i, err)
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Warnf("Attempt %d : ReadAll error %v", i, err)
-			return fmt.Errorf("attempt %d : ReadAll error %v", i, err)
-		}
-
-		_ = resp.Body.Close()
-		bodyStr := string(body)
-		if len(bodyStr) == 0 {
-			log.Infof("Attempt %d: reply body is empty", i)
-			return fmt.Errorf("attempt %d: reply body is empty", i)
-		}
-
-		log.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
-		needle := "echo debug server up"
-		if !strings.Contains(bodyStr, needle) {
-			log.Warnf("Not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
-			return fmt.Errorf("not finding expected %q in %q", needle, fhttp.DebugSummary(body, 128))
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	// Still not up after max iterations
+	t.Errorf("Ingress not really ready - last error is %d : %s", code, dataDebug)
 }
 
 func TestSvc2Svc(t *testing.T) {
@@ -129,32 +109,30 @@ func TestSvc2Svc(t *testing.T) {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
-
-	log.Infof("Configuration readiness pre-check from %v to http://echosrv.%s:8080/echo", podList, ns)
-	for i := range podList {
-		pod := podList[i]
-		g.Go(func() error {
-			for {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-					_, err := util.ShellContext(ctx, "kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv.%s:8080/echo", ns, pod, ns) // nolint: lll
-					if err == nil {
-						return nil
-					}
-					time.Sleep(time.Second)
-				}
+	log.Infof("Configuration readiness pre-check from %v to http://echosrv:8080/echo", podList)
+	start := time.Now()
+	timeout := start.Add(20 * time.Second)
+	var res string
+	for true {
+		if start.After(timeout) {
+			t.Fatalf("Pod readyness failed - last error: %s", res)
+		}
+		ready := 0
+		for i := range podList {
+			pod := podList[i]
+			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
+			if err != nil {
+				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+			} else {
+				ready++
 			}
-		})
+		}
+		if ready == len(podList) {
+			log.Infof("All %d pods ready", ready)
+			break
+		}
+		time.Sleep(time.Second)
 	}
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Configuration readiness pre-check failed after %v", err)
-	}
-
 	// call into the service from each of the pods
 	// TODO: use the fortio 0.3.1 web/api endpoint instead and get JSON results (across this file)
 	for _, pod := range podList {
@@ -182,7 +160,7 @@ func TestAuth(t *testing.T) {
 	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio load -qps 5 -t 1s http://echosrv.%s:8080/echo", ns, pod, ns)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
-			t.Fatalf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
+			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
 		} else {
 			log.Infof("Got expected error with auth on and non istio->istio connection: %v", err)
 		}
@@ -190,7 +168,7 @@ func TestAuth(t *testing.T) {
 		if err == nil {
 			log.Infof("Got expected success with auth off and non istio->istio connection: %v", res)
 		} else {
-			t.Fatalf("Unexpected error connect from non istio to istio without auth: %v", err)
+			t.Errorf("Unexpected error connect from non istio to istio without auth: %v", err)
 		}
 	}
 }
