@@ -244,7 +244,7 @@ function run_fortio_test_istio_1_2() {
 }
 function run_fortio_test_istio_2_1() {
   echo "Using istio f2 to f1:"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee f2-to-f1.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee f2-to-f1.json \| grep ActualQPS
 }
 
 
