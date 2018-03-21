@@ -925,6 +925,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 						}
 					}
 					if !portMatched {
+						// Port does not match with any of port selector, skip to next target selector.
 						continue
 					}
 				}
