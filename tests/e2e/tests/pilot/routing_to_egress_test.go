@@ -26,6 +26,8 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	"os"
+
 	"istio.io/istio/pkg/log"
 	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
@@ -45,6 +47,11 @@ func (t *routingToEgress) Setup() error {
 func (t *routingToEgress) Run() error {
 	// egress rules are v1alpha1
 	if !t.Config.V1alpha1 {
+		return nil
+	}
+	// Same as egress_rules - the tests depend on external resources so they are flaky, and
+	// are very slow - 5 minutes, or 1/2 of the run time for the suite.
+	if os.Getenv("SKIP_EGRESS") != "" {
 		return nil
 	}
 	cases := []struct {
