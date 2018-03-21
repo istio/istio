@@ -527,6 +527,11 @@ var (
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
 		file: "testdata/authn-world-mtls-off.yaml.golden",
 	}
+
+	authnPolicyHelloJwt = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-jwt"},
+		file: "testdata/authn-hello-jwt.yaml.golden",
+	}
 )
 
 func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
