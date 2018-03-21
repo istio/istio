@@ -124,8 +124,8 @@ var (
 	}
 	webhookServiceNames = []string{
 		"istio-sidecar-injector",
-		"istio-mixer-validator-service",
-		"istio-pilot-service",
+		"istio-mixer-validator",
+		"istio-pilot",
 	}
 )
 
