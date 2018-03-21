@@ -40,12 +40,12 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
-		certUtil: util.NewCertUtil(cfg.CSRGracePeriodPercentage),
+		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
 	env := DetermineEnv(cfg)
-	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
-		cfg.CertChainFile, cfg.IstioCAAddress)
+	pc, err := platform.NewClient(env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile))
 	if err != nil {
 		log.Errorf("Workload IO creation error: %v", err)
 		os.Exit(-1)
@@ -68,8 +68,8 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 // DetermineEnv choose the right environment. If the env is specified in cfg.Env,
 // then we will use it. Otherwise nodeagent will detect the platform for you.
 func DetermineEnv(cfg *Config) string {
-	if cfg.Env != "unspecified" {
-		return cfg.Env
+	if cfg.CAClientConfig.Env != "unspecified" {
+		return cfg.CAClientConfig.Env
 	}
 	if metadata.OnGCE() {
 		return "gcp"
