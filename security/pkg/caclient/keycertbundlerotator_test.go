@@ -20,12 +20,25 @@ import (
 	"testing"
 	"time"
 
-	caclientmock "istio.io/istio/security/pkg/caclient/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pkimock "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
 	utilmock "istio.io/istio/security/pkg/util/mock"
 )
+
+type fakeKeyCertRetriever struct {
+	NewCert    []byte
+	CertChain  []byte
+	PrivateKey []byte
+	Err        error
+}
+
+func (r *fakeKeyCertRetriever) Retrieve() (newCert, certChain, privateKey []byte, err error) {
+	if r.Err != nil {
+		return nil, nil, nil, r.Err
+	}
+	return r.NewCert, r.CertChain, r.PrivateKey, nil
+}
 
 func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
@@ -33,14 +46,14 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	newCert, newCertChain, newKey := []byte("new_cert"), []byte("new_certchain"), []byte("new_key")
 
 	testCases := map[string]struct {
-		client      CAClient
+		retriever   KeyCertRetriever
 		certutil    util.CertUtil
 		bundle      pkiutil.KeyCertBundle
 		updated     bool
 		expectedErr string
 	}{
 		"Successful update after wait": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
@@ -56,7 +69,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"Successful update when cert empty": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
@@ -67,7 +80,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"Wait update": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
@@ -83,8 +96,8 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"CA Client error": {
-			client:   &caclientmock.FakeClient{Err: fmt.Errorf("error1")},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
+			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("error1")},
+			certutil:  &utilmock.FakeCertUtil{Duration: time.Duration(0)},
 			bundle: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
@@ -95,7 +108,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "error retrieving the key and cert: error1, abort auto rotation",
 		},
 		"Key/cert verification error": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
@@ -114,7 +127,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.client)
+		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.retriever)
 		errCh := make(chan error)
 		go rotator.Start(errCh)
 
