@@ -135,17 +135,4 @@ func TestTCPMixerFilter(t *testing.T) {
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-
-	// Verify that Mixer TCP filter works properly when we change config version to V1 at Envoy.
-	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
-	s.ReStartEnvoy()
-
-	// Make sure tcp port is ready before starting the test.
-	env.WaitForPort(s.Ports().TCPProxyPort)
-	// Issues a POST request.
-	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
 }
