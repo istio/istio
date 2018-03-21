@@ -88,7 +88,7 @@ func TestSimpleIngress(t *testing.T) {
 			continue
 		}
 		if !bytes.Contains(data, needle) {
-			log.Errorf("Iter %d : unexpected content despite 200: %s", i)
+			log.Errorf("Iter %d : unexpected content despite 200: %s", i, data)
 		}
 		// Test success:
 		log.Infof("Iter %d : ingress->Svc is up! Found %s", i, dataDebug)
@@ -113,7 +113,7 @@ func TestSvc2Svc(t *testing.T) {
 	start := time.Now()
 	timeout := start.Add(20 * time.Second)
 	var res string
-	for true {
+	for {
 		if start.After(timeout) {
 			t.Fatalf("Pod readyness failed - last error: %s", res)
 		}
