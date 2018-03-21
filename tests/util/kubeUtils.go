@@ -279,9 +279,9 @@ func GetPodStatus(n, pod string) string {
 // Also check container status to be running.
 func CheckPodsRunning(n string) (ready bool) {
 	retry := Retrier{
-		BaseDelay: 30 * time.Second,
-		MaxDelay:  30 * time.Second,
-		Retries:   6,
+		BaseDelay:   1 * time.Second,
+		MaxDelay:    30 * time.Second,
+		MaxDuration: 90 * time.Second,
 	}
 
 	retryFn := func(_ context.Context, i int) error {

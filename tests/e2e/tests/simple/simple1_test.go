@@ -69,6 +69,10 @@ func TestSimpleIngress(t *testing.T) {
 	// Tests that a simple ingress with rewrite/dropping of the /fortio/ prefix
 	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+	// Make sure the pods are running:
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		t.Fatalf("Pods not ready!")
+	}
 
 	// This checks until all of those 3 things become ready:
 	// 1) ingress pod is up (that done by IngressOrFail above)
@@ -114,7 +118,8 @@ func TestSvc2Svc(t *testing.T) {
 	if len(podList) != 2 {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
 	}
-	// Check that both pods are ready before doing a (small) load test
+	// Check that both pods are ready (can talk to each other through envoy) before doing a (small) load test
+	// (despite the CheckPodsRunning in previous test, envoy rules may not have reached the 2 pods envoy yet)
 	log.Infof("Configuration readiness pre-check from %v to http://echosrv:8080/echo", podList)
 	timeout := time.Now().Add(timeToWaitForPods)
 	var res string
