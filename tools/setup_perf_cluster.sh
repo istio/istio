@@ -6,9 +6,6 @@
 # * See README.md
 # * Make sure istioctl in your path is the one matching your release/crd/...
 # * You need to update istio-auth.yaml or run from a release directory:
-# For instance in ~/tmp/istio-0.3.0/ run
-#   ln -s ~/go/src/istio.io/istio/tools .
-# then
 #   source tools/setup_perf_cluster.sh
 #   setup_all
 # (inside google you may need to rerun setup_vm_firewall multiple times)

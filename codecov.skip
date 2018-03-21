@@ -1,3 +1,9 @@
-istio.io/istio/tests*
+istio.io/istio/mixer/pkg/mockapi
+istio.io/istio/mixer/pkg/perf
+istio.io/istio/mixer/pkg/runtime2/testing
 istio.io/istio/mixer/tools/codegen*
+istio.io/istio/mixer/template/sample
+istio.io/istio/mixer/test
 istio.io/istio/security/tests/integration*
+istio.io/istio/tests*
+istio.io/istio/tools/githubContrib
