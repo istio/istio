@@ -60,7 +60,9 @@ func startMonitor(port int) (*monitor, error) {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
-	mux.HandleFunc("/debug/edsz", envoyv2.Edsz)
+	mux.HandleFunc("/debug/edsz", envoyv2.EDSz)
+
+	mux.HandleFunc("/debug/cdsz", envoyv2.Cdsz)
 
 	m.monitoringServer = &http.Server{
 		Handler: mux,

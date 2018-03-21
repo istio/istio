@@ -97,16 +97,24 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		addr = svc.Spec.ClusterIP
 	}
 
+	resolution := model.ClientSideLB
+	meshExternal := false
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
+		resolution = model.DNSLB
+		meshExternal = true
+	}
+
+	loadBalancingDisabled := false
+	if addr == "" && external == "" { // headless services should not be load balanced
+		loadBalancingDisabled = true
+		resolution = model.Passthrough
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
 		ports = append(ports, convertPort(port, svc.ObjectMeta))
 	}
-
-	loadBalancingDisabled := addr == "" && external == "" // headless services should not be load balanced
 
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
@@ -130,6 +138,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ExternalName:          external,
 		ServiceAccounts:       serviceaccounts,
 		LoadBalancingDisabled: loadBalancingDisabled,
+		MeshExternal:          meshExternal,
+		Resolution:            resolution,
 	}
 }
 

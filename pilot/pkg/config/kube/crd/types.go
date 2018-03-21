@@ -199,7 +199,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.ServiceRole,
 		object: &ServiceRole{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.ServiceRole.Type,
+				Kind:       "ServiceRole",
 				APIVersion: apiVersion(&model.ServiceRole),
 			},
 		},
@@ -209,7 +209,7 @@ var knownTypes = map[string]schemaType{
 		schema: model.ServiceRoleBinding,
 		object: &ServiceRoleBinding{
 			TypeMeta: meta_v1.TypeMeta{
-				Kind:       model.ServiceRoleBinding.Type,
+				Kind:       "ServiceRoleBinding",
 				APIVersion: apiVersion(&model.ServiceRoleBinding),
 			},
 		},

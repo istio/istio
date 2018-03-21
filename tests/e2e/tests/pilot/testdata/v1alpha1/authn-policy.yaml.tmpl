@@ -1,4 +1,4 @@
-apiVersion: "authentication.istio.io/v1alpha1"
+apiVersion: "authentication.istio.io/v1alpha2"
 kind: "Policy"
 metadata:
   name: "global-enable-mtls"
@@ -6,15 +6,13 @@ spec:
   peers:
   - mtls:
 ---
-apiVersion: "authentication.istio.io/v1alpha1"
+apiVersion: "authentication.istio.io/v1alpha2"
 kind: "Policy"
 metadata:
   name: "per-service-disable-mtls"
 spec:
-  destinations:
+  targets:
   - name: "c"
   - name: "d"
-    port:
-      number: 80
-  peers:
-  - none:
+    ports:
+    - number: 80

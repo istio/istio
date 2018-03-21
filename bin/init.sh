@@ -118,6 +118,9 @@ ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$
 
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
+    # Clear out any old versions of Envoy.
+    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
+
     # Set the value of DOWNLOAD_COMMAND (either curl or wget)
     set_download_command
 
@@ -138,9 +141,6 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
     rm -rf usr
     popd
-
-    # Clear out any old versions of Envoy.
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
 fi
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.

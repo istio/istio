@@ -54,6 +54,14 @@ required = [
     name = "github.com/envoyproxy/go-control-plane"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/googleapis"
+    non-go = false
+    unused-packages = false
+  [[prune.project]]
+    name = "github.com/gogo/protobuf"
+    non-go = false
+    unused-packages = false
 ###
 
 [[constraint]]
@@ -122,11 +130,9 @@ required = [
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
-[[constraint]]
-  name = "istio.io/fortio"
-  revision = "latest_release"
+# Default behavior of dep is to get the latest tagged version for fortio
+# which is what we want.
 
-# TODO replace with master as api/master should be tracked in istio/master
 [[constraint]]
   name = "istio.io/api"
   branch = "master"

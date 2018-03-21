@@ -28,7 +28,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -451,7 +451,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if requireTLS(authenticationPolicy) {
+	if model.RequireTLS(authenticationPolicy) {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
 	}
 }
@@ -595,8 +595,8 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		useDefaultRoute := true
 		rules := config.RouteRules(proxyInstances, service.Hostname, node.Domain)
 		// sort for output uniqueness
-		// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
-		// because v1alpha2 rules are unique per host.
+		// if v1alpha3 rules are returned, len(rules) <= 1 is guaranteed
+		// because v1alpha3 rules are unique per host.
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
@@ -808,8 +808,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				rules := config.RouteRulesByDestination(proxyInstances, node.Domain)
 
 				// sort for output uniqueness
-				// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
-				// because v1alpha2 rules are unique per host.
+				// if v1alpha3 rules are returned, len(rules) <= 1 is guaranteed
+				// because v1alpha3 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
 					switch config.Spec.(type) {
@@ -830,7 +830,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 						rule := config.Spec.(*networking.VirtualService)
 
 						// if no routes are returned, it is a TCP RouteRule
-						routes := BuildInboundRoutesV2(proxyInstances, config, rule, cluster)
+						routes := BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
 						for _, route := range routes {
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
@@ -885,7 +885,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			authenticationPolicy := getConsolidateAuthenticationPolicy(mesh,
+			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
 				config, instance.Service.Hostname, endpoint.ServicePort)
 			mayApplyInboundAuth(listener, authenticationPolicy)
 			listeners = append(listeners, listener)

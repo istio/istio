@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -829,13 +829,18 @@ func TestValidatePort(t *testing.T) {
 
 func TestValidateProxyAddress(t *testing.T) {
 	addresses := map[string]bool{
-		"istio-pilot:80":     true,
-		"istio-pilot":        false,
-		"isti..:80":          false,
-		"10.0.0.100:9090":    true,
-		"10.0.0.100":         false,
-		"istio-pilot:port":   false,
-		"istio-pilot:100000": false,
+		"istio-pilot:80":        true,
+		"istio-pilot":           false,
+		"isti..:80":             false,
+		"10.0.0.100:9090":       true,
+		"10.0.0.100":            false,
+		"istio-pilot:port":      false,
+		"istio-pilot:100000":    false,
+		"[2001:db8::100]:80":    true,
+		"[2001:db8::10::20]:80": false,
+		"[2001:db8::100]":       false,
+		"[2001:db8::100]:port":  false,
+		"2001:db8::100:80":      false,
 	}
 	for addr, valid := range addresses {
 		if got := ValidateProxyAddress(addr); (got == nil) != valid {
@@ -3007,7 +3012,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		{
 			name: "empty-with-destination",
 			in: &authn.Policy{
-				Destinations: []*networking.Destination{{
+				Targets: []*authn.TargetSelector{{
 					Name: "foo",
 				}},
 			},
@@ -3040,27 +3045,24 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		{
 			name: "Origin",
 			in: &authn.Policy{
-				CredentialRules: []*authn.CredentialRule{{
-					Binding: authn.CredentialRule_USE_ORIGIN,
-					Origins: []*authn.OriginAuthenticationMethod{{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
 							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
 						},
-					}},
-				}},
+					},
+				},
 			},
 			valid: true,
 		},
 		{
-			name: "Origin without method",
+			name: "Just binding",
 			in: &authn.Policy{
-				CredentialRules: []*authn.CredentialRule{{
-					Binding: authn.CredentialRule_USE_ORIGIN,
-				}},
+				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 			},
-			valid: false,
+			valid: true,
 		},
 	}
 	for _, c := range cases {

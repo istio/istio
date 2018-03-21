@@ -3,7 +3,7 @@ title: Authorization
 overview: A template used to represent an access control query.
 location: https://istio.io/docs/reference/config/template/authorization.html
 layout: protoc-gen-docs
-number_of_entries: 3
+number_of_entries: 4
 ---
 <p>The <code>authorization</code> template defines parameters for performing policy
 enforcement within Istio. It is primarily concerned with enabling Mixer</p>
@@ -55,7 +55,7 @@ enforcement within Istio. It is primarily concerned with enabling Mixer</p>
 </tr>
 <tr id="Action.properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional data about the action for use in policy.</p>
 
@@ -99,7 +99,7 @@ the template.</p>
 </tr>
 <tr id="Subject.properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional attributes about the subject.</p>
 
@@ -168,4 +168,10 @@ the caller identity.</p>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
 </section>

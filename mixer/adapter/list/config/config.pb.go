@@ -56,7 +56,7 @@ const (
 	CASE_INSENSITIVE_STRINGS Params_ListEntryType = 1
 	// List entries are treated as IP addresses and ranges.
 	IP_ADDRESSES Params_ListEntryType = 2
-	// List entries are treated as re2 regexp. See https://github.com/google/re2/wiki/Syntax for syntax.
+	// List entries are treated as re2 regexp. See [here](https://github.com/google/re2/wiki/Syntax) for the supported syntax.
 	REGEX Params_ListEntryType = 3
 )
 
