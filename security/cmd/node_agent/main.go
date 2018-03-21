@@ -51,22 +51,23 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	flags.StringVar(&naConfig.CAClientConfig.Org, "org", "", "Organization for the cert")
-	flags.DurationVar(&naConfig.CAClientConfig.RequestedCertTTL, "workload-cert-ttl", 19*time.Hour,
+	cAClientConfig := &naConfig.CAClientConfig
+	flags.StringVar(&cAClientConfig.Org, "org", "", "Organization for the cert")
+	flags.DurationVar(&cAClientConfig.RequestedCertTTL, "workload-cert-ttl", 19*time.Hour,
 		"The requested TTL for the workload")
-	flags.IntVar(&naConfig.CAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
-	flags.StringVar(&naConfig.CAClientConfig.CAAddress,
+	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+	flags.StringVar(&cAClientConfig.CAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
 
-	flags.StringVar(&naConfig.CAClientConfig.Env, "env", "unspecified",
+	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
-	flags.StringVar(&naConfig.CAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
+	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
-	flags.StringVar(&naConfig.CAClientConfig.CertChainFile, "cert-chain",
+	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
-	flags.StringVar(&naConfig.CAClientConfig.KeyFile,
+	flags.StringVar(&cAClientConfig.KeyFile,
 		"key", "/etc/certs/key.pem", "Node Agent private key file")
-	flags.StringVar(&naConfig.CAClientConfig.RootCertFile, "root-cert",
+	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
