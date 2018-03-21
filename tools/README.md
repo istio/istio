@@ -1,9 +1,12 @@
 # Istio Load Testing User Guide
 ### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/)
-on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. The following diagram provides
-additional details of the deployment:
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/#fortio)
+on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. 
+
+It should not be too difficult to adapt the script to other cloud providers or environments and contributions for additional automated setup are welcome.
+
+The following diagram provides additional details of the deployment:
 
 ![Deployment Diagram](perf_setup.svg)
 
@@ -12,7 +15,7 @@ graphing results and as a backend echo server.
 
 ### Download a Release or Clone Istio
 
-From release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
+It's recommended you use a release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
 ```
 curl -L https://git.io/getLatestIstio | sh -  # or download the daily TGZ
 ```
@@ -22,11 +25,18 @@ From source:
 $ git clone https://github.com/istio/istio.git && cd istio
 ```
 
+### Install fortio locally
+
+Optional but recommended:
+
+If not already present from building from source,
+Install fortio: `go get istio.io/fortio` (so you can run `fortio report` to visualize the results)
+
 ### Prepare the Istio Deployment Manifest and Istio Client
 
 __Option A:__ (From release) Make sure `istioctl` is in your path is the one matching the downloaded release.
 
-For instance, in `~/tmp/istio-0.5.0/` run:
+For instance, in `~/tmp/istio-0.6.0/` run:
 ```
 export PATH=`pwd`/bin:$PATH
 # check 'which istioctl' and 'istioctl version' returns the correct version
@@ -37,21 +47,13 @@ $ ln -s $GOPATH/src/istio.io/istio/tools
 ```
 If you want to get newer version of the tools, you can `rm -rf tools/` and do the symlink above to use your updated/newer script.
 
-__Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
+__Option B:__ (Advanced users, not recommended, from source) Build the deployment manifest and `istioctl` binary:
 ```
-$ ./install/updateVersion.sh # This step is only needed when using Istio from source.
+$ ./install/updateVersion.sh # This step is only needed when using Istio from source and may or may not work/need additional hub/tags/...
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
-Make the kubectl binary executable.
-```
-$ chmod +x ./istioctl
-```
-
-Move the binary in to your PATH.
-```
-$ mv ./istioctl /usr/local/bin/istioctl
-```
-
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. 
+Make sure the binary is first in to your PATH.
+Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 
 ### Set Your Google Cloud Credentials (optional/one time setup)
 This is not necessary if you already have working `gcloud` commands and you
@@ -67,7 +69,7 @@ If you do not have a Google Cloud account, [set one up](https://cloud.google.com
 The `setup_perf_cluster.sh` script can be customized. View the script and modify the default variables if needed.
 For example, to update the default gcloud zone (us-east4-b):
 ```
-$ ZONE=us-west1-a
+$ export ZONE=us-west1-a
 ```
 If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
 
@@ -75,9 +77,11 @@ The script tries to guess your `PROJECT` but it's safer to set it explicitly. (a
 
 ### Source the Script
 ```
+# Set PROJECT and ZONE first then
 $ source tools/setup_perf_cluster.sh
 ```
 __Note:__ `setup_perf_cluster.sh` can be used as a script or sourced and functions called interactively.
+
 Inside Google, you may need to rerun setup_vm_firewall multiple times.
 
 ### Run the Functions
@@ -104,10 +108,19 @@ istio-system   istio-mixer-3192291716-psskv                           3/3       
 istio-system   istio-pilot-3663920167-4ns3g                           2/2       Running   0          7m
 <SNIP>
 ```
+
+Make sure your ingress is ready:
+```
+$ kubectl get ing -n istio
+NAME            HOSTS     ADDRESS          PORTS     AGE
+istio-ingress   *         35.188.254.231   80        1m
+```
+
 You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
 
 ```
 $ run_tests
+# will run 4 tests and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
 ```
 
 The first test case uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. The following command tells
