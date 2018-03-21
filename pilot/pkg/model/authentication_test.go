@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	authn1 "istio.io/api/authentication/v1alpha1"
 	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -26,28 +25,28 @@ import (
 
 func TestRequireTls(t *testing.T) {
 	cases := []struct {
-		in       authn1.Policy
+		in       authn.Policy
 		expected bool
 	}{
 		{
-			in:       authn1.Policy{},
+			in:       authn.Policy{},
 			expected: false,
 		},
 		{
-			in: authn1.Policy{
-				Peers: []*authn1.PeerAuthenticationMethod{{
-					Params: &authn1.PeerAuthenticationMethod_Mtls{},
+			in: authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
 			expected: true,
 		},
 		{
-			in: authn1.Policy{
-				Peers: []*authn1.PeerAuthenticationMethod{{
-					Params: &authn1.PeerAuthenticationMethod_Jwt{},
+			in: authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Jwt{},
 				},
 					{
-						Params: &authn1.PeerAuthenticationMethod_Mtls{},
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
 					},
 				},
 			},
@@ -64,13 +63,13 @@ func TestRequireTls(t *testing.T) {
 func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 	cases := []struct {
 		in       meshconfig.AuthenticationPolicy
-		expected *authn1.Policy
+		expected *authn.Policy
 	}{
 		{
 			in: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-			expected: &authn1.Policy{
-				Peers: []*authn1.PeerAuthenticationMethod{{
-					Params: &authn1.PeerAuthenticationMethod_Mtls{},
+			expected: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
 		},

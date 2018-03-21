@@ -33,7 +33,7 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"

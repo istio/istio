@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 
-	authn1 "istio.io/api/authentication/v1alpha1"
 	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -30,7 +29,7 @@ import (
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname string, port *Port) *authn1.Policy {
+func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname string, port *Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config == nil {
 		legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
@@ -39,7 +38,7 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 		return legacyAuthenticationPolicyToPolicy(legacyPolicy)
 	}
 
-	return config.Spec.(*authn1.Policy)
+	return config.Spec.(*authn.Policy)
 }
 
 // consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
@@ -63,25 +62,25 @@ func consolidateAuthPolicy(mesh *meshconfig.MeshConfig,
 
 // If input legacy is AuthenticationPolicy_MUTUAL_TLS, return a authentication policy equivalent
 // to it. Else, returns nil (implies no authentication is used)
-func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) *authn1.Policy {
+func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) *authn.Policy {
 	if legacy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		return &authn1.Policy{
-			Peers: []*authn1.PeerAuthenticationMethod{{
-				Params: &authn1.PeerAuthenticationMethod_Mtls{}}},
+		return &authn.Policy{
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{}}},
 		}
 	}
 	return nil
 }
 
 // RequireTLS returns true if the policy use mTLS for (peer) authentication.
-func RequireTLS(policy *authn1.Policy) bool {
+func RequireTLS(policy *authn.Policy) bool {
 	if policy == nil {
 		return false
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
-			case *authn1.PeerAuthenticationMethod_Mtls:
+			case *authn.PeerAuthenticationMethod_Mtls:
 				return true
 			default:
 				continue
