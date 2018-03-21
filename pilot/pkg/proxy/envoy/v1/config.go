@@ -787,11 +787,11 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		protocol := servicePort.Protocol
 		cluster := BuildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort)
 
 		var listener *Listener
 
-		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
-			config, instance.Service.Hostname, endpoint.ServicePort)
 		// Local service instances can be accessed through one of three
 		// addresses: localhost, endpoint IP, and service
 		// VIP. Localhost bypasses the proxy and doesn't need any TCP

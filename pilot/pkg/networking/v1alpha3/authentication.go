@@ -15,13 +15,16 @@
 package v1alpha3
 
 import (
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -47,7 +50,7 @@ func buildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 // buildJwksURIClustersForProxyInstances checks the authentication policy for the
 // input proxyInstances, and generates (outbound) clusters for all JwksURIs.
 func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
-	store model.IstioConfigStore, proxyInstances []*model.ServiceInstance) v1.Clusters {
+	store model.IstioConfigStore, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
 	if len(proxyInstances) == 0 {
 		return nil
 	}
@@ -63,7 +66,7 @@ func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
 // buildJwksURIClusters returns a list of clusters for each unique JwksUri from
 // the input list of Jwt specs. This function is to support
 // buildJwksURIClustersForProxyInstances above.
-func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) v1.Clusters {
+func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) []*v2.Cluster {
 	type jwksCluster struct {
 		hostname string
 		port     *model.Port
@@ -82,20 +85,34 @@ func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) v1.
 		}
 	}
 
-	var clusters v1.Clusters
+	clusters := make([]*v2.Cluster, 0)
 	for _, auth := range jwksClusters {
-		cluster := v1.BuildOutboundCluster(auth.hostname, auth.port, nil /* labels */, true /* external */)
-		cluster.Name = model.JwksURIClusterName(auth.hostname, auth.port)
-		cluster.CircuitBreaker = &v1.CircuitBreaker{
-			Default: v1.DefaultCBPriority{
-				MaxPendingRequests: 10000,
-				MaxRequests:        10000,
+		host := &core.Address{Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Address:  auth.hostname,
+				Protocol: core.TCP,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(auth.port.Port),
+				},
 			},
+		}}
+		cluster := &v2.Cluster{
+			Name:           model.JwksURIClusterName(auth.hostname, auth.port),
+			Type:           v2.Cluster_STRICT_DNS,
+			Hosts:          []*core.Address{host},
+			ConnectTimeout: time.Duration(timeout.Seconds) * time.Second,
 		}
-		cluster.ConnectTimeoutMs = timeout.GetSeconds() * 1000
-		if auth.useSSL {
-			cluster.SSLContext = &v1.SSLContextExternal{}
-		}
+		// TODO(diemtvu): add TlsContext, circuitbreaker etc.
+		// cluster.CircuitBreaker = &v1.CircuitBreaker{
+		// 	Default: v1.DefaultCBPriority{
+		// 		MaxPendingRequests: 10000,
+		// 		MaxRequests:        10000,
+		// 	},
+		// }
+		// cluster.ConnectTimeoutMs = timeout.GetSeconds() * 1000
+		// if auth.useSSL {
+		// 	cluster.SslContext = &v1.SSLContextExternal{}
+		// }
 
 		clusters = append(clusters, cluster)
 	}

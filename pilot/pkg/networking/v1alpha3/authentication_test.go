@@ -15,16 +15,17 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	authn "istio.io/api/authentication/v1alpha2"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
 func TestBuildJwtFilter(t *testing.T) {
@@ -103,73 +104,38 @@ func TestBuildJwtFilter(t *testing.T) {
 	}
 }
 
-func makeGoldenCluster(mode int) *v1.Cluster {
-	var name, host, serviceName, hostname string
-	var port *model.Port
-	var ssl interface{}
+const (
+	goldenClusterAbc = `name:"jwks.abc.com|http"
+	type:STRICT_DNS connect_timeout:<seconds:42 >
+	hosts:<socket_address:<address:"abc.com" port_value:80 > >`
+	goldenClusterXyz = `name:"jwks.xyz.com|https"
+	type:STRICT_DNS connect_timeout:<seconds:42 >
+	hosts:<socket_address:<address:"xyz.com" port_value:443 > >`
+)
 
-	if mode == 0 {
-		name = "jwks.abc.com|http"
-		serviceName = "abc.com|http"
-		host = "tcp://abc.com:80"
-		hostname = "abc.com"
-		port = &model.Port{
-			Name: "http",
-			Port: 80,
-		}
-	} else {
-		name = "jwks.xyz.com|https"
-		serviceName = "xyz.com|https"
-		host = "tcp://xyz.com:443"
-		hostname = "xyz.com"
-		port = &model.Port{
-			Name: "https",
-			Port: 443,
-		}
-		ssl = &v1.SSLContextExternal{CaCertFile: ""}
+func makeGoldenCluster(text string) *v2.Cluster {
+	cluster := &v2.Cluster{}
+	if err := proto.UnmarshalText(text, cluster); err != nil {
+		panic(fmt.Sprintf("Cannot parse golden cluster data %s", text))
 	}
-
-	return &v1.Cluster{
-		Name:             name,
-		ServiceName:      serviceName,
-		ConnectTimeoutMs: 42000,
-		Type:             "strict_dns",
-		LbType:           "round_robin",
-		MaxRequestsPerConnection: 0,
-		Hosts: []v1.Host{
-			{URL: host},
-		},
-		SSLContext: ssl,
-		Features:   "",
-		CircuitBreaker: &v1.CircuitBreaker{
-			Default: v1.DefaultCBPriority{
-				MaxConnections:     0,
-				MaxPendingRequests: 10000,
-				MaxRequests:        10000,
-				MaxRetries:         0,
-			},
-		},
-		OutlierDetection: nil,
-		Hostname:         hostname,
-		Port:             port,
-	}
+	return cluster
 }
 
 func TestBuildJwksURIClusters(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       []*authn.Jwt
-		expected map[string]*v1.Cluster
+		expected map[string]*v2.Cluster
 	}{
 		{
 			name:     "nil list",
 			in:       nil,
-			expected: map[string]*v1.Cluster{},
+			expected: map[string]*v2.Cluster{},
 		},
 		{
 			name:     "empty list",
 			in:       []*authn.Jwt{},
-			expected: map[string]*v1.Cluster{},
+			expected: map[string]*v2.Cluster{},
 		},
 		{
 			name: "one jwt policy",
@@ -178,8 +144,8 @@ func TestBuildJwksURIClusters(t *testing.T) {
 					JwksUri: "http://abc.com",
 				},
 			},
-			expected: map[string]*v1.Cluster{
-				"jwks.abc.com|http": makeGoldenCluster(0),
+			expected: map[string]*v2.Cluster{
+				"jwks.abc.com|http": makeGoldenCluster(goldenClusterAbc),
 			},
 		},
 		{
@@ -192,9 +158,9 @@ func TestBuildJwksURIClusters(t *testing.T) {
 					JwksUri: "https://xyz.com",
 				},
 			},
-			expected: map[string]*v1.Cluster{
-				"jwks.abc.com|http":  makeGoldenCluster(0),
-				"jwks.xyz.com|https": makeGoldenCluster(1),
+			expected: map[string]*v2.Cluster{
+				"jwks.abc.com|http":  makeGoldenCluster(goldenClusterAbc),
+				"jwks.xyz.com|https": makeGoldenCluster(goldenClusterXyz),
 			},
 		},
 		{
@@ -210,9 +176,9 @@ func TestBuildJwksURIClusters(t *testing.T) {
 					JwksUri: "http://abc.com",
 				},
 			},
-			expected: map[string]*v1.Cluster{
-				"jwks.abc.com|http":  makeGoldenCluster(0),
-				"jwks.xyz.com|https": makeGoldenCluster(1),
+			expected: map[string]*v2.Cluster{
+				"jwks.abc.com|http":  makeGoldenCluster(goldenClusterAbc),
+				"jwks.xyz.com|https": makeGoldenCluster(goldenClusterXyz),
 			},
 		},
 	}
@@ -224,7 +190,7 @@ func TestBuildJwksURIClusters(t *testing.T) {
 		for _, cluster := range got {
 			expectedCluster := c.expected[cluster.Name]
 			if !reflect.DeepEqual(expectedCluster, cluster) {
-				t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, expectedCluster, cluster)
+				t.Errorf("Test case %s: expected\n%s\n, got\n%s", c.name, expectedCluster.String(), cluster.String())
 
 			}
 		}
