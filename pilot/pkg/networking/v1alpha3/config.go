@@ -51,85 +51,57 @@ const (
 	fileAccessLog = "envoy.file_access_log"
 )
 
-// BuildClusters produces a list of clusters for the proxy (CDS output)
-func BuildClusters(env model.Environment, node model.Proxy) (v1.Clusters, error) {
-	var clusters v1.Clusters
-	var proxyInstances []*model.ServiceInstance
-	var err error
-	switch node.Type {
-	case model.Sidecar, model.Router:
-		proxyInstances, err = env.GetProxyServiceInstances(node)
-		if err != nil {
-			return clusters, err
-		}
-		var services []*model.Service
-		services, err = env.Services()
-		if err != nil {
-			return clusters, err
-		}
-		_, clusters = buildSidecarListenersClusters(env.Mesh, proxyInstances,
-			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
-	case model.Ingress:
-		httpRouteConfigs, _ := v1.BuildIngressRoutes(env.Mesh, node, nil, env.ServiceDiscovery, env.IstioConfigStore)
-		clusters = httpRouteConfigs.Clusters().Normalize()
-	}
-
-	if err != nil {
-		return clusters, err
-	}
-
-	// apply custom policies for outbound clusters
-	for _, cluster := range clusters {
-		v1.ApplyClusterPolicy(cluster, proxyInstances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts, node.Domain)
-	}
-
-	// append Mixer service definition if necessary
-	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
-		clusters = append(clusters, v1.BuildMixerClusters(env.Mesh, node, env.MixerSAN)...)
-		clusters = append(clusters, v1.BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
-	}
-
-	return clusters, nil
+// options required to build an HTTPListener
+type buildHTTPListenerOpts struct { // nolint: maligned
+	// config           model.Config
+	// env              model.Environment
+	mesh             *meshconfig.MeshConfig
+	proxy            model.Proxy
+	proxyInstances   []*model.ServiceInstance
+	routeConfig      *v1.HTTPRouteConfig
+	rdsConfig        *http_conn.HttpConnectionManager_Rds
+	ip               string
+	port             int
+	rds              string
+	useRemoteAddress bool
+	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	outboundListener bool
+	store            model.IstioConfigStore
 }
 
 // buildSidecarListenersClusters produces a list of listeners and referenced clusters for sidecar proxies
 // TODO: this implementation is inefficient as it is recomputing all the routes for all proxies
 // There is a lot of potential to cache and reuse cluster definitions across proxies and also
 // skip computing the actual HTTP routes
-func buildSidecarListenersClusters(
+func buildSidecarListeners(
 	mesh *meshconfig.MeshConfig,
 	proxyInstances []*model.ServiceInstance,
 	services []*model.Service,
 	managementPorts model.PortList,
 	node model.Proxy,
-	config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
+	config model.IstioConfigStore) []*xdsapi.Listener {
 
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 
 	listeners := make([]*xdsapi.Listener, 0)
-	clusters := make(v1.Clusters, 0)
 
 	if node.Type == model.Router {
-		outbound, outClusters := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
 		listeners = append(listeners, outbound...)
-		clusters = append(clusters, outClusters...)
 	} else if mesh.ProxyListenPort > 0 {
-		inbound, inClusters := buildInboundListeners(mesh, node, proxyInstances, config)
-		outbound, outClusters := buildOutboundListeners(mesh, node, proxyInstances, services, config)
-		mgmtListeners, mgmtClusters := buildMgmtPortListeners(mesh, managementPorts, node.IPAddress)
+		inbound := buildInboundListeners(mesh, node, proxyInstances, config)
+		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+		mgmtListeners := buildMgmtPortListeners(mesh, managementPorts, node.IPAddress)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
-		clusters = append(clusters, inClusters...)
-		clusters = append(clusters, outClusters...)
 
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
-			c := mgmtClusters[i]
 			l := getByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
@@ -137,7 +109,6 @@ func buildSidecarListenersClusters(
 				continue
 			}
 			listeners = append(listeners, m)
-			clusters = append(clusters, c)
 		}
 
 		// BindToPort is deprecated in v2, always true.
@@ -163,10 +134,6 @@ func buildSidecarListenersClusters(
 			listenAddress = v1.WildcardAddress
 		}
 
-		// only HTTP outbound clusters are needed
-		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
-		httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
-		clusters = append(clusters, httpOutbound.Clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
@@ -183,25 +150,7 @@ func buildSidecarListenersClusters(
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return normalizeListeners(listeners), clusters.Normalize()
-}
-
-// options required to build an HTTPListener
-type buildHTTPListenerOpts struct { // nolint: maligned
-	// config           model.Config
-	// env              model.Environment
-	mesh             *meshconfig.MeshConfig
-	proxy            model.Proxy
-	proxyInstances   []*model.ServiceInstance
-	routeConfig      *v1.HTTPRouteConfig
-	rdsConfig        *http_conn.HttpConnectionManager_Rds
-	ip               string
-	port             int
-	rds              string
-	useRemoteAddress bool
-	direction        http_conn.HttpConnectionManager_Tracing_OperationName
-	outboundListener bool
-	store            model.IstioConfigStore
+	return normalizeListeners(listeners)
 }
 
 func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConnectionManager {
@@ -402,8 +351,8 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 
 // buildOutboundListeners combines HTTP routes and TCP listeners
 func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxyInstances []*model.ServiceInstance,
-	services []*model.Service, config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
-	listeners, clusters := buildOutboundTCPListeners(mesh, node, services)
+	services []*model.Service, config model.IstioConfigStore) []*xdsapi.Listener {
+	listeners := buildOutboundTCPListeners(mesh, node, services)
 
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
@@ -432,10 +381,9 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			outboundListener: true,
 			store:            config,
 		}))
-		clusters = append(clusters, routeConfig.Clusters()...)
 	}
 
-	return listeners, clusters
+	return listeners
 }
 
 // buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
@@ -554,9 +502,8 @@ func buildOutboundHTTPRoutes(_ *meshconfig.MeshConfig, node model.Proxy,
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	services []*model.Service) ([]*xdsapi.Listener, v1.Clusters) {
+	services []*model.Service) []*xdsapi.Listener {
 	tcpListeners := make([]*xdsapi.Listener, 0)
-	tcpClusters := make(v1.Clusters, 0)
 
 	var originalDstCluster *v1.Cluster
 	wildcardListenerPorts := make(map[int]bool)
@@ -584,13 +531,11 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 						if originalDstCluster == nil {
 							originalDstCluster = v1.BuildOriginalDSTCluster(
 								"orig-dst-cluster-tcp", mesh.ConnectTimeout)
-							tcpClusters = append(tcpClusters, originalDstCluster)
 						}
 						cluster = originalDstCluster
 					} else {
 						cluster = v1.BuildOutboundCluster(service.Hostname, servicePort, nil,
 							service.External())
-						tcpClusters = append(tcpClusters, cluster)
 					}
 					route := v1.BuildTCPRoute(cluster, nil)
 					config := &v1.TCPRouteConfig{Routes: []*v1.TCPRoute{route}}
@@ -603,14 +548,13 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 					config := &v1.TCPRouteConfig{Routes: []*v1.TCPRoute{route}}
 					listener := buildTCPListener(
 						config, service.Address, uint32(servicePort.Port), servicePort.Protocol)
-					tcpClusters = append(tcpClusters, cluster)
 					tcpListeners = append(tcpListeners, listener)
 				}
 			}
 		}
 	}
 
-	return tcpListeners, tcpClusters
+	return tcpListeners
 }
 
 // TODO: move to lds_inbound, will need special optimizations.
@@ -620,9 +564,8 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // all inbound clusters since they are statically declared in the proxy
 // configuration and do not utilize CDS.
 func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore) ([]*xdsapi.Listener, v1.Clusters) {
+	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
-	clusters := make(v1.Clusters, 0, len(proxyInstances))
 
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address
@@ -632,8 +575,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		endpoint := instance.Endpoint
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
-		cluster := v1.BuildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
-		clusters = append(clusters, cluster)
+		cluster := v1.BuildInboundCluster(endpoint.Port, instance.Endpoint.ServicePort.Protocol, mesh.ConnectTimeout)
 
 		var l *xdsapi.Listener
 
@@ -739,7 +681,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 	}
 
-	return listeners, clusters
+	return listeners
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
@@ -759,21 +701,19 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
 func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.PortList,
-	managementIP string) ([]*xdsapi.Listener, v1.Clusters) {
+	managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
-	clusters := make(v1.Clusters, 0, len(managementPorts))
 
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
 			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			cluster := v1.BuildInboundCluster(mPort.Port, model.ProtocolTCP, mesh.ConnectTimeout)
+			cluster := v1.BuildInboundCluster(mPort.Port, mPort.Protocol, mesh.ConnectTimeout)
 			listener := buildTCPListener(&v1.TCPRouteConfig{
 				Routes: []*v1.TCPRoute{v1.BuildTCPRoute(cluster, []string{managementIP})},
 			}, managementIP, uint32(mPort.Port), model.ProtocolTCP)
 
-			clusters = append(clusters, cluster)
 			listeners = append(listeners, listener)
 		default:
 			log.Warnf("Unsupported inbound protocol %v for management port %#v",
@@ -781,5 +721,5 @@ func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.P
 		}
 	}
 
-	return listeners, clusters
+	return listeners
 }
