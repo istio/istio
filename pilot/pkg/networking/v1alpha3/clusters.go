@@ -28,6 +28,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	OutboundClusterPrefix = "out"
+	InboudClusterPrefix = "in"
+)
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
@@ -68,7 +73,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				// create default cluster
 				cluster := &v2.Cluster{
-					Name:  buildClusterName(service.Hostname, "", svcPort.Name),
+					Name:  buildClusterName(OutboundClusterPrefix, service.Hostname, "", svcPort.Name),
 					Type:  convertResolution(service.Resolution),
 					Hosts: hosts,
 				}
@@ -77,7 +82,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				for _, subset := range destinationRule.Subsets {
 					cluster := &v2.Cluster{
-						Name:  buildClusterName(service.Hostname, subset.Name, svcPort.Name),
+						Name:  buildClusterName(OutboundClusterPrefix, service.Hostname, subset.Name, svcPort.Name),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
@@ -119,8 +124,8 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 // TODO port name is not mandatory if only one port defined
 // TODO subset name can be empty
-func buildClusterName(hostname, subsetName, portName string) string {
-	return fmt.Sprintf("%s.%s|%s", subsetName, hostname, portName)
+func buildClusterName(prefix, hostname, subsetName, portName string) string {
+	return fmt.Sprintf("%s|%s|%s|%s", prefix, subsetName, hostname, portName)
 }
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
