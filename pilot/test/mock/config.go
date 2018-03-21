@@ -494,8 +494,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
 			ExampleEndUserAuthenticationPolicySpecBinding},
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{ "ServiceRole", model.ServiceRole, ExampleServiceRole},
-		{ "ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
 	}
 
 	for _, c := range cases {

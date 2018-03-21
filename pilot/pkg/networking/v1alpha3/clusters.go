@@ -23,6 +23,7 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -101,26 +102,32 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	// TODO build inbound clusters
 	instances, err := env.GetProxyServiceInstances(proxy)
 	for _, instance := range instances {
-		clusters = append(clusters, &v2.Cluster{
-			// TODO currently using original inbound cluster naming convention
-			Name:           fmt.Sprintf("%s|%s", InboudClusterPrefix, instance.Endpoint.Port),
-			Type:           v2.Cluster_STATIC,
-			ConnectTimeout: 0,
-			LbPolicy:       v2.Cluster_ROUND_ROBIN,
-			Hosts: []*core.Address{{Address: &core.SocketAddress{
-				Address:  instance.Endpoint.Address,
-				Protocol: core.TCP,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(instance.Endpoint.Port),
-				},
-			}}},
-		})
-		// TODO: HTTP2 feature
+		clusters = append(clusters, BuildInboundCluster(instance.Endpoint.Port, model.ProtocolTCP, 0))
 	}
 
 	// TODO add original dst cluster
 
 	return clusters // TODO: guaranteed ordering?
+}
+
+// BuildInboundCluster builds an inbound cluster.
+func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *v2.Cluster {
+	cluster := &v2.Cluster{
+		// TODO currently using original inbound cluster naming convention
+		Name:           fmt.Sprintf("%s|%s", InboudClusterPrefix, port),
+		Type:           v2.Cluster_STATIC,
+		ConnectTimeout: convertDurationGogo(timeout),
+		LbPolicy:       v2.Cluster_ROUND_ROBIN,
+		Hosts: []*core.Address{{Address: &core.SocketAddress{
+			Address: "127.0.0.1",
+			// TODO will this always be TCP?
+			Protocol: core.TCP,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: uint32(port),
+			},
+			// TODO: HTTP2 feature
+		}}}}
+	return cluster
 }
 
 // TODO port name is not mandatory if only one port defined

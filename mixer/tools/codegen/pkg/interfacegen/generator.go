@@ -33,12 +33,14 @@ import (
 )
 
 const (
-	resourceMsgTypeSuffix      = "Type"
-	resourceMsgInstParamSuffix = "InstanceParam"
-	fullGoNameOfValueTypeEnum  = "istio_policy_v1beta1.ValueType"
-	goFileImportFmt            = `"%s"`
-	protoFileImportFmt         = `import "%s";`
-	protoValueTypeImport       = "policy/v1beta1/value_type.proto"
+	resourceMsgSuffix            = "Msg"
+	resourceMsgTypeSuffix        = "Type"
+	resourceMsgInstParamSuffix   = "InstanceParam"
+	fullGoNameOfValueTypeEnum    = "istio_policy_v1beta1.ValueType"
+	fullProtoNameOfValueTypeEnum = "istio.policy.v1beta1.ValueType"
+	goFileImportFmt              = `"%s"`
+	protoFileImportFmt           = `import "%s";`
+	protoValueTypeImport         = "policy/v1beta1/value_type.proto"
 )
 
 // Generator generates Go interfaces for adapters to implement for a given Template.
@@ -194,22 +196,34 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model, pkgName stri
 			"valueTypeOrResMsg": valueTypeOrResMsg,
 			"valueTypeOrResMsgFieldTypeName": func(protoTypeInfo modelgen.TypeInfo) string {
 				if protoTypeInfo.IsResourceMessage {
-
 					return trimPackageName(protoTypeInfo.Name) + resourceMsgTypeSuffix
 				}
 				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
 					return toProtoMap(protoTypeInfo.MapKey.Name, trimPackageName(protoTypeInfo.MapValue.Name)+resourceMsgTypeSuffix)
 				}
+
+				// convert Value msg to ValueType enum for use inside inferred type msg.
+				if protoTypeInfo.IsValueType {
+					return fullProtoNameOfValueTypeEnum
+				}
+				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsValueType {
+					return toProtoMap(protoTypeInfo.MapKey.Name, fullProtoNameOfValueTypeEnum)
+				}
+
 				return protoTypeInfo.Name
 			},
 			"stringify": stringify,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
-				// Only record of type has ValueType. In augmented proto,
-				// the only types that are printed are ValueType or string.
 				if containsValueType(ti) {
 					imptStm := fmt.Sprintf(protoFileImportFmt, protoValueTypeImport)
 					if !contains(imports, imptStm) {
 						imports = append(imports, imptStm)
+					}
+				}
+				if len(ti.Import) > 0 {
+					imprt := fmt.Sprintf(protoFileImportFmt, ti.Import)
+					if !contains(imports, imprt) {
+						imports = append(imports, imprt)
 					}
 				}
 				// do nothing, just record the import so that we can add them later (only for the types that got printed)
@@ -220,6 +234,15 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model, pkgName stri
 			},
 			"getResourcMessageInterfaceParamTypeName": func(s string) string {
 				return s + resourceMsgInstParamSuffix
+			},
+			"typeName": func(protoTypeInfo modelgen.TypeInfo) string {
+				if protoTypeInfo.IsResourceMessage {
+					return trimPackageName(protoTypeInfo.Name) + resourceMsgSuffix
+				}
+				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
+					return toProtoMap(protoTypeInfo.MapKey.Name, trimPackageName(protoTypeInfo.MapValue.Name)+resourceMsgSuffix)
+				}
+				return protoTypeInfo.Name
 			},
 		},
 	).Parse(augmentedProtoTmpl)
