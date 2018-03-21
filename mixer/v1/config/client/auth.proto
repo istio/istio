@@ -12,11 +12,18 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 
+// This policy API is no longer supported, and soon be replaced by
+// [authentication
+// policy](https://github.com/istio/api/tree/master/authentication/v1alpha2) in
+// the near future.
+// Tracking issue: https://github.com/istio/istio/issues/4337
+// Pre-release note: https://goo.gl/43usPn
+
 syntax = "proto3";
 
 package istio.mixer.v1.config.client;
 
-option go_package="istio.io/api/mixer/v1/config/client";
+option go_package = "istio.io/api/mixer/v1/config/client";
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
@@ -66,18 +73,21 @@ message JWT {
   repeated string audiences = 2;
 
   // URL of the provider's public key set to validate signature of the
-  // JWT. See [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+  // JWT. See [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
   //
   // Optional if the key set document can either (a) be retrieved from
-  // [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)
-  // of the issuer or (b) inferred from the email domain of the issuer
-  // (e.g. a Google service account).
+  // [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) of
+  // the issuer or (b) inferred from the email domain of the issuer (e.g. a
+  // Google service account).
   //
   // Example: https://www.googleapis.com/oauth2/v1/certs
   string jwks_uri = 3;
 
   // If true, forward the entire base64 encoded JWT in the HTTP request.
-  // If false, remove the JWT from the HTTP request and do not forward to the application.
+  // If false, remove the JWT from the HTTP request and do not forward to the
+  // application.
   bool forward_jwt = 4;
 
   // Duration after which the cached public key should be expired. The

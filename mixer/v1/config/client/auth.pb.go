@@ -57,17 +57,20 @@ type JWT struct {
 	//
 	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
 	// URL of the provider's public key set to validate signature of the
-	// JWT. See [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+	// JWT. See [OpenID
+	// Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
 	//
 	// Optional if the key set document can either (a) be retrieved from
-	// [OpenID Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)
-	// of the issuer or (b) inferred from the email domain of the issuer
-	// (e.g. a Google service account).
+	// [OpenID
+	// Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) of
+	// the issuer or (b) inferred from the email domain of the issuer (e.g. a
+	// Google service account).
 	//
 	// Example: https://www.googleapis.com/oauth2/v1/certs
 	JwksUri string `protobuf:"bytes,3,opt,name=jwks_uri,json=jwksUri,proto3" json:"jwks_uri,omitempty"`
 	// If true, forward the entire base64 encoded JWT in the HTTP request.
-	// If false, remove the JWT from the HTTP request and do not forward to the application.
+	// If false, remove the JWT from the HTTP request and do not forward to the
+	// application.
 	ForwardJwt bool `protobuf:"varint,4,opt,name=forward_jwt,json=forwardJwt,proto3" json:"forward_jwt,omitempty"`
 	// Duration after which the cached public key should be expired. The
 	// system wide default is applied if no duration is explicitly

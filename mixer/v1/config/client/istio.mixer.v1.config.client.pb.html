@@ -670,12 +670,14 @@ audiences will be accepted.</p>
 <td><code>string</code></td>
 <td>
 <p>URL of the provider&rsquo;s public key set to validate signature of the
-JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID Discovery</a>.</p>
+JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID
+Discovery</a>.</p>
 
 <p>Optional if the key set document can either (a) be retrieved from
-<a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID Discovery</a>
-of the issuer or (b) inferred from the email domain of the issuer
-(e.g. a Google service account).</p>
+<a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
+Discovery</a> of
+the issuer or (b) inferred from the email domain of the issuer (e.g. a
+Google service account).</p>
 
 <p>Example: https://www.googleapis.com/oauth2/v1/certs</p>
 
@@ -686,7 +688,8 @@ of the issuer or (b) inferred from the email domain of the issuer
 <td><code>bool</code></td>
 <td>
 <p>If true, forward the entire base64 encoded JWT in the HTTP request.
-If false, remove the JWT from the HTTP request and do not forward to the application.</p>
+If false, remove the JWT from the HTTP request and do not forward to the
+application.</p>
 
 </td>
 </tr>
