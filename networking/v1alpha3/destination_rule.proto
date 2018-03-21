@@ -19,9 +19,6 @@ package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
 
-// $title: Destination Rules
-// $overview: Configuration affecting client connectivity to a service
-
 // DestinationRule defines policies that apply to traffic intended for a
 // service after routing has occurred. These rules specify configuration
 // for load balancing, connection pool size from the sidecar, and outlier

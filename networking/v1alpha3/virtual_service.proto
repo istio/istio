@@ -17,8 +17,9 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Virtual Service Alpha 3
+// $title: Route Rules Alpha 3
 // $overview: Configuration affecting traffic routing
+// $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -418,7 +419,7 @@ message TCPRoute {
 //         - destination:
 //             name: ratings
 //
-// MatchCondition CANNOT be empty.
+// HTTPMatchRequest CANNOT be empty.
 message HTTPMatchRequest {
   // URI to match
   // values are case-sensitive and formatted as follows:

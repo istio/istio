@@ -525,7 +525,7 @@ func (m *TCPRoute) GetRoute() []*DestinationWeight {
 //         - destination:
 //             name: ratings
 //
-// MatchCondition CANNOT be empty.
+// HTTPMatchRequest CANNOT be empty.
 type HTTPMatchRequest struct {
 	// URI to match
 	// values are case-sensitive and formatted as follows:
