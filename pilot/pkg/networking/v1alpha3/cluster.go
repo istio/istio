@@ -110,6 +110,10 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 		clusters = append(clusters, BuildInboundCluster(instance.Endpoint.Port))
 	}
 
+	// append cluster for JwksUri (for Jwt authentication) if necessary.
+	clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+		env.Mesh, env.IstioConfigStore, instances)...)
+
 	// TODO add original dst cluster
 
 	return clusters // TODO: guaranteed ordering?
