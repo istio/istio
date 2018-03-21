@@ -70,9 +70,9 @@ type (
 		GetState GetStateFn
 
 		// Templates supported by Mixer.
-		// If `tmpls` is not specified, the default templates inside istio.io/istio/mixer/template.SupportedTmplInfo
+		// If `Tmpls` is not specified, the default templates inside istio.io/istio/mixer/template.SupportedTmplInfo
 		// are made available to the Mixer.
-		tmpls map[string]template.Info
+		Tmpls map[string]template.Info
 
 		// Want is the expected serialized json for the Result struct.
 		// Result.AdapterState is what the callback function `getState`, passed to `RunTest`, returns.
@@ -157,14 +157,14 @@ func RunTest(
 		}
 	}
 
-	if len(scenario.tmpls) == 0 {
-		scenario.tmpls = template2.SupportedTmplInfo
+	if len(scenario.Tmpls) == 0 {
+		scenario.Tmpls = template2.SupportedTmplInfo
 	}
 
 	// Start Mixer
 	var args *server.Args
 	var env *server.Server
-	if args, err = getServerArgs(scenario.tmpls, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
+	if args, err = getServerArgs(scenario.Tmpls, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 
