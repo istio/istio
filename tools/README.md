@@ -118,15 +118,39 @@ istio-ingress   *         35.188.254.231   80        1m
 
 You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
 
-```
-$ run_tests
-# will run 4 tests and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
-```
 
-The first test case uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. The following command tells
+```
+# will run 4 tests and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
+
+$ run_tests
++++ VM Ip is 35.199.55.254 - visit (http on port 443 is not a typo:) http://35.199.55.254:443/fortio/
++++ In k8s fortio external ip: http://35.199.37.178:8080/fortio/
++++ In k8s non istio ingress: http://35.227.201.148/fortio/
++++ In k8s istio ingress: http://35.188.241.231/fortio1/fortio/ and fortio2
+Using istio ingress to fortio1:
+### Running: curl -s http://35.199.55.254:443/fortio/?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://35.188.241.231/fortio1/echo | tee ing-to-f1.json | grep ActualQPS
+  "ActualQPS": 439.8723210634554,
+Using istio ingress to fortio2:
+### Running: curl -s http://35.199.55.254:443/fortio/?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://35.188.241.231/fortio2/echo | tee ing-to-f2.json | grep ActualQPS
+  "ActualQPS": 540.2583184971915,
+Using istio f1 to f2:
+### Running: curl -s http://35.188.241.231/fortio1/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo | tee f1-to-f2.json | grep ActualQPS
+  "ActualQPS": 439.5027107832303,
+Using istio f2 to f1:
+### Running: curl -s http://35.188.241.231/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo | tee f2-to-f1.json | grep ActualQPS
+  "ActualQPS": 330.49386695603846,
+```
+And then you will see:
+![screen shot 2018-03-20 at 8 26 24 pm](https://user-images.githubusercontent.com/3664595/37693480-231ac8c0-2c7d-11e8-9b3a-4e77a06f2d37.png)
+![screen shot 2018-03-20 at 8 26 07 pm](https://user-images.githubusercontent.com/3664595/37693481-232efdf4-2c7d-11e8-92b4-8a6e088d3357.png)
+
+
+For comparison and reference you can also run `run_fortio_test1` uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. 
+
+The following command tells
 Fortio on the VM to run a load test against the Fortio echo server running in the Kubernetes cluster:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_FORTIO_EXT_IP:8080/echo
+### Running: curl http://$VM_URL/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_FORTIO_EXT_IP:8080/echo
 ```
 The following arguments are passed to the Fortio server running on the GCE VM:
 
@@ -140,15 +164,15 @@ The following arguments are passed to the Fortio server running on the GCE VM:
 | load=Start                              | Tells Fortio to be a load generator     |
 | url=http://$K8S_FORTIO_EXT_IP:8080/echo | The target to load test                 |
 
-The second test case uses the Fortio Ingress with no Istio mesh and the same arguments as the first test:
+You can also run `run_fortio_test2` which uses the Fortio Ingress with no Istio mesh and the same arguments as the first test:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$NON_ISTIO_INGRESS/echo
+### Running: curl http://$VM_URL/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$NON_ISTIO_INGRESS/echo
 ```
 
-The third test case uses the Istio Ingress with the same arguments as the first test. This is the test that performs load testing
+The tests from `run_tests` uses the Istio Ingress with the same arguments. This is the test that performs load testing
 of the Istio service mesh:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS/fortio1/echo
+### Running: curl http://$VM_URL/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS/fortio1/echo
 ```
 Compare the test results to understand the load differential between the 3 test cases.
 
@@ -158,7 +182,7 @@ Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
-+++ VM Ip is $VM_IP - visit http://$VM_IP/fortio/
++++ VM Ip is $VM_IP - visit http://$VM_URL/
 +++ In k8s fortio external ip: http://$EXTERNAL_IP:8080/fortio/
 +++ In k8s non istio ingress: http://$NON_ISTIO_INGRESS_IP/fortio/
 +++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2
