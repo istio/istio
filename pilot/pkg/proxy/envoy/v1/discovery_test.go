@@ -298,7 +298,7 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 func TestClusterDiscoveryDestinationRule(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 
-	// TODO: v1alpha2 only
+	// TODO: v1alpha3 only
 	addConfig(registry, destinationRuleWorld, t)
 
 	addConfig(registry, weightedRouteRuleV3, t)
@@ -685,7 +685,6 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addIngressRoutes(registry, t)
 
-		// TODO: v1alpha3 only
 		addConfig(registry, destinationRuleWorld, t)
 		addConfig(registry, weightConfig, t)
 

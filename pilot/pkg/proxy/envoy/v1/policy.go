@@ -250,8 +250,10 @@ func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domai
 	}
 }
 
-func BuildClustersForSubsets(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, domain string) (Clusters, error) {
+func BuildClustersForSubsets(env model.Environment, domain string) (Clusters, error) {
 
+	mesh := env.Mesh
+	store := env.IstioConfigStore
 	configs, err := store.List(model.DestinationRule.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, err
@@ -260,12 +262,24 @@ func BuildClustersForSubsets(mesh *meshconfig.MeshConfig, store model.IstioConfi
 	clusters := make(Clusters, 0)
 	for _, config := range configs {
 		destinationRule := config.Spec.(*networking.DestinationRule)
-		for _, subset := range destinationRule.Subsets {
-			//TODO iterate over all ports
-			cluster := BuildOutboundClusterSubset(subset, destinationRule.Name, domain, "http-echo", mesh.ConnectTimeout)
-			applyTrafficPolicy(cluster, subset.TrafficPolicy)
 
-			clusters = append(clusters, cluster)
+		// TODO update when https://github.com/istio/api/issues/421 is fixed
+		serviceName := destinationRule.Name
+
+		service, err := env.GetService(serviceName)
+		if err != nil || service == nil {
+			continue
+		}
+		fqdn := model.ResolveFQDN(service.Hostname, domain)
+		for _, subset := range destinationRule.Subsets {
+
+			for _, port := range service.Ports {
+				cluster := BuildOutboundClusterForSubset(subset, service, fqdn, port,
+					mesh.ConnectTimeout)
+				applyTrafficPolicy(cluster, subset.TrafficPolicy)
+
+				clusters = append(clusters, cluster)
+			}
 		}
 	}
 

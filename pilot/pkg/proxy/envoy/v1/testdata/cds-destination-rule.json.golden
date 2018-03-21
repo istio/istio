@@ -200,20 +200,6 @@
     "lb_type": "round_robin"
    },
    {
-    "name": "out.world.default.svc.cluster.local|http|version=v0",
-    "service_name": "world.default.svc.cluster.local|http|version=v0",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
-    "name": "out.world.default.svc.cluster.local|http|version=v1",
-    "service_name": "world.default.svc.cluster.local|http|version=v1",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
     "name": "mixer_check_server",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",

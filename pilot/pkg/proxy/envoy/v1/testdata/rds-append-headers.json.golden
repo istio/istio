@@ -83,6 +83,14 @@
       "decorator": {
        "operation": "append-headers"
       }
+     },
+     {
+      "prefix": "/",
+      "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    }

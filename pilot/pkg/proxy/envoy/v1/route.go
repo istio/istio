@@ -186,33 +186,51 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // BuildOutboundCluster builds an outbound cluster.
-func BuildOutboundClusterSubset(subset *networking.Subset,
-	serviceName, domain, port string, timeout *duration.Duration) *Cluster {
+func BuildOutboundClusterForSubset(subset *networking.Subset,
+	service *model.Service, hostname string, port *model.Port, timeout *duration.Duration) *Cluster {
 
+	var labels map[string]string
+	var name string
 	if subset == nil {
-		return nil
-	}
+		name = service.Key(port, nil)
+	} else {
+		//TODO change to subset DNS name
+		labels = subset.GetLabels()
+		name = hostname + "|" + port.Name
 
-	fqdn := model.ResolveFQDN(serviceName, domain)
-	fqdn += "|" + port
-
-	if subset != nil {
-		fqdn += "|"
 		for label, value := range subset.GetLabels() {
-			fqdn += label + "=" + value
+			name += "|"
+			name += label + "=" + value
 		}
 	}
 
-	//name := "out." + subset.Name + "."
-	name := "out." + fqdn
+	name = TruncateClusterName(OutboundClusterPrefix + name)
+
+	clusterType := ClusterTypeSDS
+	if service.External() {
+		clusterType = ClusterTypeStrictDNS
+	}
+
+	hosts := []Host{}
+	if service.External() {
+		hosts = []Host{{URL: fmt.Sprintf("tcp://%s:%d", hostname, port.Port)}}
+	}
 
 	cluster := &Cluster{
 		Name:             name,
-		ServiceName:      fqdn,
-		Type:             ClusterTypeSDS,
+		ServiceName:      service.Hostname,
+		Type:             clusterType,
 		LbType:           DefaultLbType,
+		Hosts:            hosts,
+		outbound:         !service.External(), // outbound means outbound-in-mesh. The name to be refactored later.
+		Hostname:         hostname,
+		Port:             port,
+		labels:           labels,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
-		labels:           subset.Labels,
+	}
+
+	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
+		cluster.Features = ClusterFeatureHTTP2
 	}
 	return cluster
 }
@@ -391,20 +409,21 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	} else {
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
+			if dst.Destination == nil || dst.Destination.Name == "" {
+				log.Warnf("Nil Destination")
+				continue
+			}
 			var cluster *Cluster
-			if includeSubsets == false {
 
-				fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 
+			if includeSubsets == false || service.External() {
 				labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 				cluster = buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
 			} else {
-
-				if dst.Destination != nil {
-					subset, _ := GetSubset(dst.Destination.Subset, store)
-					cluster = BuildOutboundClusterSubset(subset, dst.Destination.Name, domain, port.Name,
-						&duration.Duration{Seconds: 1})
-				}
+				subset, _ := GetSubset(dst.Destination.Subset, store)
+				cluster = BuildOutboundClusterForSubset(subset, service, fqdn, port,
+					&duration.Duration{Seconds: 1})
 			}
 
 			if cluster != nil {
@@ -417,7 +436,6 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 			}
 
 		}
-
 		if len(clusters) == 1 {
 			route.Cluster = clusters[0].Name
 		} else {

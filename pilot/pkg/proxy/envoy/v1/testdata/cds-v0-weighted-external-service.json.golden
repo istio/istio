@@ -79,52 +79,25 @@
    },
    {
     "name": "out.*.google.com|external-HTTP-80",
-    "service_name": "*.google.com|external-HTTP-80",
+    "service_name": "*.google.com",
     "connect_timeout_ms": 1000,
-    "type": "static",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://2.2.2.2:7080"
-     },
-     {
-      "url": "tcp://3.3.3.3:1080"
-     },
-     {
-      "url": "tcp://4.4.4.4:80"
-     }
-    ]
+    "type": "sds",
+    "lb_type": "round_robin"
    },
    {
     "name": "out.*.google.com|external-HTTP-8080",
-    "service_name": "*.google.com|external-HTTP-8080",
+    "service_name": "*.google.com",
     "connect_timeout_ms": 1000,
-    "type": "static",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://2.2.2.2:18080"
-     },
-     {
-      "url": "tcp://3.3.3.3:8080"
-     },
-     {
-      "url": "tcp://4.4.4.4:8080"
-     }
-    ]
+    "type": "sds",
+    "lb_type": "round_robin"
    },
    {
     "name": "out.*.google.com|external-HTTP-8080|foo=bar",
-    "service_name": "*.google.com|external-HTTP-8080|foo=bar",
+    "service_name": "*.google.com",
     "connect_timeout_ms": 1000,
-    "type": "static",
+    "type": "sds",
     "lb_type": "random",
     "max_requests_per_connection": 500,
-    "hosts": [
-     {
-      "url": "tcp://4.4.4.4:8080"
-     }
-    ],
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
@@ -142,16 +115,11 @@
    },
    {
     "name": "out.*.google.com|external-HTTP-80|foo=bar",
-    "service_name": "*.google.com|external-HTTP-80|foo=bar",
+    "service_name": "*.google.com",
     "connect_timeout_ms": 1000,
-    "type": "static",
+    "type": "sds",
     "lb_type": "random",
     "max_requests_per_connection": 500,
-    "hosts": [
-     {
-      "url": "tcp://4.4.4.4:80"
-     }
-    ],
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
@@ -173,42 +141,6 @@
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
-   },
-   {
-    "name": "out.hello.default.svc.cluster.local|external-HTTP-80",
-    "service_name": "hello.default.svc.cluster.local|external-HTTP-80",
-    "connect_timeout_ms": 1000,
-    "type": "static",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://2.2.2.2:7080"
-     },
-     {
-      "url": "tcp://3.3.3.3:1080"
-     },
-     {
-      "url": "tcp://4.4.4.4:80"
-     }
-    ]
-   },
-   {
-    "name": "out.hello.default.svc.cluster.local|external-HTTP-8080",
-    "service_name": "hello.default.svc.cluster.local|external-HTTP-8080",
-    "connect_timeout_ms": 1000,
-    "type": "static",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://2.2.2.2:18080"
-     },
-     {
-      "url": "tcp://3.3.3.3:8080"
-     },
-     {
-      "url": "tcp://4.4.4.4:8080"
-     }
-    ]
    },
    {
     "name": "out.hello.default.svc.cluster.local|http",

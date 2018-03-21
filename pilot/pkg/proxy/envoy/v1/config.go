@@ -208,7 +208,7 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 		ApplyClusterPolicy(cluster, proxyInstances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts, node.Domain)
 	}
 
-	from_subsets, _ := BuildClustersForSubsets(env.Mesh, env.IstioConfigStore, node.Domain)
+	from_subsets, _ := BuildClustersForSubsets(env, node.Domain)
 	clusters = append(clusters, from_subsets...)
 
 	// append Mixer service definition if necessary

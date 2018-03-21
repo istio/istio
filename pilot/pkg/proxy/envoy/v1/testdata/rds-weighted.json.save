@@ -72,21 +72,21 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.world.default.svc.cluster.local|http",
-      "timeout_ms": 0,
-      "shadow": {
-       "cluster": "out.hello.default.svc.cluster.local|http|version=v1"
+      "weighted_clusters": {
+       "clusters": [
+        {
+         "name": "out.world.default.svc.cluster.local|http|version=v0",
+         "weight": 75
+        },
+        {
+         "name": "out.world.default.svc.cluster.local|http|version=v1",
+         "weight": 25
+        }
+       ]
       },
-      "decorator": {
-       "operation": "mirror-requests"
-      }
-     },
-     {
-      "prefix": "/",
-      "cluster": "out.world.default.svc.cluster.local|http",
       "timeout_ms": 0,
       "decorator": {
-       "operation": "default-route"
+       "operation": "weighted"
       }
      }
     ]
