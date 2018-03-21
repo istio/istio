@@ -78,6 +78,14 @@ func TestMain(m *testing.M) {
 }
 
 func TestDashboards(t *testing.T) {
+
+	t.Log("Validating prometheus in ready-state...")
+	if err := waitForMetricsInPrometheus(t); err != nil {
+		logMixerMetrics(t)
+		t.Fatalf("Sentinel metrics never appeared in Prometheus: %v", err)
+	}
+	t.Log("Sentinel metrics found in prometheus.")
+
 	cases := []struct {
 		name      string
 		dashboard string
@@ -121,6 +129,10 @@ func TestDashboards(t *testing.T) {
 				if numSamples == 0 {
 					t.Errorf("Expected a metric value for '%s', found no samples: %#v", modified, value)
 				}
+			}
+
+			if t.Failed() {
+				logMixerMetrics(t)
 			}
 		})
 	}
@@ -398,4 +410,71 @@ func getPodList(namespace string, selector string) ([]string, error) {
 
 func allowPrometheusSync() {
 	time.Sleep(1 * time.Minute)
+}
+
+var promCheckBackoffs = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}
+
+func waitForMetricsInPrometheus(t *testing.T) error {
+	// These are sentinel metrics that will be used to evaluate if prometheus
+	// scraping has occurred and data is available via promQL.
+	queries := []string{
+		`round(sum(irate(istio_request_count[1m])), 0.001)`,
+		`sum(irate(istio_request_count{response_code=~"4.*"}[1m]))`,
+		`sum(irate(istio_request_count{response_code=~"5.*"}[1m]))`,
+	}
+
+	for _, duration := range promCheckBackoffs {
+		t.Logf("waiting for prometheus metrics: %v", duration)
+		time.Sleep(duration)
+
+		i := 0
+		l := len(queries)
+		for i < l {
+			if metricHasValue(queries[i]) {
+				t.Logf("Value found for: '%s'", queries[i])
+				queries = append(queries[:i], queries[i+1:]...)
+				l--
+				continue
+			}
+			t.Logf("No value found for: '%s'", queries[i])
+			i++
+		}
+
+		if len(queries) == 0 {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("No values found for: %#v", queries)
+}
+
+func metricHasValue(query string) bool {
+	value, err := tc.promAPI.Query(context.Background(), query, time.Now())
+	if err != nil || value == nil {
+		return false
+	}
+	numSamples := 0
+	switch v := value.(type) {
+	case model.Vector:
+		numSamples = v.Len()
+	case *model.Scalar:
+		numSamples = 1
+	}
+	return numSamples != 0
+}
+
+func logMixerMetrics(t *testing.T) {
+	ns := tc.Kube.Namespace
+	pods, err := getPodList(ns, "app=echosrv")
+	if err != nil || len(pods) < 1 {
+		t.Logf("Failure getting mixer metrics: %v", err)
+		return
+	}
+	resp, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-mixer.%s:42422/metrics", ns, pods[0], ns)
+	if err != nil {
+		t.Logf("could not retrieve metrics: %v", err)
+		return
+	}
+	t.Logf("GET /metrics:\n%v", resp)
+
 }
