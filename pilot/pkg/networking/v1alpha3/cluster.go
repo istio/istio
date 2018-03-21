@@ -30,45 +30,40 @@ import (
 func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
-	// TODO node type router
-
-	// node type Sidecar
 	services, err := env.Services()
 	if err != nil {
 		log.Errorf("Failed for retrieve services: %v", err)
 		return nil
 	}
 
-	// build outbound clusters
+	clusters = append(clusters, buildOutboundClusters(env, services)...)
+
+	if proxy.Type == model.Sidecar {
+		instances, err := env.GetProxyServiceInstances(proxy)
+		if err != nil {
+			log.Errorf("failed to get service proxy service instances: %v", err)
+			return nil
+		}
+		clusters = append(clusters, buildInboundClusters(instances)...)
+	}
+
+	// TODO add original dst cluster
+
+	return clusters // TODO: normalize/dedup/order
+}
+
+func buildOutboundClusters(env model.Environment, services []*model.Service) []*v2.Cluster {
+	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
-		config := env.IstioConfigStore.DestinationRule(service.Hostname, "")
+		config := env.DestinationRule(service.Hostname, "")
 		if config != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
-			for _, svcPort := range service.Ports {
-				var hosts []*core.Address
-				if service.Resolution == model.DNSLB {
-					// FIXME port name not required if only one port
-					// nolint: vetshadow
-					instances, err := env.ServiceDiscovery.Instances(service.Hostname, []string{svcPort.Name}, nil)
-					if err != nil {
-						log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
-					} else {
-						for _, instance := range instances {
-							hosts = append(hosts, &core.Address{Address: &core.Address_SocketAddress{
-								SocketAddress: &core.SocketAddress{
-									Address:  instance.Endpoint.Address,
-									Protocol: core.TCP,
-									PortSpecifier: &core.SocketAddress_PortValue{
-										PortValue: uint32(instance.Endpoint.Port),
-									},
-								}}})
-						}
-					}
-				}
+			for _, port := range service.Ports {
+				hosts := buildClusterHosts(env, service, port)
 
 				// create default cluster
 				cluster := &v2.Cluster{
-					Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, svcPort),
+					Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
 					Type:  convertResolution(service.Resolution),
 					Hosts: hosts,
 				}
@@ -77,7 +72,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				for _, subset := range destinationRule.Subsets {
 					cluster := &v2.Cluster{
-						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, svcPort),
+						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
@@ -88,47 +83,47 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 				}
 
 				// TODO HTTP2 feature
-
 			}
 		}
 	}
-
-	// TODO build inbound clusters
-	instances, err := env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-	}
-	for _, instance := range instances {
-		// FIXME timeout
-		// This cluster name is mainly for stats.
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
-		clusters = append(clusters, BuildInboundCluster(clusterName, instance.Endpoint.Port))
-	}
-
-	// TODO add original dst cluster
-
-	return clusters // TODO: guaranteed ordering?
+	return clusters
 }
 
-// BuildInboundCluster builds an inbound cluster.
-func BuildInboundCluster(clusterName string, port int) *v2.Cluster {
-	cluster := &v2.Cluster{
-		// TODO currently using original inbound cluster naming convention
-		Name:     clusterName,
-		Type:     v2.Cluster_STATIC,
-		LbPolicy: v2.Cluster_ROUND_ROBIN,
-		// TODO: HTTP2 feature
-		// TODO timeout
-		Hosts: []*core.Address{{Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address: "127.0.0.1",
-				// TODO will this always be TCP?
-				Protocol: core.TCP,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(port),
-				},
-			}}}}}
-	return cluster
+func buildClusterHosts(env model.Environment, service *model.Service, port *model.Port) []*core.Address {
+	if service.Resolution != model.DNSLB {
+		return nil
+	}
+
+	// FIXME port name not required if only one port
+	instances, err := env.Instances(service.Hostname, []string{port.Name}, nil)
+	if err != nil {
+		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
+		return nil
+	}
+
+	hosts := make([]*core.Address, 0)
+	for _, instance := range instances {
+		hosts = append(hosts, buildAddress(instance.Endpoint.Address, instance.Endpoint.Port))
+	}
+
+	return hosts
+}
+
+func buildInboundClusters(instances []*model.ServiceInstance) []*v2.Cluster {
+	clusters := make([]*v2.Cluster, 0)
+	for _, instance := range instances {
+		// This cluster name is mainly for stats.
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
+		clusters = append(clusters, &v2.Cluster{
+			Name:     clusterName,
+			Type:     v2.Cluster_STATIC,
+			LbPolicy: v2.Cluster_ROUND_ROBIN,
+			// TODO: HTTP2 feature
+			// TODO timeout
+			Hosts: []*core.Address{buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))},
+		})
+	}
+	return clusters
 }
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
