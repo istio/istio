@@ -56,12 +56,12 @@ func New(cfg *na.Config) (*Server, error) {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
 	env := na.DetermineEnv(cfg)
-	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
-		cfg.CertChainFile, cfg.IstioCAAddress)
+	pc, err := platform.NewClient(env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to pc init %v", err)
 	}
-	scfg := workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile)
+	scfg := workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile)
 	ss, err := workload.NewSecretServer(scfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
@@ -140,7 +140,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
 	}
-	resp, err := s.cAClient.SendCSR(csrReq, s.pc, s.config.IstioCAAddress)
+	resp, err := s.cAClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, fmt.Errorf("csr request failed for service %v %v", sa, err)
 	}
@@ -189,8 +189,8 @@ func (s *Server) CloseAllWlds() {
 func (s *Server) createRequest(identity string) ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
 		Host:       identity,
-		Org:        s.config.ServiceIdentityOrg,
-		RSAKeySize: s.config.RSAKeySize,
+		Org:        s.config.CAClientConfig.Org,
+		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -205,7 +205,7 @@ func (s *Server) createRequest(identity string) ([]byte, *pb.CsrRequest, error) 
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      s.pc.GetCredentialType(),
-		RequestedTtlMinutes: int32(s.config.WorkloadCertTTL.Minutes()),
+		RequestedTtlMinutes: int32(s.config.CAClientConfig.RequestedCertTTL.Minutes()),
 		ForCA:               false,
 	}, nil
 }
