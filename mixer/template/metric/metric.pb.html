@@ -3,7 +3,7 @@ title: Metric
 overview: A template that represents a single runtime metric.
 location: https://istio.io/docs/reference/config/template/metric.html
 layout: protoc-gen-docs
-number_of_entries: 1
+number_of_entries: 2
 ---
 <p>The <code>metric</code> template is designed to let you describe runtime metric to dispatch to
 monitoring backends.</p>
@@ -45,7 +45,7 @@ spec:
 <tbody>
 <tr id="Template.value">
 <td><code>value</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a></code></td>
 <td>
 <p>The value being reported.</p>
 
@@ -53,7 +53,7 @@ spec:
 </tr>
 <tr id="Template.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>The unique identity of the particular metric to report.</p>
 
@@ -71,7 +71,7 @@ these fields will be ignored by the adapter.</p>
 </tr>
 <tr id="Template.monitored_resource_dimensions">
 <td><code>monitoredResourceDimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
 If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
@@ -81,4 +81,10 @@ these fields will be ignored by the adapter.</p>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
 </section>

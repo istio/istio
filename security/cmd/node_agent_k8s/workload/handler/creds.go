@@ -21,13 +21,13 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// ClientHandshake return the client handshake info
+// ClientHandshake return the client handshake info.
 func (s *handler) ClientHandshake(_ context.Context, _ string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	info := CredInfo{Err: ErrInvalidConnection}
 	return conn, info, nil
 }
 
-// ServerHandshake return the server handshake info
+// ServerHandshake return the server handshake info.
 func (s *handler) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	var creds CredInfo
 
@@ -39,7 +39,7 @@ func (s *handler) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo
 	return conn, creds, nil
 }
 
-// Info return the proto info
+// Info returns the proto info.
 func (s *handler) Info() credentials.ProtocolInfo {
 	return credentials.ProtocolInfo{
 		SecurityProtocol: authType,
@@ -48,17 +48,17 @@ func (s *handler) Info() credentials.ProtocolInfo {
 	}
 }
 
-// Clone return the clone info
+// Clone returns the clone info.
 func (s *handler) Clone() credentials.TransportCredentials {
 	return &(*s)
 }
 
-// OverrideServerName override server name
+// OverrideServerName overrides server name.
 func (s *handler) OverrideServerName(_ string) error {
 	return nil
 }
 
-// GetCred get the cred
+// GetCred gets the cred.
 func (s *handler) GetCred() credentials.TransportCredentials {
 	return s
 }

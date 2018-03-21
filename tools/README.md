@@ -1,9 +1,12 @@
 # Istio Load Testing User Guide
 ### Introduction
 This guide provides step-by-step instructions for using the `setup_perf_cluster.sh` load testing script.
-The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/)
-on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. The following diagram provides
-additional details of the deployment:
+The script deploys a GKE cluster, an Istio service mesh and a GCE VM. The script then runs [Fortio](https://github.com/istio/fortio/#fortio)
+on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mesh. 
+
+It should not be too difficult to adapt the script to other cloud providers or environments and contributions for additional automated setup are welcome.
+
+The following diagram provides additional details of the deployment:
 
 ![Deployment Diagram](perf_setup.svg)
 
@@ -12,7 +15,7 @@ graphing results and as a backend echo server.
 
 ### Download a Release or Clone Istio
 
-From release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
+It's recommended you use a release (either [official](https://github.com/istio/istio/releases) or [dailies](https://github.com/istio/istio/wiki/Daily-builds)):
 ```
 curl -L https://git.io/getLatestIstio | sh -  # or download the daily TGZ
 ```
@@ -22,11 +25,18 @@ From source:
 $ git clone https://github.com/istio/istio.git && cd istio
 ```
 
+### Install fortio locally
+
+Optional but recommended:
+
+If not already present from building from source,
+Install fortio: `go get istio.io/fortio` (so you can run `fortio report` to visualize the results)
+
 ### Prepare the Istio Deployment Manifest and Istio Client
 
 __Option A:__ (From release) Make sure `istioctl` is in your path is the one matching the downloaded release.
 
-For instance, in `~/tmp/istio-0.5.0/` run:
+For instance, in `~/tmp/istio-0.6.0/` run:
 ```
 export PATH=`pwd`/bin:$PATH
 # check 'which istioctl' and 'istioctl version' returns the correct version
@@ -37,21 +47,13 @@ $ ln -s $GOPATH/src/istio.io/istio/tools
 ```
 If you want to get newer version of the tools, you can `rm -rf tools/` and do the symlink above to use your updated/newer script.
 
-__Option B:__ (From source) Build the deployment manifest and `istioctl` binary:
+__Option B:__ (Advanced users, not recommended, from source) Build the deployment manifest and `istioctl` binary:
 ```
-$ ./install/updateVersion.sh # This step is only needed when using Istio from source.
+$ ./install/updateVersion.sh # This step is only needed when using Istio from source and may or may not work/need additional hub/tags/...
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
-Make the kubectl binary executable.
-```
-$ chmod +x ./istioctl
-```
-
-Move the binary in to your PATH.
-```
-$ mv ./istioctl /usr/local/bin/istioctl
-```
-
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary. 
+Make sure the binary is first in to your PATH.
+Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 
 ### Set Your Google Cloud Credentials (optional/one time setup)
 This is not necessary if you already have working `gcloud` commands and you
@@ -67,7 +69,7 @@ If you do not have a Google Cloud account, [set one up](https://cloud.google.com
 The `setup_perf_cluster.sh` script can be customized. View the script and modify the default variables if needed.
 For example, to update the default gcloud zone (us-east4-b):
 ```
-$ ZONE=us-west1-a
+$ export ZONE=us-west1-a
 ```
 If you change either the `PROJECT` or the `ZONE`, make sure to run `update_gcp_opts` before calling the other functions.
 
@@ -75,9 +77,11 @@ The script tries to guess your `PROJECT` but it's safer to set it explicitly. (a
 
 ### Source the Script
 ```
+# Set PROJECT and ZONE first then
 $ source tools/setup_perf_cluster.sh
 ```
 __Note:__ `setup_perf_cluster.sh` can be used as a script or sourced and functions called interactively.
+
 Inside Google, you may need to rerun setup_vm_firewall multiple times.
 
 ### Run the Functions
@@ -104,16 +108,48 @@ istio-system   istio-mixer-3192291716-psskv                           3/3       
 istio-system   istio-pilot-3663920167-4ns3g                           2/2       Running   0          7m
 <SNIP>
 ```
-You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
+
+Make sure your ingress is ready:
+```
+$ kubectl get ing -n istio
+NAME            HOSTS     ADDRESS          PORTS     AGE
+istio-ingress   *         35.188.254.231   80        1m
+```
+
+You can now run the performance tests, either from the command line or interactively using the UIs (see next section). 
+For command lines there are a couple of examples in the `run_tests` functions, it will run 4 tests 
+and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
 
 ```
 $ run_tests
++++ VM Ip is 35.199.55.254 - visit (http on port 443 is not a typo:) http://35.199.55.254:443/fortio/
++++ In k8s fortio external ip: http://35.199.37.178:8080/fortio/
++++ In k8s non istio ingress: http://35.227.201.148/fortio/
++++ In k8s istio ingress: http://35.188.241.231/fortio1/fortio/ and fortio2
+Using istio ingress to fortio1:
+### Running: curl -s http://35.199.55.254:443/fortio/?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://35.188.241.231/fortio1/echo | tee ing-to-f1.json | grep ActualQPS
+  "ActualQPS": 439.8723210634554,
+Using istio ingress to fortio2:
+### Running: curl -s http://35.199.55.254:443/fortio/?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://35.188.241.231/fortio2/echo | tee ing-to-f2.json | grep ActualQPS
+  "ActualQPS": 540.2583184971915,
+Using istio f1 to f2:
+### Running: curl -s http://35.188.241.231/fortio1/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo | tee f1-to-f2.json | grep ActualQPS
+  "ActualQPS": 439.5027107832303,
+Using istio f2 to f1:
+### Running: curl -s http://35.188.241.231/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo | tee f2-to-f1.json | grep ActualQPS
+  "ActualQPS": 330.49386695603846,
 ```
+And then you will see:
+![Single Graph Screen Shot](https://user-images.githubusercontent.com/3664595/37693480-231ac8c0-2c7d-11e8-9b3a-4e77a06f2d37.png)
+![Multi Graph Screen Shot](https://user-images.githubusercontent.com/3664595/37693481-232efdf4-2c7d-11e8-92b4-8a6e088d3357.png)
 
-The first test case uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. The following command tells
+
+For comparison and reference you can also run `run_fortio_test1` uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. 
+
+The following command tells
 Fortio on the VM to run a load test against the Fortio echo server running in the Kubernetes cluster:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_FORTIO_EXT_IP:8080/echo
+### Running: curl http://$VM_URL/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_FORTIO_EXT_IP:8080/echo
 ```
 The following arguments are passed to the Fortio server running on the GCE VM:
 
@@ -127,15 +163,15 @@ The following arguments are passed to the Fortio server running on the GCE VM:
 | load=Start                              | Tells Fortio to be a load generator     |
 | url=http://$K8S_FORTIO_EXT_IP:8080/echo | The target to load test                 |
 
-The second test case uses the Fortio Ingress with no Istio mesh and the same arguments as the first test:
+You can also run `run_fortio_test2` which uses the Fortio Ingress with no Istio mesh and the same arguments as the first test:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$NON_ISTIO_INGRESS/echo
+### Running: curl http://$VM_URL/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$NON_ISTIO_INGRESS/echo
 ```
 
-The third test case uses the Istio Ingress with the same arguments as the first test. This is the test that performs load testing
+The tests from `run_tests` uses the Istio Ingress with the same arguments. This is the test that performs load testing
 of the Istio service mesh:
 ```
-### Running: curl http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS/fortio1/echo
+### Running: curl http://$VM_URL/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS/fortio1/echo
 ```
 Compare the test results to understand the load differential between the 3 test cases.
 
@@ -145,7 +181,7 @@ Fortio provides a [Web UI](https://github.com/istio/fortio#webgraphical-ui) that
 can be used to perform load testing. You can call the `get_ips` function to obtain Fortio endpoint information for further load testing:
 ```
 $ get_ips
-+++ VM Ip is $VM_IP - visit http://$VM_IP/fortio/
++++ VM Ip is $VM_IP - visit http://$VM_URL/
 +++ In k8s fortio external ip: http://$EXTERNAL_IP:8080/fortio/
 +++ In k8s non istio ingress: http://$NON_ISTIO_INGRESS_IP/fortio/
 +++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2
