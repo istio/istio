@@ -305,8 +305,8 @@ func convertFaultDelay(in *v1alpha1.HTTPFaultInjection_Delay) *v1alpha3.HTTPFaul
 }
 
 func convertPercent(in float32) int32 {
-	out := int32(in * 100)
-	if in != float32(out)/100 {
+	out := int32(in)
+	if in != float32(out) {
 		log.Warn("Percent truncated")
 	}
 	return out

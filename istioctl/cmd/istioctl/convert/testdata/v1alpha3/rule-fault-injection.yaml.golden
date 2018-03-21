@@ -11,10 +11,10 @@ spec:
   - fault:
       abort:
         httpStatus: 503
-        percent: 10000
+        percent: 100
       delay:
         fixedDelay: 5.000s
-        percent: 10000
+        percent: 100
     match:
     - headers:
         version:
