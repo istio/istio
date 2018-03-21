@@ -22,9 +22,6 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          - --log_output_level
-          - debug
-          - --log_callers
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
