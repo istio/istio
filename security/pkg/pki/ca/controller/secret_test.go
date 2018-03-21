@@ -33,9 +33,11 @@ import (
 )
 
 const (
-	defaultTTL              = time.Hour
-	defaultGracePeriodRatio = 0.5
-	defaultMinGracePeriod   = 10 * time.Minute
+	defaultTTL                = time.Hour
+	defaultGracePeriodRatio   = 0.5
+	defaultMinGracePeriod     = 10 * time.Minute
+	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
+	sidecarInjectorSvc        = "istio-sidecar-injector"
 )
 
 func TestSecretController(t *testing.T) {
@@ -94,6 +96,12 @@ func TestSecretController(t *testing.T) {
 			},
 			injectFailure: true,
 		},
+		"adding webhook service account": {
+			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", sidecarInjectorSvcAccount, "test-ns")),
+			},
+		},
 	}
 
 	for k, tc := range testCases {
@@ -111,8 +119,11 @@ func TestSecretController(t *testing.T) {
 			})
 		}
 
+		webhooks := map[string]string{
+			sidecarInjectorSvcAccount: sidecarInjectorSvc,
+		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll, nil)
+			client.CoreV1(), metav1.NamespaceAll, webhooks)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
