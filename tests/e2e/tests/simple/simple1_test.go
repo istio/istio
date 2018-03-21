@@ -39,8 +39,10 @@ import (
 )
 
 const (
-	servicesYaml    = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
-	nonInjectedYaml = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	servicesYaml         = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
+	nonInjectedYaml      = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	timeToWaitForPods    = 20 * time.Second
+	timeToWaitForIngress = 100 * time.Second
 )
 
 type testConfig struct {
@@ -63,13 +65,15 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-// TODO: need an "is cluster ready" before running any tests
-
 func TestSimpleIngress(t *testing.T) {
 	// Tests that a simple ingress with rewrite/dropping of the /fortio/ prefix
 	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 
+	// This checks until all of those 3 things become ready:
+	// 1) ingress pod is up (that done by IngressOrFail above)
+	// 2) the destination pod (and its envoy) is up/reachable
+	// 3) the ingress and routerules are propagated and active on the ingress
 	log.Infof("Fetching '%s'", url)
 	needle := []byte("echo debug server up")
 
@@ -79,7 +83,11 @@ func TestSimpleIngress(t *testing.T) {
 		data      []byte
 		dataDebug string
 	)
-	for i := 1; i <= 100; i++ { // Wait max ~100s
+	timeOut := time.Now().Add(timeToWaitForIngress)
+	for i := 0; true; i++ {
+		if time.Now().After(timeOut) {
+			t.Errorf("Ingress not really ready after %v - last error is %d : %s", timeToWaitForIngress, code, dataDebug)
+		}
 		code, data = fhttp.Fetch(o)
 		dataDebug = fhttp.DebugSummary(data, 512) // not for searching, only for logging
 		if code != 200 {
@@ -88,14 +96,12 @@ func TestSimpleIngress(t *testing.T) {
 			continue
 		}
 		if !bytes.Contains(data, needle) {
-			log.Errorf("Iter %d : unexpected content despite 200: %s", i, data)
+			t.Fatalf("Iter %d : unexpected content despite 200: %s", i, dataDebug)
 		}
 		// Test success:
 		log.Infof("Iter %d : ingress->Svc is up! Found %s", i, dataDebug)
 		return
 	}
-	// Still not up after max iterations
-	t.Errorf("Ingress not really ready - last error is %d : %s", code, dataDebug)
 }
 
 func TestSvc2Svc(t *testing.T) {
@@ -108,14 +114,13 @@ func TestSvc2Svc(t *testing.T) {
 	if len(podList) != 2 {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
 	}
-
+	// Check that both pods are ready before doing a (small) load test
 	log.Infof("Configuration readiness pre-check from %v to http://echosrv:8080/echo", podList)
-	start := time.Now()
-	timeout := start.Add(20 * time.Second)
+	timeout := time.Now().Add(timeToWaitForPods)
 	var res string
 	for {
-		if start.After(timeout) {
-			t.Fatalf("Pod readyness failed - last error: %s", res)
+		if time.Now().After(timeout) {
+			t.Fatalf("Pod readyness failed after %v - last error: %s", timeToWaitForPods, res)
 		}
 		ready := 0
 		for i := range podList {
@@ -145,6 +150,7 @@ func TestSvc2Svc(t *testing.T) {
 	// Success
 }
 
+// Readiness is shared with previous test, expected to run serially.
 func TestAuth(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
