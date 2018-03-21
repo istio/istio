@@ -22,7 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -579,13 +579,9 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		"all": {
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_None{},
-			}},
-		},
+		"all": {},
 		"hello": {
-			Destinations: []*networking.Destination{{
+			Targets: []*authn.TargetSelector{{
 				Name: "hello",
 			}},
 			Peers: []*authn.PeerAuthenticationMethod{{
@@ -593,23 +589,25 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			}},
 		},
 		"world": {
-			Destinations: []*networking.Destination{{
+			Targets: []*authn.TargetSelector{{
 				Name: "world",
-				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 80,
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
 					},
 				},
 			}},
-			CredentialRules: []*authn.CredentialRule{{
-				Binding: authn.CredentialRule_USE_ORIGIN,
-				Origins: []*authn.OriginAuthenticationMethod{{
+			Origins: []*authn.OriginAuthenticationMethod{
+				{
 					Jwt: &authn.Jwt{
 						Issuer:  "abc.xzy",
 						JwksUri: "https://secure.isio.io",
 					},
-				}},
-			}},
+				},
+			},
+			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
 	}
 	for key, value := range authNPolicies {
@@ -618,7 +616,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 				Type:      model.AuthenticationPolicy.Type,
 				Name:      key,
 				Group:     "authentication",
-				Version:   "v1alpha1",
+				Version:   "v1alpha2",
 				Namespace: "default",
 				Domain:    "cluster.local",
 			},

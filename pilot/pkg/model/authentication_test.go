@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
