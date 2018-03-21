@@ -233,7 +233,7 @@ function run_fortio_test_istio_ingress1() {
 }
 function run_fortio_test_istio_ingress2() {
   echo "Using istio ingress to fortio2:"
-  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee ing-to-f2.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee ing-to-f2.json \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   echo "Using istio f1 to f2:"
