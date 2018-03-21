@@ -114,7 +114,7 @@ function delete_vm_firewall() {
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go install -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
