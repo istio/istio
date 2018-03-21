@@ -30,11 +30,11 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/deprecated"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -80,11 +80,7 @@ func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse
 		Nonce:       version + "-" + time.Now().String(),
 	}
 
-	response, err := deprecated.BuildClusters2(s.env, *con.modelNode)
-	if err != nil {
-		log.Warnf("Failed to construct clusters %v", err)
-		return out
-	}
+	response := v1alpha3.BuildClusters(s.env, *con.modelNode)
 
 	for _, c := range response {
 		cc, _ := types.MarshalAny(c)

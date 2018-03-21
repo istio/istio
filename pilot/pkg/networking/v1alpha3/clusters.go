@@ -30,7 +30,7 @@ import (
 
 const (
 	OutboundClusterPrefix = "out"
-	InboudClusterPrefix = "in"
+	InboudClusterPrefix   = "in"
 )
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
@@ -102,12 +102,13 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	instances, err := env.GetProxyServiceInstances(proxy)
 	for _, instance := range instances {
 		clusters = append(clusters, &v2.Cluster{
-			Name: "",
-			Type: v2.Cluster_STATIC,
+			// TODO currently using original inbound cluster naming convention
+			Name:           fmt.Sprintf("%s|%s", InboudClusterPrefix, instance.Endpoint.Port),
+			Type:           v2.Cluster_STATIC,
 			ConnectTimeout: 0,
-			LbPolicy: v2.Cluster_ROUND_ROBIN,
+			LbPolicy:       v2.Cluster_ROUND_ROBIN,
 			Hosts: []*core.Address{{Address: &core.SocketAddress{
-				Address: instance.Endpoint.Address,
+				Address:  instance.Endpoint.Address,
 				Protocol: core.TCP,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(instance.Endpoint.Port),
