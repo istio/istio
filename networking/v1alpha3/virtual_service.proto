@@ -49,7 +49,6 @@ import "google/protobuf/wrappers.proto";
 // actual choice of the version is determined by the proxy/sidecar, enabling the
 // application code to decouple itself from the evolution of dependent
 // services.
-
 package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
