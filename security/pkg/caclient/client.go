@@ -65,9 +65,9 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 	}, nil
 }
 
-// RetrieveNewKeyCert sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
+// Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
 // and cert, otherwise, it returns error. This is a blocking function.
-func (c *CAClient) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
+func (c *CAClient) Retrieve() (newCert []byte, certChain []byte, privateKey []byte, err error) {
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
