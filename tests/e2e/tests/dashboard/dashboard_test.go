@@ -318,6 +318,10 @@ func (t *testConfig) Setup() (err error) {
 	}
 	t.promAPI = pAPI
 
+	if err = waitForMixerConfigResolution(); err != nil {
+		return fmt.Errorf("mixer never received configuration: %v", err)
+	}
+
 	gateway, errGw := tc.Kube.Ingress()
 	if errGw != nil {
 		return errGw
@@ -412,7 +416,22 @@ func allowPrometheusSync() {
 	time.Sleep(1 * time.Minute)
 }
 
-var promCheckBackoffs = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}
+var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}
+
+func waitForMixerConfigResolution() error {
+	configQuery := `sum(mixer_config_handler_config_count)`
+	handlers := 0.0
+	for _, duration := range waitDurations {
+		fmt.Printf("waiting for Mixer to be configured with correct handlers: %v\n", duration)
+		time.Sleep(duration)
+		val, err := getMetricValue(configQuery)
+		if err == nil && val >= 3.0 {
+			return nil
+		}
+		handlers = val
+	}
+	return fmt.Errorf("incorrect number of handlers known in Mixer; got %f, want >= 3.0", handlers)
+}
 
 func waitForMetricsInPrometheus(t *testing.T) error {
 	// These are sentinel metrics that will be used to evaluate if prometheus
@@ -423,7 +442,7 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		`sum(irate(istio_request_count{response_code=~"5.*"}[1m]))`,
 	}
 
-	for _, duration := range promCheckBackoffs {
+	for _, duration := range waitDurations {
 		t.Logf("waiting for prometheus metrics: %v", duration)
 		time.Sleep(duration)
 
@@ -445,22 +464,29 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		}
 	}
 
-	return fmt.Errorf("No values found for: %#v", queries)
+	return fmt.Errorf("no values found for: %#v", queries)
 }
 
 func metricHasValue(query string) bool {
+	_, err := getMetricValue(query)
+	return err == nil
+}
+
+func getMetricValue(query string) (float64, error) {
 	value, err := tc.promAPI.Query(context.Background(), query, time.Now())
 	if err != nil || value == nil {
-		return false
+		return 0, fmt.Errorf("could not retrieve a value for metric '%s': %v", query, err)
 	}
-	numSamples := 0
 	switch v := value.(type) {
 	case model.Vector:
-		numSamples = v.Len()
+		if v.Len() < 1 {
+			return 0, fmt.Errorf("no values for metric: '%s'", query)
+		}
+		return float64(v[0].Value), nil
 	case *model.Scalar:
-		numSamples = 1
+		return float64(v.Value), nil
 	}
-	return numSamples != 0
+	return 0, fmt.Errorf("no known value for metric: '%s'", query)
 }
 
 func logMixerMetrics(t *testing.T) {
