@@ -116,12 +116,11 @@ NAME            HOSTS     ADDRESS          PORTS     AGE
 istio-ingress   *         35.188.254.231   80        1m
 ```
 
-You can now run the performance tests, either from the command line or interactively using the UIs (see next section). For command lines there are a couple of examples in the `run_tests` function:
-
+You can now run the performance tests, either from the command line or interactively using the UIs (see next section). 
+For command lines there are a couple of examples in the `run_tests` functions, it will run 4 tests 
+and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
 
 ```
-# will run 4 tests and start fortio report so you can graph the result on [http://localhost:8080/](http://localhost:8080/)
-
 $ run_tests
 +++ VM Ip is 35.199.55.254 - visit (http on port 443 is not a typo:) http://35.199.55.254:443/fortio/
 +++ In k8s fortio external ip: http://35.199.37.178:8080/fortio/
