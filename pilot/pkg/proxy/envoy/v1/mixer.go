@@ -100,7 +100,7 @@ const (
 //
 // Going forwards all mixerclient configuration should represeted by
 // istio.io/api/mixer/v1/config/client/mixer_filter_config.proto and
-// encoded in the `mfConf` field below.
+// encoded in the `V2` field below.
 //
 type FilterMixerConfig struct {
 	// DEPRECATED: MixerAttributes specifies the static list of attributes that are sent with
@@ -121,7 +121,7 @@ type FilterMixerConfig struct {
 	// istio.io/api/mixer/v1/config/client configuration protobuf
 	// encoded as a generic map using canonical JSON encoding.
 	//
-	// If `mfConf` field is not empty, the DEPRECATED fields above should
+	// If `V2` field is not empty, the DEPRECATED fields above should
 	// be discarded.
 	V2 map[string]interface{} `json:"v2,omitempty"`
 }
