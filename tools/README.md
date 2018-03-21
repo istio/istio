@@ -140,8 +140,8 @@ Using istio f2 to f1:
   "ActualQPS": 330.49386695603846,
 ```
 And then you will see:
-![screen shot 2018-03-20 at 8 26 24 pm](https://user-images.githubusercontent.com/3664595/37693480-231ac8c0-2c7d-11e8-9b3a-4e77a06f2d37.png)
-![screen shot 2018-03-20 at 8 26 07 pm](https://user-images.githubusercontent.com/3664595/37693481-232efdf4-2c7d-11e8-92b4-8a6e088d3357.png)
+![Single Graph Screen Shot](https://user-images.githubusercontent.com/3664595/37693480-231ac8c0-2c7d-11e8-9b3a-4e77a06f2d37.png)
+![Multi Graph Screen Shot](https://user-images.githubusercontent.com/3664595/37693481-232efdf4-2c7d-11e8-92b4-8a6e088d3357.png)
 
 
 For comparison and reference you can also run `run_fortio_test1` uses the default loadbalancer and no Istio mesh or Istio Ingress Controller. 
