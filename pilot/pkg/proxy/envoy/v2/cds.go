@@ -90,13 +90,7 @@ func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse
 	return out
 }
 
-func newCluster(address string, port uint32) (*xdsapi.Cluster, error) {
-	ep := &xdsapi.Cluster{}
-
-	return ep, nil
-}
-
-// StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
+// StreamClusters implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
 func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_StreamClustersServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "Unknown peer address"
@@ -222,10 +216,11 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(data)
 }
 
-// FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
+// FetchClusters implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchClusters(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	return nil, errors.New("not implemented")
 }
-func (server *DiscoveryServer) removeCdsCon(s string, connection *CdsConnection) {
+
+func (s *DiscoveryServer) removeCdsCon(node string, connection *CdsConnection) {
 
 }

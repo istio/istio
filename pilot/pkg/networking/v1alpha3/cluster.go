@@ -23,15 +23,14 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	OutboundClusterPrefix = "out"
-	InboudClusterPrefix   = "in"
+	outboundClusterPrefix = "out"
+	inboundClusterPrefix  = "in"
 )
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
@@ -61,20 +60,21 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 						log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 					} else {
 						for _, instance := range instances {
-							hosts = append(hosts, &core.Address{Address: &core.SocketAddress{
-								Address:  instance.Endpoint.Address,
-								Protocol: core.TCP,
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: uint32(instance.Endpoint.Port),
-								},
-							}})
+							hosts = append(hosts, &core.Address{Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Address:  instance.Endpoint.Address,
+									Protocol: core.TCP,
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: uint32(instance.Endpoint.Port),
+									},
+								}}})
 						}
 					}
 				}
 
 				// create default cluster
 				cluster := &v2.Cluster{
-					Name:  buildClusterName(OutboundClusterPrefix, service.Hostname, "", svcPort.Name),
+					Name:  buildClusterName(outboundClusterPrefix, service.Hostname, "", svcPort.Name),
 					Type:  convertResolution(service.Resolution),
 					Hosts: hosts,
 				}
@@ -83,7 +83,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 				for _, subset := range destinationRule.Subsets {
 					cluster := &v2.Cluster{
-						Name:  buildClusterName(OutboundClusterPrefix, service.Hostname, subset.Name, svcPort.Name),
+						Name:  buildClusterName(outboundClusterPrefix, service.Hostname, subset.Name, svcPort.Name),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
@@ -101,8 +101,12 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 	// TODO build inbound clusters
 	instances, err := env.GetProxyServiceInstances(proxy)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+	}
 	for _, instance := range instances {
-		clusters = append(clusters, BuildInboundCluster(instance.Endpoint.Port, model.ProtocolTCP, 0))
+		// FIXME timeout
+		clusters = append(clusters, BuildInboundCluster(instance.Endpoint.Port))
 	}
 
 	// TODO add original dst cluster
@@ -111,22 +115,23 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 }
 
 // BuildInboundCluster builds an inbound cluster.
-func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *v2.Cluster {
+func BuildInboundCluster(port int) *v2.Cluster {
 	cluster := &v2.Cluster{
 		// TODO currently using original inbound cluster naming convention
-		Name:           fmt.Sprintf("%s|%s", InboudClusterPrefix, port),
-		Type:           v2.Cluster_STATIC,
-		ConnectTimeout: convertDurationGogo(timeout),
-		LbPolicy:       v2.Cluster_ROUND_ROBIN,
-		Hosts: []*core.Address{{Address: &core.SocketAddress{
-			Address: "127.0.0.1",
-			// TODO will this always be TCP?
-			Protocol: core.TCP,
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: uint32(port),
-			},
-			// TODO: HTTP2 feature
-		}}}}
+		Name:     fmt.Sprintf("%s|%d", inboundClusterPrefix, port),
+		Type:     v2.Cluster_STATIC,
+		LbPolicy: v2.Cluster_ROUND_ROBIN,
+		// TODO: HTTP2 feature
+		// TODO timeout
+		Hosts: []*core.Address{{Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Address: "127.0.0.1",
+				// TODO will this always be TCP?
+				Protocol: core.TCP,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(port),
+				},
+			}}}}}
 	return cluster
 }
 
@@ -168,20 +173,20 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
-			threshold.MaxRequests = types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			threshold.MaxRequests = &types.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			threshold.MaxPendingRequests = types.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
+			threshold.MaxPendingRequests = &types.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 
 		if settings.Http.MaxRequestsPerConnection > 0 {
-			cluster.MaxRequestsPerConnection = types.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
+			cluster.MaxRequestsPerConnection = &types.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
 		}
 
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default value of 3
 		if settings.Http.MaxRetries > 0 {
-			threshold.MaxRetries = types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+			threshold.MaxRetries = &types.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 	}
 
@@ -191,7 +196,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
-			threshold.MaxConnections = types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+			threshold.MaxConnections = &types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 	}
 
@@ -208,16 +213,16 @@ func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.Out
 
 	out := &v2_cluster.OutlierDetection{}
 	if outlier.Http.BaseEjectionTime != nil {
-		out.BaseEjectionTime = convertDurationGogo(outlier.Http.BaseEjectionTime)
+		out.BaseEjectionTime = outlier.Http.BaseEjectionTime
 	}
 	if outlier.Http.ConsecutiveErrors > 0 {
-		out.Consecutive_5Xx = types.UInt32Value{Value: uint32(outlier.Http.ConsecutiveErrors)}
+		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.Http.ConsecutiveErrors)}
 	}
 	if outlier.Http.Interval != nil {
-		out.Interval = convertDurationGogo(outlier.Http.Interval)
+		out.Interval = outlier.Http.Interval
 	}
 	if outlier.Http.MaxEjectionPercent > 0 {
-		out.MaxEjectionPercent = types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
+		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
 	}
 	return out
 }

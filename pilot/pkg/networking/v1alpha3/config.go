@@ -134,9 +134,6 @@ func buildSidecarListeners(
 			listenAddress = v1.WildcardAddress
 		}
 
-		// only HTTP outbound clusters are needed
-		httpOutbound := buildOutboundHTTPRoutes(mesh, node, proxyInstances, services, config)
-		httpOutbound = v1.BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
@@ -578,7 +575,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		endpoint := instance.Endpoint
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
-		cluster := BuildInboundCluster(endpoint.Port, instance.Endpoint.ServicePort.Protocol, mesh.ConnectTimeout)
+		cluster := v1.BuildInboundCluster(endpoint.Port, instance.Endpoint.ServicePort.Protocol, mesh.ConnectTimeout)
 
 		var l *xdsapi.Listener
 
@@ -712,7 +709,7 @@ func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.P
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
 			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			cluster := BuildInboundCluster(mPort.Port, mPort, mesh.ConnectTimeout)
+			cluster := v1.BuildInboundCluster(mPort.Port, mPort.Protocol, mesh.ConnectTimeout)
 			listener := buildTCPListener(&v1.TCPRouteConfig{
 				Routes: []*v1.TCPRoute{v1.BuildTCPRoute(cluster, []string{managementIP})},
 			}, managementIP, uint32(mPort.Port), model.ProtocolTCP)
