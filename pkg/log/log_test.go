@@ -142,7 +142,7 @@ func TestBasic(t *testing.T) {
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			lines, err := captureStdout(func() {
-				o := NewOptions()
+				o := DefaultOptions()
 
 				o.JSONEncoding = c.json
 				o.IncludeCallerSourceLocation = c.caller
@@ -154,7 +154,7 @@ func TestBasic(t *testing.T) {
 				}
 
 				c.f()
-				Sync()
+				Sync() // nolint: errcheck
 			})
 
 			if err != nil {
@@ -170,7 +170,7 @@ func TestBasic(t *testing.T) {
 	// sadly, only testing whether we crash or not...
 	l := With(zap.String("Key", "Value"))
 	l.Debug("Hello")
-	l.Sync()
+	_ = l.Sync()
 }
 
 func TestEnabled(t *testing.T) {
@@ -190,7 +190,7 @@ func TestEnabled(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := NewOptions()
+			o := DefaultOptions()
 			_ = o.SetOutputLevel(c.level)
 			_ = Configure(o)
 
@@ -214,31 +214,31 @@ func TestEnabled(t *testing.T) {
 }
 
 func TestOddballs(t *testing.T) {
-	o := NewOptions()
+	o := DefaultOptions()
 	_ = Configure(o)
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.outputLevel = "foobar"
 	err := Configure(o)
 	if err == nil {
 		t.Error("Got success, expected failure")
 	}
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.stackTraceLevel = "foobar"
 	err = Configure(o)
 	if err == nil {
 		t.Error("Got success, expected failure")
 	}
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.OutputPaths = []string{"/JUNK"}
 	err = Configure(o)
 	if err == nil {
 		t.Errorf("Got success, expecting error")
 	}
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.ErrorOutputPaths = []string{"/JUNK"}
 	err = Configure(o)
 	if err == nil {
@@ -254,7 +254,7 @@ func TestRotateNoStdout(t *testing.T) {
 
 	file := dir + "/rot.log"
 
-	o := NewOptions()
+	o := DefaultOptions()
 	o.OutputPaths = []string{}
 	o.RotateOutputPath = file
 	if err := Configure(o); err != nil {
@@ -262,7 +262,7 @@ func TestRotateNoStdout(t *testing.T) {
 	}
 
 	Error("HELLO")
-	Sync()
+	Sync() // nolint: errcheck
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -282,14 +282,14 @@ func TestRotateAndStdout(t *testing.T) {
 	file := dir + "/rot.log"
 
 	stdoutLines, _ := captureStdout(func() {
-		o := NewOptions()
+		o := DefaultOptions()
 		o.RotateOutputPath = file
 		if err := Configure(o); err != nil {
 			t.Fatalf("Unable to configure logger: %v", err)
 		}
 
 		Error("HELLO")
-		Sync()
+		Sync() // nolint: errcheck
 
 		content, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -309,7 +309,7 @@ func TestRotateAndStdout(t *testing.T) {
 
 func TestCapture(t *testing.T) {
 	lines, _ := captureStdout(func() {
-		o := NewOptions()
+		o := DefaultOptions()
 		o.IncludeCallerSourceLocation = true
 		_ = Configure(o)
 
@@ -353,8 +353,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)

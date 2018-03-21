@@ -1,0 +1,30 @@
+# We can't simply execute the standard sample installation script using shell
+# because Ansible doesn't play nicely with bash's process substitution
+# This task expects to given the following arguments:
+# sample_cmd_template: the template that will be used to create the command that will be executed
+# sample_path: the path within the istio directory where the sample's definition file can be found
+# sample_namespace: the namespace where the sample will be deployed to
+
+- name: Create temp directory that will contain the installation script
+  command: mktemp -d -t ansible.XXXXXXXXXX
+  register: temp_output
+
+- name: Set command full path
+  set_fact:
+    sample_cmd_full_path: "{{ temp_output.stdout }}/sample_cmd"
+
+- name: Copy command into temp directory
+  template: src={{ sample_cmd_template }} dest={{ sample_cmd_full_path }}
+
+- name: Make command executable
+  file: dest={{ sample_cmd_full_path }} mode=a+x
+
+- command: "cat {{ sample_cmd_full_path }}"
+  register: co
+
+- name: Install sample {{ sample_path }}
+  command : "bash -c {{ sample_cmd_full_path }}"
+
+- name: Show helpful bookinfo message
+  debug:
+    msg: "Sample from path {{ sample_path }} is being deployed in namespace {{ sample_namespace }}"

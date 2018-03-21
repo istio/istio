@@ -1,5 +1,5 @@
 # Builder version
-CI_VERSION ?= go1.9-k8s1.7.4
+CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25
 CI_HUB ?= istio
 
 ci.image:
@@ -17,4 +17,4 @@ ci.run:
         ${CI_HUB}/ci:$(CI_VERSION)
 
 
-.PHONY: image push
+.PHONY: ci.image ci.push ci.run

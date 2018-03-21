@@ -58,10 +58,6 @@ func TestRegistryAuthorizerWithJWT(t *testing.T) {
 		authSource: authSourceIDToken,
 		identities: []string{"id"},
 	}
-	certRequestor := &caller{
-		authSource: authSourceClientCertificate,
-		identities: []string{"spiffe://id", "spiffe://id2"},
-	}
 	requestedIDs := []string{"spiffe://id", "spiffe://id2"}
 
 	testCases := map[string]struct {
@@ -82,17 +78,6 @@ func TestRegistryAuthorizerWithJWT(t *testing.T) {
 			authorizor: &registryAuthorizor{&registry.IdentityRegistry{
 				Map: map[string]string{"id": "id"},
 			}},
-		},
-		"Authorized cert with one mapping": {
-			requestor:    certRequestor,
-			requestedIDs: requestedIDs,
-			authorizor: func() *registryAuthorizor {
-				authz := &registryAuthorizor{&registry.IdentityRegistry{
-					Map: map[string]string{"id": "id"},
-				}}
-				authz.authorize(idRequestor, requestedIDs)
-				return authz
-			}(),
 		},
 	}
 
@@ -164,7 +149,7 @@ func TestRegistryAuthorizerWithClientCertificate(t *testing.T) {
 		},
 	}
 
-	for id, c := range testCases {
+	for id, c := range testCases { // nolint: vet
 		authz := &registryAuthorizor{&c.registry}
 		err := authz.authorize(&caller{authSourceClientCertificate, c.callerIDs}, c.requestedIDs)
 		if c.expectedErr != "" {

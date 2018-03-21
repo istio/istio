@@ -25,11 +25,8 @@ import (
 	"os"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // Layout for parsing time
@@ -91,18 +88,17 @@ func main() {
 	var signerPriv crypto.PrivateKey
 	var err error
 	if !*isSelfSigned {
-		signerCert, signerPriv, err = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv, err = util.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 		if err != nil {
 			log.Errora(err)
 			os.Exit(-1)
 		}
 	}
 
-	nb := getNotBefore()
-	certPem, privPem := ca.GenCert(ca.CertOptions{
+	certPem, privPem, err := util.GenCertKeyFromOptions(util.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
-		NotAfter:     nb.Add(*validFor),
+		TTL:          *validFor,
 		SignerCert:   signerCert,
 		SignerPriv:   signerPriv,
 		Org:          *org,
@@ -111,6 +107,11 @@ func main() {
 		IsClient:     *isClient,
 		RSAKeySize:   *keySize,
 	})
+
+	if err != nil {
+		log.Errora(err)
+		os.Exit(-1)
+	}
 
 	saveCreds(certPem, privPem)
 	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)

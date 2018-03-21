@@ -13,7 +13,8 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-p <hub>,<tag>` new pilot image
 * `-x <hub>,<tag>` new mixer image
 * `-c <hub>,<tag>` new ca image
-* `-r <tag>` new proxy tag
+* `-a <hub>,<tag>` specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
+* `-r <tag>` new tag for proxy debian package
 * `-i <url>` new `istioctl` download URL
 * `-g` create a `git commit` titled "Updating istio version" for the changes
 * `-n` <namespace> namespace in which to install Istio control plane components (defaults to istio-system)
@@ -21,6 +22,7 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-A` URL to download auth debian packages
 * `-P` URL to download pilot debian packages
 * `-E` URL to download proxy debian packages
+* `-d` <dir> directory to store updated/generated files (optional, defaults to source code tree)
 
 Default values for the `-p`, `-x`, `-c`, `-r`, and `-i` options are as specified in `istio.VERSION`
 (i.e., they are left unchanged).

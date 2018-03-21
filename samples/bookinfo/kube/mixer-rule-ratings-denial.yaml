@@ -22,7 +22,7 @@ metadata:
   name: denyreviewsv3
   namespace: istio-system
 spec:
-  #FIXME match: target.labels["app"]=="productpage" && request.headers["x-user"] == ""
+  #FIXME match: destination.labels["app"]=="productpage" && request.headers["x-user"] == ""
   match: request.headers["x-user"] == ""
   actions:
   - handler: handler.denier.istio-system

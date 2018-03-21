@@ -75,11 +75,31 @@ func Benchmark_NoRule_Report(b *testing.B) {
 	perf.Run(b, &setup, settings)
 }
 
+func Benchmark_NoRule_Report_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseNoRuleReportSetup
+	setup.Config.UseRuntime2 = true
+
+	perf.Run(b, &setup, settings)
+}
+
 func Benchmark_NoRule_Check(b *testing.B) {
 	settings := baseSettings
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseNoRuleCheckSetup
+
+	perf.Run(b, &setup, settings)
+}
+
+func Benchmark_NoRule_Check_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseNoRuleCheckSetup
+	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }

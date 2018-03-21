@@ -36,7 +36,7 @@ func IsProcessRunning(p *os.Process) (bool, error) {
 
 // IsProcessRunningInt check if a process of the given pid(int) is running
 func IsProcessRunningInt(pid int) (bool, error) {
-	process, err := os.FindProcess(int(pid))
+	process, err := os.FindProcess(pid)
 	if err != nil {
 		return false, fmt.Errorf("failed to find process %d: %v (check os.FindProcess)", pid, err)
 	}

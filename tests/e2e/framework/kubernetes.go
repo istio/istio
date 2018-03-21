@@ -18,14 +18,14 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"testing"
 	"time"
-
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -40,23 +40,28 @@ const (
 	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
-	istioInitializerFile        = "istio-initializer.yaml"
+	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
+	mixerValidatorFile          = "istio-mixer-validator.yaml"
+
+	maxDeploymentRolloutTime = 120 * time.Second
 )
 
 var (
-	namespace       = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub        = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub, if different from istio.Version")
-	mixerTag        = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag, if different from istio.Version")
-	pilotHub        = flag.String("pilot_hub", os.Getenv("HUB"), "pilot hub, if different from istio.Version")
-	pilotTag        = flag.String("pilot_tag", os.Getenv("TAG"), "pilot tag, if different from istio.Version")
-	caHub           = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
-	caTag           = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
-	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
-	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	skipDelete      = flag.Bool("skip_delete", false, "Skip namespace deletion, for ephemeral machines and to debug after test")
-	initializerFile = flag.String("initializer_file", istioInitializerFile, "Initializer yaml file")
-	clusterWide     = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	namespace           = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub            = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag            = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub            = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag            = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
+	caHub               = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag               = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	authEnable          = flag.Bool("auth_enable", false, "Enable auth")
+	localCluster        = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
 		"prometheus",
@@ -71,7 +76,9 @@ type KubeInfo struct {
 	TmpDir  string
 	yamlDir string
 
-	Ingress string
+	inglock    sync.Mutex
+	ingress    string
+	ingressErr error
 
 	localCluster     bool
 	namespaceCreated bool
@@ -81,10 +88,16 @@ type KubeInfo struct {
 	Istioctl *Istioctl
 	// App Manager
 	AppManager *AppManager
+
+	// Release directory
+	ReleaseDir string
+	// Use baseversion if not empty.
+	BaseVersion string
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
-func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
+// If baseVersion is not empty, will use the specified release of Istio instead of the local one.
+func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	if *namespace == "" {
 		if *clusterWide {
 			*namespace = istioSystem
@@ -93,12 +106,28 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *pilotHub, *pilotTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag)
 	if err != nil {
 		return nil, err
 	}
 	a := NewAppManager(tmpDir, *namespace, i)
-
+	// Download the base release if baseVersion is specified.
+	var releaseDir string
+	if baseVersion != "" {
+		releaseDir, err = util.DownloadRelease(baseVersion, tmpDir)
+		if err != nil {
+			return nil, err
+		}
+		// Use istioctl from base version to inject the sidecar.
+		i.localPath = filepath.Join(releaseDir, "/bin/istioctl")
+		if err = os.Chmod(i.localPath, 0755); err != nil {
+			return nil, err
+		}
+		i.defaultProxy = true
+	} else {
+		releaseDir = util.GetResourcePath("")
+	}
+	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
@@ -108,6 +137,8 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		Istioctl:         i,
 		AppManager:       a,
 		AuthEnabled:      *authEnable,
+		ReleaseDir:       releaseDir,
+		BaseVersion:      baseVersion,
 	}, nil
 }
 
@@ -131,17 +162,48 @@ func (k *KubeInfo) Setup() error {
 		}
 	}
 
-	var in string
-	if k.localCluster {
-		in, err = util.GetIngressPod(k.Namespace)
-	} else {
-		in, err = util.GetIngress(k.Namespace)
+	if *withMixerValidator {
+		// Run the script to set up the certificate.
+		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
+		if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
+			return err
+		}
+
 	}
-	if err != nil {
-		return err
-	}
-	k.Ingress = in
 	return nil
+}
+
+// IngressOrFail lazily initialize ingress and fail test if not found.
+func (k *KubeInfo) IngressOrFail(t *testing.T) string {
+	gw, err := k.Ingress()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// Ingress lazily initialize ingress
+func (k *KubeInfo) Ingress() (string, error) {
+	k.inglock.Lock()
+	defer k.inglock.Unlock()
+
+	// Previously fetched ingress or failed.
+	if k.ingressErr != nil || len(k.ingress) != 0 {
+		return k.ingress, k.ingressErr
+	}
+
+	if k.localCluster {
+		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace)
+	} else {
+		k.ingress, k.ingressErr = util.GetIngress(k.Namespace)
+	}
+
+	// So far we only do http ingress
+	if len(k.ingress) > 0 {
+		k.ingress = "http://" + k.ingress
+	}
+
+	return k.ingress, k.ingressErr
 }
 
 // Teardown clean up everything created by setup
@@ -152,11 +214,11 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
-	if *useInitializer {
-		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
+	if *useAutomaticInjection {
+		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
 
-		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
-			log.Errorf("Istio initializer %s deletion failed", testInitializerYAML)
+		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML); err != nil {
+			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
 			return err
 		}
 	}
@@ -197,18 +259,19 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 20
+	maxAttempts := 120
 	namespaceDeleted := false
+	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
 		if namespaceDeleted {
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if !namespaceDeleted {
-		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
 		return nil
 	}
 
@@ -219,9 +282,8 @@ func (k *KubeInfo) Teardown() error {
 
 func (k *KubeInfo) deployAddons() error {
 	for _, addon := range addons {
-
-		baseYamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
-
+		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
+		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
 		content, err := ioutil.ReadFile(baseYamlFile)
 		if err != nil {
 			log.Errorf("Cannot read file %s", baseYamlFile)
@@ -259,7 +321,8 @@ func (k *KubeInfo) deployIstio() error {
 			istioYaml = authInstallFileNamespace
 		}
 	}
-	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
+	yamlDir := filepath.Join(istioInstallDir, istioYaml)
+	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
@@ -271,23 +334,32 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if *useInitializer {
-		baseInitializerYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *initializerFile))
-		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
-		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
-			log.Errorf("Generating initializer yaml failed")
+	if *withMixerValidator {
+		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
+		testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
+		if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
+			log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
 			return err
 		}
-		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
-			log.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
+		if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
+			log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
 			return err
 		}
-
-		// alow time to the initializer to start
-		time.Sleep(60 * time.Second)
 	}
 
-	return nil
+	if *useAutomaticInjection {
+		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
+		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
+		if err := k.generateSidecarInjector(baseSidecarInjectorYAML, testSidecarInjectorYAML); err != nil {
+			log.Errorf("Generating sidecar injector yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML); err != nil {
+			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
+			return err
+		}
+	}
+	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime)
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
@@ -302,7 +374,7 @@ func updateInjectVersion(version string, content []byte) []byte {
 	return r.ReplaceAllLiteral(content, versionLine)
 }
 
-func (k *KubeInfo) generateInitializer(src, dst string) error {
+func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
 		log.Errorf("Cannot read original yaml file %s", src)
@@ -314,15 +386,15 @@ func (k *KubeInfo) generateInitializer(src, dst string) error {
 	}
 
 	if *pilotHub != "" && *pilotTag != "" {
-		content = updateIstioYaml("initializer", *pilotHub, *pilotTag, content)
+		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
-		content = updateInjectImage("proxyImage", "proxy", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
+		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		log.Errorf("Cannot write into generate initializer file %s", dst)
+		log.Errorf("Cannot write into generate sidecar injector file %s", dst)
 	}
 	return err
 }
@@ -343,6 +415,10 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	if !*clusterWide {
 		content = replacePattern(k, content, istioSystem, k.Namespace)
+		// Customize mixer's configStoreURL to limit watching resources in the testing namespace.
+		vs := url.Values{}
+		vs.Add("ns", *namespace)
+		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
@@ -356,17 +432,21 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(k, content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(k, content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
 
-	if *mixerHub != "" && *mixerTag != "" {
-		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
-	}
-	if *pilotHub != "" && *pilotTag != "" {
-		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
-		//Need to be updated when the string "proxy_debug" is changed
-		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
-	}
-	if *caHub != "" && *caTag != "" {
-		//Need to be updated when the string "istio-ca" is changed
-		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+	if k.BaseVersion == "" {
+		if *mixerHub != "" && *mixerTag != "" {
+			content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
+		}
+		if *pilotHub != "" && *pilotTag != "" {
+			content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+		}
+		if *proxyHub != "" && *proxyTag != "" {
+			//Need to be updated when the string "proxy" is changed as the default image name
+			content = updateIstioYaml("proxy", *proxyHub, *proxyTag, content)
+		}
+		if *caHub != "" && *caTag != "" {
+			//Need to be updated when the string "istio-ca" is changed
+			content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+		}
 	}
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))

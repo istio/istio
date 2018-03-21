@@ -28,8 +28,8 @@ type adapterInfoRegistry struct {
 
 type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string) (bool, string)
 
-// newRegistry2 returns a new adapterInfoRegistry.
-func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
+// newRegistry returns a new adapterInfoRegistry.
+func newRegistry(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
 	r := &adapterInfoRegistry{make(map[string]*adapter.Info)}
 	for idx, info := range infos {
 		log.Debugf("registering [%d] %#v", idx, info)
@@ -70,7 +70,7 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 // AdapterInfoMap returns the known adapter.Infos, indexed by their names.
 func AdapterInfoMap(handlerRegFns []adapter.InfoFn,
 	hndlrBldrValidator handlerBuilderValidator) map[string]*adapter.Info {
-	return newRegistry2(handlerRegFns, hndlrBldrValidator).adapterInfosByName
+	return newRegistry(handlerRegFns, hndlrBldrValidator).adapterInfosByName
 }
 
 // FindAdapterInfo returns the adapter.Info object with the given name.

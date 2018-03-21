@@ -21,7 +21,7 @@
 //
 //		func main() {
 //			// get the default tracing options
-//			options := tracing.NewOptions()
+//			options := tracing.DefaultOptions()
 //
 //			rootCmd := &cobra.Command{
 //				Run: func(cmd *cobra.Command, args []string) {
@@ -137,11 +137,12 @@ func (h holder) Close() error {
 		ot.SetGlobalTracer(ot.NoopTracer{})
 	}
 
+	var err error
 	if h.closer != nil {
-		h.closer.Close()
+		err = h.closer.Close()
 	}
 
-	return nil
+	return err
 }
 
 type spanLogger struct{}

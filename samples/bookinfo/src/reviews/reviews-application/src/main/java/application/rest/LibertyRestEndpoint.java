@@ -53,11 +53,13 @@ public class LibertyRestEndpoint extends Application {
     	result += "{";
     	result += "  \"reviewer\": \"Reviewer1\",";
     	result += "  \"text\": \"An extremely entertaining play by Shakespeare. The slapstick humour is refreshing!\"";
-    	if (starsReviewer1 != -1) {
-    		result += ", \"rating\": {\"stars\": " + starsReviewer1 + ", \"color\": \"" + star_color + "\"}";
-    	}
-      else {
-        result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+      if (ratings_enabled) {
+        if (starsReviewer1 != -1) {
+          result += ", \"rating\": {\"stars\": " + starsReviewer1 + ", \"color\": \"" + star_color + "\"}";
+        }
+        else {
+          result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+        }
       }
     	result += "},";
     	
@@ -65,11 +67,13 @@ public class LibertyRestEndpoint extends Application {
     	result += "{";
     	result += "  \"reviewer\": \"Reviewer2\",";
     	result += "  \"text\": \"Absolutely fun and entertaining. The play lacks thematic depth when compared to other plays by Shakespeare.\"";
-    	if (starsReviewer1 != -1) {
-    		result += ", \"rating\": {\"stars\": " + starsReviewer2 + ", \"color\": \"" + star_color + "\"}";
-    	}
-      else {
-        result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+      if (ratings_enabled) {
+        if (starsReviewer2 != -1) {
+          result += ", \"rating\": {\"stars\": " + starsReviewer2 + ", \"color\": \"" + star_color + "\"}";
+        }
+        else {
+          result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+        }
       }
     	result += "}";
     	

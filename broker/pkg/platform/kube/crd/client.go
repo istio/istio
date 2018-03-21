@@ -14,7 +14,7 @@
 
 // Package crd provides an implementation of the config store and cache
 // using Kubernetes Custom Resources and the informer framework from Kubernetes
-// This implementation is adopted from github.com/istio/pilot/adapter/config/crd/
+// This implementation is adopted from github.com/istio/pilot/pkg/config/kube/crd/
 package crd
 
 import (
@@ -22,8 +22,6 @@ import (
 	"os"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"

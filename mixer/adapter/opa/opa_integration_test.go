@@ -23,6 +23,7 @@ import (
 	api_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
 )
@@ -40,9 +41,9 @@ spec:
       value_type: STRING
     source.groups:
       value_type: STRING
-    target.namespace:
+    destination.namespace:
       value_type: STRING
-    target.service:
+    destination.service:
       value_type: STRING
     request.method:
       value_type: STRING
@@ -50,7 +51,7 @@ spec:
       value_type: STRING
     source.service:
       value_type: STRING
-    target.service:
+    destination.service:
       value_type: STRING
 
 ---
@@ -80,13 +81,13 @@ spec:
     user: source.uid | ""
     groups: source.groups | ""
   action:
-    namespace: target.namespace | "default"
-    service: target.service | ""
+    namespace: destination.namespace | "default"
+    service: destination.service | ""
     method: request.method | ""
     path: request.path | ""
     properties:
       source: source.service | ""
-      target: target.service | ""
+      target: destination.service | ""
 ---
 
 apiVersion: "config.istio.io/v1alpha2"
@@ -116,7 +117,6 @@ spec:
           trim(input.action.path, "/", trimmed)
           split(trimmed, "/", p)
       }
-      user = parsed_path[1]
 
       employees = {
           "bob": {"manager": "janet", "roles": ["engineering"]},
@@ -143,6 +143,7 @@ spec:
           parsed_path = ["reviews", user]
           input.subject.user = employees[user].manager
       }
+
       # Allow HR to access all APIs.
       allow {
           is_hr
@@ -162,7 +163,6 @@ spec:
       default allow = false
 
       allow {
-          input.action.external = true
           input.action.properties.target = "landing_page"
       }
 
@@ -177,17 +177,18 @@ spec:
 `
 )
 
-//https://github.com/istio/istio/issues/2300
-func xTestServer(t *testing.T) {
-	args := server.NewArgs()
+func TestServer(t *testing.T) {
+	args := server.DefaultArgs()
 
 	args.APIPort = 0
 	args.MonitoringPort = 0
-	args.GlobalConfig = globalCfg
-	args.ServiceConfig = serviceCfg
 	args.Templates = template.SupportedTmplInfo
 	args.Adapters = []adapter.InfoFn{
 		GetInfo,
+	}
+	var cerr error
+	if args.ConfigStore, cerr = storetest.SetupStoreForTest(globalCfg, serviceCfg); cerr != nil {
+		t.Fatal(cerr)
 	}
 
 	mixerServer, err := server.New(args)
@@ -209,51 +210,46 @@ func xTestServer(t *testing.T) {
 	}{
 		"Not important API": {
 			attrs: map[string]interface{}{
-				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/detail/alice",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"destination.service": "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
 		"Self permission": {
 			attrs: map[string]interface{}{
-				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/detail/janet",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"destination.service": "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
 		"Manager permission": {
 			attrs: map[string]interface{}{
-				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/reviews/alice",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"destination.service": "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
 		"HR permission": {
 			attrs: map[string]interface{}{
-				"destination.service": "svc.cluster.local",
 				"source.uid":          "ken",
 				"request.path":        "/reviews/janet",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"destination.service": "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
 		"Denied request": {
 			attrs: map[string]interface{}{
-				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
-				"request.path":        "/detail/janet",
-				"target.service":      "invalid",
-				"source.service":      "landing_page",
+				"request.path":        "/detail/ken",
+				"destination.service": "landing_pages",
+				"source.service":      "invalid",
 			},
 			expectedStatusCode: 7,
 		},

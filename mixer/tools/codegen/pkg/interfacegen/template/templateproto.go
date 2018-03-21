@@ -1,7 +1,7 @@
 package template
 
-// RevisedTemplateTmpl defines the modified template proto with Type and InstanceParams
-var RevisedTemplateTmpl = `// Copyright 2017 Istio Authors
+// AugmentedProtoTmpl defines the modified template proto with Type and InstanceParams
+var AugmentedProtoTmpl = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ syntax = "proto3";
 
 package {{.PackageName}};
 
-import "mixer/v1/template/extensions.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
 $$additional_imports$$
 
-option (istio.mixer.v1.template.template_variety) = {{.VarietyName}};
+option (istio.mixer.adapter.model.v1beta1.template_variety) = {{.VarietyName}};
 
 {{if ne .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
 {{.Comment}}

@@ -14,6 +14,14 @@
 
 syntax = "proto3";
 
+// $title: List
+// $overview: Adapter that performs whitelist or blacklist checks
+// $location: https://istio.io/docs/reference/config/adapters/list.html
+
+// The `list` adapter makes it possible to perform simple whitelist or blacklist
+// checks. You can configure the adapter with the list to check, or you can point
+// it to a URL from where the list should be fetched. Lists can be simple strings,
+// IP addresses, or regex patterns.
 package adapter.list.config;
 
 import "google/protobuf/duration.proto";
@@ -24,6 +32,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Configuration format for the `list` adapter.
 message Params {
     // Where to find the list to check against. This may be ommited for a completely local list.
     string provider_url = 1;
@@ -49,6 +58,7 @@ message Params {
     // List entries that are consulted first, before the list from the server
     repeated string overrides = 6;
 
+    // Determines the type of list that the adapter is consulting.
     enum ListEntryType {
         // List entries are treated as plain strings.
         STRINGS = 0;
@@ -59,7 +69,7 @@ message Params {
         // List entries are treated as IP addresses and ranges.
         IP_ADDRESSES = 2;
 
-        // List entries are treated as re2 regexp. See https://github.com/google/re2/wiki/Syntax for syntax.
+        // List entries are treated as re2 regexp. See [here](https://github.com/google/re2/wiki/Syntax) for the supported syntax.
         REGEX = 3;
     }
 

@@ -25,6 +25,11 @@ import (
 var logger = zap.NewNop()
 var sugar = logger.Sugar()
 
+func init() {
+	// use our defaults for starters so that logging works even before everything is fully configured
+	_ = Configure(DefaultOptions())
+}
+
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
 	year, month, day := t.Date()
@@ -190,6 +195,6 @@ func With(fields ...zapcore.Field) *zap.Logger {
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 // This call is a wrapper around [logger.Sync](https://godoc.org/go.uber.org/zap#logger.Sync)
-func Sync() {
-	logger.Sync()
+func Sync() error {
+	return logger.Sync()
 }

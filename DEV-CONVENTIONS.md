@@ -24,7 +24,7 @@ Others docs you should look at:
 
   - Comment your code.
 
-    - Follow the general guidance from [Go's commenting conventions](http://blog.golang.org/godoc-documenting-go-code)
+    - Follow the general guidance from [Go's commenting conventions](https://blog.golang.org/godoc-documenting-go-code)
     - If reviewers ask questions about why the code is the way it is, that's a sign that comments might be helpful.
 
   - Command-line flags should use dashes, not underscores
@@ -34,7 +34,11 @@ Others docs you should look at:
       - Please consider package name when selecting an interface name, and avoid
       redundancy. For example, use `adapter.AspectConfig` instead of `adapter.AdapterConfig`.
 
-      - Must use lowerCamel case for Go package names.
+      - Must use lowercase for Go package names.
+
+      - Must use camel case for Go types.
+
+      - Use singular nouns for types unless they represent a collection. Use plural nouns for collections.
 
       - Please consider parent directory name when choosing a package name:
 
@@ -69,13 +73,13 @@ flexibility. In any high performance paths, prefer to use the
 [Warn](https://godoc.org/istio.io/istio/pkg/log#Warn),
 [Info](https://godoc.org/istio.io/istio/pkg/log#Info), and
 [Debug](https://godoc.org/istio.io/istio/pkg/log#Debug) methods,
-as these are the most efficient. All other varietions of these four calls end up triggering some memory allocations and have a 
+as these are the most efficient. All other variations of these four calls end up triggering some memory allocations and have a
 considerably higher execution time.
 
 If you need to do a fair bit of computation in order to produce data for logging, you should protect that code
 using the
 [ErrorEnabled](https://godoc.org/istio.io/istio/pkg/log#ErrorEnabled),
-[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled), 
+[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled),
 [InfoEnabled](https://godoc.org/istio.io/istio/pkg/log#InfoEnabled), and
 [DebugEnabled](https://godoc.org/istio.io/istio/pkg/log#DebugEnabled) methods.
 
@@ -118,8 +122,9 @@ the [adapter logger interface](https://godoc.org/istio.io/istio/mixer/pkg/adapte
   - Avoid general utility packages. Packages called "util" are suspect. Instead,
   derive a name that describes your desired function.
 
-  - All filenames and directory names use camelCasing. No dashes, no underscores. The exception is for
-  unit tests which follow the Go convention of having a \_test.go suffix.
+  - Use lowercase for file and directory names.
+
+  - Use underscores for Go file names, e.g. type `DeviceAllocator` must reside in `device_allocator.go`.
 
   - All directory names should be singular unless required by existing frameworks.
   This is to avoid mixed singular and plural names in the full paths. NOTE:

@@ -1,0 +1,35 @@
+hosts:
+  - world
+http:
+  - match:
+      - headers:
+          scooby:
+            exact: doo
+        sourceLabels:
+          version: v0
+      - headers:
+          animal:
+            prefix: dog
+        sourceLabels:
+          version: v0
+    route:
+      - destination:
+          name: world
+          subset: v0
+        weight: 100
+    fault:
+      delay:
+        percent: 100
+        fixed_delay: 5s
+  - match:
+      - sourceLabels:
+          version: v1
+    route:
+      - destination:
+          name: world
+          subset: v1
+        weight: 100
+    fault:
+      abort:
+        percent: 50
+        http_status: 503

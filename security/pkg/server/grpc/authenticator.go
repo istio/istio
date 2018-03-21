@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -65,7 +65,6 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 
 	if authType := peer.AuthInfo.AuthType(); authType != "tls" {
 		return nil, fmt.Errorf("unsupported auth type: %q", authType)
-
 	}
 
 	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
@@ -74,7 +73,7 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 		return nil, fmt.Errorf("no verified chain is found")
 	}
 
-	ids, err := pki.ExtractIDs(chains[0][0].Extensions)
+	ids, err := util.ExtractIDs(chains[0][0].Extensions)
 	if err != nil {
 		return nil, err
 	}

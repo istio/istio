@@ -29,11 +29,6 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var (
-	testUser = "test"
-	testPass = "pass"
-)
-
 func TestConfigure(t *testing.T) {
 	srv := &testServer{}
 	zipkinServer := httptest.NewServer(handler(srv.receiveZipkin))
@@ -61,7 +56,7 @@ func TestConfigure(t *testing.T) {
 
 			lines, err := captureStdout(func() {
 
-				err := log.Configure(log.NewOptions())
+				err := log.Configure(log.DefaultOptions())
 				if err != nil {
 					t.Fatalf("Unable to configure logging: %v", err)
 				}
@@ -76,10 +71,10 @@ func TestConfigure(t *testing.T) {
 				span.Finish()
 
 				// force a flush of spans to endpoints
-				closer.Close()
+				_ = closer.Close()
 
 				// force the log to flush
-				log.Sync()
+				_ = log.Sync()
 			})
 
 			if err != nil {
@@ -104,7 +99,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestZipkinError(t *testing.T) {
-	o := NewOptions()
+	o := DefaultOptions()
 	o.ZipkinURL = "foobar"
 
 	_, err := configure("tracing-test", o, func(url string, options ...zipkin.HTTPOption) (*zipkin.HTTPTransport, error) {
@@ -120,7 +115,7 @@ func TestSpanLogger(t *testing.T) {
 	sl := spanLogger{}
 
 	lines, err := captureStdout(func() {
-		err := log.Configure(log.NewOptions())
+		err := log.Configure(log.DefaultOptions())
 		if err != nil {
 			t.Fatalf("Unable to configure logging: %v", err)
 		}
@@ -128,7 +123,7 @@ func TestSpanLogger(t *testing.T) {
 		sl.Error("ERROR")
 		sl.Infof("INFO")
 
-		log.Sync()
+		log.Sync() // nolint: errcheck
 	})
 
 	if err != nil {
@@ -186,8 +181,8 @@ func captureStdout(f func()) ([]string, error) {
 
 	os.Stdout = old
 	path := tf.Name()
-	tf.Sync()
-	tf.Close()
+	_ = tf.Sync()
+	_ = tf.Close()
 
 	content, err := ioutil.ReadFile(path)
 	_ = os.Remove(path)
@@ -197,4 +192,14 @@ func captureStdout(f func()) ([]string, error) {
 	}
 
 	return strings.Split(string(content), "\n"), nil
+}
+
+func TestConfigWithBadOptions(t *testing.T) {
+	o := DefaultOptions()
+	o.JaegerURL = "https://foo"
+	o.ZipkinURL = "https://bar"
+
+	if _, err := Configure("foo", o); err == nil {
+		t.Error("Expecting failure, got success")
+	}
 }

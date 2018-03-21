@@ -90,12 +90,17 @@ type Options struct {
 	// IncludeCallerSourceLocation determines whether log messages include the source location of the caller.
 	IncludeCallerSourceLocation bool
 
+	// LogGrpc indicates that Grpc logs should be captured. The default is true.
+	// This is not exposed through the command-line flags, as this flag is mainly useful for testing: Grpc
+	// stack will hold on to the logger even though it gets closed. This causes data races.
+	LogGrpc bool
+
 	stackTraceLevel string
 	outputLevel     string
 }
 
-// NewOptions returns a new set of options, initialized to the defaults
-func NewOptions() *Options {
+// DefaultOptions returns a new set of options, initialized to the defaults
+func DefaultOptions() *Options {
 	return &Options{
 		OutputPaths:        []string{defaultOutputPath},
 		ErrorOutputPaths:   []string{defaultErrorOutputPath},
@@ -104,6 +109,7 @@ func NewOptions() *Options {
 		RotationMaxBackups: defaultRotationMaxBackups,
 		outputLevel:        string(defaultOutputLevel),
 		stackTraceLevel:    string(defaultStackTraceLevel),
+		LogGrpc:            true,
 	}
 }
 
@@ -189,4 +195,18 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	// NOTE: we don't currently expose a command-line option to control ErrorOutputPaths since it
 	// seems too esoteric.
+
+	// TODO: Remove all this stuff by the 1.0 release
+	var dummy string
+	var dummy2 bool
+	cmd.PersistentFlags().StringVarP(&dummy, "v", "v", "", "deprecated")
+	cmd.PersistentFlags().StringVarP(&dummy, "stderrthreshold", "", "", "deprecated")
+	cmd.PersistentFlags().BoolVarP(&dummy2, "alsologtostderr", "", false, "deprecated")
+	cmd.PersistentFlags().BoolVarP(&dummy2, "logtostderr", "", false, "deprecated")
+
+	_ = cmd.PersistentFlags().MarkDeprecated("v", "please use --log_output_level instead")
+	_ = cmd.PersistentFlags().MarkShorthandDeprecated("v", "please use --log_output_level instead")
+	_ = cmd.PersistentFlags().MarkDeprecated("stderrthreshold", "please use --log_output_level instead")
+	_ = cmd.PersistentFlags().MarkDeprecated("logtostderr", "please use --log_target instead")
+	_ = cmd.PersistentFlags().MarkDeprecated("alsologtostderr", "please use --log_target instead")
 }

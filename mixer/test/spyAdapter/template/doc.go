@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // template.gen.go
+// nolint
 //go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go -f $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/template.gen.go
 
 // Package template contains generated code for the spy adapter testing. It

@@ -36,13 +36,14 @@ type RawVM interface {
 
 var (
 	// flags to select vm with specific configuration
+	masonInfoFile = flag.String("mason_info", "", "File created by Mason Client that provides information about the SUT")
 	projectID     = flag.String("project_id", "istio-testing", "Project ID")
 	projectNumber = flag.String("project_number", "450874614208", "Project Number")
 	zone          = flag.String("zone", "us-east4-c", "The zone in which the VM and cluster resides")
 	clusterName   = flag.String("cluster_name", "", "The name of the istio cluster that the VM extends")
 	image         = flag.String("image", "debian-9-stretch-v20170816", "Image Name")
 	imageProject  = flag.String("image_project", "debian-cloud", "Image Project")
-	proxyTag      = flag.String("proxy_tag", "", "proxy tag that identifies a debian pkg")
+	debURL        = flag.String("deb_url", "", "The URL where `istio-sidecar.deb` can be accessed")
 	// paths
 	setupMeshExScript  = ""
 	mashExpansionYaml  = ""
@@ -52,7 +53,7 @@ var (
 )
 
 const (
-	debURL = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
+	debURLFmt = "https://storage.googleapis.com/istio-artifacts/%s/%s/artifacts/debs"
 )
 
 // GCPRawVM is hosted on Google Cloud Platform
@@ -60,18 +61,30 @@ type GCPRawVM struct {
 	Name        string
 	ClusterName string
 	Namespace   string
+	ProjectID   string
+	Zone        string
+	// Use Mason does not require provisioning, and therefore all following fields are not required
+	UseMason bool
 	// ServiceAccount must have iam.serviceAccountActor or owner permissions
 	// to the project. Use IAM settings.
 	ServiceAccount string
-	ProjectID      string
-	Zone           string
 	Image          string
 	ImageProject   string
 }
 
 // NewGCPRawVM creates a new vm on GCP
-func NewGCPRawVM(namespace string) *GCPRawVM {
-	// TODO (chx) generate by vm pool server
+func NewGCPRawVM(namespace string) (*GCPRawVM, error) {
+	if *masonInfoFile != "" {
+		info, err := parseInfoFile(*masonInfoFile)
+		if err != nil {
+			return nil, err
+		}
+		g, err := resourceInfoToGCPRawVM(*info, namespace)
+		if err != nil {
+			return nil, err
+		}
+		return g, nil
+	}
 	vmName := fmt.Sprintf("vm-%v", time.Now().UnixNano())
 	if *clusterName == "" {
 		// Use default cluster. Determine clusterName at run time since cluster that
@@ -93,7 +106,7 @@ func NewGCPRawVM(namespace string) *GCPRawVM {
 		Zone:           *zone,
 		Image:          *image,
 		ImageProject:   *imageProject,
-	}
+	}, nil
 }
 
 // GetInternalIP returns the internal IP of the VM
@@ -114,7 +127,7 @@ func (vm *GCPRawVM) GetExternalIP() (string, error) {
 
 // SecureShell execeutes cmd on vm through ssh
 func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
-	ssh := fmt.Sprintf("gcloud compute ssh --project %s --zone %s %s --command \"%s\"",
+	ssh := fmt.Sprintf("gcloud compute ssh -q --project %s --zone %s %s --command \"%s\"",
 		vm.ProjectID, vm.Zone, vm.Name, cmd)
 	return u.Shell(ssh)
 }
@@ -122,7 +135,7 @@ func (vm *GCPRawVM) SecureShell(cmd string) (string, error) {
 // SecureCopy copies files to vm via scp
 func (vm *GCPRawVM) SecureCopy(files ...string) (string, error) {
 	filesStr := strings.Join(files, " ")
-	scp := fmt.Sprintf("gcloud compute scp --project %s --zone %s %s %s",
+	scp := fmt.Sprintf("gcloud compute scp -q --project %s --zone %s %s %s",
 		vm.ProjectID, vm.Zone, filesStr, vm.Name)
 	return u.Shell(scp)
 }
@@ -135,7 +148,8 @@ func (vm *GCPRawVM) Teardown() error {
 			return err
 		}
 	}
-	if _, err := u.Shell(vm.baseCommand("delete")); err != nil {
+	if !vm.UseMason {
+		_, err := u.Shell(vm.baseCommand("delete"))
 		return err
 	}
 	return nil
@@ -174,67 +188,39 @@ func (vm *GCPRawVM) Setup() error {
 }
 
 func buildIstioVersion() error {
-	currentIstioCommit, err := u.Shell("git rev-parse HEAD")
-	if err != nil {
-		return err
+	if *debURL == "" {
+		*debURL = fmt.Sprintf(debURLFmt, "pilot", *pilotTag)
 	}
-	currentIstioCommit = strings.Trim(currentIstioCommit, "\n")
-	auth := *caTag
-	pilot := *pilotTag
-	proxy := *proxyTag
-	if auth == "" {
-		auth = currentIstioCommit
-	}
-	if pilot == "" {
-		pilot = currentIstioCommit
-	}
-	if proxy == "" {
-		// Use debian pkg built from proxy master
-		proxy, err = u.GetHeadCommitSHA("istio", "proxy", "master")
-		if err != nil {
-			return err
-		}
-	}
-	authURL := fmt.Sprintf(debURL, "auth", auth)
-	pilotURL := fmt.Sprintf(debURL, "pilot", pilot)
-	proxyURL := fmt.Sprintf(debURL, "proxy", proxy)
-	urls := fmt.Sprintf(`
-		export AUTH_DEBIAN_URL="%s";
-		export PILOT_DEBIAN_URL="%s";
-		export PROXY_DEBIAN_URL="%s";`, authURL, pilotURL, proxyURL)
+	// `install/tools/setupIstioVM.sh` sources istio.VERSION to
+	// get `istio-sidecar.deb` from PILOT_DEBIAN_URL
+	urls := fmt.Sprintf(`export PILOT_DEBIAN_URL="%s";`, *debURL)
 	return u.WriteTextFile("istio.VERSION", urls)
 }
 
 func (vm *GCPRawVM) provision() error {
-	// Create the VM
-	createVMcmd := vm.baseCommand("create") + fmt.Sprintf(
-		`--machine-type "n1-standard-1" \
-			 --subnet default \
-			 --can-ip-forward \
-			 --service-account %s \
-			 --scopes "https://www.googleapis.com/auth/cloud-platform" \
-			 --tags "http-server","https-server" \
-			 --image %s \
-			 --image-project %s \
-			 --boot-disk-size "10" \
-			 --boot-disk-type "pd-standard" \
-			 --boot-disk-device-name "debtest"`,
-		vm.ServiceAccount, vm.Image, vm.ImageProject)
-	if _, err := u.Shell(createVMcmd); err != nil {
-		return err
-	}
-	// create firewall rule that allow access to VM
-	if _, err := u.Shell("gcloud compute firewall-rules describe allow-vm-ssh-http"); err != nil {
-		if _, err = u.Shell(`gcloud compute firewall-rules create allow-vm-ssh-http \
-		 	--allow tcp:22,tcp:80,tcp:443,tcp:8080,udp:5228,icmp \
-		 	--source-ranges 0.0.0.0/0`); err != nil {
+	if !vm.UseMason {
+		// Create the VM
+		createVMcmd := vm.baseCommand("create") + fmt.Sprintf(
+			`--machine-type "n1-standard-1" \
+				 --subnet default \
+				 --can-ip-forward \
+				 --service-account %s \
+				 --scopes "https://www.googleapis.com/auth/cloud-platform" \
+				 --tags "http-server","https-server" \
+				 --image %s \
+				 --image-project %s \
+				 --boot-disk-size "10" \
+				 --boot-disk-type "pd-standard" \
+				 --boot-disk-device-name "debtest"`,
+			vm.ServiceAccount, vm.Image, vm.ImageProject)
+		if _, err := u.Shell(createVMcmd); err != nil {
 			return err
 		}
 	}
 	// wait until VM is up and ready
 	isVMLive := func() (bool, error) {
 		_, err := vm.SecureShell("echo hello")
-		return (err == nil), nil
+		return err == nil, nil
 	}
 	return u.Poll(20*time.Second, 10, isVMLive)
 }

@@ -1,0 +1,16 @@
+hosts:
+  - world
+http:
+  - corsPolicy:
+      allowOrigin:
+        - http://foo.example
+      allowMethods:
+        - POST
+        - GET
+        - OPTIONS
+      allowHeaders:
+        - content-type
+      exposeHeaders:
+        - x-custom-header
+      maxAge: 300s
+      allowCredentials: true

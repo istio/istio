@@ -15,6 +15,8 @@
 package util
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -23,12 +25,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/log"
 )
@@ -37,6 +39,7 @@ const (
 	testSrcDir     = "TEST_SRCDIR"
 	pathPrefix     = "io_istio_istio"
 	runfilesSuffix = ".runfiles"
+	releaseURL     = "https://github.com/istio/istio/releases/download/%s/istio-%s-%s.tar.gz"
 )
 
 // GetHeadCommitSHA finds the SHA of the commit to which the HEAD of branch points
@@ -122,22 +125,40 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
-	return sh(format, true, args...)
+	return sh(context.Background(), format, true, true, args...)
+}
+
+// ShellContext run command on shell and get back output and error if get one
+func ShellContext(ctx context.Context, format string, args ...interface{}) (string, error) {
+	return sh(ctx, format, true, true, args...)
 }
 
 // ShellMuteOutput run command on shell and get back output and error if get one
 // without logging the output
 func ShellMuteOutput(format string, args ...interface{}) (string, error) {
-	return sh(format, false, args...)
+	return sh(context.Background(), format, true, false, args...)
 }
 
-func sh(format string, logOutput bool, args ...interface{}) (string, error) {
+// ShellSilent runs command on shell and get back output and error if get one
+// without logging the command or output.
+func ShellSilent(format string, args ...interface{}) (string, error) {
+	return sh(context.Background(), format, false, false, args...)
+}
+
+func sh(ctx context.Context, format string, logCommand, logOutput bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
-	log.Infof("Running command %s", command)
-	c := exec.Command("sh", "-c", command) // #nosec
+	if logCommand {
+		log.Infof("Running command %s", command)
+	}
+	c := exec.CommandContext(ctx, "sh", "-c", command) // #nosec
 	bytes, err := c.CombinedOutput()
 	if logOutput {
-		log.Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
+		if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
+			log.Infof("Command output: \n%s", output)
+		}
+		if err != nil {
+			log.Infof("Command error: %v", err)
+		}
 	}
 	if err != nil {
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
@@ -203,6 +224,20 @@ func HTTPDownload(dst string, src string) error {
 	return err
 }
 
+// GetOsExt returns the current OS tag.
+func GetOsExt() (string, error) {
+	var osExt string
+	switch runtime.GOOS {
+	case "linux":
+		osExt = "linux"
+	case "darwin":
+		osExt = "osx"
+	default:
+		return "", fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+	}
+	return osExt, nil
+}
+
 // CopyFile create a new file to src based on dst
 func CopyFile(src, dst string) error {
 	var in, out *os.File
@@ -246,4 +281,74 @@ func GetResourcePath(p string) string {
 		return p
 	}
 	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
+}
+
+// DownloadRelease gets the specified release from istio repo to tmpDir.
+func DownloadRelease(version, tmpDir string) (string, error) {
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		return "", err
+	}
+	osExt, err := GetOsExt()
+	if err != nil {
+		return "", err
+	}
+	url := fmt.Sprintf(releaseURL, version, version, osExt)
+	fname := fmt.Sprintf("istio-%s.tar.gz", version)
+	tgz := filepath.Join(tmpDir, fname)
+	err = HTTPDownload(tgz, url)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.Open(tgz)
+	if err != nil {
+		return "", err
+	}
+	err = ExtractTarGz(f)
+	if err != nil {
+		return "", err
+	}
+	subdir := "istio-" + version
+	return filepath.Join(tmpDir, subdir), nil
+}
+
+// ExtractTarGz extracts a .tar.gz file into current dir.
+func ExtractTarGz(gzipStream io.Reader) error {
+	uncompressedStream, err := gzip.NewReader(gzipStream)
+	if err != nil {
+		return errors.Wrap(err, "Fail to uncompress")
+	}
+	tarReader := tar.NewReader(uncompressedStream)
+
+	for {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "ExtractTarGz: Next() failed")
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.Mkdir(header.Name, 0755); err != nil {
+				return errors.Wrap(err, "ExtractTarGz: Mkdir() failed")
+			}
+		case tar.TypeReg:
+			outFile, err := os.Create(header.Name)
+			if err != nil {
+				return errors.Wrap(err, "ExtractTarGz: Create() failed")
+			}
+			defer outFile.Close() // nolint: errcheck
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				return errors.Wrap(err, "ExtractTarGz: Copy() failed")
+			}
+		default:
+			return fmt.Errorf("unknown type: %s in %s",
+				string(header.Typeflag), header.Name)
+		}
+	}
+	return nil
 }

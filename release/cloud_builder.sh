@@ -28,123 +28,92 @@ set -x
 # uses store_artifacts.sh to store the build on GCR/GCS.
 
 OUTPUT_PATH=""
-# The default for PROXY_PATH (which indicates where the proxy path is located
-# relative to the istio repo) is based on repo manifest that places istio at:
-# go/src/istio.io/istio
-# and proxy at:
-# src/proxy
-PROXY_PATH="../../../../src/proxy"
 TAG_NAME="0.0.0"
 BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
+REL_DOCKER_HUB=docker.io/istio
+TEST_DOCKER_HUB=""
+TEST_GCS_PATH=""
 
 function usage() {
   echo "$0
     -b        opts out of building debian artifacts
     -c        opts out of building docker artifacts
+    -h        docker hub to use for testing (optional)
     -o        path to store build artifacts
-    -p        path to proxy repo (relative to istio repo, defaults to ${PROXY_PATH} ) 
+    -p        GCS bucket & prefix path where build will be stored for testing (optional)
+    -q        path on gcr hub to use for testing (optional, alt to -h)
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts bco:p:t: arg ; do
+while getopts bch:o:p:q:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
+    h) TEST_DOCKER_HUB="${OPTARG}";;
+    p) TEST_GCS_PATH="${OPTARG}";;
+    q) TEST_DOCKER_HUB="gcr.io/${OPTARG}";;
     o) OUTPUT_PATH="${OPTARG}";;
-    p) PROXY_PATH="${PROXY_PATH}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
   esac
 done
 
+DEFAULT_GCS_PATH="https://storage.googleapis.com/istio-release/releases/${TAG_NAME}"
+if [[ -n "${TEST_GCS_PATH}" ]]; then
+  TEST_PATH="${TEST_GCS_PATH}"
+else
+  TEST_PATH="${DEFAULT_GCS_PATH}"
+fi
+
 [[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${PROXY_PATH}" ]] && usage
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
+export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
-
-if [ ! -d "${PROXY_PATH}" ]; then
-  echo "proxy dir not detected at ${PROXY_PATH}"
-  usage
-fi
+ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-# Proxy has some specific requirements for Bazel's
-# config (plus it's nicely places bazel in batch
-# mode) so this component gets built first.
+MAKE_TARGETS=istio-archive
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
+fi
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  MAKE_TARGETS="docker.save ${MAKE_TARGETS}"
+fi
 
-pushd "${PROXY_PATH}"
+if [[ -n "${TEST_DOCKER_HUB}" ]]; then
+  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH ISTIO_GCS_ISTIOCTL=istioctl-stage make istio-archive
+  cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/
+  mkdir -p "${OUTPUT_PATH}/gcr.io"
+  cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/gcr.io/
+fi
 
-# Use this file for Cloud Builder specific settings.
-# This file sets RAM sizes and also specifies batch
-# mode that should shutdown bazel after each call.
-echo 'Setting bazel.rc'
-cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
+cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/
+mkdir -p "${OUTPUT_PATH}/docker.io"
+cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/docker.io/
+
+if [[ -n "${TEST_DOCKER_HUB}" ]]; then
+# this copy is being done here instead of above because we
+# are conservative, if new artifacts are created we don't
+# inadvertently clobber them
+  cp ${OUTPUT_PATH}/gcr.io/istio-*z* ${OUTPUT_PATH}/
+fi
+
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  cp -r ${ISTIO_OUT}/docker ${OUTPUT_PATH}/
+fi
+
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   mkdir -p "${OUTPUT_PATH}/deb"
-  ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
+  cp ${ISTIO_OUT}/istio-sidecar.deb ${OUTPUT_PATH}/deb/
 fi
-popd
 
-# Pilot likes to check if the source tree is 'clean'
-# when it queries for version/source informatin.  Some
-# other components like littering the tree so it's better
-# to build pilot sooner than later.
-
-# Pilot build expects this file to exist.  The usual
-# approach of adding a symlink to the user's config file
-# doesn't help when the user doesn't have one.
-touch pilot/platform/kube/config
-
-# building //... results in dirtied files:
-# broker/pkg/model/config/mock_store.go
-# broker/pkg/platform/kube/crd/types.go
-# mixer/template/apikey/go_default_library_handler.gen.go
-# mixer/template/apikey/go_default_library_tmpl.pb.go
-# mixer/template/template.gen.go
-bazel build //pilot/...
-
-# bazel_to_go likes to run from dir with WORKSPACE file
-./bin/bazel_to_go.py
-# Remove doubly-vendorized k8s dependencies that confuse go
-rm -rf vendor/k8s.io/*/vendor
-
-# bazel_to_go.py dirties generated_files and lintconfig.json
-# it's easier to ask git to restore files than add
-# an option to bazel_to_go to not touch them
-git checkout generated_files
-
-pushd pilot
-mkdir -p "${OUTPUT_PATH}/istioctl"
-./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
-# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  # push-docker already adds docker/ to path
-  ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
-popd
-
-pushd mixer
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-popd
-
-pushd security
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
-popd
+# log where git thinks the build might be dirty
+git status

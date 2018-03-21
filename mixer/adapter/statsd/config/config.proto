@@ -14,6 +14,12 @@
 
 syntax = "proto3";
 
+// $title: StatsD
+// $overview: Adapter to deliver metrics to a StatsD backend
+// $location: https://istio.io/docs/reference/config/adapters/statsd.html
+
+// The `statsd` adapter enables Istio to deliver metric data to a
+// [StatsD](https://github.com/etsy/statsd) monitoring backend.
 package adapter.statsd.config;
 
 import "google/protobuf/duration.proto";
@@ -24,6 +30,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// Configuration format for the `statsd` adapter.
 message Params {
     // Address of the statsd server, e.g. localhost:8125
     string address = 1;

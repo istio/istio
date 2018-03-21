@@ -70,10 +70,6 @@ func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []str
 		if !valid {
 			return fmt.Errorf("the requestor (%v) is not registered", requestor)
 		}
-		// add the requestedIDs to the registry
-		for _, requestedID := range requestedIDs {
-			authZ.reg.AddMapping(requestedID, requestedID)
-		}
 		return nil
 	}
 

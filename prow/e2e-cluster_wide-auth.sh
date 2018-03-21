@@ -29,10 +29,6 @@ set -u
 set -x
 
 ROOT=$(cd $(dirname $0)/..; pwd)
-source "${ROOT}/prow/cluster_lib.sh"
-
-trap delete_cluster EXIT
-create_cluster 'cluster-wide-auth'
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
-${ROOT}/prow/e2e-suite-rbac-auth.sh --cluster_wide "$@"
+${ROOT}/prow/e2e-suite.sh --test_vm --auth_enable --cluster_wide --with_mixer_validator "$@"

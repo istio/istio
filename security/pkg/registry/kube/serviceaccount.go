@@ -26,7 +26,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 )
 
@@ -75,19 +76,26 @@ func (c *ServiceAccountController) Run(stopCh chan struct{}) {
 
 func getSpiffeID(sa *v1.ServiceAccount) string {
 	// borrowed from security/pkg/pki/ca/controller/secret.go:generateKeyAndCert()
-	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", ca.URIScheme, sa.GetNamespace(), sa.GetName())
+	return fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, sa.GetNamespace(), sa.GetName())
 }
 
 func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {
 	sa := obj.(*v1.ServiceAccount)
 	id := getSpiffeID(sa)
-	c.reg.AddMapping(id, id)
+	err := c.reg.AddMapping(id, id)
+	if err != nil {
+		log.Errorf("cannot add mapping %q -> %q to registry: %s", id, id, err.Error())
+	}
 }
 
 func (c *ServiceAccountController) serviceAccountDeleted(obj interface{}) {
 	sa := obj.(*v1.ServiceAccount)
 	id := getSpiffeID(sa)
-	c.reg.DeleteMapping(id, id)
+	err := c.reg.DeleteMapping(id, id)
+	if err != nil {
+		log.Errorf("cannot delete mapping %q to %q from registry: %s", id, id, err.Error())
+	}
+
 }
 
 func (c *ServiceAccountController) serviceAccountUpdated(oldObj, newObj interface{}) {
@@ -102,7 +110,7 @@ func (c *ServiceAccountController) serviceAccountUpdated(oldObj, newObj interfac
 	if oldSa.GetName() != newSa.GetName() || oldSa.GetNamespace() != newSa.GetNamespace() {
 		oldID := getSpiffeID(oldSa)
 		newID := getSpiffeID(newSa)
-		c.reg.DeleteMapping(oldID, oldID)
-		c.reg.AddMapping(newID, newID)
+		_ = c.reg.DeleteMapping(oldID, oldID)
+		_ = c.reg.AddMapping(newID, newID)
 	}
 }

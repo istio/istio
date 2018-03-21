@@ -19,7 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
@@ -38,7 +37,7 @@ func TestCompiler_SingleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := descriptor.NewFinder(test.Conf())
+			finder := expr.NewFinder(test.Conf())
 
 			fns := runtime.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -95,7 +94,7 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := descriptor.NewFinder(test.Conf())
+			finder := expr.NewFinder(test.Conf())
 
 			fns := runtime.ExternFunctionMetadata
 			if test.Fns != nil {
@@ -151,10 +150,7 @@ func doEval(test ilt.TestInfo, p *il.Program, fnID uint32) error {
 
 	i := interpreter.New(p, externs)
 	v, err := i.EvalFnID(fnID, b)
-	if e := test.CheckEvaluationResult(v.AsInterface(), err); e != nil {
-		return e
-	}
-	return nil
+	return test.CheckEvaluationResult(v.AsInterface(), err)
 }
 
 func TestCompile(t *testing.T) {
@@ -169,7 +165,7 @@ func TestCompile(t *testing.T) {
 		name := fmt.Sprintf("%d '%s'", i, test.TestName())
 		t.Run(name, func(tt *testing.T) {
 
-			finder := descriptor.NewFinder(test.Conf())
+			finder := expr.NewFinder(test.Conf())
 
 			fns := runtime.ExternFunctionMetadata
 			if test.Fns != nil {

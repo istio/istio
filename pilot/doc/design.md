@@ -10,8 +10,8 @@ Istio Pilot services model introduces the concept of a service version, a finer-
 ## Configuration model
 
 The overview of the configuration flow in Istio Pilot is
-[here](configuration-flow.md). The schema for specifying routing rules can
-be found [here](https://github.com/istio/api/blob/master/proxy/v1/config).
+[here](https://istio.io/docs/reference/config/traffic-rules/). The schema for specifying routing rules can
+be found [here](https://github.com/istio/api/blob/master/routing/v1alpha1/route_rule.proto).
 Istio configuration is backed by a distributed key-value store. Istio Pilot components subscribe to change events in the configuration store to enforce live configuration updates.
 
 ## Proxy controller

@@ -16,7 +16,6 @@ package api
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -28,7 +27,6 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
@@ -81,40 +79,6 @@ func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerp
 	}
 }
 
-// compatBag implements compatibility between destination.* and target.* attributes.
-type compatBag struct {
-	parent attribute.Bag
-}
-
-func (c *compatBag) DebugString() string {
-	return c.parent.DebugString()
-}
-
-// if a destination.* attribute is missing, check the corresponding target.* attribute.
-func (c *compatBag) Get(name string) (v interface{}, found bool) {
-	v, found = c.parent.Get(name)
-	if found {
-		return
-	}
-	if !strings.HasPrefix(name, "destination.") {
-		return
-	}
-	compatAttr := strings.Replace(name, "destination.", "target.", 1)
-	v, found = c.parent.Get(compatAttr)
-	if found {
-		log.Warna("Deprecated attribute found: ", compatAttr)
-	}
-	return
-}
-
-func (c *compatBag) Names() []string {
-	return c.parent.Names()
-}
-
-func (c *compatBag) Done() {
-	c.parent.Done()
-}
-
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
 	// TODO: this code doesn't distinguish between RPC failures when communicating with adapters and
@@ -123,42 +87,35 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	//       request was denied? This will need to be addressed in the new adapter model. In the meantime,
 	//       RPC failure is treated as a semantic denial.
 
-	requestBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+	log.Debug("Dispatching Preprocess Check")
 
 	globalWordCount := int(req.GlobalWordCount)
 
-	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
-	compatReqBag := &compatBag{requestBag}
-	preprocResponseBag := attribute.GetMutableBag(nil)
+	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+	checkBag := attribute.GetMutableBag(protoBag)
 
-	log.Debuga("Dispatching Preprocess Check")
-
-	mutableBag := attribute.GetMutableBag(requestBag)
 	var out rpc.Status
-	if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
+	if err := s.dispatcher.Preprocess(legacyCtx, protoBag, checkBag); err != nil {
 		out = status.WithError(err)
 	}
-	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-	}
-
-	compatRespBag := &compatBag{mutableBag}
 
 	if !status.IsOK(out) {
 		log.Errora("Preprocess Check returned with: ", status.String(out))
-		requestBag.Done()
-		preprocResponseBag.Done()
+		protoBag.Done()
+		checkBag.Done()
 		return nil, makeGRPCError(out)
 	}
 
 	if log.DebugEnabled() {
 		log.Debuga("Preprocess Check returned with: ", status.String(out))
 		log.Debug("Dispatching to main adapters after running processors")
-		log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+		log.Debuga("Attribute Bag: \n", checkBag)
 		log.Debug("Dispatching Check")
 	}
 
-	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
+	snap := protoBag.SnapshotReferencedAttributes()
+
+	cr, err := s.dispatcher.Check(legacyCtx, checkBag)
 	if err != nil {
 		out = status.WithError(err)
 	}
@@ -175,7 +132,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			ValidDuration:        cr.ValidDuration,
 			ValidUseCount:        cr.ValidUseCount,
 			Status:               out,
-			ReferencedAttributes: requestBag.GetReferencedAttributes(s.globalDict, globalWordCount),
+			ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, globalWordCount),
 		},
 	}
 
@@ -184,7 +141,6 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	} else {
 		log.Errora("Check returned with error: ", status.String(out))
 	}
-	requestBag.ClearReferencedAttributes()
 
 	if status.IsOK(resp.Precondition.Status) && len(req.Quotas) > 0 {
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
@@ -195,7 +151,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		//          use a different protoBag for each individual goroutine
 		//          such that we can get valid usage info for individual attributes.
 		for name, param := range req.Quotas {
-			qma := &aspect.QuotaMethodArgs{
+			qma := &runtime.QuotaMethodArgs{
 				Quota:           name,
 				Amount:          param.Amount,
 				DeduplicationID: req.DeduplicationId + name,
@@ -203,11 +159,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			}
 			var err error
 
-			qr, err = quota(legacyCtx, s.dispatcher, compatRespBag, qma)
+			// restore to the post-APA state
+			protoBag.ResetReferencedAttributes(snap)
+
+			qr, err = quota(legacyCtx, s.dispatcher, checkBag, qma)
 			// if quota check fails, set status for the entire request and stop processing.
 			if err != nil {
 				resp.Precondition.Status = status.WithError(err)
-				requestBag.ClearReferencedAttributes()
 				break
 			}
 
@@ -220,20 +178,19 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				}
 			}
 
-			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
+			qr.ReferencedAttributes = protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = *qr
-			requestBag.ClearReferencedAttributes()
 		}
 	}
 
-	requestBag.Done()
-	preprocResponseBag.Done()
+	checkBag.Done()
+	protoBag.Done()
 
 	return resp, nil
 }
 
 func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*mixerpb.CheckResponse_QuotaResult, error) {
+	qma *runtime.QuotaMethodArgs) (*mixerpb.CheckResponse_QuotaResult, error) {
 	if d == nil {
 		return nil, nil
 	}
@@ -274,10 +231,9 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	}
 
 	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
-	requestBag := attribute.GetMutableBag(protoBag)
-	compatReqBag := &compatBag{requestBag}
-	mutableBag := attribute.GetMutableBag(requestBag)
-	preprocResponseBag := attribute.GetMutableBag(nil)
+	accumBag := attribute.GetMutableBag(protoBag)
+	reportBag := attribute.GetMutableBag(accumBag)
+
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
 		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
@@ -285,7 +241,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
 		if i > 0 {
-			err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
+			err = accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
 			if err != nil {
 				msg := "Request could not be processed due to invalid attributes."
 				log.Errora(msg, "\n", err)
@@ -297,14 +253,10 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		log.Debug("Dispatching Preprocess")
 		var out rpc.Status
-		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
+		if err = s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
 			out = status.WithError(err)
 		}
-		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-		}
 
-		compatRespBag := &compatBag{mutableBag}
 		if !status.IsOK(out) {
 			log.Errora("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
@@ -315,11 +267,12 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		if log.DebugEnabled() {
 			log.Debuga("Preprocess returned with: ", status.String(out))
-			log.Debug("Dispatching to main adapters after running processors")
-			log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+			log.Debug("Dispatching to main adapters after running preprocessors")
+			log.Debuga("Attribute Bag: \n", reportBag)
 			log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
 		}
-		err = s.dispatcher.Report(legacyCtx, compatRespBag)
+
+		err = s.dispatcher.Report(legacyCtx, reportBag)
 		if err != nil {
 			out = status.WithError(err)
 			log.Warnf("Report returned %v", err)
@@ -339,11 +292,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		span.LogFields(otlog.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
-		preprocResponseBag.Reset()
+		reportBag.Reset()
 	}
 
-	preprocResponseBag.Done()
-	requestBag.Done()
+	reportBag.Done()
+	accumBag.Done()
 	protoBag.Done()
 
 	if err != nil {

@@ -18,14 +18,11 @@ import (
 	"flag"
 	"path/filepath"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
-var useInitializer = flag.Bool("use_initializer", false, "Use the initializer instead of kube-inject for transparent proxy injection")
+var useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
 
 const (
 	kubeInjectPrefix = "KubeInject"
@@ -79,7 +76,7 @@ func (am *AppManager) deploy(a *App) error {
 		return err
 	}
 	finalYaml := a.AppYaml
-	if a.KubeInject && !*useInitializer {
+	if a.KubeInject && !*useAutomaticInjection {
 		var err error
 		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {
@@ -108,7 +105,7 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	return nil
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}

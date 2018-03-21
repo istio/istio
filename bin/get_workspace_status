@@ -16,30 +16,14 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-function get_branch() {
-    local branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    if [[ "${branch}" == 'HEAD' ]]; then
-      branch="$(git show-ref | grep ${BUILD_GIT_REVISION}  \
-        | grep -oP "refs/remotes/.*/\K.*" | grep -v -i head)" \
-        || branch=''
-    fi
-    if [[ -n "${branch}" ]]; then
-      echo "${branch}"
-    else
-      echo 'unknown'
-    fi
-}
-
 BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null)
 if [[  $? == 0 ]]; then
-    BRANCH="$(get_branch)"
     git diff-index --quiet HEAD
     if [[  $? != 0 ]]; then
         BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
     fi
 else
     BUILD_GIT_REVISION=unknown
-    BRANCH=unknown
 fi
 
 # Check for local changes
@@ -62,14 +46,15 @@ elif [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-# used by pilot/istioctl/security version package
-echo buildAppVersion    "${VERSION}"
+DOCKER_HUB="docker.io/istio"
+if [[ -n ${ISTIO_DOCKER_HUB} ]]; then
+  DOCKER_HUB="${ISTIO_DOCKER_HUB}"
+fi
+
+# used by pkg/version
+echo buildVersion       "${VERSION}"
 echo buildGitRevision   "${BUILD_GIT_REVISION}"
-echo buildGitBranch     "${BRANCH}"
 echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
-
-# used by mixer/broker version package
-echo "buildVersion ${VERSION}"
-echo "buildStatus ${tree_status}"
-echo "buildID $(TZ=UTC git log --pretty="%cd-%h" --date=short-local  -n 1)"
+echo buildDockerHub     "${DOCKER_HUB}"
+echo buildStatus        "${tree_status}"

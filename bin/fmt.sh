@@ -19,8 +19,9 @@ else
 fi
 
 PKGS=${PKGS:-"."}
-
-GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)
+if [[ -z ${GO_FILES} ]];then
+  GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)
+fi
 
 UX=$(uname)
 

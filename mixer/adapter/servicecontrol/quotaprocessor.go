@@ -182,21 +182,21 @@ func (p *quotaImpl) ProcessQuota(ctx context.Context,
 
 	if p.env.Logger().VerbosityLevel(logDebug) {
 		if requestDetail, err := toFormattedJSON(request); err == nil {
-			p.env.Logger().Infof("Quota request :%v", string(requestDetail))
+			p.env.Logger().Infof("Quota request :%v", requestDetail)
 		}
 	}
 
 	response, err := p.client.AllocateQuota(
 		p.serviceSetting.GoogleServiceName, request)
 	if err != nil {
-		p.env.Logger().Errorf("allocate quota failed: %v", err)
+		err = p.env.Logger().Errorf("allocate quota failed: %v", err)
 		return createQuotaResult(status.WithError(err),
 			quotaDuration, 0), err
 	}
 
 	if p.env.Logger().VerbosityLevel(logDebug) {
 		if responseDetail, err := toFormattedJSON(response); err == nil {
-			p.env.Logger().Infof("response :%v", string(responseDetail))
+			p.env.Logger().Infof("response :%v", responseDetail)
 		}
 	}
 

@@ -24,7 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/pkg/log"
@@ -54,7 +54,7 @@ type resolver struct {
 	evaluator expr.Evaluator
 
 	// identityAttribute defines which configuration scopes apply to a request.
-	// default: target.service
+	// default: destination.service
 	// The value of this attribute is expected to be a hostname of form "svc.$ns.suffix"
 	identityAttribute string
 
@@ -106,7 +106,7 @@ const (
 // Resolve resolves the in memory configuration to a set of actions based on request attributes.
 // Resolution is performed in the following order
 // 1. Check rules from the defaultConfigNamespace -- these rules always apply
-// 2. Check rules from the target.service namespace
+// 2. Check rules from the destination.service namespace
 func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety) (ra Actions, err error) {
 	nselected := 0
 	target := "unknown"

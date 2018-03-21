@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"text/template"
@@ -29,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	"istio.io/api/mixer/v1/config/descriptor"
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -42,29 +43,33 @@ type Generator struct {
 }
 
 const (
-	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
+	fullGoNameOfValueTypePkgName = "istio_policy_v1beta1."
+	strInt64                     = "int64"
+	strString                    = "string"
+	strBool                      = "bool"
+	strFloat64                   = "float64"
 )
 
 // TODO share the code between this generator and the interfacegen code generator.
 var primitiveToValueType = map[string]string{
-	"string":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
-	"bool":                 fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
-	"int64":                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
-	"float64":              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
-	"map[string]string":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING_MAP.String(),
-	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
-	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
-	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DNS_NAME.String(),
-	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.EMAIL_ADDRESS.String(),
+	strString:              fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING.String(),
+	strBool:                fullGoNameOfValueTypePkgName + istio_policy_v1beta1.BOOL.String(),
+	strInt64:               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.INT64.String(),
+	strFloat64:             fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DOUBLE.String(),
+	"map[string]string":    fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING_MAP.String(),
+	"net.IP":               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.IP_ADDRESS.String(),
+	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_policy_v1beta1.URI.String(),
+	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DNS_NAME.String(),
+	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.EMAIL_ADDRESS.String(),
 
-	"time.Duration": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DURATION.String(),
-	"time.Time":     fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.TIMESTAMP.String(),
+	"time.Duration": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DURATION.String(),
+	"time.Time":     fullGoNameOfValueTypePkgName + istio_policy_v1beta1.TIMESTAMP.String(),
 }
 
 var aliasTypes = map[string]string{
-	"adapter.DNSName":      "string",
-	"adapter.EmailAddress": "string",
-	"adapter.URI":          "string",
+	"adapter.DNSName":      strString,
+	"adapter.EmailAddress": strString,
+	"adapter.URI":          strString,
 	"net.IP":               "[]uint8",
 }
 
@@ -86,12 +91,20 @@ const templateName = "Template"
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 func (g *Generator) Generate(fdsFiles map[string]string) error {
+	return g.generateInternal(fdsFiles, tmplPkg.BootstrapTemplate, modelgen.Create)
+}
+
+func (g *Generator) generateInternal(fdsFiles map[string]string,
+	tmplContent string,
+	createModel func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error)) error {
 	imprts := make([]string, 0)
 	tmpl, err := template.New("MixerBootstrap").Funcs(
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[strings.Replace(goType.Name, " ", "", -1)]
-
+			},
+			"getUnspecifiedValueType": func() string {
+				return fullGoNameOfValueTypePkgName + istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED.String()
 			},
 			"isAliasType": func(goType string) bool {
 				_, found := aliasTypes[goType]
@@ -99,6 +112,13 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			},
 			"getAliasType": func(goType string) string {
 				return aliasTypes[goType]
+			},
+			"isAliasTypeSkipIp": func(goType string) bool {
+				if "net.IP" == goType {
+					return false
+				}
+				_, found := aliasTypes[goType]
+				return found
 			},
 			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
@@ -144,7 +164,84 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			"getBuildFnName": func(typeName string) string {
 				return "Build" + typeName
 			},
-		}).Parse(tmplPkg.InterfaceTemplate)
+			"getMessageBuilderName": func(m modelgen.Model, target interface{}) string {
+				// Generate and return the name that will be used as the name of the struct that will be used
+				// to build an instance and/or sub-message of an instance.
+				// The struct will be initialized based on an instance parameter, and can be used to
+				// efficiently construct instances during runtime.
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "builder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				default:
+					panic("unknown type in getMessageBuilderName" + reflect.TypeOf(target).String())
+				}
+			},
+			"getNewMessageBuilderFnName": func(m modelgen.Model, target interface{}) string {
+				// Generate and return the name of the function that will return a new builder struct
+				// for this particular message. The function initializes the builder struct based on the
+				// instance parameters and returns.
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				default:
+					panic("unknown type in getNewMessageBuilderFnName:" + reflect.TypeOf(target).String())
+				}
+			},
+			"builderFieldName": func(f modelgen.FieldInfo) string {
+				// Returns the name of the field on the builder struct that will hold compiled.Expressions
+				// or sub-builders for this particular field of the of the instance.
+				return "bld" + f.GoName
+			},
+			"isPrimitiveType": func(goType modelgen.TypeInfo) bool {
+				// Returns whether the given type is a primitive value, for evaluation purposes.
+				// Primitives are: bool, int64, float64, and string.
+				switch goType.Name {
+				case strString, strBool, strInt64, strFloat64:
+					return true
+				default:
+					return false
+				}
+			},
+			"getEvalMethod": func(goType modelgen.TypeInfo) string {
+				// Returns the name of the evaluation method that should be called on a compiled expression
+				// for a given target type.
+				switch goType.Name {
+				case strString:
+					return "EvaluateString"
+				case strBool:
+					return "EvaluateBoolean"
+				case strInt64:
+					return "EvaluateInteger"
+				case strFloat64:
+					return "EvaluateDouble"
+				default:
+					return "Evaluate"
+				}
+			},
+			"getLocalVar": func(goType modelgen.TypeInfo) string {
+				// Returns the name of the local variable to assign to when evaluating a compiled expression.
+				switch goType.Name {
+				case strString:
+					return "vString"
+				case strBool:
+					return "vBool"
+				case strInt64:
+					return "vInt"
+				case strFloat64:
+					return "vDouble"
+				default:
+					return "vIface"
+				}
+			},
+		}).Parse(tmplContent)
 
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
@@ -164,14 +261,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
 		}
 
-		var parser *modelgen.FileDescriptorSetParser
-		parser, err = modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
-		if err != nil {
-			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
-		}
+		parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
 
 		var model *modelgen.Model
-		if model, err = modelgen.Create(parser); err != nil {
+		if model, err = createModel(parser); err != nil {
 			return err
 		}
 
@@ -189,7 +282,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	bytesWithImpts := bytes.Replace(buf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
 	fmtd, err := format.Source(bytesWithImpts)
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, buf.String())
+		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, string(bytesWithImpts))
 	}
 
 	imports.LocalPrefix = "istio.io"
@@ -205,13 +298,11 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	}
 	defer func() { _ = f.Close() }() // nolint: gas
 	if _, err = f.Write(imptd); err != nil {
-		_ = f.Close()           // nolint: gas
 		_ = os.Remove(f.Name()) // nolint: gas
 		return err
 	}
 	return nil
 }
-
 func getParentDirName(filePath string) string {
 	return filepath.Base(filepath.Dir(filePath))
 }

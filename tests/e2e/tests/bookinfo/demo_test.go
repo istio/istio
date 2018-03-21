@@ -27,8 +27,6 @@ import (
 	"testing"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -37,21 +35,24 @@ import (
 )
 
 const (
-	u1                       = "normal-user"
-	u2                       = "test-user"
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml        = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	modelDir                 = "tests/apps/bookinfo/output"
-	rulesDir                 = "samples/bookinfo/kube"
-	allRule                  = "route-rule-all-v1.yaml"
-	delayRule                = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                = "route-rule-reviews-50-v3.yaml"
-	testRule                 = "route-rule-reviews-test-v2.yaml"
-	testDbRule               = "route-rule-ratings-db.yaml"
-	testMysqlRule            = "route-rule-ratings-mysql.yaml"
+	u1                                 = "normal-user"
+	u2                                 = "test-user"
+	bookinfoYaml                       = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml              = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml           = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml                     = "samples/bookinfo/kube/bookinfo-db.yaml"
+	bookinfoMysqlYaml                  = "samples/bookinfo/kube/bookinfo-mysql.yaml"
+	bookinfoDetailsExternalServiceYaml = "samples/bookinfo/kube/bookinfo-details-v2.yaml"
+	modelDir                           = "tests/apps/bookinfo/output"
+	rulesDir                           = "samples/bookinfo/kube"
+	allRule                            = "route-rule-all-v1.yaml"
+	delayRule                          = "route-rule-ratings-test-delay.yaml"
+	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
+	testRule                           = "route-rule-reviews-test-v2.yaml"
+	testDbRule                         = "route-rule-ratings-db.yaml"
+	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
+	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
+	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
 )
 
 var (
@@ -62,7 +63,6 @@ var (
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway  string
 	rulesDir string
 }
 
@@ -89,9 +89,9 @@ func closeResponseBody(r *http.Response) {
 }
 
 func (t *testConfig) Setup() error {
-	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
+		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -150,7 +150,11 @@ func setUpDefaultRouting() error {
 	standby := 0
 	for i := 0; i <= testRetryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
+		gateway, errGw := tc.Kube.Ingress()
+		if errGw != nil {
+			return errGw
+		}
+		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 		if err != nil {
 			log.Infof("Error talking to productpage: %s", err)
 		} else {
@@ -187,6 +191,7 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	if err != nil {
 		return -1, err
 	}
+	defer closeResponseBody(resp)
 	if resp.StatusCode != http.StatusOK {
 		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
 	}
@@ -200,12 +205,11 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
 		duration = -1
 	}
-	closeResponseBody(resp)
 	return duration, err
 }
 
 func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
+	resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 	if err != nil {
 		return -1, err
 	}
@@ -280,11 +284,11 @@ func TestVersionRouting(t *testing.T) {
 	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
-	_, err = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
+	_, err = checkRoutingResponse(u1, "v1", tc.Kube.IngressOrFail(t), v1File)
 	inspect(
 		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.gateway, v2File)
+	_, err = checkRoutingResponse(u2, "v2", tc.Kube.IngressOrFail(t), v2File)
 	inspect(
 		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
 		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
@@ -303,7 +307,7 @@ func TestFaultDelay(t *testing.T) {
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
-			u2, "v1-timeout", tc.gateway,
+			u2, "v1-timeout", tc.Kube.IngressOrFail(t),
 			testModel)
 		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
@@ -350,7 +354,7 @@ func TestVersionMigration(t *testing.T) {
 	for i := 0; i < testRetryTimes; i++ {
 		c1, c3 := 0, 0
 		for c := 0; c < totalShot; c++ {
-			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)
+			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t)), cookies)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
 				log.Errorf("unexpected response status %d", resp.StatusCode)
@@ -410,6 +414,9 @@ func setTestConfig() error {
 		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
+		{AppYaml: util.GetResourcePath(bookinfoDetailsExternalServiceYaml),
+			KubeInject: true,
+		},
 	}
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
@@ -429,7 +436,7 @@ func TestDbRoutingMongo(t *testing.T) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 10)
+	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -447,7 +454,7 @@ func TestDbRoutingMysql(t *testing.T) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 10)
+	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -456,10 +463,11 @@ func TestDbRoutingMysql(t *testing.T) {
 func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
-		vm := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		inspect(err, "unable to configure VM", "VM configured correctly", t)
 		// VM setup and teardown is manual for now
 		// will be replaced with preprovision server calls
-		err := vm.Setup()
+		err = vm.Setup()
 		inspect(err, "VM setup failed", "VM setup succeeded", t)
 		_, err = vm.SecureShell("curl -v istio-pilot:8080")
 		inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)
@@ -469,6 +477,22 @@ func TestVMExtendsIstio(t *testing.T) {
 		err = vm.Teardown()
 		inspect(err, "VM teardown failed", "VM teardown succeeded", t)
 	}
+}
+
+func TestExternalDetailsService(t *testing.T) {
+	var err error
+	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
+	inspect(applyRules(rules), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(rules), "failed to delete rules", "", t)
+	}()
+
+	isbnFetchedFromExternalService := "0486424618"
+
+	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), isbnFetchedFromExternalService, 1)
+	inspect(
+		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
+		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
 }
 
 func TestMain(m *testing.M) {

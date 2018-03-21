@@ -51,6 +51,6 @@ func TestWorkerPool(t *testing.T) {
 		}
 
 		// make sure the pool can be shutdown cleanly
-		gp.Close()
+		_ = gp.Close()
 	}
 }

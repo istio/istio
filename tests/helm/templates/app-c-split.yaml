@@ -1,0 +1,159 @@
+# Service with traffic split.
+apiVersion: v1
+kind: Service
+metadata:
+  name: c
+  labels:
+    app: c
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  - port: 8080
+    targetPort: 8080
+    name: http-two
+  - port: 90
+    targetPort: 90
+    name: tcp
+  - port: 9090
+    targetPort: 9090
+    name: https
+  - port: 70
+    targetPort: 70
+    name: http2-example
+  - port: 7070
+    targetPort: 7070
+    name: grpc
+  selector:
+    app: c
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: c-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: c
+        version: v1
+    spec:
+      containers:
+      - name: app
+        image: {{.Values.testHub}}/app:{{.Values.testTag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port
+        - "80"
+        - --port
+        - "8080"
+        - --port
+        - "90"
+        - --port
+        - "9090"
+        - --grpc
+        - "70"
+        - --grpc
+        - "7070"
+        - --port
+        - "10090"
+        - --port
+        - "19090"
+{{if .Values.healthCheck}}
+        - --port
+        - "3333"
+{{end}}
+        - --version
+        - "v1"
+        ports:
+        - containerPort: 80
+        - containerPort: 8080
+        - containerPort: 90
+        - containerPort: 9090
+        - containerPort: 10090
+        - containerPort: 19090
+{{if .Values.healthCheck}}
+        - name: tcp-health-port
+          containerPort: 3333
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3333
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+{{end}}
+---
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: c-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: c
+        version: v2
+    spec:
+      containers:
+      - name: app
+        image: {{.Values.testHub}}/app:{{.Values.testTag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port
+        - "80"
+        - --port
+        - "8080"
+        - --port
+        - "90"
+        - --port
+        - "9090"
+        - --grpc
+        - "70"
+        - --grpc
+        - "7070"
+        - --port
+        - "10090"
+        - --port
+        - "19090"
+{{if .Values.healthCheck}}
+        - --port
+        - "3333"
+{{end}}
+        - --version
+        - "v2"
+        ports:
+        - containerPort: 80
+        - containerPort: 8080
+        - containerPort: 90
+        - containerPort: 9090
+        - containerPort: 10090
+        - containerPort: 19090
+{{if .Values.healthCheck}}
+        - name: tcp-health-port
+          containerPort: 3333
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3333
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+{{end}}
+---

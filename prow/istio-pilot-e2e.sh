@@ -29,31 +29,34 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI:-}" == 'bootstrap' ]; then
-  export USER=Prow
+# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
+# for existing resources types
+RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+OWNER='istio-pilot-e2e'
+INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio
-
-  # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_PULL_SHA}"
-
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
-fi
-
+source "${ROOT}/prow/lib.sh"
+source "${ROOT}/prow/mason_lib.sh"
 source "${ROOT}/prow/cluster_lib.sh"
 
-trap delete_cluster EXIT
-create_cluster 'e2e-pilot'
+function cleanup() {
+  mason_cleanup
+  cat "${FILE_LOG}"
+}
 
-ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
+setup_and_export_git_sha
+
+trap cleanup EXIT
+get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+setup_cluster
+
 HUB="gcr.io/istio-testing"
 
 cd ${GOPATH}/src/istio.io/istio
-./bin/init.sh
-make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false -use-initializer -use-admission-webhook=false"
+
+# Run tests with auth disabled
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=false"
+
+# Run tests with auth enabled
+make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=true"

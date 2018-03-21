@@ -20,8 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +30,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 /* #nosec: disable gas linter */
@@ -53,14 +51,24 @@ const (
 
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
+	recommendedMinGracePeriodRatio = 0.2
+	recommendedMaxGracePeriodRatio = 0.8
+
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
+
+	// The number of retries when requesting to create secret.
+	secretCreationRetry = 3
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca   ca.CertificateAuthority
-	core corev1.CoreV1Interface
+	ca      ca.CertificateAuthority
+	certTTL time.Duration
+	core    corev1.CoreV1Interface
+	// Length of the grace period for the certificate rotation.
+	gracePeriodRatio float32
+	minGracePeriod   time.Duration
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -72,12 +80,23 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface,
-	namespace string) *SecretController {
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+	core corev1.CoreV1Interface, namespace string) (*SecretController, error) {
+
+	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
+		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
+	}
+	if gracePeriodRatio < recommendedMinGracePeriodRatio || gracePeriodRatio > recommendedMaxGracePeriodRatio {
+		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
+			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
+	}
 
 	c := &SecretController{
-		ca:   ca,
-		core: core,
+		ca:               ca,
+		certTTL:          certTTL,
+		gracePeriodRatio: gracePeriodRatio,
+		minGracePeriod:   minGracePeriod,
+		core:             core,
 	}
 
 	saLW := &cache.ListWatch{
@@ -112,7 +131,7 @@ func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface
 			UpdateFunc: c.scrtUpdated,
 		})
 
-	return c
+	return c, nil
 }
 
 // Run starts the SecretController until a value is sent to stopCh.
@@ -185,15 +204,27 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 		return
 	}
-	rootCert := sc.ca.GetRootCertificate()
+	_, _, _, rootCert := sc.ca.GetCAKeyCertBundle().GetAll()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
 		RootCertID:   rootCert,
 	}
-	_, err = sc.core.Secrets(saNamespace).Create(secret)
+
+	// We retry several times when create secret to mitigate transient network failures.
+	for i := 0; i < secretCreationRetry; i++ {
+		_, err = sc.core.Secrets(saNamespace).Create(secret)
+		if err == nil {
+			break
+		} else {
+			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		}
+		time.Sleep(time.Second)
+	}
+
 	if err != nil {
-		log.Errorf("Failed to create secret (error: %s)", err)
+		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
+			saName, err, secretCreationRetry)
 		return
 	}
 
@@ -226,18 +257,18 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", ca.URIScheme, saNamespace, saName)
-	options := ca.CertOptions{
+	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
+	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
 	}
 
-	csrPEM, keyPEM, err := ca.GenCSR(options)
+	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	certPEM, err := sc.ca.Sign(csrPEM)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -253,7 +284,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	certBytes := scrt.Data[CertChainID]
-	cert, err := pki.ParsePemEncodedCertificate(certBytes)
+	cert, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
 		// TODO: we should refresh secret in this case since the secret contains an
 		// invalid cert.
@@ -261,14 +292,23 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	ttl := time.Until(cert.NotAfter)
-	rootCertificate := sc.ca.GetRootCertificate()
+	certLifeTimeLeft := time.Until(cert.NotAfter)
+	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
+	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
+	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
+	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
+	if gracePeriod < sc.minGracePeriod {
+		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
+			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
+		gracePeriod = sc.minGracePeriod
+	}
+	_, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAll()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 

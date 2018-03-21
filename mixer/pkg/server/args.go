@@ -19,10 +19,12 @@ import (
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -49,17 +51,12 @@ type Args struct {
 	// Maximum number of entries in the expression cache
 	ExpressionEvalCacheSize int
 
-	// Port to use for Mixer's gRPC API
-	APIPort uint16
-
-	// Port to use for exposing mixer self-monitoring information
-	MonitoringPort uint16
-
-	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
-	SingleThreaded bool
-
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
-	ConfigStore2URL string
+	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
+	ConfigStoreURL string
+
+	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
+	ConfigStore store.Store
 
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
@@ -74,24 +71,40 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Supplies a string to use for service configuration, overrides ConfigStoreURL
-	ServiceConfig string
-
-	// Supplies a string to use for global configuration, overrides ConfigStoreURL
-	GlobalConfig string
-
-	// Enables gRPC-level tracing
-	EnableGRPCTracing bool
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbeOptions *probe.Options
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbeOptions *probe.Options
+
+	// Port to use for Mixer's gRPC API
+	APIPort uint16
+
+	// Port to use for exposing mixer self-monitoring information
+	MonitoringPort uint16
+
+	// Enable profiling via web interface host:port/debug/pprof
+	EnableProfiling bool
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
+
+	// Enables gRPC-level tracing
+	EnableGRPCTracing bool
+
+	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
+	SingleThreaded bool
 }
 
-// NewArgs allocates an Args struct initialized with Mixer's default configuration.
-func NewArgs() *Args {
+// DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
+func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
 		MonitoringPort:                9093,
@@ -103,8 +116,12 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		LoggingOptions:                log.NewOptions(),
-		TracingOptions:                tracing.NewOptions(),
+		UseNewRuntime:                 true,
+		LoggingOptions:                log.DefaultOptions(),
+		TracingOptions:                tracing.DefaultOptions(),
+		LivenessProbeOptions:          &probe.Options{},
+		ReadinessProbeOptions:         &probe.Options{},
+		EnableProfiling:               true,
 	}
 }
 
@@ -126,21 +143,24 @@ func (a *Args) validate() error {
 
 // String produces a stringified version of the arguments for debugging.
 func (a *Args) String() string {
-	var b bytes.Buffer
+	buf := &bytes.Buffer{}
 
-	b.WriteString(fmt.Sprint("MaxMessageSize: ", a.MaxMessageSize, "\n"))
-	b.WriteString(fmt.Sprint("MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n"))
-	b.WriteString(fmt.Sprint("APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
-	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
-	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
-	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
-	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
-	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
-	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
-	return b.String()
+	fmt.Fprint(buf, "MaxMessageSize: ", a.MaxMessageSize, "\n")
+	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
+	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n")
+	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
+	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
+	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
+	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
+	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
+	fmt.Fprint(buf, "UseNewRuntime: ", a.UseNewRuntime, "\n")
+	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
+	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
+
+	return buf.String()
 }
