@@ -286,7 +286,7 @@ func upgradeSidecars() error {
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 300*time.Second) {
 		return fmt.Errorf("can't get all pods running")
 	}
 	// TODO: Check sidecar version.

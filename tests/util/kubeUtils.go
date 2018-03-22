@@ -277,11 +277,11 @@ func GetPodStatus(n, pod string) string {
 
 // CheckPodsRunning return if all pods in a namespace are in "Running" status
 // Also check container status to be running.
-func CheckPodsRunning(n string) (ready bool) {
+func CheckPodsRunningWithMaxDuration(n string, maxDuration time.Duration) (ready bool) {
 	retry := Retrier{
 		BaseDelay:   1 * time.Second,
 		MaxDelay:    30 * time.Second,
-		MaxDuration: 90 * time.Second,
+		MaxDuration: maxDuration,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
@@ -310,6 +310,10 @@ func CheckPodsRunning(n string) (ready bool) {
 	}
 	log.Info("Get all pods running!")
 	return true
+}
+
+func CheckPodsRunning(n string) (ready bool) {
+	return CheckPodsRunningWithMaxDuration(n, 90*time.Second)
 }
 
 // CheckDeployment gets status of a deployment from a namespace
