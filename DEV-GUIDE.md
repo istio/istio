@@ -101,13 +101,6 @@ to the cluster created in GKE.
   gcloud container clusters get-credentials NAME --zone=ZONE
   ```
 
-- Make sure you are using static client certificates before fetching cluster
-credentials:
-
-```shell
-  gcloud config set container/use_client_certificate True
-  ```
-
 #### Additional notes for Minikube
 
 Minikube version >= v0.22.3 is required for proper certificate
