@@ -12,7 +12,7 @@
          "stat_prefix": "grpc",
          "generate_request_id": false,
          "tracing": {
-           "operation_name": "ingress"
+           "operation_name": "egress"
          },
          "route_config": {
            "virtual_hosts":[

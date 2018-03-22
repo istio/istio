@@ -89,6 +89,28 @@ spec:
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile
         - /etc/istio/proxy/envoy_mixer.json
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --serviceCluster
+        - istio-mixer
+        command:
+        - /usr/local/bin/mixer_bootstrap.sh
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs

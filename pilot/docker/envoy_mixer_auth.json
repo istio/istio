@@ -10,7 +10,7 @@
          "config": {
            "codec_type": "http2",
            "stat_prefix": "grpc",
-           "generate_request_id": true,
+           "generate_request_id": false,
            "tracing": {
              "operation_name": "egress"
            },
@@ -174,7 +174,6 @@
       }
     ]
   },
-  "statsd_udp_ip_address": "127.0.0.1:9125",
   "tracing": {
     "http": {
       "driver": {

@@ -61,6 +61,7 @@ const (
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
+	srcLabel          = "source_service"
 	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
@@ -728,6 +729,55 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
+}
+
+func TestMixerReportingToMixer(t *testing.T) {
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// ensure that some traffic has gone through mesh successfully
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		fatalf(t, "Test app setup failure: %v", err)
+	}
+
+	log.Info("Successfully sent request(s) to productpage app through ingress.")
+	allowPrometheusSync()
+
+	t.Logf("Validating metrics with 'istio_mixer' have been generated... ")
+	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, srcLabel, fqdn("istio-mixer"))
+	t.Logf("Prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-mixer' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	mixerPod, err := podID("istio=mixer")
+	if err != nil {
+		t.Fatalf("Could not retrieve Mixer pod: %v", err)
+	}
+
+	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "/istio.mixer.v1.Mixer/Check" -e "/istio.mixer.v1.Mixer/Report" `, tc.Kube.Namespace, mixerPod)
+	if err != nil {
+		t.Fatalf("Error retrieving Mixer logs: %v", err)
+	}
+	gotLines := strings.Count(logs, "\n")
+	if gotLines < 4 {
+		t.Errorf("Expected at least 4 lines of Mixer-specific access logs, got %d", gotLines)
+	}
+
 }
 
 func allowRuleSync() {
