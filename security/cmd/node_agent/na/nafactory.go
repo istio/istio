@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"cloud.google.com/go/compute/metadata"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/platform"
@@ -43,8 +41,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
-	env := DetermineEnv(cfg)
-	pc, err := platform.NewClient(env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
 		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, err
@@ -63,16 +60,4 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	na.secretServer = secretServer
 	return na, nil
-}
-
-// DetermineEnv choose the right environment. If the env is specified in cfg.Env,
-// then we will use it. Otherwise nodeagent will detect the platform for you.
-func DetermineEnv(cfg *Config) string {
-	if cfg.CAClientConfig.Env != "unspecified" {
-		return cfg.CAClientConfig.Env
-	}
-	if metadata.OnGCE() {
-		return "gcp"
-	}
-	return "onprem"
 }

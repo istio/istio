@@ -55,6 +55,15 @@ func TestNewClient(t *testing.T) {
 			expectedErr:   "",
 			expectedType:  "aws",
 		},
+		"unspecified test": {
+			platform:      "unspecified",
+			rootCertFile:  "testdata/root-cert-good.pem",
+			keyFile:       "testdata/key-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
+			expectedType:  "onprem",
+		},
 		"invalid test": {
 			platform:    "invalid",
 			expectedErr: "invalid env invalid specified",

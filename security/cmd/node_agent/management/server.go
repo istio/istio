@@ -55,8 +55,7 @@ func New(cfg *na.Config) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
-	env := na.DetermineEnv(cfg)
-	pc, err := platform.NewClient(env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
 		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to pc init %v", err)
