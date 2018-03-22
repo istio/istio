@@ -23,10 +23,10 @@
     },
     "cds_config": {
       "api_config_source": {
-        "api_type": "REST_LEGACY",
+        "api_type": "GRPC",
         "refresh_delay": {{ .refresh_delay }},
         "cluster_names": [
-          "rds"
+          "xds-grpc"
         ]
       }
     },
