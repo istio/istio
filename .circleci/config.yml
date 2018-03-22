@@ -620,7 +620,7 @@ workflows:
   periodic:
     triggers:
        - schedule:
-           cron: "20 1,4,7,10,13,16,19,22 * * *"
+           cron: "20 22 * * *"
            filters:
              branches:
                only:
