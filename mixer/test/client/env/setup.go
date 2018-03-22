@@ -28,18 +28,18 @@ import (
 
 // TestSetup store data for a test.
 type TestSetup struct {
-	t     *testing.T
-	epoch int
-	mfConf      *MixerFilterConf
-	ports *Ports
+	t      *testing.T
+	epoch  int
+	mfConf *MixerFilterConf
+	ports  *Ports
 
-	envoy       *Envoy
-	mixer       *MixerServer
-	backend     *HTTPServer
-	testName    uint16
-	stress      bool
-	faultInject bool
-	noMixer     bool
+	envoy         *Envoy
+	mixer         *MixerServer
+	backend       *HTTPServer
+	testName      uint16
+	stress        bool
+	faultInject   bool
+	noMixer       bool
 	mfConfVersion string
 }
 
@@ -53,10 +53,10 @@ const MixerFilterConfigV2 = "\"v2\": "
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
-		t:        t,
+		t:             t,
 		mfConf:        GetDefaultMixerFilterConf(),
-		ports:    NewPorts(name),
-		testName: name,
+		ports:         NewPorts(name),
+		testName:      name,
 		mfConfVersion: MixerFilterConfigV2,
 	}
 }
