@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -64,7 +63,6 @@ type CdsConnection struct {
 
 // clusters aggregate a DiscoveryResponse for pushing.
 func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse {
-	version := strconv.Itoa(version)
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
 	clAssignmentRes, _ := types.MarshalAny(clAssignment)
 
@@ -76,8 +74,8 @@ func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
-		VersionInfo: version,
-		Nonce:       version + "-" + time.Now().String(),
+		VersionInfo: versionInfo(),
+		Nonce:       nonce(),
 	}
 
 	response := v1alpha3.BuildClusters(s.env, *con.modelNode)
@@ -101,6 +99,9 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
+	// true if the stream received the initial discovery request.
+	initialRequestReceived := false
+
 	con := &CdsConnection{
 		pushChannel: make(chan bool, 1),
 		PeerAddr:    peerAddr,
@@ -114,7 +115,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		for {
 			req, err := stream.Recv()
 			if err != nil {
-				log.Errorf("CDS close for client %s %q terminated with errors %v",
+				log.Errorf("CDS: close for client %s %q terminated with errors %v",
 					node, peerAddr, err)
 
 				s.removeCdsCon(node, con)
@@ -149,17 +150,17 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			if discReq.ResponseNonce != "" {
+			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if cdsDebug {
-					log.Infof("CDS: ACK %s %s", node, discReq.VersionInfo)
+					log.Infof("CDS: ACK %v", discReq.String())
 				}
 				continue
 			}
+			initialRequestReceived = true
 			// Initial request
 			if cdsDebug {
-				log.Infof("CDS REQ %s %vraw: %s ",
-					node, peerAddr, discReq.String())
+				log.Infof("CDS: REQ %s %v raw: %s ", node, peerAddr, discReq.String())
 			}
 
 		case <-con.pushChannel:
@@ -168,18 +169,19 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		response := con.clusters(s)
 		err := stream.Send(response)
 		if err != nil {
+			log.Warnf("CDS: Send failure, closing grpc %v", err)
 			return err
 		}
 
 		if cdsDebug {
-			log.Infof("CDS RES for %s %q, Response: \n%s\n",
+			log.Infof("CDS: PUSH for %s %q, Response: \n%s\n",
 				node, peerAddr, response.String())
 		}
 	}
 }
 
-// CdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
-func CdsPushAll() {
+// cdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+func cdsPushAll() {
 	if cdsDebug {
 		log.Infoa("CDS cache reset")
 	}
@@ -189,7 +191,6 @@ func CdsPushAll() {
 	for k, v := range cdsConnections {
 		tmpMap[k] = v
 	}
-	version++
 	cdsConnectionsMux.Unlock()
 
 	for _, cdsCon := range tmpMap {
@@ -205,7 +206,7 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if req.Form.Get("push") != "" {
-		CdsPushAll()
+		cdsPushAll()
 	}
 	data, err := json.Marshal(cdsConnections)
 	if err != nil {

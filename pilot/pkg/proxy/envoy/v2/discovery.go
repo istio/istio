@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"sync"
 )
 
 var (
@@ -30,6 +31,10 @@ var (
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 	responseTickDuration    = time.Second * 15
+
+	versionMutex sync.Mutex
+	// version is update by registry events.
+	version         = time.Now()
 )
 
 const (
@@ -74,6 +79,32 @@ func periodicRefresh() {
 	ticker := time.NewTicker(responseTickDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		EdsPushAll()
+		PushAll()
 	}
+}
+
+// PushAll implements old style invalidation, generated when any rule or endpoint changes.
+// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
+// to the model ConfigStorageCache and Controller.
+func PushAll() {
+	versionMutex.Lock()
+	version = time.Now()
+	versionMutex.Unlock()
+
+	cdsPushAll()
+
+	// TODO: rename to XdsLegacyPushAll
+	edsPushAll() // we want endpoints ready first
+
+	ldsPushAll()
+}
+
+func nonce() string {
+	return time.Now().String()
+}
+
+func versionInfo() string {
+	versionMutex.Lock()
+	defer versionMutex.Unlock()
+	return version.String()
 }

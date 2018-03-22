@@ -71,19 +71,20 @@ type LdsConnection struct {
 // StreamListeners implements the DiscoveryServer interface.
 func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService_StreamListenersServer) error {
 	log.Info("StreamListeners")
-	ticker := time.NewTicker(responseTickDuration)
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := unknownPeerAddressStr
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
-	defer ticker.Stop()
 	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
-	initialRequest := true
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	var nodeID string
 	node := model.Proxy{}
+
+	// true if the stream received the initial discovery request.
+	initialRequestReceived := false
+
 	con := &LdsConnection{
 		PushChannel:   make(chan struct{}, 1),
 		PeerAddr:      peerAddr,
@@ -119,34 +120,39 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			if err != nil {
 				return err
 			}
-			if !initialRequest {
-				log.Debugf("LDS: ACK from Envoy for client %q has version %q and Nonce %q for request", discReq.GetVersionInfo(), discReq.GetResponseNonce())
+			if initialRequestReceived {
+				if (ldsDebug) {
+					log.Infof("LDS: ACK %v", discReq.String())
+				}
 				continue
 			}
+			initialRequestReceived = true
 			node.ID = discReq.Node.Id
 			node.Type = nt.Type
 
 			nodeID = nt.ID
 			addLdsCon(nodeID, con)
-			log.Infof("LDS: StreamListeners2 %v %s %s", peerAddr, nt.ID, discReq.String())
-
-		case <-ticker.C:
-			if initialRequest {
-				// Ignore ticker events until the very first request is processed.
-				continue
+			if (ldsDebug) {
+				log.Infof("LDS: REQ %v %s %s", peerAddr, nt.ID, discReq.String())
 			}
 		case <-con.PushChannel:
 		}
 
 		response, err := LdsDiscoveryResponse(s.env, node)
 		if err != nil {
+			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err
 		}
 		err = stream.Send(response)
 		if err != nil {
+			log.Warnf("LDS: Send failure, closing grpc %v", err)
 			return err
 		}
-		initialRequest = false
+		if ldsDebug {
+			log.Infof("LDS: PUSH for %s %q, Response: \n%s\n",
+				node, peerAddr, response.String())
+		}
+
 	}
 }
 
@@ -163,7 +169,6 @@ func ldsPushAll() {
 	for k, v := range ldsClients {
 		tmpMap[k] = v
 	}
-	version++
 	ldsClientsMutex.RUnlock()
 
 	for _, client := range tmpMap {
@@ -220,7 +225,11 @@ func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.Disc
 		return nil, err
 	}
 	log.Infof("LDS: %s %s %s: \n%v", node.ID, node.IPAddress, node.Type, ls)
-	resp := &xdsapi.DiscoveryResponse{TypeUrl: ldsType}
+	resp := &xdsapi.DiscoveryResponse{
+		TypeUrl: ldsType,
+		VersionInfo: versionInfo(),
+		Nonce: nonce(),
+		}
 	for _, ll := range ls {
 		lr, _ := types.MarshalAny(ll)
 		resp.Resources = append(resp.Resources, *lr)
