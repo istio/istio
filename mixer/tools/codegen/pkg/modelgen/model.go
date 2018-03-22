@@ -296,7 +296,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		if templateDescriptorProto != nil {
 			diags = append(diags, createError(fd.GetName(), unknownLine,
 				"Proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
-				fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name))
+				fd.GetName(), templateDescriptorProto.GetName(), tmpl.E_TemplateVariety.Name))
 			continue
 		}
 
@@ -338,10 +338,6 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
 		m.VarietyName = (*(tmplVariety.(*tmpl.TemplateVariety))).String()
-	} else {
-		// This func should only get called for FileDescriptor that has this attribute,
-		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateVariety.Name)
 	}
 
 	// For file level comments, comments from multiple locations are composed.
@@ -444,36 +440,33 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 			keyField, valField := d.Field[0], d.Field[1]
 
 			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField, valueTypeAllowed)
-			if err != nil {
+			if err != nil || protoKeyType.Name != "string" {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
+
 			protoValType, goValType, err := getTypeNameRec(g, valField, valueTypeAllowed)
 			if err != nil {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
 
-			if protoKeyType.Name == "string" {
-				return TypeInfo{
-						Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
-						IsMap:    true,
-						MapKey:   &protoKeyType,
-						MapValue: &protoValType,
-						Import:   protoValType.Import,
-					},
-					TypeInfo{
-						Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
-						IsMap:    true,
-						MapKey:   &goKeyType,
-						MapValue: &goValType,
-						Import:   goValType.Import,
-					},
-					nil
-			}
+			return TypeInfo{
+					Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
+					IsMap:    true,
+					MapKey:   &protoKeyType,
+					MapValue: &protoValType,
+					Import:   protoValType.Import,
+				},
+				TypeInfo{
+					Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
+					IsMap:    true,
+					MapKey:   &goKeyType,
+					MapValue: &goValType,
+					Import:   goValType.Import,
+				},
+				nil
 		} else {
 			return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
 		}
-	default:
-		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 	}
 	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 }
