@@ -23,10 +23,9 @@ import (
 
 var (
 	deregisterCmd = &cobra.Command{
-		Use:              "deregister <svcname> <ip>",
-		Short:            "De-registers a service instance",
-		Args:             cobra.MinimumNArgs(2),
-		PersistentPreRun: getRealKubeConfig,
+		Use:   "deregister <svcname> <ip>",
+		Short: "De-registers a service instance",
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]
@@ -36,7 +35,8 @@ var (
 			if err != nil {
 				return err
 			}
-			return kube.DeRegisterEndpoint(client, namespace, svcName, ip)
+			ns, err := handleNamespaces(namespace)
+			return kube.DeRegisterEndpoint(client, ns, svcName, ip)
 		},
 	}
 )
