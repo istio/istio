@@ -214,8 +214,8 @@ func Test503sDuringChanges(t *testing.T) {
 	// check for any non 200s
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
-			QPS:        8,
-			Duration:   20 * time.Second,
+			QPS:        24, // 3 per second per connection
+			Duration:   30 * time.Second,
 			NumThreads: 8,
 		},
 	}
@@ -244,7 +244,7 @@ func Test503sWithBadClusters(t *testing.T) {
 	}()
 	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
 	// run at a low/moderate QPS for a while while changing the routing rules,
-	// check for any non 200s
+	// check for limited number of errors
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        8,
