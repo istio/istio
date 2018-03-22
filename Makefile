@@ -185,9 +185,16 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
 	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
 
+# Ensure expected GOPATH setup
+.PHONY: check-tree
+check-tree:
+	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
+       echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. ; \
+       exit 1; fi
+
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 # Will also check vendor, based on Gopkg.lock
-init: submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
+init: check-tree submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Marker for whether vendor submodule is here or not already
 GRPC_DIR:=./vendor/google.golang.org/grpc

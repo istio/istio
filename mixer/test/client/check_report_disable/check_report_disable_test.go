@@ -51,6 +51,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.ReStartEnvoy()
 
 	tag = "Check Only"
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -66,6 +67,7 @@ func TestCheckReportDisable(t *testing.T) {
 
 	// wait for 2 second to wait for envoy to come up
 	tag = "Report Only"
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

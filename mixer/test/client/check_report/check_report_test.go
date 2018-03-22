@@ -225,6 +225,7 @@ func TestCheckReportAttributes(t *testing.T) {
 	s.ReStartEnvoy()
 
 	// Issues a POST request.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
