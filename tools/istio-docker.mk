@@ -78,11 +78,7 @@ DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.t
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-# Copy the envoy images, but use standard file names (without the version) in docker
-$(ISTIO_DOCKER)/envoy: ${ISTIO_ENVOY_RELEASE_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/envoy
-$(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/envoy-debug
-
-# pilot docker images
+# pilot docker imagesDOCKER_BUILD_TOP
 
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
@@ -91,27 +87,23 @@ docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
-docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxy
-	cp $^ $(ISTIO_DOCKER)/proxy/
-ifeq ($(DEBUG_IMAGE),1)
-	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
-else
-	cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/proxy/envoy
-	time (cd $(ISTIO_DOCKER)/proxy && \
+docker.proxy: pilot/docker/Dockerfile.proxy
+	mkdir -p $(DOCKER_BUILD_TOP)/proxy
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/Dockerfile.proxy $(DOCKER_BUILD_TOP)/proxy/
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
+	time (cd $(DOCKER_BUILD_TOP)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
-endif
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxyd
-	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	cp $^ $(ISTIO_DOCKER)/proxyd/
-	time (cd $(ISTIO_DOCKER)/proxyd && \
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
+	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
@@ -119,14 +111,18 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 # all tests. Developers working on v2 are currently expected to call this manually as
 # make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
-docker.proxyv2: $(ISTIO_OUT)/envoy
+docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
-	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
-	cp $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_v2.json $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_tmpl.json
-	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+	# Not using $^ to avoid 2 copies of envoy
+	cp ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent \
+		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
+	# Use v2 as default
+	cp tools/deb/envoy_bootstrap_v2.json $(DOCKER_BUILD_TOP)/proxyv2/envoy_bootstrap_tmpl.json
+	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
+		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot

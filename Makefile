@@ -105,6 +105,12 @@ export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 
+# scratch dir for building isolated images. Please don't remove it again - using
+# ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
+# copied to the docker temp container - even if you add only a tiny file, >1G of data will
+# be copied, for each docker image.
+DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
+
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
