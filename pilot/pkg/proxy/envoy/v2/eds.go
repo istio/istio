@@ -353,18 +353,20 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if discReq.ResponseNonce != "" {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s", node, discReq.VersionInfo, con.Clusters)
+					log.Infof("EDS: ACK %s %s %s %s", node, discReq.VersionInfo, con.Clusters, discReq.String())
 				}
-				continue
+				if len(con.Clusters) > 0 {
+					continue
+				}
 			}
 			if len(con.Clusters) > 0 {
 				// Should not happen
-				log.Infof("EDS REQ repeated %s %v/%v %v raw: %s ",
+				log.Infof("EDS: REQ repeated %s %v/%v %v raw: %s ",
 					node, clusters2, con.Clusters, peerAddr, discReq.String())
 			}
 			// Initial request
 			if edsDebug {
-				log.Infof("EDS REQ %s %v %v raw: %s ",
+				log.Infof("EDS: REQ %s %v %v raw: %s ",
 					node, clusters2, peerAddr, discReq.String())
 			}
 
