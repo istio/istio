@@ -20,7 +20,30 @@
 #             e2e-suite               #
 #                                     #
 #######################################
-KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
+
+PROJECT_NAME=istio-testing
+ZONE=us-central1-f
+MACHINE_TYPE=n1-standard-4
+NUM_NODES=${NUM_NODES:-1}
+CLUSTER_NAME=
+
+IFS=';'
+VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
+unset IFS
+CLUSTER_VERSION="${VERSIONS[0]}"
+
+KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
+CLUSTER_CREATED=false
+
+function delete_cluster () {
+  if [ "${CLUSTER_CREATED}" = true ]; then
+    gcloud container clusters delete ${CLUSTER_NAME}\
+      --zone ${ZONE}\
+      --project ${PROJECT_NAME}\
+      --quiet\
+      || echo "Failed to delete cluster ${CLUSTER_NAME}"
+  fi
+}
 
 function setup_cluster() {
   kubectl create clusterrolebinding prow-cluster-admin-binding\
