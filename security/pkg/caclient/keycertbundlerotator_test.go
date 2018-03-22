@@ -40,6 +40,63 @@ func (r *fakeKeyCertRetriever) Retrieve() (newCert, certChain, privateKey []byte
 	return r.NewCert, r.CertChain, r.PrivateKey, nil
 }
 
+func TestNewKeyCertBundleRotator(t *testing.T) {
+
+	testCases := map[string]struct {
+		config      *Config
+		expectedErr string
+	}{
+		"null config": {
+			config:      nil,
+			expectedErr: "nil configuration passed",
+		},
+		"onprem env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "onprem",
+			},
+			expectedErr: "",
+		},
+		"unspecified env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "unspecified",
+			},
+			expectedErr: "",
+		},
+		"Unsupported env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "somethig-else",
+			},
+			expectedErr: "invalid env somethig-else specified",
+		},
+		"non-existing root file": {
+			config: &Config{
+				CertChainFile: "non-existing-file.pem",
+				Env:           "onprem",
+			},
+			expectedErr: "failed to initialize CAClient: failed to get identity: open non-existing-file.pem: " +
+				"no such file or directory",
+		},
+	}
+
+	for id, c := range testCases {
+		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
+
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: succeeded, error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
+		}
+	}
+}
+
 func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
 		[]byte("old_cert"), []byte("old_key"), []byte("old_certchain"), []byte("root")
@@ -127,7 +184,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		rotator := keyCertBundleRotatorImpl{
+		rotator := KeyCertBundleRotator{
 			certUtil:  tc.certutil,
 			retriever: tc.retriever,
 			keycert:   tc.keycert,
