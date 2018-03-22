@@ -37,14 +37,18 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	}
 
 	clusters = append(clusters, buildOutboundClusters(env, services)...)
-
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil
 		}
+
 		clusters = append(clusters, buildInboundClusters(instances)...)
+
+		// append cluster for JwksUri (for Jwt authentication) if necessary.
+		clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
 	// TODO add original dst cluster

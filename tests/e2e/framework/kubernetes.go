@@ -336,14 +336,20 @@ func (k *KubeInfo) deployIstio() error {
 
 	if *withMixerValidator {
 		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
-		testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
-		if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
-			log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
-			log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
-			return err
+		_, err := os.Stat(baseMixerValidatorYaml)
+		if err != nil && os.IsNotExist(err) {
+			// Some old version may not have this file.
+			log.Warnf("%s does not exist in install dir %s", mixerValidatorFile, istioInstallDir)
+		} else {
+			testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
+			if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
+				log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
+				return err
+			}
+			if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
+				log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
+				return err
+			}
 		}
 	}
 

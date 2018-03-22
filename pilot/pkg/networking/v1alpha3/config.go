@@ -67,6 +67,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
 	outboundListener bool
 	store            model.IstioConfigStore
+	authnPolicy      *authn.Policy
 }
 
 // buildSidecarListenersClusters produces a list of listeners and referenced clusters for sidecar proxies
@@ -146,6 +147,7 @@ func buildSidecarListeners(
 			direction:        traceOperation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
@@ -175,6 +177,10 @@ func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConne
 		}
 	*/
 	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]*http_conn.HttpFilter{filter}, filters...)
+	}
 
 	var rds *http_conn.HttpConnectionManager_Rds
 	if opts.rds != "" {
@@ -380,6 +386,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			direction:        operation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 		}))
 	}
 
@@ -576,6 +583,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
 		cluster := v1.BuildInboundCluster(endpoint.Port, instance.Endpoint.ServicePort.Protocol, mesh.ConnectTimeout)
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort)
 
 		var l *xdsapi.Listener
 
@@ -650,6 +659,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				direction:        http_conn.INGRESS,
 				outboundListener: false,
 				store:            config,
+				authnPolicy:      authenticationPolicy,
 			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
@@ -675,7 +685,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if l != nil {
-			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh, config, instance.Service.Hostname, servicePort)
 			mayApplyInboundAuth(l, authenticationPolicy)
 			listeners = append(listeners, l)
 		}

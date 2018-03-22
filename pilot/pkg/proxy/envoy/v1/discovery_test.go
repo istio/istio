@@ -1178,3 +1178,17 @@ func TestSeparateCheckReportClusters(t *testing.T) {
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-mixer-check-report-config.json", t)
 }
+
+func TestAuthNJwtFilter(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, authnPolicyHelloJwt, t)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-authn-jwt.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-authn-jwt.json", t)
+}

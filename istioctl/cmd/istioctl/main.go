@@ -664,6 +664,8 @@ func newClient() (*crd.Client, error) {
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
 	}, "")
 }
 
