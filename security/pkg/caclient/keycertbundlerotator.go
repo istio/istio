@@ -47,17 +47,6 @@ type keyCertBundleRotatorImpl struct {
 	stoppedMutex sync.Mutex
 }
 
-// NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
-func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, r KeyCertRetriever) KeyCertBundleRotator {
-	return &keyCertBundleRotatorImpl{
-		certUtil:  certUtil,
-		keycert:   keycert,
-		stopCh:    make(chan bool, 1),
-		stopped:   true,
-		retriever: r,
-	}
-}
-
 // Start periodically rotates the KeyCertBundle by interacting with the upstream CA.
 // It is a blocking function that should run as a go routine. Thread safe.
 func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {

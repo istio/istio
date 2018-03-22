@@ -48,7 +48,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	testCases := map[string]struct {
 		retriever   KeyCertRetriever
 		certutil    util.CertUtil
-		bundle      pkiutil.KeyCertBundle
+		keycert     pkiutil.KeyCertBundle
 		updated     bool
 		expectedErr string
 	}{
@@ -59,7 +59,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -75,7 +75,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil:    &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle:      &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
+			keycert:     &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
 			updated:     true,
 			expectedErr: "",
 		},
@@ -86,7 +86,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Hour)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -98,7 +98,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 		"CA Client error": {
 			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("error1")},
 			certutil:  &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -114,7 +114,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -127,7 +127,13 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.retriever)
+		rotator := keyCertBundleRotatorImpl{
+			certUtil:  tc.certutil,
+			retriever: tc.retriever,
+			keycert:   tc.keycert,
+			stopCh:    make(chan bool, 1),
+			stopped:   true,
+		}
 		errCh := make(chan error)
 		go rotator.Start(errCh)
 
@@ -144,7 +150,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 		}
 		rotator.Stop() // Stop the KeyCertBundleRotator anyway.
 
-		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.bundle.GetAllPem()
+		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.keycert.GetAllPem()
 		if tc.updated {
 			if !bytes.Equal(certBytes, newCert) {
 				t.Errorf("Test case [%s]: Cert bytes are different from expected value: %v VS %v.",
