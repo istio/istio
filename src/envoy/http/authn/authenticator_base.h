@@ -17,8 +17,8 @@
 
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/logger.h"
-#include "src/envoy/http/authn/context.pb.h"
 #include "src/envoy/http/authn/filter_context.h"
+#include "src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -31,7 +31,7 @@ namespace AuthN {
 class AuthenticatorBase : public Logger::Loggable<Logger::Id::filter> {
  public:
   // Callback type for individual authentication method.
-  typedef std::function<void(const Payload*, bool)> MethodDoneCallback;
+  typedef std::function<void(istio::authn::Payload*, bool)> MethodDoneCallback;
 
   // Callback type for the whole authenticator.
   typedef std::function<void(bool)> DoneCallback;

@@ -16,6 +16,8 @@
 #include "src/envoy/http/authn/origin_authenticator.h"
 #include "authentication/v1alpha1/policy.pb.h"
 
+using istio::authn::Payload;
+
 namespace iaapi = istio::authentication::v1alpha1;
 
 namespace Envoy {

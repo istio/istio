@@ -39,7 +39,7 @@ class OriginAuthenticator : public AuthenticatorBase {
       const MethodDoneCallback& callback);
 
   // Callback for runMethod.
-  void onMethodDone(const Payload* payload, bool success);
+  void onMethodDone(const istio::authn::Payload* payload, bool success);
 
  private:
   // Reference to the credential rule that the authenticator should enforce. The

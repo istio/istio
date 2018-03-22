@@ -16,10 +16,11 @@
 #include "src/envoy/http/authn/filter_context.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "src/envoy/http/authn/context.pb.h"
 #include "src/envoy/http/authn/test_utils.h"
+#include "src/istio/authn/context.pb.h"
 #include "test/test_common/utility.h"
 
+using istio::authn::Payload;
 using testing::StrictMock;
 
 namespace iaapi = istio::authentication::v1alpha1;

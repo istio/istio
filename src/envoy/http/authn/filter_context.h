@@ -18,7 +18,7 @@
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/logger.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/http/authn/context.pb.h"
+#include "src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -35,11 +35,11 @@ class FilterContext : public Logger::Loggable<Logger::Id::filter> {
 
   // Sets peer result based on authenticated payload. Input payload can be null,
   // which basically changes nothing.
-  void setPeerResult(const Payload* payload);
+  void setPeerResult(const istio::authn::Payload* payload);
 
   // Sets origin result based on authenticated payload. Input payload can be
   // null, which basically changes nothing.
-  void setOriginResult(const Payload* payload);
+  void setOriginResult(const istio::authn::Payload* payload);
 
   // Sets principal based on binding rule, and the existing peer and origin
   // result.
@@ -47,7 +47,7 @@ class FilterContext : public Logger::Loggable<Logger::Id::filter> {
       const istio::authentication::v1alpha1::CredentialRule::Binding& binding);
 
   // Returns the authentication result.
-  const Result& authenticationResult() { return result_; }
+  const istio::authn::Result& authenticationResult() { return result_; }
 
   // Accessor to headers.
   HeaderMap* headers() { return headers_; }
@@ -62,7 +62,7 @@ class FilterContext : public Logger::Loggable<Logger::Id::filter> {
   const Network::Connection* connection_;
 
   // Holds authentication attribute outputs.
-  Result result_;
+  istio::authn::Result result_;
 };
 
 }  // namespace AuthN

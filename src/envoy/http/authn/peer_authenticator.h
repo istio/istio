@@ -39,7 +39,7 @@ class PeerAuthenticator : public AuthenticatorBase {
       const MethodDoneCallback& done_callback);
 
   // Callback for runMethod.
-  void onMethodDone(const Payload* payload, bool success);
+  void onMethodDone(const istio::authn::Payload* payload, bool success);
 
  private:
   // Reference to the authentication policy that the authenticator should

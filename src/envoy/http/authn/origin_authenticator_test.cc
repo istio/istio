@@ -25,6 +25,8 @@
 
 namespace iaapi = istio::authentication::v1alpha1;
 
+using istio::authn::Payload;
+using istio::authn::Result;
 using testing::DoAll;
 using testing::MockFunction;
 using testing::NiceMock;

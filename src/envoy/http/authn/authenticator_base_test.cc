@@ -18,12 +18,13 @@
 #include "common/protobuf/protobuf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "src/envoy/http/authn/context.pb.h"
 #include "src/envoy/http/authn/test_utils.h"
+#include "src/istio/authn/context.pb.h"
 #include "test/mocks/network/mocks.h"
 #include "test/mocks/ssl/mocks.h"
 #include "test/test_common/utility.h"
 
+using istio::authn::Payload;
 using testing::NiceMock;
 using testing::Return;
 

@@ -17,7 +17,7 @@
 
 #include "common/protobuf/protobuf.h"
 #include "gmock/gmock.h"
-#include "src/envoy/http/authn/context.pb.h"
+#include "src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -25,15 +25,15 @@ namespace Istio {
 namespace AuthN {
 namespace TestUtilities {
 
-Payload CreateX509Payload(const std::string& user) {
-  Payload payload;
+istio::authn::Payload CreateX509Payload(const std::string& user) {
+  istio::authn::Payload payload;
   payload.mutable_x509()->set_user(user);
   return payload;
 }
 
-Payload CreateJwtPayload(const std::string& user,
-                         const std::string& presenter) {
-  Payload payload;
+istio::authn::Payload CreateJwtPayload(const std::string& user,
+                                       const std::string& presenter) {
+  istio::authn::Payload payload;
   payload.mutable_jwt()->set_user(user);
   if (!presenter.empty()) {
     payload.mutable_jwt()->set_presenter(presenter);
@@ -41,8 +41,8 @@ Payload CreateJwtPayload(const std::string& user,
   return payload;
 }
 
-Result AuthNResultFromString(const std::string& text) {
-  Result result;
+istio::authn::Result AuthNResultFromString(const std::string& text) {
+  istio::authn::Result result;
   EXPECT_TRUE(Protobuf::TextFormat::ParseFromString(text, &result));
   return result;
 }

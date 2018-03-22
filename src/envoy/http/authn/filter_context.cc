@@ -16,6 +16,9 @@
 #include "src/envoy/http/authn/filter_context.h"
 #include "src/envoy/utils/utils.h"
 
+using istio::authn::Payload;
+using istio::authn::Result;
+
 namespace iaapi = istio::authentication::v1alpha1;
 
 namespace Envoy {

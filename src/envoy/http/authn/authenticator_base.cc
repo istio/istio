@@ -18,6 +18,8 @@
 #include "src/envoy/http/authn/mtls_authentication.h"
 #include "src/envoy/utils/utils.h"
 
+using istio::authn::Payload;
+
 namespace iaapi = istio::authentication::v1alpha1;
 
 namespace Envoy {

@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package Envoy.Http.Istio.AuthN;
+package istio.authn;
 
 // Container to hold authenticated attributes from JWT.
 message JwtPayload {

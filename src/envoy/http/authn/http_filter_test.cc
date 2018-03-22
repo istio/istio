@@ -26,6 +26,7 @@
 
 using Envoy::Http::Istio::AuthN::AuthenticatorBase;
 using Envoy::Http::Istio::AuthN::FilterContext;
+using istio::authn::Result;
 using testing::Invoke;
 using testing::NiceMock;
 using testing::StrictMock;
