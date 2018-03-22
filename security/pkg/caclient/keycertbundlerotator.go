@@ -39,7 +39,7 @@ type KeyCertBundleRotator interface {
 
 type keyCertBundleRotatorImpl struct {
 	// TODO: Support multiple KeyCertBundles.
-	certUtil util.CertUtil
+	certUtil     util.CertUtil
 	keycert      pkiutil.KeyCertBundle
 	stopCh       chan bool
 	stopped      bool
@@ -50,7 +50,7 @@ type keyCertBundleRotatorImpl struct {
 // NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
 func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, r KeyCertRetriever) KeyCertBundleRotator {
 	return &keyCertBundleRotatorImpl{
-		certUtil: certUtil,
+		certUtil:  certUtil,
 		keycert:   keycert,
 		stopCh:    make(chan bool, 1),
 		stopped:   true,
