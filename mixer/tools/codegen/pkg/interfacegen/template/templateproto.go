@@ -41,6 +41,7 @@ import "mixer/adapter/model/v1beta1/quota.proto";
 $$additional_imports$$
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = {{.VarietyName}};
+option (istio.mixer.adapter.model.v1beta1.template_name) = "{{.TemplateName}}";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;

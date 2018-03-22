@@ -149,17 +149,10 @@ func (r *registry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata,
 		return nil, err
 	}
 	var tmplDesc *descriptor.FileDescriptorProto
-	if tmplDesc, err = getTmplFileDesc(fds.File); err != nil {
+	var tmplName string
+	if tmplName, tmplDesc, err = getTmplFileDesc(fds.File); err != nil {
 		return nil, err
 	}
-
-	// TODO: Fix this; Using package name to recreate template name is a hack. Ideally we should put the template name
-	// as an option when generating the augmented proto (we have already computed it during codegen).
-	var lastSeg string
-	if lastSeg, err = getLastSegment(strings.TrimSpace(tmplDesc.GetPackage())); err != nil {
-		return nil, err
-	}
-	tmplName := strings.ToLower(lastSeg)
 
 	// TODO: if given template is already registered, pick the one that is superset. For now just overwrite; last one wins.
 	if old := r.GetTemplate(tmplName); old != nil {
@@ -173,14 +166,14 @@ func (r *registry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata,
 }
 
 // Find the file that has the options TemplateVariety. There should only be one such file.
-func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (*descriptor.FileDescriptorProto, error) {
+func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (string, *descriptor.FileDescriptorProto, error) {
 	var templateDescriptorProto *descriptor.FileDescriptorProto
 	for _, fd := range fds {
 		if fd.GetOptions() == nil || !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
 			continue
 		}
 		if templateDescriptorProto != nil {
-			return nil, fmt.Errorf(
+			return "", nil, fmt.Errorf(
 				"proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
 				fd.GetName(), templateDescriptorProto.GetName(), tmpl.E_TemplateVariety.Name)
 		}
@@ -188,21 +181,27 @@ func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (*descriptor.FileDes
 	}
 
 	if templateDescriptorProto == nil {
-		return nil, fmt.Errorf("there has to be one proto file that has the extension %s", tmpl.E_TemplateVariety.Name)
+		return "", nil, fmt.Errorf("there has to be one proto file that has the extension %s", tmpl.E_TemplateVariety.Name)
 	}
 
-	return templateDescriptorProto, nil
+	var tmplName string
+	if nameExt, err := proto.GetExtension(templateDescriptorProto.GetOptions(), tmpl.E_TemplateName); err != nil {
+		return "", nil, fmt.Errorf(
+			"proto files %s is missing required template_name option", templateDescriptorProto.GetName())
+	} else if err := validateTmplName(*(nameExt.(*string))); err != nil {
+		return "", nil, err
+	} else {
+		tmplName = *(nameExt.(*string))
+	}
+
+	return tmplName, templateDescriptorProto, nil
 }
 
 var pkgLaskSegRegex = regexp.MustCompile("^[a-zA-Z]+$")
 
-func getLastSegment(pkg string) (string, error) {
-	if pkg != "" {
-		segs := strings.Split(pkg, ".")
-		last := segs[len(segs)-1]
-		if pkgLaskSegRegex.MatchString(last) {
-			return last, nil
-		}
+func validateTmplName(name string) error {
+	if !pkgLaskSegRegex.MatchString(name) {
+		return fmt.Errorf("the template name '%s' must match the regex '%s'", name, "^[a-zA-Z]+$")
 	}
-	return "", fmt.Errorf("the last segment of package name '%s' must match the regex '%s'", pkg, "^[a-zA-Z]+$")
+	return nil
 }

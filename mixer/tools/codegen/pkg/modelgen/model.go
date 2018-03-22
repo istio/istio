@@ -128,9 +128,9 @@ type (
 )
 
 // Last segment of package name after the '.' must match the following regex
-const pkgLaskSeg = "^[a-zA-Z]+$"
+const tmplNameRegex = "^[a-zA-Z]+$"
 
-var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
+var tmplNameRegexCompiled = regexp.MustCompile(tmplNameRegex)
 
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
@@ -322,10 +322,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.PackageName = strings.ToLower(strings.TrimSpace(*fd.Package))
+		m.PackageName = strings.ToLower(strings.TrimSpace(fd.GetPackage()))
 		m.GoPackageName = goPackageName(m.PackageName)
-
-		if lastSeg, err := getLastSegment(strings.TrimSpace(*fd.Package)); err != nil {
+		if lastSeg, err := getLastSegment(strings.TrimSpace(fd.GetPackage())); err != nil {
 			m.addError(fd.GetName(), fd.getLineNumber(packagePath), err.Error())
 		} else {
 			// capitalize the first character since this string is used to create function names.
@@ -334,6 +333,18 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 		}
 	} else {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
+	}
+
+	// if explicit name is provided, use it.
+	if tmplName, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateName); err == nil {
+		tmplNameHint := *(tmplName.(*string))
+		if !tmplNameRegexCompiled.MatchString(tmplNameHint) {
+			m.addError(fd.GetName(), unknownLine, "the template_name option '%s' must match the regex '%s'",
+				tmplNameHint, tmplNameRegex)
+		} else {
+			m.InterfaceName = strings.Title(tmplNameHint)
+			m.TemplateName = strings.ToLower(tmplNameHint)
+		}
 	}
 
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
@@ -347,10 +358,10 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 func getLastSegment(pkg string) (string, error) {
 	segs := strings.Split(pkg, ".")
 	last := segs[len(segs)-1]
-	if pkgLaskSegRegex.MatchString(last) {
+	if tmplNameRegexCompiled.MatchString(last) {
 		return last, nil
 	}
-	return "", fmt.Errorf("the last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
+	return "", fmt.Errorf("the last segment of package name '%s' must match the regex '%s'", pkg, tmplNameRegex)
 }
 
 func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
