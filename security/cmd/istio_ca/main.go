@@ -97,6 +97,9 @@ type cliOptions struct { // nolint: maligned
 	probeCheckInterval   time.Duration
 
 	loggingOptions *log.Options
+
+	// Whether to append DNS names to the certificate
+	appendDNSNames bool
 }
 
 var (
@@ -111,6 +114,18 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
+	}
+	// ServiceAccount/DNS pair for generating DNS names in certificates.
+	// TODO: move it to a configmap later when we have more services to support.
+	webhookServiceAccounts = []string{
+		"istio-sidecar-injector-service-account",
+		"istio-mixer-validator-service-account",
+		"istio-pilot-service-account",
+	}
+	webhookServiceNames = []string{
+		"istio-sidecar-injector",
+		"istio-mixer-validator",
+		"istio-pilot",
 	}
 )
 
@@ -183,6 +198,9 @@ func init() {
 	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", defaultProbeCheckInterval,
 		"Interval of checking the liveness of the CA.")
 
+	flags.BoolVar(&opts.appendDNSNames, "append-dns-names", true,
+		"Append DNS names to the certificates for webhook services.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -220,11 +238,22 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
+	var webhooks map[string]controller.DNSNameEntry
+	if opts.appendDNSNames {
+		webhooks = make(map[string]controller.DNSNameEntry)
+		for i, svcAccount := range webhookServiceAccounts {
+			webhooks[svcAccount] = controller.DNSNameEntry{
+				ServiceName: webhookServiceNames[i],
+				Namespace:   opts.istioCaStorageNamespace,
+			}
+		}
+	}
+
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
-		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace)
+		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("failed to create secret controller: %v", err)
 	}
