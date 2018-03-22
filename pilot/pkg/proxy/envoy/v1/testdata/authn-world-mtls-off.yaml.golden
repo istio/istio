@@ -1,6 +1,5 @@
-destinations:
+targets:
 - name: world
-  port:
-    name: "http"
+  ports:
+  -  name: "http"
 peers:
-- none: null

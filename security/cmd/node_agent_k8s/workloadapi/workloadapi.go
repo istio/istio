@@ -41,7 +41,7 @@ func (s *server) Check(ctx context.Context, request *pb.CheckRequest) (*pb.Check
 	// Get the caller's credentials from the context.
 	creds, e := wlh.CallerFromContext(ctx)
 	if !e {
-		resp := fmt.Sprint("Not able to get credentials")
+		resp := "Not able to get credentials"
 		status := &rpc.Status{Code: int32(rpc.PERMISSION_DENIED), Message: resp}
 		return &pb.CheckResponse{Status: status}, nil
 	}

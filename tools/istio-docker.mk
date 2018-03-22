@@ -88,16 +88,18 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy: tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES}
-docker.proxy: $(ISTIO_OUT)/envoy
-docker.proxy: $(ISTIO_OUT)/pilot-agent
+docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxy
 	cp $^ $(ISTIO_DOCKER)/proxy/
 ifeq ($(DEBUG_IMAGE),1)
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 else
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/proxy/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy .)
 endif
@@ -107,10 +109,24 @@ docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxyd
-	cp  ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	cp  tools/deb/envoy_bootstrap_tmpl.json ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(ISTIO_DOCKER)/proxyd/
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
+	cp $^ $(ISTIO_DOCKER)/proxyd/
 	time (cd $(ISTIO_DOCKER)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
+
+# Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
+# will scale better and have v2-specific features. Not built automatically until it passes
+# all tests. Developers working on v2 are currently expected to call this manually as
+# make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
+docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
+docker.proxyv2: $(ISTIO_OUT)/envoy
+docker.proxyv2: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
+	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
+	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
+	cp $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_v2.json $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_tmpl.json
+	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot

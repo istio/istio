@@ -3,18 +3,17 @@
 # Sets up a cluster for perf testing - GCP/GKE
 #   tools/setup_perf_cluster.sh
 # Notes:
+# * See README.md
 # * Make sure istioctl in your path is the one matching your release/crd/...
 # * You need to update istio-auth.yaml or run from a release directory:
-# For instance in ~/tmp/istio-0.3.0/ run
-#   ln -s ~/go/src/istio.io/istio/tools .
-# then
 #   source tools/setup_perf_cluster.sh
 #   setup_all
 # (inside google you may need to rerun setup_vm_firewall multiple times)
 #
 # This can be used as a script or sourced and functions called interactively
 #
-
+# The script must be run/sourced from the parent of the tools/ directory
+#
 PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
@@ -59,9 +58,15 @@ function update_gcp_opts() {
 }
 
 function Execute() {
-  echo "### Running:" "$@"
+  echo "### Running:" "$@" 1>&2
   "$@"
 }
+
+function ExecuteEval() {
+  echo "### Running:" "$@" 1>&2
+  eval "$@"
+}
+
 
 function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
@@ -88,36 +93,35 @@ function delete_vm() {
 }
 
 function run_on_vm() {
-  echo "*** Remote run: \"$1\""
+  echo "*** Remote run: \"$1\"" 1>&2
   Execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
 }
 
 function setup_vm() {
-  Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
+  Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags https-server
   run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.9-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
-  Execute gcloud compute --project=$PROJECT firewall-rules create default-allow-http --network=default --action=ALLOW --rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server || true
-  Execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
+  Execute gcloud compute --project=$PROJECT firewall-rules create default-allow-https --network=default --action=ALLOW --rules=tcp:443 --source-ranges=0.0.0.0/0 --target-tags=https-server || true
 }
 
 function delete_vm_firewall() {
-  Execute gcloud compute --project=$PROJECT firewall-rules delete default-allow-http -q
-  Execute gcloud compute --project $PROJECT firewall-rules delete allow-8080 -q
+  Execute gcloud compute --project=$PROJECT firewall-rules delete default-allow-https -q
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go install -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
-  run_on_vm 'pkill fortio; nohup fortio server -http-port 80 > ~/fortio.log 2>&1 &'
+  run_on_vm 'pkill fortio; nohup fortio server -http-port 443 > ~/fortio.log 2>&1 &'
 }
 
 function get_vm_ip() {
   VM_IP=$(gcloud compute instances describe $VM_NAME $GCP_OPTS |grep natIP|awk -F": " '{print $2}')
-  echo "+++ VM Ip is $VM_IP - visit http://$VM_IP/fortio/"
+  VM_URL="http://$VM_IP:443/fortio/"
+  echo "+++ VM Ip is $VM_IP - visit (http on port 443 is not a typo:) $VM_URL"
 }
 
 # assumes run from istio/ (or release) directory
@@ -217,16 +221,29 @@ function get_istio_ingress_ip() {
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
-function run_fortio_test3() {
-  echo "Using istio ingress:"
-  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
+function run_fortio_test_istio_ingress1() {
+  echo "Using istio ingress to fortio1:"
+  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee ing-to-f1.json \| grep ActualQPS
 }
+function run_fortio_test_istio_ingress2() {
+  echo "Using istio ingress to fortio2:"
+  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee ing-to-f2.json \| grep ActualQPS
+}
+function run_fortio_test_istio_1_2() {
+  echo "Using istio f1 to f2:"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee f1-to-f2.json \| grep ActualQPS
+}
+function run_fortio_test_istio_2_1() {
+  echo "Using istio f2 to f1:"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee f2-to-f1.json \| grep ActualQPS
+}
+
 
 # Run canonical perf tests.
 # The following parameters can be supplied:
@@ -297,7 +314,6 @@ function run_canonical_perf_test() {
             ;;
     esac
 
-    PERCENTILES="50%2C+75%2C+90%2C+99%2C+99.9"
     GRANULARITY="0.001"
 
     LABELS="${LABEL}+${DRIVER}+${TARGET}+Q${QPS}+T${DURATION}+C${CLIENTS}"
@@ -311,7 +327,7 @@ function run_canonical_perf_test() {
 
     echo "Running '${LABELS}' and storing results in ${OUT_FILE}"
 
-    URL="${DRIVER_URL}/?labels=${LABELS}&url=${TARGET_URL}&qps=${QPS}&t=${DURATION}&c=${CLIENTS}&p=${PERCENTILES}&r=${GRANULARITY}&json=on&save=on&load=Start"
+    URL="${DRIVER_URL}/?labels=${LABELS}&url=${TARGET_URL}&qps=${QPS}&t=${DURATION}&c=${CLIENTS}&r=${GRANULARITY}&json=on&save=on&load=Start"
     #echo "URL: ${URL}"
 
     curl -s "${URL}" -o "${OUT_FILE}"
@@ -369,9 +385,14 @@ function get_ips() {
 function run_tests() {
   update_gcp_opts
   get_ips
-  run_fortio_test1
-  run_fortio_test2
-  run_fortio_test3
+#  run_fortio_test1
+#  run_fortio_test2
+  run_fortio_test_istio_ingress1
+  run_fortio_test_istio_ingress2
+  run_fortio_test_istio_1_2
+  run_fortio_test_istio_2_1
+  echo "Graph the results:"
+  fortio report &
 }
 
 
@@ -400,5 +421,5 @@ if [[ $SOURCED == 0 ]]; then
 #setup_vm_firewall
 #get_ips
 #install_istio_svc
-  delete_all
+#delete_all
 fi

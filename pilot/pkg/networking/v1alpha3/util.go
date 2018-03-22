@@ -16,13 +16,15 @@ package v1alpha3
 
 import (
 	"sort"
-	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
-	oldjson "encoding/json"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/pkg/log"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -37,16 +39,6 @@ func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address.String() < out[j].Address.String() })
 	return out
-}
-
-// mustMarshalToString marshals i to a JSON string. It panics if i cannot be marshaled.
-// TODO(mostrowski): this should be removed once v2 Mixer proto is finalized.
-func mustMarshalToString(i interface{}) string {
-	s, err := oldjson.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	return string(s)
 }
 
 // buildAddress returns a SocketAddress with the given ip and port.
@@ -74,21 +66,22 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
-func buildHTTPFilterConfig(name, protoStr string) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name:   name,
-		Config: buildProtoStruct(name, protoStr),
+func messageToStruct(msg proto.Message) *types.Struct {
+	s, err := util.MessageToStruct(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return &types.Struct{}
 	}
+	return s
 }
 
-func buildProtoStruct(name, value string) *google_protobuf.Struct {
-	return &google_protobuf.Struct{
-		Fields: map[string]*google_protobuf.Value{
-			name: {
-				Kind: &google_protobuf.Value_StringValue{
-					StringValue: value,
-				},
-			},
-		},
+func convertDurationGogo(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
 	}
+	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
 }

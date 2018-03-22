@@ -35,6 +35,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -115,7 +117,7 @@ type EdsConnection struct {
 }
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
 	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
 	version := strconv.Itoa(version)
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
@@ -134,7 +136,7 @@ func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResp
 
 	out.Resources = make([]types.Any, 0, len(clusterNames))
 	for _, clusterName := range clusterNames {
-		clAssignmentRes := s.clusterEndpoints(clusterName)
+		clAssignmentRes := s.clusterEndpoints(ds, clusterName)
 		if clAssignmentRes != nil {
 			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
@@ -144,7 +146,7 @@ func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResp
 }
 
 // Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(clusterName string) *types.Any {
+func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, clusterName string) *types.Any {
 	c := s.getOrAddEdsCluster(clusterName)
 	if c.LoadAssignment == nil { // fresh cluster
 		updateCluster(clusterName, c)
@@ -365,7 +367,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		}
 
 		if len(con.Clusters) > 0 {
-			response := s.endpoints(con.Clusters)
+			response := s.endpoints(s.mesh, con.Clusters)
 			err := stream.Send(response)
 			if err != nil {
 				return err
@@ -387,6 +389,13 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func EdsPushAll() {
+	// TODO: rename to XdsLegacyPushAll
+	edsPushAll() // we want endpoints ready first
+
+	ldsPushAll()
+}
+
+func edsPushAll() {
 	if edsDebug {
 		log.Infoa("EDS cache reset")
 	}
@@ -409,17 +418,19 @@ func EdsPushAll() {
 	}
 }
 
-// Edsz implements a status and debug interface for EDS.
+// EDSz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func Edsz(w http.ResponseWriter, req *http.Request) {
+func EDSz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("debug") != "" {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
 	}
 	if req.Form.Get("push") != "" {
-		EdsPushAll()
+		edsPushAll()
 	}
+	edsClusterMutex.Lock()
 	data, err := json.Marshal(edsClusters)
+	edsClusterMutex.Unlock()
 	if err != nil {
 		_, _ = w.Write([]byte(err.Error()))
 		return
