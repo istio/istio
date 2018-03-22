@@ -67,7 +67,8 @@ import (
 var (
 	// It doesn't appear the logging framework has support for per-component logging, yet
 	// we need to be able to debug EDS2.
-	edsDebug = len(os.Getenv("PILOT_DEBUG_EDS")) == 0
+	// Default is enabled (not set: "" != "0")
+	edsDebug = os.Getenv("PILOT_DEBUG_EDS") != "0"
 
 	edsClusterMutex sync.Mutex
 	edsClusters     = map[string]*EdsCluster{}
@@ -331,7 +332,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				continue
 			}
 			if edsDebug {
-				log.Infof("EDS REQ %s %v %v raw: %s ", node, clusters2, peerAddr, discReq.String())
+				log.Infof("EDS: REQ %s %v %v raw: %s ", node, clusters2, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
 			initialRequestReceived = true
@@ -364,9 +365,6 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 }
 
 func edsPushAll() {
-	if edsDebug {
-		log.Infoa("EDS cache reset")
-	}
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*EdsCluster{}

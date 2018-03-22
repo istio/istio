@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	cdsDebug = len(os.Getenv("PILOT_DEBUG_CDS")) == 0
+	cdsDebug = os.Getenv("PILOT_DEBUG_CDS") != "0"
 
 	cdsConnectionsMux sync.Mutex
 
@@ -182,9 +182,6 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 
 // cdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 func cdsPushAll() {
-	if cdsDebug {
-		log.Infoa("CDS cache reset")
-	}
 	cdsConnectionsMux.Lock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*CdsConnection{}

@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	ldsDebug = len(os.Getenv("PILOT_DEBUG_LDS")) == 0
+	ldsDebug = os.Getenv("PILOT_DEBUG_LDS") != "0"
 
 	ldsClientsMutex sync.RWMutex
 	ldsClients      = map[string]*LdsConnection{}
@@ -160,9 +160,6 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func ldsPushAll() {
-	if ldsDebug {
-		log.Infoa("LDS cache reset")
-	}
 	ldsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*LdsConnection{}

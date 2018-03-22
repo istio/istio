@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"sync"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -90,6 +91,8 @@ func PushAll() {
 	versionMutex.Lock()
 	version = time.Now()
 	versionMutex.Unlock()
+
+	log.Infoa("XDS: Registry event - pushing all configs")
 
 	cdsPushAll()
 
