@@ -92,7 +92,6 @@ func TestCommand(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// FIXME: close before CompareYAML?
 			defer out.Close() // nolint: errcheck
 
 			if err := convertConfigs(readers, out); err != nil {

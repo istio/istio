@@ -22,7 +22,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func convertDestinationPolicies(configs []model.Config) []model.Config {
+// DestinationPolicies converts v1alpha1 destination policies to v1alpha3 destination rules
+func DestinationPolicies(configs []model.Config) []model.Config {
 	policies := make([]*v1alpha1.DestinationPolicy, 0)
 	for _, config := range configs {
 		if config.Type == model.DestinationPolicy.Type {

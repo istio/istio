@@ -23,7 +23,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func convertEgressRules(configs []model.Config) []model.Config {
+// EgressRules converts v1alpha1 egress rules to v1alpha3 external services
+func EgressRules(configs []model.Config) []model.Config {
 	egressRules := make([]*v1alpha1.EgressRule, 0)
 	for _, config := range configs {
 		if config.Type == model.EgressRule.Type {

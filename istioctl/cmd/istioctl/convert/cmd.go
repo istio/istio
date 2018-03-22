@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -37,8 +38,8 @@ var (
 // Command for converting v1alpha1 configs to v1alpha3
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "convert",
-		Short: "Convert configs from v1alpha1 to v1alpha3",
+		Use:   "convert-networking-config",
+		Short: "Convert networking configs from v1alpha1 to v1alpha3",
 		Long: "Converts sets of v1alpha1 configs to v1alpha3 equivalents on a best effort basis. " +
 			"The output should be considered a starting point for your v1alpha3 configs and probably " +
 			"require some minor modification. " +
@@ -49,7 +50,7 @@ func Command() *cobra.Command {
 			"This allows the command to attempt to create and merge output configs intelligently." +
 			"Output configs are given the namespace and domain of the first input config " +
 			"so it is recommended that input configs be part of the same namespace and domain.",
-		Example: "istioctl convert -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
+		Example: "istioctl experimental convert-networking-config -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")
@@ -128,9 +129,9 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	}
 
 	out := make([]model.Config, 0)
-	out = append(out, convertDestinationPolicies(configs)...)
-	out = append(out, convertRouteRules(configs)...)
-	out = append(out, convertEgressRules(configs)...)
+	out = append(out, convert.DestinationPolicies(configs)...)
+	out = append(out, convert.RouteRules(configs)...)
+	out = append(out, convert.EgressRules(configs)...)
 	// TODO: k8s ingress -> gateway?
 	// TODO: create missing destination rules/subsets?
 
@@ -138,9 +139,8 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 
 	// sanity check that the outputs are valid
 	if err := validateConfigs(out); err != nil {
-		log.Warnf("Output config(s) are invalid: %v", err)
+		return multierror.Prefix(err, "output config(s) are invalid:")
 	}
-
 	return nil
 }
 
@@ -189,7 +189,8 @@ func writeYAMLOutput(descriptor model.ConfigDescriptor, configs []model.Config, 
 	}
 }
 
-func validateConfigs(configs []model.Config) (errs error) {
+func validateConfigs(configs []model.Config) error {
+	var errs error
 	for _, config := range configs {
 		var err error
 		switch config.Type {
@@ -212,5 +213,5 @@ func validateConfigs(configs []model.Config) (errs error) {
 			errs = multierror.Append(err, errs)
 		}
 	}
-	return
+	return errs
 }

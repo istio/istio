@@ -26,7 +26,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func convertRouteRules(configs []model.Config) []model.Config {
+// RouteRules converts v1alpha1 route rules to v1alpha3 virtual services
+func RouteRules(configs []model.Config) []model.Config {
 	ruleConfigs := make([]model.Config, 0)
 	for _, config := range configs {
 		if config.Type == model.RouteRule.Type {
@@ -338,7 +339,7 @@ func convertCORSPolicy(in *v1alpha1.CorsPolicy) *v1alpha3.CorsPolicy {
 	}
 }
 
-// FIXME: domain, namespace etc?
+// TODO: domain, namespace etc?
 // convert an Istio service to a v1alpha3 host
 func convertIstioService(service *v1alpha1.IstioService) string {
 	if service.Service != "" { // Favor FQDN
