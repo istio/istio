@@ -71,7 +71,7 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 		Node: &envoy_api_v2_core1.Node{
 			Id: "sidecar~a~b~c",
 		},
-		VersionInfo: res.VersionInfo,
+		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {

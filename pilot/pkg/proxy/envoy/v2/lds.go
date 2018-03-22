@@ -121,7 +121,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 				return err
 			}
 			if initialRequestReceived {
-				if (ldsDebug) {
+				if ldsDebug {
 					log.Infof("LDS: ACK %v", discReq.String())
 				}
 				continue
@@ -132,7 +132,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 
 			nodeID = nt.ID
 			addLdsCon(nodeID, con)
-			if (ldsDebug) {
+			if ldsDebug {
 				log.Infof("LDS: REQ %v %s %s", peerAddr, nt.ID, discReq.String())
 			}
 		case <-con.PushChannel:
@@ -223,10 +223,10 @@ func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.Disc
 	}
 	log.Infof("LDS: %s %s %s: \n%v", node.ID, node.IPAddress, node.Type, ls)
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl: ldsType,
+		TypeUrl:     ldsType,
 		VersionInfo: versionInfo(),
-		Nonce: nonce(),
-		}
+		Nonce:       nonce(),
+	}
 	for _, ll := range ls {
 		lr, _ := types.MarshalAny(ll)
 		resp.Resources = append(resp.Resources, *lr)

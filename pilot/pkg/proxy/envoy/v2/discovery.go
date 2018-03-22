@@ -21,9 +21,10 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"sync"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
-	"sync"
 	"istio.io/istio/pkg/log"
 )
 
@@ -35,7 +36,7 @@ var (
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
-	version         = time.Now()
+	version = time.Now()
 )
 
 const (
