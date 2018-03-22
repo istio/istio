@@ -29,6 +29,7 @@ spec:
         imagePullPolicy: IfNotPresent
         command: ["/usr/local/bin/istio_ca"]
         args:
+          - --append-dns-names=true
           - --istio-ca-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
           - --grpc-hostname=istio-ca
@@ -36,7 +37,7 @@ spec:
           - --signing-cert=/etc/cacerts/ca-cert.pem
           - --signing-key=/etc/cacerts/ca-key.pem
           - --root-cert=/etc/cacerts/root-cert.pem
-          - --cert-chain=/etc/cacerts/cert-chain.pem
+          - --cert-chain=/etc/cacerts/cert-chain.pem          
         volumeMounts:
         - name: cacerts
           mountPath: /etc/cacerts

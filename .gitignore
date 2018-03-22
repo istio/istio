@@ -47,6 +47,7 @@ install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-sidecar-injector.yaml
 install/kubernetes/istio.yaml
+install/kubernetes/istio-all.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
 # Avoid accidental vendor changes

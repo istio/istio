@@ -44,13 +44,14 @@ spec:
         imagePullPolicy: IfNotPresent
         command: ["/usr/local/bin/istio_ca"]
         args:
+          - --append-dns-names=true
           - --istio-ca-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
           - --grpc-hostname=istio-ca
           - --self-signed-ca=true
           - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
           - --liveness-probe-interval=60s # interval for health check file update
-          - --probe-check-interval=15s    # interval for health status check
+          - --probe-check-interval=15s    # interval for health status check          
         livenessProbe:
           exec:
             command:
