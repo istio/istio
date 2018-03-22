@@ -14,7 +14,7 @@
  */
 
 #ifndef ISTIO_PREFETCH_QUOTA_PREFETCH_H_
-#define ISTTO_PREFETCH_QUOTA_PREFETCH_H_
+#define ISTIO_PREFETCH_QUOTA_PREFETCH_H_
 
 #include <chrono>
 #include <functional>
