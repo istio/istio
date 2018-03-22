@@ -80,10 +80,7 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	eval, err := evaluator.NewILEvaluator(evaluator.DefaultCacheSize)
-	if err != nil {
-		return nil, err
-	}
+	tc := evaluator.NewTypeChecker()
 	adapterInfo := map[string]*adapter.Info{
 		"listchecker": {
 			DefaultConfig: &types.Struct{},
@@ -110,7 +107,7 @@ func getValidatorForTest() (*Validator, error) {
 			},
 		},
 	}
-	v, err := New(eval, "destination.service", s, adapterInfo, templateInfo)
+	v, err := New(tc, "destination.service", s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}

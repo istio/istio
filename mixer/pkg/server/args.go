@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -47,9 +46,6 @@ type Args struct {
 
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
-
-	// Maximum number of entries in the expression cache
-	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
@@ -112,7 +108,6 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
 		AdapterWorkerPoolSize:         1024,
-		ExpressionEvalCacheSize:       evaluator.DefaultCacheSize,
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
@@ -134,10 +129,6 @@ func (a *Args) validate() error {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
-	if a.ExpressionEvalCacheSize <= 0 {
-		return fmt.Errorf("expressiion evaluation cache size must be >= 0 and <= 2^31-1, got cache size %d", a.ExpressionEvalCacheSize)
-	}
-
 	return nil
 }
 
@@ -149,7 +140,6 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
 	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n")
 	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
