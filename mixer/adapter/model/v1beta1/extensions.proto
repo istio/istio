@@ -33,7 +33,12 @@ enum TemplateVariety {
     TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR = 3;
 }
 
-// File option for the TemplateVariety.
+// File level options for the template.
 extend google.protobuf.FileOptions {
+    // Required: option for the TemplateVariety.
     TemplateVariety template_variety = 72295727;
+    // Optional: option for the template name.
+    // If not specified, the last segment of the template proto's package name is used to
+    // derive the template name.
+    string template_name = 72295888;
 }
