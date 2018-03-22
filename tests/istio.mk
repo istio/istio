@@ -89,12 +89,13 @@ e2e_upgrade: istioctl generate_yaml
 e2e_version_skew: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
+e2e_all:
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade
+
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
-e2e_all: | $(JUNIT_REPORT)
+e2e_all_junit_report: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
-	set -o pipefail; \
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+	set -o pipefail; $(MAKE) e2e_all 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 # Run the e2e tests, with auth enabled. A separate target is used for non-auth.
 e2e_pilot: istioctl generate_yaml
