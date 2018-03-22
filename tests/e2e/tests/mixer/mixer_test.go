@@ -68,6 +68,9 @@ const (
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
+
+	checkPath  = "/istio.mixer.v1.Mixer/Check"
+	reportPath = "/istio.mixer.v1.Mixer/Report"
 )
 
 type testConfig struct {
@@ -739,7 +742,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 	}
 
 	// ensure that some traffic has gone through mesh successfully
-	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+	if err = visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
 
@@ -747,7 +750,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 	allowPrometheusSync()
 
 	t.Logf("Validating metrics with 'istio_mixer' have been generated... ")
-	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, srcLabel, fqdn("istio-mixer"))
+	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-mixer"), srcLabel)
 	t.Logf("Prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -769,7 +772,8 @@ func TestMixerReportingToMixer(t *testing.T) {
 	}
 
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
-	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "/istio.mixer.v1.Mixer/Check" -e "/istio.mixer.v1.Mixer/Report" `, tc.Kube.Namespace, mixerPod)
+
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
 	if err != nil {
 		t.Fatalf("Error retrieving Mixer logs: %v", err)
 	}
