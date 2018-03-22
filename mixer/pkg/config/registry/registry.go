@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2018 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,8 +46,8 @@ type AdapterMetadata struct {
 
 // Registry to find metadata about templates and adapters
 type Registry interface {
-	GetAdapter(name string) (adapter *AdapterMetadata, found bool)
-	GetTemplate(name string) (template *TemplateMetadata, found bool)
+	GetAdapter(name string) *AdapterMetadata
+	GetTemplate(name string) *TemplateMetadata
 }
 
 // registry to ingest templates and adapters. It is single threaded.
@@ -65,7 +65,7 @@ func New(infos []adapter.Info) (Registry, error) {
 	log.Debugf("registering %#v", infos)
 
 	for _, info := range infos {
-		if old, ok := r.GetAdapter(info.Name); ok {
+		if old := r.GetAdapter(info.Name); old != nil {
 			// duplicate entry found
 			resultErr = multierror.Append(resultErr,
 				fmt.Errorf("duplicate registration for adapter '%s' : new = %v old = %v", info.Name, info, old))
@@ -79,7 +79,7 @@ func New(infos []adapter.Info) (Registry, error) {
 		}
 
 		// empty adapter name means just the template needs to be ingested.
-		if len(info.Name) != 0 {
+		if info.Name != "" {
 			r.adapters[info.Name] = &AdapterMetadata{Info: &info, SupportedTemplates: tmplNames}
 		}
 	}
@@ -92,25 +92,25 @@ func New(infos []adapter.Info) (Registry, error) {
 }
 
 // GetAdapterInfo returns a AdapterMetadata for a adapter with the given name.
-func (r *registry) GetAdapter(name string) (b *AdapterMetadata, found bool) {
+func (r *registry) GetAdapter(name string) *AdapterMetadata {
 	if bi, found := r.adapters[name]; found {
-		return bi, true
+		return bi
 	}
-	return nil, false
+	return nil
 }
 
 // GetTemplate returns a TemplateMetadata for a template with the given name.
-func (r *registry) GetTemplate(name string) (b *TemplateMetadata, found bool) {
+func (r *registry) GetTemplate(name string) *TemplateMetadata {
 	if bi, found := r.templates[name]; found {
-		return bi, true
+		return bi
 	}
 
-	return nil, false
+	return nil
 }
 
 func (r *registry) ingestTemplates(tmpls []string) ([]string, error) {
 	var resultErr error = nil
-	templates := make([]*TemplateMetadata, 0)
+	templates := make([]*TemplateMetadata, 0, len(tmpls))
 	for _, tmpl := range tmpls {
 		tmplMeta, err := r.createTemplateMetadata(tmpl)
 		if err != nil {
@@ -125,7 +125,7 @@ func (r *registry) ingestTemplates(tmpls []string) ([]string, error) {
 	}
 
 	// No errors, so we can now safely ingest the templates
-	tmplNames := make([]string, 0)
+	tmplNames := make([]string, 0, len(templates))
 	for _, tmplMeta := range templates {
 		r.templates[tmplMeta.Name] = tmplMeta
 		tmplNames = append(tmplNames, tmplMeta.Name)
@@ -162,7 +162,7 @@ func (r *registry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata,
 	tmplName := strings.ToLower(lastSeg)
 
 	// TODO: if given template is already registered, pick the one that is superset. For now just overwrite; last one wins.
-	if _, ok := r.GetTemplate(tmplName); ok {
+	if old := r.GetTemplate(tmplName); old != nil {
 		// duplicate entry found TODO: how can we make this error better ??
 		log.Errorf("duplicate registration for template '%s'; picking the last one", tmplName)
 	}
@@ -197,7 +197,7 @@ func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (*descriptor.FileDes
 var pkgLaskSegRegex = regexp.MustCompile("^[a-zA-Z]+$")
 
 func getLastSegment(pkg string) (string, error) {
-	if len(pkg) != 0 {
+	if pkg != "" {
 		segs := strings.Split(pkg, ".")
 		last := segs[len(segs)-1]
 		if pkgLaskSegRegex.MatchString(last) {
