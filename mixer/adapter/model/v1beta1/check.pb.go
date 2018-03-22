@@ -7,6 +7,7 @@
 	It is generated from these files:
 		mixer/adapter/model/v1beta1/check.proto
 		mixer/adapter/model/v1beta1/extensions.proto
+		mixer/adapter/model/v1beta1/info.proto
 		mixer/adapter/model/v1beta1/infrastructure_backend.proto
 		mixer/adapter/model/v1beta1/quota.proto
 		mixer/adapter/model/v1beta1/report.proto
@@ -14,6 +15,7 @@
 
 	It has these top-level messages:
 		CheckResult
+		Info
 		CreateSessionRequest
 		CreateSessionResponse
 		ValidateRequest

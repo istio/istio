@@ -1,0 +1,40 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.adapter.model.v1beta1;
+
+option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+
+// Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
+// out of process adapter.
+message Info {
+    // Name of the adapter. It must be RFC 1035 compatible DNS label.
+    // Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
+    // Name is used in Istio configuration, therefore it should be descriptive but short.
+    // example: denier
+    // Vendor adapters should use a vendor prefix.
+    // example: mycompany-denier
+    string name = 1;
+
+    // User-friendly description of the adapter.
+    string description = 2;
+
+    // Base64 encoded proto descriptor of all the templates the adapter wants to serve.
+    repeated string templates = 3;
+
+    // Base64 encoded proto descriptor of the adapter configuration.
+    string config = 4;
+}

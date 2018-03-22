@@ -3,7 +3,7 @@ title: Mixer Adapter Model
 overview: Definitions used to create adapters and templates
 location: https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 22
+number_of_entries: 23
 ---
 <p>This package defines the service and types used by adapter code to serve requests from Mixer.
 This package also defines the types that are used to create Mixer templates.</p>
@@ -233,6 +233,60 @@ DO NOT USE !! Under Development</p>
 <section>
 <p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
 
+</section>
+<h3 id="Info">Info</h3>
+<section>
+<p>Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
+out of process adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Info.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Name of the adapter. It must be RFC 1035 compatible DNS label.
+Regex: &ldquo;^<a href="[-a-z0-9]*[a-z0-9]">a-z</a>?$&rdquo;
+Name is used in Istio configuration, therefore it should be descriptive but short.
+example: denier
+Vendor adapters should use a vendor prefix.
+example: mycompany-denier</p>
+
+</td>
+</tr>
+<tr id="Info.description">
+<td><code>description</code></td>
+<td><code>string</code></td>
+<td>
+<p>User-friendly description of the adapter.</p>
+
+</td>
+</tr>
+<tr id="Info.templates">
+<td><code>templates</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Base64 encoded proto descriptor of all the templates the adapter wants to serve.</p>
+
+</td>
+</tr>
+<tr id="Info.config">
+<td><code>config</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the adapter configuration.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h3 id="QuotaRequest">QuotaRequest</h3>
 <section>
