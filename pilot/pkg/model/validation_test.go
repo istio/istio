@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -3012,7 +3012,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		{
 			name: "empty-with-destination",
 			in: &authn.Policy{
-				Destinations: []*networking.Destination{{
+				Targets: []*authn.TargetSelector{{
 					Name: "foo",
 				}},
 			},
@@ -3045,27 +3045,24 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		{
 			name: "Origin",
 			in: &authn.Policy{
-				CredentialRules: []*authn.CredentialRule{{
-					Binding: authn.CredentialRule_USE_ORIGIN,
-					Origins: []*authn.OriginAuthenticationMethod{{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
 							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
 						},
-					}},
-				}},
+					},
+				},
 			},
 			valid: true,
 		},
 		{
-			name: "Origin without method",
+			name: "Just binding",
 			in: &authn.Policy{
-				CredentialRules: []*authn.CredentialRule{{
-					Binding: authn.CredentialRule_USE_ORIGIN,
-				}},
+				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 			},
-			valid: false,
+			valid: true,
 		},
 	}
 	for _, c := range cases {

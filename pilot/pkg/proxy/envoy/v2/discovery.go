@@ -53,6 +53,7 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env 
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
+	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
 		periodicRefresh()
