@@ -101,11 +101,11 @@ docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 ifeq ($(DEBUG_IMAGE),1)
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 else
 	cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/proxy/envoy
 	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.proxy .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy .)
 endif
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
@@ -116,7 +116,7 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
 	cp $^ $(ISTIO_DOCKER)/proxyd/
 	time (cd $(ISTIO_DOCKER)/proxyd && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy_debug$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy_debug$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
 # will scale better and have v2-specific features. Not built automatically until it passes
@@ -130,13 +130,13 @@ docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debu
 	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
 	cp $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_v2.json $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_tmpl.json
 	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
 	cp $^ $(ISTIO_DOCKER)/pilot/
 	time (cd $(ISTIO_DOCKER)/pilot && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)pilot$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.pilot .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)pilot$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.pilot .)
 
 # Test app for pilot integration
 docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
@@ -147,10 +147,10 @@ ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
 	cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)$(HUB_IMG_DELIM)proxy_debug$(HUB_IMG_DELIM)$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
+	sed -e "s,FROM scratch,FROM $(HUB)$(HUB_IMG_DELIM)proxy_debug$(IMG_TAG_DELIM)$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER)/pilotapp && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)app$(HUB_IMG_DELIM)$(TAG) -f Dockerfile.app .)
+		docker build -t $(HUB)$(HUB_IMG_DELIM)app$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.app .)
 
 
 PILOT_DOCKER:=docker.eurekamirror \
