@@ -150,7 +150,7 @@ def compare(args):
 
             print datadiff.diff(s0, s1, fromfile=args.orig, tofile=args.new)
 
-    return -1 * (changed + len(added) + len(removed))
+    return changed + len(added) + len(removed)
 
 
 def main(args):
