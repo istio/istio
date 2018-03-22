@@ -16,6 +16,8 @@ package platform
 
 import (
 	"testing"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 func TestNewClient(t *testing.T) {
@@ -26,7 +28,6 @@ func TestNewClient(t *testing.T) {
 		certChainFile string
 		caAddr        string
 		expectedErr   string
-		expectedType  string
 	}{
 		"onprem test": {
 			platform:      "onprem",
@@ -35,7 +36,6 @@ func TestNewClient(t *testing.T) {
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "onprem",
 		},
 		"gcp test": {
 			platform:      "gcp",
@@ -44,7 +44,6 @@ func TestNewClient(t *testing.T) {
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "gcp",
 		},
 		"aws test": {
 			platform:      "aws",
@@ -53,7 +52,6 @@ func TestNewClient(t *testing.T) {
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "aws",
 		},
 		"unspecified test": {
 			platform:      "unspecified",
@@ -62,7 +60,6 @@ func TestNewClient(t *testing.T) {
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "onprem",
 		},
 		"invalid test": {
 			platform:    "invalid",
@@ -86,9 +83,17 @@ func TestNewClient(t *testing.T) {
 		}
 
 		credentialType := client.GetCredentialType()
-		if credentialType != tc.expectedType {
+		expectedType := tc.platform
+		if expectedType == "unspecified" {
+			if metadata.OnGCE() {
+				expectedType = "gcp"
+			} else {
+				expectedType = "onprem"
+			}
+		}
+		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,
-				string(tc.expectedType), string(credentialType))
+				string(expectedType), string(credentialType))
 		}
 	}
 }
