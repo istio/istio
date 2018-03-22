@@ -26,7 +26,7 @@ import (
 
 // KeyCertRetriever is the interface responsible for retrieve new key and certificate from upper CA.
 type KeyCertRetriever interface {
-	Retrieve() (newCert, certChain, privateKey []byte, err error)
+	Retrieve(opts *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
 }
 
 // KeyCertBundleRotator continuously interacts with the upstream CA to maintain the KeyCertBundle valid.
@@ -87,7 +87,12 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
-		certBytes, certChainBytes, privateKeyBytes, err := c.retriever.Retrieve()
+		co, err := c.keycert.CertOptions()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to extact CertOptions from bundle %v", err)
+			return
+		}
+		certBytes, certChainBytes, privKeyBytes, err := c.retriever.Retrieve(co)
 		if err != nil {
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
 			c.stoppedMutex.Lock()
@@ -96,7 +101,7 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
-		if err = c.keycert.VerifyAndSetAll(certBytes, privateKeyBytes, certChainBytes, rootCertBytes); err != nil {
+		if err = c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
 			c.stoppedMutex.Lock()
 			c.stopped = true

@@ -33,7 +33,7 @@ type fakeKeyCertRetriever struct {
 	Err        error
 }
 
-func (r *fakeKeyCertRetriever) Retrieve() (newCert, certChain, privateKey []byte, err error) {
+func (r *fakeKeyCertRetriever) Retrieve(_ *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error) {
 	if r.Err != nil {
 		return nil, nil, nil, r.Err
 	}
