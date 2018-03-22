@@ -37,6 +37,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 
+	"strings"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -191,7 +193,21 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	hostname, ports, labels := model.ParseServiceKey(clusterName)
+	var hostname string
+	var ports model.PortList
+	var labels model.LabelsCollection
+
+	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
+	if strings.Index(clusterName, "outbound") == 0 { //new style cluster names
+		var p *model.Port
+		var subsetName string
+		_, hostname, subsetName, p = model.ParseSubsetKey(clusterName)
+		ports = []*model.Port{p}
+		labels = edsCluster.discovery.mesh.SubsetToLabels(subsetName, hostname, "")
+	} else {
+		hostname, ports, labels = model.ParseServiceKey(clusterName)
+	}
+
 	instances, err := edsCluster.discovery.mesh.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
