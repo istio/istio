@@ -18,8 +18,11 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	authn "istio.io/api/authentication/v1alpha2"
@@ -101,18 +104,20 @@ func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) []*
 			Type:           v2.Cluster_STRICT_DNS,
 			Hosts:          []*core.Address{host},
 			ConnectTimeout: time.Duration(timeout.Seconds) * time.Second,
+			CircuitBreakers: &v2_cluster.CircuitBreakers{
+				Thresholds: []*v2_cluster.CircuitBreakers_Thresholds{
+					{
+						MaxPendingRequests: &types.UInt32Value{Value: 10000},
+						MaxRequests:        &types.UInt32Value{Value: 10000},
+					},
+				},
+			},
 		}
-		// TODO(diemtvu): add TlsContext, circuitbreaker etc.
-		// cluster.CircuitBreaker = &v1.CircuitBreaker{
-		// 	Default: v1.DefaultCBPriority{
-		// 		MaxPendingRequests: 10000,
-		// 		MaxRequests:        10000,
-		// 	},
-		// }
-		// cluster.ConnectTimeoutMs = timeout.GetSeconds() * 1000
-		// if auth.useSSL {
-		// 	cluster.SslContext = &v1.SSLContextExternal{}
-		// }
+		if auth.useSSL {
+			cluster.TlsContext = &envoy_api_v2_auth.UpstreamTlsContext{
+				CommonTlsContext: &envoy_api_v2_auth.CommonTlsContext{},
+			}
+		}
 
 		clusters = append(clusters, cluster)
 	}
