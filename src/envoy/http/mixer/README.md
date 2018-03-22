@@ -1,6 +1,14 @@
 
 This Proxy will use Envoy and talk to Mixer server. 
 
+### Notice:
+[envoy.conf.template](https://github.com/istio/proxy/blob/master/src/envoy/http/mixer/envoy.conf.template)
+and [start_envoy](https://github.com/istio/proxy/blob/master/src/envoy/http/mixer/start_envoy)
+have duplicates (with sightly modification) under 
+[https://github.com/istio/istio/tree/master/tests/integration/component/proxy](https://github.com/istio/istio/tree/master/tests/integration/component/proxy).
+Please make sure to modify both the original one and the copy together if necessary.
+
+
 ## Build Mixer server
 
 * Follow https://github.com/istio/istio/blob/master/mixer/doc/running-local-mixer.md to run a Mixer server locally. 
