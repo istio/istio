@@ -496,6 +496,7 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 
 	experimentalCmd = &cobra.Command{
+		Use: "experimental",
 		Short: "Experimental commands that may be modified or deprecated",
 	}
 )
