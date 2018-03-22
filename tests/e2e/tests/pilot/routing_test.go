@@ -88,6 +88,11 @@ func (t *routing) Run() error {
 			onFailure: func() {
 				op, err := t.Routes("a")
 				log.Infof("error: %v\n%s", err, op)
+				cfg, err := t.DumpConfig("destinationrules.networking.istio.io",
+					"virtualservices.networking.istio.io", "externalservices.networking.istio.io",
+					"policies.authentication.istio.io")
+
+				log.Infof("config: %v\n%s", err, cfg)
 			},
 		},
 		{

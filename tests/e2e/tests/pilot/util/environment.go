@@ -549,6 +549,14 @@ var (
 	codeRex    = regexp.MustCompile("StatusCode=(.*)")
 )
 
+// DumpConfig configuration in effect during test
+func (e *Environment) DumpConfig(names ...string) (string, error) {
+	cmd := fmt.Sprintf("kubectl --kubeconfig %s get %s --all-namespaces -o yaml",
+		e.Config.KubeConfig, strings.Join(names, ","))
+
+	return util.Shell(cmd)
+}
+
 // Routes gets routes from the pod or returns error
 func (e *Environment) Routes(app string) (string, error) {
 	if len(e.Apps[app]) == 0 {
