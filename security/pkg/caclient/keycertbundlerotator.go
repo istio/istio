@@ -24,6 +24,11 @@ import (
 	"istio.io/istio/security/pkg/util"
 )
 
+// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upper CA.
+type KeyCertRetriever interface {
+	Retrieve() (newCert, certChain, privateKey []byte, err error)
+}
+
 // KeyCertBundleRotator continuously interacts with the upstream CA to maintain the KeyCertBundle valid.
 type KeyCertBundleRotator interface {
 	// Start the KeyCertBundleRotator loop (blocking call).
@@ -35,21 +40,21 @@ type KeyCertBundleRotator interface {
 type keyCertBundleRotatorImpl struct {
 	// TODO: Support multiple KeyCertBundles.
 	certUtil     util.CertUtil
-	client       CAClient
 	keycert      pkiutil.KeyCertBundle
 	stopCh       chan bool
 	stopped      bool
+	retriever    KeyCertRetriever
 	stoppedMutex sync.Mutex
 }
 
 // NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
-func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, client CAClient) KeyCertBundleRotator {
+func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, r KeyCertRetriever) KeyCertBundleRotator {
 	return &keyCertBundleRotatorImpl{
-		certUtil: certUtil,
-		client:   client,
-		keycert:  keycert,
-		stopCh:   make(chan bool, 1),
-		stopped:  true,
+		certUtil:  certUtil,
+		keycert:   keycert,
+		stopCh:    make(chan bool, 1),
+		stopped:   true,
+		retriever: r,
 	}
 }
 
@@ -82,7 +87,7 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
-		certBytes, certChainBytes, privateKeyBytes, err := c.client.RetrieveNewKeyCert()
+		certBytes, certChainBytes, privateKeyBytes, err := c.retriever.Retrieve()
 		if err != nil {
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
 			c.stoppedMutex.Lock()
