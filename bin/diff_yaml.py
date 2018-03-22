@@ -76,6 +76,8 @@ def normalize_configmap(res):
 def normalize_ports(res):
     try:
         spec = res["spec"]
+        if spec is None:
+            return res
         ports = sorted(spec['ports'], key=lambda x: x["port"])
         spec['ports'] = ports
 
