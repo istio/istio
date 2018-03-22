@@ -1,10 +1,26 @@
 #!/usr/bin/env python
+#
+# Copyright 2018 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # Compare 2 multi document kubernetes yaml files
 # It ensures that order does not matter
-
-import yaml  # pyyaml
-import datadiff
+#
 import argparse
+import datadiff
+import sys
+import yaml  # pyyaml
 
 # returns fully qualified resource name of the k8s resource
 
@@ -34,36 +50,41 @@ def drop_keys(res, k1, k2):
 
 
 def normalize_configmap(res):
-    if res['kind'] != "ConfigMap":
+    try:
+        if res['kind'] != "ConfigMap":
+            return res
+
+        data = res['data']
+
+        # some times keys are yamls...
+        # so parse them
+        for k in data:
+            try:
+                op = yaml.safe_load_all(data[k])
+                data[k] = list(op)
+            except yaml.YAMLError as ex:
+                print ex
+
         return res
+    except KeyError as ke:
+        if 'kind' in str(ke) or 'data' in str(ke):
+            return res
 
-    data = res['data']
-
-    # some times keys are yamls...
-    # so parse them
-    for k in data:
-        try:
-            op = yaml.safe_load_all(data[k])
-            data[k] = list(op)
-        except Exception as ex:
-            print ex
-
-    return res
+        raise
 
 
 def normalize_ports(res):
-    spec = res.get("spec")
+    try:
+        spec = res["spec"]
+        ports = sorted(spec['ports'], key=lambda x: x["port"])
+        spec['ports'] = ports
 
-    if spec is None:
         return res
+    except KeyError as ke:
+        if 'spec' in str(ke) or 'ports' in str(ke) or 'port' in str(ke):
+            return res
 
-    if 'ports' not in spec:
-        return res
-
-    ports = sorted(spec['ports'], key=lambda x: x["port"])
-    spec['ports'] = ports
-
-    return res
+        raise
 
 
 def normalize_res(res, args):
@@ -127,7 +148,7 @@ def compare(args):
 
             print datadiff.diff(s0, s1, fromfile=args.orig, tofile=args.new)
 
-    return changed + len(added) + len(removed)
+    return -1 * (changed + len(added) + len(removed))
 
 
 def main(args):
@@ -151,8 +172,6 @@ def get_parser():
 
 
 if __name__ == "__main__":
-    import sys
-
     parser = get_parser()
     args = parser.parse_args()
     sys.exit(main(args))
