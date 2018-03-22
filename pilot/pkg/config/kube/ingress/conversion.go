@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
@@ -114,6 +114,8 @@ func createIngressRule(name, host, path, domainSuffix string,
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            model.IngressRule.Type,
+			Group:           crd.ResourceGroup(&model.IngressRule),
+			Version:         model.IngressRule.Version,
 			Name:            name,
 			Namespace:       ingress.Namespace,
 			Domain:          domainSuffix,

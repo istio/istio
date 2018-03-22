@@ -27,7 +27,7 @@ spec:
     attributes:
       source.name:
         value_type: STRING
-      target.name:
+      destination.name:
         value_type: STRING
       response.count:
         value_type: INT64
@@ -85,6 +85,17 @@ metadata:
 spec:
 `
 
+// InstanceCheck1WithSpec has a spec with expressions
+var InstanceCheck1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tcheck
+metadata:
+  name: icheck1
+  namespace: istio-system
+spec:
+  foo: attr.string
+`
+
 // InstanceHalt1 is a standard testing instance.
 var InstanceHalt1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -101,6 +112,27 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: treport
 metadata:
   name: ireport1
+  namespace: istio-system
+spec:
+`
+
+// InstanceReport1WithSpec has a spec with expressions
+var InstanceReport1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: treport
+metadata:
+  name: ireport1
+  namespace: istio-system
+spec:
+  foo: attr.string
+`
+
+// InstanceReport2 is a standard testing instance for template treport.
+var InstanceReport2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: treport
+metadata:
+  name: ireport2
   namespace: istio-system
 spec:
 `
@@ -125,6 +157,17 @@ metadata:
 spec:
 `
 
+// InstanceQuota1WithSpec has a spec with expressions
+var InstanceQuota1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tquota
+metadata:
+  name: iquota1
+  namespace: istio-system
+spec:
+  foo: attr.string
+`
+
 // InstanceAPA1 is an APA instance
 var InstanceAPA1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -133,6 +176,19 @@ metadata:
   name: iapa1
   namespace: istio-system
 spec:
+`
+
+// InstanceAPA1WithSpec has a spec with expressions
+var InstanceAPA1WithSpec = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: tapa
+metadata:
+  name: iapa1
+  namespace: istio-system
+spec:
+  foo: attr.string
+  attribute_bindings:
+    source.name: $out.generated.string | ""
 `
 
 // HandlerACheck1 is a handler of type acheck with name hcheck1.
@@ -271,7 +327,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  match: match(target.name, "foo*")
+  match: match(destination.name, "foo*")
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -286,7 +342,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  match: match(target.name, "foo*")
+  match: match(destination.name, "foo*")
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -316,7 +372,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: target.name
+  selector: destination.name
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -360,7 +416,7 @@ metadata:
   name: rcheck2
   namespace: istio-system
 spec:
-  match: target.name.startsWith("foo")
+  match: destination.name.startsWith("foo")
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -423,6 +479,21 @@ spec:
   - handler: hreport1.areport
     instances:
     - ireport1.treport.istio-system
+`
+
+// RuleReport1And2 is a standard testing instance config with name rreport1.
+var RuleReport1And2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rreport1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hreport1.areport
+    instances:
+    - ireport1.treport.istio-system
+    - ireport2.treport.istio-system
 `
 
 // RuleQuota1 is a standard testing instance config with name rquota1. It references I1 and H1.

@@ -19,8 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +38,8 @@ const (
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
+	// IstioConfigMap is used by default
+	IstioConfigMap = "istio"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
@@ -129,6 +130,12 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
+// createInformer registers handers for a specific event.
+// Current implementation queues the events in queue.go, and the handler is run with
+// some throttling.
+// Used for Service, Endpoint, Node and Pod.
+// See config/kube for CRD events.
+// See config/ingress for Ingress objects
 func (c *Controller) createInformer(
 	o runtime.Object,
 	resyncPeriod time.Duration,
@@ -471,7 +478,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 
-		log.Infof("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
+		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
 			if svc := convertService(*item, c.domainSuffix); svc != nil {
 				// TODO: we're passing an incomplete instance to the

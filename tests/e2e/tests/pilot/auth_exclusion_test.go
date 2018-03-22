@@ -23,7 +23,7 @@ import (
 )
 
 type authExclusion struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (r *authExclusion) String() string {
@@ -51,7 +51,7 @@ func (r *authExclusion) makeRequests() error {
 	funcs := make(map[string]func() tutil.Status)
 	for _, src := range srcPods {
 		for _, port := range []string{"", ":80", ":8080"} {
-			for _, domain := range []string{"", "." + r.Namespace} {
+			for _, domain := range []string{"", "." + r.Config.Namespace} {
 				name := fmt.Sprintf("Request from %s to %s%s%s", src, dst, domain, port)
 				funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 					url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)

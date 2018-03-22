@@ -21,16 +21,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
-	cfgpb "istio.io/api/mixer/v1/config"
-	configpb "istio.io/api/mixer/v1/config"
-	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cfgpb "istio.io/api/policy/v1beta1"
+	configpb "istio.io/api/policy/v1beta1"
+	dpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
+	"istio.io/istio/pkg/probe"
 )
 
 var egp = pool.NewGoroutinePool(1, true)
@@ -159,6 +161,7 @@ Instances:
 Rules:
 Attributes:
   foo: STRING
+  prefix.generated.string: STRING
 `
 	if strings.TrimSpace(expected) != strings.TrimSpace(snapshot.String()) {
 		t.Fatalf("snapshot mismatch. got:\n%v\n, wanted:\n%v\n", snapshot, expected)
@@ -210,14 +213,14 @@ func TestRuntime2_InFlightRequestsDuringConfigChange(t *testing.T) {
 			Type: store.Update,
 			Key:  store.Key{Kind: "acheck", Name: "hcheck", Namespace: "istio-system"},
 			Value: &store.Resource{
-				Spec: &empty.Empty{},
+				Spec: &types.Struct{},
 			},
 		},
 		{
 			Type: store.Update,
 			Key:  store.Key{Kind: "tcheck", Name: "icheck", Namespace: "istio-system"},
 			Value: &store.Resource{
-				Spec: &empty.Empty{},
+				Spec: &types.Struct{},
 			},
 		},
 		{
@@ -292,3 +295,63 @@ func TestRuntime2_InFlightRequestsDuringConfigChange(t *testing.T) {
 		t.Fatalf("There shouldn't be an error returned from call: %v", callErr)
 	}
 }
+
+type mockStore struct {
+	// Init method related fields
+	initCalled        bool
+	initKinds         map[string]proto.Message
+	initErrorToReturn error
+
+	// Watch method related fields
+	watchCalled          bool
+	watchChannelToReturn chan store.Event
+	watchErrorToReturn   error
+
+	// List method related fields
+	listCalled         bool
+	listResultToReturn map[store.Key]*store.Resource
+}
+
+var _ store.Store = &mockStore{}
+
+func (m *mockStore) Stop() {
+}
+
+func (m *mockStore) Init(kinds map[string]proto.Message) error {
+	m.initCalled = true
+	m.initKinds = kinds
+
+	return m.initErrorToReturn
+}
+
+// Watch creates a channel to receive the events. A store can conduct a single
+// watch channel at the same time. Multiple calls lead to an error.
+func (m *mockStore) Watch() (<-chan store.Event, error) {
+	m.watchCalled = true
+
+	return m.watchChannelToReturn, m.watchErrorToReturn
+}
+
+// Get returns a resource's spec to the key.
+func (m *mockStore) Get(key store.Key) (*store.Resource, error) {
+	return nil, nil
+}
+
+// List returns the whole mapping from key to resource specs in the store.
+func (m *mockStore) List() map[store.Key]*store.Resource {
+	m.listCalled = true
+	return m.listResultToReturn
+}
+
+func (m *mockStore) RegisterProbe(c probe.Controller, name string) {
+
+}
+
+type mockProto struct {
+}
+
+var _ proto.Message = &mockProto{}
+
+func (m *mockProto) Reset()         {}
+func (m *mockProto) String() string { return "" }
+func (m *mockProto) ProtoMessage()  {}

@@ -47,7 +47,7 @@ spec:
       containers:
       - name: mixer
         image: {{.Hub}}/mixer_debug:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 9091
         - containerPort: 9093
@@ -56,22 +56,17 @@ spec:
         args:
         - --configStoreURL=k8s://?ns={{.IstioNamespace}}
         - --configDefaultNamespace={{.IstioNamespace}}
-        - --logtostderr
-        - -v
-        - "2"
         - --log_callers
         - --log_output_level
         - debug # pilot verification required debug output
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 15004
         args:
         - proxy
         - mixer
-        - -v
-        - "{{.Verbosity}}"
         - --controlPlaneAuthPolicy
         - "{{.ControlPlaneAuthPolicy.String}}"
         - --customConfigFile
@@ -1005,14 +1000,14 @@ spec:
   attribute_bindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
-    source.ip: $out.source_pod_ip
-    source.labels: $out.source_labels
-    source.namespace: $out.source_namespace
-    source.service: $out.source_service
-    source.serviceAccount: $out.source_service_account_name
-    destination.ip: $out.destination_pod_ip
-    destination.labels: $out.destination_labels
-    destination.namespace: $out.destination_namespace
-    destination.service: $out.destination_service
-    destination.serviceAccount: $out.destination_service_account_name
+    source.ip: $out.source_pod_ip | ip("0.0.0.0")
+    source.labels: $out.source_labels | emptyStringMap()
+    source.namespace: $out.source_namespace | "default"
+    source.service: $out.source_service | "unknown"
+    source.serviceAccount: $out.source_service_account_name | "unknown"
+    destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
+    destination.labels: $out.destination_labels | emptyStringMap()
+    destination.namespace: $out.destination_namespace | "default"
+    destination.service: $out.destination_service | "unknown"
+    destination.serviceAccount: $out.destination_service_account_name | "unknown"
 ---

@@ -31,6 +31,14 @@ type attributeRef struct {
 	MapKey string
 }
 
+// ReferencedAttributeSnapshot keeps track of the attribute reference state for a mutable bag.
+// You can snapshot the referenced attributes with SnapshotReferencedAttributes and later
+// reinstall them with RestoreReferencedAttributes. Note that a snapshot can only be used
+// once, the RestoreReferencedAttributes call is destructive.
+type ReferencedAttributeSnapshot struct {
+	referencedAttrs map[attributeRef]mixerpb.ReferencedAttributes_Condition
+}
+
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type ProtoBag struct {
 	proto               *mixerpb.CompressedAttributes
@@ -144,6 +152,28 @@ func (pb *ProtoBag) ClearReferencedAttributes() {
 	for k := range pb.referencedAttrs {
 		delete(pb.referencedAttrs, k)
 	}
+}
+
+// RestoreReferencedAttributes sets the list of referenced attributes being tracked by this bag
+func (pb *ProtoBag) RestoreReferencedAttributes(snap ReferencedAttributeSnapshot) {
+	ra := make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, len(snap.referencedAttrs))
+	for k, v := range snap.referencedAttrs {
+		ra[k] = v
+	}
+	pb.referencedAttrs = ra
+}
+
+// SnapshotReferencedAttributes grabs a snapshot of the currently referenced attributes
+func (pb *ProtoBag) SnapshotReferencedAttributes() ReferencedAttributeSnapshot {
+	var snap ReferencedAttributeSnapshot
+
+	pb.referencedAttrsMutex.Lock()
+	snap.referencedAttrs = make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, len(pb.referencedAttrs))
+	for k, v := range pb.referencedAttrs {
+		snap.referencedAttrs[k] = v
+	}
+	pb.referencedAttrsMutex.Unlock()
+	return snap
 }
 
 func (pb *ProtoBag) trackMapReference(name string, key string, condition mixerpb.ReferencedAttributes_Condition) {
@@ -351,24 +381,19 @@ func (pb *ProtoBag) Done() {
 	// NOP
 }
 
-// DebugString runs through the named attributes, looks up their values,
+// String runs through the named attributes, looks up their values,
 // and prints them to a string.
-func (pb *ProtoBag) DebugString() string {
-	var buf bytes.Buffer
+func (pb *ProtoBag) String() string {
+	buf := &bytes.Buffer{}
 
 	names := pb.Names()
 	sort.Strings(names)
 
 	for _, name := range names {
 		// find the dictionary index for the given string
-		index, ok := pb.getIndex(name)
-		if !ok {
-			log.Debugf("Attribute '%s' not in either global or message dictionaries", name)
-			continue
-		}
-
+		index, _ := pb.getIndex(name)
 		if result, ok := pb.internalGet(name, index); ok {
-			buf.WriteString(fmt.Sprintf("%-30s: %v\n", name, result))
+			fmt.Fprintf(buf, "%-30s: %v\n", name, result)
 		}
 	}
 	return buf.String()

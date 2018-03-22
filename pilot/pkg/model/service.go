@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -55,14 +56,41 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ExternalService spec.
+	MeshExternal bool
+
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
+
+	// Resolution indicates how the service instances need to be resolved before routing
+	// traffic. Most services in the service registry will use static load balancing wherein
+	// the proxy will decide the service instance that will receive the traffic. External services
+	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
+	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
+	// by the caller)
+	Resolution Resolution
 }
+
+// Resolution indicates how the service instances need to be resolved before routing
+// traffic.
+type Resolution int
+
+const (
+	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
+	ClientSideLB Resolution = iota
+	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSLB
+	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
+	Passthrough
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -263,7 +291,7 @@ type ServiceDiscovery interface {
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
-	// determine the intendend destination of a connection without a Host header on the request.
+	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
@@ -315,6 +343,21 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 		}
 	}
 	return false
+}
+
+// Match returns true if port matches with authentication port selector criteria.
+func (port Port) Match(portSelector *authn.PortSelector) bool {
+	if portSelector == nil {
+		return true
+	}
+	switch portSelector.Port.(type) {
+	case *authn.PortSelector_Name:
+		return portSelector.GetName() == port.Name
+	case *authn.PortSelector_Number:
+		return portSelector.GetNumber() == uint32(port.Port)
+	default:
+		return false
+	}
 }
 
 // GetNames returns port names

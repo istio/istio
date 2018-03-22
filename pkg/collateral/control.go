@@ -194,32 +194,44 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	parentFlags.SetOutput(g.buffer)
 
 	if flags.HasFlags() || parentFlags.HasFlags() {
-		g.emit("<table class=\"command-flags\">")
-		g.emit("<thead>")
-		g.emit("<th>Flags</th>")
-		g.emit("<th>Shorthand</th>")
-		g.emit("<th>Description</th>")
-		g.emit("</thead>")
-		g.emit("<tbody>")
-
 		f := make(map[string]*pflag.Flag)
 		addFlags(f, flags)
 		addFlags(f, parentFlags)
 
-		names := make([]string, len(f))
-		i := 0
-		for n := range f {
-			names[i] = n
-			i++
-		}
-		sort.Strings(names)
+		if len(f) > 0 {
+			names := make([]string, len(f))
+			i := 0
+			for n := range f {
+				names[i] = n
+				i++
+			}
+			sort.Strings(names)
 
-		for _, n := range names {
-			g.genFlag(f[n])
-		}
+			genShorthand := false
+			for _, v := range f {
+				if v.Shorthand != "" && v.ShorthandDeprecated == "" {
+					genShorthand = true
+					break
+				}
+			}
 
-		g.emit("</tbody>")
-		g.emit("</table>")
+			g.emit("<table class=\"command-flags\">")
+			g.emit("<thead>")
+			g.emit("<th>Flags</th>")
+			if genShorthand {
+				g.emit("<th>Shorthand</th>")
+			}
+			g.emit("<th>Description</th>")
+			g.emit("</thead>")
+			g.emit("<tbody>")
+
+			for _, n := range names {
+				g.genFlag(f[n], genShorthand)
+			}
+
+			g.emit("</tbody>")
+			g.emit("</table>")
+		}
 	}
 
 	if len(cmd.Example) > 0 {
@@ -243,7 +255,7 @@ func addFlags(f map[string]*pflag.Flag, s *pflag.FlagSet) {
 	})
 }
 
-func (g *generator) genFlag(flag *pflag.Flag) {
+func (g *generator) genFlag(flag *pflag.Flag, genShorthand bool) {
 	varname, usage := unquoteUsage(flag)
 	if varname != "" {
 		varname = " <" + varname + ">"
@@ -258,11 +270,15 @@ func (g *generator) genFlag(flag *pflag.Flag) {
 
 	g.emit("<tr>")
 	g.emit("<td><code>", "--", flag.Name, html.EscapeString(varname), "</code></td>")
-	if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-		g.emit("<td><code>", "-", flag.Shorthand, "</code></td>")
-	} else {
-		g.emit("<td></td>")
+
+	if genShorthand {
+		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
+			g.emit("<td><code>", "-", flag.Shorthand, "</code></td>")
+		} else {
+			g.emit("<td></td>")
+		}
 	}
+
 	g.emit("<td>", html.EscapeString(usage), " ", def, "</td>")
 	g.emit("</tr>")
 }

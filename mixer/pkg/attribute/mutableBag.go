@@ -174,56 +174,25 @@ func (mb *MutableBag) Reset() {
 	}
 }
 
-// PreserveMerge combines an array of bags into the current bag.
+// Merge combines an array of bags into the current bag. If the current bag already defines
+// a particular attribute, it keeps its value and is not overwritten.
 //
-// Any conflicting attribute values in the input bags are ignored.
-func (mb *MutableBag) PreserveMerge(bags ...*MutableBag) error {
-	return mb.merge(true, bags)
-}
-
-// Merge combines an array of bags into the current bag.
-//
-// The individual bags may not contain any conflicting attribute
-// values. If that happens, then the merge fails and no mutation
-// will have occurred to the current bag.
-func (mb *MutableBag) Merge(bags ...*MutableBag) error {
-	return mb.merge(false, bags)
-}
-
-func (mb *MutableBag) merge(skipOverrides bool, bags []*MutableBag) error {
-	// first step is to make sure there are no redundant definitions of the same attribute
-	keys := make(map[string]bool)
-	for _, bag := range bags {
-		if bag == nil {
-			continue
-		}
-		for k := range bag.values {
-			if keys[k] && !skipOverrides {
-				return fmt.Errorf("conflicting value for attribute %s", k)
-			}
-			keys[k] = true
-		}
-	}
-
+// Note that this does a 'shallow' merge. Only the value defined explicitly in the
+// mutable bags themselves, and not in any of their parents, are considered.
+func (mb *MutableBag) Merge(bag *MutableBag) {
+	// get the known symbols for the target bag
 	names := make(map[string]bool)
 	for _, name := range mb.Names() {
 		names[name] = true
 	}
 
-	for _, bag := range bags {
-		if bag == nil {
-			continue
-		}
-		for k, v := range bag.values {
-			_, found := names[k]
-			if !found {
-				mb.values[k] = copyValue(v)
-				names[k] = true
-			}
+	for k, v := range bag.values {
+		// the input bags cannot override values already in the destination bag
+		_, found := names[k]
+		if !found {
+			mb.values[k] = copyValue(v)
 		}
 	}
-
-	return nil
 }
 
 // ToProto fills-in an Attributes proto based on the content of the bag.
@@ -417,15 +386,15 @@ func lookup(index int32, err error, globalWordList []string, messageWordList []s
 	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
 }
 
-// DebugString prints out the attributes from the parent bag, then
+// String prints out the attributes from the parent bag, then
 // walks through the local changes and prints them as well.
-func (mb *MutableBag) DebugString() string {
+func (mb *MutableBag) String() string {
 	if len(mb.values) == 0 {
-		return mb.parent.DebugString()
+		return mb.parent.String()
 	}
 
-	var buf bytes.Buffer
-	buf.WriteString(mb.parent.DebugString())
+	buf := &bytes.Buffer{}
+	buf.WriteString(mb.parent.String())
 	buf.WriteString("---\n")
 
 	keys := make([]string, 0, len(mb.values))
@@ -435,7 +404,7 @@ func (mb *MutableBag) DebugString() string {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%-30s: %v\n", key, mb.values[key]))
+		fmt.Fprintf(buf, "%-30s: %v\n", key, mb.values[key])
 	}
 	return buf.String()
 }

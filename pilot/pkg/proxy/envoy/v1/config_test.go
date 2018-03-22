@@ -229,22 +229,22 @@ const (
 var (
 	destinationRuleWorld = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world"},
-		file: "testdata/destination-world-v1alpha2.yaml.golden",
+		file: "testdata/destination-world-v1alpha3.yaml.golden",
 	}
 
 	destinationRuleWorldCB = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world-cb"},
-		file: "testdata/destination-world-cb-v1alpha2.yaml.golden",
+		file: "testdata/destination-world-cb-v1alpha3.yaml.golden",
 	}
 
 	destinationRuleHello = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
-		file: "testdata/destination-hello-v1alpha2.yaml.golden",
+		file: "testdata/destination-hello-v1alpha3.yaml.golden",
 	}
 
 	destinationRuleExternal = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-google"},
-		file: "testdata/subset-google-v1alpha2.yaml.golden",
+		file: "testdata/subset-google-v1alpha3.yaml.golden",
 	}
 
 	cbPolicy = fileConfig{
@@ -252,9 +252,9 @@ var (
 		file: "testdata/cb-policy.yaml.golden",
 	}
 
-	cbRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
-		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
+	cbRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "circuit-breaker"},
+		file: "testdata/cb-route-rule-v1alpha3.yaml.golden",
 	}
 
 	timeoutRouteRule = fileConfig{
@@ -262,9 +262,9 @@ var (
 		file: "testdata/timeout-route-rule.yaml.golden",
 	}
 
-	timeoutRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "timeout"},
-		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
+	timeoutRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "timeout"},
+		file: "testdata/timeout-route-rule-v1alpha3.yaml.golden",
 	}
 
 	weightedRouteRule = fileConfig{
@@ -272,19 +272,29 @@ var (
 		file: "testdata/weighted-route.yaml.golden",
 	}
 
-	weightedRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "weighted"},
-		file: "testdata/weighted-route-v1alpha2.yaml.golden",
+	weightedRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "weighted"},
+		file: "testdata/weighted-route-v1alpha3.yaml.golden",
 	}
 
 	gatewayWeightedRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-weighted"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-weighted"},
 		file: "testdata/gateway-weighted-route.yaml",
 	}
 
 	gatewayRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "gateway-simple"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple"},
 		file: "testdata/gateway-route.yaml",
+	}
+
+	gatewayWildcardRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-wildcard-simple"},
+		file: "testdata/gateway-wildcard-route.yaml",
+	}
+
+	gatewayRouteRule2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple-2"},
+		file: "testdata/gateway-route-2.yaml",
 	}
 
 	gatewayConfig = fileConfig{
@@ -297,19 +307,24 @@ var (
 		file: "testdata/gateway2.yaml",
 	}
 
+	gatewayWildcardConfig = fileConfig{
+		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-wildcard"},
+		file: "testdata/gateway-wildcard.yaml",
+	}
+
 	faultRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
 		file: "testdata/fault-route.yaml.golden",
 	}
 
-	faultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "fault"},
-		file: "testdata/fault-route-v1alpha2.yaml.golden",
+	faultRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "fault"},
+		file: "testdata/fault-route-v1alpha3.yaml.golden",
 	}
 
-	multiMatchFaultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-fault"},
-		file: "testdata/multi-match-fault-v1alpha2.yaml.golden",
+	multiMatchFaultRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-fault"},
+		file: "testdata/multi-match-fault-v1alpha3.yaml.golden",
 	}
 
 	redirectRouteRule = fileConfig{
@@ -317,9 +332,9 @@ var (
 		file: "testdata/redirect-route.yaml.golden",
 	}
 
-	redirectRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
-		file: "testdata/redirect-route-v1alpha2.yaml.golden",
+	redirectRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "redirect"},
+		file: "testdata/redirect-route-v1alpha3.yaml.golden",
 	}
 
 	redirectRouteToEgressRule = fileConfig{
@@ -332,19 +347,19 @@ var (
 		file: "testdata/rewrite-route.yaml.golden",
 	}
 
-	rewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "rewrite"},
-		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
+	rewriteRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "rewrite"},
+		file: "testdata/rewrite-route-v1alpha3.yaml.golden",
 	}
 
-	multiMatchRewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-rewrite"},
-		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
+	multiMatchRewriteRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-rewrite"},
+		file: "testdata/multi-match-rewrite-route-v1alpha3.yaml.golden",
 	}
 
-	googleTimeoutRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
-		file: "testdata/google-timeout-rule-v1alpha2.yaml.golden",
+	googleTimeoutRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha3
+		file: "testdata/google-timeout-rule-v1alpha3.yaml.golden",
 	}
 
 	websocketRouteRule = fileConfig{
@@ -352,9 +367,9 @@ var (
 		file: "testdata/websocket-route.yaml.golden",
 	}
 
-	websocketRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
-		file: "testdata/websocket-route-v1alpha2.yaml.golden",
+	websocketRouteRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "websocket"},
+		file: "testdata/websocket-route-v1alpha3.yaml.golden",
 	}
 
 	egressRule = fileConfig{
@@ -370,6 +385,11 @@ var (
 	externalServiceRuleDNS = fileConfig{
 		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
 		file: "testdata/external-service-rule-dns.yaml.golden",
+	}
+
+	externalServiceRuleDNSNoEndpoints = fileConfig{
+		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
+		file: "testdata/external-service-rule-dns-no-endpoints.yaml.golden",
 	}
 
 	externalServiceRuleStatic = fileConfig{
@@ -393,13 +413,13 @@ var (
 	}
 
 	externalServiceRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "ext-route"},
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "ext-route"},
 		file: "testdata/external-service-route-rule.yaml.golden",
 	}
 
 	destinationRuleGoogleCB = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "google"},
-		file: "testdata/subset-google-cb-v1alpha2.yaml.golden",
+		file: "testdata/subset-google-cb-v1alpha3.yaml.golden",
 	}
 
 	egressRuleCBPolicy = fileConfig{
@@ -432,9 +452,9 @@ var (
 		file: "testdata/addheaders-route.yaml.golden",
 	}
 
-	addHeaderRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "append-headers"},
-		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
+	addHeaderRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "append-headers"},
+		file: "testdata/addheaders-route-v1alpha3.yaml.golden",
 	}
 
 	corsPolicyRule = fileConfig{
@@ -442,9 +462,9 @@ var (
 		file: "testdata/corspolicy-route.yaml.golden",
 	}
 
-	corsPolicyRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "cors-policy"},
-		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
+	corsPolicyRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "cors-policy"},
+		file: "testdata/corspolicy-route-v1alpha3.yaml.golden",
 	}
 
 	mirrorRule = fileConfig{
@@ -452,9 +472,9 @@ var (
 		file: "testdata/mirror-route.yaml.golden",
 	}
 
-	mirrorRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
-		file: "testdata/mirror-route-v1alpha2.yaml.golden",
+	mirrorRuleV3 = fileConfig{
+		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "mirror-requests"},
+		file: "testdata/mirror-route-v1alpha3.yaml.golden",
 	}
 
 	// mixerclient service configuration
@@ -486,6 +506,31 @@ var (
 	mixerclientAuthSpecBinding = fileConfig{
 		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
 		file: "testdata/auth-spec-binding.yaml.golden",
+	}
+
+	authnPolicyNamespaceMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-off"},
+		file: "testdata/authn-namespace-mtls-off.yaml.golden",
+	}
+
+	authnPolicyNamespaceMTlsOn = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-on"},
+		file: "testdata/authn-namespace-mtls-on.yaml.golden",
+	}
+
+	authnPolicyHelloMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-off"},
+		file: "testdata/authn-hello-mtls-off.yaml.golden",
+	}
+
+	authnPolicyWorldMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
+		file: "testdata/authn-world-mtls-off.yaml.golden",
+	}
+
+	authnPolicyHelloJwt = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-jwt"},
+		file: "testdata/authn-hello-jwt.yaml.golden",
 	}
 )
 
@@ -521,7 +566,7 @@ func makeProxyConfig() meshconfig.ProxyConfig {
 	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
-	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15007"
 	proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return proxyConfig
 }
@@ -533,6 +578,7 @@ var (
 func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
 	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15005"
 	return proxyConfig
 }
 
@@ -603,17 +649,17 @@ func TestTruncateClusterName(t *testing.T) {
 
 	var trunc string
 	less := s[:MaxClusterNameLength-1]
-	trunc = truncateClusterName(less)
+	trunc = TruncateClusterName(less)
 	if trunc != less {
 		t.Errorf("Cluster name modified when truncating short cluster name:\nwant %s,\ngot %s", less, trunc)
 	}
 	eq := s[:MaxClusterNameLength]
-	trunc = truncateClusterName(eq)
+	trunc = TruncateClusterName(eq)
 	if trunc != eq {
 		t.Errorf("Cluster name modified when truncating cluster name:\nwant %s,\ngot %s", eq, trunc)
 	}
 	gt := s[:MaxClusterNameLength+1]
-	trunc = truncateClusterName(gt)
+	trunc = TruncateClusterName(gt)
 	if len(trunc) != MaxClusterNameLength {
 		t.Errorf("Cluster name length is not expected: want %d, got %d", MaxClusterNameLength, len(trunc))
 	}

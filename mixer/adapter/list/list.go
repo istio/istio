@@ -27,11 +27,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/adapter/list/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -309,7 +311,15 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 			_, _, err := net.ParseCIDR(ip)
 			if err != nil {
-				ce = ce.Appendf("overrides", "could not parse override %s: %v", orig, err)
+				ce = ce.Appendf("overrides", "could not parse ip address override %s: %v", orig, err)
+			}
+		}
+	}
+
+	if ac.EntryType == config.REGEX {
+		for _, regex := range ac.Overrides {
+			if _, err := regexp.Compile(regex); err != nil {
+				ce = ce.Appendf("overrides", "could not parse regex override %s: %v", regex, err)
 			}
 		}
 	}

@@ -18,18 +18,19 @@ package mixer
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -46,9 +47,11 @@ const (
 	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
 	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	sleepYaml                = "samples/sleep/sleep.yaml"
 	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
+	ingressDenialRule        = "mixer-rule-ingress-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
@@ -69,14 +72,14 @@ const (
 
 type testConfig struct {
 	*framework.CommonConfig
-	gateway  string
+
 	rulesDir string
 }
 
 var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
-	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
 		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
 )
 
@@ -87,7 +90,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	t.gateway = "http://" + tc.Kube.Ingress
 	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -204,12 +206,24 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 		return err
 	}
 	p.portFwdProcesses = append(p.portFwdProcesses, proc)
+
+	// Give it some time since process is launched in the background
+	time.Sleep(3 * time.Second)
+	if _, err = net.DialTimeout("tcp", ":"+localPort, 5*time.Second); err != nil {
+		log.Errorf("Failed to port forward: %s", err)
+		return err
+	}
+
 	log.Infof("running %s port-forward in background, pid = %d", labelSelector, proc.Pid)
 	return nil
 }
 
 func (p *promProxy) Setup() error {
 	var err error
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return errors.New("could not establish prometheus proxy: pods not running")
+	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
@@ -250,16 +264,28 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 	t.Errorf(format, args...)
 }
 
-func TestGlobalCheckAndReport(t *testing.T) {
+func TestMetric(t *testing.T) {
+	checkMetricReport(t, "productpage")
+}
+
+func TestIngressMetric(t *testing.T) {
+	checkMetricReport(t, "istio-ingress")
+}
+
+// checkMetricReport checks whether report works for the given service
+// by visiting productpage and comparing request_count metric.
+func checkMetricReport(t *testing.T, serviceName string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	// establish baseline
-	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("productpage"))
+	t.Logf("Check request count metric for %s", serviceName)
+
+	// establish baseline by querying request count metric.
+	t.Log("establishing metrics baseline for test...")
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(serviceName))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -275,20 +301,21 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
+	// visit product page.
 	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
 		t.Fatalf("Test app setup failure: %v", errNew)
 	}
 	allowPrometheusSync()
 
-	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn(serviceName), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	log.Infof("promvalue := %s", value.String())
+	t.Logf("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
@@ -414,6 +441,15 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
+	testDenials(t, denialRule)
+}
+
+func TestIngressDenials(t *testing.T) {
+	testDenials(t, ingressDenialRule)
+}
+
+// testDenials checks that the given rule could deny requests to productpage unless x-user is set in header.
+func testDenials(t *testing.T, rule string) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		fatalf(t, "Test app setup failure: %v", err)
 	}
@@ -421,12 +457,12 @@ func TestDenials(t *testing.T) {
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
 	log.Infof("Denials: block productpage if x-user header is missing")
-	if err := applyMixerRule(denialRule); err != nil {
+	if err := applyMixerRule(rule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
 
 	defer func() {
-		if err := deleteMixerRule(denialRule); err != nil {
+		if err := deleteMixerRule(rule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
@@ -443,6 +479,84 @@ func TestDenials(t *testing.T) {
 	log.Infof("Denials: ensure productpage is accessible for testuser")
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
+	}
+}
+
+// TestIngressCheckCache tests that check cache works in Ingress.
+func TestIngressCheckCache(t *testing.T) {
+	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
+	// This is to make the test focus on ingress check cache.
+	t.Logf("block request through ingress if x-user header is missing")
+	if err := applyMixerRule(ingressDenialRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := deleteMixerRule(ingressDenialRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	// Visit product page through ingress should all be denied.
+	visit := func() error {
+		return visitProductPage(productPageTimeout, http.StatusForbidden)
+	}
+	testCheckCache(t, visit)
+}
+
+// TestCheckCache tests that check cache works within the mesh.
+func TestCheckCache(t *testing.T) {
+	// Get pod id of sleep app.
+	pod, err := podID("app=sleep")
+	if err != nil {
+		fatalf(t, "fail getting pod id of sleep %v", err)
+	}
+	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
+
+	// visit calls product page health handler with sleep app.
+	visit := func() error {
+		return visitWithApp(url, pod, "sleep", http.StatusText(http.StatusOK))
+	}
+	testCheckCache(t, visit)
+}
+
+// testCheckCache verifies check cache is used when calling the given visit function
+// by comparing the check call metric.
+func testCheckCache(t *testing.T, visit func() error) {
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+
+	// Get check cache hit baseline.
+	t.Log("Query prometheus to get baseline cache hits...")
+	prior, err := getCheckCacheHits(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	}
+
+	t.Logf("Baseline cache hits: %v", prior)
+	t.Log("Start to call visit function for 2 times...")
+	// Call visit for 2 times, which should check cache for 2 times.
+	for i := 0; i < 2; i++ {
+		if err = visit(); err != nil {
+			fatalf(t, "%v", err)
+		}
+	}
+
+	allowPrometheusSync()
+	t.Log("Query promethus to get new cache hits number...")
+	// Get new check cache hit.
+	got, err := getCheckCacheHits(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	}
+	t.Logf("New cache hits: %v", got)
+
+	// At least 1 call should be cache hit.
+	want := float64(1)
+	if (got - prior) < want {
+		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
 	}
 }
 
@@ -493,7 +607,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	t.Log("Sending traffic...")
 
-	url := fmt.Sprintf("%s/productpage", tc.gateway)
+	url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
@@ -711,7 +825,13 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
-	url := tc.gateway + "/productpage"
+
+	gateway, err := tc.Kube.Ingress()
+	if err != nil {
+		return err
+	}
+
+	url := gateway + "/productpage"
 
 	for {
 		status, _, err := get(clnt, url, headers...)
@@ -735,6 +855,59 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 		time.Sleep(3 * time.Second)
 	}
+}
+
+// visitWithApp visits the given url by curl in the given container.
+func visitWithApp(url string, pod string, container string, code string) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- curl -i -s %s", pod, tc.Kube.Namespace, container, url)
+	log.Infof("Visit %s with the following command: %v", url, cmd)
+	resp, err := util.Shell(cmd)
+	if err != nil {
+		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
+	}
+	if !strings.Contains(resp, code) {
+		return fmt.Errorf("response: %v does not have wanted status code: %v", resp, code)
+	}
+	log.Infof("Response contains wanted status code %v.", code)
+	return nil
+}
+
+// getCheckCacheHits returned the total number of check cache hits in this cluster.
+func getCheckCacheHits(promAPI v1.API) (float64, error) {
+	log.Info("Get number of cached check calls")
+	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	totalCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		totalCheck = 0
+	}
+
+	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	remoteCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		remoteCheck = 0
+	}
+
+	if remoteCheck > totalCheck {
+		// Remote check calls should always be less than or equal to total check calls.
+		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+	}
+
+	// number of cached check call is the gap between total check calls and remote check calls.
+	return totalCheck - remoteCheck, nil
 }
 
 func fqdn(service string) string {
@@ -807,6 +980,10 @@ func setTestConfig() error {
 		},
 		{
 			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    util.GetResourcePath(sleepYaml),
 			KubeInject: true,
 		},
 	}

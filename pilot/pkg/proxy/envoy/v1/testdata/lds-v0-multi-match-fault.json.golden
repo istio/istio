@@ -31,16 +31,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "forwardAttributes": {
@@ -61,21 +51,7 @@
             }
            },
            "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "destination.labels": {
-              "stringMapValue": {
-               "entries": {
-                "version": "v0"
-               }
-              }
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
+            "attributes": {}
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
@@ -99,7 +75,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -149,16 +125,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "forwardAttributes": {
@@ -179,21 +145,7 @@
             }
            },
            "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "destination.labels": {
-              "stringMapValue": {
-               "entries": {
-                "version": "v0"
-               }
-              }
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
+            "attributes": {}
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
@@ -217,7 +169,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -304,16 +256,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "forwardAttributes": {
@@ -334,21 +276,7 @@
             }
            },
            "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "destination.labels": {
-              "stringMapValue": {
-               "entries": {
-                "version": "v0"
-               }
-              }
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
+            "attributes": {}
            },
            "serviceConfigs": {
             "hello.default.svc.cluster.local": {
@@ -372,7 +300,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -529,6 +457,7 @@
         "operation_name": "ingress"
        },
        "route_config": {
+        "validate_clusters": true,
         "virtual_hosts": [
          {
           "name": "inbound|1081",
@@ -559,16 +488,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "mixerAttributes": {
@@ -608,7 +527,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }
@@ -650,7 +569,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"
@@ -662,7 +581,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -703,7 +622,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"
@@ -715,7 +634,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -763,7 +682,7 @@
         "mixerAttributes": {
          "attributes": {
           "destination.ip": {
-           "stringValue": "10.1.1.0"
+           "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
           },
           "destination.service": {
            "stringValue": "hello.default.svc.cluster.local"
@@ -775,7 +694,7 @@
         },
         "transport": {
          "checkCluster": "mixer_check_server",
-         "reportCluster": "mixer_check_server"
+         "reportCluster": "mixer_report_server"
         }
        }
       }
@@ -839,6 +758,7 @@
         "operation_name": "ingress"
        },
        "route_config": {
+        "validate_clusters": true,
         "virtual_hosts": [
          {
           "name": "inbound|80",
@@ -869,16 +789,6 @@
          "type": "decoder",
          "name": "mixer",
          "config": {
-          "mixer_attributes": {
-           "destination.ip": "10.1.1.0",
-           "destination.service": "hello.default.svc.cluster.local",
-           "destination.uid": "kubernetes://v0.default"
-          },
-          "forward_attributes": {
-           "source.ip": "10.1.1.0",
-           "source.uid": "kubernetes://v0.default"
-          },
-          "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "mixerAttributes": {
@@ -918,7 +828,7 @@
            },
            "transport": {
             "checkCluster": "mixer_check_server",
-            "reportCluster": "mixer_check_server"
+            "reportCluster": "mixer_report_server"
            }
           }
          }

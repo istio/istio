@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.9-k8s1.9-helm2.7.2-minikube0.25
+    - image: istio/ci:go1.10-k8s1.9-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
 
@@ -43,24 +43,73 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_simple_run E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+      - run: make test/minikube/noauth/e2e_simple
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            mkdir -p /go/out/logs
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-simple.raw > /go/out/tests/test-report-noauth-simple.xml
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
+
+  e2e-dashboard:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /go/out
+          mkdir /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
 
   e2e-mixer:
     <<: *integrationDefaults
@@ -80,18 +129,15 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - run: ls -R /go # Debug attach_workspace, pkg must be restored.
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -99,7 +145,7 @@ jobs:
             # Run the test even if previous failed
             when: always
             command: |
-                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -122,24 +168,22 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -153,6 +197,7 @@ jobs:
             - TEST_ENV: minikube-none
             - HUB: docker.io/dnerepo
             - TAG: dontpush
+            - SKIP_EGRESS: 1
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -164,24 +209,146 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+      - run: make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
+            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-pilot.xml
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
-  e2e-pilot-noauth:
+  e2e-pilot-alpha3:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+            - SKIP_EGRESS: 1
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml
+      - store_artifacts:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
+  e2e-pilot-auth:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+            - SKIP_EGRESS: 1
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: alpha1
+          when: always
+          command: |
+            make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
+            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-pilot.xml
+      - store_artifacts:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
+  # Until alpha1 is deprecated
+  e2e-pilot-auth-egress:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -200,96 +367,55 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.tag generate_yaml
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs  -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
-      - store_artifacts:
-          path: /home/circleci/logs
-
-  e2e-pilot-v1alpha1-and-v1alpha2:
-    <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - HUB: docker.io/dnerepo
-            - TAG: dontpush
-    steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /home/circleci/logs
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - run: bin/testEnvRootMinikube.sh start
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
       - run:
+          name: dumpsys
+          when: always
           command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.tag generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run: make e2e_pilot HUB="${HUB}" TAG="${TAG}" TESTOPTS="--logtostderr --skip-cleanup -mixer=true -auth=enable -v1alpha2=true -v1alpha1=true -errorlogsdir=/home/circleci/logs -use-sidecar-injector=false --core-files-dir=/home/circleci/logs"
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
-  # Run nightly, to verify 'dep update' works and prime the cache
+  # Run nightly, to verify 'dep update' works
   depupdate:
     <<: *defaults
     steps:
       - checkout
-      - run:  make depend.update init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
-      - run: make build
+      - run: make submodule-sync
+      - run: make depend.status # check before any change
+      - run: make depend.update
+      - run: ( cd vendor ; git status  ) # just to see what changes
+      - run: make init build
       - run:
           name: Status and artifacts
-          command: |
-            mkdir -p $/go/out
-            make depend.status
-            tar cfz /go/out/istio-vendor.tgz vendor
-      - store_artifacts:
-          path: /go/out/istio-vendor.tgz
+          command: make depend.status ISTIO_OUT=/go/out
       - store_artifacts:
           path: vendor/Gopkg.lock
       - store_artifacts:
-          path: vendor/dep.dot
+          path: /go/out/dep.dot
       # TODO: auto-commit Gopkg.lock if test is successful
-
-  dependencies:
-    <<: *defaults
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make init
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
 
   codecov:
     <<: *defaults
@@ -299,30 +425,20 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
-      - run: mkdir -p /tmp/coverage
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
-          name: Running Kubernetes API Server standalone
-          command: make localTestEnv
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
-      - run:
+          name: Starting Kubernetes API Server standalone and running tests
           command: |
-            bash <(curl -s https://codecov.io/bash) -F pilot
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/pkg
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/cmd
+            make localTestEnv
+            cd /go/src/istio.io/istio
+            # Not failing if coverage number changes - integration tests are still not counted,
+            MAXPROCS=6 bin/codecov.sh || true
       - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F security
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F broker
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F mixer
+          name: Uploading code coverage to codecov.io
+          when: always
+          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.txt
+      - store_artifacts:
+          path: /go/out/codecov
 
   test:
     <<: *defaults
@@ -331,9 +447,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make sync
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -343,6 +457,11 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  dependencies:
+    <<: *defaults
+    steps:
+      - run: echo "Placeholder until an admin removes the required job"
+
   racetest:
     <<: *defaults
     environment:
@@ -351,9 +470,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/racetests
@@ -369,9 +486,7 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/benchcheck
@@ -384,17 +499,11 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            make build test-bins
+      - run: make sync
+      - run: make build test-bins /go/bin/go-junit-report
       - persist_to_workspace:
           root: /go
           paths:
-            # pkg may include 'dep'
             - pkg/linux_amd64
             - bin
             - out
@@ -409,48 +518,31 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make sync
       - run: make lint
 
-  ## TODO DISBALE ME and use the container based lint
-  # lint:
-  #   <<: *integrationDefaults
-  #   steps:
-  #     - type: shell
-  #       name: Initialize Working Directory
-  #       pwd: /
-  #       command: |
-  #         sudo mkdir -p /go/src/istio.io/istio
-  #         sudo chown -R circleci /go
-  #     - checkout
-  #     - restore_cache:
-  #         keys:
-  #           - dep-cache-{{ checksum "Gopkg.lock" }}
-  #     - run:
-  #         no_output_timeout: 15m
-  #         command: |
-  #           make lint
-
-  docker-push:
+  nightly:
     <<: *defaults
     resource_class: xlarge
     environment:
       TAG: circleci-nightly
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - attach_workspace:
+          at:  /go
+      - run: make sync
       - setup_remote_docker:
           docker_layer_caching: true
+      - run: make istio-archive
+      # Build the docker+extra
+      - run: make docker.push.basedebug
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-              make docker push
+              # The xenail debug image is built first, will be used in the next steps
+              make docker.push.basedebug docker.all push
             fi
 
   goxbuild:
@@ -458,9 +550,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make submodule-sync
       - run:
           command: |
             cp -a /usr/local/go /go
@@ -484,43 +574,48 @@ workflows:
                  - master
     jobs: #daisy chained steps ending with docker push
       - depupdate
-      - dependencies
-      - build:
-          requires:
-            - dependencies
-      - test:
-          requires:
-            - dependencies
-            - build
+      - build
+      - test
       - e2e-simple:
           requires:
             - test
-      - e2e-bookinfo:
+            - build
+      - e2e-dashboard:
           requires:
             - test
+            - build
       - e2e-mixer:
           requires:
             - test
+            - build
       - e2e-pilot:
           requires:
             - test
-      - e2e-pilot-noauth:
+            - build
+      - e2e-pilot-alpha3:
           requires:
             - test
+            - build
+      - e2e-pilot-auth:
+          requires:
+            - test
+            - build
       - benchcheck:
           requires:
             - test
+            - build
       # Compile for mac and arm
       - goxbuild:
           requires:
             - test
-      # Push to dockerhub
-      - docker-push:
+            - build
+      # Nightly release
+      - nightly:
           context: org-global
           requires:
             - e2e-simple
             - e2e-pilot
-            - e2e-pilot-noauth
+            - e2e-pilot-alpha3
 
   periodic:
     triggers:
@@ -532,28 +627,30 @@ workflows:
                  - master
     jobs:
       - depupdate
-      - dependencies
-      - build:
-          requires:
-            - dependencies
-      - test:
-          requires:
-            - dependencies
+      - build
+      - test
       - e2e-simple:
           requires:
             - build
-      - e2e-bookinfo:
+      - e2e-dashboard:
           requires:
             - build
-      - e2e-pilot-v1alpha1-and-v1alpha2:
+      - e2e-pilot-alpha3:
           requires:
             - build
-      - e2e-pilot-noauth:
+      - e2e-pilot:
+          requires:
+            - build
+      - e2e-pilot-auth:
           requires:
             - build
       - benchcheck:
           requires:
             - test
+            - build
+      - e2e-mixer:
+          requires:
+            - build
 
   flaky:
     triggers:
@@ -564,37 +661,37 @@ workflows:
                only:
                  - master
     jobs:
-      - depupdate
-      - dependencies
-      - build:
-          requires:
-            - dependencies
-      - codecov:
+      - build
+      - racetest
+      - e2e-pilot-auth-egress:
           requires:
             - build
-      - racetest:
-          requires:
-            - dependencies
-      - e2e-mixer:
+      # Bookinfo requires 3 nodes, not a good fit for CircleCI.
+      - e2e-bookinfo:
           requires:
             - build
-
 
   all:
     jobs:
       - dependencies
-      - lint:
-          requires:
-            - dependencies
-      - build:
-          requires:
-            - dependencies
-      - test:
-          requires:
-            - dependencies
+      - lint
+      - build
+      - test
+      - codecov:
+           requires:
+            - build
       - e2e-pilot:
+          requires:
+            - build
+      - e2e-pilot-alpha3:
+          requires:
+            - build
+      - e2e-pilot-auth:
           requires:
             - build
       - e2e-simple:
           requires:
             - build
+      - racetest:
+          requires:
+            - test

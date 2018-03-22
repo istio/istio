@@ -62,9 +62,9 @@ func TestCheckCache(t *testing.T) {
 		if _, _, err := env.HTTPGet(url); err != nil {
 			t.Errorf("Failed in request %s: %v", tag, err)
 		}
-		// Only the first check is called.
-		s.VerifyCheckCount(tag, 1)
 	}
+	// Only the first check is called.
+	s.VerifyCheckCount(tag, 1)
 
 	// Check stats for Check, Quota and report calls.
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {

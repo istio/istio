@@ -23,40 +23,50 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	tmpl "istio.io/api/mixer/v1/template"
+	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
 )
 
-const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
-const fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
-const fullProtoNameOfValueMsg = "istio.mixer.v1.template.Value"
+const fullProtoNameOfValueMsg = "istio.mixer.adapter.model.v1beta1.Value"
+const customTypeImport = "mixer/adapter/model/v1beta1/type.proto"
 
 type typeMetadata struct {
-	goName   string
-	goImport string
+	goName      string
+	goImport    string
+	protoImport string
 }
 
 // Hardcoded proto->go type mapping along with imports for the
 // generated code.
 var customMessageTypeMetadata = map[string]typeMetadata{
-	".istio.mixer.v1.template.Duration": {
-		goName:   "time.Duration",
-		goImport: "time",
+	".istio.mixer.adapter.model.v1beta1.Duration": {
+		goName:      "time.Duration",
+		goImport:    "time",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.TimeStamp": {
-		goName:   "time.Time",
-		goImport: "time",
+	".istio.mixer.adapter.model.v1beta1.TimeStamp": {
+		goName:      "time.Time",
+		goImport:    "time",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.IPAddress": {
-		goName: "net.IP",
+	".istio.mixer.adapter.model.v1beta1.IPAddress": {
+		goName:      "net.IP",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.DNSName": {
-		goName: "adapter.DNSName",
+	".istio.mixer.adapter.model.v1beta1.DNSName": {
+		goName:      "adapter.DNSName",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.EmailAddress": {
-		goName: "adapter.EmailAddress",
+	".istio.mixer.adapter.model.v1beta1.EmailAddress": {
+		goName:      "adapter.EmailAddress",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.Uri": {
-		goName: "adapter.URI",
+	".istio.mixer.adapter.model.v1beta1.Uri": {
+		goName:      "adapter.URI",
+		protoImport: customTypeImport,
+	},
+	".istio.mixer.adapter.model.v1beta1.Value": {
+		goName:      "interface{}",
+		protoImport: customTypeImport,
 	},
 }
 
@@ -362,7 +372,7 @@ func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
 func createInvalidTypeError(field string, valueTypeAllowed bool, extraErr error) error {
 	var supTypes []string
 	if valueTypeAllowed {
-		supTypes = append([]string{fullProtoNameOfValueTypeEnum}, simpleTypes...)
+		supTypes = append([]string{fullProtoNameOfValueMsg}, simpleTypes...)
 	} else {
 		supTypes = simpleTypes
 	}
@@ -417,13 +427,17 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
 		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
-			return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
-		}
 		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
-			return TypeInfo{Name: field.GetTypeName()[1:]},
-				TypeInfo{Name: v.goName, Import: v.goImport},
-				nil
+			pType := TypeInfo{Name: field.GetTypeName()[1:], Import: v.protoImport}
+			gType := TypeInfo{Name: v.goName, Import: v.goImport}
+			if field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
+				pType.IsValueType = true
+				gType.IsValueType = true
+				if !valueTypeAllowed {
+					return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
+				}
+			}
+			return pType, gType, nil
 		}
 		desc := g.ObjectNamed(field.GetTypeName())
 		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {

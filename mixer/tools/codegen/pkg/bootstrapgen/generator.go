@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -43,7 +43,7 @@ type Generator struct {
 }
 
 const (
-	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
+	fullGoNameOfValueTypePkgName = "istio_policy_v1beta1."
 	strInt64                     = "int64"
 	strString                    = "string"
 	strBool                      = "bool"
@@ -52,18 +52,18 @@ const (
 
 // TODO share the code between this generator and the interfacegen code generator.
 var primitiveToValueType = map[string]string{
-	strString:              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
-	strBool:                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
-	strInt64:               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
-	strFloat64:             fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
-	"map[string]string":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING_MAP.String(),
-	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
-	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
-	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DNS_NAME.String(),
-	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.EMAIL_ADDRESS.String(),
+	strString:              fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING.String(),
+	strBool:                fullGoNameOfValueTypePkgName + istio_policy_v1beta1.BOOL.String(),
+	strInt64:               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.INT64.String(),
+	strFloat64:             fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DOUBLE.String(),
+	"map[string]string":    fullGoNameOfValueTypePkgName + istio_policy_v1beta1.STRING_MAP.String(),
+	"net.IP":               fullGoNameOfValueTypePkgName + istio_policy_v1beta1.IP_ADDRESS.String(),
+	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_policy_v1beta1.URI.String(),
+	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DNS_NAME.String(),
+	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.EMAIL_ADDRESS.String(),
 
-	"time.Duration": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DURATION.String(),
-	"time.Time":     fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.TIMESTAMP.String(),
+	"time.Duration": fullGoNameOfValueTypePkgName + istio_policy_v1beta1.DURATION.String(),
+	"time.Time":     fullGoNameOfValueTypePkgName + istio_policy_v1beta1.TIMESTAMP.String(),
 }
 
 var aliasTypes = map[string]string{
@@ -91,6 +91,12 @@ const templateName = "Template"
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
 func (g *Generator) Generate(fdsFiles map[string]string) error {
+	return g.generateInternal(fdsFiles, tmplPkg.BootstrapTemplate, modelgen.Create)
+}
+
+func (g *Generator) generateInternal(fdsFiles map[string]string,
+	tmplContent string,
+	createModel func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error)) error {
 	imprts := make([]string, 0)
 	tmpl, err := template.New("MixerBootstrap").Funcs(
 		template.FuncMap{
@@ -98,7 +104,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				return primitiveToValueType[strings.Replace(goType.Name, " ", "", -1)]
 			},
 			"getUnspecifiedValueType": func() string {
-				return fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED.String()
+				return fullGoNameOfValueTypePkgName + istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED.String()
 			},
 			"isAliasType": func(goType string) bool {
 				_, found := aliasTypes[goType]
@@ -235,7 +241,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 					return "vIface"
 				}
 			},
-		}).Parse(tmplPkg.InterfaceTemplate)
+		}).Parse(tmplContent)
 
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
@@ -255,14 +261,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
 		}
 
-		var parser *modelgen.FileDescriptorSetParser
-		parser, err = modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
-		if err != nil {
-			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
-		}
+		parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
 
 		var model *modelgen.Model
-		if model, err = modelgen.Create(parser); err != nil {
+		if model, err = createModel(parser); err != nil {
 			return err
 		}
 
@@ -280,7 +282,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	bytesWithImpts := bytes.Replace(buf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
 	fmtd, err := format.Source(bytesWithImpts)
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, buf.String())
+		return fmt.Errorf("could not format generated code: %v. Source code is %s", err, string(bytesWithImpts))
 	}
 
 	imports.LocalPrefix = "istio.io"
@@ -296,13 +298,11 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	}
 	defer func() { _ = f.Close() }() // nolint: gas
 	if _, err = f.Write(imptd); err != nil {
-		_ = f.Close()           // nolint: gas
 		_ = os.Remove(f.Name()) // nolint: gas
 		return err
 	}
 	return nil
 }
-
 func getParentDirName(filePath string) string {
 	return filepath.Base(filepath.Dir(filePath))
 }

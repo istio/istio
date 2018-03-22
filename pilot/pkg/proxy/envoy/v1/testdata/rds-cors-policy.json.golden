@@ -1,4 +1,5 @@
 {
+  "validate_clusters": true,
   "virtual_hosts": [
    {
     "name": "hello.default.svc.cluster.local|http",
@@ -79,7 +80,7 @@
        "allow_methods": "POST,GET,OPTIONS",
        "allow_headers": "content-type",
        "expose_headers": "x-custom-header",
-       "max_age": "seconds:300 ",
+       "max_age": "300",
        "allow_origin": [
         "http://foo.example"
        ]

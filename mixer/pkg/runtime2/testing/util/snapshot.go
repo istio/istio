@@ -15,7 +15,6 @@
 package util
 
 import (
-	"context"
 	"fmt"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -28,19 +27,18 @@ import (
 func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapter.Info, serviceConfig string, globalConfig string) *config.Snapshot {
 	store, err := storetest.SetupStoreForTest(serviceConfig, globalConfig)
 	if err != nil {
-		panic(fmt.Sprintf("unable to crete store: %v", err))
+		panic(fmt.Sprintf("Unable to crete store: %v", err))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := store.Init(ctx, config.KindMap(adapters, templates)); err != nil {
-		panic(fmt.Sprintf("unable to initialize store: %v", err))
+	if err = store.Init(config.KindMap(adapters, templates)); err != nil {
+		panic(fmt.Sprintf("Unable to initialize store: %v", err))
 	}
 
 	data := store.List()
 	e := config.NewEphemeral(templates, adapters)
 	e.SetState(data)
 
-	cancel()
+	store.Stop()
 
 	return e.BuildSnapshot()
 }

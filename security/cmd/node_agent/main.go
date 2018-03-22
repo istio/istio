@@ -28,11 +28,6 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 )
 
-const (
-	// The default path/file of root cert.
-	defaultRoot = "/etc/certs/root-cert.pem"
-)
-
 var (
 	naConfig = na.NewConfig()
 
@@ -56,36 +51,40 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
-	flags.DurationVar(&naConfig.WorkloadCertTTL, "workload-cert-ttl", 19*time.Hour,
+	cAClientConfig := &naConfig.CAClientConfig
+	flags.StringVar(&cAClientConfig.Org, "org", "", "Organization for the cert")
+	flags.DurationVar(&cAClientConfig.RequestedCertTTL, "workload-cert-ttl", 19*time.Hour,
 		"The requested TTL for the workload")
-	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
-	flags.StringVar(&naConfig.IstioCAAddress,
+	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+	flags.StringVar(&cAClientConfig.CAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
-	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")
 
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.CertChainFile, "onprem-cert-chain",
-		"/etc/certs/cert-chain.pem", "Node Agent identity cert file in on premise environment")
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.KeyFile,
-		"onprem-key", "/etc/certs/key.pem", "Node identity private key file in on premise environment")
-	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.RootCACertFile, "onprem-root-cert",
-		defaultRoot, "Root Certificate file in on premise environment")
+	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
+		"Node Environment : unspecified | onprem | gcp | aws")
+	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
-	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.RootCACertFile, "gcp-root-cert",
-		defaultRoot, "Root Certificate file in GCP environment")
-	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.CAAddr, "gcp-ca-address",
-		"istio-ca:8060", "Istio CA address in GCP environment")
-
-	flags.StringVar(&naConfig.PlatformConfig.AwsConfig.RootCACertFile, "aws-root-cert",
-		defaultRoot, "Root Certificate file in AWS environment")
+	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
+		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
+	flags.StringVar(&cAClientConfig.KeyFile,
+		"key", "/etc/certs/key.pem", "Node Agent private key file")
+	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
+	if naConfig.CAClientConfig.Platform == "vm" {
+		if err := rootCmd.Execute(); err != nil {
+			log.Errora(err)
+			os.Exit(-1)
+		}
+	} else if naConfig.CAClientConfig.Platform == "k8s" {
+		log.Errorf("WIP for support on k8s...")
+		os.Exit(-1)
+	} else {
+		log.Errorf("node agent on %v is not supported yet", naConfig.CAClientConfig.Platform)
 		os.Exit(-1)
 	}
 }

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/pkg/log"
@@ -180,11 +180,11 @@ func (g *generator) toIlType(t descriptor.ValueType) il.Type {
 	case descriptor.IP_ADDRESS:
 		return il.Interface
 	case descriptor.EMAIL_ADDRESS:
-		return il.Interface
+		return il.String
 	case descriptor.DNS_NAME:
-		return il.Interface
+		return il.String
 	case descriptor.URI:
-		return il.Interface
+		return il.String
 	case descriptor.TIMESTAMP:
 		return il.Interface
 	default:
@@ -280,6 +280,8 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
 	default:
+		// The parameters to a function (and the function itself) is expected to exist, regardless of whether
+		// we're in a nillable context. The call will either succeed or error out.
 		if f.Target != nil {
 			g.generate(f.Target, depth, nmNone, "")
 		}
@@ -287,6 +289,11 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 			g.generate(arg, depth, nmNone, "")
 		}
 		g.builder.Call(f.Name)
+		// If we're in a nillable context, then simply short-circuit to the end. The function is either
+		// guaranteed to succeed or error out.
+		if mode == nmJmpOnValue {
+			g.builder.Jmp(valueJmpLabel)
+		}
 	}
 }
 
@@ -310,10 +317,20 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 		}
 
 	case il.String:
-		if constArg1 != nil {
-			g.builder.AEQString(constArg1.(string))
-		} else {
-			g.builder.EQString()
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.DNS_NAME:
+			g.builder.Call("dnsName_equal")
+		case descriptor.EMAIL_ADDRESS:
+			g.builder.Call("email_equal")
+		case descriptor.URI:
+			g.builder.Call("uri_equal")
+		default:
+			if constArg1 != nil {
+				g.builder.AEQString(constArg1.(string))
+			} else {
+				g.builder.EQString()
+			}
 		}
 
 	case il.Integer:

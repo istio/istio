@@ -18,7 +18,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/platform"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	"istio.io/istio/security/pkg/caclient"
 )
 
 const (
@@ -32,44 +33,24 @@ const (
 
 // Config is Node agent configuration.
 type Config struct {
-	// Istio CA grpc server
-	IstioCAAddress string
-
-	// Organization of service, presented in the certificates
-	ServiceIdentityOrg string
-
-	// Requested TTL of the workload certificates
-	WorkloadCertTTL time.Duration
-
-	RSAKeySize int
-
-	// The environment this node agent is running on
-	Env string
-
-	// CSRInitialRetrialInterval is the retrial interval for certificate requests.
-	CSRInitialRetrialInterval time.Duration
-
-	// CSRMaxRetries is the number of retries for certificate requests.
-	CSRMaxRetries int
-
-	// CSRGracePeriodPercentage indicates the length of the grace period in the
-	// percentage of the entire certificate TTL.
-	CSRGracePeriodPercentage int
-
-	// The Configuration for talking to the platform metadata server.
-	PlatformConfig platform.ClientConfig
+	// Config for CA Client
+	CAClientConfig caclient.Config
 
 	// LoggingOptions is the options for Istio logging.
 	LoggingOptions *log.Options
+
+	// WorkloadOpts configures how to create handler for each workload api.
+	WorkloadOpts handler.Options
 }
 
 // NewConfig creates a new Config instance with default values.
 func NewConfig() *Config {
 	return &Config{
-		CSRInitialRetrialInterval: defaultCSRInitialRetrialInterval,
-		CSRMaxRetries:             defaultCSRMaxRetries,
-		CSRGracePeriodPercentage:  defaultCSRGracePeriodPercentage,
-		PlatformConfig:            platform.ClientConfig{},
-		LoggingOptions:            log.NewOptions(),
+		CAClientConfig: caclient.Config{
+			CSRInitialRetrialInterval: defaultCSRInitialRetrialInterval,
+			CSRMaxRetries:             defaultCSRMaxRetries,
+			CSRGracePeriodPercentage:  defaultCSRGracePeriodPercentage,
+		},
+		LoggingOptions: log.DefaultOptions(),
 	}
 }

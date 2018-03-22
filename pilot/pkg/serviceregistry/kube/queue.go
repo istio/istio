@@ -15,14 +15,12 @@
 package kube
 
 import (
-	"sync"
-	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-	"k8s.io/client-go/util/flowcontrol"
-
 	"os"
 	"strconv"
+	"sync"
+	"time"
+
+	"k8s.io/client-go/util/flowcontrol"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -93,7 +91,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	}()
 
 	rate := os.Getenv(enableQueueThrottleEnv)
-	rateLimit := 0
+	rateLimit := 100
 	if len(rate) > 0 {
 		r, err := strconv.Atoi(rate)
 		if err == nil {

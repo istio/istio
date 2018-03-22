@@ -51,11 +51,14 @@ const (
 
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
-	recommendedMinGracePeriodRatio = 0.3
+	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
 
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
+
+	// The number of retries when requesting to create secret.
+	secretCreationRetry = 3
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -201,15 +204,27 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 		return
 	}
-	rootCert := sc.ca.GetRootCertificate()
+	_, _, _, rootCert := sc.ca.GetCAKeyCertBundle().GetAll()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
 		RootCertID:   rootCert,
 	}
-	_, err = sc.core.Secrets(saNamespace).Create(secret)
+
+	// We retry several times when create secret to mitigate transient network failures.
+	for i := 0; i < secretCreationRetry; i++ {
+		_, err = sc.core.Secrets(saNamespace).Create(secret)
+		if err == nil {
+			break
+		} else {
+			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
+		}
+		time.Sleep(time.Second)
+	}
+
 	if err != nil {
-		log.Errorf("Failed to create secret (error: %s)", err)
+		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
+			saName, err, secretCreationRetry)
 		return
 	}
 
@@ -235,10 +250,11 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 		return
 	}
 
-	log.Infof("Re-create deleted Istio secret")
-
 	saName := scrt.Annotations[serviceAccountNameAnnotationKey]
-	sc.upsertSecret(saName, scrt.GetNamespace())
+	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
+		log.Errorf("Re-create deleted Istio secret for existing service account.")
+		sc.upsertSecret(saName, scrt.GetNamespace())
+	}
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
@@ -280,13 +296,14 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	certLifeTimeLeft := time.Until(cert.NotAfter)
 	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
 	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
-	gracePeriod := time.Duration(sc.gracePeriodRatio) * certLifeTime
+	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
+	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
 	if gracePeriod < sc.minGracePeriod {
 		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
-			certLifeTime, sc.gracePeriodRatio, sc.minGracePeriod)
+			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
-	rootCertificate := sc.ca.GetRootCertificate()
+	_, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAll()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the

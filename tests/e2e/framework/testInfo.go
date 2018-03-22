@@ -16,7 +16,6 @@ package framework
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -25,27 +24,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
-	"cloud.google.com/go/storage"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/google/uuid"
-	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
 var (
-	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-	resources      = []string{
-		"pod",
-		"service",
-		"ingress",
-	}
 	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
 )
 
@@ -56,11 +44,9 @@ const (
 
 // TestInfo gathers Test Information
 type testInfo struct {
-	RunID         string
-	TestID        string
-	Bucket        string
-	LogBucketPath string
-	TempDir       string
+	RunID   string
+	TestID  string
+	TempDir string
 }
 
 // Test information
@@ -77,8 +63,6 @@ func newTestInfo(testID string) (*testInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	bucket := ""
-	logsPath := ""
 	var tmpDir string
 	// testLogsPath will be used when called by Prow.
 	// Bootstrap already gather stdout and stdin so we don't need to keep the logs from glog.
@@ -94,27 +78,14 @@ func newTestInfo(testID string) (*testInfo, error) {
 		}
 	}
 	log.Infof("Using temp dir %s", tmpDir)
-
-	if *logsBucketPath != "" {
-		r := regexp.MustCompile(`gs://(?P<bucket>[^\/]+)/(?P<path>.+)`)
-		m := r.FindStringSubmatch(*logsBucketPath)
-		if m != nil {
-			bucket = m[1]
-			logsPath = m[2]
-		} else {
-			return nil, errors.New("cannot parse logBucketPath flag")
-		}
-	}
 	if err != nil {
 		return nil, errors.New("could not create a temporary dir")
 	}
 	// Need to setup logging here
 	return &testInfo{
-		TestID:        testID,
-		RunID:         id,
-		Bucket:        bucket,
-		LogBucketPath: filepath.Join(logsPath, id),
-		TempDir:       tmpDir,
+		TestID:  testID,
+		RunID:   id,
+		TempDir: tmpDir,
 	}, nil
 }
 
@@ -128,72 +99,7 @@ func (t testInfo) Update(r int) error {
 }
 
 func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
-	var multiErr error
-	fetchAndWrite := func(pod string) error {
-		cmd := fmt.Sprintf(
-			"kubectl get pods -n %s %s -o jsonpath={.spec.containers[*].name}", namespace, pod)
-		containersString, err := util.Shell(cmd)
-		if err != nil {
-			return err
-		}
-		containers := strings.Split(containersString, " ")
-		for _, container := range containers {
-			filePath := filepath.Join(t.TempDir, fmt.Sprintf("%s_container:%s.log", pod, container))
-			f, err := os.Create(filePath)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err = f.Close(); err != nil {
-					log.Warnf("Error during closing file: %v\n", err)
-				}
-			}()
-			dump, err := util.ShellMuteOutput(
-				fmt.Sprintf("kubectl logs %s -n %s -c %s", pod, namespace, container))
-			if err != nil {
-				return err
-			}
-			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	lines, err := util.Shell("kubectl get pods -n " + namespace)
-	if err != nil {
-		return err
-	}
-	pods := strings.Split(lines, "\n")
-	if len(pods) > 1 {
-		for _, line := range pods[1:] {
-			if idxEndOfPodName := strings.Index(line, " "); idxEndOfPodName > 0 {
-				pod := line[:idxEndOfPodName]
-				log.Infof("Fetching logs on %s", pod)
-				if err := fetchAndWrite(pod); err != nil {
-					multiErr = multierror.Append(multiErr, err)
-				}
-			}
-		}
-	}
-
-	for _, resrc := range resources {
-		log.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
-		filePath := filepath.Join(t.TempDir, fmt.Sprintf("%s.yaml", resrc))
-		if yaml, err0 := util.ShellMuteOutput(
-			fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
-			multiErr = multierror.Append(multiErr, err0)
-		} else {
-			if f, err1 := os.Create(filePath); err1 != nil {
-				multiErr = multierror.Append(multiErr, err1)
-			} else {
-				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
-					multiErr = multierror.Append(multiErr, err2)
-				}
-			}
-		}
-	}
-	return multiErr
+	return util.FetchAndSaveClusterLogs(namespace, t.TempDir)
 }
 
 func (t testInfo) createStatusFile(r int) error {
@@ -223,58 +129,7 @@ func (t testInfo) createStatusFile(r int) error {
 	return err
 }
 
-func (t testInfo) uploadDir() error {
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		log.Errorf("Could not set Storage client. Error %s", err)
-		return err
-	}
-	bkt := client.Bucket(t.Bucket)
-
-	uploadFileFn := func(p string) error {
-		// Relative Path
-		rp, err := filepath.Rel(t.TempDir, p)
-		if err != nil {
-			return err
-		}
-		rp = filepath.Join(t.LogBucketPath, rp)
-		log.Infof("Uploading %s to gs://%s/%s", p, rp, t.Bucket)
-		o := bkt.Object(rp)
-		w := o.NewWriter(ctx)
-		var b []byte
-		if b, err = ioutil.ReadFile(p); err == nil {
-			if _, err = w.Write(b); err == nil {
-				if err = w.Close(); err == nil {
-					log.Infof("Uploaded %s to gs://%s/%s", p, rp, t.Bucket)
-				}
-			}
-		}
-		return err
-	}
-
-	walkFn := func(filePath string, info os.FileInfo, err error) error {
-		// We are filtering all errors here as we want filepath.Walk to go over all the files.
-		if err != nil {
-			log.Warnf("Skipping %s", filePath, err)
-			return filepath.SkipDir
-		}
-		if !info.IsDir() {
-			if uploadFileFn(filePath) != nil {
-				log.Warnf("An error occurred when upload %s %s", filePath, err)
-			}
-		}
-		return nil
-	}
-	return filepath.Walk(t.TempDir, walkFn)
-}
-
 func (t testInfo) Teardown() error {
-	if t.Bucket != "" {
-		log.Info("Uploading logs remotely")
-		_ = log.Sync()
-		return t.uploadDir()
-	}
 	return nil
 }
 

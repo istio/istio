@@ -24,8 +24,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	cpb "istio.io/api/mixer/v1/config"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
@@ -186,7 +186,7 @@ func TestController_workflow(t *testing.T) {
 	}
 	configState := map[store.Key]*store.Resource{
 		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
-			Match: "target.service == \"abc\"",
+			Match: "destination.service == \"abc\"",
 			Actions: []*cpb.Action{
 				{
 					Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -251,7 +251,7 @@ func TestController_workflow(t *testing.T) {
 		{
 			Key: store.Key{RulesKind, DefaultConfigNamespace, "r2"},
 			Value: &store.Resource{Spec: &cpb.Rule{
-				Match: "target.service == \"bcd\"",
+				Match: "destination.service == \"bcd\"",
 				Actions: []*cpb.Action{
 					{
 						Handler:   "a1.AA." + DefaultConfigNamespace,
@@ -389,9 +389,7 @@ func waitFor(t *testing.T, tm time.Duration, done chan bool, msg string) bool {
 }
 
 func Test_WaitForChanges(t *testing.T) {
-	wd := watchFlushDuration
-
-	watchFlushDuration = 200 * time.Millisecond
+	watchFlushDurationForTest := 200 * time.Millisecond
 
 	wch := make(chan store.Event)
 	done := make(chan bool)
@@ -399,7 +397,7 @@ func Test_WaitForChanges(t *testing.T) {
 
 	nevents := 2
 
-	go watchChanges(wch, func(events []*store.Event) {
+	go watchChanges(wch, watchFlushDurationForTest, func(events []*store.Event) {
 		if len(events) == nevents {
 			done <- true
 		} else {
@@ -414,8 +412,6 @@ func Test_WaitForChanges(t *testing.T) {
 	nevents = 1
 	wch <- store.Event{}
 	waitFor(t, 2*watchFlushDuration, done, "changes did not appear")
-
-	watchFlushDuration = wd
 }
 
 func TestAttributeFinder_GetAttribute(t *testing.T) {

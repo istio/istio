@@ -28,7 +28,7 @@ fi
 
 echo "using NAMESPACE=${NAMESPACE}"
 
-for rule in $(istioctl get -n ${NAMESPACE} routerules); do
+for rule in $(istioctl get -n ${NAMESPACE} routerules | grep -v 'No resources found'); do
   istioctl delete -n ${NAMESPACE} routerule $rule;
 done
 #istioctl delete mixer-rule ratings-ratelimit

@@ -15,19 +15,18 @@
 /*
 Simple test - first time:
 source istio.VERSION
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_cleanup --auth_enable --namespace=e2e
 After which to Retest:
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+bazel run //tests/e2e/tests/simple:go_default_test -- -test.v \
     -test.run TestSimple1 --skip_setup --skip_cleanup --auth_enable --namespace=e2e
 */
 
 package simple
 
 import (
+	"bytes"
 	"flag"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -41,11 +40,13 @@ import (
 )
 
 const (
-	servicesYaml    = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
-	nonInjectedYaml = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	servicesYaml         = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
+	nonInjectedYaml      = "tests/e2e/tests/simple/servicesNotInjected.yaml"
 	routingR1Yaml   = "tests/e2e/tests/simple/routingrule1.yaml"
 	routingR2Yaml   = "tests/e2e/tests/simple/routingrule2.yaml"
 	routingRNPYaml  = "tests/e2e/tests/simple/routingruleNoPods.yaml"
+	timeToWaitForPods    = 20 * time.Second
+	timeToWaitForIngress = 100 * time.Second
 )
 
 type testConfig struct {
@@ -69,37 +70,46 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimpleIngress(t *testing.T) {
-	// Tests the rewrite/dropping of the /fortio/ prefix as fortio only replies
-	// with "echo debug server ..." on the /debug uri.
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
-	log.Infof("Fetching '%s'", url)
-	attempts := 7 // should not take more than 70s to be live...
-	for i := 1; i <= attempts; i++ {
-		if i > 1 {
-			time.Sleep(10 * time.Second) // wait between retries
-		}
-		resp, err := http.Get(url)
-		if err != nil {
-			log.Warnf("Attempt %d : http.Get error %v", i, err)
-			continue
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Warnf("Attempt %d : ReadAll error %v", i, err)
-			continue
-		}
-		_ = resp.Body.Close()
-		bodyStr := string(body)
-		log.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
-		needle := "echo debug server up"
-		if !strings.Contains(bodyStr, needle) {
-			log.Warnf("Not finding expected %s in %s", needle, fhttp.DebugSummary(body, 128))
-			continue
-		}
-		return // success
+	// Tests that a simple ingress with rewrite/dropping of the /fortio/ prefix
+	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+	// Make sure the pods are running:
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		t.Fatalf("Pods not ready!")
 	}
-	t.Errorf("Unable to find expected output after %d attempts", attempts)
+
+	// This checks until all of those 3 things become ready:
+	// 1) ingress pod is up (that done by IngressOrFail above)
+	// 2) the destination pod (and its envoy) is up/reachable
+	// 3) the ingress and routerules are propagated and active on the ingress
+	log.Infof("Fetching '%s'", url)
+	needle := []byte("echo debug server up")
+
+	o := fhttp.NewHTTPOptions(url)
+	var (
+		code      int
+		data      []byte
+		dataDebug string
+	)
+	timeOut := time.Now().Add(timeToWaitForIngress)
+	for i := 0; true; i++ {
+		if time.Now().After(timeOut) {
+			t.Errorf("Ingress not really ready after %v - last error is %d : %s", timeToWaitForIngress, code, dataDebug)
+		}
+		code, data = fhttp.Fetch(o)
+		dataDebug = fhttp.DebugSummary(data, 512) // not for searching, only for logging
+		if code != 200 {
+			log.Infof("Iter %d : ingress+svc not ready, code %d data %s", code, dataDebug)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if !bytes.Contains(data, needle) {
+			t.Fatalf("Iter %d : unexpected content despite 200: %s", i, dataDebug)
+		}
+		// Test success:
+		log.Infof("Iter %d : ingress->Svc is up! Found %s", i, dataDebug)
+		return
+	}
 }
 
 func TestSvc2Svc(t *testing.T) {
@@ -111,6 +121,31 @@ func TestSvc2Svc(t *testing.T) {
 	}
 	if len(podList) != 2 {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
+	}
+	// Check that both pods are ready (can talk to each other through envoy) before doing a (small) load test
+	// (despite the CheckPodsRunning in previous test, envoy rules may not have reached the 2 pods envoy yet)
+	log.Infof("Configuration readiness pre-check from %v to http://echosrv:8080/echo", podList)
+	timeout := time.Now().Add(timeToWaitForPods)
+	var res string
+	for {
+		if time.Now().After(timeout) {
+			t.Fatalf("Pod readyness failed after %v - last error: %s", timeToWaitForPods, res)
+		}
+		ready := 0
+		for i := range podList {
+			pod := podList[i]
+			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
+			if err != nil {
+				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+			} else {
+				ready++
+			}
+		}
+		if ready == len(podList) {
+			log.Infof("All %d pods ready", ready)
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	// call into the service from each of the pods
 	// TODO: use the fortio 0.3.1 web/api endpoint instead and get JSON results (across this file)
@@ -124,6 +159,7 @@ func TestSvc2Svc(t *testing.T) {
 	// Success
 }
 
+// Readiness is shared with previous test, expected to run serially.
 func TestAuth(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
@@ -139,7 +175,7 @@ func TestAuth(t *testing.T) {
 	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio load -qps 5 -t 1s http://echosrv.%s:8080/echo", ns, pod, ns)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
-			t.Fatalf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
+			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
 		} else {
 			log.Infof("Got expected error with auth on and non istio->istio connection: %v", err)
 		}
@@ -147,7 +183,7 @@ func TestAuth(t *testing.T) {
 		if err == nil {
 			log.Infof("Got expected success with auth off and non istio->istio connection: %v", res)
 		} else {
-			t.Fatalf("Unexpected error connect from non istio to istio without auth: %v", err)
+			t.Errorf("Unexpected error connect from non istio to istio without auth: %v", err)
 		}
 	}
 }
@@ -252,7 +288,11 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
+<<<<<<< HEAD
 		image = "istio/fortio:latest"
+=======
+		image = "istio/fortio:latest_release"
+>>>>>>> master
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
