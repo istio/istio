@@ -190,7 +190,7 @@ func TestAuth(t *testing.T) {
 }
 
 func Test503sDuringChanges(t *testing.T) {
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath1 := util.GetResourcePath(routingR1Yaml)
 	rulePath2 := util.GetResourcePath(routingR2Yaml)
 	go func() {
@@ -232,13 +232,13 @@ func Test503sDuringChanges(t *testing.T) {
 }
 
 func Test503sWithBadClusters(t *testing.T) {
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath := util.GetResourcePath(routingRNPYaml)
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules with some non existent destination, mid run")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
-			t.Errorf("istiocrl create rule %s failed", routingRNPYaml)
+			t.Errorf("istioctl create rule %s failed", routingRNPYaml)
 			return
 		}
 	}()
