@@ -23,16 +23,13 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+	"google.golang.org/grpc"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -55,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -651,6 +649,16 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
+	configStore := model.MakeIstioStore(s.configController)
+
+	// add external service registry to aggregator by default
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             "ExternalServices",
+			Controller:       external.NewController(s.configController),
+			ServiceDiscovery: external.NewServiceDiscovery(configStore),
+			ServiceAccounts:  external.NewServiceAccounts(),
+		})
 
 	s.ServiceController = serviceControllers
 

@@ -24,7 +24,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -239,7 +239,7 @@ var (
 
 	// ExampleAuthenticationPolicy is an example authentication Policy
 	ExampleAuthenticationPolicy = &authn.Policy{
-		Destinations: []*networking.Destination{{
+		Targets: []*authn.TargetSelector{{
 			Name: "hello",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
@@ -494,8 +494,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
 			ExampleEndUserAuthenticationPolicySpecBinding},
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{ "ServiceRole", model.ServiceRole, ExampleServiceRole},
-		{ "ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
 	}
 
 	for _, c := range cases {

@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
 var (
@@ -38,7 +39,7 @@ const (
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
-	mesh model.ServiceDiscovery
+	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
 	// env is the model environment.
@@ -48,10 +49,11 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh model.ServiceDiscovery, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
 	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
+	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
 		periodicRefresh()

@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -458,8 +458,8 @@ var (
 		Type:        "policy",
 		Plural:      "policies",
 		Group:       "authentication",
-		Version:     "v1alpha1",
-		MessageName: "istio.authentication.v1alpha1.Policy",
+		Version:     "v1alpha2",
+		MessageName: "istio.authentication.v1alpha2.Policy",
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
@@ -561,9 +561,10 @@ func ResolveFQDN(host, domain string) string {
 	return host
 }
 
-// ResolveFQDNFromDestination returns FQDN for destination, in namespace and domain defines by config meta.
-func ResolveFQDNFromDestination(meta ConfigMeta, destination *networking.Destination) string {
-	return ResolveFQDN(destination.Name, meta.Namespace+".svc."+meta.Domain)
+// resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
+// in namespace and domain defines by config meta.
+func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
+	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
 }
 
 // istioConfigStore provides a simple adapter for Istio configuration types
@@ -908,16 +909,27 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// 2 - namespace scope.
 		// 3 - workload (service).
 		matchLevel := 0
-		if len(policy.Destinations) > 0 {
-			for _, dest := range policy.Destinations {
+		if len(policy.Targets) > 0 {
+			for _, dest := range policy.Targets {
 
-				if hostname != ResolveFQDNFromDestination(spec.ConfigMeta, dest) {
+				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
 					continue
 				}
 				// If destination port is defined, it must match.
-				if !port.Match(dest.GetPort()) {
-					continue
+				if len(dest.Ports) > 0 {
+					portMatched := false
+					for _, portSelector := range dest.Ports {
+						if port.Match(portSelector) {
+							portMatched = true
+							break
+						}
+					}
+					if !portMatched {
+						// Port does not match with any of port selector, skip to next target selector.
+						continue
+					}
 				}
+
 				matchLevel = 3
 				break
 			}

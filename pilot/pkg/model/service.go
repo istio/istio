@@ -28,8 +28,8 @@ import (
 	"sort"
 	"strings"
 
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -56,6 +56,7 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
@@ -66,6 +67,7 @@ type Service struct {
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
@@ -343,15 +345,15 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	return false
 }
 
-// Match returns true if port matches with port selector criteria.
-func (port Port) Match(portSelector *networking.PortSelector) bool {
+// Match returns true if port matches with authentication port selector criteria.
+func (port Port) Match(portSelector *authn.PortSelector) bool {
 	if portSelector == nil {
 		return true
 	}
 	switch portSelector.Port.(type) {
-	case *networking.PortSelector_Name:
+	case *authn.PortSelector_Name:
 		return portSelector.GetName() == port.Name
-	case *networking.PortSelector_Number:
+	case *authn.PortSelector_Number:
 		return portSelector.GetNumber() == uint32(port.Port)
 	default:
 		return false

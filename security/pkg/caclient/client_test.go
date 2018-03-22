@@ -116,7 +116,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
-		cert, certChain, _, err := client.RetrieveNewKeyCert()
+		cert, certChain, _, err := client.Retrieve()
 		if err == nil {
 			if len(c.expectedErr) != 0 {
 				t.Errorf("Test case [%s]: succeeded but expected error: %v", id, c.expectedErr)

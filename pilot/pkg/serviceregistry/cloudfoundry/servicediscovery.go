@@ -48,8 +48,10 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	port := sd.servicePort()
 	for hostname := range resp.Backends {
 		services = append(services, &model.Service{
-			Hostname: hostname,
-			Ports:    []*model.Port{port},
+			Hostname:     hostname,
+			Ports:        []*model.Port{port},
+			MeshExternal: false,
+			Resolution:   model.ClientSideLB,
 		})
 	}
 
@@ -91,8 +93,10 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 				ServicePort: port,
 			},
 			Service: &model.Service{
-				Hostname: hostname,
-				Ports:    []*model.Port{port},
+				Hostname:     hostname,
+				Ports:        []*model.Port{port},
+				MeshExternal: false,
+				Resolution:   model.ClientSideLB,
 			},
 		})
 	}

@@ -16,6 +16,8 @@ package na
 
 import (
 	"testing"
+
+	"istio.io/istio/security/pkg/caclient"
 )
 
 func TestNewNodeAgent(t *testing.T) {
@@ -30,25 +32,33 @@ func TestNewNodeAgent(t *testing.T) {
 		},
 		"onprem env test": {
 			config: &Config{
-				Env: "onprem",
+				CAClientConfig: caclient.Config{
+					Env: "onprem",
+				},
 			},
 			expectedErr: "",
 		},
 		"gcp env test": {
 			config: &Config{
-				Env: "gcp",
+				CAClientConfig: caclient.Config{
+					Env: "gcp",
+				},
 			},
 			expectedErr: "",
 		},
 		"unspecified env test": {
 			config: &Config{
-				Env: "unspecified",
+				CAClientConfig: caclient.Config{
+					Env: "unspecified",
+				},
 			},
 			expectedErr: "",
 		},
 		"Unsupported env test": {
 			config: &Config{
-				Env: "somethig else",
+				CAClientConfig: caclient.Config{
+					Env: "somethig else",
+				},
 			},
 			expectedErr: "invalid env somethig else specified",
 		},

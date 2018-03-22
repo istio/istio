@@ -28,7 +28,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/api/authentication/v1alpha2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -214,6 +214,10 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 		clusters = append(clusters, BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
 	}
 
+	// append cluster for JwksUri (for Jwt authentication) if necessary.
+	clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+		env.Mesh, env.IstioConfigStore, proxyInstances)...)
+
 	return clusters, nil
 }
 
@@ -309,6 +313,7 @@ func buildSidecarListenersClusters(
 			direction:        traceOperation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
@@ -378,6 +383,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	direction        string
 	outboundListener bool
 	store            model.IstioConfigStore
+	authnPolicy      *authn.Policy
 }
 
 // buildHTTPListener constructs a listener for the network interface address and port.
@@ -405,6 +411,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 			Config: mixerConfig,
 		}
 		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
 	}
 
 	config := &HTTPFilterConfig{
@@ -569,6 +579,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			direction:        operation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 		}))
 		clusters = append(clusters, routeConfig.Clusters()...)
 	}
@@ -776,6 +787,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		protocol := servicePort.Protocol
 		cluster := BuildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort)
 
 		var listener *Listener
 
@@ -863,6 +876,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				direction:        IngressTraceOperation,
 				outboundListener: false,
 				store:            config,
+				authnPolicy:      authenticationPolicy,
 			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:

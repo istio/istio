@@ -4288,7 +4288,7 @@ type builder_authorization_Subject struct {
 
 	bldGroups compiled.Expression
 
-	// builder for field properties: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field properties: map[string]interface{}.
 
 	bldProperties map[string]compiled.Expression
 } // builder_authorization_Subject
@@ -4436,7 +4436,7 @@ type builder_authorization_Action struct {
 
 	bldPath compiled.Expression
 
-	// builder for field properties: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field properties: map[string]interface{}.
 
 	bldProperties map[string]compiled.Expression
 } // builder_authorization_Action
@@ -4759,7 +4759,7 @@ func (b *builder_listentry_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_logentry_Template struct {
 
-	// builder for field variables: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field variables: map[string]interface{}.
 
 	bldVariables map[string]compiled.Expression
 
@@ -4775,7 +4775,7 @@ type builder_logentry_Template struct {
 
 	bldMonitoredResourceType compiled.Expression
 
-	// builder for field monitored_resource_dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field monitored_resource_dimensions: map[string]interface{}.
 
 	bldMonitoredResourceDimensions map[string]compiled.Expression
 } // builder_logentry_Template
@@ -4949,11 +4949,11 @@ func (b *builder_logentry_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_metric_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -4961,7 +4961,7 @@ type builder_metric_Template struct {
 
 	bldMonitoredResourceType compiled.Expression
 
-	// builder for field monitored_resource_dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field monitored_resource_dimensions: map[string]interface{}.
 
 	bldMonitoredResourceDimensions map[string]compiled.Expression
 } // builder_metric_Template
@@ -5110,7 +5110,7 @@ func (b *builder_metric_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_quota_Template struct {
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 } // builder_quota_Template
@@ -5272,7 +5272,7 @@ type builder_tracespan_Template struct {
 
 	bldEndTime compiled.Expression
 
-	// builder for field span_tags: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field span_tags: map[string]interface{}.
 
 	bldSpanTags map[string]compiled.Expression
 } // builder_tracespan_Template
