@@ -27,6 +27,7 @@ package simple
 import (
 	"bytes"
 	"flag"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -42,9 +43,9 @@ import (
 const (
 	servicesYaml         = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
 	nonInjectedYaml      = "tests/e2e/tests/simple/servicesNotInjected.yaml"
-	routingR1Yaml   = "tests/e2e/tests/simple/routingrule1.yaml"
-	routingR2Yaml   = "tests/e2e/tests/simple/routingrule2.yaml"
-	routingRNPYaml  = "tests/e2e/tests/simple/routingruleNoPods.yaml"
+	routingR1Yaml        = "tests/e2e/tests/simple/routingrule1.yaml"
+	routingR2Yaml        = "tests/e2e/tests/simple/routingrule2.yaml"
+	routingRNPYaml       = "tests/e2e/tests/simple/routingruleNoPods.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
 )
@@ -288,11 +289,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-<<<<<<< HEAD
-		image = "istio/fortio:latest"
-=======
 		image = "istio/fortio:latest_release"
->>>>>>> master
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
