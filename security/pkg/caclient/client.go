@@ -25,13 +25,8 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-// CAClient is a client to provision key and certificate from the upstream server.
-type CAClient interface {
-	RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error)
-}
-
-// The cAClientImpl wraps details of the CSR protocol.
-type cAClientImpl struct {
+// CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
+type CAClient struct {
 	platformClient platform.Client
 	protocolClient grpc.CAGrpcClient
 	istioCAAddress string
@@ -48,7 +43,7 @@ type cAClientImpl struct {
 
 // NewCAClient creates a new CAClient instance.
 func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string, org string, keySize int, ttl time.Duration,
-	forCA bool, maxRetries int, interval time.Duration) (CAClient, error) {
+	forCA bool, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
@@ -56,7 +51,7 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 	if err != nil {
 		return nil, err
 	}
-	return &cAClientImpl{
+	return &CAClient{
 		platformClient:         pltfmc,
 		protocolClient:         ptclc,
 		istioCAAddress:         cAAddr,
@@ -70,9 +65,9 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 	}, nil
 }
 
-// RetrieveNewKeyCert sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
+// Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
 // and cert, otherwise, it returns error. This is a blocking function.
-func (c *cAClientImpl) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
+func (c *CAClient) Retrieve() (newCert []byte, certChain []byte, privateKey []byte, err error) {
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
@@ -109,7 +104,7 @@ func (c *cAClientImpl) RetrieveNewKeyCert() (newCert []byte, certChain []byte, p
 	}
 }
 
-func (c *cAClientImpl) createRequest() ([]byte, *pb.CsrRequest, error) {
+func (c *CAClient) createRequest() ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
 		Host:       c.identity,
 		Org:        c.identityOrg,

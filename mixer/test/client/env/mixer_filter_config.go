@@ -28,17 +28,17 @@ var (
 	meshIP3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
 )
 
-// V2Conf stores v2 config.
-type V2Conf struct {
+// MixerFilterConf stores config for Mixer filter.
+type MixerFilterConf struct {
 	PerRouteConf   *mccpb.ServiceConfig
 	HTTPServerConf *mccpb.HttpClientConfig
 	HTTPClientConf *mccpb.HttpClientConfig
 	TCPServerConf  *mccpb.TcpClientConfig
 }
 
-// GetDefaultV2Conf get V2 config
-func GetDefaultV2Conf() *V2Conf {
-	return &V2Conf{
+// GetDefaultMixerFilterConf get config for Mixer filter
+func GetDefaultMixerFilterConf() *MixerFilterConf {
+	return &MixerFilterConf{
 		PerRouteConf:   GetDefaultServiceConfig(),
 		HTTPServerConf: GetDefaultHTTPServerConf(),
 		HTTPClientConf: GetDefaultHTTPClientConf(),
@@ -61,7 +61,7 @@ func GetDefaultServiceConfig() *mccpb.ServiceConfig {
 
 // GetDefaultHTTPServerConf get default HTTP server config
 func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
-	v2 := &mccpb.HttpClientConfig{
+	mfConf := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
@@ -70,12 +70,12 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 			},
 		},
 	}
-	return v2
+	return mfConf
 }
 
 // GetDefaultHTTPClientConf get default HTTP client config
 func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
-	v2 := &mccpb.HttpClientConfig{
+	mfConf := &mccpb.HttpClientConfig{
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP3}},
@@ -84,12 +84,12 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 			},
 		},
 	}
-	return v2
+	return mfConf
 }
 
 // GetDefaultTCPServerConf get default TCP server config
 func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
-	v2 := &mccpb.TcpClientConfig{
+	mfConf := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
@@ -98,50 +98,50 @@ func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 			},
 		},
 	}
-	return v2
+	return mfConf
 }
 
 // SetNetworPolicy set network policy
-func SetNetworPolicy(v2 *mccpb.HttpClientConfig, open bool) {
-	if v2.Transport == nil {
-		v2.Transport = &mccpb.TransportConfig{}
+func SetNetworPolicy(mfConf *mccpb.HttpClientConfig, open bool) {
+	if mfConf.Transport == nil {
+		mfConf.Transport = &mccpb.TransportConfig{}
 	}
-	v2.Transport.NetworkFailPolicy = &mccpb.NetworkFailPolicy{}
+	mfConf.Transport.NetworkFailPolicy = &mccpb.NetworkFailPolicy{}
 	if open {
-		v2.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_OPEN
+		mfConf.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_OPEN
 	} else {
-		v2.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_CLOSE
+		mfConf.Transport.NetworkFailPolicy.Policy = mccpb.FAIL_CLOSE
 	}
 }
 
 // DisableHTTPClientCache disable HTTP client cache
-func DisableHTTPClientCache(v2 *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
-	if v2.Transport == nil {
-		v2.Transport = &mccpb.TransportConfig{}
+func DisableHTTPClientCache(mfConf *mccpb.HttpClientConfig, checkCache, quotaCache, reportBatch bool) {
+	if mfConf.Transport == nil {
+		mfConf.Transport = &mccpb.TransportConfig{}
 	}
-	v2.Transport.DisableCheckCache = checkCache
-	v2.Transport.DisableQuotaCache = quotaCache
-	v2.Transport.DisableReportBatch = reportBatch
+	mfConf.Transport.DisableCheckCache = checkCache
+	mfConf.Transport.DisableQuotaCache = quotaCache
+	mfConf.Transport.DisableReportBatch = reportBatch
 }
 
 // DisableTCPClientCache disable TCP client cache
-func DisableTCPClientCache(v2 *mccpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
-	if v2.Transport == nil {
-		v2.Transport = &mccpb.TransportConfig{}
+func DisableTCPClientCache(mfConf *mccpb.TcpClientConfig, checkCache, quotaCache, reportBatch bool) {
+	if mfConf.Transport == nil {
+		mfConf.Transport = &mccpb.TransportConfig{}
 	}
-	v2.Transport.DisableCheckCache = checkCache
-	v2.Transport.DisableQuotaCache = quotaCache
-	v2.Transport.DisableReportBatch = reportBatch
+	mfConf.Transport.DisableCheckCache = checkCache
+	mfConf.Transport.DisableQuotaCache = quotaCache
+	mfConf.Transport.DisableReportBatch = reportBatch
 }
 
 // DisableHTTPCheckReport disable HTTP check report
-func DisableHTTPCheckReport(v2 *V2Conf, disableCheck, disableReport bool) {
-	v2.PerRouteConf.DisableCheckCalls = disableCheck
-	v2.PerRouteConf.DisableReportCalls = disableReport
+func DisableHTTPCheckReport(mfConf *MixerFilterConf, disableCheck, disableReport bool) {
+	mfConf.PerRouteConf.DisableCheckCalls = disableCheck
+	mfConf.PerRouteConf.DisableReportCalls = disableReport
 }
 
 // AddHTTPQuota add HTTP quota config
-func AddHTTPQuota(v2 *V2Conf, quota string, charge int64) {
+func AddHTTPQuota(mfConf *MixerFilterConf, quota string, charge int64) {
 	q := &mccpb.QuotaSpec{
 		Rules: make([]*mccpb.QuotaRule, 1),
 	}
@@ -153,57 +153,57 @@ func AddHTTPQuota(v2 *V2Conf, quota string, charge int64) {
 		Charge: charge,
 	}
 
-	v2.PerRouteConf.QuotaSpec = make([]*mccpb.QuotaSpec, 1)
-	v2.PerRouteConf.QuotaSpec[0] = q
+	mfConf.PerRouteConf.QuotaSpec = make([]*mccpb.QuotaSpec, 1)
+	mfConf.PerRouteConf.QuotaSpec[0] = q
 }
 
 // DisableTCPCheckReport disable TCP check report.
-func DisableTCPCheckReport(v2 *mccpb.TcpClientConfig, disableCheck, disableReport bool) {
-	v2.DisableCheckCalls = disableCheck
-	v2.DisableReportCalls = disableReport
+func DisableTCPCheckReport(mfConf *mccpb.TcpClientConfig, disableCheck, disableReport bool) {
+	mfConf.DisableCheckCalls = disableCheck
+	mfConf.DisableReportCalls = disableReport
 }
 
 // AddJwtAuth add JWT auth.
-func AddJwtAuth(v2 *V2Conf, jwt *mccpb.JWT) {
-	v2.PerRouteConf.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
-	v2.PerRouteConf.EndUserAuthnSpec.Jwts = append(v2.PerRouteConf.EndUserAuthnSpec.Jwts, jwt)
+func AddJwtAuth(mfConf *MixerFilterConf, jwt *mccpb.JWT) {
+	mfConf.PerRouteConf.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
+	mfConf.PerRouteConf.EndUserAuthnSpec.Jwts = append(mfConf.PerRouteConf.EndUserAuthnSpec.Jwts, jwt)
 
 	// Auth spec needs to add to service_configs map.
-	SetDefaultServiceConfigMap(v2)
+	SetDefaultServiceConfigMap(mfConf)
 }
 
 // SetTCPReportInterval sets TCP filter report interval in seconds
-func SetTCPReportInterval(v2 *mccpb.TcpClientConfig, reportInterval int64) {
-	if v2.ReportInterval == nil {
-		v2.ReportInterval = &gpb.Duration{
+func SetTCPReportInterval(mfConf *mccpb.TcpClientConfig, reportInterval int64) {
+	if mfConf.ReportInterval == nil {
+		mfConf.ReportInterval = &gpb.Duration{
 			Seconds: reportInterval,
 		}
 	} else {
-		v2.ReportInterval.Seconds = reportInterval
+		mfConf.ReportInterval.Seconds = reportInterval
 	}
 }
 
 // SetStatsUpdateInterval sets stats update interval for Mixer client filters in seconds.
-func SetStatsUpdateInterval(v2 *V2Conf, updateInterval int64) {
-	if v2.HTTPServerConf.Transport == nil {
-		v2.HTTPServerConf.Transport = &mccpb.TransportConfig{}
+func SetStatsUpdateInterval(mfConf *MixerFilterConf, updateInterval int64) {
+	if mfConf.HTTPServerConf.Transport == nil {
+		mfConf.HTTPServerConf.Transport = &mccpb.TransportConfig{}
 	}
-	v2.HTTPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+	mfConf.HTTPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
 		Seconds: updateInterval,
 	}
-	if v2.TCPServerConf.Transport == nil {
-		v2.TCPServerConf.Transport = &mccpb.TransportConfig{}
+	if mfConf.TCPServerConf.Transport == nil {
+		mfConf.TCPServerConf.Transport = &mccpb.TransportConfig{}
 	}
-	v2.TCPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
+	mfConf.TCPServerConf.Transport.StatsUpdateInterval = &gpb.Duration{
 		Seconds: updateInterval,
 	}
 }
 
 // SetDefaultServiceConfigMap set the default service config to the service config map
-func SetDefaultServiceConfigMap(v2 *V2Conf) {
+func SetDefaultServiceConfigMap(mfConf *MixerFilterConf) {
 	service := ":default"
-	v2.HTTPServerConf.DefaultDestinationService = service
+	mfConf.HTTPServerConf.DefaultDestinationService = service
 
-	v2.HTTPServerConf.ServiceConfigs = map[string]*mccpb.ServiceConfig{}
-	v2.HTTPServerConf.ServiceConfigs[service] = v2.PerRouteConf
+	mfConf.HTTPServerConf.ServiceConfigs = map[string]*mccpb.ServiceConfig{}
+	mfConf.HTTPServerConf.ServiceConfigs[service] = mfConf.PerRouteConf
 }

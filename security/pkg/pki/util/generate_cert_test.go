@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -178,6 +179,30 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
+		{
+			name: "Server cert with DNS for webhook",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo,bar.foo.svcs",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     false,
+				IsServer:     true,
+				RSAKeySize:   2048,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -186,8 +211,11 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		if err != nil {
 			t.Errorf("[%s] cert/key generation error: %v", c.name, err)
 		}
-		if err := VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
-			t.Errorf("[%s] cert verification error: %v", c.name, err)
+
+		for _, host := range strings.Split(certOptions.Host, ",") {
+			if err := VerifyCertificate(privPem, certPem, caCertPem, host, c.verifyFields); err != nil {
+				t.Errorf("[%s] cert verification error: %v", c.name, err)
+			}
 		}
 	}
 }
