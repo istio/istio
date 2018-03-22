@@ -26,7 +26,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportDisableTest, t)
 
 	// Disable both Check and Report cache.
-	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, true, true)
+	env.DisableHTTPClientCache(s.MfConfig().HTTPServerConf, true, true, true)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -47,7 +47,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.VerifyReportCount(tag, 1)
 
 	// Check enabled, Report disabled
-	env.DisableHTTPCheckReport(s.V2(), false, true)
+	env.DisableHTTPCheckReport(s.MfConfig(), false, true)
 	s.ReStartEnvoy()
 
 	tag = "Check Only"
@@ -61,7 +61,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.VerifyReportCount(tag, 1)
 
 	// Check disabled, Report enabled
-	env.DisableHTTPCheckReport(s.V2(), true, false)
+	env.DisableHTTPCheckReport(s.MfConfig(), true, false)
 	s.ReStartEnvoy()
 
 	// wait for 2 second to wait for envoy to come up
