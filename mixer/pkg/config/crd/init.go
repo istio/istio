@@ -16,7 +16,6 @@ package crd
 
 import (
 	"net/url"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,14 +55,14 @@ func newDynamicListenerWatcherBuilder(conf *rest.Config) (listerWatcherBuilderIn
 	return &dynamicListerWatcherBuilder{client}, nil
 }
 
-func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
-	return b.client.Resource(&res, "")
+func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource, ns string) cache.ListerWatcher {
+	return b.client.Resource(&res, ns)
 }
 
 // NewStore creates a new Store instance.
 func NewStore(u *url.URL) (store.Backend, error) {
 	kubeconfig := u.Path
-	namespaces := u.Query().Get("ns")
+	namespace := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
 	retryTimeoutParam := u.Query().Get("retry-timeout")
 	if retryTimeoutParam != "" {
@@ -81,17 +80,12 @@ func NewStore(u *url.URL) (store.Backend, error) {
 	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
 	s := &Store{
 		conf:                 conf,
+		ns:                   namespace,
 		retryTimeout:         retryTimeout,
 		donec:                make(chan struct{}),
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 		Probe:                probe.NewProbe(),
-	}
-	if len(namespaces) > 0 {
-		s.ns = map[string]bool{}
-		for _, n := range strings.Split(namespaces, ",") {
-			s.ns[n] = true
-		}
 	}
 	return s, nil
 }
