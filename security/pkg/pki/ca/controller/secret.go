@@ -61,7 +61,8 @@ const (
 	secretCreationRetry = 3
 )
 
-type WebhookEntry struct {
+// DNSNameEntry stores the service name and namespace to construct the DNS id.
+type DNSNameEntry struct {
 	ServiceName string
 	Namespace   string
 }
@@ -75,8 +76,8 @@ type SecretController struct {
 	gracePeriodRatio float32
 	minGracePeriod   time.Duration
 
-	// Webhook service account/service pair
-	webhookServiceMap map[string]WebhookEntry
+	// DNS-enabled service account/service pair
+	dnsNames map[string]DNSNameEntry
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -89,7 +90,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string, webhooks map[string]WebhookEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -100,12 +101,12 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 	}
 
 	c := &SecretController{
-		ca:                ca,
-		certTTL:           certTTL,
-		gracePeriodRatio:  gracePeriodRatio,
-		minGracePeriod:    minGracePeriod,
-		core:              core,
-		webhookServiceMap: webhooks,
+		ca:               ca,
+		certTTL:          certTTL,
+		gracePeriodRatio: gracePeriodRatio,
+		minGracePeriod:   minGracePeriod,
+		core:             core,
+		dnsNames:         dnsNames,
 	}
 
 	saLW := &cache.ListWatch{
@@ -267,10 +268,10 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
-	if sc.webhookServiceMap != nil {
-		if webhook, ok := sc.webhookServiceMap[saName]; ok {
-			if webhook.Namespace == saNamespace {
-				id += "," + fmt.Sprintf("%s.%s.svc", webhook.ServiceName, saNamespace)
+	if sc.dnsNames != nil {
+		if e, ok := sc.dnsNames[saName]; ok {
+			if e.Namespace == saNamespace {
+				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
 			}
 		}
 	}

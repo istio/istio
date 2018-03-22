@@ -238,11 +238,11 @@ func runCA() {
 
 	verifyCommandLineOptions()
 
-	var webhooks map[string]controller.WebhookEntry
+	var webhooks map[string]controller.DNSNameEntry
 	if opts.appendDNSNames {
-		webhooks = make(map[string]controller.WebhookEntry)
+		webhooks = make(map[string]controller.DNSNameEntry)
 		for i, svcAccount := range webhookServiceAccounts {
-			webhooks[svcAccount] = controller.WebhookEntry{
+			webhooks[svcAccount] = controller.DNSNameEntry{
 				ServiceName: webhookServiceNames[i],
 				Namespace:   opts.istioCaStorageNamespace,
 			}

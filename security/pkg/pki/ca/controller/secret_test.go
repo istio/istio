@@ -119,7 +119,7 @@ func TestSecretController(t *testing.T) {
 			})
 		}
 
-		webhooks := map[string]WebhookEntry{
+		webhooks := map[string]DNSNameEntry{
 			sidecarInjectorSvcAccount: {
 				ServiceName: sidecarInjectorSvc,
 				Namespace:   "test-ns",
