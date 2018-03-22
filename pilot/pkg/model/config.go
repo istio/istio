@@ -268,6 +268,9 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -785,6 +788,27 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 		rule := config.Spec.(*networking.DestinationRule)
 		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
+		}
+	}
+
+	return nil
+}
+
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := store.DestinationRule(hostname, domain)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
 		}
 	}
 

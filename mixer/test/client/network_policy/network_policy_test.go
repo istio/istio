@@ -43,7 +43,7 @@ func TestNetworkFailure(t *testing.T) {
 	}
 
 	// Set to fail_close
-	env.SetNetworPolicy(s.V2().HTTPServerConf, false)
+	env.SetNetworPolicy(s.MfConfig().HTTPServerConf, false)
 	s.ReStartEnvoy()
 
 	tag = "Fail-Close"

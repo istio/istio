@@ -175,6 +175,48 @@ func TestServiceKey(t *testing.T) {
 	}
 }
 
+func TestSubsetKey(t *testing.T) {
+	hostname := "hostname"
+	cases := []struct {
+		hostname string
+		subset   string
+		port     *model.Port
+		want     string
+	}{
+		{
+			hostname: "hostname",
+			subset:   "subset",
+			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound|http|subset|hostname",
+		},
+		{
+			hostname: "hostname",
+			subset:   "subset",
+			port:     &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound||subset|hostname",
+		},
+		{
+			hostname: "hostname",
+			subset:   "",
+			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound|http||hostname",
+		},
+	}
+
+	for _, c := range cases {
+		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
+		if got != c.want {
+			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+
+		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
+		_, s, h, p := model.ParseSubsetKey(got)
+		if s != c.subset || h != c.hostname || p.Name != c.port.Name {
+			t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
+		}
+	}
+}
+
 func TestLabelsEquals(t *testing.T) {
 	cases := []struct {
 		a, b model.Labels
@@ -526,7 +568,7 @@ func TestEgressRules(t *testing.T) {
 	}
 }
 
-func TestPolicy(t *testing.T) {
+func TestDestinationPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
 	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
