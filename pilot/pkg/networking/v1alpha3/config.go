@@ -699,8 +699,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				l.FilterChains = append(l.FilterChains, listener.FilterChain{
 					Filters: []listener.Filter{
 						{
-							// TODO(mostrowski): need proto version of mixer config.
-							// Config: messageToStruct(&config),
+						// TODO(mostrowski): need proto version of mixer config.
+						// Config: messageToStruct(&config),
 						},
 					},
 				})
