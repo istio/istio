@@ -58,7 +58,7 @@ class AuthenticatorBase : public Logger::Loggable<Logger::Id::filter> {
   // the callback function with the extracted attributes and claims (JwtPayload)
   // and status SUCCESS. Otherwise, calling callback with status FAILED.
   virtual void validateJwt(const istio::authentication::v1alpha1::Jwt& params,
-                           const MethodDoneCallback& done_callback) const;
+                           const MethodDoneCallback& done_callback);
 
   // Mutable accessor to filter context.
   FilterContext* filter_context() { return &filter_context_; }

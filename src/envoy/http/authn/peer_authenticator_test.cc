@@ -49,8 +49,7 @@ class MockPeerAuthenticator : public PeerAuthenticator {
 
   MOCK_CONST_METHOD2(validateX509,
                      void(const iaapi::MutualTls&, const MethodDoneCallback&));
-  MOCK_CONST_METHOD2(validateJwt,
-                     void(const iaapi::Jwt&, const MethodDoneCallback&));
+  MOCK_METHOD2(validateJwt, void(const iaapi::Jwt&, const MethodDoneCallback&));
 };
 
 class PeerAuthenticatorTest : public testing::Test {
