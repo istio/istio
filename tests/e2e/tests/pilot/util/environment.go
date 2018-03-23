@@ -192,8 +192,8 @@ func (e *Environment) Setup() error {
 	if e.Config.ClusterRegistriesDir != "" {
 		e.clusterStore, err = clusterregistry.ReadClusters(e.Config.ClusterRegistriesDir)
 		if e.clusterStore == nil {
-			return fmt.Errorf("Failed to clusters in the ClusterRegistriesDir %s\n",
-							  e.Config.ClusterRegistriesDir)
+			return fmt.Errorf("failed to read clusters in the ClusterRegistriesDir %s",
+				e.Config.ClusterRegistriesDir)
 		}
 		if e.clusterStore != nil {
 			kubeCfgFile := e.clusterStore.GetPilotAccessConfig()
@@ -321,7 +321,7 @@ func (e *Environment) Setup() error {
 		// Automatic side car injection is not supported when multiple clusters are being tested
 		// as all istio control plane components are only installed on the first cluster.
 		if e.RemoteKubeConfig != "" {
-			return fmt.Errorf("Automatic side car injection is not supported when multiple clusters are being tested.")
+			return fmt.Errorf("automatic side car injection is not supported when multiple clusters are being tested")
 		}
 		if err = e.createSidecarInjector(); err != nil {
 			return err
@@ -331,7 +331,7 @@ func (e *Environment) Setup() error {
 	if e.Config.UseAdmissionWebhook {
 		// Admission Webhook is not supported when multiple clusters are being tested.
 		if e.RemoteKubeConfig != "" {
-			return fmt.Errorf("Admission webhook is not supported when multiple clusters are being tested.")
+			return fmt.Errorf("admission webhook is not supported when multiple clusters are being tested")
 		}
 		if err = e.createAdmissionWebhookSecret(); err != nil {
 			return err
