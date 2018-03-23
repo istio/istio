@@ -26,21 +26,6 @@ namespace Envoy {
 namespace Http {
 namespace Istio {
 namespace AuthN {
-namespace {
-// Returns true if rule is mathed for peer_id
-bool isRuleMatchedWithPeer(const iaapi::CredentialRule& rule,
-                           const std::string& peer_id) {
-  if (rule.matching_peers_size() == 0) {
-    return true;
-  }
-  for (const auto& allowed_id : rule.matching_peers()) {
-    if (peer_id == allowed_id) {
-      return true;
-    }
-  }
-  return false;
-}
-}  // namespace
 
 AuthenticatorBase::AuthenticatorBase(
     FilterContext* filter_context,
@@ -84,16 +69,6 @@ void AuthenticatorBase::validateJwt(
   // TODO (diemtvu/lei-tang): construct jwt_authenticator and call Verify;
   // pass done_callback so that it would be trigger by jwt_authenticator.onDone.
   done_callback(&payload, false);
-}
-
-const iaapi::CredentialRule& findCredentialRuleOrDefault(
-    const iaapi::Policy& policy, const std::string& peer_id) {
-  for (const auto& rule : policy.credential_rules()) {
-    if (isRuleMatchedWithPeer(rule, peer_id)) {
-      return rule;
-    }
-  }
-  return iaapi::CredentialRule::default_instance();
 }
 
 }  // namespace AuthN

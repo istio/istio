@@ -52,9 +52,6 @@ void PeerAuthenticator::runMethod(const iaapi::PeerAuthenticationMethod& method,
     case iaapi::PeerAuthenticationMethod::ParamsCase::kJwt:
       validateJwt(method.jwt(), done_callback);
       break;
-    case iaapi::PeerAuthenticationMethod::ParamsCase::kNone:
-      done_callback(nullptr, true);
-      break;
     default:
       ENVOY_LOG(error, "Unknown peer authentication param {}",
                 method.DebugString());

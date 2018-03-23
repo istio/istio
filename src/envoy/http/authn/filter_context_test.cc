@@ -76,7 +76,7 @@ TEST_F(FilterContextTest, SetBoth) {
 TEST_F(FilterContextTest, UseOrigin) {
   filter_context_.setPeerResult(&x509_payload_);
   filter_context_.setOriginResult(&jwt_payload_);
-  filter_context_.setPrincipal(iaapi::CredentialRule::USE_ORIGIN);
+  filter_context_.setPrincipal(iaapi::PrincipalBinding::USE_ORIGIN);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(R"(
         principal: "bar"
         peer_user: "foo"
@@ -90,7 +90,7 @@ TEST_F(FilterContextTest, UseOrigin) {
 
 TEST_F(FilterContextTest, UseOriginOnEmptyOrigin) {
   filter_context_.setPeerResult(&x509_payload_);
-  filter_context_.setPrincipal(iaapi::CredentialRule::USE_ORIGIN);
+  filter_context_.setPrincipal(iaapi::PrincipalBinding::USE_ORIGIN);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(R"(
         peer_user: "foo"
       )"),
@@ -99,7 +99,7 @@ TEST_F(FilterContextTest, UseOriginOnEmptyOrigin) {
 
 TEST_F(FilterContextTest, PrincipalUsePeer) {
   filter_context_.setPeerResult(&x509_payload_);
-  filter_context_.setPrincipal(iaapi::CredentialRule::USE_PEER);
+  filter_context_.setPrincipal(iaapi::PrincipalBinding::USE_PEER);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(R"(
         principal: "foo"
         peer_user: "foo"
@@ -109,7 +109,7 @@ TEST_F(FilterContextTest, PrincipalUsePeer) {
 
 TEST_F(FilterContextTest, PrincipalUsePeerOnEmptyPeer) {
   filter_context_.setOriginResult(&jwt_payload_);
-  filter_context_.setPrincipal(iaapi::CredentialRule::USE_PEER);
+  filter_context_.setPrincipal(iaapi::PrincipalBinding::USE_PEER);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(R"(
         origin {
           user: "bar"

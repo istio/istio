@@ -41,8 +41,8 @@ namespace Istio {
 namespace AuthN {
 namespace {
 
-const char kSingleMethodRule[] = R"(
-  binding: USE_ORIGIN
+const char kSingleOriginMethodPolicy[] = R"(
+  principal_binding: USE_ORIGIN
   origins {
     jwt {
       issuer: "abc.xyz"
@@ -50,8 +50,8 @@ const char kSingleMethodRule[] = R"(
   }
 )";
 
-const char kMultipleMethodsRule[] = R"(
-  binding: USE_ORIGIN
+const char kMultipleOriginMethodsPolicy[] = R"(
+  principal_binding: USE_ORIGIN
   origins {
     jwt {
       issuer: "one"
@@ -70,7 +70,7 @@ const char kMultipleMethodsRule[] = R"(
 )";
 
 const char kPeerBinding[] = R"(
-  binding: USE_PEER
+  principal_binding: USE_PEER
   origins {
     jwt {
       issuer: "abc.xyz"
@@ -82,8 +82,8 @@ class MockOriginAuthenticator : public OriginAuthenticator {
  public:
   MockOriginAuthenticator(FilterContext* filter_context,
                           const DoneCallback& done_callback,
-                          const iaapi::CredentialRule& rule)
-      : OriginAuthenticator(filter_context, done_callback, rule) {}
+                          const iaapi::Policy& policy)
+      : OriginAuthenticator(filter_context, done_callback, policy) {}
 
   MOCK_CONST_METHOD2(validateX509,
                      void(const iaapi::MutualTls&, const MethodDoneCallback&));
@@ -116,7 +116,7 @@ class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
 
   void createAuthenticator() {
     authenticator_.reset(new StrictMock<MockOriginAuthenticator>(
-        &filter_context_, on_done_callback_.AsStdFunction(), rule_));
+        &filter_context_, on_done_callback_.AsStdFunction(), policy_));
   }
 
  protected:
@@ -124,7 +124,7 @@ class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
   StrictMock<MockFunction<void(bool)>> on_done_callback_;
   Http::TestHeaderMapImpl request_headers_;
   FilterContext filter_context_{&request_headers_, nullptr};
-  iaapi::CredentialRule rule_;
+  iaapi::Policy policy_;
 
   // Mock response payload.
   Payload jwt_payload_{TestUtilities::CreateJwtPayload("foo", "istio.io")};
@@ -151,7 +151,8 @@ TEST_P(OriginAuthenticatorTest, Empty) {
 }
 
 TEST_P(OriginAuthenticatorTest, SingleMethodPass) {
-  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kSingleMethodRule, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kSingleOriginMethodPolicy,
+                                                    &policy_));
 
   createAuthenticator();
 
@@ -166,7 +167,8 @@ TEST_P(OriginAuthenticatorTest, SingleMethodPass) {
 }
 
 TEST_P(OriginAuthenticatorTest, SingleMethodFail) {
-  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kSingleMethodRule, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kSingleOriginMethodPolicy,
+                                                    &policy_));
 
   createAuthenticator();
 
@@ -181,8 +183,8 @@ TEST_P(OriginAuthenticatorTest, SingleMethodFail) {
 }
 
 TEST_P(OriginAuthenticatorTest, Multiple) {
-  ASSERT_TRUE(
-      Protobuf::TextFormat::ParseFromString(kMultipleMethodsRule, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(
+      kMultipleOriginMethodsPolicy, &policy_));
 
   createAuthenticator();
 
@@ -199,8 +201,8 @@ TEST_P(OriginAuthenticatorTest, Multiple) {
 }
 
 TEST_P(OriginAuthenticatorTest, MultipleFail) {
-  ASSERT_TRUE(
-      Protobuf::TextFormat::ParseFromString(kMultipleMethodsRule, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(
+      kMultipleOriginMethodsPolicy, &policy_));
 
   createAuthenticator();
 
@@ -216,7 +218,7 @@ TEST_P(OriginAuthenticatorTest, MultipleFail) {
 }
 
 TEST_P(OriginAuthenticatorTest, PeerBindingPass) {
-  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kPeerBinding, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kPeerBinding, &policy_));
   // Expected principal is from peer_user.
   expected_result_when_pass_.set_principal(initial_result_.peer_user());
 
@@ -233,7 +235,7 @@ TEST_P(OriginAuthenticatorTest, PeerBindingPass) {
 }
 
 TEST_P(OriginAuthenticatorTest, PeerBindingFail) {
-  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kPeerBinding, &rule_));
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(kPeerBinding, &policy_));
   createAuthenticator();
 
   // All fail.

@@ -70,13 +70,6 @@ class AuthenticatorBase : public Logger::Loggable<Logger::Id::filter> {
   const DoneCallback done_callback_;
 };
 
-// Return pointer to credential rule matching with peer_id from the policy.
-// If no rule found, return the default credential rule.
-const istio::authentication::v1alpha1::CredentialRule&
-findCredentialRuleOrDefault(
-    const istio::authentication::v1alpha1::Policy& policy,
-    const std::string& peer_id);
-
 }  // namespace AuthN
 }  // namespace Istio
 }  // namespace Http

@@ -150,10 +150,8 @@ std::unique_ptr<Istio::AuthN::AuthenticatorBase>
 AuthenticationFilter::createOriginAuthenticator(
     Istio::AuthN::FilterContext* filter_context,
     const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback) {
-  const auto& rule = Istio::AuthN::findCredentialRuleOrDefault(
-      policy_, filter_context_->authenticationResult().peer_user());
   return std::make_unique<Istio::AuthN::OriginAuthenticator>(
-      filter_context, done_callback, rule);
+      filter_context, done_callback, policy_);
 }
 
 }  // namespace AuthN
