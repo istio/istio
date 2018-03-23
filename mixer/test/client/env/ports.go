@@ -25,6 +25,7 @@ import (
 // All tests should be listed here to get their test ids
 const (
 	CheckCacheTest uint16 = iota
+	CheckCacheHitTest
 	CheckReportAttributesTest
 	CheckReportDisableTest
 	DisableCheckCacheTest
