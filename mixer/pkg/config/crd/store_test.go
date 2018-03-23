@@ -43,8 +43,6 @@ const testingRetryTimeout = 10 * time.Millisecond
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
-var once sync.Once
-
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -133,10 +131,6 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	ns := "istio-mixer-testing"
 
-	once.Do(func() {
-		retryInterval = 0
-	})
-
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
 		watchers: map[string]*watch.RaceFreeFakeWatcher{},
@@ -149,7 +143,8 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
 		},
-		Probe: probe.NewProbe(),
+		Probe:         probe.NewProbe(),
+		retryInterval: 0,
 	}
 	return client, ns, lw
 }
