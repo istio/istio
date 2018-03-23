@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/deprecated"
+	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -215,7 +215,7 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
 func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := deprecated.BuildListeners(env, node)
+	ls, err := v1alpha3.BuildListeners(env, node)
 	if err != nil {
 		return nil, err
 	}

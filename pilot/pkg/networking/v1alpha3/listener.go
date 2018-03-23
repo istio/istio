@@ -36,6 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"time"
 )
 
 const (
@@ -419,7 +420,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			filters = append([]*http_conn.HttpFilter{filter}, filters...)
 		}
 	*/
-	//refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
@@ -433,8 +434,9 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				ConfigSource: core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:      core.ApiConfigSource_GRPC,
+							ApiType:      core.ApiConfigSource_REST_LEGACY,
 							ClusterNames: []string{RDSName},
+							RefreshDelay: refresh,
 						},
 					},
 				},
