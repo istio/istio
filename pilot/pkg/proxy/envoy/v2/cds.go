@@ -141,6 +141,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 				ID:   discReq.Node.Id,
 				Type: nt.Type,
 			}
+
 			con.modelNode = &node
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements

@@ -39,7 +39,7 @@ func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamC
 		Node: &envoy_api_v2_core1.Node{
 			Id: "sidecar~a~b~c",
 		},
-		})
+	})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}

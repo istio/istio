@@ -247,14 +247,14 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		if (AzDebug) {
+		if AzDebug {
 			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
 		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		if (AzDebug) {
+		if AzDebug {
 			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
 		}
 		return "", false
