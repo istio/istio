@@ -163,7 +163,7 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 		return nil, fmt.Errorf("failed to extract id %v", err)
 	}
 	if len(ids) != 1 {
-		return nil, fmt.Errorf("expect single id from the cert, found %v", len(ids))
+		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
 	}
 	return &CertOptions{
 		Host: ids[0],
