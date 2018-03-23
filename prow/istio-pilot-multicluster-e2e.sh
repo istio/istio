@@ -18,7 +18,7 @@
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER=istio-pilot-multicluster-e2e
 
-source "${ROOT}/prow/istio-pilot-e2e-common.sh"
+source "prow/istio-pilot-e2e-common.sh"
 
 # setup cluster-registries dir setup by mason
 CLUSTERREG_DIR=${CLUSTERREG_DIR:-$HOME/.kube}
