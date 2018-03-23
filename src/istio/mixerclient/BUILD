@@ -145,11 +145,14 @@ cc_test(
     name = "client_impl_test",
     size = "small",
     srcs = ["client_impl_test.cc"],
-    linkopts = [
-        "-lm",
-        "-lpthread",
-        "-lrt",
-    ],
+    linkopts = select({
+        "//:darwin": [],
+        "//conditions:default": [
+            "-lm",
+            "-lpthread",
+            "-lrt",
+        ],
+    }),
     linkstatic = 1,
     deps = [
         ":mixerclient_lib",
