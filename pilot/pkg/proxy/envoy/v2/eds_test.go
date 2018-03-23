@@ -27,10 +27,8 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
-
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 

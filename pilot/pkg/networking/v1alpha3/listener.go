@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
 	_ "github.com/golang/glog" // nolint
 
 	"istio.io/istio/pilot/pkg/model"
