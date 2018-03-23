@@ -219,7 +219,7 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
 func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     ListenerType,
+		TypeUrl:     listenerType,
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}

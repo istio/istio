@@ -44,11 +44,12 @@ const (
 )
 
 const (
-	typePrefix   = "type.googleapis.com/envoy.api.v2."
-	EndpointType = typePrefix + "ClusterLoadAssignment"
-	ClusterType  = typePrefix + "Cluster"
-	RouteType    = typePrefix + "RouteConfiguration"
-	ListenerType = typePrefix + "Listener"
+	typePrefix = "type.googleapis.com/envoy.api.v2."
+
+	// Constants used for
+	endpointType = typePrefix + "ClusterLoadAssignment"
+	clusterType  = typePrefix + "Cluster"
+	listenerType = typePrefix + "Listener"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs

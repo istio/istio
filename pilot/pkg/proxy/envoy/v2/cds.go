@@ -65,7 +65,7 @@ type CdsConnection struct {
 func (con *CdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: ClusterType,
+		TypeUrl: clusterType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS

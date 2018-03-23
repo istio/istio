@@ -21,6 +21,8 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
+	"time"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -60,6 +62,21 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname, "")
+		if config == nil {
+			for _, port := range service.Ports {
+				// TODO(costin): boilerplate only !!!
+				hosts := buildClusterHosts(env, service, port)
+				// create default cluster
+				cluster := &v2.Cluster{
+					Name:           model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
+					Type:           convertResolution(service.Resolution),
+					Hosts:          hosts,
+					ConnectTimeout: 5 * time.Second,
+				}
+
+				clusters = append(clusters, cluster)
+			}
+		}
 		if config != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			for _, port := range service.Ports {

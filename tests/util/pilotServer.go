@@ -83,12 +83,14 @@ func setup() error {
 				string(bootstrap.MockRegistry)},
 		},
 	}
+	args.Config.FileDir = "testdata"
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
 		return err
 	}
+
 	MockTestServer = s
 
 	// Start the server.

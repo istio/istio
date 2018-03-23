@@ -120,12 +120,9 @@ type EdsConnection struct {
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
 func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
-	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
-	clAssignment := &xdsapi.ClusterLoadAssignment{}
-	clAssignmentRes, _ := types.MarshalAny(clAssignment)
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: clAssignmentRes.GetTypeUrl(),
+		TypeUrl: endpointType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
