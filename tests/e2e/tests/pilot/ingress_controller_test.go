@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ingress
+package pilot
 
 import (
 	"reflect"
@@ -24,7 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
-	routing "istio.io/api/routing/v1alpha1"
+	pb "istio.io/api/routing/v1alpha1"
+	crd "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/mock"
@@ -32,7 +33,6 @@ import (
 )
 
 const (
-	resync    = 1 * time.Second
 	namespace = "test"
 )
 
@@ -55,7 +55,7 @@ var (
 			},
 		},
 	}
-	ingress = v1beta1.Ingress{
+	ig = v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "test-ingress",
 			Namespace: namespace,
@@ -136,7 +136,7 @@ var (
 func TestConfig(t *testing.T) {
 	cl := fake.NewSimpleClientset()
 	mesh := model.DefaultMeshConfig()
-	ctl := NewController(cl, &mesh, kube.ControllerOptions{
+	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
 	})
@@ -176,7 +176,7 @@ func TestConfig(t *testing.T) {
 func TestIngressController(t *testing.T) {
 	cl := fake.NewSimpleClientset()
 	mesh := model.DefaultMeshConfig()
-	ctl := NewController(cl, &mesh, kube.ControllerOptions{
+	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
 	})
@@ -195,7 +195,7 @@ func TestIngressController(t *testing.T) {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", nginxIngress.Namespace, err)
 	}
 	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
-	if _, err := cl.ExtensionsV1beta1().Ingresses(namespace).Create(&ingress); err != nil {
+	if _, err := cl.ExtensionsV1beta1().Ingresses(namespace).Create(&ig); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", namespace, err)
 	}
 
@@ -228,12 +228,12 @@ func TestIngressController(t *testing.T) {
 		if !exists {
 			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key())
 		} else {
-			listRule, ok := listMsg.Spec.(*routing.IngressRule)
+			listRule, ok := listMsg.Spec.(*pb.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", listMsg.Spec)
 			}
 
-			getRule, ok := getMsg.Spec.(*routing.IngressRule)
+			getRule, ok := getMsg.Spec.(*pb.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", getMsg)
 			}
@@ -248,16 +248,16 @@ func TestIngressController(t *testing.T) {
 	if _, exists := ctl.Get(model.RouteRule.Type, "test", namespace); exists {
 		t.Error("Get() => got exists for route rule")
 	}
-	if _, exists := ctl.Get(model.IngressRule.Type, ingress.Name, namespace); exists {
+	if _, exists := ctl.Get(model.IngressRule.Type, ig.Name, namespace); exists {
 		t.Error("Get() => got exists for a name without a rule path")
 	}
-	if _, exists := ctl.Get(model.IngressRule.Type, encodeIngressRuleName("blah", 0, 0), namespace); exists {
+	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName("blah", 0, 0), namespace); exists {
 		t.Error("Get() => got exists for a missing ingress resource")
 	}
-	if _, exists := ctl.Get(model.IngressRule.Type, encodeIngressRuleName(nginxIngress.Name, 0, 0), namespace); exists {
+	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName(nginxIngress.Name, 0, 0), namespace); exists {
 		t.Error("Get() => got exists for a different class resource")
 	}
-	if _, exists := ctl.Get(model.IngressRule.Type, encodeIngressRuleName(ingress.Name, 10, 10), namespace); exists {
+	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName(ig.Name, 10, 10), namespace); exists {
 		t.Error("Get() => got exists for a unreachable rule path")
 	}
 	if _, err := ctl.List(model.RouteRule.Type, namespace); err == nil {

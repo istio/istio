@@ -38,7 +38,7 @@ func TestDecodeIngressRuleName(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		encoded := encodeIngressRuleName(c.ingressName, c.ruleNum, c.pathNum)
+		encoded := EncodeIngressRuleName(c.ingressName, c.ruleNum, c.pathNum)
 		ingressName, ruleNum, pathNum, err := decodeIngressRuleName(encoded)
 		if err != nil {
 			t.Errorf("decodeIngressRuleName(%q) => error %v", encoded, err)
@@ -54,7 +54,7 @@ func TestDecodeIngressRuleName(t *testing.T) {
 }
 
 func TestEncoding(t *testing.T) {
-	if got := encodeIngressRuleName("name", 3, 5); got != "name-3-5" {
+	if got := EncodeIngressRuleName("name", 3, 5); got != "name-3-5" {
 		t.Errorf("unexpected ingress encoding %q", got)
 	}
 
