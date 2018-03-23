@@ -195,25 +195,23 @@ func (e *Environment) Setup() error {
 			return fmt.Errorf("failed to read clusters in the ClusterRegistriesDir %s",
 				e.Config.ClusterRegistriesDir)
 		}
-		if e.clusterStore != nil {
-			kubeCfgFile := e.clusterStore.GetPilotAccessConfig()
-			kubeCfgFile = path.Join(e.Config.ClusterRegistriesDir, kubeCfgFile)
-			e.Config.KubeConfig = kubeCfgFile
-			if _, e.KubeClient, err = kube.CreateInterface(kubeCfgFile); err != nil {
-				return err
-			}
-			// Note only a single remote cluster is currently supported.
-			clusters := e.clusterStore.GetPilotClusters()
-			for _, cluster := range clusters {
-				kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-				e.RemoteKubeConfig = path.Join(e.Config.ClusterRegistriesDir, kubeconfig)
+		kubeCfgFile := e.clusterStore.GetPilotAccessConfig()
+		kubeCfgFile = path.Join(e.Config.ClusterRegistriesDir, kubeCfgFile)
+		e.Config.KubeConfig = kubeCfgFile
+		if _, e.KubeClient, err = kube.CreateInterface(kubeCfgFile); err != nil {
+			return err
+		}
+		// Note only a single remote cluster is currently supported.
+		clusters := e.clusterStore.GetPilotClusters()
+		for _, cluster := range clusters {
+			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
+			e.RemoteKubeConfig = path.Join(e.Config.ClusterRegistriesDir, kubeconfig)
 
-				log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), e.RemoteKubeConfig)
-				// Expecting only a single remote cluster so hard code this.  The code won't throw an error
-				// if more than 2 clusters are defined in the config files, but will only use the last cluster parsed.
-				if _, e.RemoteKubeClient, err = kube.CreateInterface(e.RemoteKubeConfig); err != nil {
-					return err
-				}
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), e.RemoteKubeConfig)
+			// Expecting only a single remote cluster so hard code this.  The code won't throw an error
+			// if more than 2 clusters are defined in the config files, but will only use the last cluster parsed.
+			if _, e.RemoteKubeClient, err = kube.CreateInterface(e.RemoteKubeConfig); err != nil {
+				return err
 			}
 		}
 	}
@@ -996,10 +994,10 @@ func (e *Environment) createMulticlusterConfig() error {
 			if item.Mode().IsRegular() {
 				keyName := item.Name()
 				Data, err = ioutil.ReadFile(itemPath)
-				configData[keyName] = string(Data)
 				if err != nil {
 					return err
 				}
+				configData[keyName] = string(Data)
 			}
 		}
 		if _, err = e.KubeClient.CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{

@@ -46,14 +46,14 @@ func (t *istioRBAC) Setup() error {
 		return err
 	}
 
-	if err = t.KubeApply(yamlEnable, t.Config.IstioNamespace); err != nil {
+	if err = t.KubeApply(yamlEnable, t.Config.IstioNamespace, false); err != nil {
 		log.Warn("Failed to enable istio RBAC")
 		return err
 	}
 	log.Info("Istio RBAC enabled")
 	t.rbacEnableYaml = yamlEnable
 
-	if err = t.KubeApply(yamlRules, t.Config.Namespace); err != nil {
+	if err = t.KubeApply(yamlRules, t.Config.Namespace, false); err != nil {
 		log.Warn("Failed to apply istio RBAC rules")
 		return err
 	}
