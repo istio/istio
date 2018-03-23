@@ -75,12 +75,12 @@ When defining Kubernetes Custom Resource Definition (CRD) using
 The Kubernetes CRD:
 
 ```yaml
-apiVersion: config.istio.io/v1alpha1
-kind: Authorization
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
 ```
 
 The proto message definition:
 ```proto
-package istio.config.v1alpha1;
-message Authorization {...}
+package istio.authentication.v1alpha1;
+message Policy {...}
 ```
