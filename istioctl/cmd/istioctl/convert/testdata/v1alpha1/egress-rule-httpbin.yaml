@@ -1,0 +1,11 @@
+apiVersion: config.istio.io/v1alpha2
+kind: EgressRule
+metadata:
+  name: httpbin
+spec:
+  destination:
+      service: "httpbin.org"
+  ports:
+      - port: 80
+        protocol: http
+  use_egress_proxy: false
