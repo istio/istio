@@ -61,7 +61,7 @@ type registry struct {
 // only `templates`, leaving other fields to default empty.
 func New(infos []adapter.Info) (Registry, error) {
 	r := &registry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
-	var resultErr error = nil
+	var resultErr error
 	log.Debugf("registering %#v", infos)
 
 	for _, info := range infos {
@@ -109,7 +109,7 @@ func (r *registry) GetTemplate(name string) *TemplateMetadata {
 }
 
 func (r *registry) ingestTemplates(tmpls []string) ([]string, error) {
-	var resultErr error = nil
+	var resultErr error
 	templates := make([]*TemplateMetadata, 0, len(tmpls))
 	for _, tmpl := range tmpls {
 		tmplMeta, err := r.createTemplateMetadata(tmpl)

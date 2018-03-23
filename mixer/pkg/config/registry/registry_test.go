@@ -266,7 +266,7 @@ func getFileDescSetBase64(path string) string {
 	byts, _ := ioutil.ReadFile(path)
 	var b bytes.Buffer
 	encoder := base64.NewEncoder(base64.StdEncoding, &b)
-	encoder.Write(byts)
-	encoder.Close()
+	_, _ = encoder.Write(byts)
+	_ = encoder.Close()
 	return b.String()
 }
