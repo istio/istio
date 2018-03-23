@@ -44,6 +44,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 
+	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -495,6 +496,11 @@ istioctl context-create --api-server http://127.0.0.1:8080
 			return nil
 		},
 	}
+
+	experimentalCmd = &cobra.Command{
+		Use:   "experimental",
+		Short: "Experimental commands that may be modified or deprecated",
+	}
 )
 
 const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
@@ -536,6 +542,8 @@ func init() {
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
 
+	experimentalCmd.AddCommand(convert.Command())
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -548,6 +556,7 @@ func init() {
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
+	rootCmd.AddCommand(experimentalCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
