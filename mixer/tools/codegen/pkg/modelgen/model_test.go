@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
 //go:generate protoc --include_imports --include_source_info testdata/BasicTopLevelFields.proto -otestdata/BasicTopLevelFields.descriptor -I$GOPATH/src/istio.io/api -I.
 //go:generate protoc testdata/Proto2BadSyntax.proto -otestdata/noSourceInfoNoImportsBadProto.descriptor -I$GOPATH/src/istio.io/api -I.
 //go:generate protoc --include_imports --include_source_info  testdata/multiFileOne.proto testdata/multiFileTwo.proto -otestdata/multiFile.descriptor -I$GOPATH/src/istio.io/api -I.

@@ -464,9 +464,9 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 					Import:   goValType.Import,
 				},
 				nil
-		} else {
-			return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
 		}
+		return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
+
 	}
 	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 }
