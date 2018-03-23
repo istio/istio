@@ -26,6 +26,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
+	// for logging
 	_ "github.com/golang/glog"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -50,7 +51,7 @@ const (
 	// RDSName is the name of route-discovery-service (RDS) cluster
 	RDSName = "rds"
 
-	// RDSAll is the special name for HTTP PROXY route
+	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
 	// VirtualListenerName is the name for traffic capture listener
@@ -80,7 +81,7 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		return listeners, nil
 	case model.Router:
 		// TODO: add listeners for other protocols too
-		//return buildGatewayHTTPListeners(env.Mesh, env.IstioConfigStore, node)
+		return buildGatewayHTTPListeners(env.Mesh, env.IstioConfigStore, node)
 	case model.Ingress:
 		// TODO : Need v1alpha3 equivalent of buildIngressGateway
 	}
@@ -170,7 +171,6 @@ func buildSidecarListeners(
 	return normalizeListeners(listeners)
 }
 
-
 // buildInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
 func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
@@ -200,7 +200,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				mesh:             mesh,
 				proxy:            node,
 				proxyInstances:   proxyInstances,
-				routeConfig:      buildInboundHttpRouteConfig(instance),
+				routeConfig:      buildInboundHTTPRouteConfig(instance),
 				ip:               endpoint.Address,
 				port:             endpoint.Port,
 				rds:              "",

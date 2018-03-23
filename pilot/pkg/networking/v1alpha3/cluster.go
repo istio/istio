@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	// DefaultLbType set to round robin
 	DefaultLbType = v2.Cluster_ROUND_ROBIN
 )
 
