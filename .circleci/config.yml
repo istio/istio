@@ -677,8 +677,7 @@ workflows:
       - lint
       - build
       - test:
-        # Used to override the parallel env variable
-        context: test-context
+           context: test-context
       - codecov:
            requires:
             - build
