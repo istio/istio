@@ -28,6 +28,8 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/pkg/log"
+	"strconv"
+	"strings"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -99,4 +101,30 @@ func convertProtoDurationToDuration(d *duration.Duration) time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
 	return dur
+}
+
+// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
+func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
+	if addresses == nil {
+		return nil
+	}
+
+	cidrList := make([]*core.CidrRange, 0)
+	for _, addr := range addresses {
+		cidr := &core.CidrRange{
+			AddressPrefix: addr,
+			PrefixLen: &types.UInt32Value{
+				Value: 32,
+			},
+		}
+
+		if strings.Contains(addr, "/") {
+			parts := strings.Split(addr, "/")
+			cidr.AddressPrefix = parts[0]
+			prefix, _ := strconv.Atoi(parts[1])
+			cidr.PrefixLen.Value = uint32(prefix)
+		}
+		cidrList = append(cidrList, cidr)
+	}
+	return cidrList
 }

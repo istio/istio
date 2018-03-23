@@ -21,6 +21,7 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -31,7 +32,12 @@ const (
 	DefaultLbType = v2.Cluster_ROUND_ROBIN
 )
 
+// TODO: Need to do inheritance of DestRules based on domain suffix match
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
+// For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
+// Cluster type based on resolution
+// For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
@@ -51,6 +57,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 		clusters = append(clusters, buildInboundClusters(env, instances)...)
 
+		// TODO: Bug? why only for sidecars?
 		// append cluster for JwksUri (for Jwt authentication) if necessary.
 		clusters = append(clusters, buildJwksURIClustersForProxyInstances(
 			env.Mesh, env.IstioConfigStore, instances)...)
@@ -74,7 +81,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				Type:  convertResolution(service.Resolution),
 				Hosts: hosts,
 			}
-			defaultCluster.Http2ProtocolOptions = http2Options(port.Protocol)
+			defaultCluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -90,7 +97,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 					}
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
-					subsetCluster.Http2ProtocolOptions = http2Options(port.Protocol)
+					subsetCluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -128,12 +135,12 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		clusters = append(clusters, &v2.Cluster{
-			Name:                 clusterName,
-			Type:                 v2.Cluster_STATIC,
-			LbPolicy:             DefaultLbType,
-			Http2ProtocolOptions: http2Options(instance.Endpoint.ServicePort.Protocol),
-			ConnectTimeout:       convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
-			Hosts:                []*core.Address{&address},
+			Name:              clusterName,
+			Type:              v2.Cluster_STATIC,
+			LbPolicy:          DefaultLbType,
+			ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+			ConnectTimeout:    convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
+			Hosts:             []*core.Address{&address},
 		})
 	}
 	return clusters
@@ -152,19 +159,14 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func http2Options(protocol model.Protocol) *core.Http2ProtocolOptions {
-	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
-		return &core.Http2ProtocolOptions{}
-	}
-	return nil
-}
-
 func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
 	if policy == nil {
 		return
 	}
 	applyConnectionPool(cluster, policy.ConnectionPool)
-	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
+	applyOutlierDetection(cluster, policy.OutlierDetection)
+	applyLoadBalancer(cluster, policy.LoadBalancer)
+	applyUpstreamTLSSettings(cluster, policy.Tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -211,9 +213,9 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.OutlierDetection {
+func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetection) {
 	if outlier == nil || outlier.Http == nil {
-		return nil
+		return
 	}
 
 	out := &v2_cluster.OutlierDetection{}
@@ -229,5 +231,130 @@ func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.Out
 	if outlier.Http.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
 	}
-	return out
+	cluster.OutlierDetection = out
+}
+
+func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings) {
+	if lb == nil {
+		return
+	}
+	// TODO: RING_HASH and MAGLEV
+	switch lb.GetSimple() {
+	case networking.LoadBalancerSettings_LEAST_CONN:
+		cluster.LbPolicy = v2.Cluster_LEAST_REQUEST
+	case networking.LoadBalancerSettings_RANDOM:
+		cluster.LbPolicy = v2.Cluster_RANDOM
+	case networking.LoadBalancerSettings_ROUND_ROBIN:
+		cluster.LbPolicy = v2.Cluster_ROUND_ROBIN
+	case networking.LoadBalancerSettings_PASSTHROUGH:
+		cluster.LbPolicy = v2.Cluster_ORIGINAL_DST_LB
+		cluster.Type = v2.Cluster_ORIGINAL_DST
+	}
+
+	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
+}
+
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+	if tls == nil {
+		return
+	}
+
+	switch tls.Mode {
+	case networking.TLSSettings_DISABLE:
+		// TODO: Need to make sure that authN does not override this setting
+	case networking.TLSSettings_SIMPLE:
+		cluster.TlsContext = &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsParams: &auth.TlsParameters{
+					TlsMinimumProtocolVersion: 0,
+					TlsMaximumProtocolVersion: 0,
+					CipherSuites:              nil,
+					EcdhCurves:                nil,
+				},
+				TlsCertificates:                nil,
+				TlsCertificateSdsSecretConfigs: nil,
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.CaCertificates,
+						},
+					},
+					VerifyCertificateHash: nil,
+					VerifySpkiSha256:      nil,
+					VerifySubjectAltName:  tls.SubjectAltNames,
+					RequireOcspStaple: &types.BoolValue{
+						Value: false,
+					},
+					RequireSignedCertificateTimestamp: &types.BoolValue{
+						Value: false,
+					},
+					Crl: &core.DataSource{
+						Specifier: nil,
+					},
+				},
+				AlpnProtocols: nil, // TODO: need to set for H2
+				DeprecatedV1: &auth.CommonTlsContext_DeprecatedV1{
+					AltAlpnProtocols: "",
+				},
+			},
+			Sni: tls.Sni,
+		}
+	case networking.TLSSettings_MUTUAL:
+		cluster.TlsContext = &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsParams: &auth.TlsParameters{
+					TlsMinimumProtocolVersion: 0,
+					TlsMaximumProtocolVersion: 0,
+					CipherSuites:              nil,
+					EcdhCurves:                nil,
+				},
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: tls.ClientCertificate,
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: tls.PrivateKey,
+							},
+						},
+						Password: &core.DataSource{
+							Specifier: nil,
+						},
+						OcspStaple: &core.DataSource{
+							Specifier: nil,
+						},
+						SignedCertificateTimestamp: nil,
+					},
+				},
+				TlsCertificateSdsSecretConfigs: nil,
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.CaCertificates,
+						},
+					},
+					VerifyCertificateHash: nil,
+					VerifySpkiSha256:      nil,
+					VerifySubjectAltName:  tls.SubjectAltNames,
+					RequireOcspStaple: &types.BoolValue{
+						Value: false,
+					},
+					RequireSignedCertificateTimestamp: &types.BoolValue{
+						Value: false,
+					},
+					Crl: &core.DataSource{
+						Specifier: nil,
+					},
+				},
+				AlpnProtocols: nil,
+				DeprecatedV1: &auth.CommonTlsContext_DeprecatedV1{
+					AltAlpnProtocols: "",
+				},
+			},
+			Sni: tls.Sni,
+		}
+	}
 }

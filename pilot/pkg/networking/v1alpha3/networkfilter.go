@@ -17,12 +17,9 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-
-	"strconv"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
@@ -89,22 +86,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 
 	if len(addresses) > 0 {
 		sort.Sort(sort.StringSlice(addresses))
-		for _, addr := range addresses {
-			cidr := &core.CidrRange{
-				AddressPrefix: addr,
-				PrefixLen: &types.UInt32Value{
-					Value: 32,
-				},
-			}
-
-			if strings.Contains(addr, "/") {
-				parts := strings.Split(addr, "/")
-				cidr.AddressPrefix = parts[0]
-				prefix, _ := strconv.Atoi(parts[1])
-				cidr.PrefixLen.Value = uint32(prefix)
-			}
-			route.DestinationIpList = append(route.DestinationIpList, cidr)
-		}
+		route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
 	}
 
 	config := &tcp_proxy.TcpProxy{
