@@ -34,8 +34,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 )
 
 const (
@@ -518,73 +516,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 // buildTCPListener constructs a listener for the TCP proxy
 func buildTCPListener(filters []listener.Filter, ip string, port uint32, protocol model.Protocol) *xdsapi.Listener {
 	filterChain := listener.FilterChain{
-		// This is not implemented in Envoy yet, except for SNI domains
-		FilterChainMatch: &listener.FilterChainMatch{
-			SniDomains:    nil,
-			PrefixRanges:  nil,
-			AddressSuffix: "",
-			SuffixLen: &google_protobuf.UInt32Value{
-				Value: 0,
-			},
-			SourcePrefixRanges: nil,
-			SourcePorts:        nil,
-			DestinationPort: &google_protobuf.UInt32Value{
-				Value: 0,
-			},
-		},
-		TlsContext: &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsParams: &auth.TlsParameters{
-					TlsMinimumProtocolVersion: 0,
-					TlsMaximumProtocolVersion: 0,
-					CipherSuites:              nil,
-					EcdhCurves:                nil,
-				},
-				TlsCertificates:                nil,
-				TlsCertificateSdsSecretConfigs: nil,
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: nil,
-					},
-					VerifyCertificateHash: nil,
-					VerifySpkiSha256:      nil,
-					VerifySubjectAltName:  nil,
-					RequireOcspStaple: &google_protobuf.BoolValue{
-						Value: false,
-					},
-					RequireSignedCertificateTimestamp: &google_protobuf.BoolValue{
-						Value: false,
-					},
-					Crl: &core.DataSource{
-						Specifier: nil,
-					},
-				},
-				AlpnProtocols: nil,
-				DeprecatedV1: &auth.CommonTlsContext_DeprecatedV1{
-					AltAlpnProtocols: "",
-				},
-			},
-			RequireClientCertificate: &google_protobuf.BoolValue{
-				Value: false,
-			},
-			RequireSni: &google_protobuf.BoolValue{
-				Value: false,
-			},
-			SessionTicketKeysType: nil,
-		},
 		Filters: filters,
-		UseProxyProto: &google_protobuf.BoolValue{
-			Value: false,
-		},
-		Metadata: &core.Metadata{
-			FilterMetadata: nil,
-		},
-		TransportSocket: &core.TransportSocket{
-			Name: "",
-			Config: &google_protobuf.Struct{
-				Fields: nil,
-			},
-		},
 	}
 	return &xdsapi.Listener{
 		Name:    fmt.Sprintf("%s_%s_%d", protocol, ip, port),
@@ -595,20 +527,10 @@ func buildTCPListener(filters []listener.Filter, ip string, port uint32, protoco
 		UseOriginalDst: &google_protobuf.BoolValue{
 			Value: false,
 		},
-		PerConnectionBufferLimitBytes: &google_protobuf.UInt32Value{
-			Value: 0,
-		},
-		Metadata: &core.Metadata{
-			FilterMetadata: nil,
-		},
 		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
 				Value: false,
 			},
 		},
-		DrainType:       0,
-		ListenerFilters: nil,
-		Transparent:     false,
-		Freebind:        false,
 	}
 }

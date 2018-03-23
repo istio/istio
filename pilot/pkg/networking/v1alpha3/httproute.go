@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -88,7 +87,7 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 func TranslateVirtualHosts(
 	virtualServiceSpecs []model.Config,
 	services map[string]*model.Service,
-	clusterDomain string) []GuardedHost {
+	clusterDomain string) map[int]GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
@@ -133,6 +132,8 @@ func TranslateVirtualHosts(
 		}
 	}
 
+	routePortMap := make(map[int]*GuardedHost)
+
 	for _, guardedHost := range out {
 		routes := make([]route.Route, 0)
 		for _, r := range guardedHost.Routes {
@@ -143,80 +144,32 @@ func TranslateVirtualHosts(
 
 		for _, host := range guardedHost.Hosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:                    fmt.Sprintf("%s:%d", host, guardedHost.Port),
-				Domains:                 []string{host},
-				Routes:                  routes,
-				RequireTls:              0,
-				VirtualClusters:         nil,
-				RateLimits:              nil,
-				RequestHeadersToAdd:     nil,
-				ResponseHeadersToAdd:    nil,
-				ResponseHeadersToRemove: nil,
-				Cors: &route.CorsPolicy{
-					AllowOrigin:   nil,
-					AllowMethods:  "",
-					AllowHeaders:  "",
-					ExposeHeaders: "",
-					MaxAge:        "",
-					AllowCredentials: &types.BoolValue{
-						Value: false,
-					},
-					Enabled: &types.BoolValue{
-						Value: false,
-					},
-				},
-				Auth: &auth.AuthAction{
-					ActionType: 0,
-					Rules:      nil,
-				},
+				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains: []string{host},
+				Routes:  routes,
 			})
 		}
 
 		for _, svc := range guardedHost.Services {
 			domains := generateAltVirtualHosts(svc, guardedHost.Port)
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:                    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
-				Domains:                 domains,
-				Routes:                  routes,
-				RequireTls:              0,
-				VirtualClusters:         nil,
-				RateLimits:              nil,
-				RequestHeadersToAdd:     nil,
-				ResponseHeadersToAdd:    nil,
-				ResponseHeadersToRemove: nil,
-				Cors: &route.CorsPolicy{
-					AllowOrigin:   nil,
-					AllowMethods:  "",
-					AllowHeaders:  "",
-					ExposeHeaders: "",
-					MaxAge:        "",
-					AllowCredentials: &types.BoolValue{
-						Value: false,
-					},
-					Enabled: &types.BoolValue{
-						Value: false,
-					},
-				},
-				Auth: &auth.AuthAction{
-					ActionType: 0,
-					Rules:      nil,
-				},
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
+				Domains: domains,
+				Routes:  routes,
 			})
 		}
 
 		guardedHost.RouteConfiguration = &v2.RouteConfiguration{
-			Name:                    fmt.Sprintf("%d", guardedHost.Port),
-			VirtualHosts:            virtualHosts,
-			InternalOnlyHeaders:     nil,
-			ResponseHeadersToAdd:    nil,
-			ResponseHeadersToRemove: nil,
-			RequestHeadersToAdd:     nil,
+			Name:         fmt.Sprintf("%d", guardedHost.Port),
+			VirtualHosts: virtualHosts,
 			ValidateClusters: &types.BoolValue{
 				Value: false, // until we have rds
 			},
 		}
+		routePortMap[guardedHost.Port] = &guardedHost
 	}
-	return out
+
+	return routePortMap
 }
 
 // MatchServiceHosts splits the virtual service hosts into services and literal hosts
@@ -560,32 +513,9 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfi
 	defaultRoute := buildDefaultHTTPRoute(clusterName)
 
 	inboundVHost := route.VirtualHost{
-		Name:                    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
-		Domains:                 []string{"*"},
-		Routes:                  []route.Route{*defaultRoute},
-		RequireTls:              0,
-		VirtualClusters:         nil,
-		RateLimits:              nil,
-		RequestHeadersToAdd:     nil,
-		ResponseHeadersToAdd:    nil,
-		ResponseHeadersToRemove: nil,
-		Cors: &route.CorsPolicy{
-			AllowOrigin:   nil,
-			AllowMethods:  "",
-			AllowHeaders:  "",
-			ExposeHeaders: "",
-			MaxAge:        "",
-			AllowCredentials: &types.BoolValue{
-				Value: false,
-			},
-			Enabled: &types.BoolValue{
-				Value: false,
-			},
-		},
-		Auth: &auth.AuthAction{
-			ActionType: 0,
-			Rules:      nil,
-		},
+		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Domains: []string{"*"},
+		Routes:  []route.Route{*defaultRoute},
 	}
 
 	// TODO: mixer disabled for now as its configuration is still in old format
@@ -595,12 +525,8 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfi
 	//}
 
 	return &v2.RouteConfiguration{
-		Name:                    clusterName,
-		VirtualHosts:            []route.VirtualHost{inboundVHost},
-		InternalOnlyHeaders:     nil,
-		ResponseHeadersToAdd:    nil,
-		ResponseHeadersToRemove: nil,
-		RequestHeadersToAdd:     nil,
+		Name:         clusterName,
+		VirtualHosts: []route.VirtualHost{inboundVHost},
 		ValidateClusters: &types.BoolValue{
 			Value: false,
 		},
