@@ -88,6 +88,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 	}
 }
 
+// CreateCSRRequest returns a CsrRequest based on the specified CertOptions.
 // TODO(incfly): add SendCSR method directly to CAClient.
 func (c *CAClient) CreateCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(*opts)

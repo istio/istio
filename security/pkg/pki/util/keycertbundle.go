@@ -154,7 +154,6 @@ func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	return nil
 }
 
-// TODO(inclfy): should we use another struct or reuse CertOptions?
 // CertOptions returns the certificate config based on currently stored cert.
 func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	b.mutex.RLock()

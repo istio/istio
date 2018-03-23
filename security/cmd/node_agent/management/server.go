@@ -42,8 +42,8 @@ type Server struct {
 	handlerMap map[string]handler.WorkloadHandler
 
 	// makes mgmt-api server to stop
-	done     chan bool
-	config   *na.Config
+	done   chan bool
+	config *na.Config
 	// TODO(incfly): remove these two after they're merged into CAClient.
 	pc       platform.Client
 	cAClient cagrpc.CAGrpcClient
@@ -144,7 +144,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	// Sends CSR request to CA.
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
 	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
-	
+
 	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
 		Host:       id,
 		Org:        s.config.CAClientConfig.Org,
