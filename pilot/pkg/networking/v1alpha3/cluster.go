@@ -81,8 +81,9 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
 				Type:  convertResolution(service.Resolution),
 				Hosts: hosts,
+				// If issues pop up, revert to explicitly setting h2 options
+				ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 			}
-			defaultCluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -95,10 +96,11 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
+						// If issues pop up, revert to explicitly setting h2 options
+						ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 					}
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
-					subsetCluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
 					clusters = append(clusters, subsetCluster)
 				}
 			}
