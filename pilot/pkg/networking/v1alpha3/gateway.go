@@ -84,7 +84,6 @@ func buildPhysicalGatewayListener(
 		rds:              strconv.Itoa(int(server.Port.Number)),
 		useRemoteAddress: true,
 		direction:        http_conn.INGRESS,
-		outboundListener: false,
 		store:            config,
 	}
 

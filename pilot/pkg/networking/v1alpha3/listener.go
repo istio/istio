@@ -56,9 +56,6 @@ const (
 	// VirtualListenerName is the name for traffic capture listener
 	VirtualListenerName = "virtual"
 
-	// LbTypeRoundRobin is the name for round-robin LB
-	LbTypeRoundRobin = "round_robin"
-
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -173,7 +170,6 @@ func buildSidecarListeners(
 	return normalizeListeners(listeners)
 }
 
-// TODO: move to lds_inbound, will need special optimizations.
 
 // buildInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
