@@ -55,12 +55,12 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 	}, nil
 }
 
-// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upper CA.
+// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {
 	Retrieve() (newCert, certChain, privateKey []byte, err error)
 }
 
-//
+// KeyCertBundleRotator automatically updates the key and cert bundle by interacting with upstream CA.
 type KeyCertBundleRotator struct {
 	// TODO: Support multiple KeyCertBundles.
 	certUtil     util.CertUtil
