@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,8 +25,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-
-	"strconv"
 
 	"istio.io/istio/pkg/log"
 )

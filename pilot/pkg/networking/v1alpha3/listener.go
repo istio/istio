@@ -22,12 +22,14 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+
 	google_protobuf "github.com/gogo/protobuf/types"
 	// for logging
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	_ "github.com/golang/glog"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -266,8 +268,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service,
 	config model.IstioConfigStore) []*xdsapi.Listener {
 
-	tcpListeners := make([]*xdsapi.Listener, 0)
-	httpListeners := make([]*xdsapi.Listener, 0)
+	var tcpListeners, httpListeners []*xdsapi.Listener
 
 	wildcardListenerPorts := make(map[int]bool)
 	for _, service := range services {
@@ -434,7 +435,6 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType:      core.ApiConfigSource_GRPC,
 							ClusterNames: []string{RDSName},
-							//RefreshDelay: &refresh,
 						},
 					},
 				},
@@ -493,24 +493,11 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		},
-		UseOriginalDst: &google_protobuf.BoolValue{
-			Value: false,
-		},
-		PerConnectionBufferLimitBytes: &google_protobuf.UInt32Value{
-			Value: 0,
-		},
-		Metadata: &core.Metadata{
-			FilterMetadata: nil,
-		},
 		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
 				Value: false,
 			},
 		},
-		DrainType:       0,
-		ListenerFilters: nil,
-		Transparent:     false,
-		Freebind:        false,
 	}
 }
 
@@ -525,13 +512,54 @@ func buildTCPListener(filters []listener.Filter, ip string, port uint32, protoco
 		FilterChains: []listener.FilterChain{
 			filterChain,
 		},
-		UseOriginalDst: &google_protobuf.BoolValue{
-			Value: false,
-		},
 		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
 				Value: false,
 			},
+		},
+	}
+}
+
+// TODO: find a proper home for these http related functions
+// buildDefaultHTTPRoute builds a default route.
+func buildDefaultHTTPRoute(clusterName string) *route.Route {
+	return &route.Route{
+		Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+		Decorator: &route.Decorator{
+			Operation: DefaultOperation,
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
+}
+
+// buildInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// TODO: enable mixer configuration, websockets, trace decorators
+func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
+		instance.Service.Hostname, instance.Endpoint.ServicePort)
+	defaultRoute := buildDefaultHTTPRoute(clusterName)
+
+	inboundVHost := route.VirtualHost{
+		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Domains: []string{"*"},
+		Routes:  []route.Route{*defaultRoute},
+	}
+
+	// TODO: mixer disabled for now as its configuration is still in old format
+	// set server-side mixer filter config for inbound HTTP routes
+	//if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+	//	defaultRoute.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
+	//}
+
+	return &xdsapi.RouteConfiguration{
+		Name:         clusterName,
+		VirtualHosts: []route.VirtualHost{inboundVHost},
+		ValidateClusters: &google_protobuf.BoolValue{
+			Value: false,
 		},
 	}
 }

@@ -18,9 +18,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -36,34 +33,12 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
 		Cluster:    clusterName,
-		MetadataMatch: &core.Metadata{
-			FilterMetadata: nil,
-		},
-		IdleTimeout: nil,
-		DownstreamIdleTimeout: &types.Duration{
-			Seconds: 0,
-			Nanos:   0,
-		},
-		UpstreamIdleTimeout: &types.Duration{
-			Seconds: 0,
-			Nanos:   0,
-		},
-		AccessLog: nil,
-		DeprecatedV1: &tcp_proxy.TcpProxy_DeprecatedV1{
-			Routes: nil,
-		},
-		MaxConnectAttempts: &types.UInt32Value{
-			Value: 0,
-		},
 	}
 
 	return []listener.Filter{
 		{
 			Name:   util.TCPProxy,
 			Config: messageToStruct(config),
-			DeprecatedV1: &listener.Filter_DeprecatedV1{
-				Type: "",
-			},
 		},
 	}
 
@@ -76,13 +51,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
-	route := &tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{
-		Cluster:           clusterName,
-		DestinationIpList: nil,
-		DestinationPorts:  "",
-		SourceIpList:      nil,
-		SourcePorts:       "",
-	}
+	route := &tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{Cluster: clusterName}
 
 	if len(addresses) > 0 {
 		sort.Sort(sort.StringSlice(addresses))
@@ -94,17 +63,11 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 		DeprecatedV1: &tcp_proxy.TcpProxy_DeprecatedV1{
 			Routes: []*tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{route},
 		},
-		MaxConnectAttempts: &types.UInt32Value{
-			Value: 0,
-		},
 	}
 
 	tcpFilter := listener.Filter{
 		Name:   util.TCPProxy,
 		Config: messageToStruct(config),
-		DeprecatedV1: &listener.Filter_DeprecatedV1{
-			Type: "",
-		},
 	}
 
 	filterstack := make([]listener.Filter, 0)
