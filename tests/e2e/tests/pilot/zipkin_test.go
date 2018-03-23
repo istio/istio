@@ -26,7 +26,7 @@ import (
 
 const (
 	traceHeader = "X-Client-Trace-Id"
-	numTraces   = 5
+	numTraces   = 1
 	traceIdField = "\"traceId\""
 	mixerCheckOperation = "mixer/check"
 )
