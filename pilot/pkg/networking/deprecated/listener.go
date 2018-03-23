@@ -19,6 +19,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	"strings"
@@ -72,7 +73,7 @@ func newHTTPListener(ip string, port int, name string, config *types.Struct) *xd
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   filterHTTPConnectionManager,
+						Name:   util.HTTPConnectionManager,
 						Config: config,
 					},
 				},
