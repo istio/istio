@@ -676,8 +676,7 @@ workflows:
       - dependencies
       - lint
       - build
-      - test:
-           context: test-context
+      - test
       - codecov:
            requires:
             - build
