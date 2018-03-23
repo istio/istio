@@ -28,7 +28,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"

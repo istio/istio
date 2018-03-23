@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -461,8 +461,8 @@ var (
 		Type:        "policy",
 		Plural:      "policies",
 		Group:       "authentication",
-		Version:     "v1alpha2",
-		MessageName: "istio.authentication.v1alpha2.Policy",
+		Version:     "v1alpha1",
+		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
 	}
 

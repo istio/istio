@@ -28,7 +28,7 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"

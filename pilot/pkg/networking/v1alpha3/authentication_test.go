@@ -25,7 +25,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 )
 
 func TestBuildJwtFilter(t *testing.T) {
