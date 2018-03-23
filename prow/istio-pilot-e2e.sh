@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-source "${ROOT}/prow/istio-pilot-e2e-common.sh"
+source "prow/istio-pilot-e2e-common.sh"
 
 # Run tests with auth disabled
 make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=true -use-sidecar-injector=true -use-admission-webhook=false -auth_enable=false -v1alpha3=false"
