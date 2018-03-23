@@ -27,7 +27,7 @@ import (
 
 const queueAllocSize = 64
 
-// session represents a call session to the Dispatcher. It contains all the mutable state needed for handling the
+// session represents a call session to the DispatcherImpl. It contains all the mutable state needed for handling the
 // call. It is used as temporary memory location to keep ephemeral state, thus avoiding garbage creation.
 type session struct {
 

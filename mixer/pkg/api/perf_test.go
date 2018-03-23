@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -122,7 +122,7 @@ func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	qr := &adapter.QuotaResult{
 		Status: status.OK,

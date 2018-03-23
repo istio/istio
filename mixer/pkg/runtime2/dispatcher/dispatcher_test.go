@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
@@ -58,7 +57,7 @@ var tests = []struct {
 	variety tpb.TemplateVariety
 
 	// quota method arguments to pass
-	qma *runtime.QuotaMethodArgs
+	qma *QuotaMethodArgs
 
 	// Attributes to expect in the response bag
 	responseAttrs map[string]interface{}
@@ -334,7 +333,7 @@ ident                         : dest.istio-system
 			data.RuleQuota1,
 		},
 		variety: tpb.TEMPLATE_VARIETY_QUOTA,
-		qma: &runtime.QuotaMethodArgs{
+		qma: &QuotaMethodArgs{
 			BestEffort:      true,
 			DeduplicationID: "42",
 			Amount:          64,
@@ -457,7 +456,7 @@ ident                         : dest.istio-system
 			data.RuleQuota1,
 			data.RuleQuota2,
 		},
-		qma: &runtime.QuotaMethodArgs{
+		qma: &QuotaMethodArgs{
 			DeduplicationID: "dedup-id",
 			BestEffort:      true,
 			Amount:          42,
@@ -503,7 +502,7 @@ ident                         : dest.istio-system
 			"attr.string": "bar",
 			"ident":       "dest.istio-system",
 		},
-		qma: &runtime.QuotaMethodArgs{
+		qma: &QuotaMethodArgs{
 			BestEffort:      true,
 			DeduplicationID: "42",
 			Amount:          64,
@@ -747,7 +746,7 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_QUOTA:
 				qma := tst.qma
 				if qma == nil {
-					qma = &runtime.QuotaMethodArgs{BestEffort: true}
+					qma = &QuotaMethodArgs{BestEffort: true}
 				}
 				qres, e := dispatcher.Quota(context.TODO(), bag, qma)
 				if e == nil {

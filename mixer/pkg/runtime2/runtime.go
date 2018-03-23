@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
@@ -35,6 +34,17 @@ import (
 )
 
 var errNotListening = errors.New("runtime is not listening to the store")
+
+const (
+	// DefaultConfigNamespace holds istio wide configuration.
+	DefaultConfigNamespace = "istio-system"
+
+	// RulesKind defines the config kind name of mixer rules.
+	RulesKind = "rule"
+
+	// AttributeManifestKind define the config kind name of attribute manifests.
+	AttributeManifestKind = "attributemanifest"
+)
 
 const watchFlushDuration = time.Second
 
@@ -51,7 +61,7 @@ type Runtime struct {
 
 	handlers *handler.Table
 
-	dispatcher *dispatcher.Dispatcher
+	dispatcher *dispatcher.DispatcherImpl
 
 	store store.Store
 
@@ -95,8 +105,8 @@ func New(
 	return rt
 }
 
-// Dispatcher returns the runtime.Dispatcher that is implemented by this runtime package.
-func (c *Runtime) Dispatcher() runtime.Dispatcher {
+// Dispatcher returns the dispatcher.Dispatcher that is implemented by this runtime package.
+func (c *Runtime) Dispatcher() dispatcher.Dispatcher {
 	return c.dispatcher
 }
 

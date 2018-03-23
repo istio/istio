@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	mixerRuntime "istio.io/istio/mixer/pkg/runtime2"
 	"istio.io/istio/mixer/pkg/template"
 )
 
