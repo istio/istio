@@ -27,8 +27,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	// for logging
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	_ "github.com/golang/glog"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -38,11 +38,6 @@ import (
 )
 
 const (
-	// names for filters taken from envoy v2 API.
-	filterNameRouter            = util.Router
-	filterNameCors              = util.CORS
-	filterHTTPConnectionManager = util.HTTPConnectionManager
-
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
 )
@@ -129,14 +124,27 @@ func buildSidecarListeners(
 		//	listeners = append(listeners, m)
 		//}
 
-		// BindToPort is deprecated in v2, always true.
+		// We need a dummy filter to fill in the filter stack for orig_dst listener
+		dummyTcpProxy := &tcp_proxy.TcpProxy{
+			StatPrefix: "Dummy",
+			Cluster:    "Dummy",
+		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
 			Address:        buildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			UseOriginalDst: &google_protobuf.BoolValue{true},
-			FilterChains:   make([]listener.FilterChain, 0),
+			FilterChains: []listener.FilterChain{
+				{
+					Filters: []listener.Filter{
+						{
+							Name:   util.TCPProxy,
+							Config: messageToStruct(dummyTcpProxy),
+						},
+					},
+				},
+			},
 		})
 	}
 
@@ -392,12 +400,12 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	filters := []*http_conn.HttpFilter{}
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: filterNameCors,
+		Name: util.CORS,
 	})
 	// TODO: need alphav3 fault filters.
 	// filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: filterNameRouter,
+		Name: util.Router,
 	})
 
 	/*	TODO(mostrowski): need to port internal build functions for mixer.
@@ -473,20 +481,37 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	log.Infof("LDS: %s \n", string(connectionManagerJSON))
 
 	return &xdsapi.Listener{
-		Address: buildAddress(opts.ip, uint32(opts.port)),
 		Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+		Address: buildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: []listener.FilterChain{
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   filterHTTPConnectionManager,
+						Name:   util.HTTPConnectionManager,
 						Config: messageToStruct(connectionManager),
 					},
 				},
 			},
 		},
+		UseOriginalDst: &google_protobuf.BoolValue{
+			Value: false,
+		},
+		PerConnectionBufferLimitBytes: &google_protobuf.UInt32Value{
+			Value: 0,
+		},
+		Metadata: &core.Metadata{
+			FilterMetadata: nil,
+		},
+		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+			BindToPort: &google_protobuf.BoolValue{
+				Value: false,
+			},
+		},
+		DrainType:       0,
+		ListenerFilters: nil,
+		Transparent:     false,
+		Freebind:        false,
 	}
-
 }
 
 // buildTCPListener constructs a listener for the TCP proxy
