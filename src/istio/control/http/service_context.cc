@@ -44,7 +44,7 @@ void ServiceContext::BuildParsers() {
   // Build quota parser
   for (const auto& quota : service_config_->quota_spec()) {
     quota_parsers_.push_back(
-        std::move(::istio::quota_config::ConfigParser::Create(quota)));
+        ::istio::quota_config::ConfigParser::Create(quota));
   }
 }
 
