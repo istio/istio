@@ -515,7 +515,7 @@ func TestIngressCheckCache(t *testing.T) {
 
 		_, err := fhttp.RunHTTPTest(&opts)
 		if err != nil {
-			return fmt.Errorf("Generating traffic via fortio failed: %v", err)
+			return fmt.Errorf("generating traffic via fortio failed: %v", err)
 		}
 		return nil
 	}
