@@ -65,35 +65,38 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname, "")
-		if config != nil {
-			destinationRule := config.Spec.(*networking.DestinationRule)
-			for _, port := range service.Ports {
-				hosts := buildClusterHosts(env, service, port)
+		for _, port := range service.Ports {
+			hosts := buildClusterHosts(env, service, port)
 
-				// create default cluster
-				cluster := &v2.Cluster{
-					Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
-					Type:  convertResolution(service.Resolution),
-					Hosts: hosts,
-				}
-				applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-				cluster.Http2ProtocolOptions = http2Options(port.Protocol)
-				clusters = append(clusters, cluster)
+			// create default cluster
+			defaultCluster := &v2.Cluster{
+				Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
+				Type:  convertResolution(service.Resolution),
+				Hosts: hosts,
+			}
+			defaultCluster.Http2ProtocolOptions = http2Options(port.Protocol)
+			clusters = append(clusters, defaultCluster)
+
+			if config != nil {
+				destinationRule := config.Spec.(*networking.DestinationRule)
+
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
 
 				for _, subset := range destinationRule.Subsets {
-					cluster := &v2.Cluster{
+					subsetCluster := &v2.Cluster{
 						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
-					applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-					applyTrafficPolicy(cluster, subset.TrafficPolicy)
-					cluster.Http2ProtocolOptions = http2Options(port.Protocol)
-					clusters = append(clusters, cluster)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					subsetCluster.Http2ProtocolOptions = http2Options(port.Protocol)
+					clusters = append(clusters, subsetCluster)
 				}
 			}
 		}
 	}
+
 	return clusters
 }
 
