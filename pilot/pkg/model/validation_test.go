@@ -31,6 +31,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+	rbac "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -828,13 +829,18 @@ func TestValidatePort(t *testing.T) {
 
 func TestValidateProxyAddress(t *testing.T) {
 	addresses := map[string]bool{
-		"istio-pilot:80":     true,
-		"istio-pilot":        false,
-		"isti..:80":          false,
-		"10.0.0.100:9090":    true,
-		"10.0.0.100":         false,
-		"istio-pilot:port":   false,
-		"istio-pilot:100000": false,
+		"istio-pilot:80":        true,
+		"istio-pilot":           false,
+		"isti..:80":             false,
+		"10.0.0.100:9090":       true,
+		"10.0.0.100":            false,
+		"istio-pilot:port":      false,
+		"istio-pilot:100000":    false,
+		"[2001:db8::100]:80":    true,
+		"[2001:db8::10::20]:80": false,
+		"[2001:db8::100]":       false,
+		"[2001:db8::100]:port":  false,
+		"2001:db8::100:80":      false,
 	}
 	for addr, valid := range addresses {
 		if got := ValidateProxyAddress(addr); (got == nil) != valid {
@@ -2236,25 +2242,25 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: true},
 		{name: "bad method", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "PUTT"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad header", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"HEADER3"},
-			MaxAge:        &duration.Duration{Seconds: 2},
+			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad max age", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &duration.Duration{Seconds: 2, Nanos: 42},
+			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
 	}
 
@@ -2340,24 +2346,24 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 		{name: "valid fixed", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPFaultInjection_Delay{
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "invalid percent", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 101,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3},
+				FixedDelay: &types.Duration{Seconds: 3},
 			},
 		}, valid: false},
 		{name: "invalid delay", in: &networking.HTTPFaultInjection_Delay{
 			Percent: 20,
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &duration.Duration{Seconds: 3, Nanos: 42},
+				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
 	}
@@ -2380,22 +2386,22 @@ func TestValidateHTTPRetry(t *testing.T) {
 	}{
 		{name: "valid", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Seconds: 2},
+			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
 		{name: "bad attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
-			PerTryTimeout: &duration.Duration{Seconds: 2},
+			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "invalid timeout", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Seconds: 2, Nanos: 1},
+			PerTryTimeout: &types.Duration{Seconds: 2, Nanos: 1},
 		}, valid: false},
 		{name: "timeout too small", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &duration.Duration{Nanos: 999},
+			PerTryTimeout: &types.Duration{Nanos: 999},
 		}, valid: false},
 	}
 
@@ -2663,7 +2669,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		{name: "valid connection pool, tcp and http", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
-				ConnectTimeout: &duration.Duration{Seconds: 2},
+				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
 			Http: &networking.ConnectionPoolSettings_HTTPSettings{
 				Http1MaxPendingRequests:  2,
@@ -2677,7 +2683,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		{name: "valid connection pool, tcp only", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 				MaxConnections: 7,
-				ConnectTimeout: &duration.Duration{Seconds: 2},
+				ConnectTimeout: &types.Duration{Seconds: 2},
 			},
 		},
 			valid: true},
@@ -2700,7 +2706,7 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: &duration.Duration{Seconds: 2, Nanos: 5}}},
+				ConnectTimeout: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid connection pool, bad max pending requests", in: networking.ConnectionPoolSettings{
@@ -2737,8 +2743,8 @@ func TestValidateOutlierDetection(t *testing.T) {
 		{name: "valid outlier detection", in: networking.OutlierDetection{
 			Http: &networking.OutlierDetection_HTTPSettings{
 				ConsecutiveErrors:  5,
-				Interval:           &duration.Duration{Seconds: 2},
-				BaseEjectionTime:   &duration.Duration{Seconds: 2},
+				Interval:           &types.Duration{Seconds: 2},
+				BaseEjectionTime:   &types.Duration{Seconds: 2},
 				MaxEjectionPercent: 50,
 			},
 		}, valid: true},
@@ -2748,11 +2754,11 @@ func TestValidateOutlierDetection(t *testing.T) {
 			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{Interval: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			Http: &networking.OutlierDetection_HTTPSettings{Interval: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
@@ -3065,6 +3071,227 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateServiceRole(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to ServiceRole",
+		},
+		{
+			name:         "empty rules",
+			in:           &rbac.ServiceRole{},
+			expectErrMsg: "at least 1 rule must be specified",
+		},
+		{
+			name: "no service",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 service must be specified for rule 1",
+		},
+		{
+			name: "no method",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 method must be specified for rule 1",
+		},
+		{
+			name: "no key in constraint",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Values: []string{"value"}},
+					},
+				},
+			}},
+			expectErrMsg: "key cannot be empty for constraint 1 in rule 1",
+		},
+		{
+			name: "no value in constraint",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{}},
+					},
+				},
+			}},
+			expectErrMsg: "at least 1 value must be specified for constraint 1 in rule 1",
+		},
+		{
+			name: "success proto",
+			in: &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+				{
+					Services: []string{"service0"},
+					Methods:  []string{"GET", "POST"},
+					Constraints: []*rbac.AccessRule_Constraint{
+						{Key: "key", Values: []string{"value"}},
+						{Key: "key", Values: []string{"value"}},
+					},
+				},
+			}},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateServiceRole(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateServiceRole(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateServiceRole(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}
+
+func TestValidateServiceRoleBinding(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to ServiceRoleBinding",
+		},
+		{
+			name: "no subject",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{},
+				RoleRef:  &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "at least 1 subject must be specified",
+		},
+		{
+			name: "no user, group and properties",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "", Group: "", Properties: map[string]string{}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+			expectErrMsg: "at least 1 of user, group or properties must be specified for subject 1",
+		},
+		{
+			name: "no roleRef",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+			},
+			expectErrMsg: "roleRef must be specified",
+		},
+		{
+			name: "incorrect kind",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRoleTypo", Name: "ServiceRole001"},
+			},
+			expectErrMsg: `kind set to "ServiceRoleTypo", currently the only supported value is "ServiceRole"`,
+		},
+		{
+			name: "no name",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: ""},
+			},
+			expectErrMsg: "name cannot be empty",
+		},
+		{
+			name: "success proto",
+			in: &rbac.ServiceRoleBinding{
+				Subjects: []*rbac.Subject{
+					{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+					{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+				},
+				RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
+			},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateServiceRoleBinding(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateServiceRoleBinding(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
 	}
 }

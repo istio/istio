@@ -58,7 +58,10 @@ func convertPort(port int, name string) *model.Port {
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, addr, external := "", "", ""
+	name, addr, externalName := "", "", ""
+
+	meshExternal := false
+	resolution := model.ClientSideLB
 
 	ports := make(map[int]*model.Port)
 	for _, endpoint := range endpoints {
@@ -76,7 +79,9 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		// TODO This will not work if service is a mix of external and local services
 		// or if a service has more than one external name
 		if endpoint.NodeMeta[externalTagName] != "" {
-			external = endpoint.NodeMeta[externalTagName]
+			externalName = endpoint.NodeMeta[externalTagName]
+			meshExternal = true
+			resolution = model.DNSLB
 		}
 	}
 
@@ -87,9 +92,11 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 
 	out := &model.Service{
 		Hostname:     serviceHostname(name),
-		Ports:        svcPorts,
 		Address:      addr,
-		ExternalName: external,
+		Ports:        svcPorts,
+		ExternalName: externalName,
+		MeshExternal: meshExternal,
+		Resolution:   resolution,
 	}
 
 	return out
@@ -104,6 +111,14 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		addr = instance.Address
 	}
 
+	meshExternal := false
+	resolution := model.ClientSideLB
+	externalName := instance.NodeMeta[externalTagName]
+	if externalName != "" {
+		meshExternal = true
+		resolution = model.DNSLB
+	}
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -116,7 +131,9 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Address:  instance.ServiceAddress,
 			Ports:    model.PortList{port},
 			// TODO ExternalName come from metadata?
-			ExternalName: instance.NodeMeta[externalTagName],
+			ExternalName: externalName,
+			MeshExternal: meshExternal,
+			Resolution:   resolution,
 		},
 		Labels: labels,
 	}

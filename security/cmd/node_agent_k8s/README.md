@@ -22,7 +22,7 @@ nodeagent-qt6z6                   1/1       Running       0          3m
 
 - Deploy the workload pod.
 ```shell
-kubectl apply -f workload/workload.yaml
+kubectl apply -f workload_app/workload.yaml
 ```
 
 - Make sure the workload is up and running, and then check the log of node agent.

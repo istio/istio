@@ -1,35 +1,11 @@
-# Please add your github ID alphabetically.
-reviewers:
-  - andraxylia
-  - costinm
-  - Douglas-reid
-  - frankbu
-  - geeknoid
-  - gihanson
-  - hklai
-  - ijsnellf
-  - kyessenov
-  - ldemailly
-  - linsun
-  - mandarjog
-  - rshriram
-  - sebastienvas
-  - wattli
-  - ZackButcher
 approvers:
-  - andraxylia
   - costinm
-  - Douglas-reid
-  - frankbu
-  - geeknoid
-  - gihanson
-  - hklai
-  - ijsnellf
-  - kyessenov
   - ldemailly
+  - douglas-reid
+  - geeknoid
+  - hklai
   - linsun
   - mandarjog
   - rshriram
-  - sebastienvas
   - wattli
   - ZackButcher

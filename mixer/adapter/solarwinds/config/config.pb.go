@@ -5,7 +5,7 @@
 	Package config is a generated protocol buffer package.
 
 	The `solarwinds` adapter enables Istio to deliver log and metric data to the
-	[Papertrail](https://www.papertrailapp.com) logging backendu and the
+	[Papertrail](https://www.papertrailapp.com) logging backend and the
 	[AppOptics](https://www.appoptics.com) monitoring backend.
 
 	It is generated from these files:

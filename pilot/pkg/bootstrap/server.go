@@ -23,16 +23,13 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+	"google.golang.org/grpc"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -55,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -76,6 +74,10 @@ const (
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+	// CopilotTimeout when to cancel remote gRPC call to copilot
+	CopilotTimeout = 5 * time.Second
+	// FilepathWalkInterval dictates how often the file system is walked for config
+	FilepathWalkInterval = 100 * time.Millisecond
 )
 
 var (
@@ -95,6 +97,8 @@ var (
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
 	}
 )
 
@@ -424,39 +428,90 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	var configController model.ConfigStoreCache
 	if args.Config.FileDir != "" {
 		store := memory.Make(configDescriptor)
-		configController = memory.NewController(store)
-		fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
-		fileMonitor := configmonitor.NewMonitor(configController, 100*time.Millisecond, fileSnapshot.ReadFile)
+		configController := memory.NewController(store)
 
-		// Defer starting the file monitor until after the service is created.
-		s.addStartFunc(func(stop chan struct{}) error {
-			fileMonitor.Start(stop)
-			return nil
-		})
-	} else {
-		kubeCfgFile := s.getKubeCfgFile(args)
-		configClient, err := crd.NewClient(kubeCfgFile, configDescriptor,
-			args.Config.ControllerOptions.DomainSuffix)
+		err := s.makeFileMonitor(args, configController)
 		if err != nil {
-			return multierror.Prefix(err, "failed to open a config client.")
+			return err
 		}
 
-		if err = configClient.RegisterResources(); err != nil {
-			return multierror.Prefix(err, "failed to register custom resources.")
+		if args.Config.CFConfig != "" {
+			err = s.makeCopilotMonitor(args, configController)
+			if err != nil {
+				return err
+			}
 		}
 
-		configController = crd.NewController(configClient, args.Config.ControllerOptions)
+		s.configController = configController
+	} else {
+		controller, err := s.makeKubeConfigController(args)
+		if err != nil {
+			return err
+		}
+
+		s.configController = controller
 	}
 
 	// Defer starting the controller until after the service is created.
-	s.configController = configController
 	s.addStartFunc(func(stop chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
+
+	return nil
+}
+
+func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
+	kubeCfgFile := s.getKubeCfgFile(args)
+	configClient, err := crd.NewClient(kubeCfgFile, configDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to open a config client.")
+	}
+
+	if err = configClient.RegisterResources(); err != nil {
+		return nil, multierror.Prefix(err, "failed to register custom resources.")
+	}
+
+	return crd.NewController(configClient, args.Config.ControllerOptions), nil
+}
+
+func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+
+	// Defer starting the file monitor until after the service is created.
+	s.addStartFunc(func(stop chan struct{}) error {
+		fileMonitor.Start(stop)
+		return nil
+	})
+
+	return nil
+}
+
+func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStore) error {
+	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+	if err != nil {
+		return multierror.Prefix(err, "loading cloud foundry config")
+	}
+	tlsConfig, err := cfConfig.ClientTLSConfig()
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client tls config")
+	}
+	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client")
+	}
+
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"}, CopilotTimeout)
+	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
+
+	s.addStartFunc(func(stop chan struct{}) error {
+		copilotMonitor.Start(stop)
+		return nil
+	})
+
 	return nil
 }
 
@@ -594,6 +649,16 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
+	configStore := model.MakeIstioStore(s.configController)
+
+	// add external service registry to aggregator by default
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             "ExternalServices",
+			Controller:       external.NewController(s.configController),
+			ServiceDiscovery: external.NewServiceDiscovery(configStore),
+			ServiceAccounts:  external.NewServiceAccounts(),
+		})
 
 	s.ServiceController = serviceControllers
 

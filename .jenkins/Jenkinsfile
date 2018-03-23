@@ -59,9 +59,11 @@ node('docker') {
         sh "rm -f ~/.dockercfg"
       }
 
-      stage('Dependencies') {
-        sh "cd $wkdir && make submodule-sync"
-        sh "cd $wkdir && make init"
+      stage('Initialize Working Directory') {
+        // DO NOT call make sync. This tries to merge from master which is wrong.
+        // Replicat the rest of that target here
+        sh "cd $wkdir && make submodule-sync init"
+        sh "mkdir -p out/logs"
       }
 
       stage('Build') {

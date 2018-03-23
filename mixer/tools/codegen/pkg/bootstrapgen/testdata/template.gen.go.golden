@@ -4404,11 +4404,11 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource3) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_template_list_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -4428,7 +4428,7 @@ type builder_istio_mixer_template_list_Template struct {
 
 	bldStringPrimitive compiled.Expression
 
-	// builder for field anotherValueType: istio_policy_v1beta1.ValueType.
+	// builder for field anotherValueType: interface{}.
 
 	bldAnotherValueType compiled.Expression
 
@@ -4726,11 +4726,11 @@ func (b *builder_istio_mixer_template_list_Template) build(
 // builder struct for constructing an instance of Res1.
 type builder_istio_mixer_template_list_Res1 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5063,11 +5063,11 @@ func (b *builder_istio_mixer_template_list_Res1) build(
 // builder struct for constructing an instance of Res2.
 type builder_istio_mixer_template_list_Res2 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5342,11 +5342,11 @@ func (b *builder_istio_mixer_template_list_Res2) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_template_quota_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5366,7 +5366,7 @@ type builder_istio_mixer_template_quota_Template struct {
 
 	bldStringPrimitive compiled.Expression
 
-	// builder for field anotherValueType: istio_policy_v1beta1.ValueType.
+	// builder for field anotherValueType: interface{}.
 
 	bldAnotherValueType compiled.Expression
 
@@ -5619,11 +5619,11 @@ func (b *builder_istio_mixer_template_quota_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_template_log_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -5643,7 +5643,7 @@ type builder_istio_mixer_template_log_Template struct {
 
 	bldStringPrimitive compiled.Expression
 
-	// builder for field anotherValueType: istio_policy_v1beta1.ValueType.
+	// builder for field anotherValueType: interface{}.
 
 	bldAnotherValueType compiled.Expression
 
@@ -5960,11 +5960,11 @@ func (b *builder_istio_mixer_template_log_Template) build(
 // builder struct for constructing an instance of Res1.
 type builder_istio_mixer_template_log_Res1 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -6297,11 +6297,11 @@ func (b *builder_istio_mixer_template_log_Res1) build(
 // builder struct for constructing an instance of Res2.
 type builder_istio_mixer_template_log_Res2 struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -6432,11 +6432,11 @@ func (b *builder_istio_mixer_template_log_Res2) build(
 // builder struct for constructing an instance of Template.
 type builder_istio_mixer_template_metric_Template struct {
 
-	// builder for field value: istio_policy_v1beta1.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_policy_v1beta1.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 
@@ -6456,7 +6456,7 @@ type builder_istio_mixer_template_metric_Template struct {
 
 	bldStringPrimitive compiled.Expression
 
-	// builder for field anotherValueType: istio_policy_v1beta1.ValueType.
+	// builder for field anotherValueType: interface{}.
 
 	bldAnotherValueType compiled.Expression
 

@@ -43,7 +43,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		certUtil: util.NewCertUtil(cfg.CSRGracePeriodPercentage),
 	}
 
-	env := determinePlatform(cfg)
+	env := DetermineEnv(cfg)
 	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
 		cfg.CertChainFile, cfg.IstioCAAddress)
 	if err != nil {
@@ -65,9 +65,9 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	return na, nil
 }
 
-// determinePlatform choose the right platform. If the env is specified in cfg.Env,
+// DetermineEnv choose the right environment. If the env is specified in cfg.Env,
 // then we will use it. Otherwise nodeagent will detect the platform for you.
-func determinePlatform(cfg *Config) string {
+func DetermineEnv(cfg *Config) string {
 	if cfg.Env != "unspecified" {
 		return cfg.Env
 	}

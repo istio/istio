@@ -17,15 +17,15 @@ package workloadapi
 import (
 	"testing"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	pb "istio.io/istio/security/proto"
 )
 
 // TODO(wattli): add more tests.
 func TestCheck(t *testing.T) {
-	server := &WlServer{}
+	server := &server{}
 
 	req := &pb.CheckRequest{Name: "check"}
 	resp, err := server.Check(context.Background(), req)

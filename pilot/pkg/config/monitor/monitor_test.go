@@ -80,12 +80,14 @@ func TestMonitorForChange(t *testing.T) {
 	var (
 		callCount int
 		configs   []*model.Config
+		err       error
 	)
 
-	someConfigFunc := func() []*model.Config {
+	someConfigFunc := func() ([]*model.Config, error) {
 		switch callCount {
 		case 0:
 			configs = createConfigSet
+			err = nil
 		case 3:
 			configs = updateConfigSet
 		case 8:
@@ -93,7 +95,7 @@ func TestMonitorForChange(t *testing.T) {
 		}
 
 		callCount++
-		return configs
+		return configs, err
 	}
 	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
@@ -130,4 +132,54 @@ func TestMonitorForChange(t *testing.T) {
 	g.Eventually(func() ([]model.Config, error) {
 		return store.List("gateway", "")
 	}).Should(gomega.HaveLen(0))
+
+}
+
+func TestMonitorForError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	configDescriptor := model.ConfigDescriptor{model.Gateway}
+
+	store := memory.Make(configDescriptor)
+
+	var (
+		callCount int
+		configs   []*model.Config
+		err       error
+	)
+
+	delay := make(chan struct{}, 1)
+
+	someConfigFunc := func() ([]*model.Config, error) {
+		switch callCount {
+		case 0:
+			configs = createConfigSet
+			err = nil
+		case 3:
+			configs = nil
+			err = errors.New("SnapshotFunc can't connect!!")
+			delay <- struct{}{}
+		}
+
+		callCount++
+		return configs, err
+	}
+	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }() // shut it down
+	mon.Start(stop)
+
+	//Test ensures that after a coplilot connection error the data remains
+	//nil data return and error return keeps the existing data aka createConfigSet
+	<-delay
+	g.Eventually(func() error {
+		c, err := store.List("gateway", "")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		if len(c) != 1 {
+			return errors.New("Config files erased on Copilot error")
+		}
+
+		return nil
+	}).Should(gomega.Succeed())
 }

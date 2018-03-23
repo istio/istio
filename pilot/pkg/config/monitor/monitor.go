@@ -29,13 +29,13 @@ type Monitor struct {
 	store           model.ConfigStore
 	checkDuration   time.Duration
 	configs         []*model.Config
-	getSnapshotFunc func() []*model.Config
+	getSnapshotFunc func() ([]*model.Config, error)
 }
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() []*model.Config) *Monitor {
+func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
 	monitor := &Monitor{
 		store:           delegateStore,
 		getSnapshotFunc: getSnapshotFunc,
@@ -66,7 +66,14 @@ func (m *Monitor) Start(stop chan struct{}) {
 }
 
 func (m *Monitor) checkAndUpdate() {
-	newConfigs := m.getSnapshotFunc()
+	newConfigs, err := m.getSnapshotFunc()
+	//If an error exists then log it and return to running the check and update
+	//Do not edit the local []*model.config until the connection has been reestablished
+	//The error will only come from a directory read error or a gRPC connection error
+	if err != nil {
+		log.Warnf("checkAndUpdate Error Caught: %v\n", err)
+		return
+	}
 
 	// Compare the new list to the previous one and detect changes.
 	oldLen := len(m.configs)

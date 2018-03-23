@@ -167,7 +167,7 @@ var (
                             {{if .GoType.MapValue.IsResourceMessage}}
                                 infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]*{{$goPkgName}}.{{getResourcMessageTypeName $typeName}}, len(param.{{.GoName}}))
                             {{else}}
-                                infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]{{$typeName}}, len(param.{{.GoName}}))
+                                infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]istio_policy_v1beta1.ValueType, len(param.{{.GoName}}))
                             {{end}}
                             for k, v := range param.{{.GoName}} {
                             {{if .GoType.MapValue.IsResourceMessage}}
