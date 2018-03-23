@@ -200,7 +200,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = convertDurationGogo(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
@@ -266,36 +266,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsParams: &auth.TlsParameters{
-					TlsMinimumProtocolVersion: 0,
-					TlsMaximumProtocolVersion: 0,
-					CipherSuites:              nil,
-					EcdhCurves:                nil,
-				},
-				TlsCertificates:                nil,
-				TlsCertificateSdsSecretConfigs: nil,
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
 							Filename: tls.CaCertificates,
 						},
 					},
-					VerifyCertificateHash: nil,
-					VerifySpkiSha256:      nil,
 					VerifySubjectAltName:  tls.SubjectAltNames,
-					RequireOcspStaple: &types.BoolValue{
-						Value: false,
-					},
-					RequireSignedCertificateTimestamp: &types.BoolValue{
-						Value: false,
-					},
-					Crl: &core.DataSource{
-						Specifier: nil,
-					},
-				},
-				AlpnProtocols: nil, // TODO: need to set for H2
-				DeprecatedV1: &auth.CommonTlsContext_DeprecatedV1{
-					AltAlpnProtocols: "",
 				},
 			},
 			Sni: tls.Sni,
@@ -303,12 +280,6 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsParams: &auth.TlsParameters{
-					TlsMinimumProtocolVersion: 0,
-					TlsMaximumProtocolVersion: 0,
-					CipherSuites:              nil,
-					EcdhCurves:                nil,
-				},
 				TlsCertificates: []*auth.TlsCertificate{
 					{
 						CertificateChain: &core.DataSource{
@@ -321,38 +292,15 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 								Filename: tls.PrivateKey,
 							},
 						},
-						Password: &core.DataSource{
-							Specifier: nil,
-						},
-						OcspStaple: &core.DataSource{
-							Specifier: nil,
-						},
-						SignedCertificateTimestamp: nil,
 					},
 				},
-				TlsCertificateSdsSecretConfigs: nil,
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
 							Filename: tls.CaCertificates,
 						},
 					},
-					VerifyCertificateHash: nil,
-					VerifySpkiSha256:      nil,
 					VerifySubjectAltName:  tls.SubjectAltNames,
-					RequireOcspStaple: &types.BoolValue{
-						Value: false,
-					},
-					RequireSignedCertificateTimestamp: &types.BoolValue{
-						Value: false,
-					},
-					Crl: &core.DataSource{
-						Specifier: nil,
-					},
-				},
-				AlpnProtocols: nil,
-				DeprecatedV1: &auth.CommonTlsContext_DeprecatedV1{
-					AltAlpnProtocols: "",
 				},
 			},
 			Sni: tls.Sni,
