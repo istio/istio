@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package dispatcher is used to dispatch incoming requests to one or more handlers. The main entry point
-// is the DispatcherImpl struct, which implements the main runtime.DispatcherImpl interface.
+// is the Impl struct, which implements the main dispatcher.Dispatcher interface.
 //
 // Once the dispatcher receives a request, it acquires the current routing table, and uses it until the end
 // of the request. Additionally, it acquires an executor from a pool, which is used to perform and track the
@@ -79,8 +79,8 @@ type QuotaMethodArgs struct {
 	BestEffort bool
 }
 
-// DispatcherImpl is the runtime2 implementation of the Dispatcher interface.
-type DispatcherImpl struct {
+// Impl is the runtime2 implementation of the Dispatcher interface.
+type Impl struct {
 	identityAttribute string
 
 	// Current dispatch context.
@@ -98,7 +98,7 @@ type DispatcherImpl struct {
 	gp *pool.GoroutinePool
 }
 
-var _ Dispatcher = &DispatcherImpl{}
+var _ Dispatcher = &Impl{}
 
 // RoutingContext is the currently active dispatching context, based on a config snapshot. As config changes,
 // the current/live RoutingContext also changes.
@@ -125,9 +125,9 @@ func (t *RoutingContext) GetRefs() int32 {
 	return atomic.LoadInt32(&t.refCount)
 }
 
-// New returns a new DispatcherImpl instance. The DispatcherImpl instance is initialized with an empty routing table.
-func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *DispatcherImpl {
-	return &DispatcherImpl{
+// New returns a new Impl instance. The Impl instance is initialized with an empty routing table.
+func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
+	return &Impl{
 		identityAttribute: identityAttribute,
 		sessionPool:       newSessionPool(enableTracing),
 		statePool:         newDispatchStatePool(),
@@ -138,8 +138,8 @@ func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing 
 	}
 }
 
-// ChangeRoute changes the routing table on the DispatcherImpl which, in turn, ends up creating a new RoutingContext.
-func (d *DispatcherImpl) ChangeRoute(new *routing.Table) *RoutingContext {
+// ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
+func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
 	newContext := &RoutingContext{
 		Routes: new,
 	}
@@ -152,8 +152,8 @@ func (d *DispatcherImpl) ChangeRoute(new *routing.Table) *RoutingContext {
 	return old
 }
 
-// Check implementation of runtime.DispatcherImpl.
-func (d *DispatcherImpl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+// Check implementation of runtime.Impl.
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
 	var r *adapter.CheckResult
@@ -168,8 +168,8 @@ func (d *DispatcherImpl) Check(ctx context.Context, bag attribute.Bag) (*adapter
 	return r, err
 }
 
-// Report implementation of runtime.DispatcherImpl.
-func (d *DispatcherImpl) Report(ctx context.Context, bag attribute.Bag) error {
+// Report implementation of runtime.Impl.
+func (d *Impl) Report(ctx context.Context, bag attribute.Bag) error {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_REPORT, bag)
 
 	err := d.dispatch(s)
@@ -182,8 +182,8 @@ func (d *DispatcherImpl) Report(ctx context.Context, bag attribute.Bag) error {
 	return err
 }
 
-// Quota implementation of runtime.DispatcherImpl.
-func (d *DispatcherImpl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
+// Quota implementation of runtime.Impl.
+func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
 	s.quotaArgs.QuotaAmount = qma.Amount
 	s.quotaArgs.DeduplicationID = qma.DeduplicationID
@@ -200,8 +200,8 @@ func (d *DispatcherImpl) Quota(ctx context.Context, bag attribute.Bag, qma *Quot
 	return r, err
 }
 
-// Preprocess implementation of runtime.DispatcherImpl.
-func (d *DispatcherImpl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
+// Preprocess implementation of runtime.Impl.
+func (d *Impl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
 	s.responseBag = responseBag
 
@@ -215,7 +215,7 @@ func (d *DispatcherImpl) Preprocess(ctx context.Context, bag attribute.Bag, resp
 	return err
 }
 
-func (d *DispatcherImpl) dispatch(session *session) error {
+func (d *Impl) dispatch(session *session) error {
 	// Lookup the value of the identity attribute, so that we can extract the namespace to use for route
 	// lookup.
 	identityAttributeValue, err := getIdentityAttributeValue(session.bag, d.identityAttribute)
@@ -371,7 +371,7 @@ func (d *DispatcherImpl) dispatch(session *session) error {
 	return nil
 }
 
-func (d *DispatcherImpl) acquireRoutingContext() *RoutingContext {
+func (d *Impl) acquireRoutingContext() *RoutingContext {
 	d.contextLock.RLock()
 	ctx := d.context
 	ctx.IncRef()
@@ -379,7 +379,7 @@ func (d *DispatcherImpl) acquireRoutingContext() *RoutingContext {
 	return ctx
 }
 
-func (d *DispatcherImpl) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
+func (d *Impl) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
 	data := &adapter.RequestData{}
 
 	// fill the destination information
@@ -390,7 +390,7 @@ func (d *DispatcherImpl) updateContext(ctx context.Context, bag attribute.Bag) c
 	return adapter.NewContextWithRequestData(ctx, data)
 }
 
-func (d *DispatcherImpl) beginSession(ctx context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
+func (d *Impl) beginSession(ctx context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
 	s := d.sessionPool.get()
 	s.start = time.Now()
 	s.variety = variety
@@ -400,12 +400,12 @@ func (d *DispatcherImpl) beginSession(ctx context.Context, variety tpb.TemplateV
 	return s
 }
 
-func (d *DispatcherImpl) completeSession(s *session) {
+func (d *Impl) completeSession(s *session) {
 	s.clear()
 	d.sessionPool.put(s)
 }
 
-func (d *DispatcherImpl) dispatchToHandler(s *dispatchState) {
+func (d *Impl) dispatchToHandler(s *dispatchState) {
 	s.session.activeDispatches++
 
 	d.gp.ScheduleWork(doDispatchToHandler, s)

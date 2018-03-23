@@ -61,7 +61,7 @@ type Runtime struct {
 
 	handlers *handler.Table
 
-	dispatcher *dispatcher.DispatcherImpl
+	dispatcher *dispatcher.Impl
 
 	store store.Store
 
