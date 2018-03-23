@@ -81,8 +81,8 @@ func (t *istioRBAC) Teardown() {
 
 func (t *istioRBAC) Run() error {
 	cases := []struct {
-		src    string
 		dst    string
+		src    string
 		path   string
 		expect string
 	}{
