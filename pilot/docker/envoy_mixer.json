@@ -69,7 +69,7 @@
                    }
                  },
                  "serviceConfigs": {
-                   "istio-mixer.istio-system.svc.cluster.local": {
+                   "istio-mixer.${POD_NAMESPACE}.svc.cluster.local": {
                      "disableCheckCalls": true,
                      "disableReportCalls": false,
                      "mixerAttributes": {
@@ -162,7 +162,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://zipkin.istio-system:9411"
+            "url": "tcp://zipkin.${POD_NAMESPACE}:9411"
           }
         ]
       }
