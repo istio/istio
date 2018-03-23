@@ -26,6 +26,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	DefaultLbType = v2.Cluster_ROUND_ROBIN
+)
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
@@ -44,14 +48,14 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 			return nil
 		}
 
-		clusters = append(clusters, buildInboundClusters(instances)...)
+		clusters = append(clusters, buildInboundClusters(env, instances)...)
 
 		// append cluster for JwksUri (for Jwt authentication) if necessary.
 		clusters = append(clusters, buildJwksURIClustersForProxyInstances(
 			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
-	// TODO add original dst cluster
+	// TODO add original dst cluster or workaround for routers
 
 	return clusters // TODO: normalize/dedup/order
 }
@@ -72,6 +76,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 					Hosts: hosts,
 				}
 				applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
+				cluster.Http2ProtocolOptions = http2Options(port.Protocol)
 				clusters = append(clusters, cluster)
 
 				for _, subset := range destinationRule.Subsets {
@@ -82,11 +87,9 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 					}
 					applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(cluster, subset.TrafficPolicy)
-
+					cluster.Http2ProtocolOptions = http2Options(port.Protocol)
 					clusters = append(clusters, cluster)
 				}
-
-				// TODO HTTP2 feature
 			}
 		}
 	}
@@ -114,19 +117,19 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 	return hosts
 }
 
-func buildInboundClusters(instances []*model.ServiceInstance) []*v2.Cluster {
+func buildInboundClusters(env model.Environment, instances []*model.ServiceInstance) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		clusters = append(clusters, &v2.Cluster{
-			Name:     clusterName,
-			Type:     v2.Cluster_STATIC,
-			LbPolicy: v2.Cluster_ROUND_ROBIN,
-			// TODO: HTTP2 feature
-			// TODO timeout
-			Hosts: []*core.Address{&address},
+			Name:                 clusterName,
+			Type:                 v2.Cluster_STATIC,
+			LbPolicy:             DefaultLbType,
+			Http2ProtocolOptions: http2Options(instance.Endpoint.ServicePort.Protocol),
+			ConnectTimeout:       convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
+			Hosts:                []*core.Address{&address},
 		})
 	}
 	return clusters
@@ -143,6 +146,13 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	default:
 		return v2.Cluster_EDS
 	}
+}
+
+func http2Options(protocol model.Protocol) *core.Http2ProtocolOptions {
+	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
+		return &core.Http2ProtocolOptions{}
+	}
+	return nil
 }
 
 func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
@@ -183,7 +193,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = convertDurationGogo(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {

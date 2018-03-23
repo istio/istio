@@ -25,6 +25,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -47,9 +50,6 @@ const (
 
 // ServiceByName claims a service entry from the registry using a host name.
 type ServiceByName func(host string, contextNamespace string) *model.Service
-
-// SubsetSelector resolves a subset to labels.
-type SubsetSelector func(service *model.Service, subset string) map[string]string
 
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
@@ -85,14 +85,13 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 func TranslateVirtualHosts(
 	serviceConfigs []model.Config,
 	services map[string]*model.Service,
-	subsetSelector SubsetSelector,
 	clusterDomain string) []GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, serviceByName, subsetSelector)...)
+		out = append(out, TranslateVirtualHost(config, serviceByName)...)
 	}
 
 	// compute services missing service configs
@@ -117,7 +116,7 @@ func TranslateVirtualHosts(
 					Services: []*model.Service{svc},
 					Routes: []GuardedRoute{{
 						Route: route.Route{
-							Match:     TranslateRouteMatch(nil),
+							Match:     TranslateHttpRouteMatch(nil),
 							Decorator: &route.Decorator{Operation: DefaultOperation},
 							Action: &route.Route_Route{
 								Route: &route.RouteAction{
@@ -150,7 +149,7 @@ func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, 
 }
 
 // TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSelector SubsetSelector) []GuardedHost {
+func TranslateVirtualHost(in model.Config, serviceByName ServiceByName) []GuardedHost {
 	hosts, services := MatchServiceHosts(in, serviceByName)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
@@ -169,8 +168,8 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
-		clusterNaming := TranslateDestination(serviceByName, subsetSelector, in.ConfigMeta.Namespace, port)
-		routes := TranslateRoutes(in, clusterNaming)
+		clusterNaming := TranslateDestination(serviceByName, in.ConfigMeta.Namespace, port)
+		routes := TranslateHttpRoutes(in, clusterNaming)
 		out = append(out, GuardedHost{
 			Port:     port,
 			Services: services,
@@ -185,7 +184,6 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 // TranslateDestination produces a cluster naming function using the config context.
 func TranslateDestination(
 	serviceByName ServiceByName,
-	subsetSelector SubsetSelector,
 	contextNamespace string,
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {
@@ -234,7 +232,7 @@ type GuardedRoute struct {
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
+func TranslateHttpRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
 		return nil
@@ -245,10 +243,10 @@ func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 	out := make([]GuardedRoute, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			out = append(out, TranslateRoute(http, nil, operation, name))
+			out = append(out, TranslateHttpRoute(http, nil, operation, name))
 		} else {
 			for _, match := range http.Match {
-				out = append(out, TranslateRoute(http, match, operation, name))
+				out = append(out, TranslateHttpRoute(http, match, operation, name))
 			}
 		}
 	}
@@ -258,12 +256,12 @@ func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 
 // TranslateRoute translates HTTP routes
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
-func TranslateRoute(in *networking.HTTPRoute,
+func TranslateHttpRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
 	operation string,
 	name ClusterNaming) GuardedRoute {
 	out := route.Route{
-		Match: TranslateRouteMatch(match),
+		Match: TranslateHttpRouteMatch(match),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -337,7 +335,7 @@ func TranslateRoute(in *networking.HTTPRoute,
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
+func TranslateHttpRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -451,4 +449,74 @@ func TranslateTime(in *types.Duration) *time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
 	return &out
+}
+
+// buildDefaultRoute builds a default route.
+func buildDefaultHttpRoute(clusterName string) *route.Route {
+	return &route.Route{
+		Match: TranslateHttpRouteMatch(nil),
+		Decorator: &route.Decorator{
+			Operation: DefaultOperation,
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
+}
+
+// buildInboundRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// TODO: enable mixer configuration, websockets, trace decorators
+func buildInboundHttpRouteConfig(instance *model.ServiceInstance) *v2.RouteConfiguration {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
+		instance.Service.Hostname, instance.Endpoint.ServicePort)
+	defaultRoute := buildDefaultHttpRoute(clusterName)
+
+	inboundVHost := route.VirtualHost{
+		Name:                    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Domains:                 []string{"*"},
+		Routes:                  []route.Route{*defaultRoute},
+		RequireTls:              0,
+		VirtualClusters:         nil,
+		RateLimits:              nil,
+		RequestHeadersToAdd:     nil,
+		ResponseHeadersToAdd:    nil,
+		ResponseHeadersToRemove: nil,
+		Cors: &route.CorsPolicy{
+			AllowOrigin:   nil,
+			AllowMethods:  "",
+			AllowHeaders:  "",
+			ExposeHeaders: "",
+			MaxAge:        "",
+			AllowCredentials: &types.BoolValue{
+				Value: false,
+			},
+			Enabled: &types.BoolValue{
+				Value: false,
+			},
+		},
+		Auth: &auth.AuthAction{
+			ActionType: 0,
+			Rules:      nil,
+		},
+	}
+
+	// TODO: mixer disabled for now as its configuration is still in old format
+	// set server-side mixer filter config for inbound HTTP routes
+	//if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+	//	defaultRoute.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
+	//}
+
+	return &v2.RouteConfiguration{
+		Name:                    clusterName,
+		VirtualHosts:            []route.VirtualHost{inboundVHost},
+		InternalOnlyHeaders:     nil,
+		ResponseHeadersToAdd:    nil,
+		ResponseHeadersToRemove: nil,
+		RequestHeadersToAdd:     nil,
+		ValidateClusters: &types.BoolValue{
+			Value: false,
+		},
+	}
 }
