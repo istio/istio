@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -72,8 +73,8 @@ var (
 	edsDebug = len(os.Getenv("PILOT_DEBUG_EDS")) == 0
 
 	edsClusterMutex sync.Mutex
-	edsClusters     = map[string]*EdsCluster{}
-	version         = 1
+	edsClusters            = map[string]*EdsCluster{}
+	version         uint32 = 1
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -121,7 +122,7 @@ type EdsConnection struct {
 // Endpoints aggregate a DiscoveryResponse for pushing.
 func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
 	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
-	version := strconv.Itoa(version)
+	version := strconv.Itoa(int(atomic.LoadUint32(&version)))
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
 	clAssignmentRes, _ := types.MarshalAny(clAssignment)
 	out := &xdsapi.DiscoveryResponse{
@@ -423,7 +424,7 @@ func edsPushAll() {
 	for k, v := range edsClusters {
 		tmpMap[k] = v
 	}
-	version++
+	atomic.AddUint32(&version, 1)
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {

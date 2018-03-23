@@ -34,6 +34,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
+	"sync/atomic"
+
 	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
@@ -64,7 +66,7 @@ type CdsConnection struct {
 
 // clusters aggregate a DiscoveryResponse for pushing.
 func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse {
-	version := strconv.Itoa(version)
+	version := strconv.Itoa(int(atomic.LoadUint32(&version)))
 	clAssignment := &xdsapi.ClusterLoadAssignment{}
 	clAssignmentRes, _ := types.MarshalAny(clAssignment)
 
@@ -189,7 +191,7 @@ func CdsPushAll() {
 	for k, v := range cdsConnections {
 		tmpMap[k] = v
 	}
-	version++
+	atomic.AddUint32(&version, 1)
 	cdsConnectionsMux.Unlock()
 
 	for _, cdsCon := range tmpMap {
