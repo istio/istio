@@ -87,7 +87,7 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 func TranslateVirtualHosts(
 	virtualServiceSpecs []model.Config,
 	services map[string]*model.Service,
-	clusterDomain string) map[int]GuardedHost {
+	clusterDomain string) map[int]*GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
