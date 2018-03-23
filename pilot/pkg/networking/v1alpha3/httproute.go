@@ -507,7 +507,7 @@ func buildDefaultHTTPRoute(clusterName string) *route.Route {
 
 // buildInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
-func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfiguration {
+func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfiguration { // nolint: deadcode
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	defaultRoute := buildDefaultHTTPRoute(clusterName)
