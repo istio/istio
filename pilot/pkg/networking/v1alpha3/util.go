@@ -27,9 +27,10 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	"istio.io/istio/pkg/log"
 	"strconv"
 	"strings"
+
+	"istio.io/istio/pkg/log"
 )
 
 // normalizeListeners sorts and de-duplicates listeners by address

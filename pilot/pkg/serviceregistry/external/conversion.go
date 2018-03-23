@@ -53,8 +53,8 @@ func convertService(externalService *networking.ExternalService) []*model.Servic
 			MeshExternal: true,
 			Hostname:     host,
 			// TODO: add Address if the host is a CIDR
-			Ports:        svcPorts,
-			Resolution:   resolution,
+			Ports:      svcPorts,
+			Resolution: resolution,
 		})
 	}
 

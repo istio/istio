@@ -29,6 +29,7 @@ import (
 	// for logging
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	_ "github.com/golang/glog"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -125,7 +126,7 @@ func buildSidecarListeners(
 		//}
 
 		// We need a dummy filter to fill in the filter stack for orig_dst listener
-		dummyTcpProxy := &tcp_proxy.TcpProxy{
+		dummyTCPProxy := &tcp_proxy.TcpProxy{
 			StatPrefix: "Dummy",
 			Cluster:    "Dummy",
 		}
@@ -140,7 +141,7 @@ func buildSidecarListeners(
 					Filters: []listener.Filter{
 						{
 							Name:   util.TCPProxy,
-							Config: messageToStruct(dummyTcpProxy),
+							Config: messageToStruct(dummyTCPProxy),
 						},
 					},
 				},

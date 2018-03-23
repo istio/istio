@@ -65,6 +65,9 @@ type GuardedHost struct {
 
 	// Routes in the virtual host
 	Routes []GuardedRoute
+
+	// Hack: RouteConfiguration for this port
+	RouteConfiguration *v2.RouteConfiguration
 }
 
 // TranslateServiceHostname matches a host against a model service.
@@ -83,14 +86,14 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config,
+	virtualServiceSpecs []model.Config,
 	services map[string]*model.Service,
 	clusterDomain string) []GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
-	for _, config := range serviceConfigs {
+	for _, config := range virtualServiceSpecs {
 		out = append(out, TranslateVirtualHost(config, serviceByName)...)
 	}
 
@@ -130,6 +133,89 @@ func TranslateVirtualHosts(
 		}
 	}
 
+	for _, guardedHost := range out {
+		routes := make([]route.Route, 0)
+		for _, r := range guardedHost.Routes {
+			routes = append(routes, r.Route)
+		}
+
+		virtualHosts := make([]route.VirtualHost, 0)
+
+		for _, host := range guardedHost.Hosts {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:                    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains:                 []string{host},
+				Routes:                  routes,
+				RequireTls:              0,
+				VirtualClusters:         nil,
+				RateLimits:              nil,
+				RequestHeadersToAdd:     nil,
+				ResponseHeadersToAdd:    nil,
+				ResponseHeadersToRemove: nil,
+				Cors: &route.CorsPolicy{
+					AllowOrigin:   nil,
+					AllowMethods:  "",
+					AllowHeaders:  "",
+					ExposeHeaders: "",
+					MaxAge:        "",
+					AllowCredentials: &types.BoolValue{
+						Value: false,
+					},
+					Enabled: &types.BoolValue{
+						Value: false,
+					},
+				},
+				Auth: &auth.AuthAction{
+					ActionType: 0,
+					Rules:      nil,
+				},
+			})
+		}
+
+		for _, svc := range guardedHost.Services {
+			domains := generateAltVirtualHosts(svc, guardedHost.Port)
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:                    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
+				Domains:                 domains,
+				Routes:                  routes,
+				RequireTls:              0,
+				VirtualClusters:         nil,
+				RateLimits:              nil,
+				RequestHeadersToAdd:     nil,
+				ResponseHeadersToAdd:    nil,
+				ResponseHeadersToRemove: nil,
+				Cors: &route.CorsPolicy{
+					AllowOrigin:   nil,
+					AllowMethods:  "",
+					AllowHeaders:  "",
+					ExposeHeaders: "",
+					MaxAge:        "",
+					AllowCredentials: &types.BoolValue{
+						Value: false,
+					},
+					Enabled: &types.BoolValue{
+						Value: false,
+					},
+				},
+				Auth: &auth.AuthAction{
+					ActionType: 0,
+					Rules:      nil,
+				},
+			})
+		}
+
+		guardedHost.RouteConfiguration = &v2.RouteConfiguration{
+			Name:                    fmt.Sprintf("%d", guardedHost.Port),
+			VirtualHosts:            virtualHosts,
+			InternalOnlyHeaders:     nil,
+			ResponseHeadersToAdd:    nil,
+			ResponseHeadersToRemove: nil,
+			RequestHeadersToAdd:     nil,
+			ValidateClusters: &types.BoolValue{
+				Value: false, // until we have rds
+			},
+		}
+	}
 	return out
 }
 
@@ -220,7 +306,7 @@ type ClusterNaming func(*networking.Destination) string
 
 // GuardedRoute are routes for a destination guarded by deployment conditions.
 type GuardedRoute struct {
-	route.Route
+	Route route.Route
 
 	// SourceLabels guarding the route
 	SourceLabels map[string]string
@@ -519,4 +605,29 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfi
 			Value: false,
 		},
 	}
+}
+
+func last(arr []string) string {
+	return arr[len(arr)-1]
+}
+
+func reverse(s string) string {
+	r := []rune(s)
+	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+	return string(r)
+}
+
+func generateAltVirtualHosts(svc *model.Service, port int) []string {
+	dots := len(strings.Split(svc.Hostname, "."))
+	vhosts := make([]string, 0)
+	nameToSplit := reverse(svc.Hostname)
+	for i := 1; i <= dots; i++ {
+		variant := reverse(last(strings.SplitN(nameToSplit, ".", i)))
+		variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+		vhosts = append(vhosts, variant)
+		vhosts = append(vhosts, variantWithPort)
+	}
+	return vhosts
 }
