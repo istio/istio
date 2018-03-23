@@ -25,11 +25,11 @@ spec:
           args:
             - --caCertFile=/etc/istio/certs/root-cert.pem
             - --tlsCertFile=/etc/istio/certs/cert-chain.pem
-            - --tlsKeyFile=/etc/istio/certs/key.pem            
+            - --tlsKeyFile=/etc/istio/certs/key.pem
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
-            - --healthCheckFile=/health            
+            - --healthCheckFile=/health
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

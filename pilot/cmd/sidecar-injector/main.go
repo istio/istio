@@ -37,11 +37,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	sidecarWebhookConfigName = "istio-sidecar-injector"
-	sidecarWebhookName       = "sidecar-injector.istio.io"
-)
-
 var (
 	flags = struct {
 		loggingOptions *log.Options
@@ -56,6 +51,8 @@ var (
 		healthCheckFile     string
 		probeOptions        probe.Options
 		kubeConfigFile      string
+		webhookConfigName   string
+		webhookName         string
 	}{
 		loggingOptions: log.DefaultOptions(),
 	}
@@ -112,6 +109,7 @@ var (
 )
 
 func patchCert() error {
+	const retryTimes = 6 // Try for one minute.
 	client, err := createClientset(flags.kubeConfigFile)
 	if err != nil {
 		return err
@@ -120,15 +118,17 @@ func patchCert() error {
 	if err != nil {
 		return err
 	}
-	err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		sidecarWebhookConfigName, sidecarWebhookName, caCertPem)
-	for err != nil {
+	i := 0
+	for i < retryTimes {
+		err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+			flags.webhookConfigName, flags.webhookName, caCertPem)
+		if err == nil {
+			return nil
+		}
 		log.Errorf("Register webhook failed: %s. Retrying...", err)
 		time.Sleep(time.Second * 10)
-		err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-			sidecarWebhookConfigName, sidecarWebhookName, caCertPem)
 	}
-	return nil
+	return err
 }
 
 func createClientset(kubeConfigFile string) (*kubernetes.Clientset, error) {
@@ -142,11 +142,7 @@ func createClientset(kubeConfigFile string) (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs, err := kubernetes.NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return cs, nil
+	return kubernetes.NewForConfig(c)
 }
 
 func init() {
@@ -166,8 +162,12 @@ func init() {
 		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
 	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
-	rootCmd.PersistentFlags().StringVar(&flags.kubeConfigFile, "kube-config", "",
+	rootCmd.PersistentFlags().StringVar(&flags.kubeConfigFile, "kubeConfig", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
+	rootCmd.PersistentFlags().StringVar(&flags.webhookConfigName, "webhookConfigName", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration resource in Kubernete.")
+	rootCmd.PersistentFlags().StringVar(&flags.webhookName, "webhookName", "sidecar-injector.istio.io",
+		"Name of the webhook entry in the webhook config.")
 	// Attach the Istio logging options to the command.
 	flags.loggingOptions.AttachCobraFlags(rootCmd)
 
