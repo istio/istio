@@ -53,6 +53,8 @@ if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
 
   trap cleanup EXIT
   get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+else
+  GIT_SHA=${HUB}
 fi
 
 # use the first context in the list if not preset
