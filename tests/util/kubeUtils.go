@@ -282,6 +282,7 @@ func CheckPodsRunningWithMaxDuration(n string, maxDuration time.Duration) (ready
 		BaseDelay:   1 * time.Second,
 		MaxDelay:    30 * time.Second,
 		MaxDuration: maxDuration,
+		Retries:     100,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
