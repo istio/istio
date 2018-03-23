@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func connect(server *bootstrap.Server, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
+func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
@@ -91,7 +91,7 @@ func initMocks() *bootstrap.Server {
 // Regression for envoy restart and overlapping connections
 func TestReconnectWithNonce(t *testing.T) {
 	server := initMocks()
-	edsstr := connect(server, t)
+	edsstr := connect(t)
 	res, _ := edsstr.Recv()
 
 	// closes old process
@@ -106,12 +106,12 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	server := initMocks()
-	edsstr := connect(server, t)
+	initMocks()
+	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
 	// envoy restarts and reconnects
-	edsstr2 := connect(server, t)
+	edsstr2 := connect(t)
 	_, _ = edsstr2.Recv()
 
 	// closes old process
@@ -145,7 +145,7 @@ func TestReconnect(t *testing.T) {
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
-	edsstr := connect(server, t)
+	edsstr := connect(t)
 
 	res1, err := edsstr.Recv()
 	if err != nil {

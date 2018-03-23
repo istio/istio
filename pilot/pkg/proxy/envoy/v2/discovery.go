@@ -43,6 +43,14 @@ const (
 	unknownPeerAddressStr = "Unknown peer address"
 )
 
+const (
+	typePrefix   = "type.googleapis.com/envoy.api.v2."
+	EndpointType = typePrefix + "ClusterLoadAssignment"
+	ClusterType  = typePrefix + "Cluster"
+	RouteType    = typePrefix + "RouteConfiguration"
+	ListenerType = typePrefix + "Listener"
+)
+
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.

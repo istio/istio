@@ -42,6 +42,10 @@ const (
 	IstioConfigMap = "istio"
 )
 
+var (
+	AzDebug = false
+)
+
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
@@ -243,12 +247,16 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		if (AzDebug) {
+			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		if (AzDebug) {
+			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	return fmt.Sprintf("%v/%v", region, zone), true

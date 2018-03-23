@@ -24,7 +24,6 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -34,10 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/deprecated"
 	"istio.io/istio/pkg/log"
-)
-
-const (
-	ldsType = cache.ListenerType
 )
 
 var (
@@ -138,7 +133,13 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.PushChannel:
 		}
 
-		response, err := LdsDiscoveryResponse(s.env, node)
+		ls, err := deprecated.BuildListeners(s.env, node)
+		if err != nil {
+			log.Warnf("LDS: config failure, closing grpc %v", err)
+			return err
+		}
+
+		response, err := ldsDiscoveryResponse(ls, node)
 		if err != nil {
 			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err
@@ -149,8 +150,8 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			return err
 		}
 		if ldsDebug {
-			log.Infof("LDS: PUSH for %s %q, Response: \n%s\n",
-				node, peerAddr, response.String())
+			log.Infof("LDS: PUSH for %s %q, Response: \n%v\n",
+				node, peerAddr, ls)
 		}
 
 	}
@@ -216,14 +217,9 @@ func (s *DiscoveryServer) FetchListeners(ctx context.Context, in *xdsapi.Discove
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func LdsDiscoveryResponse(env model.Environment, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
-	ls, err := deprecated.BuildListeners(env, node)
-	if err != nil {
-		return nil, err
-	}
-	log.Infof("LDS: %s %s %s: \n%v", node.ID, node.IPAddress, node.Type, ls)
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     ldsType,
+		TypeUrl:     ListenerType,
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}

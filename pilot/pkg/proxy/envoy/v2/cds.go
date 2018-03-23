@@ -62,13 +62,10 @@ type CdsConnection struct {
 }
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse {
-	clAssignment := &xdsapi.ClusterLoadAssignment{}
-	clAssignmentRes, _ := types.MarshalAny(clAssignment)
-
+func (con *CdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: clAssignmentRes.GetTypeUrl(),
+		TypeUrl: ClusterType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
@@ -77,8 +74,6 @@ func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
-
-	response := v1alpha3.BuildClusters(s.env, *con.modelNode)
 
 	for _, c := range response {
 		cc, _ := types.MarshalAny(c)
@@ -166,7 +161,9 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		case <-con.pushChannel:
 		}
 
-		response := con.clusters(s)
+		rawClusters := v1alpha3.BuildClusters(s.env, *con.modelNode)
+
+		response := con.clusters(rawClusters)
 		err := stream.Send(response)
 		if err != nil {
 			log.Warnf("CDS: Send failure, closing grpc %v", err)
@@ -174,8 +171,9 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		}
 
 		if cdsDebug {
-			log.Infof("CDS: PUSH for %s %q, Response: \n%s\n",
-				node, peerAddr, response.String())
+			// The response can't be easily read due to 'any' marshalling.
+			log.Infof("CDS: PUSH for %s %q, Response: \n%v\n",
+				node, peerAddr, rawClusters)
 		}
 	}
 }
