@@ -30,7 +30,7 @@ class MockMixerClient : public ::istio::mixerclient::MixerClient {
                  const ::istio::mixer::v1::Attributes& attributes,
                  const std::vector<::istio::quota_config::Requirement>& quotas,
                  ::istio::mixerclient::TransportCheckFunc transport,
-                 ::istio::mixerclient::DoneFunc on_done));
+                 ::istio::mixerclient::CheckDoneFunc on_done));
   MOCK_METHOD1(Report, void(const ::istio::mixer::v1::Attributes& attributes));
   MOCK_CONST_METHOD1(GetStatistics,
                      void(::istio::mixerclient::Statistics* stat));

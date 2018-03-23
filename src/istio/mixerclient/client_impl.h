@@ -38,7 +38,7 @@ class MixerClientImpl : public MixerClient {
   CancelFunc Check(
       const ::istio::mixer::v1::Attributes& attributes,
       const std::vector<::istio::quota_config::Requirement>& quotas,
-      TransportCheckFunc transport, DoneFunc on_done) override;
+      TransportCheckFunc transport, CheckDoneFunc on_done) override;
   void Report(const ::istio::mixer::v1::Attributes& attributes) override;
 
   void GetStatistics(Statistics* stat) const override;

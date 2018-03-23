@@ -28,6 +28,7 @@ using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::HttpClientConfig;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixerclient::CancelFunc;
+using ::istio::mixerclient::CheckDoneFunc;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::MixerClient;
 using ::istio::mixerclient::TransportCheckFunc;
@@ -179,7 +180,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteAttributes) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["global-key"].string_value(), "global-value");
         EXPECT_EQ(map["per-route-key"].string_value(), "per-route-value");
@@ -207,7 +208,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["global-key"].string_value(), "global-value");
         EXPECT_EQ(map["route0-key"].string_value(), "route0-value");
@@ -236,7 +237,7 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["global-key"].string_value(), "global-value");
         EXPECT_EQ(map["route1-key"].string_value(), "route1-value");
@@ -259,7 +260,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteQuota) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["global-key"].string_value(), "global-value");
         EXPECT_EQ(quotas.size(), 1);
@@ -301,7 +302,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteApiSpec) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["global-key"].string_value(), "global-value");
         EXPECT_EQ(map["api.name"].string_value(), "test-name");
@@ -361,7 +362,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultApiKey) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map[AttributeName::kRequestApiKey].string_value(),
                   "test-api-key");

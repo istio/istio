@@ -16,6 +16,7 @@
 #ifndef ISTIO_MIXERCLIENT_ENVIRONMENT_H
 #define ISTIO_MIXERCLIENT_ENVIRONMENT_H
 
+#include "check_response.h"
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/service.pb.h"
 #include "timer.h"
@@ -27,6 +28,10 @@ namespace mixerclient {
 // is completed.
 // Uses UNAVAILABLE status code to indicate network failure.
 using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
+
+// Defines a function prototype used when an asynchronous transport call is
+// completed, and passes response information in CheckResponse.
+using CheckDoneFunc = std::function<void(const CheckResponseInfo&)>;
 
 // Defines a function prototype used to cancel an asynchronous transport call.
 using CancelFunc = std::function<void()>;

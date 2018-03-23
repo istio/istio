@@ -24,6 +24,7 @@ using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::TcpClientConfig;
 using ::istio::mixerclient::CancelFunc;
+using ::istio::mixerclient::CheckDoneFunc;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::MixerClient;
 using ::istio::mixerclient::TransportCheckFunc;
@@ -85,7 +86,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
       .WillOnce(Invoke([](const Attributes& attributes,
                           const std::vector<Requirement>& quotas,
                           TransportCheckFunc transport,
-                          DoneFunc on_done) -> CancelFunc {
+                          CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
         EXPECT_EQ(map["key1"].string_value(), "value1");
         EXPECT_EQ(quotas.size(), 1);

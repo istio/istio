@@ -87,7 +87,7 @@ class MixerClient {
   virtual CancelFunc Check(
       const ::istio::mixer::v1::Attributes& attributes,
       const std::vector<::istio::quota_config::Requirement>& quotas,
-      TransportCheckFunc transport, DoneFunc on_done) = 0;
+      TransportCheckFunc transport, CheckDoneFunc on_done) = 0;
 
   // A report call.
   virtual void Report(const ::istio::mixer::v1::Attributes& attributes) = 0;

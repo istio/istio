@@ -15,6 +15,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "include/istio/mixerclient/check_response.h"
 #include "include/istio/mixerclient/client.h"
 #include "include/istio/utils/attributes_builder.h"
 #include "src/istio/mixerclient/status_test_util.h"
@@ -24,6 +25,7 @@ using ::google::protobuf::util::error::Code;
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
+using ::istio::mixerclient::CheckResponseInfo;
 using ::istio::quota_config::Requirement;
 using ::testing::Invoke;
 using ::testing::_;
@@ -81,17 +83,22 @@ TEST_F(MixerClientImplTest, TestSuccessCheck) {
 
   // Not to test quota
   std::vector<Requirement> empty_quotas;
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, empty_quotas, empty_transport_,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_TRUE(done_status.ok());
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_TRUE(check_response_info.response_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should be cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, empty_quotas, empty_transport_,
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_TRUE(done_status1.ok());
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_TRUE(check_response_info1.response_status.ok());
   }
 
   Statistics stat;
@@ -121,17 +128,22 @@ TEST_F(MixerClientImplTest, TestPerRequestTransport) {
 
   // Not to test quota
   std::vector<Requirement> empty_quotas;
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, empty_quotas, local_check_transport.GetFunc(),
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_TRUE(done_status.ok());
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_TRUE(check_response_info.response_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should be cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, empty_quotas, local_check_transport.GetFunc(),
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_TRUE(done_status1.ok());
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_TRUE(check_response_info1.response_status.ok());
   }
 
   Statistics stat;
@@ -162,17 +174,22 @@ TEST_F(MixerClientImplTest, TestNoCheckCache) {
         on_done(Status::OK);
       }));
 
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, quotas_, empty_transport_,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_TRUE(done_status.ok());
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_TRUE(check_response_info.response_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls are not cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, quotas_, empty_transport_,
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_TRUE(done_status1.ok());
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_TRUE(check_response_info1.response_status.ok());
   }
   // Call count 11 since check is not cached.
   EXPECT_EQ(call_counts, 11);
@@ -203,17 +220,22 @@ TEST_F(MixerClientImplTest, TestNoQuotaCache) {
         on_done(Status::OK);
       }));
 
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, quotas_, empty_transport_,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_TRUE(done_status.ok());
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_TRUE(check_response_info.response_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should be cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, quotas_, empty_transport_,
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_TRUE(done_status1.ok());
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_TRUE(check_response_info1.response_status.ok());
   }
   // Call count 11 since quota is not cached.
   EXPECT_EQ(call_counts, 11);
@@ -242,17 +264,22 @@ TEST_F(MixerClientImplTest, TestSuccessCheckAndQuota) {
         on_done(Status::OK);
       }));
 
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, quotas_, empty_transport_,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_TRUE(done_status.ok());
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_TRUE(check_response_info.response_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should be cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, quotas_, empty_transport_,
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_TRUE(done_status1.ok());
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_TRUE(check_response_info1.response_status.ok());
   }
   // Call count should be less than 4
   EXPECT_LE(call_counts, 3);
@@ -282,17 +309,24 @@ TEST_F(MixerClientImplTest, TestFailedCheckAndQuota) {
         on_done(Status::OK);
       }));
 
-  Status done_status = Status::UNKNOWN;
+  CheckResponseInfo check_response_info;
   client_->Check(request_, quotas_, empty_transport_,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION, done_status);
+                 [&check_response_info](const CheckResponseInfo& info) {
+                   check_response_info.response_status = info.response_status;
+                 });
+  EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION,
+                    check_response_info.response_status);
 
   for (int i = 0; i < 10; i++) {
     // Other calls should be cached.
-    Status done_status1 = Status::UNKNOWN;
+    CheckResponseInfo check_response_info1;
     client_->Check(request_, quotas_, empty_transport_,
-                   [&done_status1](Status status) { done_status1 = status; });
-    EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION, done_status1);
+                   [&check_response_info1](const CheckResponseInfo& info) {
+                     check_response_info1.response_status =
+                         info.response_status;
+                   });
+    EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION,
+                      check_response_info1.response_status);
   }
   Statistics stat;
   client_->GetStatistics(&stat);

@@ -66,6 +66,10 @@ struct AttributeName {
   static const char kCheckErrorCode[];
   static const char kCheckErrorMessage[];
 
+  // Check and Quota cache hit
+  static const char kCheckCacheHit[];
+  static const char kQuotaCacheHit[];
+
   // Authentication attributes
   static const char kRequestAuthPrincipal[];
   static const char kRequestAuthAudiences[];

@@ -65,6 +65,10 @@ const char AttributeName::kContextTime[] = "context.time";
 const char AttributeName::kCheckErrorCode[] = "check.error_code";
 const char AttributeName::kCheckErrorMessage[] = "check.error_message";
 
+// Check and Quota cache hit
+const char AttributeName::kCheckCacheHit[] = "check.cache_hit";
+const char AttributeName::kQuotaCacheHit[] = "quota.cache_hit";
+
 // Authentication attributes
 const char AttributeName::kRequestAuthPrincipal[] = "request.auth.principal";
 const char AttributeName::kRequestAuthAudiences[] = "request.auth.audiences";

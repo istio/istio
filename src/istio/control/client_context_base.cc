@@ -14,12 +14,16 @@
  */
 
 #include "client_context_base.h"
+#include "include/istio/mixerclient/check_response.h"
+#include "include/istio/utils/attributes_builder.h"
+#include "src/istio/control/attribute_names.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::NetworkFailPolicy;
 using ::istio::mixer::v1::config::client::TransportConfig;
 using ::istio::mixerclient::CancelFunc;
 using ::istio::mixerclient::CheckOptions;
+using ::istio::mixerclient::CheckResponseInfo;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::Environment;
 using ::istio::mixerclient::MixerClientOptions;
@@ -76,10 +80,17 @@ CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
                                         DoneFunc on_done,
                                         RequestContext* request) {
   // Intercept the callback to save check status in request_context
-  auto local_on_done = [request, on_done](const Status& status) {
+  auto local_on_done = [request,
+                        on_done](const CheckResponseInfo& check_response_info) {
     // save the check status code
-    request->check_status = status;
-    on_done(status);
+    request->check_status = check_response_info.response_status;
+
+    utils::AttributesBuilder builder(&request->attributes);
+    builder.AddBool(AttributeName::kCheckCacheHit,
+                    check_response_info.is_check_cache_hit);
+    builder.AddBool(AttributeName::kQuotaCacheHit,
+                    check_response_info.is_quota_cache_hit);
+    on_done(check_response_info.response_status);
   };
 
   // TODO: add debug message
