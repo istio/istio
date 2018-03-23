@@ -39,10 +39,9 @@ envoy_cc_library(
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/istio/control/http:control_lib",
         "//src/envoy/http/jwt_auth:http_filter_lib",
         "//src/envoy/utils:utils_lib",
+        "//src/istio/control/http:control_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
-

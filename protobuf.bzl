@@ -59,4 +59,3 @@ def protobuf_repositories(load_repo=True, bind=True):
             name = "protobuf_clib",
             actual = "@com_google_protobuf//:protoc_lib",
         )
-

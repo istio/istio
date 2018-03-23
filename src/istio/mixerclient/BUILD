@@ -15,22 +15,22 @@
 licenses(["notice"])
 
 py_binary(
-   name = "create_global_dictionary",
-   srcs = ["create_global_dictionary.py"],
+    name = "create_global_dictionary",
+    srcs = ["create_global_dictionary.py"],
 )
 
 genrule(
-   name = "global_dictionary_header_gen",
-   srcs = [
-       "@mixerapi_git//:global_dictionary_file",
-   ],
-   outs = [
-       "global_dictionary.cc",
-   ],
-   cmd = "$(location :create_global_dictionary) $(location @mixerapi_git//:global_dictionary_file) > $@",
-   tools = [
+    name = "global_dictionary_header_gen",
+    srcs = [
+        "@mixerapi_git//:global_dictionary_file",
+    ],
+    outs = [
+        "global_dictionary.cc",
+    ],
+    cmd = "$(location :create_global_dictionary) $(location @mixerapi_git//:global_dictionary_file) > $@",
+    tools = [
         ":create_global_dictionary",
-   ],
+    ],
 )
 
 cc_library(
@@ -46,12 +46,12 @@ cc_library(
         "delta_update.h",
         "global_dictionary.cc",
         "global_dictionary.h",
-        "report_batch.cc",
-        "report_batch.h",
-        "referenced.cc",
-        "referenced.h",
         "quota_cache.cc",
         "quota_cache.h",
+        "referenced.cc",
+        "referenced.h",
+        "report_batch.cc",
+        "report_batch.h",
     ],
     visibility = ["//visibility:public"],
     deps = [

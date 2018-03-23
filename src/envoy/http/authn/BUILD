@@ -42,9 +42,9 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
-        "//src/istio/authn:context_proto",
         "//external:authentication_policy_config_cc_proto",
         "//src/envoy/utils:utils_lib",
+        "//src/istio/authn:context_proto",
     ],
 )
 
@@ -60,9 +60,9 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":authenticator",
-        "//src/istio/authn:context_proto",
         "//external:authentication_policy_config_cc_proto",
         "//src/envoy/utils:utils_lib",
+        "//src/istio/authn:context_proto",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -94,8 +94,8 @@ envoy_cc_test(
     deps = [
         ":authenticator",
         ":test_utils",
-        "@envoy//test/mocks/ssl:ssl_mocks",
         "@envoy//test/mocks/network:network_mocks",
+        "@envoy//test/mocks/ssl:ssl_mocks",
         "@envoy//test/test_common:utility_lib",
     ],
 )

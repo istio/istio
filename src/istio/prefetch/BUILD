@@ -22,10 +22,10 @@ cc_library(
         "time_based_counter.cc",
         "time_based_counter.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//include/istio/prefetch:headers_lib",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_test(

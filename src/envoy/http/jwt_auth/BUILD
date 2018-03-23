@@ -23,7 +23,6 @@ load(
     "envoy_cc_library",
     "envoy_cc_test",
 )
-
 load(
     "@envoy_api//bazel:api_build_system.bzl",
     "api_proto_library",
@@ -32,8 +31,8 @@ load(
 api_proto_library(
     name = "config_proto",
     srcs = [":config.proto"],
-    visibility = ["//visibility:public"],
     require_py = 0,
+    visibility = ["//visibility:public"],
 )
 
 envoy_cc_library(

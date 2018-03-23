@@ -58,7 +58,7 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":control_lib",
-        "//src/istio/control:mock_mixer_client",
         "//external:googletest_main",
+        "//src/istio/control:mock_mixer_client",
     ],
 )

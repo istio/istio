@@ -73,4 +73,3 @@ cc_proto_library(
             name = "cc_gogoproto_genproto",
             actual = "@gogoproto_git//:cc_gogoproto_genproto",
         )
-

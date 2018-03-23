@@ -22,8 +22,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/quota_config:headers_lib",
         "//external:mixer_client_config_cc_proto",
+        "//include/istio/quota_config:headers_lib",
     ],
 )
 
@@ -38,7 +38,7 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":config_parser_lib",
-        "//include/istio/utils:headers_lib",
         "//external:googletest_main",
+        "//include/istio/utils:headers_lib",
     ],
 )

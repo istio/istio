@@ -40,8 +40,8 @@ envoy_cc_library(
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/istio/mixerclient:mixerclient_lib",
         "//external:mixer_client_config_cc_proto",
+        "//src/istio/mixerclient:mixerclient_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -51,9 +51,9 @@ envoy_cc_test(
     srcs = [
         "utils_test.cc",
     ],
+    repository = "@envoy",
     deps = [
         ":utils_lib",
         "@envoy//test/test_common:utility_lib",
     ],
-    repository = "@envoy",
 )

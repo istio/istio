@@ -27,9 +27,9 @@ cc_library(
     ],
     visibility = [":__subpackages__"],
     deps = [
+        "//external:mixer_client_config_cc_proto",
         "//src/istio/mixerclient:mixerclient_lib",
         "//src/istio/quota_config:config_parser_lib",
-        "//external:mixer_client_config_cc_proto",
     ],
 )
 

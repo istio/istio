@@ -27,9 +27,9 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//external:mixer_client_config_cc_proto",
         "//include/istio/api_spec:headers_lib",
         "//include/istio/control/http:headers_lib",
-        "//external:mixer_client_config_cc_proto",
     ],
 )
 
@@ -74,8 +74,8 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":api_spec_lib",
+        "//external:googletest_main",
         "//src/istio/control/http:mock_headers",
         "//src/istio/mixerclient:mixerclient_lib",
-        "//external:googletest_main",
     ],
 )

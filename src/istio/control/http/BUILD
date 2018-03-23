@@ -70,7 +70,7 @@ cc_test(
     deps = [
         ":control_lib",
         ":mock_headers",
-        "//src/istio/control:mock_mixer_client",
         "//external:googletest_main",
+        "//src/istio/control:mock_mixer_client",
     ],
 )

@@ -53,4 +53,3 @@ cc_proto_library(
             name = "rpc_status_proto_genproto",
             actual = "@com_github_googleapis_googleapis//:rpc_status_proto_genproto",
         )
-

@@ -17,8 +17,8 @@ licenses(["notice"])
 cc_library(
     name = "utils_lib",
     srcs = [
-        "status.cc",
         "protobuf.cc",
+        "status.cc",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -66,4 +66,3 @@ cc_test(
         "//external:googletest_main",
     ],
 )
-
