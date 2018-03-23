@@ -107,10 +107,13 @@ func TestBuildJwtFilter(t *testing.T) {
 const (
 	goldenClusterAbc = `name:"jwks.abc.com|http"
 	type:STRICT_DNS connect_timeout:<seconds:42 >
-	hosts:<socket_address:<address:"abc.com" port_value:80 > >`
+	hosts:<socket_address:<address:"abc.com" port_value:80 > >
+	circuit_breakers:<thresholds:<max_pending_requests:<value:10000 > max_requests:<value:10000 > > >`
 	goldenClusterXyz = `name:"jwks.xyz.com|https"
 	type:STRICT_DNS connect_timeout:<seconds:42 >
-	hosts:<socket_address:<address:"xyz.com" port_value:443 > >`
+	hosts:<socket_address:<address:"xyz.com" port_value:443 > >
+	circuit_breakers:<thresholds:<max_pending_requests:<value:10000 > max_requests:<value:10000 > > >
+	tls_context:<common_tls_context:<> >`
 )
 
 func makeGoldenCluster(text string) *v2.Cluster {

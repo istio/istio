@@ -440,7 +440,7 @@ func (e *Environment) Teardown() {
 	if filledYaml, err := e.Fill("rbac-beta.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
 			err)
-	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
+	} else if err = e.KubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("RBAC config could could not be deleted: %v", err)
 	}
 
@@ -514,7 +514,8 @@ func (e *Environment) KubeApply(yaml, namespace string) error {
 		e.Config.KubeConfig, namespace), yaml)
 }
 
-func (e *Environment) kubeDelete(yaml, namespace string) error {
+// KubeDelete runs kubectl delete with the given yaml and namespace.
+func (e *Environment) KubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
 		e.Config.KubeConfig, namespace), yaml)
 }
@@ -812,7 +813,7 @@ func (e *Environment) deleteSidecarInjector() {
 	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("Sidecar injector template could not be processed, please delete stale injector webhook: %v",
 			err)
-	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
+	} else if err = e.KubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("Sidecar injector could not be deleted: %v", err)
 	}
 }
