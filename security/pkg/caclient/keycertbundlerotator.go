@@ -69,6 +69,14 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 	}
 	c.stopped = false
 	c.stoppedMutex.Unlock()
+
+	// Make sure we mark rotator stopped after this method finishes.
+	defer func() {
+		c.stoppedMutex.Lock()
+		c.stopped = true
+		c.stoppedMutex.Unlock()
+	}()
+
 	for {
 		certBytes, _, _, _ := c.keycert.GetAllPem()
 		if len(certBytes) != 0 {
@@ -95,17 +103,11 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 		certBytes, certChainBytes, privKeyBytes, err := c.retriever.Retrieve(co)
 		if err != nil {
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
 		if err = c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
 			return
 		}
 		log.Infof("Successfully retrieved new key and certs.")

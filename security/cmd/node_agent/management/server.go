@@ -45,9 +45,9 @@ type Server struct {
 	done   chan bool
 	config *na.Config
 	// TODO(incfly): remove these two after they're merged into CAClient.
-	pc       platform.Client
-	cAClient cagrpc.CAGrpcClient
-	caClient *caclient.CAClient
+	pc           platform.Client
+	caGrpcClient cagrpc.CAGrpcClient
+	caClient     *caclient.CAClient
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint
@@ -76,13 +76,13 @@ func New(cfg *na.Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)
 	}
 	return &Server{
-		done:       make(chan bool, 1),
-		handlerMap: make(map[string]handler.WorkloadHandler),
-		cAClient:   &cagrpc.CAGrpcClientImpl{},
-		caClient:   cac,
-		config:     cfg,
-		pc:         pc,
-		ss:         ss,
+		done:         make(chan bool, 1),
+		handlerMap:   make(map[string]handler.WorkloadHandler),
+		caGrpcClient: &cagrpc.CAGrpcClientImpl{},
+		caClient:     cac,
+		config:       cfg,
+		pc:           pc,
+		ss:           ss,
 	}, nil
 }
 
@@ -154,7 +154,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
 	}
-	resp, err := s.cAClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
+	resp, err := s.caGrpcClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, fmt.Errorf("csr request failed for service %v %v", sa, err)
 	}
