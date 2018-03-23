@@ -260,8 +260,8 @@ func upgradeControlPlane() error {
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 300*time.Second) {
+		return fmt.Errorf("can't get all pods running when upgrading control plane")
 	}
 	if _, err = util.Shell("kubectl get all -n %s -o wide", targetConfig.Kube.Namespace); err != nil {
 		return err
@@ -286,8 +286,8 @@ func upgradeSidecars() error {
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunning(targetConfig.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 300*time.Second) {
+		return fmt.Errorf("can't get all pods running when upgrading sidecar")
 	}
 	// TODO: Check sidecar version.
 	return nil
