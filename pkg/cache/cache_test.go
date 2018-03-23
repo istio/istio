@@ -242,12 +242,15 @@ func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
 func testCacheEvicter(c ExpiringCache, t *testing.T) {
 	c.SetWithExpiration("A", "A", 1*time.Millisecond)
 
-	// this is racy, but we're being generous enough that it should be fine
-	time.Sleep(10 * time.Millisecond)
+	// loop until eviction happens. If eviction doesn't happen, this loop will get stuck forever which is fine
+	for {
+		time.Sleep(10 * time.Millisecond)
 
-	_, ok := c.Get("A")
-	if ok {
-		t.Error("Got entry, expecting it to have been evicted")
+		_, ok := c.Get("A")
+		if !ok {
+			// item disappeared, we're done
+			return
+		}
 	}
 }
 
