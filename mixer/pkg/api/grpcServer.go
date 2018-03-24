@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
@@ -41,7 +41,7 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
-		dispatcher runtime.Dispatcher
+		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
 
 		// the global dictionary. This will eventually be writable via config
@@ -58,7 +58,7 @@ const (
 )
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -134,7 +134,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
 
 		for name, param := range req.Quotas {
-			qma := &runtime.QuotaMethodArgs{
+			qma := &dispatcher.QuotaMethodArgs{
 				Quota:           name,
 				Amount:          param.Amount,
 				DeduplicationID: req.DeduplicationId + name,
