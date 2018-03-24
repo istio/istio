@@ -23,10 +23,10 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/handler"
-	"istio.io/istio/mixer/pkg/runtime2/testing/data"
-	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/runtime/testing/util"
 	"istio.io/istio/mixer/pkg/template"
 )
 

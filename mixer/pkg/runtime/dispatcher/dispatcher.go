@@ -37,8 +37,8 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/routing"
+	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
@@ -79,7 +79,7 @@ type QuotaMethodArgs struct {
 	BestEffort bool
 }
 
-// Impl is the runtime2 implementation of the Dispatcher interface.
+// Impl is the runtime implementation of the Dispatcher interface.
 type Impl struct {
 	identityAttribute string
 

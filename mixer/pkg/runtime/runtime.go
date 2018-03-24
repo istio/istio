@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime2
+package runtime
 
 import (
 	"errors"
@@ -24,10 +24,10 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
-	"istio.io/istio/mixer/pkg/runtime2/handler"
-	"istio.io/istio/mixer/pkg/runtime2/routing"
+	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/dispatcher"
+	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"

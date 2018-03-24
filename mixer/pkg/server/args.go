@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime2"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -105,7 +105,7 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
 		AdapterWorkerPoolSize:         1024,
-		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
+		ConfigDefaultNamespace:        runtime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		LoggingOptions:                log.DefaultOptions(),

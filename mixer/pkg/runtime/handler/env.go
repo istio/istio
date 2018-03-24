@@ -105,7 +105,7 @@ func (e env) reportStrayWorkers() error {
 		// Basically, even if the adapter would have closed everything before returning from Close function, our
 		// counter might get delayed decremented, causing this false positive error.
 		// Therefore, we need a new retry kind logic on handler Close to give time for counters to get updated
-		// before making this as a red flag error. runtime2 work has plans to implement this stuff, we can revisit
+		// before making this as a red flag error. runtime work has plans to implement this stuff, we can revisit
 		// this to-do then. Same for the code below related to workers.
 		_ = e.Logger().Errorf("adapter did not close all the scheduled daemons")
 	}

@@ -19,7 +19,7 @@ import (
 	"time"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/istio/mixer/pkg/runtime2/testing/data"
+	"istio.io/istio/mixer/pkg/runtime/testing/data"
 )
 
 func TestDestinationCounters_Update(t *testing.T) {
