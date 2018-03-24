@@ -40,7 +40,7 @@ var hgp = pool.NewGoroutinePool(1, true)
 var adapters = data.BuildAdapters(nil)
 var templates = data.BuildTemplates(nil)
 
-func TestRuntime2_Basic(t *testing.T) {
+func TestRuntime_Basic(t *testing.T) {
 	s := &mockStore{}
 
 	rt := New(
@@ -85,7 +85,7 @@ func TestRuntime2_Basic(t *testing.T) {
 	}
 }
 
-func TestRuntime2_ErrorDuringWatch(t *testing.T) {
+func TestRuntime_ErrorDuringWatch(t *testing.T) {
 	s := &mockStore{}
 	s.watchErrorToReturn = errors.New("error during watch")
 
@@ -103,7 +103,7 @@ func TestRuntime2_ErrorDuringWatch(t *testing.T) {
 	}
 }
 
-func TestRuntime2_OnConfigChange(t *testing.T) {
+func TestRuntime_OnConfigChange(t *testing.T) {
 	s := &mockStore{
 		listResultToReturn: map[store.Key]*store.Resource{},
 	}
@@ -169,7 +169,7 @@ Attributes:
 	}
 }
 
-func TestRuntime2_InFlightRequestsDuringConfigChange(t *testing.T) {
+func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	s := &mockStore{
 		listResultToReturn: map[store.Key]*store.Resource{},
 	}
