@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/log"
 )
 
