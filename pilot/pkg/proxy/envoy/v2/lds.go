@@ -163,7 +163,6 @@ func ldsPushAll() {
 	for k, v := range ldsClients {
 		tmpMap[k] = v
 	}
-	version++
 	ldsClientsMutex.RUnlock()
 
 	for _, client := range tmpMap {
