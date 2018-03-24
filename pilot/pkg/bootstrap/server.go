@@ -724,7 +724,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.EdsPushAll
+	envoy.V2ClearCache = envoyv2.PushAll
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer, environment)
 
 	s.HTTPServer = &http.Server{
