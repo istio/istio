@@ -18,30 +18,45 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"istio.io/istio/pkg/log"
 )
 
-// ResolveAddr resolves an authority address to an IP address
+// ResolveAddr resolves an authority address to an IP address. Incoming
+// addr can be an IP address or hostname. If addr is an IPv6 address, the IP
+// part must be enclosed in square brackets.
+//
+// TODO: LookupIPAddr() may return multiple IP addresses, of which this function
+// returns the first entry. We're assuming that IPv4 addresses will be listed
+// first, meaning it has priority over IPv6. If this does not hold, then
+// additional logic will be needed to enforce an IP mode priority.
+//
+// To use this function in an IPv6 only environment, either provide an IPv6
+// address or ensure the hostname resolves to only IPv6 addresses.
 func ResolveAddr(addr string) (string, error) {
 	if addr == "" {
 		return "", nil
 	}
-	colon := strings.Index(addr, ":")
-	host := addr[:colon]
-	port := addr[colon:]
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", err
+	}
 	log.Infof("Attempting to lookup address: %s", host)
 	defer log.Infof("Finished lookup of address: %s", host)
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	addrs, lookupErr := net.DefaultResolver.LookupIPAddr(ctx, host)
-	if lookupErr != nil {
-		return "", fmt.Errorf("lookup failed for udp address: %v", lookupErr)
+	if lookupErr != nil || len(addrs) == 0 {
+		return "", fmt.Errorf("lookup failed for IP address: %v", lookupErr)
 	}
-	resolvedAddr := fmt.Sprintf("%s%s", addrs[0].IP, port)
+	var resolvedAddr string
+	if addrs[0].IP.To4() == nil {
+		resolvedAddr = fmt.Sprintf("[%s]:%s", addrs[0].IP, port)
+	} else {
+		resolvedAddr = fmt.Sprintf("%s:%s", addrs[0].IP, port)
+	}
 	log.Infof("Addr resolved to: %s", resolvedAddr)
 	return resolvedAddr, nil
 }

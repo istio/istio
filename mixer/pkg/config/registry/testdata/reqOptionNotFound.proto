@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package abc;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+// Below option is required.
+// option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;

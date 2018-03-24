@@ -105,6 +105,12 @@ export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 
+# scratch dir for building isolated images. Please don't remove it again - using
+# ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
+# copied to the docker temp container - even if you add only a tiny file, >1G of data will
+# be copied, for each docker image.
+DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
+
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
@@ -183,7 +189,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 .PHONY: check-tree
 check-tree:
 	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-       echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. ; \
+       echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
        exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
@@ -430,7 +436,9 @@ test: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
-GOTEST_P ?= -p 1
+# This is passed to mixer and other tests to limit how many builds are used.
+# In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
+GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
@@ -446,15 +454,14 @@ localTestEnv: test-bins
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
-PILOT_TEST_T ?= ${GOTEST_P} ${T}
 pilot-test: pilot-agent
-	go test ${PILOT_TEST_T} ./pilot/...
+	go test -p 1 ${T} ./pilot/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
 
 .PHONY: broker-test
 broker-test: depend
@@ -518,7 +525,7 @@ racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	RACE_TEST=true go test ${GOTEST_P} ${T} -race ./pilot/...
+	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
