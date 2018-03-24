@@ -20,10 +20,9 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"

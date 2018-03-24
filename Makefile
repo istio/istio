@@ -283,13 +283,8 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format: format.gofmt format.goimports
-
-format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
-
-format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
+format:
+	bin/fmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:

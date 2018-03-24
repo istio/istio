@@ -23,7 +23,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 

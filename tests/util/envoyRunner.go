@@ -26,9 +26,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pkg/bootstrap"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/bootstrap"
 )
 
 // Extracted from watcher_test, will run envoy

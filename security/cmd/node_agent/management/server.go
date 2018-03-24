@@ -19,10 +19,9 @@ import (
 	"net"
 	"os"
 
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent/na"

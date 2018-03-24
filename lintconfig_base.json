@@ -9,7 +9,7 @@
     "test": true,
     "sort": ["path"],
     "Linters": {
-        "goimports": {"Command": "goimports -l --local istio.io"}
+        "goimports": {"Command": "bin/fmt.sh"}
     },
     "enable": [
         "deadcode",

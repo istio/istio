@@ -25,15 +25,13 @@ import (
 	"sync"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
-
 	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )

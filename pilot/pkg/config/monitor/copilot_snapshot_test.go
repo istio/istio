@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
+	copilotapi "code.cloudfoundry.org/copilot/api"
 	"github.com/onsi/gomega"
 	"google.golang.org/grpc"
-
-	copilotapi "code.cloudfoundry.org/copilot/api"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
