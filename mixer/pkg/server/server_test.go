@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"
@@ -120,10 +119,12 @@ func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a.LivenessProbeOptions.UpdateInterval = 2
 	a.ReadinessProbeOptions.Path = "def"
 	a.ReadinessProbeOptions.UpdateInterval = 3
+
 	var err error
 	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
 		return nil, err
 	}
+
 	return New(a)
 }
 
@@ -208,11 +209,12 @@ func TestErrors(t *testing.T) {
 			a.ConfigStoreURL = ""
 			pt := newPatchTable()
 			switch i {
+			case 1:
+				a.ConfigStore = nil
+				a.ConfigStoreURL = ""
 			case 2:
 				a.ConfigStore = nil
-				pt.newStore = func(reg *store.Registry, configURL string) (store.Store, error) {
-					return nil, errors.New("BAD")
-				}
+				a.ConfigStoreURL = "DEADBEEF"
 			case 3:
 				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
 					return nil, errors.New("BAD")
