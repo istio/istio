@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/tests/k8s"
+	"os"
 )
 
 const (
@@ -459,6 +460,9 @@ func makeClient(t *testing.T) kubernetes.Interface {
 }
 
 func TestGetAPIServerExtensionCACert(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Exclude racetest due to accessing API server")
+	}
 	cl := makeClient(t)
 	if _, err := getAPIServerExtensionCACert(cl); err != nil {
 		t.Errorf("GetAPIServerExtensionCACert() failed: %v", err)
