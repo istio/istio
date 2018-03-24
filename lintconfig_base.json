@@ -8,6 +8,9 @@
     "lineLength": 160,
     "test": true,
     "sort": ["path"],
+    "Linters": {
+        "goimports": {"Command": "bin/fmt.sh"}
+    },
     "enable": [
         "deadcode",
         "errcheck",
