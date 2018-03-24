@@ -438,7 +438,7 @@ test: | $(JUNIT_REPORT)
 GOTEST_PARALLEL ?= '-test.parallel=4'
 # This is passed to mixer and other tests to limit how many builds are used.
 # In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?= 
+GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client ${ISTIO_OUT}/pilot-test-eurekamirror
