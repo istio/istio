@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package dispatcher is used to dispatch incoming requests to one or more handlers. The main entry point
-// is the Dispatcher struct, which implements the main runtime.Dispatcher interface.
+// is the Impl struct, which implements the main dispatcher.Dispatcher interface.
 //
 // Once the dispatcher receives a request, it acquires the current routing table, and uses it until the end
 // of the request. Additionally, it acquires an executor from a pool, which is used to perform and track the
@@ -37,15 +37,50 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
 
-// Dispatcher is the runtime2 implementation of the runtime.Dispatcher interface.
-type Dispatcher struct {
+// Dispatcher dispatches incoming API calls to configured adapters.
+type Dispatcher interface {
+	// Preprocess dispatches to the set of adapters that will run before any
+	// other adapters in Mixer (aka: the Check, Report, Quota adapters).
+	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
+
+	// Check dispatches to the set of adapters associated with the Check API method
+	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+
+	// Report dispatches to the set of adapters associated with the Report API method
+	Report(ctx context.Context, requestBag attribute.Bag) error
+
+	// Quota dispatches to the set of adapters associated with the Quota API method
+	Quota(ctx context.Context, requestBag attribute.Bag,
+		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
+}
+
+// QuotaMethodArgs is supplied by invocations of the Quota method.
+type QuotaMethodArgs struct {
+	// Used for deduplicating quota allocation/free calls in the case of
+	// failed RPCs and retries. This should be a UUID per call, where the same
+	// UUID is used for retries of the same quota allocation call.
+	DeduplicationID string
+
+	// The quota to allocate from.
+	Quota string
+
+	// The amount of quota to allocate.
+	Amount int64
+
+	// If true, allows a response to return less quota than requested. When
+	// false, the exact requested amount is returned or 0 if not enough quota
+	// was available.
+	BestEffort bool
+}
+
+// Impl is the runtime2 implementation of the Dispatcher interface.
+type Impl struct {
 	identityAttribute string
 
 	// Current dispatch context.
@@ -63,7 +98,7 @@ type Dispatcher struct {
 	gp *pool.GoroutinePool
 }
 
-var _ runtime.Dispatcher = &Dispatcher{}
+var _ Dispatcher = &Impl{}
 
 // RoutingContext is the currently active dispatching context, based on a config snapshot. As config changes,
 // the current/live RoutingContext also changes.
@@ -90,9 +125,9 @@ func (t *RoutingContext) GetRefs() int32 {
 	return atomic.LoadInt32(&t.refCount)
 }
 
-// New returns a new Dispatcher instance. The Dispatcher instance is initialized with an empty routing table.
-func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *Dispatcher {
-	return &Dispatcher{
+// New returns a new Impl instance. The Impl instance is initialized with an empty routing table.
+func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
+	return &Impl{
 		identityAttribute: identityAttribute,
 		sessionPool:       newSessionPool(enableTracing),
 		statePool:         newDispatchStatePool(),
@@ -103,8 +138,8 @@ func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing 
 	}
 }
 
-// ChangeRoute changes the routing table on the Dispatcher which, in turn, ends up creating a new RoutingContext.
-func (d *Dispatcher) ChangeRoute(new *routing.Table) *RoutingContext {
+// ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
+func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
 	newContext := &RoutingContext{
 		Routes: new,
 	}
@@ -117,8 +152,8 @@ func (d *Dispatcher) ChangeRoute(new *routing.Table) *RoutingContext {
 	return old
 }
 
-// Check implementation of runtime.Dispatcher.
-func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+// Check implementation of runtime.Impl.
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
 	var r *adapter.CheckResult
@@ -133,8 +168,8 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 	return r, err
 }
 
-// Report implementation of runtime.Dispatcher.
-func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
+// Report implementation of runtime.Impl.
+func (d *Impl) Report(ctx context.Context, bag attribute.Bag) error {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_REPORT, bag)
 
 	err := d.dispatch(s)
@@ -147,8 +182,8 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	return err
 }
 
-// Quota implementation of runtime.Dispatcher.
-func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+// Quota implementation of runtime.Impl.
+func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
 	s.quotaArgs.QuotaAmount = qma.Amount
 	s.quotaArgs.DeduplicationID = qma.DeduplicationID
@@ -165,8 +200,8 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *runtime.
 	return r, err
 }
 
-// Preprocess implementation of runtime.Dispatcher.
-func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
+// Preprocess implementation of runtime.Impl.
+func (d *Impl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
 	s := d.beginSession(ctx, tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
 	s.responseBag = responseBag
 
@@ -180,7 +215,7 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 	return err
 }
 
-func (d *Dispatcher) dispatch(session *session) error {
+func (d *Impl) dispatch(session *session) error {
 	// Lookup the value of the identity attribute, so that we can extract the namespace to use for route
 	// lookup.
 	identityAttributeValue, err := getIdentityAttributeValue(session.bag, d.identityAttribute)
@@ -336,7 +371,7 @@ func (d *Dispatcher) dispatch(session *session) error {
 	return nil
 }
 
-func (d *Dispatcher) acquireRoutingContext() *RoutingContext {
+func (d *Impl) acquireRoutingContext() *RoutingContext {
 	d.contextLock.RLock()
 	ctx := d.context
 	ctx.IncRef()
@@ -344,7 +379,7 @@ func (d *Dispatcher) acquireRoutingContext() *RoutingContext {
 	return ctx
 }
 
-func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
+func (d *Impl) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
 	data := &adapter.RequestData{}
 
 	// fill the destination information
@@ -355,7 +390,7 @@ func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) conte
 	return adapter.NewContextWithRequestData(ctx, data)
 }
 
-func (d *Dispatcher) beginSession(ctx context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
+func (d *Impl) beginSession(ctx context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
 	s := d.sessionPool.get()
 	s.start = time.Now()
 	s.variety = variety
@@ -365,12 +400,12 @@ func (d *Dispatcher) beginSession(ctx context.Context, variety tpb.TemplateVarie
 	return s
 }
 
-func (d *Dispatcher) completeSession(s *session) {
+func (d *Impl) completeSession(s *session) {
 	s.clear()
 	d.sessionPool.put(s)
 }
 
-func (d *Dispatcher) dispatchToHandler(s *dispatchState) {
+func (d *Impl) dispatchToHandler(s *dispatchState) {
 	s.session.activeDispatches++
 
 	d.gp.ScheduleWork(doDispatchToHandler, s)
