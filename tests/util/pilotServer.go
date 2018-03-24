@@ -83,12 +83,15 @@ func setup() error {
 				string(bootstrap.MockRegistry)},
 		},
 	}
+	// Static testdata, should include all configs we want to test.
+	args.Config.FileDir = IstioSrc + "/test/testdata"
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
 		return err
 	}
+
 	MockTestServer = s
 
 	// Start the server.
