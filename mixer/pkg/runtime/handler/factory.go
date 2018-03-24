@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"
-	"istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )

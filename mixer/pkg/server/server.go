@@ -19,8 +19,8 @@ import (
 	"io"
 	"net"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
-	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
-	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
+	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -64,12 +64,12 @@ type patchTable struct {
 	newStore    func(r2 *store.Registry, configURL string) (store.Store, error)
 	newRuntime2 func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
 		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
-		handlerPool *pool.GoroutinePool, enableTracing bool) *mixerRuntime2.Runtime
+		handlerPool *pool.GoroutinePool, enableTracing bool) *runtime.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error)
 	listen        listenFunc
 	configLog     func(options *log.Options) error
-	runtimeListen func(runtime *mixerRuntime2.Runtime) error
+	runtimeListen func(runtime *runtime.Runtime) error
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
@@ -80,12 +80,12 @@ func New(a *Args) (*Server, error) {
 func newPatchTable() *patchTable {
 	return &patchTable{
 		newStore:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
-		newRuntime2:   mixerRuntime2.New,
+		newRuntime2:   runtime.New,
 		configTracing: tracing.Configure,
 		startMonitor:  startMonitor,
 		listen:        net.Listen,
 		configLog:     log.Configure,
-		runtimeListen: func(rt *mixerRuntime2.Runtime) error { return rt.StartListening() },
+		runtimeListen: func(rt *runtime.Runtime) error { return rt.StartListening() },
 	}
 }
 
@@ -165,7 +165,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 	}
 
-	var rt *mixerRuntime2.Runtime
+	var rt *runtime.Runtime
 	templateMap := make(map[string]*template.Info, len(a.Templates))
 	for k, v := range a.Templates {
 		t := v // Make a local copy, otherwise we end up capturing the location of the last entry
@@ -177,7 +177,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	if err = p.runtimeListen(rt); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime2 dispatcherForTesting: %v", err)
+		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
 	s.dispatcher = rt.Dispatcher()
 

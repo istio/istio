@@ -24,9 +24,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/testing/data"
-	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/runtime/testing/util"
 )
 
 // Create a standard global config with Handler H1, Instance I1 and rule R1 referencing I1 and H1.

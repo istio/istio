@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	"istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 )
 

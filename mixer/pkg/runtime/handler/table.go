@@ -17,7 +17,7 @@ package handler
 import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime2/config"
+	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/log"
 )
 

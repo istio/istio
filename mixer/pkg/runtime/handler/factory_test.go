@@ -17,9 +17,9 @@ package handler
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/testing/data"
-	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/runtime/testing/util"
 )
 
 func TestBasic(t *testing.T) {

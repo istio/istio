@@ -29,7 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
+	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
@@ -246,7 +246,7 @@ func TestErrors(t *testing.T) {
 					return errors.New("BAD")
 				}
 			case 9:
-				pt.runtimeListen = func(rt *mixerRuntime2.Runtime) error {
+				pt.runtimeListen = func(rt *runtime.Runtime) error {
 					return errors.New("BAD")
 				}
 			default:
