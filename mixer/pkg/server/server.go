@@ -61,8 +61,7 @@ type listenFunc func(network string, address string) (net.Listener, error)
 
 // replaceable set of functions for fault injection
 type patchTable struct {
-	newStore    func(r2 *store.Registry, configURL string) (store.Store, error)
-	newRuntime2 func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
+	newRuntime func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
 		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
 		handlerPool *pool.GoroutinePool, enableTracing bool) *runtime.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
@@ -79,8 +78,7 @@ func New(a *Args) (*Server, error) {
 
 func newPatchTable() *patchTable {
 	return &patchTable{
-		newStore:      func(r2 *store.Registry, configURL string) (store.Store, error) { return r2.NewStore(configURL) },
-		newRuntime2:   runtime.New,
+		newRuntime:    runtime.New,
 		configTracing: tracing.Configure,
 		startMonitor:  startMonitor,
 		listen:        net.Listen,
@@ -152,6 +150,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		_ = s.Close()
 		return nil, fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
+
 	if st == nil {
 		configStoreURL := a.ConfigStoreURL
 		if configStoreURL == "" {
@@ -159,7 +158,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg := store.NewRegistry(config.StoreInventory()...)
-		if st, err = p.newStore(reg, configStoreURL); err != nil {
+		if st, err = reg.NewStore(configStoreURL); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -172,12 +171,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	rt = p.newRuntime2(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
+	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
+		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 	s.dispatcher = rt.Dispatcher()
 
@@ -194,12 +193,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
-		if e, ok := s.dispatcher.(probe.SupportsProbe); ok {
-			e.RegisterProbe(s.readinessProbe, "dispatcher")
-		}
-		if rt != nil {
-			rt.RegisterProbe(s.readinessProbe, "dispatcher2")
-		}
+		rt.RegisterProbe(s.readinessProbe, "dispatcher")
 		st.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()
 	}
