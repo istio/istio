@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/cache"
@@ -37,7 +36,7 @@ import (
 type Validator struct {
 	handlerBuilders map[string]adapter.HandlerBuilder
 	templates       map[string]*template.Info
-	tc              *evaluator.IL
+	tc              expr.TypeChecker
 	af              expr.AttributeDescriptorFinder
 	c               *validatorCache
 	donec           chan struct{}
@@ -45,7 +44,7 @@ type Validator struct {
 
 // New creates a new store.Validator instance which validates runtime semantics of
 // the configs.
-func New(tc *evaluator.IL, identityAttribute string, s store.Store,
+func New(tc expr.TypeChecker, identityAttribute string, s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
 	kinds := config.KindMap(adapterInfo, templateInfo)
 	data, ch, err := store.StartWatch(s, kinds)
@@ -76,7 +75,6 @@ func New(tc *evaluator.IL, identityAttribute string, s store.Store,
 	}
 	go store.WatchChanges(ch, v.donec, time.Second, v.c.applyChanges)
 	v.af = v.newAttributeDescriptorFinder(manifests)
-	v.tc.ChangeVocabulary(v.af)
 	return v, nil
 }
 
@@ -93,7 +91,6 @@ func (v *Validator) refreshTypeChecker() {
 		}
 	})
 	v.af = v.newAttributeDescriptorFinder(manifests)
-	v.tc.ChangeVocabulary(v.af)
 }
 
 func (v *Validator) getKey(value, namespace string) (store.Key, error) {
@@ -258,7 +255,6 @@ func (v *Validator) validateDelete(key store.Key) error {
 			}
 		})
 		af := v.newAttributeDescriptorFinder(manifests)
-		v.tc.ChangeVocabulary(af)
 		if err := v.validateManifests(af); err != nil {
 			return err
 		}
@@ -299,7 +295,6 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		})
 		manifests[ev.Key] = manifest
 		af := v.newAttributeDescriptorFinder(manifests)
-		v.tc.ChangeVocabulary(af)
 		if err := v.validateManifests(af); err != nil {
 			return err
 		}

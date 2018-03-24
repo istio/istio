@@ -28,17 +28,18 @@ import (
 
 // TestSetup store data for a test.
 type TestSetup struct {
-	t           *testing.T
-	stress      bool
-	faultInject bool
-	noMixer     bool
-	mfConf      *MixerFilterConf
-	ports       *Ports
+	t      *testing.T
+	epoch  int
+	mfConf *MixerFilterConf
+	ports  *Ports
 
 	envoy         *Envoy
 	mixer         *MixerServer
 	backend       *HTTPServer
-	epoch         int
+	testName      uint16
+	stress        bool
+	faultInject   bool
+	noMixer       bool
 	mfConfVersion string
 }
 
@@ -55,6 +56,7 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 		t:             t,
 		mfConf:        GetDefaultMixerFilterConf(),
 		ports:         NewPorts(name),
+		testName:      name,
 		mfConfVersion: MixerFilterConfigV2,
 	}
 }
@@ -159,6 +161,8 @@ func (s *TestSetup) TearDown() {
 // ReStartEnvoy restarts Envoy
 func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
+	s.ports = NewEnvoyPorts(s.ports, s.testName)
+	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
 	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)

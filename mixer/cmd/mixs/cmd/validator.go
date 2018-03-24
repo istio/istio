@@ -99,11 +99,8 @@ func newValidator(rvc runtimeValidatorOptions, kinds map[string]proto.Message) (
 	if err != nil {
 		return nil, err
 	}
-	eval, err := evaluator.NewILEvaluator(evaluator.DefaultCacheSize)
-	if err != nil {
-		return nil, err
-	}
-	rv, err := validator.New(eval, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
+	tc := evaluator.NewTypeChecker()
+	rv, err := validator.New(tc, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
 	if err != nil {
 		return nil, err
 	}
