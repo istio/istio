@@ -53,8 +53,6 @@ func (diag diag) String() string {
 	var kind string
 	if diag.kind == errorDiag {
 		kind = "Error"
-	} else {
-		kind = "Warning"
 	}
 
 	msg := strings.TrimSpace(diag.message)
