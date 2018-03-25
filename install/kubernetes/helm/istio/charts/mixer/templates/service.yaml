@@ -26,6 +26,4 @@ spec:
   - name: prometheus
     port: 42422
   selector:
-    app: istio-mixer
-    release: {{ .Release.Name }}
     istio: mixer
