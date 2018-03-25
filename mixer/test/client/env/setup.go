@@ -41,6 +41,19 @@ type TestSetup struct {
 	faultInject   bool
 	noMixer       bool
 	mfConfVersion string
+
+	//EnvoyTemplate is the bootstrap config used by envoy.
+	EnvoyTemplate string
+
+	//EnvoyParams contain extra envoy parameters (cluster, node)
+	EnvoyParams []string
+
+	// IstioSrc is the base directory of istio sources. May be set for finding testdata or
+	// other files in the source tree
+	IstioSrc string
+
+	// IstioOut is the base output directory.
+	IstioOut string
 }
 
 // MixerFilterConfigV1 is version v1 for Mixer filter config.
@@ -124,7 +137,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -165,7 +178,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {

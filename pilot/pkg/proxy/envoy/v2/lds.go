@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/deprecated"
+	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -124,6 +124,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			initialRequestReceived = true
 			node.ID = discReq.Node.Id
 			node.Type = nt.Type
+			node.IPAddress = nt.IPAddress
 
 			nodeID = nt.ID
 			addLdsCon(nodeID, con)
@@ -133,7 +134,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.PushChannel:
 		}
 
-		ls, err := deprecated.BuildListeners(s.env, node)
+		ls, err := v1alpha3.BuildListeners(s.env, node)
 		if err != nil {
 			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err

@@ -80,15 +80,6 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 	return edsstr
 }
 
-func initMocks() *bootstrap.Server {
-	server := util.EnsureTestServer()
-
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
-
-	return server
-}
-
 // Regression for envoy restart and overlapping connections
 func TestReconnectWithNonce(t *testing.T) {
 	server := initMocks()

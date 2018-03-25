@@ -43,7 +43,8 @@ import (
 
 const (
 	// TODO: move to go-control-plane
-	fileAccessLog = "envoy.file_access_log"
+	fileAccessLog  = "envoy.file_access_log"
+	tcpProxyFilter = "envoy.tcp_proxy"
 )
 
 // options required to build an HTTPListener
@@ -88,7 +89,7 @@ func buildSidecarListeners(
 	} else if mesh.ProxyListenPort > 0 {
 		inbound := buildInboundListeners(mesh, node, proxyInstances, config)
 		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
-		mgmtListeners := buildMgmtPortListeners(mesh, managementPorts, node.IPAddress)
+		mgmtListeners := buildMgmtPortListeners(managementPorts, node.IPAddress)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -190,6 +191,9 @@ func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConne
 		}
 	*/
 	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+	if refresh == 0 {
+		refresh = 5 * time.Second
+	}
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
@@ -295,7 +299,7 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 		// TODO: add tcp routes using deprecated v1 config as filter chain match is incomplete
 	}
 	baseTCPProxy := listener.Filter{
-		Name:   v1.TCPProxyFilter,
+		Name:   tcpProxyFilter,
 		Config: messageToStruct(config),
 	}
 
@@ -699,8 +703,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				l.FilterChains = append(l.FilterChains, listener.FilterChain{
 					Filters: []listener.Filter{
 						{
-							// TODO(mostrowski): need proto version of mixer config.
-							// Config: messageToStruct(&config),
+							Config: buildProtoStruct(v1.MixerFilter, mustMarshalToString(config)),
 						},
 					},
 				})
@@ -734,20 +737,33 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.PortList,
-	managementIP string) []*xdsapi.Listener {
+func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
+
+	if managementIP == "" {
+		managementIP = "127.0.0.1"
+	}
 
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
 			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			cluster := v1.BuildInboundCluster(mPort.Port, mPort.Protocol, mesh.ConnectTimeout)
-			listener := buildTCPListener(&v1.TCPRouteConfig{
-				Routes: []*v1.TCPRoute{v1.BuildTCPRoute(cluster, []string{managementIP})},
-			}, managementIP, uint32(mPort.Port), model.ProtocolTCP)
-
+			port := uint32(mPort.Port)
+			config := &tcp_proxy.TcpProxy{
+				StatPrefix: "tcp",
+				// TODO: add tcp routes using deprecated v1 config as filter chain match is incomplete
+			}
+			baseTCPProxy := listener.Filter{
+				Name:   tcpProxyFilter,
+				Config: messageToStruct(config),
+			}
+			listener :=
+				&xdsapi.Listener{
+					Name:         fmt.Sprintf("tcp_%s_%d", managementIP, port),
+					Address:      buildAddress(managementIP, port),
+					FilterChains: []listener.FilterChain{{Filters: []listener.Filter{baseTCPProxy}}},
+				}
 			listeners = append(listeners, listener)
 		default:
 			log.Warnf("Unsupported inbound protocol %v for management port %#v",

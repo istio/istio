@@ -21,6 +21,8 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
+	testenv "istio.io/istio/mixer/test/client/env"
+
 	"istio.io/istio/tests/util"
 )
 
@@ -46,7 +48,15 @@ func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamC
 	return cdsstr
 }
 
-// Regression for envoy restart and overlapping connections
+func TestEnvoyCDS(t *testing.T) {
+	initTest(t)
+	// Make sure tcp port is ready before starting the test.
+	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
+
+	//url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
+
+}
+
 func TestCDS(t *testing.T) {
 	initMocks()
 

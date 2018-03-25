@@ -17,9 +17,21 @@ package v1alpha3
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
+	"github.com/gogo/protobuf/types"
 	_ "github.com/golang/glog" // nolint
 
+	"fmt"
+	"strings"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+
 	"istio.io/istio/pilot/pkg/model"
+)
+
+const (
+	// istioIngress is the name of the service running the Istio Ingress controller
+	istioIngress               = "istio-ingress"
+	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 )
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
@@ -41,7 +53,40 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		// TODO: add listeners for other protocols too
 		return buildGatewayHTTPListeners(env.Mesh, env.IstioConfigStore, node)
 	case model.Ingress:
-		// TODO : Need v1alpha3 equivalent of buildIngressGateway
+		services, err := env.Services()
+		if err != nil {
+			return nil, err
+		}
+		var svc *model.Service
+		for _, s := range services {
+			if strings.HasPrefix(s.Hostname, istioIngress) {
+				svc = s
+				break
+			}
+		}
+		insts := make([]*model.ServiceInstance, 0, 1)
+		if svc != nil {
+			insts = append(insts, &model.ServiceInstance{Service: svc})
+		}
+		return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 	}
 	return nil, nil
+}
+
+func newHTTPListener(ip string, port int, name string, config *types.Struct) *xdsapi.Listener {
+	return &xdsapi.Listener{
+		Address: buildAddress(ip, uint32(port)),
+		Name:    fmt.Sprintf("http_%s_%d", ip, port),
+		FilterChains: []listener.FilterChain{
+			{
+				Filters: []listener.Filter{
+					{
+						Name:   envoyHTTPConnectionManager,
+						Config: config,
+					},
+				},
+			},
+		},
+	}
+
 }
