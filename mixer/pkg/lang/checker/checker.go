@@ -12,30 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package evaluator
+package checker
 
 import (
 	"fmt"
 
 	dpb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/runtime"
+	"istio.io/istio/mixer/pkg/lang"
+	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
-// Evaluator for a c-like expression language.
-type checker struct {
-	functions map[string]expr.FunctionMetadata
+// TypeChecker validates a given expression for type safety.
+type TypeChecker interface {
+	// EvalType produces the type of an expression or an error if the type cannot be evaluated.
+	// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).
+	EvalType(expr string, finder ast.AttributeDescriptorFinder) (dpb.ValueType, error)
+
+	// AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
+	// the expected type we return nil, and return an error otherwise.
+	AssertType(expr string, finder ast.AttributeDescriptorFinder, expectedType dpb.ValueType) error
 }
 
-func (c *checker) EvalType(expression string, attrFinder expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
-	v, err := expr.Parse(expression)
+// checker for a c-like expression language.
+type checker struct {
+	functions map[string]ast.FunctionMetadata
+}
+
+func (c *checker) EvalType(expression string, attrFinder ast.AttributeDescriptorFinder) (dpb.ValueType, error) {
+	v, err := ast.Parse(expression)
 	if err != nil {
 		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expression, err)
 	}
 	return v.EvalType(attrFinder, c.functions)
 }
 
-func (c *checker) AssertType(expression string, finder expr.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
+func (c *checker) AssertType(expression string, finder ast.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
 	if t, err := c.EvalType(expression, finder); err != nil {
 		return err
 	} else if t != expectedType {
@@ -45,8 +56,8 @@ func (c *checker) AssertType(expression string, finder expr.AttributeDescriptorF
 }
 
 // NewTypeChecker returns a new TypeChecker implementation.
-func NewTypeChecker() expr.TypeChecker {
+func NewTypeChecker() TypeChecker {
 	return &checker{
-		functions: expr.FuncMap(runtime.ExternFunctionMetadata),
+		functions: ast.FuncMap(lang.ExternFunctionMetadata),
 	}
 }

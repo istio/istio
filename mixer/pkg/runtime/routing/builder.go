@@ -54,8 +54,8 @@ import (
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/template"
@@ -212,7 +212,7 @@ func (b *builder) build(config *config.Snapshot) {
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator.
 func (b *builder) getBuilderAndMapper(
-	finder expr.AttributeDescriptorFinder,
+	finder ast.AttributeDescriptorFinder,
 	instance *config.Instance) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
 

@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/il/evaluator"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -80,7 +80,7 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := evaluator.NewTypeChecker()
+	tc := checker.NewTypeChecker()
 	adapterInfo := map[string]*adapter.Info{
 		"listchecker": {
 			DefaultConfig: &types.Struct{},

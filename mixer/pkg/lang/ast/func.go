@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package expr
+package ast
 
 import (
 	config "istio.io/api/policy/v1beta1"

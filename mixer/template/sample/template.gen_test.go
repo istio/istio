@@ -32,8 +32,8 @@ import (
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/evaluator"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
@@ -325,7 +325,7 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 		}
 
 		if retType == pb.VALUE_TYPE_UNSPECIFIED {
-			tc := evaluator.NewTypeChecker()
+			tc := checker.NewTypeChecker()
 			retType, err = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
 		}
 		return retType, err
@@ -872,7 +872,7 @@ var baseManifests = []*istio_mixer_v1_config.AttributeManifest{
 	},
 }
 
-// attributeFinder exposes expr.AttributeDescriptorFinder
+// attributeFinder exposes ast.AttributeDescriptorFinder
 type attributeFinder struct {
 	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
 }
@@ -883,7 +883,7 @@ func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.Attrib
 	return a.attrs[name]
 }
 
-func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) expr.AttributeDescriptorFinder {
+func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) ast.AttributeDescriptorFinder {
 	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
 	for _, m := range baseManifests {
 		for an, at := range m.Attributes {
@@ -903,16 +903,16 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return true, nil
 }
 
-func (e *fakeExpr) EvalType(s string, af expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.ValueType, error) {
 	//return pb.VALUE_TYPE_UNSPECIFIED, nil
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}
-	tc := evaluator.NewTypeChecker()
+	tc := checker.NewTypeChecker()
 	return tc.EvalType(s, af)
 }
 
-func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, pb.ValueType) error {
+func (e *fakeExpr) AssertType(string, ast.AttributeDescriptorFinder, pb.ValueType) error {
 	return nil
 }
 
