@@ -299,7 +299,7 @@ func buildSidecarListenersClusters(
 		// only HTTP outbound clusters are needed
 		httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config, false)
 		httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
-		//httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
+		httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
 			mesh:             mesh,
@@ -321,7 +321,7 @@ func buildSidecarListenersClusters(
 	return listeners.normalize(), clusters.Normalize()
 }
 
-// BuildRDSRoutes supplies RDS-enabled HTTP routes
+// BuildRDSRoute supplies RDS-enabled HTTP routes
 // The route name is assumed to be the port number used by the route in the
 // listener, or the special value for _all routes_.
 // TODO: this can be optimized by querying for a specific HTTP port in the table
