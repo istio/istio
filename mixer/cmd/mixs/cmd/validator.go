@@ -29,8 +29,8 @@ import (
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/evaluator"
-	runtimeConfig "istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/validator"
+	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/validator"
 	"istio.io/istio/mixer/pkg/template"
 )
 

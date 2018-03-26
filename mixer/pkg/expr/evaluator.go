@@ -16,20 +16,9 @@ package expr
 
 import (
 	pb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 )
 
 type (
-	// Evaluator evaluates an expression written in the implementation defined
-	// expression language. It uses attribute.Bag as variable bindings.
-	Evaluator interface {
-		// Eval evaluates given expression using the attribute bag
-		Eval(expr string, attrs attribute.Bag) (interface{}, error)
-
-		// EvalPredicate evaluates given predicate using the attribute bag
-		EvalPredicate(expr string, attrs attribute.Bag) (bool, error)
-	}
-
 	// TypeChecker validates a given expression for type safety.
 	TypeChecker interface {
 		// EvalType produces the type of an expression or an error if the type cannot be evaluated.

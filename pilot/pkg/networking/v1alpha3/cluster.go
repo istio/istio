@@ -20,8 +20,8 @@ import (
 
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -88,7 +88,6 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
 
 				for _, subset := range destinationRule.Subsets {
