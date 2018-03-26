@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -39,7 +38,7 @@ import (
 )
 
 var (
-	cdsDebug = len(os.Getenv("PILOT_DEBUG_CDS")) == 0
+	cdsDebug = os.Getenv("PILOT_DEBUG_CDS") != "0"
 
 	cdsConnectionsMux sync.Mutex
 
@@ -63,24 +62,18 @@ type CdsConnection struct {
 }
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func (con *CdsConnection) clusters(s *DiscoveryServer) *xdsapi.DiscoveryResponse {
-	version := strconv.Itoa(version)
-	clAssignment := &xdsapi.ClusterLoadAssignment{}
-	clAssignmentRes, _ := types.MarshalAny(clAssignment)
-
+func (con *CdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: clAssignmentRes.GetTypeUrl(),
+		TypeUrl: clusterType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
-		VersionInfo: version,
-		Nonce:       version + "-" + time.Now().String(),
+		VersionInfo: versionInfo(),
+		Nonce:       nonce(),
 	}
-
-	response := v1alpha3.BuildClusters(s.env, *con.modelNode)
 
 	for _, c := range response {
 		cc, _ := types.MarshalAny(c)
@@ -101,6 +94,9 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
+	// true if the stream received the initial discovery request.
+	initialRequestReceived := false
+
 	con := &CdsConnection{
 		pushChannel: make(chan bool, 1),
 		PeerAddr:    peerAddr,
@@ -114,7 +110,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		for {
 			req, err := stream.Recv()
 			if err != nil {
-				log.Errorf("CDS close for client %s %q terminated with errors %v",
+				log.Errorf("CDS: close for client %s %q terminated with errors %v",
 					node, peerAddr, err)
 
 				s.removeCdsCon(node, con)
@@ -145,51 +141,52 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 				ID:   discReq.Node.Id,
 				Type: nt.Type,
 			}
+
 			con.modelNode = &node
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			if discReq.ResponseNonce != "" {
+			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if cdsDebug {
-					log.Infof("CDS: ACK %s %s", node, discReq.VersionInfo)
+					log.Infof("CDS: ACK %v", discReq.String())
 				}
 				continue
 			}
+			initialRequestReceived = true
 			// Initial request
 			if cdsDebug {
-				log.Infof("CDS REQ %s %vraw: %s ",
-					node, peerAddr, discReq.String())
+				log.Infof("CDS: REQ %s %v raw: %s ", node, peerAddr, discReq.String())
 			}
 
 		case <-con.pushChannel:
 		}
 
-		response := con.clusters(s)
+		rawClusters := v1alpha3.BuildClusters(s.env, *con.modelNode)
+
+		response := con.clusters(rawClusters)
 		err := stream.Send(response)
 		if err != nil {
+			log.Warnf("CDS: Send failure, closing grpc %v", err)
 			return err
 		}
 
 		if cdsDebug {
-			log.Infof("CDS RES for %s %q, Response: \n%s\n",
-				node, peerAddr, response.String())
+			// The response can't be easily read due to 'any' marshalling.
+			log.Infof("CDS: PUSH for %s %q, Response: \n%v\n",
+				node, peerAddr, rawClusters)
 		}
 	}
 }
 
-// CdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
-func CdsPushAll() {
-	if cdsDebug {
-		log.Infoa("CDS cache reset")
-	}
+// cdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+func cdsPushAll() {
 	cdsConnectionsMux.Lock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*CdsConnection{}
 	for k, v := range cdsConnections {
 		tmpMap[k] = v
 	}
-	version++
 	cdsConnectionsMux.Unlock()
 
 	for _, cdsCon := range tmpMap {
@@ -205,7 +202,7 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if req.Form.Get("push") != "" {
-		CdsPushAll()
+		cdsPushAll()
 	}
 	data, err := json.Marshal(cdsConnections)
 	if err != nil {

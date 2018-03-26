@@ -24,7 +24,6 @@ type Config struct {
 	EnableLog               bool   `json:"enableLog,omitempty"`
 	EnableDebugLog          bool   `json:"enableDebugLog,omitempty"`
 	SingleThreaded          bool   `json:"singleThreaded,omitempty"`
-	UseRuntime2             bool   `json:"useRuntime2,omitempty"`
 
 	// Templates is the name of the templates to use in this test. If left empty, a standard set of templates
 	// will be used.
