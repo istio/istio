@@ -18,7 +18,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -33,7 +33,7 @@ type (
 		Adapters  map[string]*adapter.Info
 
 		// Config store based information
-		Attributes expr.AttributeDescriptorFinder
+		Attributes ast.AttributeDescriptorFinder
 
 		Handlers  map[string]*Handler
 		Instances map[string]*Instance

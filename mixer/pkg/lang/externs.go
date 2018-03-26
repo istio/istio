@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package lang
 
 import (
 	"errors"
@@ -27,8 +27,8 @@ import (
 	"golang.org/x/net/idna"
 
 	config "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
+	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 // Externs contains the list of standard external functions used during evaluation.
@@ -51,7 +51,7 @@ var Externs = map[string]interpreter.Extern{
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
-var ExternFunctionMetadata = []expr.FunctionMetadata{
+var ExternFunctionMetadata = []ast.FunctionMetadata{
 	{
 		Name:          "ip",
 		ReturnType:    config.IP_ADDRESS,
