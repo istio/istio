@@ -410,7 +410,7 @@ func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		// Fetch V1 RDS response and stick it into the LDS response
 		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
 			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
-		rcBytes, _ := json.MarshalIndent(rc, " ", " ")
+		rcBytes, _ := json.Marshal(rc)
 		routeConfigDeprecated := string(rcBytes)
 		return &xdsapi.Listener{
 			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
