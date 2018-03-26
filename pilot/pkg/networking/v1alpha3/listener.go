@@ -35,8 +35,9 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -94,7 +95,6 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	}
 
 	mesh := env.Mesh
-	config := env.IstioConfigStore
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
 	// ensure services are ordered to simplify generation logic
@@ -107,8 +107,8 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	//	listeners = append(listeners, outbound...)
 	//} else
 	if mesh.ProxyListenPort > 0 {
-		inbound := buildInboundListeners(mesh, node, proxyInstances, config)
-		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+		inbound := buildInboundListeners(env, node, proxyInstances)
+		outbound := buildOutboundListeners(env, node, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -165,8 +165,8 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 			listenAddress = WildcardAddress
 		}
 
-		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
-			mesh:             mesh,
+		listeners = append(listeners, buildDeprecatedHTTPListener(buildHTTPListenerOpts{
+			env:              env,
 			proxy:            node,
 			proxyInstances:   proxyInstances,
 			routeConfig:      nil,
@@ -175,7 +175,6 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 			rds:              RDSHttpProxy,
 			useRemoteAddress: useRemoteAddress,
 			direction:        traceOperation,
-			store:            config,
 			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
@@ -186,10 +185,12 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 
 // buildInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
-func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore) []*xdsapi.Listener {
+func buildInboundListeners(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
+	mesh := env.Mesh
+	config := env.IstioConfigStore
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -210,7 +211,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 			l = buildHTTPListener(buildHTTPListenerOpts{
-				mesh:             mesh,
+				env:              env,
 				proxy:            node,
 				proxyInstances:   proxyInstances,
 				routeConfig:      buildInboundHTTPRouteConfig(instance),
@@ -219,7 +220,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				rds:              "",
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
-				store:            config,
 				authnPolicy:      authenticationPolicy,
 			})
 
@@ -267,9 +267,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, services []*model.Service,
-	config model.IstioConfigStore) []*xdsapi.Listener {
+func buildOutboundListeners(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 
@@ -313,8 +312,8 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 					operation = http_conn.INGRESS
 				}
 
-				httpListeners = append(httpListeners, buildHTTPListener(buildHTTPListenerOpts{
-					mesh:             mesh,
+				httpListeners = append(httpListeners, buildDeprecatedHTTPListener(buildHTTPListenerOpts{
+					env:              env,
 					proxy:            node,
 					proxyInstances:   proxyInstances,
 					ip:               WildcardAddress,
@@ -322,7 +321,6 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 					rds:              fmt.Sprintf("%d", servicePort.Port),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
-					store:            config,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}))
 
@@ -393,9 +391,7 @@ func applyInboundAuth(authenticationPolicy *authn.Policy, listener *xdsapi.Liste
 
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
-	// config           model.Config
-	// env              model.Environment
-	mesh             *meshconfig.MeshConfig
+	env              model.Environment
 	proxy            model.Proxy
 	proxyInstances   []*model.ServiceInstance
 	routeConfig      *xdsapi.RouteConfiguration
@@ -406,8 +402,39 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
-	store            model.IstioConfigStore
 	authnPolicy      *authn.Policy
+}
+
+func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	if opts.rds != "" {
+		// Fetch V1 RDS response and stick it into the LDS response
+		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
+			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
+		rcBytes, _ := json.MarshalIndent(rc, " ", " ")
+		routeConfigDeprecated := string(rcBytes)
+		return &xdsapi.Listener{
+			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+			Address: buildAddress(opts.ip, uint32(opts.port)),
+			FilterChains: []listener.FilterChain{
+				{
+					Filters: []listener.Filter{
+						{
+							Name: util.HTTPConnectionManager,
+							DeprecatedV1: &listener.Filter_DeprecatedV1{
+								Type: routeConfigDeprecated,
+							},
+						},
+					},
+				},
+			},
+			DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+				BindToPort: &google_protobuf.BoolValue{
+					Value: opts.bindToPort,
+				},
+			},
+		}
+	}
+	return nil
 }
 
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
@@ -431,7 +458,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			filters = append([]*http_conn.HttpFilter{filter}, filters...)
 		}
 	*/
-	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+	refresh := time.Duration(opts.env.Mesh.RdsRefreshDelay.Seconds) * time.Second
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
@@ -470,9 +497,9 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
-	if opts.mesh.AccessLogFile != "" {
+	if opts.env.Mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
-			Path: opts.mesh.AccessLogFile,
+			Path: opts.env.Mesh.AccessLogFile,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -483,7 +510,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		}
 	}
 
-	if opts.mesh.EnableTracing {
+	if opts.env.Mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: opts.direction,
 		}

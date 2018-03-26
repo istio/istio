@@ -356,9 +356,12 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	} else {
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
+
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
+			cluster.Name = clusterName
 			route.Clusters = append(route.Clusters, cluster)
 			clusters = append(clusters,
 				&WeightedClusterEntry{
@@ -386,6 +389,7 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
 
+	// This won't work with ldsv2
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if http.Fault != nil {
 		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
@@ -399,7 +403,9 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	if http.Mirror != nil {
 		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
 		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, http.Mirror.Subset, fqdn, port)
 		cluster := buildCluster(fqdn, port, labels, false)
+		cluster.Name = clusterName
 		route.Clusters = append(route.Clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
 	}
