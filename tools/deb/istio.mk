@@ -19,8 +19,8 @@ sidecar.deb: ${ISTIO_OUT}/istio-sidecar.deb
 
 deb: ${ISTIO_OUT}/istio-sidecar.deb
 
-# Base directory for istio binaries. Likely to change !
-ISTIO_DEB_BIN=/usr/local/bin
+# Base directory for istio binaries
+ISTIO_DEB_BIN=${INSTALL_PREFIX}/bin
 
 ISTIO_DEB_DEPS:=envoy pilot-agent pilot-discovery node_agent istioctl mixs istio_ca
 SIDECAR_FILES:=
@@ -36,9 +36,20 @@ ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		/var/lib/istio/envoy/sidecar.env \
 		/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+DEB_BUILD_TOP:=${ISTIO_OUT}/deb_build
+
+PREPARE_FILES:=tools/deb/postinst.sh
 $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb:   tools/deb/$(notdir $(DEST))) \
-        $(eval SIDECAR_FILES+=src/istio.io/istio/tools/deb/$(notdir $(DEST))=$(DEST)))
+        $(eval SIDECAR_FILES+=$(subst $(GO_TOP)/,,$(DEB_BUILD_TOP))/$(notdir $(DEST))=$(DEST)) \
+        $(eval PREPARE_FILES+=tools/deb/$(notdir $(DEST))))
+
+${PREPARE_FILES}:
+
+deb/prepare-files: $(PREPARE_FILES)
+	rm -rf $(DEB_BUILD_TOP) && mkdir -p $(DEB_BUILD_TOP)
+	cp $^ $(DEB_BUILD_TOP)
+	find $(DEB_BUILD_TOP) -type f -exec sed -i 's|{INSTALL_PREFIX}|$(INSTALL_PREFIX)|' {} \;
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar
@@ -49,18 +60,19 @@ ISTIO_DEB_NAME ?= istio-sidecar
 # a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
+.PHONY: ${ISTIO_OUT}/istio-sidecar.deb
 ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	$(MAKE) deb/fpm
 
 # This got way too complex - used only to run fpm in a container.
-deb/fpm:
+deb/fpm: deb/prepare-files
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
 		--maintainer istio@istio.io \
-		--after-install tools/deb/postinst.sh \
+		--after-install $(DEB_BUILD_TOP)/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
 		--description "Istio" \
