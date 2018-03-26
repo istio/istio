@@ -62,38 +62,40 @@ const (
 	LocalhostAddress = "127.0.0.1"
 )
 
+// ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
+// should expose
+var ListenersALPNProtocols = []string{"h2", "http/1.1"}
+
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
-		proxyInstances, err := env.GetProxyServiceInstances(node)
-		if err != nil {
-			return nil, err
-		}
-		services, err := env.Services()
-		if err != nil {
-			return nil, err
-		}
-		listeners := buildSidecarListeners(env.Mesh, proxyInstances,
-			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
-		return listeners, nil
+		return buildSidecarListeners(env, node)
 	case model.Router:
 		// TODO: add listeners for other protocols too
-		return buildGatewayHTTPListeners(env.Mesh, env.IstioConfigStore, node)
+		return buildGatewayHTTPListeners(env, node)
 	case model.Ingress:
-		// TODO : Need v1alpha3 equivalent of buildIngressGateway
+		return buildLegacyIngressListeners(env, node)
 	}
 	return nil, nil
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func buildSidecarListeners(
-	mesh *meshconfig.MeshConfig,
-	proxyInstances []*model.ServiceInstance,
-	services []*model.Service,
-	managementPorts model.PortList,
-	node model.Proxy,
-	config model.IstioConfigStore) []*xdsapi.Listener {
+func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+
+	proxyInstances, err := env.GetProxyServiceInstances(node)
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := env.Services()
+	if err != nil {
+		return nil, err
+	}
+
+	mesh := env.Mesh
+	config := env.IstioConfigStore
+	//managementPorts := env.ManagementPorts(node.IPAddress)
 
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
@@ -180,7 +182,7 @@ func buildSidecarListeners(
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return normalizeListeners(listeners)
+	return normalizeListeners(listeners), nil
 }
 
 // buildInboundListeners creates listeners for the server-side (inbound)
@@ -393,6 +395,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	rdsConfig        *http_conn.HttpConnectionManager_Rds
 	ip               string
 	port             int
+	bindToPort       bool
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
@@ -498,7 +501,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		},
 		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
-				Value: false,
+				Value: opts.bindToPort,
 			},
 		},
 	}
