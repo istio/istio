@@ -51,7 +51,7 @@ var (
 		healthCheckInterval time.Duration
 		healthCheckFile     string
 		probeOptions        probe.Options
-		kubeConfigFile      string
+		kubeconfigFile      string
 		webhookConfigName   string
 		webhookName         string
 	}{
@@ -111,7 +111,7 @@ var (
 
 func patchCert() error {
 	const retryTimes = 6 // Try for one minute.
-	client, err := createClientset(flags.kubeConfigFile)
+	client, err := createClientset(flags.kubeconfigFile)
 	if err != nil {
 		return err
 	}
@@ -132,11 +132,11 @@ func patchCert() error {
 	return err
 }
 
-func createClientset(kubeConfigFile string) (*kubernetes.Clientset, error) {
+func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
 	var err error
 	var c *rest.Config
-	if kubeConfigFile != "" {
-		c, err = clientcmd.BuildConfigFromFlags("", kubeConfigFile)
+	if kubeconfigFile != "" {
+		c, err = clientcmd.BuildConfigFromFlags("", kubeconfigFile)
 	} else {
 		c, err = rest.InClusterConfig()
 	}
@@ -163,7 +163,7 @@ func init() {
 		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
 	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
-	rootCmd.PersistentFlags().StringVar(&flags.kubeConfigFile, "kubeConfig", "",
+	rootCmd.PersistentFlags().StringVar(&flags.kubeconfigFile, "kubeconfig", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 	rootCmd.PersistentFlags().StringVar(&flags.webhookConfigName, "webhookConfigName", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration resource in Kubernete.")
