@@ -35,7 +35,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
-	"io/ioutil"
 )
 
 var (
@@ -213,7 +212,6 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 
 	_, _ = w.Write(data)
 }
-
 
 // FetchClusters implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
 func (s *DiscoveryServer) FetchClusters(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {

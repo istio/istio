@@ -193,6 +193,37 @@
       }
     ]
   },
+    {
+        "name": "mixertcpproxy",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": {{.TCPProxyPort}}
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.tcp_proxy",
+                "config": {
+                  "deprecated_v1": true,
+                  "value": {
+                    "stat_prefix": "mixertcpproxy",
+                    "route_config": {
+                      "routes": [
+                        {
+                          "cluster": "service1"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
 
     {
         "name": "legacy15003",
@@ -384,7 +415,7 @@
           {
             "socket_address": {
               "address": "127.0.0.1",
-              "port_value": {{.Ports.PilotHttpPort}}
+              "port_value": {{.Ports.PilotHTTPPort}}
             }
           }
         ]

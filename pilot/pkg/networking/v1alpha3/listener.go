@@ -29,16 +29,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	google_protobuf "github.com/gogo/protobuf/types"
-	// for logging
-	_ "github.com/golang/glog"
-
-	"github.com/gogo/protobuf/types"
-	_ "github.com/golang/glog" // nolint
-
-	"fmt"
-	"strings"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 
 	"time"
 
@@ -87,47 +77,10 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		// TODO: add listeners for other protocols too
 		return buildGatewayHTTPListeners(env, node)
 	case model.Ingress:
-		//services, err := env.Services()
-		//if err != nil {
-		//	return nil, err
-		//}
-		//var svc *model.Service
-		//for _, s := range services {
-		//	if strings.HasPrefix(s.Hostname, istioIngress) {
-		//		svc = s
-		//		break
-		//	}
-		//}
-		//insts := make([]*model.ServiceInstance, 0, 1)
-		//if svc != nil {
-		//	insts = append(insts, &model.ServiceInstance{Service: svc})
-		//}
-		//return buildIngressListeners(env.Mesh, insts, env.ServiceDiscovery, env.IstioConfigStore, node), nil
 		return buildLegacyIngressListeners(env, node)
 	}
 	return nil, nil
 }
-
-//func newHTTPListener(ip string, port int, name string, config *types.Struct) *xdsapi.Listener {
-//	return &xdsapi.Listener{
-//		Address: buildAddress(ip, uint32(port)),
-//		Name:    fmt.Sprintf("http_%s_%d", ip, port),
-//FilterChains: []listener.FilterChain{
-//{
-//Filters: []listener.Filter{
-//{
-//<<<<<<< HEAD
-//Name:   envoyHTTPConnectionManager,
-//Config: config,
-//=======
-//Name:   util.HTTPConnectionManager,
-//Config: messageToStruct(connectionManager),
-//>>>>>>> edd95f273642303274fe3337a7160a2d1dcbe6fd
-//},
-//},
-//},
-//},
-//<<<<<<< HEAD
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
@@ -481,6 +434,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		}
 	*/
 	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+	if opts.mesh.RdsRefreshDelay.Seconds == 0 {
+		// envoy crashes if 0.
+		refresh = 5 * time.Second
+	}
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)

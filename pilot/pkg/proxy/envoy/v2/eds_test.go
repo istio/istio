@@ -26,11 +26,12 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+
+	"fmt"
 
 	"istio.io/istio/tests/util"
 )
@@ -214,16 +215,13 @@ func TestEds(t *testing.T) {
 
 }
 
-var (
-	edszURL = "http://localhost:9093/debug/edsz"
-)
-
 // Verify the endpoint debug interface is installed and returns some string.
 // TODO: parse response, check if data captured matches what we expect.
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
 func testEdsz(t *testing.T) {
+	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch /edsz")

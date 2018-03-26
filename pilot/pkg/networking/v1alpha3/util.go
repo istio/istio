@@ -19,8 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
-	oldjson "encoding/json"
+
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -74,16 +73,6 @@ func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	return out
 }
 
-// mustMarshalToString marshals i to a JSON string. It panics if i cannot be marshaled.
-// TODO(mostrowski): this should be removed once v2 Mixer proto is finalized.
-func mustMarshalToString(i interface{}) string {
-	s, err := oldjson.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	return string(s)
-}
-
 // buildAddress returns a SocketAddress with the given ip and port.
 func buildAddress(ip string, port uint32) core.Address {
 	return core.Address{
@@ -109,33 +98,33 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
-// protoDurationToTimeDuration converts d to time.Duration format.
-func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
-	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
-}
+//// protoDurationToTimeDuration converts d to time.Duration format.
+//func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
+//	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
+//}
+//
+//// google_protobufToProto converts d to google protobuf Duration format.
+//func durationToProto(d time.Duration) *types.Duration { // nolint
+//	nanos := d.Nanoseconds()
+//	secs := nanos / 1e9
+//	nanos -= secs * 1e9
+//	return &types.Duration{
+//		Seconds: secs,
+//		Nanos:   int32(nanos),
+//	}
+//}
 
-// google_protobufToProto converts d to google protobuf Duration format.
-func durationToProto(d time.Duration) *types.Duration { // nolint
-	nanos := d.Nanoseconds()
-	secs := nanos / 1e9
-	nanos -= secs * 1e9
-	return &types.Duration{
-		Seconds: secs,
-		Nanos:   int32(nanos),
-	}
-}
-
-func buildProtoStruct(name, value string) *types.Struct {
-	return &types.Struct{
-		Fields: map[string]*types.Value{
-			name: {
-				Kind: &types.Value_StringValue{
-					StringValue: value,
-				},
-			},
-		},
-	}
-}
+//func buildProtoStruct(name, value string) *types.Struct {
+//	return &types.Struct{
+//		Fields: map[string]*types.Value{
+//			name: {
+//				Kind: &types.Value_StringValue{
+//					StringValue: value,
+//				},
+//			},
+//		},
+//	}
+//}
 
 func messageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)

@@ -43,7 +43,7 @@ var (
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 
-	// MockPilotHttpPort is the dynamic port for pilot http
+	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
 
 	// MockPilotGrpcPort is the dynamic port for pilot grpc
@@ -122,8 +122,8 @@ func setup() error {
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,
-			MonitoringPort:  9093,
 		},
+		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),

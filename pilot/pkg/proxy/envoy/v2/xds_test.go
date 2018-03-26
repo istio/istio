@@ -21,12 +21,13 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 var (

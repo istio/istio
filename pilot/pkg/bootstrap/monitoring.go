@@ -21,8 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
