@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report1/template.proto -otestdata/report1/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report2/template.proto -otestdata/report2/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
 package bootstrapgen
 
 import (
@@ -45,11 +51,11 @@ func TestGenerator_Generate(t *testing.T) {
 		want     string
 	}{
 		{"AllTemplates", map[string]string{
-			"testdata/check/template_proto.descriptor_set":   "istio.io/istio/mixer/template/list",
-			"testdata/report2/template_proto.descriptor_set": "istio.io/istio/mixer/template/metric",
-			"testdata/quota/template_proto.descriptor_set":   "istio.io/istio/mixer/template/quota",
-			"testdata/apa/template_proto.descriptor_set":     "istio.io/istio/mixer/template/apa",
-			"testdata/report1/template_proto.descriptor_set": "istio.io/istio/mixer/template/log"},
+			"testdata/check/template.descriptor":   "istio.io/istio/mixer/template/list",
+			"testdata/report2/template.descriptor": "istio.io/istio/mixer/template/metric",
+			"testdata/quota/template.descriptor":   "istio.io/istio/mixer/template/quota",
+			"testdata/apa/template.descriptor":     "istio.io/istio/mixer/template/apa",
+			"testdata/report1/template.descriptor": "istio.io/istio/mixer/template/log"},
 			"testdata/template.gen.go.golden"},
 	}
 	for _, v := range tests {
@@ -101,14 +107,14 @@ func TestGeneratorWithBadFdsPath(t *testing.T) {
 func TestGeneratorWithBadOutFilePath(t *testing.T) {
 	g := Generator{OutFilePath: "bad/bad"}
 	err := g.Generate(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"})
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"})
 	validateHasError(t, err, "no such file or directory")
 }
 
 func TestGeneratorBadTmpl(t *testing.T) {
 	g := Generator{OutFilePath: "bad/bad"}
 	err := g.generateInternal(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
 		"{{getResourcMessageInterfaceParamTypeName bad}}", modelgen.Create)
 	validateHasError(t, err, "cannot load template")
 }
@@ -122,7 +128,7 @@ func TestGeneratorBadModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = g.generateInternal(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
 		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) {
 			return nil, fmt.Errorf("bad model")
 		})
@@ -138,7 +144,7 @@ func TestGeneratorNilModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = g.generateInternal(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
 		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) { return nil, nil })
 	validateHasError(t, err, "cannot execute the template")
 }
@@ -152,7 +158,7 @@ func TestGeneratorCannotFormat(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = g.generateInternal(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
 		". . badtmpl_cannot_be_formatted", modelgen.Create)
 	validateHasError(t, err, "could not format")
 }
@@ -166,7 +172,7 @@ func TestGeneratorCannotFixImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = g.generateInternal(
-		map[string]string{"testdata/check/template_proto.descriptor_set": "istio.io/istio/mixer/template/list"},
+		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
 		"badtmpl_cannot_fix_import", modelgen.Create)
 	validateHasError(t, err, "could not fix imports")
 }
