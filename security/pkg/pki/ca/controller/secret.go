@@ -280,7 +280,8 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	certLifeTimeLeft := time.Until(cert.NotAfter)
 	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
 	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
-	gracePeriod := time.Duration(sc.gracePeriodRatio) * certLifeTime
+	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
+	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
 	rootCertificate := sc.ca.GetRootCertificate()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
