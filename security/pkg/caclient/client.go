@@ -49,7 +49,7 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string,
 	}
 	id, err := pltfmc.GetServiceIdentity()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get identity: %v", err)
 	}
 	return &CAClient{
 		platformClient:         pltfmc,
