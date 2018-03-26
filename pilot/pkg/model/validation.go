@@ -1699,7 +1699,7 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 	for _, method := range in.Peers {
 		if jwt := method.GetJwt(); jwt != nil {
 			if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
-				errs = appendErrors(errs, fmt.Errorf("Jwt with issuer %q already defined", jwt.Issuer))
+				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
 			} else {
 				jwtIssuers[jwt.Issuer] = true
 			}
@@ -1708,7 +1708,7 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 	}
 	for _, method := range in.Origins {
 		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
-			errs = appendErrors(errs, fmt.Errorf("Jwt with issuer %q already defined", method.Jwt.Issuer))
+			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
 		} else {
 			jwtIssuers[method.Jwt.Issuer] = true
 		}
@@ -1817,7 +1817,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 
 	// AuthN policy target (host)name must be a shortname
 	if !IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("Taget name %q must be a valid label", target.Name))
+		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
 	}
 
 	if target.Subset != "" {
