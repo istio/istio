@@ -18,7 +18,7 @@ import (
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -115,7 +115,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 		ID:         id,
 		Templates:  e.templates,
 		Adapters:   e.adapters,
-		Attributes: expr.NewFinder(attributes),
+		Attributes: ast.NewFinder(attributes),
 		Handlers:   handlers,
 		Instances:  instances,
 		Rules:      rules,
@@ -254,7 +254,7 @@ func (e *Ephemeral) processRuleConfigs(
 		// Once that issue is resolved, the following block should be removed.
 		rt := resourceType(resource.Metadata.Labels)
 		if cfg.Match != "" {
-			if m, err := expr.ExtractEQMatches(cfg.Match); err != nil {
+			if m, err := ast.ExtractEQMatches(cfg.Match); err != nil {
 				log.Errorf("Unable to extract resource type from rule: name='%s'", ruleName)
 
 				// instead of skipping the rule, add it to the list. This ensures that the behavior will

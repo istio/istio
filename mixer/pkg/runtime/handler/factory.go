@@ -23,8 +23,7 @@ import (
 
 	istio_mixer_v1_config_descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/evaluator"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -37,7 +36,7 @@ type inferredTypesMap map[string]proto.Message
 type factory struct {
 	snapshot *config.Snapshot
 
-	checker expr.TypeChecker
+	checker checker.TypeChecker
 
 	// Map of instance name to inferred type (proto.Message)
 	inferredTypesCache map[string]proto.Message
@@ -46,7 +45,7 @@ type factory struct {
 func newFactory(snapshot *config.Snapshot) *factory {
 	return &factory{
 		snapshot: snapshot,
-		checker:  evaluator.NewTypeChecker(),
+		checker:  checker.NewTypeChecker(),
 
 		inferredTypesCache: make(map[string]proto.Message),
 	}

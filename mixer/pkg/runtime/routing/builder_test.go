@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"

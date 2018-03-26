@@ -21,8 +21,8 @@ import (
 	"time"
 
 	descriptor "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/pkg/log"
 )
 
@@ -30,14 +30,14 @@ import (
 // compilation of expressions.
 type Compiler struct {
 	program   *il.Program
-	finder    expr.AttributeDescriptorFinder
-	functions map[string]expr.FunctionMetadata
+	finder    ast.AttributeDescriptorFinder
+	functions map[string]ast.FunctionMetadata
 
 	nextFnID int
 }
 
 // New returns a new compiler instance.
-func New(finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) *Compiler {
+func New(finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) *Compiler {
 	return &Compiler{
 		finder:    finder,
 		program:   il.NewProgram(),
@@ -49,7 +49,7 @@ func New(finder expr.AttributeDescriptorFinder, functions map[string]expr.Functi
 // CompileExpression creates a new parameterless IL function, using the given expression text as its body. Upon success,
 // it returns the id of the generated function.
 func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType, error) {
-	expression, err := expr.Parse(text)
+	expression, err := ast.Parse(text)
 	if err != nil {
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
 	}
@@ -94,8 +94,8 @@ func (c *Compiler) Program() *il.Program {
 type generator struct {
 	program   *il.Program
 	builder   *il.Builder
-	finder    expr.AttributeDescriptorFinder
-	functions map[string]expr.FunctionMetadata
+	finder    ast.AttributeDescriptorFinder
+	functions map[string]ast.FunctionMetadata
 	err       error
 }
 
@@ -118,18 +118,18 @@ const (
 // Result is returned as the result of compilation.
 type Result struct {
 	Program    *il.Program
-	Expression *expr.Expression
+	Expression *ast.Expression
 }
 
 // Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) (*il.Program, error) {
+func Compile(text string, finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
 	// TODO: This function should either be eliminated entirely, or use the Compiler struct, once we switch over to
 	// to using compiled expressions. Keeping this here in its current form to avoid generation of excessive garbage
 	// in the request path.
 
 	p := il.NewProgram()
 
-	expression, err := expr.Parse(text)
+	expression, err := ast.Parse(text)
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +193,12 @@ func (g *generator) toIlType(t descriptor.ValueType) il.Type {
 	}
 }
 
-func (g *generator) evalType(e *expr.Expression) il.Type {
+func (g *generator) evalType(e *ast.Expression) il.Type {
 	dvt, _ := e.EvalType(g.finder, g.functions)
 	return g.toIlType(dvt)
 }
 
-func (g *generator) generate(e *expr.Expression, depth int, mode nilMode, valueJmpLabel string) {
+func (g *generator) generate(e *ast.Expression, depth int, mode nilMode, valueJmpLabel string) {
 	switch {
 	case e.Const != nil:
 		g.generateConstant(e.Const, mode, valueJmpLabel)
@@ -211,7 +211,7 @@ func (g *generator) generate(e *expr.Expression, depth int, mode nilMode, valueJ
 	}
 }
 
-func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLabel string) {
+func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabel string) {
 	i := g.finder.GetAttribute(v.Name)
 	ilType := g.toIlType(i.ValueType)
 	switch ilType {
@@ -264,7 +264,7 @@ func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLab
 	}
 }
 
-func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, valueJmpLabel string) {
 
 	switch f.Name {
 	case "EQ":
@@ -297,7 +297,7 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	}
 }
 
-func (g *generator) generateEq(f *expr.Function, depth int) {
+func (g *generator) generateEq(f *ast.Function, depth int) {
 	exprType := g.evalType(f.Args[0])
 	g.generate(f.Args[0], depth+1, nmNone, "")
 
@@ -363,12 +363,12 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 	}
 }
 
-func (g *generator) generateNeq(f *expr.Function, depth int) {
+func (g *generator) generateNeq(f *ast.Function, depth int) {
 	g.generateEq(f, depth+1)
 	g.builder.Not()
 }
 
-func (g *generator) generateLor(f *expr.Function, depth int) {
+func (g *generator) generateLor(f *ast.Function, depth int) {
 	g.generate(f.Args[0], depth+1, nmNone, "")
 	lr := g.builder.AllocateLabel()
 	le := g.builder.AllocateLabel()
@@ -387,7 +387,7 @@ func (g *generator) generateLor(f *expr.Function, depth int) {
 	}
 }
 
-func (g *generator) generateLand(f *expr.Function, depth int) {
+func (g *generator) generateLand(f *ast.Function, depth int) {
 	// Short circuit jump point for arguments that evaluate to false.
 	lfalse := g.builder.AllocateLabel()
 
@@ -410,7 +410,7 @@ func (g *generator) generateLand(f *expr.Function, depth int) {
 	g.builder.SetLabelPos(lend)
 }
 
-func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+func (g *generator) generateIndex(f *ast.Function, depth int, mode nilMode, valueJmpLabel string) {
 
 	switch mode {
 	case nmNone:
@@ -473,7 +473,7 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 	}
 }
 
-func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+func (g *generator) generateOr(f *ast.Function, depth int, mode nilMode, valueJmpLabel string) {
 	// TODO: Optimize code generation to check whether the first argument can be guaranteed to return a value (or error)
 	// If so, we can elide the right-hand-side entirely.
 	switch mode {
@@ -499,7 +499,7 @@ func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJ
 	}
 }
 
-func (g *generator) generateConstant(c *expr.Constant, mode nilMode, valueJmpLabel string) {
+func (g *generator) generateConstant(c *ast.Constant, mode nilMode, valueJmpLabel string) {
 	switch c.Type {
 	case descriptor.STRING:
 		s := c.Value.(string)
