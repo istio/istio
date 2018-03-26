@@ -65,8 +65,10 @@ func New(cfg *na.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to pc init %v", err)
 	}
-	scfg := workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile)
-	ss, err := workload.NewSecretServer(scfg)
+	ss, err := workload.NewSecretServer(&workload.Config{
+		Mode:            workload.SecretFile,
+		SecretDirectory: "/etc/certs", // TODO(incfly): put this into na.Config later.
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
 	}
@@ -158,12 +160,14 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	if err != nil {
 		return nil, fmt.Errorf("csr request failed for service %v %v", sa, err)
 	}
-
-	if err := s.ss.SetServiceIdentityPrivateKey(priv); err != nil {
-		return nil, fmt.Errorf("failed in set private key for service account %v, uid %v err %v", sa, uid, err)
+	// TODO: get root somewhere?
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(resp.SignedCert, priv, resp.CertChain, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build key cert bundle")
 	}
-	if err := s.ss.SetServiceIdentityCert(resp.SignedCert); err != nil {
-		return nil, fmt.Errorf("failed in set cert for service account %v, uid %v err %v", sa, uid, err)
+
+	if err := s.ss.Save(kb); err != nil {
+		return nil, fmt.Errorf("failed to save key cert %v, service account %v, uid %v", err, sa, uid)
 	}
 
 	s.handlerMap[uid] = handler.NewHandler(request, s.config.WorkloadOpts)

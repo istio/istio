@@ -16,21 +16,40 @@ package workload
 
 import (
 	"fmt"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
+
+const (
+	// SecretFile the key/cert to the workload through file.
+	SecretFile SecretServerMode = iota // 0
+	// SecretDiscoveryServiceAPI the key/cert to the workload through SDS API.
+	SecretDiscoveryServiceAPI // 1
+)
+
+// SecretServerMode is the mode SecretServer runs.
+type SecretServerMode int
 
 // SecretServer is for implementing the communication from the node agent to the workload.
 type SecretServer interface {
-	// SetServiceIdentityPrivateKey sets the service identity private key to the channel accessible to the workload.
-	SetServiceIdentityPrivateKey([]byte) error
-	// SetServiceIdentityCert sets the service identity cert to the channel accessible to the workload.
-	SetServiceIdentityCert([]byte) error
+	// Save stores the key cert bundle with associated workload identity.
+	Save(util.KeyCertBundle) error
+}
+
+// TODO: maybe put it back to config.go?
+type Config struct {
+	// Mode specifies how the node agent communications to workload.
+	Mode SecretServerMode
+
+	// SecretDirectory specifies the root directory storing the key cert files, only for file mode.
+	SecretDirectory string
 }
 
 // NewSecretServer instantiates a SecretServer according to the configuration.
-func NewSecretServer(cfg Config) (SecretServer, error) {
+func NewSecretServer(cfg *Config) (SecretServer, error) {
 	switch cfg.Mode {
 	case SecretFile:
-		return &SecretFileServer{cfg}, nil
+		return &SecretFileServer{cfg.SecretDirectory}, nil
 	case SecretDiscoveryServiceAPI:
 		return &SDSServer{}, nil
 	default:

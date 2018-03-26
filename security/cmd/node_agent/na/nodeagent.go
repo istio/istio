@@ -19,11 +19,11 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -31,12 +31,11 @@ import (
 // in the NodeAgent interface.
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
-	config       *Config
-	pc           platform.Client
-	cAClient     grpc.CAGrpcClient
-	identity     string
-	secretServer workload.SecretServer
-	certUtil     util.CertUtil
+	config   *Config
+	pc       platform.Client
+	cAClient grpc.CAGrpcClient
+	identity string
+	certUtil util.CertUtil
 }
 
 // Start starts the node Agent.
@@ -74,12 +73,10 @@ func (na *nodeAgentInternal) Start() error {
 				log.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false
 			} else {
-				if writeErr := na.secretServer.SetServiceIdentityCert(
-					append(resp.SignedCert, resp.CertChain...)); writeErr != nil {
-					return writeErr
-				}
-				if writeErr := na.secretServer.SetServiceIdentityPrivateKey(privateKey); writeErr != nil {
-					return writeErr
+				if err := caclient.SaveKeyCert(na.config.CAClientConfig.KeyFile,
+					na.config.CAClientConfig.CertChainFile,
+					privateKey, append(resp.SignedCert, resp.CertChain...)); err != nil {
+					return err
 				}
 				log.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
 				retries = 0

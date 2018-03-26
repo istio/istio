@@ -110,6 +110,12 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundleIm
 	}, nil
 }
 
+// TODO(incfly): temporarily workaround of interface adding methods.
+// TODO: implement this.
+func RetrieveID(b KeyCertBundle) string {
+	return ""
+}
+
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistency.
 func (b *KeyCertBundleImpl) GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) {
 	b.mutex.RLock()
