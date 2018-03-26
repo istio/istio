@@ -437,7 +437,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType:      core.ApiConfigSource_REST_LEGACY,
 							ClusterNames: []string{RDSName},
-							RefreshDelay: refresh,
+							RefreshDelay: &refresh,
 						},
 					},
 				},

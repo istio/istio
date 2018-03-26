@@ -133,7 +133,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.PushChannel:
 		}
 
-		ls, err := deprecated.BuildListeners(s.env, node)
+		ls, err := v1alpha3.BuildListeners(s.env, node)
 		if err != nil {
 			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err
