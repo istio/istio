@@ -54,11 +54,12 @@ func isGogoProto(in proto.Message) bool {
 	return gogoproto.MessageName(in) != ""
 }
 
+// ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
 	return ToJSONWithIndent(msg, "")
 }
 
-// ToJSON marshals a proto to canonical JSON
+// ToJSONWithIndent marshals a proto to canonical JSON with pretty printed string
 func ToJSONWithIndent(msg proto.Message, indent string) (string, error) {
 	if msg == nil {
 		return "", errors.New("unexpected nil message")

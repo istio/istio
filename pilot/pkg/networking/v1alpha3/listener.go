@@ -95,7 +95,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 
 	mesh := env.Mesh
 	config := env.IstioConfigStore
-	//managementPorts := env.ManagementPorts(node.IPAddress)
+	managementPorts := env.ManagementPorts(node.IPAddress)
 
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
@@ -109,25 +109,24 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	if mesh.ProxyListenPort > 0 {
 		inbound := buildInboundListeners(mesh, node, proxyInstances, config)
 		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
-		// TODO: health check ports
-		//mgmtListeners := buildMgmtPortListeners(mesh, managementPorts, node.IPAddress)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
+		mgmtListeners := buildMgmtPortListeners(managementPorts, node.IPAddress)
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
-		//for i := range mgmtListeners {
-		//	m := mgmtListeners[i]
-		//	l := getByAddress(listeners, m.Address.String())
-		//	if l != nil {
-		//		log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-		//			m.Name, m.Address, l.Name, l.Address)
-		//		continue
-		//	}
-		//	listeners = append(listeners, m)
-		//}
+		for i := range mgmtListeners {
+			m := mgmtListeners[i]
+			l := getByAddress(listeners, m.Address.String())
+			if l != nil {
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+					m.Name, m.Address, l.Name, l.Address)
+				continue
+			}
+			listeners = append(listeners, m)
+		}
 
 		// We need a dummy filter to fill in the filter stack for orig_dst listener
 		// TODO: Move to Listener filters and set up original dst filter there.
@@ -335,10 +334,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
-// server (inbound). The function also returns all inbound clusters since
-// they are statically declared in the proxy configuration and do not
-// utilize CDS.
-// Management port listeners are slightly different from standard Inbound listeners
+// server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
 // the pod will fail to start in Kubernetes, because the mixer service tries to
@@ -350,29 +346,40 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-//func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.PortList,
-//	managementIP string) []*xdsapi.Listener {
-//	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
-//
-//	// assumes that inbound connections/requests are sent to the endpoint address
-//	for _, mPort := range managementPorts {
-//		switch mPort.Protocol {
-//		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
-//			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-//			cluster := v1.BuildInboundCluster(mPort.Port, mPort.Protocol, mesh.ConnectTimeout)
-//			listener := buildTCPListener(&v1.TCPRouteConfig{
-//				Routes: []*v1.TCPRoute{v1.BuildTCPRoute(cluster, []string{managementIP})},
-//			}, managementIP, uint32(mPort.Port), model.ProtocolTCP)
-//
-//			listeners = append(listeners, listener)
-//		default:
-//			log.Warnf("Unsupported inbound protocol %v for management port %#v",
-//				mPort.Protocol, mPort)
-//		}
-//	}
-//
-//	return listeners
-//}
+func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
+	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
+
+	if managementIP == "" {
+		managementIP = "127.0.0.1"
+	}
+
+	// assumes that inbound connections/requests are sent to the endpoint address
+	for _, mPort := range managementPorts {
+		switch mPort.Protocol {
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
+			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+
+			instance := &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     managementIP,
+					Port:        mPort.Port,
+					ServicePort: mPort,
+				},
+				Service: &model.Service{
+					Hostname: ManagementClusterHostname,
+				},
+			}
+
+			listeners = append(listeners, buildTCPListener(buildInboundNetworkFilters(instance),
+				managementIP, uint32(mPort.Port), model.ProtocolTCP))
+		default:
+			log.Warnf("Unsupported inbound protocol %v for management port %#v",
+				mPort.Protocol, mPort)
+		}
+	}
+
+	return listeners
+}
 
 // TODO: move to plugins
 // applyInboundAuth adds ssl_context to the listener if the policy requires one.

@@ -30,6 +30,8 @@ import (
 const (
 	// DefaultLbType set to round robin
 	DefaultLbType = v2.Cluster_ROUND_ROBIN
+	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
+	ManagementClusterHostname = "mgmtCluster"
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -55,7 +57,8 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 			return nil
 		}
 
-		clusters = append(clusters, buildInboundClusters(env, instances)...)
+		managementPorts := env.ManagementPorts(proxy.IPAddress)
+		clusters = append(clusters, buildInboundClusters(env, instances, managementPorts)...)
 
 		// TODO: Bug? why only for sidecars?
 		// append cluster for JwksUri (for Jwt authentication) if necessary.
@@ -127,7 +130,7 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 	return hosts
 }
 
-func buildInboundClusters(env model.Environment, instances []*model.ServiceInstance) []*v2.Cluster {
+func buildInboundClusters(env model.Environment, instances []*model.ServiceInstance, managementPorts []*model.Port) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
@@ -142,6 +145,21 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 		}
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		clusters = append(clusters, localCluster)
+	}
+
+	// Add a passthrough cluster for traffic to management ports (health check ports)
+	for _, port := range managementPorts {
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
+		address := buildAddress("127.0.0.1", uint32(port.Port))
+		mgmtCluster := &v2.Cluster{
+			Name:           clusterName,
+			Type:           v2.Cluster_STATIC,
+			LbPolicy:       DefaultLbType,
+			ConnectTimeout: convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
+			Hosts:          []*core.Address{&address},
+		}
+		setUpstreamProtocol(mgmtCluster, port)
+		clusters = append(clusters, mgmtCluster)
 	}
 	return clusters
 }
