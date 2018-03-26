@@ -122,17 +122,15 @@ query parameter name.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MutualTls.late_cert_check">
-<td><code>lateCertCheck</code></td>
+<tr id="MutualTls.allow_tls">
+<td><code>allowTls</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Set this flag to true to allow connection established, regardless whether
-client certificate (x509) is presented or not. Validation of the certificate
-will be done later in the authentication layer.
-For specific implementation using Envoy sidecar, this means the
-require<em>client</em>certificate in the ssl_context will be false, allowing
-regular TLS connection can be made (until getting rejected later in
-authentication filter).</p>
+<p>Set this flag to true to allow regular TLS (i.e without client x509
+certificate). If request carries client certificate, identity will be
+extracted and used (set to peer identity). Otherwise, peer identity will
+be left unset.
+When the flag is false (default), request must have client certificate.</p>
 
 </td>
 </tr>
