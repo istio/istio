@@ -18,17 +18,26 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
-
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	// DefaultLbType set to round robin
+	DefaultLbType = v2.Cluster_ROUND_ROBIN
+)
+
+// TODO: Need to do inheritance of DestRules based on domain suffix match
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
+// For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
+// Cluster type based on resolution
+// For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
@@ -46,14 +55,15 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 			return nil
 		}
 
-		clusters = append(clusters, buildInboundClusters(instances)...)
+		clusters = append(clusters, buildInboundClusters(env, instances)...)
 
+		// TODO: Bug? why only for sidecars?
 		// append cluster for JwksUri (for Jwt authentication) if necessary.
 		clusters = append(clusters, buildJwksURIClustersForProxyInstances(
 			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
-	// TODO add original dst cluster
+	// TODO add original dst cluster or workaround for routers
 
 	return clusters // TODO: normalize/dedup/order
 }
@@ -62,51 +72,39 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname, "")
-		if config == nil {
-			for _, port := range service.Ports {
-				// TODO(costin): boilerplate only !!!
-				hosts := buildClusterHosts(env, service, port)
-				// create default cluster
-				cluster := &v2.Cluster{
-					Name:           model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
-					Type:           convertResolution(service.Resolution),
-					Hosts:          hosts,
-					ConnectTimeout: 5 * time.Second,
-				}
+		for _, port := range service.Ports {
+			hosts := buildClusterHosts(env, service, port)
 
-				clusters = append(clusters, cluster)
+			// create default cluster
+			defaultCluster := &v2.Cluster{
+				Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
+				Type:  convertResolution(service.Resolution),
+				Hosts: hosts,
+				// If issues pop up, revert to explicitly setting h2 options
+				ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 			}
-		}
-		if config != nil {
-			destinationRule := config.Spec.(*networking.DestinationRule)
-			for _, port := range service.Ports {
-				hosts := buildClusterHosts(env, service, port)
+			clusters = append(clusters, defaultCluster)
 
-				// create default cluster
-				cluster := &v2.Cluster{
-					Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
-					Type:  convertResolution(service.Resolution),
-					Hosts: hosts,
-				}
-				applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-				clusters = append(clusters, cluster)
+			if config != nil {
+				destinationRule := config.Spec.(*networking.DestinationRule)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
 
 				for _, subset := range destinationRule.Subsets {
-					cluster := &v2.Cluster{
+					subsetCluster := &v2.Cluster{
 						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
+						// If issues pop up, revert to explicitly setting h2 options
+						ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 					}
-					applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-					applyTrafficPolicy(cluster, subset.TrafficPolicy)
-
-					clusters = append(clusters, cluster)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					clusters = append(clusters, subsetCluster)
 				}
-
-				// TODO HTTP2 feature
 			}
 		}
 	}
+
 	return clusters
 }
 
@@ -131,19 +129,19 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 	return hosts
 }
 
-func buildInboundClusters(instances []*model.ServiceInstance) []*v2.Cluster {
+func buildInboundClusters(env model.Environment, instances []*model.ServiceInstance) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		clusters = append(clusters, &v2.Cluster{
-			Name:     clusterName,
-			Type:     v2.Cluster_STATIC,
-			LbPolicy: v2.Cluster_ROUND_ROBIN,
-			// TODO: HTTP2 feature
-			// TODO timeout
-			Hosts: []*core.Address{&address},
+			Name:              clusterName,
+			Type:              v2.Cluster_STATIC,
+			LbPolicy:          DefaultLbType,
+			ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+			ConnectTimeout:    convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
+			Hosts:             []*core.Address{&address},
 		})
 	}
 	return clusters
@@ -167,7 +165,9 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
 		return
 	}
 	applyConnectionPool(cluster, policy.ConnectionPool)
-	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
+	applyOutlierDetection(cluster, policy.OutlierDetection)
+	applyLoadBalancer(cluster, policy.LoadBalancer)
+	applyUpstreamTLSSettings(cluster, policy.Tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -200,7 +200,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = convertDurationGogo(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
@@ -214,9 +214,9 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.OutlierDetection {
+func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetection) {
 	if outlier == nil || outlier.Http == nil {
-		return nil
+		return
 	}
 
 	out := &v2_cluster.OutlierDetection{}
@@ -232,5 +232,78 @@ func buildOutlierDetection(outlier *networking.OutlierDetection) *v2_cluster.Out
 	if outlier.Http.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
 	}
-	return out
+	cluster.OutlierDetection = out
+}
+
+func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings) {
+	if lb == nil {
+		return
+	}
+	// TODO: RING_HASH and MAGLEV
+	switch lb.GetSimple() {
+	case networking.LoadBalancerSettings_LEAST_CONN:
+		cluster.LbPolicy = v2.Cluster_LEAST_REQUEST
+	case networking.LoadBalancerSettings_RANDOM:
+		cluster.LbPolicy = v2.Cluster_RANDOM
+	case networking.LoadBalancerSettings_ROUND_ROBIN:
+		cluster.LbPolicy = v2.Cluster_ROUND_ROBIN
+	case networking.LoadBalancerSettings_PASSTHROUGH:
+		cluster.LbPolicy = v2.Cluster_ORIGINAL_DST_LB
+		cluster.Type = v2.Cluster_ORIGINAL_DST
+	}
+
+	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
+}
+
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+	if tls == nil {
+		return
+	}
+
+	switch tls.Mode {
+	case networking.TLSSettings_DISABLE:
+		// TODO: Need to make sure that authN does not override this setting
+	case networking.TLSSettings_SIMPLE:
+		cluster.TlsContext = &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.CaCertificates,
+						},
+					},
+					VerifySubjectAltName: tls.SubjectAltNames,
+				},
+			},
+			Sni: tls.Sni,
+		}
+	case networking.TLSSettings_MUTUAL:
+		cluster.TlsContext = &auth.UpstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: tls.ClientCertificate,
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: tls.PrivateKey,
+							},
+						},
+					},
+				},
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.CaCertificates,
+						},
+					},
+					VerifySubjectAltName: tls.SubjectAltNames,
+				},
+			},
+			Sni: tls.Sni,
+		}
+	}
 }
