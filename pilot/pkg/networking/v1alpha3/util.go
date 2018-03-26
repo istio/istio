@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -29,6 +31,32 @@ import (
 
 	"istio.io/istio/pkg/log"
 )
+
+// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
+func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
+	if addresses == nil {
+		return nil
+	}
+
+	cidrList := make([]*core.CidrRange, 0)
+	for _, addr := range addresses {
+		cidr := &core.CidrRange{
+			AddressPrefix: addr,
+			PrefixLen: &types.UInt32Value{
+				Value: 32,
+			},
+		}
+
+		if strings.Contains(addr, "/") {
+			parts := strings.Split(addr, "/")
+			cidr.AddressPrefix = parts[0]
+			prefix, _ := strconv.Atoi(parts[1])
+			cidr.PrefixLen.Value = uint32(prefix)
+		}
+		cidrList = append(cidrList, cidr)
+	}
+	return cidrList
+}
 
 // normalizeListeners sorts and de-duplicates listeners by address
 func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
