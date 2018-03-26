@@ -33,7 +33,7 @@ and is performed during regular working hours for your time zone.
 * Use this on-call time to learn something new about Istio. Work with the subject matter experts and contribute to the troubleshooting guides on [istio.io](https://istio.io/help/troubleshooting.html).
 * On Friday, notify the next on-call.
 * On Tuesday, at the end of your on-call
-  * Update "blue" columns in https://goo.gl/9wjRdg - the deltas will be calculated for you (bold columns) please send an email summary
+  * Update "blue" columns in https://goo.gl/9wjRdg - the deltas will be calculated for you (bold columns) and send an email summary
   * Handoff to next on-call and send a summary to istio-oncall and istio-dev. Include the stats below, that can be obtained by querying [GitHub with dates ranges:](https://help.github.com/articles/searching-issues-and-pull-requests/)
 
 ```bash
