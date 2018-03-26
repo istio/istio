@@ -283,25 +283,57 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
+type userVersion struct {
+	user    string
+	version string
+	model   string
+}
+
+type versionRoutingRule struct {
+	key          string
+	userVersions []userVersion
+}
+
 func TestVersionRouting(t *testing.T) {
-	var err error
-	var rules = []string{testRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+
+	var rules = []versionRoutingRule{
+		{key: testRule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v1",
+					model:   v1Model,
+				},
+				{
+					user:    u2,
+					version: "v2",
+					model:   v2TestModel,
+				},
+			},
+		},
+	}
+
+	for _, rule := range rules {
+		doTestVersionRouting(t, rule)
+	}
+}
+
+func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
+	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
-
-	_, err = checkRoutingResponse(u1, "v1", tc.Kube.IngressOrFail(t), v1File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
-		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.Kube.IngressOrFail(t), v2File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
-		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
+	for _, userVersion := range rule.userVersions {
+		_, err := checkRoutingResponse(userVersion.user, userVersion.version, tc.Kube.IngressOrFail(t),
+			userVersion.model)
+		inspect(
+			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.user, userVersion.version),
+			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.user,
+				userVersion.version), t)
+	}
 }
 
 func TestFaultDelay(t *testing.T) {
