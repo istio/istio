@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/convert"
