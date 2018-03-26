@@ -1,0 +1,61 @@
+# Generate Json Web Tokens Signed by Google Service Account
+
+The python script (sa-jwt.py) provided here allows the user to generate a JWT signed
+by a Google service account.
+
+## Before you start
+
+- Run the following command to install python dependences.
+```
+  pip install google-cloud
+```
+
+- Create a service account or use an existing service account, and download the service account private key.
+
+  - In the [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts),
+  click CREATE SERVICE ACCOUNT, or select one of the existing service accounts.
+  - Click "Create Key" from the drop-down menu, and select the default JSON key type. The key file
+    will automatically downloads to your computer.
+
+## Usage
+
+The script expects two arguments, the audience ("aud") and the service account key file ("service_account_file"). Optionally,
+you can also set the the issue name. By default, the issuer name and the "sub" claim are set to the service account email.
+
+Type the following command to see the help message.
+
+```
+  python sa-jwt.py -h
+```
+
+It outputs the following:
+```
+usage: sa-jwt.py [-h] [-iss ISSUER] aud service_account_file
+
+Python script generates a JWT signed by a Google service account
+
+positional arguments:
+  aud                   Audience.
+  service_account_file  The path to your service account json file.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -iss ISSUER, --issuer ISSUER
+                        Issuer claim. This will also be used for sub claim
+
+```
+
+If you want to add custom claims to the JWT, you can edit sa-jwt.py, and add any claims to JWT payload
+(look for "Add any custom claims here" comment in the script).
+
+## Examples
+
+1. Generate a JWT token.
+```
+  python sa-jwt.py <YOUR-AUDIENCE> /path/to/service_account.json
+```
+
+2. Generate a JWT token with custom "iss"/"sub" claim.
+```
+  python sa-jwt.py <YOUR-AUDIENCE> /path/to/service_account.json -iss <ISSUER>
+```
