@@ -16,12 +16,17 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"istio.io/istio/pkg/log"
 )
+
+// ErrResolveNoAddress error occurs when IP address resolution is attempted,
+// but no address was provided.
+var ErrResolveNoAddress = errors.New("no address specified")
 
 // ResolveAddr resolves an authority address to an IP address. Incoming
 // addr can be an IP address or hostname. If addr is an IPv6 address, the IP
@@ -36,7 +41,7 @@ import (
 // address or ensure the hostname resolves to only IPv6 addresses.
 func ResolveAddr(addr string) (string, error) {
 	if addr == "" {
-		return "", nil
+		return "", ErrResolveNoAddress
 	}
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -52,10 +57,11 @@ func ResolveAddr(addr string) (string, error) {
 		return "", fmt.Errorf("lookup failed for IP address: %v", lookupErr)
 	}
 	var resolvedAddr string
-	if addrs[0].IP.To4() == nil {
-		resolvedAddr = fmt.Sprintf("[%s]:%s", addrs[0].IP, port)
+	ip := addrs[0].IP
+	if ip.To4() == nil {
+		resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
 	} else {
-		resolvedAddr = fmt.Sprintf("%s:%s", addrs[0].IP, port)
+		resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
 	}
 	log.Infof("Addr resolved to: %s", resolvedAddr)
 	return resolvedAddr, nil
