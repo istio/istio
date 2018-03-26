@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
 //go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/bar.proto -otestdata/bar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/baz.proto -otestdata/baz.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
