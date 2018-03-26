@@ -84,7 +84,7 @@ CancelFunc MixerClientImpl::Check(
   CheckRequest request;
   bool quota_call = quota_result->BuildRequest(&request);
   check_response_info.is_quota_cache_hit = quota_result->IsCacheHit();
-  check_response_info.response_status = check_result->status();
+  check_response_info.response_status = quota_result->status();
   if (check_result->IsCacheHit() && quota_result->IsCacheHit()) {
     on_done(check_response_info);
     on_done = nullptr;
