@@ -20,24 +20,48 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
 
-// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upper CA.
+// NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
+func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("nil configuration passed")
+	}
+
+	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
+	if err != nil {
+		return nil, err
+	}
+	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress, cfg.Org, cfg.RSAKeySize,
+		cfg.RequestedCertTTL, cfg.ForCA, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize KeyCertBundle: %v", err)
+	}
+
+	return &KeyCertBundleRotator{
+		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
+		retriever: cAClient,
+		keycert:   bundle,
+		stopCh:    make(chan bool, 1),
+		stopped:   true,
+	}, nil
+}
+
+// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {
-	Retrieve(opts *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
+	Retrieve() (newCert, certChain, privateKey []byte, err error)
 }
 
-// KeyCertBundleRotator continuously interacts with the upstream CA to maintain the KeyCertBundle valid.
-type KeyCertBundleRotator interface {
-	// Start the KeyCertBundleRotator loop (blocking call).
-	Start(errCh chan<- error)
-	// Stop the KeyCertBundleRotator loop.
-	Stop()
-}
-
-type keyCertBundleRotatorImpl struct {
+// KeyCertBundleRotator automatically updates the key and cert bundle by interacting with upstream CA.
+type KeyCertBundleRotator struct {
 	// TODO: Support multiple KeyCertBundles.
 	certUtil     util.CertUtil
 	keycert      pkiutil.KeyCertBundle
@@ -47,20 +71,9 @@ type keyCertBundleRotatorImpl struct {
 	stoppedMutex sync.Mutex
 }
 
-// NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
-func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, r KeyCertRetriever) KeyCertBundleRotator {
-	return &keyCertBundleRotatorImpl{
-		certUtil:  certUtil,
-		keycert:   keycert,
-		stopCh:    make(chan bool, 1),
-		stopped:   true,
-		retriever: r,
-	}
-}
-
 // Start periodically rotates the KeyCertBundle by interacting with the upstream CA.
 // It is a blocking function that should run as a go routine. Thread safe.
-func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
+func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 	c.stoppedMutex.Lock()
 	if !c.stopped {
 		errCh <- fmt.Errorf("rotator already started")
@@ -114,8 +127,8 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 	}
 }
 
-// Stops the loop. Thread safe.
-func (c *keyCertBundleRotatorImpl) Stop() {
+// Stop stops the loop. Thread safe.
+func (c *KeyCertBundleRotator) Stop() {
 	c.stoppedMutex.Lock()
 	if !c.stopped {
 		c.stopped = true

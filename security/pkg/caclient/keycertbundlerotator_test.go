@@ -40,6 +40,63 @@ func (r *fakeKeyCertRetriever) Retrieve(_ *pkiutil.CertOptions) (newCert, certCh
 	return r.NewCert, r.CertChain, r.PrivateKey, nil
 }
 
+func TestNewKeyCertBundleRotator(t *testing.T) {
+
+	testCases := map[string]struct {
+		config      *Config
+		expectedErr string
+	}{
+		"null config": {
+			config:      nil,
+			expectedErr: "nil configuration passed",
+		},
+		"onprem env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "onprem",
+			},
+			expectedErr: "",
+		},
+		"unspecified env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "unspecified",
+			},
+			expectedErr: "",
+		},
+		"Unsupported env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "somethig-else",
+			},
+			expectedErr: "invalid env somethig-else specified",
+		},
+		"non-existing root file": {
+			config: &Config{
+				CertChainFile: "non-existing-file.pem",
+				Env:           "onprem",
+			},
+			expectedErr: "failed to initialize CAClient: failed to get identity: open non-existing-file.pem: " +
+				"no such file or directory",
+		},
+	}
+
+	for id, c := range testCases {
+		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
+
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: succeeded, error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
+		}
+	}
+}
+
 func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
 		[]byte("old_cert"), []byte("old_key"), []byte("old_certchain"), []byte("root")
@@ -48,7 +105,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	testCases := map[string]struct {
 		retriever   KeyCertRetriever
 		certutil    util.CertUtil
-		bundle      pkiutil.KeyCertBundle
+		keycert     pkiutil.KeyCertBundle
 		updated     bool
 		expectedErr string
 	}{
@@ -59,7 +116,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -75,7 +132,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil:    &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle:      &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
+			keycert:     &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
 			updated:     true,
 			expectedErr: "",
 		},
@@ -86,7 +143,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Hour)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -98,7 +155,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 		"CA Client error": {
 			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("error1")},
 			certutil:  &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -114,7 +171,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -127,7 +184,13 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.retriever)
+		rotator := KeyCertBundleRotator{
+			certUtil:  tc.certutil,
+			retriever: tc.retriever,
+			keycert:   tc.keycert,
+			stopCh:    make(chan bool, 1),
+			stopped:   true,
+		}
 		errCh := make(chan error)
 		go rotator.Start(errCh)
 
@@ -144,7 +207,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 		}
 		rotator.Stop() // Stop the KeyCertBundleRotator anyway.
 
-		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.bundle.GetAllPem()
+		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.keycert.GetAllPem()
 		if tc.updated {
 			if !bytes.Equal(certBytes, newCert) {
 				t.Errorf("Test case [%s]: Cert bytes are different from expected value: %v VS %v.",

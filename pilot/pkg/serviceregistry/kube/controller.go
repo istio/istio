@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"os"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -40,6 +42,10 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+)
+
+var (
+	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
@@ -243,12 +249,16 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	return fmt.Sprintf("%v/%v", region, zone), true

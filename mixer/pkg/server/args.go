@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -89,9 +89,6 @@ type Args struct {
 	// Enable profiling via web interface host:port/debug/pprof
 	EnableProfiling bool
 
-	// Enables use of pkg/runtime2, instead of pkg/runtime.
-	UseNewRuntime bool
-
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
@@ -108,10 +105,9 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
 		AdapterWorkerPoolSize:         1024,
-		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
+		ConfigDefaultNamespace:        runtime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 true,
 		LoggingOptions:                log.DefaultOptions(),
 		TracingOptions:                tracing.DefaultOptions(),
 		LivenessProbeOptions:          &probe.Options{},
@@ -148,7 +144,6 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
 	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
 	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
-	fmt.Fprint(buf, "UseNewRuntime: ", a.UseNewRuntime, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 

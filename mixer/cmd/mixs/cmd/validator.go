@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/il/evaluator"
-	runtimeConfig "istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/validator"
+	"istio.io/istio/mixer/pkg/lang/checker"
+	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/validator"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -99,7 +99,7 @@ func newValidator(rvc runtimeValidatorOptions, kinds map[string]proto.Message) (
 	if err != nil {
 		return nil, err
 	}
-	tc := evaluator.NewTypeChecker()
+	tc := checker.NewTypeChecker()
 	rv, err := validator.New(tc, rvc.identityAttribute, s, rvc.adapters, rvc.templates)
 	if err != nil {
 		return nil, err

@@ -14,25 +14,25 @@
   "dynamic_resources": {
     "lds_config": {
       "api_config_source": {
-        "api_type": "REST_LEGACY",
+        "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
         },
         "cluster_names": [
-          "rds"
+          "xds-grpc"
         ]
       }
     },
     "cds_config": {
       "api_config_source": {
-        "api_type": "REST_LEGACY",
+        "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
         },
         "cluster_names": [
-          "rds"
+          "xds-grpc"
         ]
       }
     },

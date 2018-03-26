@@ -42,13 +42,12 @@ import (
     "net"
     "istio.io/istio/mixer/pkg/adapter"
     "istio.io/istio/mixer/pkg/attribute"
-    "istio.io/istio/mixer/pkg/expr"
-    "istio.io/istio/mixer/pkg/il/compiled"
+    "istio.io/istio/mixer/pkg/lang/ast"
+    "istio.io/istio/mixer/pkg/lang/compiled"
     "istio.io/istio/pkg/log"
     "istio.io/istio/mixer/pkg/template"
     istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
     istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
-    "errors"
     {{range .TemplateModels}}
         "{{.PackageImportPath}}"
     {{end}}
@@ -276,209 +275,6 @@ var (
                 },
             },
             {{end}}
-            {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-                ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-            {{end}}
-            {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-                ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-                mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
-            {{end}}
-            {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
-                ProcessQuota: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-                 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-            {{end}}
-            {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-                ProcessGenAttrs: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-                mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
-            {{end}}
-            {{$varietyName := .VarietyName}}
-            {{$goPkgName := .GoPackageName}}
-            {{range getAllMsgs .}}
-            {{with $msg := .}}
-            var {{getBuildFnName $msg.Name}} func(instName string,
-                param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
-                    *{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
-            _ = {{getBuildFnName $msg.Name}}
-            {{end}}
-            {{end}}
-            {{range getAllMsgs .}}
-            {{with $msg := .}}
-            {{getBuildFnName $msg.Name}} = func(instName string,
-                param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
-                    *{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
-                if param == nil {
-                    return nil, nil
-                }
-                var err error
-                _ = err
-            {{range $msg.Fields}}
-                {{if .GoType.IsMap}}
-                    {{if .GoType.MapValue.IsResourceMessage}}
-                        {{$typeName := getTypeName .GoType.MapValue}}
-                        {{.GoName}} := make(map[{{.GoType.MapKey.Name}}]*{{$goPkgName}}.{{$typeName}}, len(param.{{.GoName}}))
-                        for k, v := range param.{{.GoName}} {
-                            if {{.GoName}}[k], err = {{getBuildFnName $typeName}}(instName, v, path + "{{.GoName}}[" + k + "]."); err != nil {
-                                return nil, fmt.Errorf("failed to evaluate field '%s' for instance '%s': %v", path + "{{.GoName}}", instName, err)
-                            }
-                        }
-                    {{else}}
-                        {{.GoName}}, err := template.EvalAll(param.{{.GoName}}, attrs, mapper)
-                    {{end}}
-                {{else}}
-                    {{if .GoType.IsResourceMessage}}
-                    {{$typeName := getTypeName .GoType}}
-                    {{.GoName}}, err := {{getBuildFnName $typeName}}(instName, param.{{.GoName}}, path + "{{.GoName}}.")
-                    {{else if .GoType.IsValueType}}
-					var {{.GoName}} interface{}
-					if param.{{.GoName}} != "" {
-						{{.GoName}}, err = mapper.Eval(param.{{.GoName}}, attrs)
-					}
-					{{else}}
-
-					{{if isAliasTypeSkipIp .GoType.Name}}
-					var {{.GoName}}Interface interface{}
-					var {{.GoName}} {{.GoType.Name}}
-					if param.{{.GoName}} != "" {
-						if {{.GoName}}Interface, err = mapper.Eval(param.{{.GoName}}, attrs); err == nil {
-							{{.GoName}} = {{.GoType.Name}}({{.GoName}}Interface.({{getAliasType .GoType.Name}})){{reportTypeUsed .GoType}}
-						}
-					}
-					{{else}}
-					var {{.GoName}}Interface interface{}
-					var {{.GoName}} {{.GoType.Name}}
-					if param.{{.GoName}} != "" {
-						if {{.GoName}}Interface, err = mapper.Eval(param.{{.GoName}}, attrs); err == nil {
-							{{.GoName}} = {{.GoName}}Interface.({{.GoType.Name}}){{reportTypeUsed .GoType}}
-						}
-					}
-					{{end}}
-
-                    {{end}}
-                {{end}}
-                    if err != nil {
-                        msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path + "{{.GoName}}", instName, err)
-                        log.Error(msg)
-                        return nil, errors.New(msg)
-                    }
-            {{end}}
-                _ = param
-                return &{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}{
-                    {{if eq $msg.Name "Template"}}
-                    Name:       instName,
-                    {{end}}
-                    {{range $msg.Fields}}
-                        {{if containsValueTypeOrResMsg .GoType}}
-                            {{.GoName}}: {{.GoName}},
-                        {{else}}
-                            {{if .GoType.IsMap}}
-                                {{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-                                    res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-                                    for k, v := range m {
-                                        {{if isAliasTypeSkipIp .GoType.MapValue.Name}}
-                                        res[k] = {{.GoType.MapValue.Name}}(v.({{getAliasType .GoType.MapValue.Name}}))
-                                        {{else}}
-                                        res[k] = v.({{.GoType.MapValue.Name}})
-                                        {{end}}
-                                    }
-                                    return res
-                                }({{.GoName}}),
-                            {{else}}
-                                {{.GoName}}: {{.GoName}},
-                            {{end}}
-                        {{end}}
-                    {{end}}
-                }, nil
-            }
-            {{end}}
-            {{end}}
-            {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-                    var instances []*{{.GoPackageName}}.Instance
-                    for instName, inst := range insts {
-                        instance, err := BuildTemplate(instName, inst.(*{{.GoPackageName}}.InstanceParam), "")
-                        if err != nil {
-                            return err
-                        }
-                        instances = append(instances, instance)
-                    }
- 
-                    if err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instances); err != nil {
-                        return fmt.Errorf("failed to report all values: %v", err)
-                    }
-                    return nil
-                },
-            {{else}}
-                    instParam := inst.(*{{.GoPackageName}}.InstanceParam)
-                    instance, err := BuildTemplate(instName, instParam, "")
-                    if err != nil {
-                        {{if eq $varietyName "TEMPLATE_VARIETY_CHECK"}}
-                        return adapter.CheckResult{}, err
-                        {{else if eq $varietyName "TEMPLATE_VARIETY_QUOTA"}}return adapter.QuotaResult{}, err
-                        {{else if eq $varietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}return nil, err
-                        {{end}}
-                    }
-                    {{if eq $varietyName "TEMPLATE_VARIETY_CHECK"}}return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
-                    {{else if eq $varietyName "TEMPLATE_VARIETY_QUOTA"}}return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance, args)
-                    {{else if eq $varietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-                    out, err := handler.({{.GoPackageName}}.Handler).Generate{{.InterfaceName}}Attributes(ctx, instance)
-                    if err != nil {
-                        return nil, err
-                    }
-                    abag := attrs
-                    const fullOutName = "{{.GoPackageName}}.output."
-                    if out == nil {
-                        log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
-                    } else {
-                    abag = newWrapperAttrBag(
-                        func(name string) (value interface{}, found bool) {
-                            field := strings.TrimPrefix(name, fullOutName)
-                            if len(field) != len(name) && out.WasSet(field) {
-                                switch field {
-                                    {{range .OutputTemplateMessage.Fields}}
-                                    case "{{.ProtoName}}":
-                                        {{if isAliasType .GoType.Name}}
-                                        return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
-                                        {{else}}
-                                        return out.{{.GoName}}, true
-                                        {{end}}
-                                    {{end}}
-                                    default:
-                                    return nil, false
-                                }
-                            }
-                            return attrs.Get(name)
-                        },
-                        func() []string {return attrs.Names()},
-                        func() {attrs.Done()},
-                        func() string {return attrs.String()},
-                    )
-                    }
-                    resultBag := attribute.GetMutableBag(nil)
-                    for attrName, outExpr := range instParam.AttributeBindings {
-						ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-						val, err := mapper.Eval(ex, abag)
-						if err != nil {
-							return nil, err
-						}
-						switch v := val.(type) {
-						case net.IP:
-						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-						// TODO: remove
-						if v4 := v.To4(); v4 != nil {
-							resultBag.Set(attrName, []byte(v4))
-							continue
-						}
-						resultBag.Set(attrName, []byte(v.To16()))
-						default:
-						resultBag.Set(attrName, val)
-						}
-        			}
-        			return resultBag, nil
-                    {{end}}
-                },
-            {{end}}
- 
- 
-        /* runtime2 bindings */
 
         {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 		// DispatchReport dispatches the instances to the handler.
@@ -613,7 +409,7 @@ var (
         // See template.CreateOutputExpressionsFn for more details.
 		CreateOutputExpressions: func(
 			instanceParam proto.Message,
-			finder expr.AttributeDescriptorFinder,
+			finder ast.AttributeDescriptorFinder,
 			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
             var err error
 			var expType istio_policy_v1beta1.ValueType

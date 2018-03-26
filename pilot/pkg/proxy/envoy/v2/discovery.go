@@ -21,8 +21,11 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
+	"sync"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -30,10 +33,23 @@ var (
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 	responseTickDuration    = time.Second * 15
+
+	versionMutex sync.Mutex
+	// version is update by registry events.
+	version = time.Now()
 )
 
 const (
 	unknownPeerAddressStr = "Unknown peer address"
+)
+
+const (
+	typePrefix = "type.googleapis.com/envoy.api.v2."
+
+	// Constants used for
+	endpointType = typePrefix + "ClusterLoadAssignment"
+	clusterType  = typePrefix + "Cluster"
+	listenerType = typePrefix + "Listener"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -74,6 +90,34 @@ func periodicRefresh() {
 	ticker := time.NewTicker(responseTickDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		EdsPushAll()
+		PushAll()
 	}
+}
+
+// PushAll implements old style invalidation, generated when any rule or endpoint changes.
+// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
+// to the model ConfigStorageCache and Controller.
+func PushAll() {
+	versionMutex.Lock()
+	version = time.Now()
+	versionMutex.Unlock()
+
+	log.Infoa("XDS: Registry event - pushing all configs")
+
+	cdsPushAll()
+
+	// TODO: rename to XdsLegacyPushAll
+	edsPushAll() // we want endpoints ready first
+
+	ldsPushAll()
+}
+
+func nonce() string {
+	return time.Now().String()
+}
+
+func versionInfo() string {
+	versionMutex.Lock()
+	defer versionMutex.Unlock()
+	return version.String()
 }
