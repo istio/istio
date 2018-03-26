@@ -24,7 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	adapter "istio.io/api/mixer/adapter/model/v1beta1"
 	tmpl "istio.io/api/mixer/adapter/model/v1beta1"

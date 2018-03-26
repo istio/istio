@@ -71,14 +71,6 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			},
 			expectedErr: "invalid env somethig-else specified",
 		},
-		"non-existing root file": {
-			config: &Config{
-				CertChainFile: "non-existing-file.pem",
-				Env:           "onprem",
-			},
-			expectedErr: "failed to initialize CAClient: failed to get identity: open non-existing-file.pem: " +
-				"no such file or directory",
-		},
 	}
 
 	for id, c := range testCases {
