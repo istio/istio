@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package ingress
 
 import (
 	"os"
@@ -38,6 +38,7 @@ import (
 
 const (
 	namespace = "test"
+	resync    = 1 * time.Second
 )
 
 var (
