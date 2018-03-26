@@ -57,14 +57,15 @@ export GOARCH ?= amd64
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   export GOOS ?= linux
+   export GOOS_LOCAL = linux
 else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS ?= darwin
+   export GOOS_LOCAL = darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
 endif
 
+export GOOS ?= $(GOOS_LOCAL)
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -101,6 +102,7 @@ export ISTIO_BIN=$(GO_TOP)/bin
 # Using same package structure as pkg/
 export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
+export HELM=$(ISTIO_OUT)/helm
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -278,7 +280,7 @@ vendor.check:
 .PHONY: vendor.check
 
 ${GEN_CERT}:
-	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -588,29 +590,67 @@ artifacts: docker
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
+	$(MAKE) istio.yaml
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	./install/updateVersion.sh -a ${HUB},${TAG} 
 
 
 istio.yaml:
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
+                  --set global.controlPlaneSecurityEnabled=false \
+		  --set global.refreshInterval=1s \
+                  --set global.mtls.enabled=false \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=false \
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-istio_auth.yaml:
-	helm template --set global.tag=${TAG} \
-		  		  --namespace=istio-system \
+istio-one-namespace.yaml:
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
                   --set global.hub=${HUB} \
-	              --set global.mtlsDefault=true \
-			install/kubernetes/helm/istio > install/kubernetes/istio.yaml
+                  --set global.controlPlaneSecurityEnabled=false \
+		  --set global.refreshInterval=1s \
+                  --set global.mtls.enabled=false \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=true \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace.yaml
+
+
+istio-auth.yaml:
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+                  --set global.controlPlaneSecurityEnabled=true \
+		  --set global.refreshInterval=1s \
+                  --set global.mtls.enabled=true \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=false \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml
+
+istio-one-namespace-auth.yaml:
+	$(HELM) template --set global.tag=${TAG} \
+				  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+                  --set global.controlPlaneSecurityEnabled=true \
+		  --set global.refreshInterval=1s \
+                  --set global.mtls.enabled=true \
+		  --set global.rbacEnabled=true \
+		  --set istiotesting.oneNamespace=true \
+                  --set prometheus.enabled=true \
+				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace-auth.yaml
+
+
 
 deploy/all:
 	kubectl create ns istio-system > /dev/null || true
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 		          --namespace=istio-system \
                   --set global.hub=${HUB} \
 		      	  --set sidecar-injector.enabled=true \

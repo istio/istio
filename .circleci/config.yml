@@ -189,7 +189,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot:
+  e2e-pilot: #auth + v1alpha1
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -220,7 +220,7 @@ jobs:
             make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run: make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
       - run:
           name: dumpsys
           when: always
@@ -228,9 +228,9 @@ jobs:
             # TODO: move to a make target 'dumpsys'.
             kubectl get all -o wide --all-namespaces
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
-            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
-            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-pilot.xml
+            kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-auth > /go/out/logs/pods-test.txt
+            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-auth-v1alpha1-pilot.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
@@ -240,7 +240,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-pilot-alpha3:
+  e2e-pilot-noauth-v1alpha3:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -281,7 +281,7 @@ jobs:
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
             kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
             kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-pilot.xml
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-v1alpha3-pilot.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
@@ -291,7 +291,58 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-pilot-auth:
+  e2e-pilot-noauth-v1alpha1:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+            - SKIP_EGRESS: 1
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/minikube/noauth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-test.txt
+            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-v1alpha1-pilot.xml
+      - store_artifacts:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
+  e2e-pilot-auth-v1alpha3:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -324,11 +375,6 @@ jobs:
       - run: docker images
       - run: make test/minikube/auth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
       - run:
-          name: alpha1
-          when: always
-          command: |
-            make test/minikube/auth/e2e_pilot_alpha1 HUB="${HUB}" TAG="${TAG}"
-      - run:
           name: dumpsys
           when: always
           command: |
@@ -337,7 +383,7 @@ jobs:
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
             kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
             kubectl describe pods -n pilot-auth-system > /go/out/logs/pods-test.txt
-            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-pilot.xml
+            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-auth-v1alpha3-pilot.xml
       - store_artifacts:
           path: /go/out/tests
       - store_artifacts:
@@ -347,8 +393,8 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  # Until alpha1 is deprecated
-  e2e-pilot-auth-egress:
+# Until alpha1 is deprecated
+  e2e-pilot-auth-v1alpha1-egress:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -588,15 +634,19 @@ workflows:
           requires:
             - test
             - build
-      - e2e-pilot:
+      - e2e-pilot: #auth+v1alpha1
           requires:
             - test
             - build
-      - e2e-pilot-alpha3:
+      - e2e-pilot-noauth-v1alpha1:
           requires:
             - test
             - build
-      - e2e-pilot-auth:
+      - e2e-pilot-noauth-v1alpha3:
+          requires:
+            - test
+            - build
+      - e2e-pilot-auth-v1alpha3:
           requires:
             - test
             - build
@@ -615,12 +665,12 @@ workflows:
           requires:
             - e2e-simple
             - e2e-pilot
-            - e2e-pilot-alpha3
+            - e2e-pilot-auth-v1alpha3
 
   periodic:
     triggers:
        - schedule:
-           cron: "20 1,4,7,10,13,16,19,22 * * *"
+           cron: "20 7,14,21 * * *"
            filters:
              branches:
                only:
@@ -635,13 +685,10 @@ workflows:
       - e2e-dashboard:
           requires:
             - build
-      - e2e-pilot-alpha3:
+      - e2e-pilot-noauth-v1alpha3:
           requires:
             - build
-      - e2e-pilot:
-          requires:
-            - build
-      - e2e-pilot-auth:
+      - e2e-pilot-noauth-v1alpha1:
           requires:
             - build
       - benchcheck:
@@ -655,7 +702,7 @@ workflows:
   flaky:
     triggers:
        - schedule:
-           cron: "20 2,8,14,20 * * *"
+           cron: "20 8,16 * * *"
            filters:
              branches:
                only:
@@ -663,7 +710,7 @@ workflows:
     jobs:
       - build
       - racetest
-      - e2e-pilot-auth-egress:
+      - e2e-pilot-auth-v1alpha1-egress:
           requires:
             - build
       # Bookinfo requires 3 nodes, not a good fit for CircleCI.
@@ -680,13 +727,13 @@ workflows:
       - codecov:
            requires:
             - build
-      - e2e-pilot:
+      - e2e-mixer:
           requires:
             - build
-      - e2e-pilot-alpha3:
+      - e2e-pilot: #auth+v1alpha1
           requires:
             - build
-      - e2e-pilot-auth:
+      - e2e-pilot-auth-v1alpha3:
           requires:
             - build
       - e2e-simple:

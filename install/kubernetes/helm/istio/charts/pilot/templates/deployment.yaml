@@ -29,6 +29,10 @@ spec:
           - "discovery"
           - "--admission-service"
           - "istio-pilot"
+{{- if $.Values.global.oneNamespace }}
+          - "-a"
+          - {{ .Release.Namespace }}
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -72,10 +76,17 @@ spec:
           - pilot
           - --discoveryAddress
           - localhost:8080
+        {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --controlPlaneAuthPolicy
-          - NONE #--controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_pilot_auth.json
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot.json
+        {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
           volumeMounts:
