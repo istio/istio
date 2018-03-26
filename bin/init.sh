@@ -144,7 +144,7 @@ if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
 fi
 
-if [ ! -f /usr/local/bin/helm -a ! -f ${ISTIO_OUT}/helm ] ; then
+if [ ! -f ${ISTIO_OUT}/helm ] ; then
     # Install helm. Please keep it in sync with .circleci
     cd /tmp && \
         curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \

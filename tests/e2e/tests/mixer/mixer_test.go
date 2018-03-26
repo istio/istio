@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -108,8 +107,8 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("pods not ready: %v", err)
 	}
 
 	// pre-warm the system. we don't care about what happens with this
@@ -221,15 +220,15 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return errors.New("could not establish prometheus proxy: pods not running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
-	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 

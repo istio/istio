@@ -43,7 +43,7 @@ spec:
           - --zipkinAddress
           - istio-zipkin:9411
           - --statsdUdpAddress
-          - istio-mixer:9125
+          - istio-statsd-prom-bridge:9125
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.controlPlaneSecurityEnabled }}
