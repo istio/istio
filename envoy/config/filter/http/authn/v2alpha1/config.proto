@@ -1,0 +1,36 @@
+// Copyright 2018 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "authentication/v1alpha1/policy.proto";
+
+// $title: Internal API for authentication implementation on Envoy.
+
+package istio.envoy.config.filter.http.authn.v2alpha1;
+
+
+option go_package = "istio.io/api/envoy/config/filter/http/authn/v2alpha1";
+
+// FilterConfig is the config for Istio-specific filter that is used to enforce
+// authentication policy on Envoy.
+message FilterConfig {
+  // Policy is the original copy of the policy.
+  istio.authentication.v1alpha1.Policy policy = 1;
+
+  // Map from issuer to location of the payload that is emitted by Jwt filter.
+  // This information is added by pilot when construct and add Jwt and
+  // authN filters.
+  map<string, string> jwt_output_payload_locations = 2;
+}

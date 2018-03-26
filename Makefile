@@ -69,7 +69,7 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=jekyll_html:$(repo_dir)/
 # Generation Rules
 #####################
 
-generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing-go generate-rbac-go generate-authn-go
+generate: generate-broker-go generate-mesh-go generate-mixer-go generate-routing-go generate-rbac-go generate-authn-go generate-envoy-go
 
 #####################
 # broker/...
@@ -235,9 +235,26 @@ clean-authn:
 	rm -f $(authn_v1alpha1_pb_gos)
 	rm -f $(authn_v1alpha1_pb_doc)
 
+#####################
+# envoy/...
+#####################
+
+envoy_path := envoy
+envoy_protos := $(shell find $(envoy_path) -type f -name '*.proto' | sort)
+envoy_pb_gos := $(envoy_protos:.proto=.pb.go)
+
+generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
+
+# Envoy APIs is internal APIs, documents is not required.
+$(envoy_pb_gos): $(envoy_protos)
+  ## Generate envoy/*/*.pb.go
+	@$(docker_gen) $(gogofast_plugin) $^
+
+clean-envoy:
+	rm -f $(envoy_pb_gos)
 
 #####################
 # Cleanup
 #####################
 
-clean: clean-broker clean-mesh clean-mixer clean-routing clean-rbac clean-authn
+clean: clean-broker clean-mesh clean-mixer clean-routing clean-rbac clean-authn clean-envoy
