@@ -972,7 +972,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	}
 
 	dest := &model.Service{Hostname: destination}
-	routes := buildDestinationHTTPRoutes(node, dest, port, proxyInstances, config, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(node, dest, port, proxyInstances, config, false, BuildOutboundCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
