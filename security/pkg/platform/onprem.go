@@ -38,6 +38,7 @@ type OnPremClientImpl struct {
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
 func NewOnPremClientImpl(rootCert, key, certChain string) *OnPremClientImpl {
+	// TODO(incfly): add sanity checks the file existence and test these behaviors.
 	return &OnPremClientImpl{rootCert, key, certChain}
 }
 
