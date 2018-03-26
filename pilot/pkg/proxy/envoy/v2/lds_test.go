@@ -21,8 +21,9 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/tests/util"
 	"github.com/gogo/protobuf/jsonpb"
+
+	"istio.io/istio/tests/util"
 )
 
 func connectLDS(url string, t *testing.T) xdsapi.ListenerDiscoveryService_StreamListenersClient {
