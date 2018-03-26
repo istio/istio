@@ -727,6 +727,9 @@ workflows:
       - codecov:
            requires:
             - build
+      - e2e-mixer:
+          requires:
+            - build
       - e2e-pilot: #auth+v1alpha1
           requires:
             - build

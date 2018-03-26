@@ -8,9 +8,11 @@ metadata:
     app: istio-ca
 spec:
   ports:
-    - port: 8060
+    - name: grpc-istioca
+      port: 8060
       targetPort: 8060
       protocol: TCP
-      name: grpc-istioca
+    - name: http-monitoring
+      port: 9093
   selector:
     istio: istio-ca

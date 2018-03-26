@@ -35,6 +35,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
+	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -548,6 +549,35 @@ var (
 	codeRex    = regexp.MustCompile("StatusCode=(.*)")
 )
 
+// DumpConfig configuration in effect during test
+func (e *Environment) DumpConfig(names ...string) (string, error) {
+	cmd := fmt.Sprintf("kubectl --kubeconfig %s get %s --all-namespaces -o yaml",
+		e.Config.KubeConfig, strings.Join(names, ","))
+
+	return util.Shell(cmd)
+}
+
+// Routes gets routes from the pod or returns error
+func (e *Environment) Routes(app string) (string, error) {
+	if len(e.Apps[app]) == 0 {
+		return "", errors.Errorf("missing pod names for app %q", app)
+	}
+
+	pod := e.Apps[app][0]
+
+	routesURL := "http://localhost:15000/routes"
+	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s",
+		pod, e.Config.KubeConfig, e.Config.Namespace, routesURL)
+
+	routes, err := util.Shell(cmd)
+
+	if err != nil {
+		return "", errors.WithMessage(err, "failed to get routes")
+	}
+
+	return routes, nil
+}
+
 // ClientRequest makes the given request from within the k8s environment.
 func (e *Environment) ClientRequest(app, url string, count int, extra string) Response {
 	out := Response{}
@@ -557,6 +587,7 @@ func (e *Environment) ClientRequest(app, url string, count int, extra string) Re
 	}
 
 	pod := e.Apps[app][0]
+
 	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s -count %d %s",
 		pod, e.Config.KubeConfig, e.Config.Namespace, url, count, extra)
 	request, err := util.Shell(cmd)
