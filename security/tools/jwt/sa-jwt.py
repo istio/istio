@@ -50,7 +50,7 @@ if __name__ == '__main__':
     help='Audience.')
   parser.add_argument(
     'service_account_file',
-    help='The path to your service account json file.')
+    help='The path to your service account key file (in JSON format).')
   #optional arguments
-  parser.add_argument("-iss", "--issuer", help="Issuer claim. This will also be used for sub claim")
+  parser.add_argument("-iss", "--issuer", help="iss claim. This will also be used for sub claim")
   print main(parser.parse_args())

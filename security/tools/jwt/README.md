@@ -36,12 +36,12 @@ Python script generates a JWT signed by a Google service account
 
 positional arguments:
   aud                   Audience.
-  service_account_file  The path to your service account json file.
+  service_account_file  The path to your service account key file (in JSON format).
 
 optional arguments:
   -h, --help            show this help message and exit
   -iss ISSUER, --issuer ISSUER
-                        Issuer claim. This will also be used for sub claim
+                        iss claim. This will also be used for sub claim
 
 ```
 
