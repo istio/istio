@@ -36,8 +36,8 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 	if err != nil {
 		return nil, err
 	}
-	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress, cfg.Org, cfg.RSAKeySize,
-		cfg.RequestedCertTTL, cfg.ForCA, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress,
+		cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
 	}
@@ -57,7 +57,7 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 
 // KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {
-	Retrieve() (newCert, certChain, privateKey []byte, err error)
+	Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
 }
 
 // KeyCertBundleRotator automatically updates the key and cert bundle by interacting with upstream CA.
