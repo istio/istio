@@ -86,17 +86,6 @@ func buildAddress(ip string, port uint32) core.Address {
 	}
 }
 
-// getByAddress returns a listener by its address
-// TODO(mostrowski): consider passing map around to save iteration.
-func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
-	for _, listener := range listeners {
-		if listener.Address.String() == addr {
-			return listener
-		}
-	}
-	return nil
-}
-
 func messageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
 	if err != nil {

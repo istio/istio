@@ -21,8 +21,7 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	"github.com/gogo/protobuf/jsonpb"
-
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -60,10 +59,7 @@ func TestLDS(t *testing.T) {
 		return
 	}
 
-	m := jsonpb.Marshaler{
-		Indent: " ",
-	}
-	strResponse, err := m.MarshalToString(res)
+	strResponse, _ := model.ToJSONWithIndent(res, " ")
 
 	t.Log("LDS response", strResponse)
 	if len(res.Resources) == 0 {

@@ -21,6 +21,7 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -58,7 +59,9 @@ func TestCDS(t *testing.T) {
 		return
 	}
 
-	t.Log("CDS response", res)
+	strResponse, _ := model.ToJSONWithIndent(res, " ")
+
+	t.Log("CDS response", strResponse)
 	if len(res.Resources) == 0 {
 		t.Fatal("No response")
 	}

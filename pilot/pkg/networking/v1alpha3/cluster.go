@@ -80,9 +80,8 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
 				Type:  convertResolution(service.Resolution),
 				Hosts: hosts,
-				// If issues pop up, revert to explicitly setting h2 options
-				ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 			}
+			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -94,9 +93,8 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
-						// If issues pop up, revert to explicitly setting h2 options
-						ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 					}
+					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
 					clusters = append(clusters, subsetCluster)
@@ -135,14 +133,15 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		clusters = append(clusters, &v2.Cluster{
-			Name:              clusterName,
-			Type:              v2.Cluster_STATIC,
-			LbPolicy:          DefaultLbType,
-			ProtocolSelection: v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
-			ConnectTimeout:    convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
-			Hosts:             []*core.Address{&address},
-		})
+		localCluster := &v2.Cluster{
+			Name:           clusterName,
+			Type:           v2.Cluster_STATIC,
+			LbPolicy:       DefaultLbType,
+			ConnectTimeout: convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
+			Hosts:          []*core.Address{&address},
+		}
+		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+		clusters = append(clusters, localCluster)
 	}
 	return clusters
 }
@@ -304,6 +303,14 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 				},
 			},
 			Sni: tls.Sni,
+		}
+	}
+}
+
+func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
+	if port.Protocol.IsHTTP() {
+		if port.Protocol == model.ProtocolHTTP2 || port.Protocol == model.ProtocolGRPC {
+			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 		}
 	}
 }
