@@ -258,6 +258,7 @@ function update_helm_version() {
       local HELM_FILE=${DEST_DIR}/install/kubernetes/helm/istio/values.yaml
       cp install/kubernetes/helm/istio/values.yaml $HELM_FILE
       execute_sed "s|^  tag:.*|  tag: ${PILOT_TAG}|" $HELM_FILE
+      execute_sed "s|^  hub:.*|  hub: ${PILOT_HUB}|" $HELM_FILE
   fi
 }
 
