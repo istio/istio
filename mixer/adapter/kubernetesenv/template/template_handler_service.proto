@@ -61,6 +61,7 @@ import "mixer/adapter/model/v1beta1/extensions.proto";
 
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+option (istio.mixer.adapter.model.v1beta1.template_name) = "kubernetes";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;

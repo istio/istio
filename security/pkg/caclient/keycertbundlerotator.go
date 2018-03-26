@@ -36,8 +36,8 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 	if err != nil {
 		return nil, err
 	}
-	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress, cfg.Org, cfg.RSAKeySize,
-		cfg.RequestedCertTTL, cfg.ForCA, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress,
+		cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
 	}
@@ -57,7 +57,7 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 
 // KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {
-	Retrieve() (newCert, certChain, privateKey []byte, err error)
+	Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
 }
 
 // KeyCertBundleRotator automatically updates the key and cert bundle by interacting with upstream CA.
@@ -82,6 +82,14 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 	}
 	c.stopped = false
 	c.stoppedMutex.Unlock()
+
+	// Make sure we mark rotator stopped after this method finishes.
+	defer func() {
+		c.stoppedMutex.Lock()
+		c.stopped = true
+		c.stoppedMutex.Unlock()
+	}()
+
 	for {
 		certBytes, _, _, _ := c.keycert.GetAllPem()
 		if len(certBytes) != 0 {
@@ -100,20 +108,19 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
-		certBytes, certChainBytes, privateKeyBytes, err := c.retriever.Retrieve()
+		co, err := c.keycert.CertOptions()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to extact CertOptions from bundle %v", err)
+			return
+		}
+		certBytes, certChainBytes, privKeyBytes, err := c.retriever.Retrieve(co)
 		if err != nil {
 			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
-		if err = c.keycert.VerifyAndSetAll(certBytes, privateKeyBytes, certChainBytes, rootCertBytes); err != nil {
+		if err = c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
 			return
 		}
 		log.Infof("Successfully retrieved new key and certs.")
