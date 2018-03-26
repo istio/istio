@@ -39,13 +39,8 @@ import (
 )
 
 const (
-	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
-)
 
-const (
-	// istioIngress is the name of the service running the Istio Ingress controller
-	istioIngress               = "istio-ingress"
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
 	// RDSName is the name of route-discovery-service (RDS) cluster
@@ -435,7 +430,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	*/
 	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
 	if opts.mesh.RdsRefreshDelay.Seconds == 0 {
-		// envoy crashes if 0.
+		// envoy crashes if 0. Will go away once we move to v2
 		refresh = 5 * time.Second
 	}
 
