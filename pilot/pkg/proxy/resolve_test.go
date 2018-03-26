@@ -85,7 +85,7 @@ func TestResolveAddr(t *testing.T) {
 			name:     "Empty host",
 			input:    "",
 			expected: "",
-			errStr:   "",
+			errStr:   ErrResolveNoAddress.Error(),
 		},
 		{
 			name:     "IPv6 missing brackets",

@@ -23,9 +23,14 @@ import (
 
 	"sync"
 
+	"encoding/json"
+	"io/ioutil"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
+	"net/http"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 )
 
 var (
@@ -54,19 +59,21 @@ const (
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
-	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
 	// env is the model environment.
 	env model.Environment
 
 	Connections map[string]*EdsConnection
+
+	// memRegistry is used for debug and load testing, allow adding services
+	memRegistry *mock.ServiceDiscovery
+	memSvcController *memServiceController
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
-	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+	out := &DiscoveryServer{GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
@@ -76,6 +83,92 @@ func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env 
 	}
 
 	return out
+}
+
+type memServiceController struct{
+	svcHandlers []func(*model.Service, model.Event)
+	instHandlers []func(*model.ServiceInstance, model.Event)
+}
+
+func (c *memServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.svcHandlers = append(c.svcHandlers, f)
+	return nil
+}
+
+func (c *memServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instHandlers = append(c.instHandlers, f)
+	return nil
+}
+
+func (c *memServiceController) Run(<-chan struct{}) {}
+
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+	// For debugging and load testing v2 we add an memory registry.
+	s.memRegistry = mock.NewDiscovery(
+		map[string]*model.Service{
+			//			mock.HelloService.Hostname: mock.HelloService,
+		}, 2)
+	s.memSvcController = &memServiceController{}
+	registry1 := aggregate.Registry{
+		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ServiceDiscovery: s.memRegistry,
+		ServiceAccounts:  s.memRegistry,
+		Controller:       s.memSvcController,
+	}
+	sctl.AddRegistry(registry1)
+
+	mux.HandleFunc("/debug/edsz", EDSz)
+
+	mux.HandleFunc("/debug/cdsz", Cdsz)
+
+	mux.HandleFunc("/debug/ldsz", LDSz)
+
+	mux.HandleFunc("/debug/registryz", s.registryz)
+}
+
+// registryz providees debug support for registry - adding and listing model items.
+// Can be combined with the push debug interface to reproduce changes.
+func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
+	svcName := req.Form.Get("svc")
+	epName := req.Form.Get("ep")
+	if svcName != "" {
+		data, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		if epName == "" {
+			svc := &model.Service{}
+			err = json.Unmarshal(data, svc)
+			if err != nil {
+				return
+			}
+			s.memRegistry.AddService(svcName, svc)
+		} else {
+			svc := &model.ServiceInstance{}
+			err = json.Unmarshal(data, svc)
+			if err != nil {
+				return
+			}
+			s.memRegistry.AddService(svcName, svc)
+
+		}
+	}
+
+	all, err := s.env.ServiceDiscovery.Services()
+	if err != nil {
+		return
+	}
+	for _, svc := range all {
+		b, err := json.MarshalIndent(svc, "", "  ")
+		if err != nil {
+			return
+		}
+		_, _ = w.Write(b)
+	}
+
+}
+
+func listServices(w http.ResponseWriter, req *http.Request) {
 }
 
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe

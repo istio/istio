@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/api -I.
-//go:generate protoc testdata/bar.proto -otestdata/bar.descriptor -I$GOPATH/src/istio.io/api -I.
-//go:generate protoc testdata/baz.proto -otestdata/baz.descriptor -I$GOPATH/src/istio.io/api -I.
-//go:generate protoc testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I$GOPATH/src/istio.io/api -I.
-//go:generate protoc testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I$GOPATH/src/istio.io/api -I.
-//go:generate protoc testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I$GOPATH/src/istio.io/api -I.
+// nolint
+//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/bar.proto -otestdata/bar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/baz.proto -otestdata/baz.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 
 package registry
 
@@ -49,6 +51,7 @@ func TestNew(t *testing.T) {
 	bazTmplStr := getFileDescSetBase64("testdata/baz.descriptor")
 	badfoobarTmpl := getFileDescSetBase64("testdata/badfoobar.descriptor")
 	unsupportedPkgNameTmpl := getFileDescSetBase64("testdata/unsupportedPkgName.descriptor")
+	reqOptionTmplNameNotFoundTmpl := getFileDescSetBase64("testdata/reqOptionTmplNameNotFound.descriptor")
 	reqOptionNotFoundTmpl := getFileDescSetBase64("testdata/reqOptionNotFound.descriptor")
 	notFileDescriptorSet := getFileDescSetBase64("testdata/foo.proto")
 
@@ -180,10 +183,10 @@ func TestNew(t *testing.T) {
 					Templates: []string{unsupportedPkgNameTmpl},
 				},
 			},
-			wantErrs: []string{"the last segment of package name 'foo123' must match the regex '^[a-zA-Z]+$'"},
+			wantErrs: []string{"the template name 'foo123' must match the regex '^[a-zA-Z]+$'"},
 		},
 		{
-			name: "error required option not found",
+			name: "error template variety not found",
 			infos: []adapter.Info{
 				{
 					Name:      "a1",
@@ -191,6 +194,16 @@ func TestNew(t *testing.T) {
 				},
 			},
 			wantErrs: []string{"there has to be one proto file that has the extension"},
+		},
+		{
+			name: "error template name not found",
+			infos: []adapter.Info{
+				{
+					Name:      "a1",
+					Templates: []string{reqOptionTmplNameNotFoundTmpl},
+				},
+			},
+			wantErrs: []string{"proto files testdata/reqOptionTmplNameNotFound.proto is missing required template_name option"},
 		},
 		{
 			name: "different adapter with mix of good bad templates",

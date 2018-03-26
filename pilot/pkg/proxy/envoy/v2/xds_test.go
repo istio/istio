@@ -21,10 +21,12 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -69,6 +71,20 @@ func initTest(t *testing.T) {
 
 func initMocks() *bootstrap.Server {
 	server := util.EnsureTestServer()
+
+	hostname := "hello.default.svc.cluster.local"
+	svc := mock.MakeService(hostname, "10.1.0.0")
+	// The default service created by istio/test/util does not have a h2 port.
+	// Add a H2 port to test CDS.
+	// TODO: move me to discovery.go in istio/test/util
+	port := &model.Port{
+		Name:                 "h2port",
+		Port:                 6666,
+		Protocol:             model.ProtocolGRPC,
+		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+	}
+	svc.Ports = append(svc.Ports, port)
+	server.MemoryServiceDiscovery.AddService(hostname, svc)
 
 	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
 		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))

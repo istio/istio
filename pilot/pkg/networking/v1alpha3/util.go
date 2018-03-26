@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 	// TODO(mostrowski): remove JSON encoding once mixer filter proto spec is available.
 	oldjson "encoding/json"
@@ -26,8 +28,37 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
+
 	"istio.io/istio/pkg/log"
 )
+
+// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
+func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
+	if addresses == nil {
+		return nil
+	}
+
+	cidrList := make([]*core.CidrRange, 0)
+	for _, addr := range addresses {
+		cidr := &core.CidrRange{
+			AddressPrefix: addr,
+			PrefixLen: &types.UInt32Value{
+				Value: 32,
+			},
+		}
+
+		if strings.Contains(addr, "/") {
+			parts := strings.Split(addr, "/")
+			cidr.AddressPrefix = parts[0]
+			prefix, _ := strconv.Atoi(parts[1])
+			cidr.PrefixLen.Value = uint32(prefix)
+		}
+		cidrList = append(cidrList, cidr)
+	}
+	return cidrList
+}
 
 // normalizeListeners sorts and de-duplicates listeners by address
 func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
@@ -115,11 +146,23 @@ func messageToStruct(msg proto.Message) *types.Struct {
 	return s
 }
 
-func convertDurationGogo(d *types.Duration) time.Duration {
+func convertGogoDurationToDuration(d *types.Duration) time.Duration {
 	if d == nil {
 		return 0
 	}
 	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
+}
+
+// convertDuration converts to golang duration and logs errors
+func convertProtoDurationToDuration(d *duration.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := ptypes.Duration(d)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}

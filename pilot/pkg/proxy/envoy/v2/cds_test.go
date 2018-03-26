@@ -23,6 +23,7 @@ import (
 
 	testenv "istio.io/istio/mixer/test/client/env"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -68,11 +69,12 @@ func TestCDS(t *testing.T) {
 		return
 	}
 
-	t.Log("CDS response", res)
-	// TODO: uncomment once Shriram PR is in.
-	//if len(res.Resources) == 0 {
-	// 	t.Fatal("No response")
-	//}
+	strResponse, _ := model.ToJSONWithIndent(res, " ")
+
+	t.Log("CDS response", strResponse)
+	if len(res.Resources) == 0 {
+		t.Fatal("No response")
+	}
 
 	// TODO: dump the response resources, compare with some golden once it's stable
 	// check that each mocked service and destination rule has a corresponding resource

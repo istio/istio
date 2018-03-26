@@ -35,8 +35,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
-
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -119,7 +117,7 @@ type EdsConnection struct {
 }
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: endpointType,
@@ -134,7 +132,7 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []stri
 
 	out.Resources = make([]types.Any, 0, len(clusterNames))
 	for _, clusterName := range clusterNames {
-		clAssignmentRes := s.clusterEndpoints(ds, clusterName)
+		clAssignmentRes := s.clusterEndpoints(clusterName)
 		if clAssignmentRes != nil {
 			out.Resources = append(out.Resources, *clAssignmentRes)
 		}
@@ -144,7 +142,7 @@ func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []stri
 }
 
 // Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, clusterName string) *types.Any {
+func (s *DiscoveryServer) clusterEndpoints(clusterName string) *types.Any {
 	c := s.getOrAddEdsCluster(clusterName)
 	if c.LoadAssignment == nil { // fresh cluster
 		updateCluster(clusterName, c)
@@ -199,12 +197,12 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		var subsetName string
 		_, hostname, subsetName, p = model.ParseSubsetKey(clusterName)
 		ports = []*model.Port{p}
-		labels = edsCluster.discovery.mesh.SubsetToLabels(subsetName, hostname, "")
+		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname, "")
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
 	}
 
-	instances, err := edsCluster.discovery.mesh.Instances(hostname, ports.GetNames(), labels)
+	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return
@@ -365,7 +363,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			continue
 		}
 
-		response := s.endpoints(s.mesh, con.Clusters)
+		response := s.endpoints(con.Clusters)
 		err := stream.Send(response)
 		if err != nil {
 			log.Warnf("EDS: Send failure, closing grpc %v", err)

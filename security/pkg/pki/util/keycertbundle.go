@@ -38,6 +38,9 @@ type KeyCertBundle interface {
 	// VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 	// Setting all values together avoids inconsistency.
 	VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
+
+	// CertOptions returns the CertOptions for rotating the current key cert.
+	CertOptions() (*CertOptions, error)
 }
 
 // KeyCertBundleImpl implements the KeyCertBundle interface.
@@ -149,6 +152,25 @@ func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	b.privKey = &privKey
 	b.mutex.Unlock()
 	return nil
+}
+
+// CertOptions returns the certificate config based on currently stored cert.
+func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	ids, err := ExtractIDs(b.cert.Extensions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract id %v", err)
+	}
+	if len(ids) != 1 {
+		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
+	}
+	return &CertOptions{
+		Host: ids[0],
+		Org:  b.cert.Issuer.Organization[0],
+		IsCA: b.cert.IsCA,
+		TTL:  b.cert.NotAfter.Sub(b.cert.NotBefore),
+	}, nil
 }
 
 // verify that the cert chain, root cert and key/cert match.
