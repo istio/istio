@@ -56,7 +56,7 @@ const checkAttributesOkGet = `
 `
 
 // Report attributes from a good GET request
-var reportAttributesOkGet = [...]string {`
+var reportAttributesOkGet = [...]string{`
   {
     "context.protocol": "http",
     "mesh1.ip": "[1 1 1 1]",
