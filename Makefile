@@ -57,14 +57,15 @@ export GOARCH ?= amd64
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
-   export GOOS ?= linux
+   export GOOS_LOCAL = linux
 else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS ?= darwin
+   export GOOS_LOCAL = darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
    # export GOOS ?= windows
 endif
 
+export GOOS ?= $(GOOS_LOCAL)
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -279,7 +280,7 @@ vendor.check:
 .PHONY: vendor.check
 
 ${GEN_CERT}:
-	unset GOOS && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
