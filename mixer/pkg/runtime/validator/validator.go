@@ -25,7 +25,8 @@ import (
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/cache"
@@ -36,15 +37,15 @@ import (
 type Validator struct {
 	handlerBuilders map[string]adapter.HandlerBuilder
 	templates       map[string]*template.Info
-	tc              expr.TypeChecker
-	af              expr.AttributeDescriptorFinder
+	tc              checker.TypeChecker
+	af              ast.AttributeDescriptorFinder
 	c               *validatorCache
 	donec           chan struct{}
 }
 
 // New creates a new store.Validator instance which validates runtime semantics of
 // the configs.
-func New(tc expr.TypeChecker, identityAttribute string, s store.Store,
+func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
 	kinds := config.KindMap(adapterInfo, templateInfo)
 	data, ch, err := store.StartWatch(s, kinds)
@@ -112,14 +113,14 @@ func (v *Validator) getKey(value, namespace string) (store.Key, error) {
 	return key, nil
 }
 
-func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.AttributeManifest) expr.AttributeDescriptorFinder {
+func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.AttributeManifest) ast.AttributeDescriptorFinder {
 	attrs := map[string]*cpb.AttributeManifest_AttributeInfo{}
 	for _, manifest := range manifests {
 		for an, at := range manifest.Attributes {
 			attrs[an] = at
 		}
 	}
-	return expr.NewFinder(attrs)
+	return ast.NewFinder(attrs)
 }
 
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
@@ -215,7 +216,7 @@ func (v *Validator) validateInstanceDelete(ikey store.Key) error {
 	return errs
 }
 
-func (v *Validator) validateManifests(af expr.AttributeDescriptorFinder) error {
+func (v *Validator) validateManifests(af ast.AttributeDescriptorFinder) error {
 	var errs error
 	v.c.forEach(func(key store.Key, spec proto.Message) {
 		var err error

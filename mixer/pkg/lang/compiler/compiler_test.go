@@ -19,12 +19,12 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
-	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
+	"istio.io/istio/mixer/pkg/lang"
+	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 func TestCompiler_SingleExpressionSession(t *testing.T) {
@@ -37,13 +37,13 @@ func TestCompiler_SingleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := expr.NewFinder(test.Conf())
+			finder := ast.NewFinder(test.Conf())
 
-			fns := runtime.ExternFunctionMetadata
+			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
 				fns = append(fns, test.Fns...)
 			}
-			compiler := New(finder, expr.FuncMap(fns))
+			compiler := New(finder, ast.FuncMap(fns))
 			fnID, _, err := compiler.CompileExpression(test.E)
 
 			if err != nil {
@@ -94,13 +94,13 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 
 		t.Run(test.TestName(), func(tt *testing.T) {
 
-			finder := expr.NewFinder(test.Conf())
+			finder := ast.NewFinder(test.Conf())
 
-			fns := runtime.ExternFunctionMetadata
+			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
 				fns = append(fns, test.Fns...)
 			}
-			compiler := New(finder, expr.FuncMap(fns))
+			compiler := New(finder, ast.FuncMap(fns))
 			fnID1, _, err := compiler.CompileExpression(test.E)
 			if err != nil {
 				if err.Error() != test.CompileErr {
@@ -139,7 +139,7 @@ func doEval(test ilt.TestInfo, p *il.Program, fnID uint32) error {
 	b := ilt.NewFakeBag(test.I)
 
 	externs := make(map[string]interpreter.Extern)
-	for k, v := range runtime.Externs {
+	for k, v := range lang.Externs {
 		externs[k] = v
 	}
 	if test.Externs != nil {
@@ -165,13 +165,13 @@ func TestCompile(t *testing.T) {
 		name := fmt.Sprintf("%d '%s'", i, test.TestName())
 		t.Run(name, func(tt *testing.T) {
 
-			finder := expr.NewFinder(test.Conf())
+			finder := ast.NewFinder(test.Conf())
 
-			fns := runtime.ExternFunctionMetadata
+			fns := lang.ExternFunctionMetadata
 			if test.Fns != nil {
 				fns = append(fns, test.Fns...)
 			}
-			program, err := Compile(test.E, finder, expr.FuncMap(fns))
+			program, err := Compile(test.E, finder, ast.FuncMap(fns))
 			if err != nil {
 				if err.Error() != test.CompileErr {
 					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)
@@ -204,7 +204,7 @@ func TestCompile(t *testing.T) {
 			b := ilt.NewFakeBag(input)
 
 			externs := make(map[string]interpreter.Extern)
-			for k, v := range runtime.Externs {
+			for k, v := range lang.Externs {
 				externs[k] = v
 			}
 			if test.Externs != nil {

@@ -17,10 +17,10 @@ package compiled
 import (
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/compiler"
 	"istio.io/istio/mixer/pkg/il/interpreter"
-	"istio.io/istio/mixer/pkg/il/runtime"
+	"istio.io/istio/mixer/pkg/lang"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiler"
 )
 
 // ExpressionBuilder is used to create a set of pre-compiled expressions, backed by the same program and interpreter
@@ -32,11 +32,11 @@ type ExpressionBuilder struct {
 }
 
 // NewBuilder returns a new ExpressionBuilder
-func NewBuilder(finder expr.AttributeDescriptorFinder) *ExpressionBuilder {
+func NewBuilder(finder ast.AttributeDescriptorFinder) *ExpressionBuilder {
 	return newBuilder(finder, allFunctions, allExterns)
 }
 
-func newBuilder(finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata, externs map[string]interpreter.Extern) *ExpressionBuilder {
+func newBuilder(finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata, externs map[string]interpreter.Extern) *ExpressionBuilder {
 	c := compiler.New(finder, functions)
 	return &ExpressionBuilder{
 		compiler:    c,
@@ -110,5 +110,5 @@ func (e expression) EvaluateInteger(attributes attribute.Bag) (int64, error) {
 }
 
 // TODO: This should be replaced with a common, shared context, instead of a singleton global.
-var allFunctions = expr.FuncMap(runtime.ExternFunctionMetadata)
-var allExterns = runtime.Externs
+var allFunctions = ast.FuncMap(lang.ExternFunctionMetadata)
+var allExterns = lang.Externs

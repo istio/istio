@@ -34,6 +34,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"os"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
 	"istio.io/istio/pilot/pkg/model"
@@ -459,6 +461,9 @@ func makeClient(t *testing.T) kubernetes.Interface {
 }
 
 func TestGetAPIServerExtensionCACert(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Exclude racetest due to accessing API server")
+	}
 	cl := makeClient(t)
 	if _, err := getAPIServerExtensionCACert(cl); err != nil {
 		t.Errorf("GetAPIServerExtensionCACert() failed: %v", err)
