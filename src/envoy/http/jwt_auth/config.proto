@@ -191,4 +191,13 @@ message AuthFilterConfig {
   //      path_exact: /healthz
   //
   repeated HttpPattern bypass_jwt = 3;
+
+  // From
+  // https://github.com/envoyproxy/data-plane-api/blob/11c750628bcaeeeca3f72f89fe5c99921aa727b1/envoy/config/filter/http/jwt_authn/v2alpha/config.proto
+  // If true, the request is allowed if JWT is missing or JWT verification
+  // fails. Default is false, a request without JWT or failed JWT verification
+  // is not allowed.
+  // Note: in current implementation, if token is not there, no rejection (401
+  // code) is sent.
+  bool allow_missing_or_failed = 4;
 }

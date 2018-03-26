@@ -107,6 +107,29 @@ const char kExampleConfig[] = R"(
 }
 )";
 
+// An example JSON config with a good JWT config and allow_missing_or_failed
+// option enabled
+const char kExampleConfigWithJwtAndAllowMissingOrFailed[] = R"(
+{
+   "jwts": [
+      {
+         "issuer": "https://example.com",
+         "audiences": [
+            "example_service",
+            "http://example_service1",
+            "https://example_service2/"
+          ],
+         "jwks_uri": "https://pubkey_server/pubkey_path",
+         "jwks_uri_envoy_cluster": "pubkey_cluster",
+         "public_key_cache_duration": {
+            "seconds": 600
+         }
+      }
+   ],
+  "allow_missing_or_failed": true
+}
+)";
+
 // A JSON config for "other_issuer"
 const char kOtherIssuerConfig[] = R"(
 {
@@ -461,6 +484,34 @@ TEST_F(JwtAuthenticatorTest, TestMissedJWT) {
 
   // Empty headers.
   auto headers = TestHeaderMapImpl{};
+  auth_->Verify(headers, &mock_cb_);
+}
+
+TEST_F(JwtAuthenticatorTest, TestMissingJwtWhenAllowMissingOrFailedIsTrue) {
+  // In this test, when JWT is missing, the status should still be OK
+  // because allow_missing_or_failed is true.
+  SetupConfig(kExampleConfigWithJwtAndAllowMissingOrFailed);
+  EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
+  EXPECT_CALL(mock_cb_, onDone(_)).WillOnce(Invoke([](const Status &status) {
+    ASSERT_EQ(status, Status::OK);
+  }));
+
+  // Empty headers.
+  auto headers = TestHeaderMapImpl{};
+  auth_->Verify(headers, &mock_cb_);
+}
+
+TEST_F(JwtAuthenticatorTest, TestInValidJwtWhenAllowMissingOrFailedIsTrue) {
+  // In this test, when JWT is invalid, the status should still be OK
+  // because allow_missing_or_failed is true.
+  SetupConfig(kExampleConfigWithJwtAndAllowMissingOrFailed);
+  EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
+  EXPECT_CALL(mock_cb_, onDone(_)).WillOnce(Invoke([](const Status &status) {
+    ASSERT_EQ(status, Status::OK);
+  }));
+
+  std::string token = "invalidToken";
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + token}};
   auth_->Verify(headers, &mock_cb_);
 }
 
