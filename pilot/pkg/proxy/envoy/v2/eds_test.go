@@ -26,11 +26,14 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -83,8 +86,19 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 func initMocks() *bootstrap.Server {
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	hostname := "hello.default.svc.cluster.local"
+	svc := mock.MakeService(hostname, "10.1.0.0")
+	// The default service created by istio/test/util does not have a h2 port.
+	// Add a H2 port to test CDS.
+	// TODO: move me to discovery.go in istio/test/util
+	port := &model.Port{
+		Name:                 "h2port",
+		Port:                 6666,
+		Protocol:             model.ProtocolGRPC,
+		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+	}
+	svc.Ports = append(svc.Ports, port)
+	server.MemoryServiceDiscovery.AddService(hostname, svc)
 
 	return server
 }

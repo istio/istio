@@ -25,18 +25,18 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamClustersClient {
+func connectLDS(url string, t *testing.T) xdsapi.ListenerDiscoveryService_StreamListenersClient {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
 	}
 
-	xds := xdsapi.NewClusterDiscoveryServiceClient(conn)
-	cdsstr, err := xds.StreamClusters(context.Background())
+	xds := xdsapi.NewListenerDiscoveryServiceClient(conn)
+	ldsstr, err := xds.StreamListeners(context.Background())
 	if err != nil {
 		t.Fatal("Rpc failed", err)
 	}
-	err = cdsstr.Send(&xdsapi.DiscoveryRequest{
+	err = ldsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: "sidecar~10.1.10.1~b~c",
 		},
@@ -44,24 +44,24 @@ func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamC
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
-	return cdsstr
+	return ldsstr
 }
 
 // Regression for envoy restart and overlapping connections
-func TestCDS(t *testing.T) {
+func TestLDS(t *testing.T) {
 	initMocks()
 
-	cdsr := connectCDS(util.MockPilotGrpcAddr, t)
+	ldsr := connectLDS(util.MockPilotGrpcAddr, t)
 
-	res, err := cdsr.Recv()
+	res, err := ldsr.Recv()
 	if err != nil {
-		t.Fatal("Failed to receive CDS", err)
+		t.Fatal("Failed to receive LDS", err)
 		return
 	}
 
 	strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-	t.Log("CDS response", strResponse)
+	t.Log("LDS response", strResponse)
 	if len(res.Resources) == 0 {
 		t.Fatal("No response")
 	}

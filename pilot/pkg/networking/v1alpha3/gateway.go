@@ -16,24 +16,29 @@ package v1alpha3
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"go.uber.org/zap"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	deprecated "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
-func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
-	configStore model.IstioConfigStore, node model.Proxy) ([]*xdsapi.Listener, error) {
+func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
-	gateways, err := configStore.List(model.Gateway.Type, model.NamespaceAll)
+	mesh := env.Mesh
+	config := env.IstioConfigStore
+
+	gateways, err := config.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
 		return nil, fmt.Errorf("listing gateways: %s", err)
 	}
@@ -56,7 +61,7 @@ func buildGatewayHTTPListeners(mesh *meshconfig.MeshConfig,
 		// TODO: TCP
 
 		// build physical listener
-		physicalListener := buildPhysicalGatewayListener(mesh, node, configStore, server)
+		physicalListener := buildPhysicalGatewayListener(mesh, node, config, server)
 		if physicalListener == nil {
 			continue // TODO: add support for all protocols
 		}
@@ -79,12 +84,11 @@ func buildPhysicalGatewayListener(
 		proxy:            node,
 		proxyInstances:   nil, // only required to support deprecated mixerclient behavior
 		routeConfig:      nil,
-		ip:               v1.WildcardAddress,
+		ip:               WildcardAddress,
 		port:             int(server.Port.Number),
 		rds:              strconv.Itoa(int(server.Port.Number)),
 		useRemoteAddress: true,
 		direction:        http_conn.INGRESS,
-		outboundListener: false,
 		store:            config,
 	}
 
@@ -109,4 +113,69 @@ func buildPhysicalGatewayListener(
 		log.Warnf("Gateway with invalid protocol: %q; %v", server.Port.Protocol, server)
 		return nil
 	}
+}
+
+func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+
+	proxyInstances, err := env.GetProxyServiceInstances(node)
+	if err != nil {
+		return nil, err
+	}
+
+	mesh := env.Mesh
+	config := env.IstioConfigStore
+
+	opts := buildHTTPListenerOpts{
+		mesh:             mesh,
+		proxy:            node,
+		proxyInstances:   proxyInstances,
+		routeConfig:      nil,
+		ip:               WildcardAddress,
+		port:             80,
+		rds:              "80",
+		useRemoteAddress: true,
+		direction:        http_conn.EGRESS,
+		store:            config,
+	}
+
+	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}
+
+	// TODO: SNI
+	// TODO: Get rid of this v1 reference
+	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
+	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
+	_, secret := deprecated.BuildIngressRoutes(mesh, node, proxyInstances, env.ServiceDiscovery, config)
+	if secret != "" {
+		opts.port = 443
+		opts.rds = "443"
+
+		l := buildHTTPListener(opts)
+		// there is going to be only one filter chain
+		// Get the reference, append TLS context
+		filterChain := l.FilterChains[0]
+
+		filterChain.TlsContext = &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				AlpnProtocols: ListenersALPNProtocols,
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: path.Join(model.IngressCertsPath, model.IngressCertFilename),
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: path.Join(model.IngressCertsPath, model.IngressKeyFilename),
+							},
+						},
+					},
+				},
+			},
+		}
+
+		listeners = append(listeners, l)
+	}
+
+	return listeners, nil
 }
