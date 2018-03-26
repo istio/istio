@@ -328,6 +328,10 @@ func (t *testConfig) Setup() (err error) {
 		return fmt.Errorf("mixer never received configuration: %v", err)
 	}
 
+	if err = waitForMixerProxyReadiness(); err != nil {
+		return fmt.Errorf("mixer's proxy never was ready to serve traffic: %v", err)
+	}
+
 	gateway, errGw := tc.Kube.Ingress()
 	if errGw != nil {
 		return errGw
@@ -430,7 +434,7 @@ func waitForMixerConfigResolution() error {
 	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
-		log.Infof("waiting for Mixer to be configured with correct handlers: %v", duration)
+		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)
 		time.Sleep(duration)
 		val, err := metricValue(configQuery)
 		if err == nil && val >= 3.0 {
@@ -439,6 +443,31 @@ func waitForMixerConfigResolution() error {
 		handlers = val
 	}
 	return fmt.Errorf("incorrect number of handlers known in Mixer; got %f, want >= 3.0", handlers)
+}
+
+func waitForMixerProxyReadiness() error {
+	mixerPods, err := podList(tc.Kube.Namespace, "istio=mixer")
+	if err != nil {
+		return fmt.Errorf("could not find Mixer pod: %v", err)
+	}
+
+	for _, duration := range waitDurations {
+		log.Infof("Waiting for Mixer's proxy to be ready to dispatch traffic: %v", duration)
+		time.Sleep(duration)
+
+		for _, pod := range mixerPods {
+			logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c istio-proxy", pod, tc.Kube.Namespace))
+			if err != nil {
+				log.Infof("Failure retrieving logs for pod %s (container: istio-proxy): %v", pod, err)
+				continue
+			}
+			if strings.Contains(logs, "starting main dispatch loop") {
+				log.Infof("Envoy started main dispatch loop.")
+				return nil
+			}
+		}
+	}
+	return errors.New("proxy for mixer never started main dispatch loop")
 }
 
 func waitForMetricsInPrometheus(t *testing.T) error {
