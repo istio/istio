@@ -195,13 +195,13 @@ func TestEds(t *testing.T) {
 	initEnvoyTestEnv(t)
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
+		mock.MakeService("hello2.default.svc.cluster.local", "10.12.0.0"))
 
 	// Verify services are set
 	srv, err := server.ServiceController.Services()
 	if err != nil {
-		t.Fatal("Starting pilot", err)
+		t.Fatal("Listing services", err)
 	}
 	log.Println(srv)
 

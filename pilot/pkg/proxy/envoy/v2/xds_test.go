@@ -39,6 +39,7 @@ var (
 	testEnv     *testenv.TestSetup
 	pilotServer *bootstrap.Server
 	initMutex   sync.Mutex
+	initEnvoyMutex   sync.Mutex
 
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
@@ -58,8 +59,8 @@ var (
 // Common test environment, including Mixer and Envoy. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
 func initEnvoyTestEnv(t *testing.T) {
-	initMutex.Lock()
-	defer initMutex.Unlock()
+	initEnvoyMutex.Lock()
+	defer initEnvoyMutex.Unlock()
 
 	if testEnv != nil {
 		return
