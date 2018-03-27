@@ -561,99 +561,29 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case serviceregistry.MockRegistry:
-			initMemoryRegistry(s, serviceControllers)
+			s.initMockRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+			if err := s.initKubernetesRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-				// Wrap the config controller with a cache.
-				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-					s.configController,
-					ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
-				})
-				if err != nil {
-					return err
-				}
-
-				// Update the config controller
-				s.configController = configController
-
-				if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
-					args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-					log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
-				} else {
-					s.addStartFunc(func(stop chan struct{}) error {
-						go ingressSyncer.Run(stop)
-						return nil
-					})
-				}
-			}
 		case serviceregistry.ConsulRegistry:
-			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
-			conctl, conerr := consul.NewController(
-				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
-			if conerr != nil {
-				return fmt.Errorf("failed to create Consul controller: %v", conerr)
+			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
+				return err
 			}
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceRegistry,
-					ServiceDiscovery: conctl,
-					ServiceAccounts:  conctl,
-					Controller:       conctl,
-				})
 		case serviceregistry.EurekaRegistry:
-			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
-			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceRegistry,
-					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
-					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
-					ServiceAccounts:  eureka.NewServiceAccounts(),
-				})
-
+			if err := s.initEurekaRegistry(serviceControllers, args); err != nil {
+				return err
+			}
 		case serviceregistry.CloudFoundryRegistry:
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
+			if err := s.initCloudFoundryRegistry(serviceControllers, args); err != nil {
+				return err
 			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceRegistry,
-				Controller: &cloudfoundry.Controller{
-					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-					Client: client,
-				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					Client:      client,
-					ServicePort: cfConfig.ServicePort,
-				},
-				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
-			})
-
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
-	configStore := model.MakeIstioStore(s.configController)
 
-	// add external service registry to aggregator by default
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             "ExternalServices",
-			Controller:       external.NewController(s.configController),
-			ServiceDiscovery: external.NewServiceDiscovery(configStore),
-			ServiceAccounts:  external.NewServiceAccounts(),
-		})
+	s.initExternalRegistry(serviceControllers)
 
 	s.ServiceController = serviceControllers
 
@@ -665,7 +595,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 	return nil
 }
-func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
+
+func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
@@ -694,6 +625,107 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	}
 	serviceControllers.AddRegistry(registry1)
 	serviceControllers.AddRegistry(registry2)
+}
+
+func (s *Server) initKubernetesRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+		return err
+	}
+	if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		// Wrap the config controller with a cache.
+		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+			s.configController,
+			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
+		})
+		if err != nil {
+			return err
+		}
+
+		// Update the config controller
+		s.configController = configController
+
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		} else {
+			s.addStartFunc(func(stop chan struct{}) error {
+				go ingressSyncer.Run(stop)
+				return nil
+			})
+		}
+	}
+	return nil
+}
+
+func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
+	conctl, conerr := consul.NewController(
+		args.Service.Consul.ServerURL, args.Service.Consul.Interval)
+	if conerr != nil {
+		return fmt.Errorf("failed to create Consul controller: %v", conerr)
+	}
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.ConsulRegistry,
+			ServiceDiscovery: conctl,
+			ServiceAccounts:  conctl,
+			Controller:       conctl,
+		})
+	return nil
+}
+
+func (s *Server) initEurekaRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
+	eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.EurekaRegistry,
+			Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
+			ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
+			ServiceAccounts:  eureka.NewServiceAccounts(),
+		})
+	return nil
+}
+
+func (s *Server) initCloudFoundryRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+	if err != nil {
+		return multierror.Prefix(err, "loading cloud foundry config")
+	}
+	tlsConfig, err := cfConfig.ClientTLSConfig()
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client tls config")
+	}
+	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client")
+	}
+	serviceControllers.AddRegistry(aggregate.Registry{
+		Name: serviceregistry.CloudFoundryRegistry,
+		Controller: &cloudfoundry.Controller{
+			Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+			Client: client,
+		},
+		ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
+			Client:      client,
+			ServicePort: cfConfig.ServicePort,
+		},
+		ServiceAccounts: cloudfoundry.NewServiceAccounts(),
+	})
+	return nil
+}
+
+func (s *Server) initExternalRegistry(serviceControllers *aggregate.Controller) {
+	configStore := model.MakeIstioStore(s.configController)
+
+	// add external service registry to aggregator by default
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             "ExternalServices",
+			Controller:       external.NewController(s.configController),
+			ServiceDiscovery: external.NewServiceDiscovery(configStore),
+			ServiceAccounts:  external.NewServiceAccounts(),
+		})
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
