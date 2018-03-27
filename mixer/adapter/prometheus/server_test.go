@@ -19,30 +19,23 @@ import (
 	"net/http"
 	"testing"
 
+	"strings"
+
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func doesNothing(http.ResponseWriter, *http.Request) {}
 
 func TestServer(t *testing.T) {
-	testAddr := "127.0.0.1:9992"
+	testAddr := "127.0.0.1:0"
 	s := newServer(testAddr)
 
 	if err := s.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 
-	s3 := newServer(testAddr)
-
-	if err := s3.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err != nil {
-		t.Fatalf("Start() failed unexpectedly: %v", err)
-	}
-
-	if s.Port() != 9992 {
-		t.Fatalf("got Port()='%d'; want %d", s.Port(), 9992)
-	}
-
-	testURL := fmt.Sprintf("http://%s%s", testAddr, metricsPath)
+	updatedAddr := strings.Replace(testAddr, ":0", fmt.Sprintf(":%d", s.Port()), 1)
+	testURL := fmt.Sprintf("http://%s%s", updatedAddr, metricsPath)
 	// verify a response is returned from "/metrics"
 	resp, err := http.Get(testURL)
 	if err != nil {
@@ -55,7 +48,7 @@ func TestServer(t *testing.T) {
 
 	_ = resp.Body.Close()
 
-	s2 := newServer(testAddr)
+	s2 := newServer(updatedAddr)
 	if err := s2.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err == nil {
 		t.Fatal("Start() succeeded, expecting a failure")
 	}
