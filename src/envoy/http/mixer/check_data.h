@@ -19,6 +19,7 @@
 #include "common/http/utility.h"
 #include "envoy/http/header_map.h"
 #include "include/istio/control/http/controller.h"
+#include "src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -55,6 +56,8 @@ class CheckData : public ::istio::control::http::CheckData,
 
   bool GetJWTPayload(
       std::map<std::string, std::string>* payload) const override;
+
+  bool GetAuthenticationResult(istio::authn::Result* result) const override;
 
   static const LowerCaseString& IstioAttributeHeader();
 

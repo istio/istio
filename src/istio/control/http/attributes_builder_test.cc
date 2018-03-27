@@ -288,6 +288,8 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
             }
             return false;
           }));
+  EXPECT_CALL(mock_data, GetAuthenticationResult(_))
+      .WillOnce(testing::Return(false));
   EXPECT_CALL(mock_data, GetJWTPayload(_))
       .WillOnce(Invoke([](std::map<std::string, std::string> *payload) -> bool {
         (*payload)["iss"] = "thisisiss";
@@ -297,6 +299,70 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         (*payload)["email"] = "thisisemail@email.com";
         (*payload)["iat"] = "1512754205";
         (*payload)["exp"] = "5112754205";
+        return true;
+      }));
+
+  RequestContext request;
+  AttributesBuilder builder(&request);
+  builder.ExtractCheckAttributes(&mock_data);
+
+  ClearContextTime(AttributeName::kRequestTime, &request);
+
+  std::string out_str;
+  TextFormat::PrintToString(request.attributes, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  Attributes expected_attributes;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(kCheckAttributes, &expected_attributes));
+  EXPECT_TRUE(
+      MessageDifferencer::Equals(request.attributes, expected_attributes));
+}
+
+TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
+  ::testing::NiceMock<MockCheckData> mock_data;
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
+  EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
+    return true;
+  }));
+  EXPECT_CALL(mock_data, GetRequestHeaders())
+      .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
+        std::map<std::string, std::string> map;
+        map["path"] = "/books";
+        map["host"] = "localhost";
+        return map;
+      }));
+  EXPECT_CALL(mock_data, FindHeaderByType(_, _))
+      .WillRepeatedly(Invoke(
+          [](CheckData::HeaderType header_type, std::string *value) -> bool {
+            if (header_type == CheckData::HEADER_PATH) {
+              *value = "/books";
+              return true;
+            } else if (header_type == CheckData::HEADER_HOST) {
+              *value = "localhost";
+              return true;
+            }
+            return false;
+          }));
+  EXPECT_CALL(mock_data, GetAuthenticationResult(_))
+      .WillOnce(Invoke([](istio::authn::Result *result) -> bool {
+        result->set_principal("thisisiss/thisissub");
+        result->set_peer_user("test_user");
+        result->mutable_origin()->add_audiences("thisisaud");
+        result->mutable_origin()->set_presenter("thisisazp");
+        (*result->mutable_origin()->mutable_claims())["iss"] = "thisisiss";
+        (*result->mutable_origin()->mutable_claims())["sub"] = "thisissub";
+        (*result->mutable_origin()->mutable_claims())["aud"] = "thisisaud";
+        (*result->mutable_origin()->mutable_claims())["azp"] = "thisisazp";
+        (*result->mutable_origin()->mutable_claims())["email"] =
+            "thisisemail@email.com";
+        (*result->mutable_origin()->mutable_claims())["iat"] = "1512754205";
+        (*result->mutable_origin()->mutable_claims())["exp"] = "5112754205";
         return true;
       }));
 

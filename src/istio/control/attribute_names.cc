@@ -71,6 +71,7 @@ const char AttributeName::kQuotaCacheHit[] = "quota.cache_hit";
 
 // Authentication attributes
 const char AttributeName::kRequestAuthPrincipal[] = "request.auth.principal";
+const char AttributeName::kRequestAuthUser[] = "request.auth.user";
 const char AttributeName::kRequestAuthAudiences[] = "request.auth.audiences";
 const char AttributeName::kRequestAuthPresenter[] = "request.auth.presenter";
 const char AttributeName::kRequestAuthClaims[] = "request.auth.claims";

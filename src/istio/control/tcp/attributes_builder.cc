@@ -32,6 +32,8 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
     builder.AddInt64(AttributeName::kSourcePort, source_port);
   }
 
+  // TODO(diemtvu): add TCP authn filter similar to http case, and use authn
+  // result output here instead.
   std::string source_user;
   if (check_data->GetSourceUser(&source_user)) {
     builder.AddString(AttributeName::kSourceUser, source_user);

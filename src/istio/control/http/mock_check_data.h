@@ -41,6 +41,8 @@ class MockCheckData : public CheckData {
                      bool(const std::string &name, std::string *value));
   MOCK_CONST_METHOD1(GetJWTPayload,
                      bool(std::map<std::string, std::string> *payload));
+  MOCK_CONST_METHOD1(GetAuthenticationResult,
+                     bool(istio::authn::Result *result));
   MOCK_CONST_METHOD0(IsMutualTLS, bool());
 };
 

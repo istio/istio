@@ -22,6 +22,22 @@ load(
 )
 
 envoy_cc_library(
+    name = "authn_lib",
+    srcs = [
+        "authn.cc",
+    ],
+    hdrs = [
+        "authn.h",
+    ],
+    repository = "@envoy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/istio/authn:context_proto",
+        "@envoy//source/exe:envoy_common_lib",
+    ],
+)
+
+envoy_cc_library(
     name = "utils_lib",
     srcs = [
         "config.cc",
@@ -43,6 +59,18 @@ envoy_cc_library(
         "//external:mixer_client_config_cc_proto",
         "//src/istio/mixerclient:mixerclient_lib",
         "@envoy//source/exe:envoy_common_lib",
+    ],
+)
+
+envoy_cc_test(
+    name = "authn_test",
+    srcs = [
+        "authn_test.cc",
+    ],
+    repository = "@envoy",
+    deps = [
+        ":authn_lib",
+        "@envoy//test/test_common:utility_lib",
     ],
 )
 

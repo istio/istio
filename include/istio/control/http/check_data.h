@@ -19,6 +19,8 @@
 #include <map>
 #include <string>
 
+#include "src/istio/authn/context.pb.h"
+
 namespace istio {
 namespace control {
 namespace http {
@@ -79,6 +81,10 @@ class CheckData {
   // string map, and return true. Otherwise return false.
   virtual bool GetJWTPayload(
       std::map<std::string, std::string> *payload) const = 0;
+
+  // If the request has authentication result in header, parses data into the
+  // output result; returns true if success. Otherwise, returns false.
+  virtual bool GetAuthenticationResult(istio::authn::Result *result) const = 0;
 };
 
 // An interfact to update request HTTP headers with Istio attributes.

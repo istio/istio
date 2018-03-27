@@ -32,6 +32,7 @@ cc_library(
     deps = [
         "//include/istio/control/http:headers_lib",
         "//src/istio/api_spec:api_spec_lib",
+        "//src/istio/authn:context_proto",
         "//src/istio/control:common_lib",
         "//src/istio/utils:utils_lib",
     ],

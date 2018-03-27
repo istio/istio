@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 #include "src/envoy/http/authn/authenticator_base.h"
 #include "src/envoy/http/authn/test_utils.h"
+#include "src/envoy/utils/authn.h"
 #include "test/mocks/http/mocks.h"
 #include "test/test_common/utility.h"
 
@@ -119,8 +120,7 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
-  EXPECT_FALSE(
-      request_headers_.has(AuthenticationFilter::kOutputHeaderLocation));
+  EXPECT_FALSE(Utils::Authentication::HasResultInHeader(request_headers_));
 }
 
 TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
@@ -139,8 +139,7 @@ TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
-  EXPECT_FALSE(
-      request_headers_.has(AuthenticationFilter::kOutputHeaderLocation));
+  EXPECT_FALSE(Utils::Authentication::HasResultInHeader(request_headers_));
 }
 
 TEST_F(AuthenticationFilterTest, AllPass) {
@@ -153,8 +152,8 @@ TEST_F(AuthenticationFilterTest, AllPass) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
             filter_.decodeHeaders(request_headers_, true));
   Result authn;
-  EXPECT_TRUE(authn.ParseFromString(Base64::decode(
-      request_headers_.get_(AuthenticationFilter::kOutputHeaderLocation))));
+  EXPECT_TRUE(
+      Utils::Authentication::FetchResultFromHeader(request_headers_, &authn));
   EXPECT_TRUE(TestUtility::protoEqual(
       TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"), authn));
 }

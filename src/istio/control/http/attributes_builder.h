@@ -44,8 +44,13 @@ class AttributesBuilder {
  private:
   // Extract HTTP header attributes
   void ExtractRequestHeaderAttributes(CheckData* check_data);
-  // Extract authentication attributes for Check call.
-  void ExtractRequestAuthAttributes(CheckData* check_data);
+  // Extract authentication attributes for Check call. Going forward, this
+  // function will use authentication result (from authn filter), which will set
+  // all authenticated attributes (including source_user, request.auth.*).
+  // During the transition (i.e authn filter is not added to sidecar), this
+  // function will also look up the (jwt) payload when authentication result is
+  // not available.
+  void ExtractAuthAttributes(CheckData* check_data);
 
   // The request context object.
   RequestContext* request_;

@@ -17,6 +17,7 @@
 #include "common/common/base64.h"
 #include "src/envoy/http/jwt_auth/jwt.h"
 #include "src/envoy/http/jwt_auth/jwt_authenticator.h"
+#include "src/envoy/utils/authn.h"
 #include "src/envoy/utils/utils.h"
 
 using HttpCheckData = ::istio::control::http::CheckData;
@@ -189,6 +190,10 @@ bool CheckData::GetJWTPayload(
     return false;
   }
   return true;
+}
+
+bool CheckData::GetAuthenticationResult(istio::authn::Result* result) const {
+  return Utils::Authentication::FetchResultFromHeader(headers_, result);
 }
 
 }  // namespace Mixer

@@ -20,6 +20,7 @@
 #include <map>
 #include <string>
 
+#include "google/protobuf/map.h"
 #include "mixer/v1/attributes.pb.h"
 
 namespace istio {
@@ -77,6 +78,21 @@ class AttributesBuilder {
   void AddStringMap(const std::string& key,
                     const std::map<std::string, std::string>& string_map) {
     if (string_map.size() == 0) {
+      return;
+    }
+    auto entries = (*attributes_->mutable_attributes())[key]
+                       .mutable_string_map_value()
+                       ->mutable_entries();
+    entries->clear();
+    for (const auto& map_it : string_map) {
+      (*entries)[map_it.first] = map_it.second;
+    }
+  }
+
+  void AddProtobufStringMap(
+      const std::string& key,
+      const google::protobuf::Map<std::string, ::std::string>& string_map) {
+    if (string_map.empty()) {
       return;
     }
     auto entries = (*attributes_->mutable_attributes())[key]

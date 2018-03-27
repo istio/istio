@@ -62,6 +62,7 @@ envoy_cc_library(
     deps = [
         ":authenticator",
         "//external:authentication_policy_config_cc_proto",
+        "//src/envoy/utils:authn_lib",
         "//src/envoy/utils:utils_lib",
         "//src/istio/authn:context_proto",
         "@envoy//source/exe:envoy_common_lib",

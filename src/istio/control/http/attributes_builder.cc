@@ -17,6 +17,7 @@
 
 #include "include/istio/utils/attributes_builder.h"
 #include "include/istio/utils/status.h"
+#include "src/istio/authn/context.pb.h"
 #include "src/istio/control/attribute_names.h"
 
 using ::istio::mixer::v1::Attributes;
@@ -57,11 +58,47 @@ void AttributesBuilder::ExtractRequestHeaderAttributes(CheckData *check_data) {
   }
 }
 
-void AttributesBuilder::ExtractRequestAuthAttributes(CheckData *check_data) {
+void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
+  istio::authn::Result authn_result;
+  if (check_data->GetAuthenticationResult(&authn_result)) {
+    utils::AttributesBuilder builder(&request_->attributes);
+    if (!authn_result.principal().empty()) {
+      builder.AddString(AttributeName::kRequestAuthPrincipal,
+                        authn_result.principal());
+    }
+    if (!authn_result.peer_user().empty()) {
+      builder.AddString(AttributeName::kSourceUser, authn_result.peer_user());
+    }
+    if (authn_result.has_origin()) {
+      const auto &origin = authn_result.origin();
+      if (!origin.user().empty()) {
+        builder.AddString(AttributeName::kRequestAuthUser, origin.user());
+      }
+      if (!origin.audiences().empty()) {
+        // TODO(diemtvu): this should be send as repeated field once mixer
+        // support string_list (https://github.com/istio/istio/issues/2802) For
+        // now, just use the first value.
+        builder.AddString(AttributeName::kRequestAuthAudiences,
+                          origin.audiences(0));
+      }
+      if (!origin.presenter().empty()) {
+        builder.AddString(AttributeName::kRequestAuthPresenter,
+                          origin.presenter());
+      }
+      if (!origin.claims().empty()) {
+        builder.AddProtobufStringMap(AttributeName::kRequestAuthClaims,
+                                     origin.claims());
+      }
+    }
+    return;
+  }
+
+  // Fallback to extract from jwt filter directly. This can be removed once
+  // authn filter is in place.
   std::map<std::string, std::string> payload;
+  utils::AttributesBuilder builder(&request_->attributes);
   if (check_data->GetJWTPayload(&payload) && !payload.empty()) {
     // Populate auth attributes.
-    utils::AttributesBuilder builder(&request_->attributes);
     if (payload.count("iss") > 0 && payload.count("sub") > 0) {
       builder.AddString(AttributeName::kRequestAuthPrincipal,
                         payload["iss"] + "/" + payload["sub"]);
@@ -74,7 +111,11 @@ void AttributesBuilder::ExtractRequestAuthAttributes(CheckData *check_data) {
     }
     builder.AddStringMap(AttributeName::kRequestAuthClaims, payload);
   }
-}
+  std::string source_user;
+  if (check_data->GetSourceUser(&source_user)) {
+    builder.AddString(AttributeName::kSourceUser, source_user);
+  }
+}  // namespace http
 
 void AttributesBuilder::ExtractForwardedAttributes(CheckData *check_data) {
   std::string forwarded_data;
@@ -90,7 +131,7 @@ void AttributesBuilder::ExtractForwardedAttributes(CheckData *check_data) {
 
 void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
   ExtractRequestHeaderAttributes(check_data);
-  ExtractRequestAuthAttributes(check_data);
+  ExtractAuthAttributes(check_data);
 
   utils::AttributesBuilder builder(&request_->attributes);
 
@@ -102,10 +143,6 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
   }
   builder.AddBool(AttributeName::kConnectionMtls, check_data->IsMutualTLS());
 
-  std::string source_user;
-  if (check_data->GetSourceUser(&source_user)) {
-    builder.AddString(AttributeName::kSourceUser, source_user);
-  }
   builder.AddTimestamp(AttributeName::kRequestTime,
                        std::chrono::system_clock::now());
   builder.AddString(AttributeName::kContextProtocol, "http");

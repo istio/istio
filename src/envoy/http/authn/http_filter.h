@@ -43,9 +43,6 @@ class AuthenticationFilter : public StreamDecoderFilter,
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override;
 
-  // The HTTP header to pass verified authentication payload.
-  static const LowerCaseString kOutputHeaderLocation;
-
  protected:
   // Callback for peer authenticator.
   void onPeerAuthenticationDone(bool success);
