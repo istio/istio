@@ -61,7 +61,7 @@ type DiscoveryServer struct {
 	Connections map[string]*EdsConnection
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry      *MemServiceDiscovery
+	MemRegistry *MemServiceDiscovery
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

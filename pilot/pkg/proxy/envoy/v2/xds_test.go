@@ -36,10 +36,10 @@ import (
 
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
-	testEnv     *testenv.TestSetup
-	pilotServer *bootstrap.Server
-	initMutex   sync.Mutex
-	initEnvoyMutex   sync.Mutex
+	testEnv        *testenv.TestSetup
+	pilotServer    *bootstrap.Server
+	initMutex      sync.Mutex
+	initEnvoyMutex sync.Mutex
 
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
