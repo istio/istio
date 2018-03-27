@@ -32,6 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
+	"encoding/json"
+	"net/http"
 )
 
 var (
@@ -185,24 +187,60 @@ func TestEnvoy(t *testing.T) {
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
-	stats, err := testEnv.WaitForStatsUpdateAndGetStats(1)
+	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", testEnv.Ports().AdminPort)
+	res, err := http.Get(statsURL)
 	if err != nil {
-		t.Fatal("Envoy not started")
+		t.Fatal("Failed to get stats, envoy not started")
 	}
-	t.Log("Envoy stats: ", stats)
-	//url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
+	statsBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal("Failed to get stats, envoy not started")
+	}
+
+	statsMap := stats2map(statsBytes)
+
+	if statsMap["cluster_manager.cds.update_success"] < 1 {
+		t.Error("Failed cds update")
+	}
+	// Other interesting values for CDS: cluster_added: 19, active_clusters
+	// cds.update_attempt: 2, cds.update_rejected, cds.version
+
+	if statsMap["cluster.outbound|custom||service3.default.svc.cluster.local.update_success"] < 1 {
+		t.Error("Failed sds updates")
+	}
+
+	if statsMap["cluster.xds-grpc.update_failure"] > 0 {
+		t.Error("GRPC update failure")
+	}
+
+	// Failing currently
+	//if statsMap["listener_manager.lds.update_rejected"] > 0 {
+	//	t.Error("LDS update failure")
+	//}
+	//if statsMap["listener_manager.lds.update_success"] < 1 {
+	//	t.Error("LDS update failure")
+	//}
 
 }
 
-//func stats(stats string) map[string]int {
-//	s := struct{
-//		Stats []struct{
-//			Name string,
-//			Value int,
-//		}
-//	}
-//	json.Unmarshal([]byte(stats), &s)
-//}
+// EnvoyStat is used to parse envoy stats
+type EnvoyStat struct {
+	Name string `json:"name"`
+	Value int `json:"value"`
+}
+
+// stats2map parses envoy stats.
+func stats2map(stats []byte) map[string]int {
+	s := struct{
+		Stats []EnvoyStat `json:"stats"`
+	}{}
+	_ = json.Unmarshal(stats, &s)
+	m := map[string]int{}
+	for _, stat := range s.Stats {
+		m[stat.Name] = stat.Value
+	}
+	return m
+}
 
 func TestMain(m *testing.M) {
 	flag.Parse()
