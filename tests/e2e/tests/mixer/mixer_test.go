@@ -138,11 +138,13 @@ func copyFile(src string, dest string) error {
 		log.Errorf("Failed to read original rule file %s", src)
 		return err
 	}
+
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
 		log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
 		return err
 	}
+
 	err = ioutil.WriteFile(dest, srcBytes, 0600)
 	if err != nil {
 		log.Errorf("Failed to write into new rule file %s", dest)
@@ -1111,6 +1113,25 @@ func doEgressRule(do kubeDo) error {
 func getBookinfoResourcePath(resource string) string {
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
 		resource+"."+yamlExtension))
+}
+
+func applyEgressRule() error {
+	return doEgressRule(util.KubeApplyContents)
+}
+
+func deleteEgressRule() error {
+	return doEgressRule(util.KubeDeleteContents)
+}
+
+func doEgressRule(do kubeDo) error {
+	rule := filepath.Join(tc.rulesDir, egressRuleHttpbin)
+	cb, err := ioutil.ReadFile(rule)
+	if err != nil {
+		log.Errorf("cannot read original yaml file %s", rule)
+		return err
+	}
+	contents := string(cb)
+	return do(tc.Kube.Namespace, contents)
 }
 
 func setTestConfig() error {
