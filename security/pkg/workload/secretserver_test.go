@@ -85,9 +85,7 @@ func setupTempDir(t *testing.T) (string, func()) {
 }
 
 func TestNewSecretServer_SecretFile(t *testing.T) {
-	path, cleanup := setupTempDir(t)
-	defer cleanup()
-	ss, err := NewSecretServer(&Config{Mode: SecretFile, SecretDirectory: path})
+	ss, err := NewSecretServer(&Config{Mode: SecretDiscoveryServiceAPI})
 	if err != nil {
 		t.Errorf("server error")
 	}
