@@ -355,6 +355,20 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	return false
 }
 
+// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// collection
+func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	for _, label := range labels {
+		if that.SubsetOf(label) {
+			return true
+		}
+	}
+	return false
+}
+
 // Match returns true if port matches with authentication port selector criteria.
 func (port Port) Match(portSelector *authn.PortSelector) bool {
 	if portSelector == nil {
