@@ -330,7 +330,7 @@ func (k *KubeInfo) deployIstio() error {
 	}
 
 	if err := util.CreateNamespace(k.Namespace); err != nil {
-		log.Errorf("Unable to create namespace %s", k.Namespace)
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
 		return err
 	}
 
