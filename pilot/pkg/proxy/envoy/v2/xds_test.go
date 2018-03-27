@@ -24,6 +24,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"fmt"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -70,6 +72,14 @@ func initTest(t *testing.T) {
 	}
 }
 
+func sidecarId(ip, deployment string) string {
+	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
+}
+
+func ingressId() string {
+	return fmt.Sprintf("ingress~~istio-ingress-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local")
+}
+
 func initMocks() *bootstrap.Server {
 	server := util.EnsureTestServer()
 
@@ -87,10 +97,65 @@ func initMocks() *bootstrap.Server {
 	svc.Ports = append(svc.Ports, port)
 	server.MemoryServiceDiscovery.AddService(hostname, svc)
 
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
+	// but easier to read.
+	server.EnvoyXdsServer.MemRegistry.AddService("service3", &model.Service{
+		Hostname: "service3.default.svc.cluster.local",
+		Address:  "10.1.0.1",
+		Ports:    testPorts(1000),
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "10.2.0.1",
+			Port:    2080,
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 1080,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"version": "1"},
+		AvailabilityZone: "az",
+	})
 
 	return server
+}
+
+func testPorts(base int) []*model.Port {
+	return []*model.Port{
+		{
+			Name:                 "http-main",
+			Port:                 base + 80,
+			Protocol:             model.ProtocolHTTP,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		}, {
+			Name:                 "http-status",
+			Port:                 base + 81,
+			Protocol:             model.ProtocolHTTP,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		}, {
+			Name:                 "custom",
+			Port:                 base + 90,
+			Protocol:             model.ProtocolTCP,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		}, {
+			Name:                 "mongo",
+			Port:                 base + 100,
+			Protocol:             model.ProtocolMongo,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		},
+		{
+			Name:                 "redis",
+			Port:                 base + 110,
+			Protocol:             model.ProtocolRedis,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		}, {
+			Name:                 "h2port",
+			Port:                 base + 66,
+			Protocol:             model.ProtocolGRPC,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		}}
 }
 
 func TestMain(m *testing.M) {

@@ -471,6 +471,12 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
+	if rds == nil {
+		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{
+			RouteConfig: opts.routeConfig,
+		}
+	}
+
 	if opts.mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
 			Path: opts.mesh.AccessLogFile,

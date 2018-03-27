@@ -60,8 +60,8 @@ type DiscoveryServer struct {
 
 	Connections map[string]*EdsConnection
 
-	// memRegistry is used for debug and load testing, allow adding services
-	memRegistry      *MemServiceDiscovery
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemRegistry      *MemServiceDiscovery
 	memSvcController *memServiceController
 }
 
