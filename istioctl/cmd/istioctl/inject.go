@@ -150,7 +150,6 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 # injected configuration from kubernetes configmap 'istio-inject'
 istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
-		PersistentPreRun: getRealKubeConfig,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			switch {
 			case inFilename != "" && emitTemplate:
