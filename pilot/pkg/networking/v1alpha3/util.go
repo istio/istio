@@ -101,18 +101,6 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
-func lastElement(arr []string) string {
-	return arr[len(arr)-1]
-}
-
-func reverseString(s string) string {
-	r := []rune(s)
-	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
-	return string(r)
-}
-
 func messageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
 	if err != nil {

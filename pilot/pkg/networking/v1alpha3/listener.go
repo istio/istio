@@ -43,6 +43,8 @@ import (
 const (
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
+	// HttpStatPrefix indicates envoy stat prefix for http listeners
+	HttpStatPrefix = "http"
 )
 
 const (
@@ -469,7 +471,17 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	}
 
-	var connectionManager *http_conn.HttpConnectionManager
+	connectionManager := &http_conn.HttpConnectionManager{
+		CodecType: http_conn.AUTO,
+		AccessLog: []*accesslog.AccessLog{
+			{
+				Config: nil,
+			},
+		},
+		HttpFilters:      filters,
+		StatPrefix:       HttpStatPrefix,
+		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+	}
 
 	if opts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
@@ -486,32 +498,9 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		}
-		connectionManager = &http_conn.HttpConnectionManager{
-			CodecType: http_conn.AUTO,
-			AccessLog: []*accesslog.AccessLog{
-				{
-					Config: nil,
-				},
-			},
-			HttpFilters:      filters,
-			StatPrefix:       "http",
-			RouteSpecifier:   rds,
-			UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
-		}
-
+		connectionManager.RouteSpecifier = rds
 	} else {
-		connectionManager = &http_conn.HttpConnectionManager{
-			CodecType: http_conn.AUTO,
-			AccessLog: []*accesslog.AccessLog{
-				{
-					Config: nil,
-				},
-			},
-			HttpFilters:      filters,
-			StatPrefix:       "http",
-			RouteSpecifier:   &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig},
-			UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
-		}
+		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig}
 	}
 
 	if mesh.AccessLogFile != "" {
@@ -673,7 +662,7 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 		}
 
 		for _, svc := range guardedHost.Services {
-			domains := generateAltVirtualHosts(svc, guardedHost.Port)
+			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port)
 			if len(svc.Address) > 0 {
 				// add a vhost match for the IP (if its non CIDR)
 				cidr := convertAddressToCidr(svc.Address)
@@ -714,22 +703,15 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 // For example, a service of the form foo.local.campus.net on port 80 could be accessed as
 // http://foo:80 within the .local network, as http://foo.local:80 (by other clients in the campus.net domain),
 // as http://foo.local.campus:80, etc.
-// The logic of this function is as follows:
-// given a DNS name, it reverses it, and splits the string in K different ways (where K= 0 to num dots in name)
-// the last element of the K-way string split is the hostname that we need.
-// for example, reviews.default.svc.local yields local.svc.default.reviews (omitting char reversal)
-// which when split in 2 ways yields local, svc.default.reviews
-// when split in 3 ways yields, local.svc, default.reviews, and so on.
-// Take the last element and reverse the string again to get the correct host (e.g, reviews.default.svc)
-func generateAltVirtualHosts(svc *model.Service, port int) []string {
-	dots := len(strings.Split(svc.Hostname, "."))
-	vhosts := make([]string, 0)
-	nameToSplit := reverseString(svc.Hostname)
-	for i := 1; i <= dots; i++ {
-		variant := reverseString(lastElement(strings.SplitN(nameToSplit, ".", i)))
-		variantWithPort := fmt.Sprintf("%s:%d", variant, port)
-		vhosts = append(vhosts, variant)
-		vhosts = append(vhosts, variantWithPort)
+func generateAltVirtualHosts(hostname string, port int) []string {
+	vhosts := []string{hostname, fmt.Sprintf("%s:%d", hostname, port)}
+	for i := len(hostname) - 1; i >= 0; i-- {
+		if hostname[i] == '.' {
+			variant := hostname[:i]
+			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+			vhosts = append(vhosts, variant)
+			vhosts = append(vhosts, variantWithPort)
+		}
 	}
 	return vhosts
 }
