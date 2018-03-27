@@ -97,6 +97,11 @@ sidecar-injector:
   # be allowed by the sidecar
   includeIPRanges: {}
 
+  # Base64-encoded CA Bundle 
+  # The default cA bundle can be retrieved for a given cluster with the following command
+  # `kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'`
+  CA: "${CA_BUNDLE}"
+
 #
 # mixer configuration
 #

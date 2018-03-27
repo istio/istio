@@ -1,4 +1,4 @@
-{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1" -}}
+{{- if or (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1beta1") (not .Release.IsInstall) -}}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -16,7 +16,7 @@ webhooks:
         name: {{ .Release.Name }}-sidecar-injector
         namespace: {{ .Release.Namespace }}
         path: "/inject"
-      caBundle: ${CA_BUNDLE}
+      caBundle: {{ $.Values.CA | quote }}
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
