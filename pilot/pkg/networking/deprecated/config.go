@@ -497,7 +497,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := v1.BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, true, buildCluster)
+			httpRoutes := v1.BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, buildCluster)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,

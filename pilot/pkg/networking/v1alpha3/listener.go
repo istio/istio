@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -32,12 +35,8 @@ import (
 	// for logging
 	_ "github.com/golang/glog"
 
-	"time"
-
 	authn "istio.io/api/authentication/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -84,6 +83,9 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
+	mesh := env.Mesh
+	managementPorts := env.ManagementPorts(node.IPAddress)
+
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		return nil, err
@@ -93,9 +95,6 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	if err != nil {
 		return nil, err
 	}
-
-	mesh := env.Mesh
-	managementPorts := env.ManagementPorts(node.IPAddress)
 
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
@@ -165,14 +164,14 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 			listenAddress = WildcardAddress
 		}
 
-		listeners = append(listeners, buildDeprecatedHTTPListener(buildHTTPListenerOpts{
-			env:              env,
-			proxy:            node,
-			proxyInstances:   proxyInstances,
-			routeConfig:      nil,
-			ip:               listenAddress,
-			port:             int(mesh.ProxyHttpPort),
-			rds:              RDSHttpProxy,
+		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
+			env:            env,
+			proxy:          node,
+			proxyInstances: proxyInstances,
+			routeConfig:    buildRDSResponse(env, node, services, RDSHttpProxy),
+			ip:             listenAddress,
+			port:           int(mesh.ProxyHttpPort),
+			//rds:              RDSHttpProxy,
 			useRemoteAddress: useRemoteAddress,
 			direction:        traceOperation,
 			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
@@ -312,13 +311,15 @@ func buildOutboundListeners(env model.Environment, node model.Proxy,
 					operation = http_conn.INGRESS
 				}
 
-				httpListeners = append(httpListeners, buildDeprecatedHTTPListener(buildHTTPListenerOpts{
-					env:              env,
-					proxy:            node,
-					proxyInstances:   proxyInstances,
-					ip:               WildcardAddress,
-					port:             servicePort.Port,
-					rds:              fmt.Sprintf("%d", servicePort.Port),
+				httpListeners = append(httpListeners, buildHTTPListener(buildHTTPListenerOpts{
+					env:            env,
+					proxy:          node,
+					proxyInstances: proxyInstances,
+					services:       services,
+					ip:             WildcardAddress,
+					port:           servicePort.Port,
+					//rds:              fmt.Sprintf("%d", servicePort.Port),
+					routeConfig:      buildRDSResponse(env, node, services, fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
@@ -394,8 +395,8 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	env              model.Environment
 	proxy            model.Proxy
 	proxyInstances   []*model.ServiceInstance
+	services         []*model.Service
 	routeConfig      *xdsapi.RouteConfiguration
-	rdsConfig        *http_conn.HttpConnectionManager_Rds
 	ip               string
 	port             int
 	bindToPort       bool
@@ -405,6 +406,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	authnPolicy      *authn.Policy
 }
 
+/* // Enable only to compare with RDSv1 responses
 func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	if opts.rds != "" {
 		// Fetch V1 RDS response and stick it into the LDS response
@@ -436,9 +438,12 @@ func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	}
 	return nil
 }
+*/
 
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	mesh := opts.env.Mesh
 	filters := []*http_conn.HttpFilter{}
+
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: util.CORS,
 	})
@@ -458,15 +463,16 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			filters = append([]*http_conn.HttpFilter{filter}, filters...)
 		}
 	*/
-	refresh := time.Duration(opts.env.Mesh.RdsRefreshDelay.Seconds) * time.Second
+	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	}
 
-	var rds *http_conn.HttpConnectionManager_Rds
+	var connectionManager *http_conn.HttpConnectionManager
+
 	if opts.rds != "" {
-		rds = &http_conn.HttpConnectionManager_Rds{
+		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
 				RouteConfigName: opts.rds,
 				ConfigSource: core.ConfigSource{
@@ -480,26 +486,37 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		}
-	} else {
-		rds = opts.rdsConfig
-	}
-
-	connectionManager := &http_conn.HttpConnectionManager{
-		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
+		connectionManager = &http_conn.HttpConnectionManager{
+			CodecType: http_conn.AUTO,
+			AccessLog: []*accesslog.AccessLog{
+				{
+					Config: nil,
+				},
 			},
-		},
-		HttpFilters:      filters,
-		StatPrefix:       "http",
-		RouteSpecifier:   rds,
-		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+			HttpFilters:      filters,
+			StatPrefix:       "http",
+			RouteSpecifier:   rds,
+			UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+		}
+
+	} else {
+		connectionManager = &http_conn.HttpConnectionManager{
+			CodecType: http_conn.AUTO,
+			AccessLog: []*accesslog.AccessLog{
+				{
+					Config: nil,
+				},
+			},
+			HttpFilters:      filters,
+			StatPrefix:       "http",
+			RouteSpecifier:   &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig},
+			UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+		}
 	}
 
-	if opts.env.Mesh.AccessLogFile != "" {
+	if mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
-			Path: opts.env.Mesh.AccessLogFile,
+			Path: mesh.AccessLogFile,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -510,7 +527,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		}
 	}
 
-	if opts.env.Mesh.EnableTracing {
+	if mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: opts.direction,
 		}
@@ -602,4 +619,138 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteC
 			Value: false,
 		},
 	}
+}
+
+func buildRDSResponse(env model.Environment, node model.Proxy,
+	services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+
+	port := 0
+	if routeName != RDSHttpProxy {
+		var err error
+		port, err = strconv.Atoi(routeName)
+		if err != nil {
+			return nil
+		}
+	}
+
+	nameToServiceMap := make(map[string]*model.Service)
+	for _, svc := range services {
+		if port == 0 {
+			nameToServiceMap[svc.Hostname] = svc
+		} else {
+			if svcPort, exists := svc.Ports.GetByPort(port); exists {
+				nameToServiceMap[svc.Hostname] = &model.Service{
+					Hostname: svc.Hostname,
+					Address:  svc.Address,
+					Ports:    []*model.Port{svcPort},
+				}
+			}
+		}
+	}
+
+	guardedHosts := TranslateVirtualHosts(env.VirtualServices(), nameToServiceMap, nil, node.Domain)
+	vHostPortMap := make(map[int][]route.VirtualHost)
+
+	// there should be only one guarded host in the return val since we supplied services with just one port
+	for _, guardedHost := range guardedHosts {
+		routes := make([]route.Route, 0)
+		for _, r := range guardedHost.Routes {
+			routes = append(routes, r.Route)
+		}
+
+		virtualHosts := make([]route.VirtualHost, 0)
+
+		for _, host := range guardedHost.Hosts {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains: []string{host},
+				Routes:  routes,
+			})
+		}
+
+		for _, svc := range guardedHost.Services {
+			domains := generateAltVirtualHosts(svc, guardedHost.Port)
+			if len(svc.Address) > 0 {
+				// add a vhost match for the IP (if its non CIDR)
+				cidr := convertAddressToCidr(svc.Address)
+				if cidr.PrefixLen.Value == 32 {
+					domains = append(domains, svc.Address)
+					domains = append(domains, fmt.Sprintf("%s:%d", svc.Address, guardedHost.Port))
+				}
+			}
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
+				Domains: domains,
+				Routes:  routes,
+			})
+		}
+
+		vHostPortMap[guardedHost.Port] = virtualHosts
+	}
+
+	var virtualHosts []route.VirtualHost
+	if routeName == RDSHttpProxy {
+		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
+	} else {
+		virtualHosts = vHostPortMap[port]
+	}
+
+	out := &xdsapi.RouteConfiguration{
+		Name:         fmt.Sprintf("%d", port),
+		VirtualHosts: virtualHosts,
+		ValidateClusters: &google_protobuf.BoolValue{
+			Value: false, // until we have rds
+		},
+	}
+	return out
+
+}
+
+// Given a service, and a port, this function generates all possible HTTP Host headers.
+// For example, a service of the form foo.local.campus.net on port 80 could be accessed as
+// http://foo:80 within the .local network, as http://foo.local:80 (by other clients in the campus.net domain),
+// as http://foo.local.campus:80, etc.
+// The logic of this function is as follows:
+// given a DNS name, it reverses it, and splits the string in K different ways (where K= 0 to num dots in name)
+// the last element of the K-way string split is the hostname that we need.
+// for example, reviews.default.svc.local yields local.svc.default.reviews (omitting char reversal)
+// which when split in 2 ways yields local, svc.default.reviews
+// when split in 3 ways yields, local.svc, default.reviews, and so on.
+// Take the last element and reverse the string again to get the correct host (e.g, reviews.default.svc)
+func generateAltVirtualHosts(svc *model.Service, port int) []string {
+	dots := len(strings.Split(svc.Hostname, "."))
+	vhosts := make([]string, 0)
+	nameToSplit := reverseString(svc.Hostname)
+	for i := 1; i <= dots; i++ {
+		variant := reverseString(lastElement(strings.SplitN(nameToSplit, ".", i)))
+		variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+		vhosts = append(vhosts, variant)
+		vhosts = append(vhosts, variantWithPort)
+	}
+	return vhosts
+}
+
+// mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
+// virtual hosts without an explicit port suffix (IP:PORT) should be stripped
+func mergeAllVirtualHosts(vHostPortMap map[int][]route.VirtualHost) []route.VirtualHost {
+	var virtualHosts []route.VirtualHost
+	for p, vhosts := range vHostPortMap {
+		if p == 80 {
+			virtualHosts = append(virtualHosts, vhosts...)
+		} else {
+			for _, vhost := range vhosts {
+				var newDomains []string
+				for _, domain := range vhost.Domains {
+					if strings.Contains(domain, ":") {
+						newDomains = append(newDomains, domain)
+					}
+				}
+				if len(newDomains) > 0 {
+					vhost.Domains = newDomains
+					virtualHosts = append(virtualHosts, vhost)
+				}
+			}
+		}
+	}
+	return virtualHosts
 }

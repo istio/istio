@@ -268,6 +268,9 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// VirtualServices lists all virtual services
+	VirtualServices() []Config
+
 	// SubsetToLabels returns the labels associated with a subset of a given service.
 	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
 
@@ -733,6 +736,14 @@ func (store *istioConfigStore) EgressRules() []Config {
 
 func (store *istioConfigStore) ExternalServices() []Config {
 	configs, err := store.List(ExternalService.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	return configs
+}
+
+func (store *istioConfigStore) VirtualServices() []Config {
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}

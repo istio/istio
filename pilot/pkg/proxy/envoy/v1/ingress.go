@@ -172,7 +172,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, false, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, BuildOutboundCluster)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)
