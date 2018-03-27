@@ -32,6 +32,16 @@ func TestServer(t *testing.T) {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 
+	s3 := newServer(testAddr)
+
+	if err := s3.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err != nil {
+		t.Fatalf("Start() failed unexpectedly: %v", err)
+	}
+
+	if s.Port() != 9992 {
+		t.Fatalf("got Port()='%d'; want %d", s.Port(), 9992)
+	}
+
 	testURL := fmt.Sprintf("http://%s%s", testAddr, metricsPath)
 	// verify a response is returned from "/metrics"
 	resp, err := http.Get(testURL)
@@ -63,6 +73,11 @@ func TestServerInst_Close(t *testing.T) {
 	testAddr := "127.0.0.1:0"
 	s := newServer(testAddr)
 	env := test.NewEnv(t)
+
+	// Close is a no-op without Start.
+	if err := s.Close(); err != nil {
+		t.Fatalf("Failed to close server properly: %v", err)
+	}
 
 	if err := s.Start(env, http.HandlerFunc(doesNothing)); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
