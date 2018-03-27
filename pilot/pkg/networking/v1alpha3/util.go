@@ -61,6 +61,7 @@ func convertAddressToCidr(addr string) *core.CidrRange {
 	}
 	return cidr
 }
+
 // normalizeListeners sorts and de-duplicates listeners by address
 func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	out := make([]*xdsapi.Listener, 0, len(listeners))
