@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: RBAC
-// $overview: Configuration affecting resource-based access control
+// $overview: Configuration for Role Based Access Control
 // $location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
@@ -24,9 +24,9 @@ syntax = "proto3";
 // A ServiceRole specification includes a list of rules (permissions). Each rule has
 // the following standard fields:
 // * services: a list of services.
-// * methods: HTTP methods or gRPC methods. Note that gRPC methods should be
+// * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+// * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
 //   presented in the form of "packageName.serviceName/methodName".
-// * paths: HTTP paths. It is ignored in gRPC case.
 //
 // In addition to the standard fields, operators can use custom fields in the "constraints"
 // section. The name of a custom field must match one of the "properties" in the "action" part
@@ -41,8 +41,8 @@ syntax = "proto3";
 //       namespace: istio-system
 //     spec:
 //       subject:
-//         user: request.auth.principal | ""
-//         groups: request.auth.principal | ""
+//         user: source.user | ""
+//         groups: ""
 //         properties:
 //           service: source.service | ""
 //           namespace: source.namespace | ""
@@ -120,7 +120,9 @@ message AccessRule {
   // If set to ["*"], it refers to all services in the namespace.
   repeated string services = 1;
 
-  // Optional. A list of HTTP paths.
+  // Optional. A list of HTTP paths or gRPC methods.
+  // gRPC methods must be presented as fully-qualified name in the form of
+  // packageName.serviceName/methodName.
   // Exact match, prefix match, and suffix match are supported for paths.
   // For example, the path "/books/review" matches
   // "/books/review" (exact match), or "/books/*" (prefix match),
@@ -128,10 +130,9 @@ message AccessRule {
   // If not specified, it applies to any path.
   repeated string paths = 2;
 
-  // Required. A list of HTTP methods (e.g., "GET", "POST") or gRPC methods.
-  // gRPC methods must be presented as fully-qualified name in the form of
-  // packageName.serviceName/methodName.
-  // If set to ["*"], it applies to any method.
+  // Optional. A list of HTTP methods (e.g., "GET", "POST").
+  // It is ignored in gRPC case because the value is always "POST".
+  // If set to ["*"] or not specified, it applies to any method.
   repeated string methods = 3;
 
   // Definition of a custom constraint. The key of a custom constraint must match

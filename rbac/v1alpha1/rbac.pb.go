@@ -10,9 +10,9 @@ objects.
 A ServiceRole specification includes a list of rules (permissions). Each rule has
 the following standard fields:
 * services: a list of services.
-* methods: HTTP methods or gRPC methods. Note that gRPC methods should be
+* methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+* paths: HTTP paths or gRPC methods. Note that gRPC methods should be
   presented in the form of "packageName.serviceName/methodName".
-* paths: HTTP paths. It is ignored in gRPC case.
 
 In addition to the standard fields, operators can use custom fields in the "constraints"
 section. The name of a custom field must match one of the "properties" in the "action" part
@@ -27,8 +27,8 @@ For example, suppose we define an instance of the "authorization" template, name
       namespace: istio-system
     spec:
       subject:
-        user: request.auth.principal | ""
-        groups: request.auth.principal | ""
+        user: source.user | ""
+        groups: ""
         properties:
           service: source.service | ""
           namespace: source.namespace | ""
@@ -141,17 +141,18 @@ type AccessRule struct {
 	// or "*.mtv.cluster.local" (suffix match).
 	// If set to ["*"], it refers to all services in the namespace.
 	Services []string `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
-	// Optional. A list of HTTP paths.
+	// Optional. A list of HTTP paths or gRPC methods.
+	// gRPC methods must be presented as fully-qualified name in the form of
+	// packageName.serviceName/methodName.
 	// Exact match, prefix match, and suffix match are supported for paths.
 	// For example, the path "/books/review" matches
 	// "/books/review" (exact match), or "/books/*" (prefix match),
 	// or "*/review" (suffix match).
 	// If not specified, it applies to any path.
 	Paths []string `protobuf:"bytes,2,rep,name=paths" json:"paths,omitempty"`
-	// Required. A list of HTTP methods (e.g., "GET", "POST") or gRPC methods.
-	// gRPC methods must be presented as fully-qualified name in the form of
-	// packageName.serviceName/methodName.
-	// If set to ["*"], it applies to any method.
+	// Optional. A list of HTTP methods (e.g., "GET", "POST").
+	// It is ignored in gRPC case because the value is always "POST".
+	// If set to ["*"] or not specified, it applies to any method.
 	Methods []string `protobuf:"bytes,3,rep,name=methods" json:"methods,omitempty"`
 	// Optional. Extra constraints in the ServiceRole specification.
 	// The above ServiceRole examples shows an example of constraint "version".

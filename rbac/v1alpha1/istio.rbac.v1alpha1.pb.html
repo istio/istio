@@ -1,6 +1,6 @@
 ---
 title: RBAC
-overview: Configuration affecting resource-based access control
+overview: Configuration for Role Based Access Control
 location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
 number_of_entries: 6
@@ -11,9 +11,9 @@ objects.</p>
 <p>A ServiceRole specification includes a list of rules (permissions). Each rule has
 the following standard fields:
 * services: a list of services.
-* methods: HTTP methods or gRPC methods. Note that gRPC methods should be
-  presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.
-* paths: HTTP paths. It is ignored in gRPC case.</p>
+* methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.
+* paths: HTTP paths or gRPC methods. Note that gRPC methods should be
+  presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.</p>
 
 <p>In addition to the standard fields, operators can use custom fields in the &ldquo;constraints&rdquo;
 section. The name of a custom field must match one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part
@@ -28,8 +28,8 @@ metadata:
   namespace: istio-system
 spec:
   subject:
-    user: request.auth.principal | &quot;&quot;
-    groups: request.auth.principal | &quot;&quot;
+    user: source.user | &quot;&quot;
+    groups: &quot;&quot;
     properties:
       service: source.service | &quot;&quot;
       namespace: source.namespace | &quot;&quot;
@@ -119,7 +119,9 @@ If set to [&ldquo;*&rdquo;], it refers to all services in the namespace.</p>
 <td><code>paths</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Optional. A list of HTTP paths.
+<p>Optional. A list of HTTP paths or gRPC methods.
+gRPC methods must be presented as fully-qualified name in the form of
+packageName.serviceName/methodName.
 Exact match, prefix match, and suffix match are supported for paths.
 For example, the path &ldquo;/books/review&rdquo; matches
 &ldquo;/books/review&rdquo; (exact match), or &ldquo;/books/<em>&rdquo; (prefix match),
@@ -132,10 +134,9 @@ If not specified, it applies to any path.</p>
 <td><code>methods</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Required. A list of HTTP methods (e.g., &ldquo;GET&rdquo;, &ldquo;POST&rdquo;) or gRPC methods.
-gRPC methods must be presented as fully-qualified name in the form of
-packageName.serviceName/methodName.
-If set to [&ldquo;*&rdquo;], it applies to any method.</p>
+<p>Optional. A list of HTTP methods (e.g., &ldquo;GET&rdquo;, &ldquo;POST&rdquo;).
+It is ignored in gRPC case because the value is always &ldquo;POST&rdquo;.
+If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
 
 </td>
 </tr>
