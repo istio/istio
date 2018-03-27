@@ -213,13 +213,12 @@ func TestEnvoy(t *testing.T) {
 		t.Error("GRPC update failure")
 	}
 
-	// Failing currently
-	//if statsMap["listener_manager.lds.update_rejected"] > 0 {
-	//	t.Error("LDS update failure")
-	//}
-	//if statsMap["listener_manager.lds.update_success"] < 1 {
-	//	t.Error("LDS update failure")
-	//}
+	if statsMap["listener_manager.lds.update_rejected"] > 0 {
+		t.Error("LDS update failure")
+	}
+	if statsMap["listener_manager.lds.update_success"] < 1 {
+		t.Error("LDS update failure")
+	}
 
 }
 
