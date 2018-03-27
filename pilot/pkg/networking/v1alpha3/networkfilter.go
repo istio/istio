@@ -17,13 +17,15 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-
+	"github.com/gogo/protobuf/types"
 	"istio.io/istio/pilot/pkg/model"
+
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -44,6 +46,25 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 
 }
 
+func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {
+	route := &DeprecatedTCPRoute{
+		Cluster:    clusterName,
+	}
+	sort.Sort(sort.StringSlice(addresses))
+	for _, addr := range addresses {
+		tcpRouteAddr := addr
+		if !strings.Contains(addr, "/") {
+			tcpRouteAddr = addr + "/32"
+		}
+		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
+	}
+
+	routeConfig := &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}}
+
+	return routeConfig
+}
+
+
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
@@ -51,23 +72,28 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
-	route := &tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{Cluster: clusterName}
-
-	if len(addresses) > 0 {
-		sort.Sort(sort.StringSlice(addresses))
-		route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
-	}
-
-	config := &tcp_proxy.TcpProxy{
+	filterConfig := &DeprecatedTCPProxyFilterConfig{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
-		DeprecatedV1: &tcp_proxy.TcpProxy_DeprecatedV1{
-			Routes: []*tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{route},
-		},
+		RouteConfig:buildDeprecatedTCPRouteConfig(clusterName, addresses),
 	}
 
+	deprecatedConfig := &DeprecatedFilterConfigInV2{
+		DeprecatedV1: true,
+		Value:filterConfig,
+	}
+
+	//if len(addresses) > 0 {
+	//	sort.Sort(sort.StringSlice(addresses))
+	//	route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
+	//}
+
+	// FIXME
 	tcpFilter := listener.Filter{
 		Name:   util.TCPProxy,
-		Config: messageToStruct(config),
+		Config: &types.Struct{Fields:deprecatedConfig},
+		DeprecatedV1: &listener.Filter_DeprecatedV1{
+			Type: "",
+		},
 	}
 
 	filterstack := make([]listener.Filter, 0)
@@ -93,4 +119,75 @@ func buildOutboundMongoFilter() listener.Filter {
 		Name:   util.MongoProxy,
 		Config: messageToStruct(config),
 	}
+}
+
+// DeprecatedTCPRoute definition
+type DeprecatedTCPRoute struct {
+	Cluster           string   `json:"cluster"`
+	DestinationIPList []string `json:"destination_ip_list,omitempty"`
+	DestinationPorts  string   `json:"destination_ports,omitempty"`
+	SourceIPList      []string `json:"source_ip_list,omitempty"`
+	SourcePorts       string   `json:"source_ports,omitempty"`
+}
+
+// DeprecatedTCPRouteByRoute sorts TCP routes over all route sub fields.
+type DeprecatedTCPRouteByRoute []*DeprecatedTCPRoute
+
+func (r DeprecatedTCPRouteByRoute) Len() int {
+	return len(r)
+}
+
+func (r DeprecatedTCPRouteByRoute) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+func (r DeprecatedTCPRouteByRoute) Less(i, j int) bool {
+	if r[i].Cluster != r[j].Cluster {
+		return r[i].Cluster < r[j].Cluster
+	}
+
+	compare := func(a, b []string) bool {
+		lenA, lenB := len(a), len(b)
+		min := lenA
+		if min > lenB {
+			min = lenB
+		}
+		for k := 0; k < min; k++ {
+			if a[k] != b[k] {
+				return a[k] < b[k]
+			}
+		}
+		return lenA < lenB
+	}
+
+	if less := compare(r[i].DestinationIPList, r[j].DestinationIPList); less {
+		return less
+	}
+	if r[i].DestinationPorts != r[j].DestinationPorts {
+		return r[i].DestinationPorts < r[j].DestinationPorts
+	}
+	if less := compare(r[i].SourceIPList, r[j].SourceIPList); less {
+		return less
+	}
+	if r[i].SourcePorts != r[j].SourcePorts {
+		return r[i].SourcePorts < r[j].SourcePorts
+	}
+	return false
+}
+
+// DeprecatedTCPProxyFilterConfig definition
+type DeprecatedTCPProxyFilterConfig struct {
+	StatPrefix  string                    `json:"stat_prefix"`
+	RouteConfig *DeprecatedTCPRouteConfig `json:"route_config"`
+}
+
+// DeprecatedTCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
+type DeprecatedTCPRouteConfig struct {
+	Routes []*DeprecatedTCPRoute `json:"routes"`
+}
+
+// DeprecatedFilterConfigInV2 definition
+type DeprecatedFilterConfigInV2 struct {
+	DeprecatedV1 bool `json:"deprecated_v1"`
+	Value *DeprecatedTCPProxyFilterConfig `json:"value"`
 }
