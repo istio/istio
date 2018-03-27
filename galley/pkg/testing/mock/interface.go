@@ -29,9 +29,9 @@ import (
 
 // Interface is the mock of apiext.CustomResourceDefinitionInterface.
 type Interface struct {
-	responses    chan response
-	callers      int32
-	shutdown     chan struct{}
+	responses chan response
+	callers   int32
+	shutdown  chan struct{}
 
 	log     string
 	logLock sync.Mutex

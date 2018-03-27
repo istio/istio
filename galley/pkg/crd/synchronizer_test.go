@@ -22,14 +22,15 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/change"
-	"istio.io/istio/galley/pkg/testing/mock"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/change"
+	"istio.io/istio/galley/pkg/testing/mock"
 
 	"k8s.io/client-go/rest"
 )
