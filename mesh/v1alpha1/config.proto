@@ -221,4 +221,26 @@ message MeshConfig {
   // DEPRECATED. Mixer address. This option will be removed soon. Please
   // use mixer_check and mixer_report.
   string mixer_address = 16;
+
+  message OutboundTrafficPolicy {
+    enum Mode {
+      // outbound traffic will be restricted to services defined in the service registry as well as those defined
+      // through ExternalServices
+      REGISTRY_ONLY = 0;
+      // outbound traffic to unknown destinations will be allowed
+      ALLOW_ANY = 1;
+      // not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
+      VIRTUAL_SERVICE_ONLY = 2;
+    }
+
+    Mode mode = 1;
+  }
+
+  // Set the default behavior of the sidecar for handling outbound traffic from the application.
+  // While the default mode should work out of the box, if your application uses one or more external services that
+  // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
+  // requested destination.
+  // Users are strongly encouraged to use ExternalServices to explicitly declare any external dependencies,
+  // instead of using allow_any.
+  OutboundTrafficPolicy outbound_traffic_policy = 17;
 }
