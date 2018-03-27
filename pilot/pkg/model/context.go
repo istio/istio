@@ -160,6 +160,8 @@ const (
 
 	// DiscoveryPlainAddress discovery IP address:port with plain text
 	DiscoveryPlainAddress = "istio-pilot:15007"
+
+	IstioIngressLabels = {"istio": "ingress"}
 )
 
 // DefaultProxyConfig for individual proxies
