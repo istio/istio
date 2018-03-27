@@ -426,11 +426,16 @@ func TestProm_RecordFailures(t *testing.T) {
 		metrics []*config.Params_MetricInfo
 		values  []*metric.Instance
 	}{
-		{"Not Found", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
-		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newCounterVal(counterNoLabels.InstanceName, "not a value")}},
-		{"Text String (Histogram)", []*config.Params_MetricInfo{histogramNoLabels}, []*metric.Instance{newHistogramVal(histogramNoLabels.InstanceName, "not a value")}},
+		{"Not Found", []*config.Params_MetricInfo{counterNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
+		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels},
+			[]*metric.Instance{newCounterVal(counterNoLabels.InstanceName, "not a value")}},
+		{"Text String (Histogram)", []*config.Params_MetricInfo{histogram},
+			[]*metric.Instance{newHistogramVal(histogramVal.Name, "not a value")}},
 	}
 
 	for _, v := range tests {
