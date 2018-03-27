@@ -400,7 +400,6 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	routeConfig      *xdsapi.RouteConfiguration
 	ip               string
 	port             int
-	bindToPort       bool
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
@@ -538,11 +537,6 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		},
-		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
-			BindToPort: &google_protobuf.BoolValue{
-				Value: opts.bindToPort,
-			},
-		},
 	}
 }
 
@@ -556,11 +550,6 @@ func buildTCPListener(filters []listener.Filter, ip string, port uint32, protoco
 		Address: buildAddress(ip, port),
 		FilterChains: []listener.FilterChain{
 			filterChain,
-		},
-		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
-			BindToPort: &google_protobuf.BoolValue{
-				Value: false,
-			},
 		},
 	}
 }
