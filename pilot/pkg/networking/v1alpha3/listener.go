@@ -32,8 +32,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	google_protobuf "github.com/gogo/protobuf/types"
-	// for logging
-	_ "github.com/golang/glog"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -41,8 +39,9 @@ import (
 )
 
 const (
-	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
+
+	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
 	// HTTPStatPrefix indicates envoy stat prefix for http listeners
 	HTTPStatPrefix = "http"
@@ -465,6 +464,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		}
 	*/
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
+	if refresh == 0 {
+		// envoy crashes if 0. Will go away once we move to v2
+		refresh = 5 * time.Second
+	}
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
@@ -502,6 +505,12 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig}
 	}
 
+	if connectionManager.RouteSpecifier == nil {
+		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{
+			RouteConfig: opts.routeConfig,
+		}
+	}
+
 	if mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
 			Path: mesh.AccessLogFile,
@@ -532,7 +541,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   util.HTTPConnectionManager,
+						Name:   envoyHTTPConnectionManager,
 						Config: messageToStruct(connectionManager),
 					},
 				},

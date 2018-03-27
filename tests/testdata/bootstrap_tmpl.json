@@ -6,8 +6,8 @@
     "access_log_path": "/dev/stdout",
     "address": {
       "socket_address": {
-        "address": "127.0.0.1",
-        "port_value": 17000
+        "address": "0.0.0.0",
+        "port_value": {{.AdminPort}}
       }
     }
   },
@@ -53,23 +53,24 @@
   },
   "static_resources": {
     "listeners": [
+    {
+    "name": "http_0.0.0.0_{{.ServerPort}}",
+    "address": {
+      "socket_address": {
+        "address": "0.0.0.0",
+        "port_value": {{.ServerPort}}
+      }
+    },
+    "filter_chains": [
       {
-        "name": "http_0.0.0.0_9999",
-        "address": {
-          "socket_address": {
-            "address": "0.0.0.0",
-            "port_value": 99999
-          }
-        },
-        "filter_chains": [
+        "filters": [
           {
-            "filters": [
-              {
-                "name": "envoy.http_connection_manager",
-                "config": {
-                  "stat_prefix": "http",
-                  "route_config": {
-                    "virtual_hosts": [
+            "name": "envoy.http_connection_manager",
+            "config": {
+              "stat_prefix": "http",
+              "route_config": {
+                  "name": "default",
+                  "virtual_hosts": [
                       {
                         "name": "backend",
                         "domains": [
@@ -86,7 +87,136 @@
                           }
                         ]
                       }
-                    ]
+
+                  ]
+               },
+               "http_filters": [
+              {
+              "name": "envoy.cors"
+              },
+              {
+              "name": "envoy.router"
+              }
+              ]
+
+
+{{/*
+              ,"access_log": [
+                {
+                  "name": "envoy.file_access_log",
+                  "config": {
+                    "fields": {
+                      "path": {
+                        "Kind": {
+                          "StringValue": "{{.AccessLog}}"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+*/}}
+
+            }
+          }
+        ]
+      }
+    ]
+  },
+    {
+    "name": "http_0.0.0.0_{{.ClientPort}}",
+    "address": {
+      "socket_address": {
+        "address": "0.0.0.0",
+        "port_value": {{.ClientPort}}
+      }
+    },
+    "filter_chains": [
+      {
+        "filters": [
+          {
+            "name": "envoy.http_connection_manager",
+            "config": {
+              "stat_prefix": "http",
+              "route_config": {
+                  "name": "default",
+                  "virtual_hosts": [
+                      {
+                        "name": "backend",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "service2"
+                            }
+                          }
+                        ]
+                      }
+
+                  ]
+               },
+               "http_filters": [
+              {
+              "name": "envoy.cors"
+              },
+              {
+              "name": "envoy.router"
+              }
+              ]
+
+
+{{/*
+              ,"access_log": [
+                {
+                  "name": "envoy.file_access_log",
+                  "config": {
+                    "fields": {
+                      "path": {
+                        "Kind": {
+                          "StringValue": "{{.AccessLog}}"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+*/}}
+
+            }
+          }
+        ]
+      }
+    ]
+  },
+    {
+        "name": "mixertcpproxy",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": {{.TCPProxyPort}}
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.tcp_proxy",
+                "config": {
+                  "deprecated_v1": true,
+                  "value": {
+                    "stat_prefix": "mixertcpproxy",
+                    "route_config": {
+                      "routes": [
+                        {
+                          "cluster": "service1"
+                        }
+                      ]
+                    }
                   }
                 }
               }
@@ -94,7 +224,8 @@
           }
         ]
       },
-      {
+
+    {
         "name": "legacy15003",
         "address": {
           "socket_address": {
@@ -242,7 +373,7 @@
                 ],
                 "validation_context": {
                   "trusted_ca": {
-                    "filename": "./security/samples/plugin_ca_certs/cert-chain.pem"
+                    "filename": "{{.IstioSrc}}/security/samples/plugin_ca_certs/cert-chain.pem"
                   }
                 }
               },
@@ -284,7 +415,7 @@
           {
             "socket_address": {
               "address": "127.0.0.1",
-              "port_value": 17007
+              "port_value": {{.Ports.PilotHTTPPort}}
             }
           }
         ]
@@ -301,46 +432,65 @@
           {
             "socket_address": {
               "address": "127.0.0.1",
-              "port_value": 17010
+              "port_value": {{.Ports.PilotGrpcPort}}
             }
           }
         ],
         "http2_protocol_options": {}
       },
       {
-        "name": "pilot_http",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-          "seconds": 5,
-          "nanos": 0
-        },
-        "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "address": "127.0.0.1",
-              "port_value": 17007
-            }
-          }
-        ],
-        "http2_protocol_options": {}
+      "name": "service1",
+      "type": "STRICT_DNS",
+      "connect_timeout": {
+        "seconds": 5,
+        "nanos": 0
+      },
+      "lb_policy": "ROUND_ROBIN",
+      "hosts": [
+      {
+        "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": {{.Ports.BackendPort}}
+        }
+        }
+      ],
+      "http2_protocol_options": {}
       },
       {
-        "name": "pilot_grpc",
+      "name": "service2",
+      "type": "STRICT_DNS",
+      "connect_timeout": {
+        "seconds": 5,
+        "nanos": 0
+      },
+      "lb_policy": "ROUND_ROBIN",
+      "hosts": [
+      {
+        "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": {{.Ports.ServerProxyPort}}
+        }
+      }
+      ],
+      "http2_protocol_options": {}
+      },
+      {
+        "name": "mixer_server",
         "type": "STRICT_DNS",
         "connect_timeout": {
-          "seconds": 5,
-          "nanos": 0
+        "seconds": 5,
+        "nanos": 0
         },
         "lb_policy": "ROUND_ROBIN",
         "hosts": [
-          {
-            "socket_address": {
-              "address": "127.0.0.1",
-              "port_value": 17010
-            }
-          }
-        ]
+        {
+          "socket_address": {
+          "address": "127.0.0.1",
+          "port_value": {{.Ports.MixerPort}}
+        }
+        }
+        ],
+        "http2_protocol_options": {}
       }
 
     ]
