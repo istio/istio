@@ -268,8 +268,11 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
-	// VirtualServices lists all virtual services
-	VirtualServices() []Config
+	// VirtualServices lists all virtual services bound to the specified gateways
+	VirtualServices(gateways []string) []Config
+
+	// Gateways lists all gateways bound to the specified workload labels
+	Gateways(workloadLabels LabelsCollection) []Config
 
 	// SubsetToLabels returns the labels associated with a subset of a given service.
 	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
@@ -318,6 +321,9 @@ const (
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
+
+	// IstioMeshGateway is the built in gateway for all sidecars
+	IstioMeshGateway = "mesh"
 )
 
 var (
@@ -742,12 +748,60 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
-func (store *istioConfigStore) VirtualServices() []Config {
+func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	return configs
+
+	// Trim the list to virtual services bound to the gateways specified
+
+	gatewayRequested := make(map[string]bool)
+	for _, gateway := range gateways {
+		gatewayRequested[gateway] = true
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		rule := config.Spec.(*networking.VirtualService)
+		if len(rule.Gateways) == 0 {
+			// This rule applies only to IstioMeshGateway
+			if gatewayRequested[IstioMeshGateway] {
+				out = append(out, config)
+			}
+		} else {
+			for _, ruleGateway := range rule.Gateways {
+				if gatewayRequested[ruleGateway] {
+					out = append(out, config)
+					break
+				}
+			}
+		}
+	}
+
+	return out
+}
+
+func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
+	configs, err := store.List(Gateway.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		gateway := config.Spec.(*networking.Gateway)
+		if gateway.GetSelector() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			out = append(out, config)
+		} else {
+			gatewaySelector := Labels(gateway.GetSelector())
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				out = append(out, config)
+			}
+		}
+	}
+	return out
 }
 
 func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {

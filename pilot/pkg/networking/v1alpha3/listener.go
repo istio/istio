@@ -102,12 +102,12 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	listeners := make([]*xdsapi.Listener, 0)
 
 	//if node.Type == model.Router {
-	//	outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+	//	outbound := buildSidecarOutboundListeners(mesh, node, proxyInstances, services, config)
 	//	listeners = append(listeners, outbound...)
 	//} else
 	if mesh.ProxyListenPort > 0 {
-		inbound := buildInboundListeners(env, node, proxyInstances)
-		outbound := buildOutboundListeners(env, node, proxyInstances, services)
+		inbound := buildSidecarInboundListeners(env, node, proxyInstances)
+		outbound := buildSidecarOutboundListeners(env, node, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -168,7 +168,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 			env:            env,
 			proxy:          node,
 			proxyInstances: proxyInstances,
-			routeConfig:    buildRDSResponse(env, node, services, RDSHttpProxy),
+			routeConfig:    buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, RDSHttpProxy),
 			ip:             listenAddress,
 			port:           int(mesh.ProxyHttpPort),
 			//rds:              RDSHttpProxy,
@@ -182,9 +182,9 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	return normalizeListeners(listeners), nil
 }
 
-// buildInboundListeners creates listeners for the server-side (inbound)
+// buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
-func buildInboundListeners(env model.Environment, node model.Proxy,
+func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
@@ -252,7 +252,7 @@ func buildInboundListeners(env model.Environment, node model.Proxy,
 	return listeners
 }
 
-// buildOutboundListeners generates http and tcp listeners for outbound connections from the service instance
+// buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
 // Sharing tcp_proxy and http_connection_manager filters on the same port for
@@ -266,7 +266,7 @@ func buildInboundListeners(env model.Environment, node model.Proxy,
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildOutboundListeners(env model.Environment, node model.Proxy,
+func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
@@ -319,7 +319,7 @@ func buildOutboundListeners(env model.Environment, node model.Proxy,
 					ip:             WildcardAddress,
 					port:           servicePort.Port,
 					//rds:              fmt.Sprintf("%d", servicePort.Port),
-					routeConfig:      buildRDSResponse(env, node, services, fmt.Sprintf("%d", servicePort.Port)),
+					routeConfig:      buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
@@ -621,7 +621,7 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteC
 	}
 }
 
-func buildRDSResponse(env model.Environment, node model.Proxy,
+func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy, _ []*model.ServiceInstance,
 	services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	port := 0
@@ -648,7 +648,11 @@ func buildRDSResponse(env model.Environment, node model.Proxy,
 		}
 	}
 
-	guardedHosts := TranslateVirtualHosts(env.VirtualServices(), nameToServiceMap, nil, node.Domain)
+	// Get list of virtual services bound to the mesh gateway
+	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
+	// TODO: Need to trim output based on source label/gateway match
+	guardedHosts := TranslateVirtualHosts(virtualServices,
+		nameToServiceMap, nil, node.Domain)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	// there should be only one guarded host in the return val since we supplied services with just one port
