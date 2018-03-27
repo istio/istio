@@ -446,7 +446,7 @@ func waitForMixerConfigResolution() error {
 }
 
 func waitForMixerProxyReadiness() error {
-	mixerPods, err := podList(tc.Kube.Namespace, "istio=mixer")
+	mixerPods, err := podList(tc.Kube.Namespace, "istio-mixer-type=telemetry")
 	if err != nil {
 		return fmt.Errorf("could not find Mixer pod: %v", err)
 	}
@@ -539,19 +539,19 @@ func logMixerMetrics(t *testing.T) {
 		t.Logf("Failure getting mixer metrics: %v", err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-mixer.%s:42422/metrics", ns, pods[0], ns)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-telemetry.%s:42422/metrics", ns, pods[0], ns)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
 	}
-	t.Logf("GET http://istio-mixer:42422/metrics:\n%v", resp)
+	t.Logf("GET http://istio-telemetry:42422/metrics:\n%v", resp)
 
-	resp, err = util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-mixer.%s:9093/metrics", ns, pods[0], ns)
+	resp, err = util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-telemetry.%s:9093/metrics", ns, pods[0], ns)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
 	}
-	t.Logf("GET http://istio-mixer:9093/metrics:\n%v", resp)
+	t.Logf("GET http://istio-telemetry:9093/metrics:\n%v", resp)
 }
 
 type logger interface {
@@ -565,7 +565,7 @@ func (p pkgLogger) Logf(fmt string, args ...interface{}) {
 }
 
 func logMixerLogs(l logger) {
-	mixerPods, err := podList(tc.Kube.Namespace, "istio=mixer")
+	mixerPods, err := podList(tc.Kube.Namespace, "istio-mixer-type=telemetry")
 	if err != nil {
 		l.Logf("Could not retrieve Mixer logs: %v", err)
 		return
