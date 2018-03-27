@@ -37,22 +37,26 @@ func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
 
 	cidrList := make([]*core.CidrRange, 0)
 	for _, addr := range addresses {
-		cidr := &core.CidrRange{
-			AddressPrefix: addr,
-			PrefixLen: &types.UInt32Value{
-				Value: 32,
-			},
-		}
-
-		if strings.Contains(addr, "/") {
-			parts := strings.Split(addr, "/")
-			cidr.AddressPrefix = parts[0]
-			prefix, _ := strconv.Atoi(parts[1])
-			cidr.PrefixLen.Value = uint32(prefix)
-		}
-		cidrList = append(cidrList, cidr)
+		cidrList = append(cidrList, convertAddressToCidr(addr))
 	}
 	return cidrList
+}
+
+func convertAddressToCidr(addr string) *core.CidrRange {
+	cidr := &core.CidrRange{
+		AddressPrefix: addr,
+		PrefixLen: &types.UInt32Value{
+			Value: 32,
+		},
+	}
+
+	if strings.Contains(addr, "/") {
+		parts := strings.Split(addr, "/")
+		cidr.AddressPrefix = parts[0]
+		prefix, _ := strconv.Atoi(parts[1])
+		cidr.PrefixLen.Value = uint32(prefix)
+	}
+	return cidr
 }
 
 // normalizeListeners sorts and de-duplicates listeners by address
