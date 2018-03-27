@@ -20,8 +20,8 @@ var _ = math.Inf
 // Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
 // out of process adapter.
 type Info struct {
-	// Name of the adapter. It must be RFC 1035 compatible DNS label.
-	// Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
+	// Name of the adapter. It must be an RFC 1035 compatible DNS label
+	// matching the `^[a-z]([-a-z0-9]*[a-z0-9])?$` regular expression.
 	// Name is used in Istio configuration, therefore it should be descriptive but short.
 	// example: denier
 	// Vendor adapters should use a vendor prefix.

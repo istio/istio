@@ -252,8 +252,8 @@ out of process adapter.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Name of the adapter. It must be RFC 1035 compatible DNS label.
-Regex: &ldquo;^<a href="[-a-z0-9]*[a-z0-9]">a-z</a>?$&rdquo;
+<p>Name of the adapter. It must be an RFC 1035 compatible DNS label
+matching the <code>^[a-z]([-a-z0-9]*[a-z0-9])?$</code> regular expression.
 Name is used in Istio configuration, therefore it should be descriptive but short.
 example: denier
 Vendor adapters should use a vendor prefix.
