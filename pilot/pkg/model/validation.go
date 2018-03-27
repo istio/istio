@@ -1695,10 +1695,23 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 	}
 
+	jwtIssuers := make(map[string]bool)
 	for _, method := range in.Peers {
-		errs = appendErrors(errs, validateJwt(method.GetJwt()))
+		if jwt := method.GetJwt(); jwt != nil {
+			if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
+				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
+			} else {
+				jwtIssuers[jwt.Issuer] = true
+			}
+			errs = appendErrors(errs, validateJwt(jwt))
+		}
 	}
 	for _, method := range in.Origins {
+		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
+			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
+		} else {
+			jwtIssuers[method.Jwt.Issuer] = true
+		}
 		errs = appendErrors(errs, validateJwt(method.Jwt))
 	}
 
@@ -1779,11 +1792,8 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 	if jwt.JwksUri == "" {
 		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
 	}
-	if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
-		errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
-	}
-	if _, err := url.Parse(jwt.JwksUri); err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
+	if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	for _, location := range jwt.JwtHeaders {
@@ -1805,7 +1815,11 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(target.Name))
+	// AuthN policy target (host)name must be a shortname
+	if !IsDNS1123Label(target.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+	}
+
 	if target.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(target.Subset))
 	}

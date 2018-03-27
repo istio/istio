@@ -26,7 +26,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"go.uber.org/zap"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	deprecated "istio.io/istio/pilot/pkg/proxy/envoy/v1"
@@ -35,7 +34,6 @@ import (
 
 func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
-	mesh := env.Mesh
 	config := env.IstioConfigStore
 
 	gateways, err := config.List(model.Gateway.Type, model.NamespaceAll)
@@ -61,7 +59,7 @@ func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsa
 		// TODO: TCP
 
 		// build physical listener
-		physicalListener := buildPhysicalGatewayListener(mesh, node, config, server)
+		physicalListener := buildPhysicalGatewayListener(env, node, server)
 		if physicalListener == nil {
 			continue // TODO: add support for all protocols
 		}
@@ -73,14 +71,13 @@ func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsa
 }
 
 func buildPhysicalGatewayListener(
-	mesh *meshconfig.MeshConfig,
+	env model.Environment,
 	node model.Proxy,
-	config model.IstioConfigStore,
 	server *networking.Server,
 ) *xdsapi.Listener {
 
 	opts := buildHTTPListenerOpts{
-		mesh:             mesh,
+		env:              env,
 		proxy:            node,
 		proxyInstances:   nil, // only required to support deprecated mixerclient behavior
 		routeConfig:      nil,
@@ -89,7 +86,6 @@ func buildPhysicalGatewayListener(
 		rds:              strconv.Itoa(int(server.Port.Number)),
 		useRemoteAddress: true,
 		direction:        http_conn.INGRESS,
-		store:            config,
 	}
 
 	switch strings.ToUpper(server.Port.Protocol) {
@@ -126,7 +122,7 @@ func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xd
 	config := env.IstioConfigStore
 
 	opts := buildHTTPListenerOpts{
-		mesh:             mesh,
+		env:              env,
 		proxy:            node,
 		proxyInstances:   proxyInstances,
 		routeConfig:      nil,
@@ -135,7 +131,6 @@ func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xd
 		rds:              "80",
 		useRemoteAddress: true,
 		direction:        http_conn.EGRESS,
-		store:            config,
 	}
 
 	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}

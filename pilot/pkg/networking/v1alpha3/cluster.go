@@ -54,6 +54,12 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	}
 
 	clusters = append(clusters, buildOutboundClusters(env, services)...)
+	for _, c := range clusters {
+		// Envoy requires a non-zero connect timeout
+		if c.ConnectTimeout == 0 {
+			c.ConnectTimeout = defaultClusterConnectTimeout
+		}
+	}
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
@@ -222,8 +228,6 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
 			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
-		} else {
-			cluster.ConnectTimeout = defaultClusterConnectTimeout
 		}
 
 		if settings.Tcp.MaxConnections > 0 {

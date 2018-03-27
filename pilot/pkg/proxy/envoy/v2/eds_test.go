@@ -192,6 +192,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
+	initTest(t)
 	server := util.EnsureTestServer()
 
 	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
