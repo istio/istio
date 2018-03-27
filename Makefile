@@ -106,6 +106,8 @@ export HELM=$(ISTIO_OUT)/helm
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
+# Config file used for building istio:proxy container.
+DOCKER_PROXY_CFG?=Dockerfile.proxy
 
 # scratch dir for building isolated images. Please don't remove it again - using
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be

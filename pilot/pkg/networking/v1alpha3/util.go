@@ -98,6 +98,34 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
+//// protoDurationToTimeDuration converts d to time.Duration format.
+//func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
+//	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
+//}
+//
+//// google_protobufToProto converts d to google protobuf Duration format.
+//func durationToProto(d time.Duration) *types.Duration { // nolint
+//	nanos := d.Nanoseconds()
+//	secs := nanos / 1e9
+//	nanos -= secs * 1e9
+//	return &types.Duration{
+//		Seconds: secs,
+//		Nanos:   int32(nanos),
+//	}
+//}
+
+//func buildProtoStruct(name, value string) *types.Struct {
+//	return &types.Struct{
+//		Fields: map[string]*types.Value{
+//			name: {
+//				Kind: &types.Value_StringValue{
+//					StringValue: value,
+//				},
+//			},
+//		},
+//	}
+//}
+
 func messageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
 	if err != nil {

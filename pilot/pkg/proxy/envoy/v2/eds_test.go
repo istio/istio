@@ -26,14 +26,13 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
-	"istio.io/istio/pilot/pkg/model"
+	"fmt"
+
 	"istio.io/istio/tests/util"
 )
 
@@ -83,29 +82,9 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 	return edsstr
 }
 
-func initMocks() *bootstrap.Server {
-	server := util.EnsureTestServer()
-
-	hostname := "hello.default.svc.cluster.local"
-	svc := mock.MakeService(hostname, "10.1.0.0")
-	// The default service created by istio/test/util does not have a h2 port.
-	// Add a H2 port to test CDS.
-	// TODO: move me to discovery.go in istio/test/util
-	port := &model.Port{
-		Name:                 "h2port",
-		Port:                 6666,
-		Protocol:             model.ProtocolGRPC,
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-	}
-	svc.Ports = append(svc.Ports, port)
-	server.MemoryServiceDiscovery.AddService(hostname, svc)
-
-	return server
-}
-
 // Regression for envoy restart and overlapping connections
 func TestReconnectWithNonce(t *testing.T) {
-	server := initMocks()
+	server := initLocalPilotTestEnv()
 	edsstr := connect(t)
 	res, _ := edsstr.Recv()
 
@@ -121,7 +100,7 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	initMocks()
+	initLocalPilotTestEnv()
 	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
@@ -213,15 +192,16 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
+	initEnvoyTestEnv(t)
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
+		mock.MakeService("hello2.default.svc.cluster.local", "10.12.0.0"))
 
 	// Verify services are set
 	srv, err := server.ServiceController.Services()
 	if err != nil {
-		t.Fatal("Starting pilot", err)
+		t.Fatal("Listing services", err)
 	}
 	log.Println(srv)
 
@@ -236,16 +216,13 @@ func TestEds(t *testing.T) {
 
 }
 
-var (
-	edszURL = "http://localhost:9093/debug/edsz"
-)
-
 // Verify the endpoint debug interface is installed and returns some string.
 // TODO: parse response, check if data captured matches what we expect.
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
 func testEdsz(t *testing.T) {
+	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch /edsz")

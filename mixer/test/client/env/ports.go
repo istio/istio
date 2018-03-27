@@ -40,6 +40,7 @@ const (
 	QuotaCallTest
 	TCPMixerFilterPeriodicalReportTest
 	TCPMixerFilterV1ConfigTest
+	XDSTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -61,6 +62,10 @@ type Ports struct {
 	AdminPort       uint16
 	MixerPort       uint16
 	BackendPort     uint16
+
+	// Pilot ports, used when testing mixer-pilot integration.
+	PilotGrpcPort uint16
+	PilotHTTPPort uint16
 }
 
 func allocPortBase(name uint16) uint16 {
