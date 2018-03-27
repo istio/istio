@@ -50,5 +50,9 @@ optional arguments:
 
 Here is an example of using sa-jwt.py to generate a JWT token.
 ```
-  python sa-jwt.py /path/to/service_account.json -iss <YOUR_SERVICE_ACCOUNT_EMAIL> -aud <YOUR_AUDIENCE>
+  python sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar
 ```
+
+```
+  python sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar -claims key1:value1,key2:value2
+```  
