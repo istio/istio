@@ -113,7 +113,6 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	if err != nil {
 		return "", nil, false, err
 	}
-
 	var useSSL bool
 	var portNumber int
 	switch u.Scheme {
@@ -124,7 +123,7 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		useSSL = true
 		portNumber = 443
 	default:
-		return "", nil, false, fmt.Errorf("URI scheme %s is not supported", u.Scheme)
+		return "", nil, false, fmt.Errorf("URI scheme %q is not supported", u.Scheme)
 	}
 
 	if u.Port() != "" {

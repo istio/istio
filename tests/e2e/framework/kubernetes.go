@@ -64,7 +64,6 @@ var (
 	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
-		"prometheus",
 		"zipkin",
 	}
 )
@@ -329,6 +328,12 @@ func (k *KubeInfo) deployIstio() error {
 		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
+
+	if err := util.CreateNamespace(k.Namespace); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+
 	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err

@@ -5,81 +5,89 @@ that it works via local testing.
 
 Follow these steps to deploy a Mixer with your custom adapter to your service
 mesh for use:
-  * [Build a docker image of Mixer with your custom adapter](#build-a-docker-image-of-mixer-with-your-custom-adapter)
-  * [Tag your new Mixer image appropriately for your image registry of choice](#tag-your-new-mixer-image-appropriately-for-your-image-registry-of-choice)
-  * [Push your new Mixer image into the image registry](#push-your-new-mixer-image-into-the-image-registry)
+  * [Build a docker image of Mixer with your custom adapter](#make-and-push-a-docker-image-of-mixer-with-your-custom-adapter)
   * [Generate the appropriate CRD for your custom adapter](#generate-the-appropriate-crd-for-your-custom-adapter)
   * [Deploy your CRD](#deploy-your-crd)
   * [Edit the Mixer deployment configuration to reference your new image](#edit-the-mixer-deployment-configuration-to-reference-your-new-image)
   * [Celebrate](#celebrate)
 
 NOTE: 
-  * All commands should be executed from the root of the istio/istio repository.
+  * All commands should be executed from the root of the istio.io/istio directory.
   * These instructions assume that the steps will be executed on a Linux distro. 
     Other OSes are not currently supported.
 
 These instructions assume that:
-  * `bazel` is installed
   * `docker`, `kubectl`, and `gcloud` commands are installed.
   * `kubectl` has been configured and is authorized to push to a cluster
 
 
-1. #### Build a docker image of Mixer with your custom adapter
+1. #### Make and push a docker image of Mixer with your custom adapter
 
-   Execute the following command:
+   Execute the following command, replacing the `HUB` and `TAG` values with
+   appropriate values for your environment:
 
    ```bash
-   bazel run //mixer/docker:mixer
+   make HUB=<HUB> TAG=<TAG> push.docker.mixer
    ```
+   
+   If you have set `HUB` and `TAG` in a `~./profile` or a `.istiorc.mk` file, you 
+   can omit those arguments from the command.
 
    This should produce output similar to:
 
    ```
-   INFO: Running command line: bazel-bin/mixer/docker/mixer
-   Loaded image ID: sha256:f2eb3e4f7f98a8ff1a9fa92666e398b102d28da877711f93a7d87e60e692ac8f
-   Tagging f2eb3e4f7f98a8ff1a9fa92666e398b102d28da877711f93a7d87e60e692ac8f as istio/mixer/docker:mixer
-   ```
-
-   Confirm this image is available via:
-
-   ```bash
-   docker images istio/mixer/docker:mixer
-   ```
-
-   The expected output is:
-
-   ```
-   REPOSITORY           TAG                 IMAGE ID            CREATED             SIZE
-   istio/mixer/docker   mixer               f2eb3e4f7f98        47 years ago        169.3 MB
-   ```
-
-1. #### Tag your new Mixer image appropriately for your image registry of choice
-
-   If using Google Cloud Registry, use a command similar to:
+   mkdir -p /usr/local/google/home/dougreid/go/out/linux_amd64/release/docker_temp
+   cp docker/ca-certificates.tgz /usr/local/google/home/dougreid/go/out/linux_amd64/release/docker_temp
+   bin/gobuild.sh /usr/local/google/home/dougreid/go/out/linux_amd64/release/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
    
-   ```bash
-   docker tag istio/mixer/docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG   
+   real	0m2.820s
+   user	0m3.484s
+   sys	0m0.556s
+   cp /usr/local/google/home/dougreid/go/out/linux_amd64/release/mixs /usr/local/google/home/dougreid/go/out/linux_amd64/release/docker_temp
+   time (cp mixer/docker/Dockerfile.mixer /usr/local/google/home/dougreid/go/out/linux_amd64/release/docker_temp/ && cd /usr/local/google/home/dougreid/go/out/linux_amd64/release/docker_temp && docker build -t gcr.io/istio-testing/mixer:dougreid -f Dockerfile.mixer .)
+   Sending build context to Docker daemon  53.59MB
+   Step 1/5 : FROM scratch
+    ---> 
+   Step 2/5 : ADD ca-certificates.tgz /
+    ---> Using cache
+    ---> 2fd8c1938ef6
+   Step 3/5 : ADD mixs /usr/local/bin/
+    ---> Using cache
+    ---> 2be7030a6854
+   Step 4/5 : ENTRYPOINT /usr/local/bin/mixs server
+    ---> Using cache
+    ---> d1e6674e0c9a
+   Step 5/5 : CMD --configStoreURL=fs:///etc/opt/mixer/configroot --configStoreURL=k8s://
+    ---> Using cache
+    ---> c6061add6e00
+   Successfully built c6061add6e00
+   Successfully tagged gcr.io/istio-testing/mixer:dougreid
+   
+   real	0m0.421s
+   user	0m0.020s
+   sys	0m0.052s
+   time (gcloud docker -- push gcr.io/istio-testing/mixer:dougreid)
+   The push refers to a repository [gcr.io/istio-testing/mixer]
+   bd5beecafe98: Layer already exists 
+   40ce24ada7d0: Layer already exists 
+   dougreid: digest: sha256:fe043cab14e4ac67aab2d7ec0047d40e6421223916d4576267e68daa7ba093df size: 739
+   
+   real	0m2.226s
+   user	0m0.396s
+   sys	0m0.100s
    ```
-   
-   Set `$PROJECT` to your project id and `$DOCKER_TAG` to your desired tag before executing the command.
-   
-1. #### Push your new Mixer image into the image registry
-
-   If using Google Cloud Registry, use a command similar to:
-   
-   ```bash
-   gcloud docker -- push gcr.io/$PROJECT/mixer:$DOCKER_TAG
-   ```
-   
+        
 1. #### Generate the appropriate CRD for your custom adapter
 
-   The Mixer binary has a utility for generating the Custom Resource Definitions for adapters. Invoke this utility as follows:
+   The Mixer binary has a utility for generating the Custom Resource Definitions
+   for adapters. Invoke this utility as follows:
    
    ```bash
-   bazel run mixer/cmd/mixs:mixs -- crd adapter
+   $GOPATH/out/linux_amd64/release/mixs crd adapter
    ``` 
 
-   Find the stanza for your custom adapter and save it to a file, named something like `custom-crd.yaml`.
+   Find the stanza for your custom adapter and save it to a file, named
+   something like `custom-crd.yaml`.
    
    The `custom-crd.yaml` file you generate should look similar to:
    
@@ -111,7 +119,8 @@ These instructions assume that:
    
 1. #### Edit the Mixer deployment configuration to reference your new image
 
-   If you already have a Mixer instance running from a previous deployment of Istio, execute the following commands:
+   If you already have a Mixer instance running from a previous deployment of
+   Istio, execute the following commands:
    
    1. Execute the following command to open the configuration for the Mixer deployment.
    
@@ -124,12 +133,14 @@ These instructions assume that:
       The `image` specification to change will look similar to:
       
       ```
-      image: gcr.io/istio-testing/mixer:5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
+      image: gcr.io/istio-testing/mixer:18a20f98c6e5d92817b9b00ed94c089f4e73aeec
       imagePullPolicy: IfNotPresent
       name: mixer
       ```
       
-      Update `image` with the image tag for your image. Exit and Save the file.
+      Update `image` with the image tag for your image. Pay careful attention to
+      the `imagePullPolicy` if you are attempting to reuse a tag. Exit and Save 
+      the file.     
       
       The expected output is:
       
@@ -137,18 +148,27 @@ These instructions assume that:
       deployment "istio-mixer" edited
       ```
       
-   Please also update the Istio configuration specification to reference your image (so that your changes are preserved).
+   1. Please also update the Istio configuration specification (so that your 
+      changes are preserved).
      
-   Edit `install/kubernetes/templates/istio-mixer.yaml.tmpl` as follows:
-   * Update the `image` specification in the Mixer deployment stanza
-   * Append the contents from `custom-crd.yaml` to the end of the yaml file. 
+      Append the contents of `custom-crd.yaml` to `install/kubernetes/helm/istio/charts/mixer/templates/crds.yaml`.
+      
+      Be sure to a new label in the `metadata/labels` section that matches:
+      ```yaml
+      app: {{ template "mixer.name" . }}
+      ```      
    
-   Then regenerate `istio.yaml` via:   
-   ```bash
-   install/updateVersion.sh
-   ```
+   1. Then regenerate the install artifacts via:   
+      ```bash
+      make generate_yaml
+      ```
+   
+      You will need to update the `istio.yaml` (or similar) artifact to the image 
+      you built in the previous steps.
+   
 
-   If you do not already have a Mixer instance running, deploy Istio as follows (assuming `istio.yaml` is the desired deployment):
+   If you do not already have a Mixer instance running, deploy Istio as follows
+   (assuming `istio.yaml` is the desired deployment):
    
    ```bash
    kubectl apply -f install/kubernetes/istio.yaml 
@@ -156,4 +176,6 @@ These instructions assume that:
  
  1. #### Celebrate
  
-    Woohoo! A new Mixer, built with your adapter code, should now be running in your cluster. Configure a handler for your custom adapter and begin sending it instances!
+    Woohoo! A new Mixer, built with your adapter code, should now be running in 
+    your cluster. Configure a handler for your custom adapter and begin sending
+    it instances!

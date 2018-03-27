@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -32,10 +35,7 @@ import (
 	// for logging
 	_ "github.com/golang/glog"
 
-	"time"
-
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -43,9 +43,10 @@ import (
 const (
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
-)
 
-const (
+	// HTTPStatPrefix indicates envoy stat prefix for http listeners
+	HTTPStatPrefix = "http"
+
 	// RDSName is the name of route-discovery-service (RDS) cluster
 	RDSName = "rds"
 
@@ -83,6 +84,9 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
+	mesh := env.Mesh
+	managementPorts := env.ManagementPorts(node.IPAddress)
+
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		return nil, err
@@ -93,22 +97,18 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		return nil, err
 	}
 
-	mesh := env.Mesh
-	config := env.IstioConfigStore
-	managementPorts := env.ManagementPorts(node.IPAddress)
-
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 
 	listeners := make([]*xdsapi.Listener, 0)
 
 	//if node.Type == model.Router {
-	//	outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+	//	outbound := buildSidecarOutboundListeners(mesh, node, proxyInstances, services, config)
 	//	listeners = append(listeners, outbound...)
 	//} else
 	if mesh.ProxyListenPort > 0 {
-		inbound := buildInboundListeners(mesh, node, proxyInstances, config)
-		outbound := buildOutboundListeners(mesh, node, proxyInstances, services, config)
+		inbound := buildSidecarInboundListeners(env, node, proxyInstances)
+		outbound := buildSidecarOutboundListeners(env, node, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -166,16 +166,15 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		}
 
 		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
-			mesh:             mesh,
-			proxy:            node,
-			proxyInstances:   proxyInstances,
-			routeConfig:      nil,
-			ip:               listenAddress,
-			port:             int(mesh.ProxyHttpPort),
-			rds:              RDSHttpProxy,
+			env:            env,
+			proxy:          node,
+			proxyInstances: proxyInstances,
+			routeConfig:    buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, RDSHttpProxy),
+			ip:             listenAddress,
+			port:           int(mesh.ProxyHttpPort),
+			//rds:              RDSHttpProxy,
 			useRemoteAddress: useRemoteAddress,
 			direction:        traceOperation,
-			store:            config,
 			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
@@ -184,12 +183,14 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	return normalizeListeners(listeners), nil
 }
 
-// buildInboundListeners creates listeners for the server-side (inbound)
+// buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
-func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore) []*xdsapi.Listener {
+func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
+	mesh := env.Mesh
+	config := env.IstioConfigStore
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -210,7 +211,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 			l = buildHTTPListener(buildHTTPListenerOpts{
-				mesh:             mesh,
+				env:              env,
 				proxy:            node,
 				proxyInstances:   proxyInstances,
 				routeConfig:      buildInboundHTTPRouteConfig(instance),
@@ -219,7 +220,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				rds:              "",
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
-				store:            config,
 				authnPolicy:      authenticationPolicy,
 			})
 
@@ -253,7 +253,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	return listeners
 }
 
-// buildOutboundListeners generates http and tcp listeners for outbound connections from the service instance
+// buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
 // Sharing tcp_proxy and http_connection_manager filters on the same port for
@@ -267,9 +267,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, services []*model.Service,
-	config model.IstioConfigStore) []*xdsapi.Listener {
+func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 
@@ -314,15 +313,16 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				}
 
 				httpListeners = append(httpListeners, buildHTTPListener(buildHTTPListenerOpts{
-					mesh:             mesh,
-					proxy:            node,
-					proxyInstances:   proxyInstances,
-					ip:               WildcardAddress,
-					port:             servicePort.Port,
-					rds:              fmt.Sprintf("%d", servicePort.Port),
+					env:            env,
+					proxy:          node,
+					proxyInstances: proxyInstances,
+					services:       services,
+					ip:             WildcardAddress,
+					port:           servicePort.Port,
+					//rds:              fmt.Sprintf("%d", servicePort.Port),
+					routeConfig:      buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
-					store:            config,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}))
 
@@ -393,25 +393,58 @@ func applyInboundAuth(authenticationPolicy *authn.Policy, listener *xdsapi.Liste
 
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
-	// config           model.Config
-	// env              model.Environment
-	mesh             *meshconfig.MeshConfig
+	env              model.Environment
 	proxy            model.Proxy
 	proxyInstances   []*model.ServiceInstance
+	services         []*model.Service
 	routeConfig      *xdsapi.RouteConfiguration
-	rdsConfig        *http_conn.HttpConnectionManager_Rds
 	ip               string
 	port             int
 	bindToPort       bool
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
-	store            model.IstioConfigStore
 	authnPolicy      *authn.Policy
 }
 
+/* // Enable only to compare with RDSv1 responses
+func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	if opts.rds != "" {
+		// Fetch V1 RDS response and stick it into the LDS response
+		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
+			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
+		rcBytes, _ := json.Marshal(rc)
+		routeConfigDeprecated := string(rcBytes)
+		return &xdsapi.Listener{
+			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+			Address: buildAddress(opts.ip, uint32(opts.port)),
+			FilterChains: []listener.FilterChain{
+				{
+					Filters: []listener.Filter{
+						{
+							Name: util.HTTPConnectionManager,
+							DeprecatedV1: &listener.Filter_DeprecatedV1{
+								Type: routeConfigDeprecated,
+							},
+						},
+					},
+				},
+			},
+			DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+				BindToPort: &google_protobuf.BoolValue{
+					Value: opts.bindToPort,
+				},
+			},
+		}
+	}
+	return nil
+}
+*/
+
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	mesh := opts.env.Mesh
 	filters := []*http_conn.HttpFilter{}
+
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: util.CORS,
 	})
@@ -431,15 +464,26 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			filters = append([]*http_conn.HttpFilter{filter}, filters...)
 		}
 	*/
-	refresh := time.Duration(opts.mesh.RdsRefreshDelay.Seconds) * time.Second
+	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	}
 
-	var rds *http_conn.HttpConnectionManager_Rds
+	connectionManager := &http_conn.HttpConnectionManager{
+		CodecType: http_conn.AUTO,
+		AccessLog: []*accesslog.AccessLog{
+			{
+				Config: nil,
+			},
+		},
+		HttpFilters:      filters,
+		StatPrefix:       HTTPStatPrefix,
+		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
+	}
+
 	if opts.rds != "" {
-		rds = &http_conn.HttpConnectionManager_Rds{
+		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
 				RouteConfigName: opts.rds,
 				ConfigSource: core.ConfigSource{
@@ -453,26 +497,14 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		}
+		connectionManager.RouteSpecifier = rds
 	} else {
-		rds = opts.rdsConfig
+		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig}
 	}
 
-	connectionManager := &http_conn.HttpConnectionManager{
-		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
-			},
-		},
-		HttpFilters:      filters,
-		StatPrefix:       "http",
-		RouteSpecifier:   rds,
-		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
-	}
-
-	if opts.mesh.AccessLogFile != "" {
+	if mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
-			Path: opts.mesh.AccessLogFile,
+			Path: mesh.AccessLogFile,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -483,7 +515,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		}
 	}
 
-	if opts.mesh.EnableTracing {
+	if mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: opts.direction,
 		}
@@ -575,4 +607,135 @@ func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteC
 			Value: false,
 		},
 	}
+}
+
+func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy, _ []*model.ServiceInstance,
+	services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+
+	port := 0
+	if routeName != RDSHttpProxy {
+		var err error
+		port, err = strconv.Atoi(routeName)
+		if err != nil {
+			return nil
+		}
+	}
+
+	nameToServiceMap := make(map[string]*model.Service)
+	for _, svc := range services {
+		if port == 0 {
+			nameToServiceMap[svc.Hostname] = svc
+		} else {
+			if svcPort, exists := svc.Ports.GetByPort(port); exists {
+				nameToServiceMap[svc.Hostname] = &model.Service{
+					Hostname: svc.Hostname,
+					Address:  svc.Address,
+					Ports:    []*model.Port{svcPort},
+				}
+			}
+		}
+	}
+
+	// Get list of virtual services bound to the mesh gateway
+	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
+	// TODO: Need to trim output based on source label/gateway match
+	guardedHosts := TranslateVirtualHosts(virtualServices,
+		nameToServiceMap, nil, node.Domain)
+	vHostPortMap := make(map[int][]route.VirtualHost)
+
+	// there should be only one guarded host in the return val since we supplied services with just one port
+	for _, guardedHost := range guardedHosts {
+		routes := make([]route.Route, 0)
+		for _, r := range guardedHost.Routes {
+			routes = append(routes, r.Route)
+		}
+
+		virtualHosts := make([]route.VirtualHost, 0)
+
+		for _, host := range guardedHost.Hosts {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains: []string{host},
+				Routes:  routes,
+			})
+		}
+
+		for _, svc := range guardedHost.Services {
+			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port)
+			if len(svc.Address) > 0 {
+				// add a vhost match for the IP (if its non CIDR)
+				cidr := convertAddressToCidr(svc.Address)
+				if cidr.PrefixLen.Value == 32 {
+					domains = append(domains, svc.Address)
+					domains = append(domains, fmt.Sprintf("%s:%d", svc.Address, guardedHost.Port))
+				}
+			}
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
+				Domains: domains,
+				Routes:  routes,
+			})
+		}
+
+		vHostPortMap[guardedHost.Port] = virtualHosts
+	}
+
+	var virtualHosts []route.VirtualHost
+	if routeName == RDSHttpProxy {
+		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
+	} else {
+		virtualHosts = vHostPortMap[port]
+	}
+
+	out := &xdsapi.RouteConfiguration{
+		Name:         fmt.Sprintf("%d", port),
+		VirtualHosts: virtualHosts,
+		ValidateClusters: &google_protobuf.BoolValue{
+			Value: false, // until we have rds
+		},
+	}
+	return out
+
+}
+
+// Given a service, and a port, this function generates all possible HTTP Host headers.
+// For example, a service of the form foo.local.campus.net on port 80 could be accessed as
+// http://foo:80 within the .local network, as http://foo.local:80 (by other clients in the campus.net domain),
+// as http://foo.local.campus:80, etc.
+func generateAltVirtualHosts(hostname string, port int) []string {
+	vhosts := []string{hostname, fmt.Sprintf("%s:%d", hostname, port)}
+	for i := len(hostname) - 1; i >= 0; i-- {
+		if hostname[i] == '.' {
+			variant := hostname[:i]
+			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+			vhosts = append(vhosts, variant)
+			vhosts = append(vhosts, variantWithPort)
+		}
+	}
+	return vhosts
+}
+
+// mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
+// virtual hosts without an explicit port suffix (IP:PORT) should be stripped
+func mergeAllVirtualHosts(vHostPortMap map[int][]route.VirtualHost) []route.VirtualHost {
+	var virtualHosts []route.VirtualHost
+	for p, vhosts := range vHostPortMap {
+		if p == 80 {
+			virtualHosts = append(virtualHosts, vhosts...)
+		} else {
+			for _, vhost := range vhosts {
+				var newDomains []string
+				for _, domain := range vhost.Domains {
+					if strings.Contains(domain, ":") {
+						newDomains = append(newDomains, domain)
+					}
+				}
+				if len(newDomains) > 0 {
+					vhost.Domains = newDomains
+					virtualHosts = append(virtualHosts, vhost)
+				}
+			}
+		}
+	}
+	return virtualHosts
 }

@@ -1,0 +1,63 @@
+
+{{- $statsdname := "statsd-prom-bridge" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-{{ $statsdname }}
+  labels:
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    istio: {{ $statsdname }}
+spec:
+  ports:
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  selector:
+    istio: {{ $statsdname }}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-{{ $statsdname }}
+  labels:
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    istio: mixer
+spec:
+  template:
+    metadata:
+      labels:
+        istio: {{ $statsdname }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-statsd-prom-bridge
+    {{- if $.Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml $.Values.nodeSelector | indent 8 }}
+    {{- end }}
+      containers:
+      - name: {{ $statsdname }}
+        image: "{{ $.Values.prometheusStatsdExporter.repository }}:{{ $.Values.prometheusStatsdExporter.tag}}"
+        imagePullPolicy: {{ $.Values.prometheusStatsdExporter.imagePullPolicy }}
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        resources:
+{{ toYaml $.Values.prometheusStatsdExporter.resources | indent 12 }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd

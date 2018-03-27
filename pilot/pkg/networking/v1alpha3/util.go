@@ -26,9 +26,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -40,22 +37,26 @@ func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
 
 	cidrList := make([]*core.CidrRange, 0)
 	for _, addr := range addresses {
-		cidr := &core.CidrRange{
-			AddressPrefix: addr,
-			PrefixLen: &types.UInt32Value{
-				Value: 32,
-			},
-		}
-
-		if strings.Contains(addr, "/") {
-			parts := strings.Split(addr, "/")
-			cidr.AddressPrefix = parts[0]
-			prefix, _ := strconv.Atoi(parts[1])
-			cidr.PrefixLen.Value = uint32(prefix)
-		}
-		cidrList = append(cidrList, cidr)
+		cidrList = append(cidrList, convertAddressToCidr(addr))
 	}
 	return cidrList
+}
+
+func convertAddressToCidr(addr string) *core.CidrRange {
+	cidr := &core.CidrRange{
+		AddressPrefix: addr,
+		PrefixLen: &types.UInt32Value{
+			Value: 32,
+		},
+	}
+
+	if strings.Contains(addr, "/") {
+		parts := strings.Split(addr, "/")
+		cidr.AddressPrefix = parts[0]
+		prefix, _ := strconv.Atoi(parts[1])
+		cidr.PrefixLen.Value = uint32(prefix)
+	}
+	return cidr
 }
 
 // normalizeListeners sorts and de-duplicates listeners by address
@@ -111,18 +112,6 @@ func convertGogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
-
-// convertDuration converts to golang duration and logs errors
-func convertProtoDurationToDuration(d *duration.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := ptypes.Duration(d)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
