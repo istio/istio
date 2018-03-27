@@ -76,8 +76,10 @@ func Fill(outFile, inFile string, values interface{}) error {
 
 // CreateNamespace create a kubernetes namespace
 func CreateNamespace(n string) error {
-	if _, err := Shell("kubectl create namespace %s", n); err != nil {
-		return err
+	if _, err := ShellMuteOutput("kubectl create namespace %s", n); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
 	}
 	log.Infof("namespace %s created\n", n)
 	return nil
