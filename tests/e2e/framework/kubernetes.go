@@ -64,7 +64,6 @@ var (
 	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
-		"prometheus",
 		"zipkin",
 	}
 )

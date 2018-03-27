@@ -73,11 +73,11 @@ func TestParseJwksURI(t *testing.T) {
 	}{
 		{
 			in:                   "foo.bar.com",
-			expectedErrorMessage: "URI scheme  is not supported",
+			expectedErrorMessage: `URI scheme "" is not supported`,
 		},
 		{
 			in:                   "tcp://foo.bar.com:abc",
-			expectedErrorMessage: "URI scheme tcp is not supported",
+			expectedErrorMessage: `URI scheme "tcp" is not supported`,
 		},
 		{
 			in:                   "http://foo.bar.com:abc",
@@ -100,6 +100,12 @@ func TestParseJwksURI(t *testing.T) {
 			expectedHostname: "foo.bar.com",
 			expectedPort:     &Port{Name: "http", Port: 1234},
 			expectedUseSSL:   false,
+		},
+		{
+			in:               "https://foo.bar.com:1234/secure/key",
+			expectedHostname: "foo.bar.com",
+			expectedPort:     &Port{Name: "https", Port: 1234},
+			expectedUseSSL:   true,
 		},
 	}
 	for _, c := range cases {

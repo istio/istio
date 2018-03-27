@@ -17,7 +17,7 @@ All configurable variables can be seen in `values.yaml`.
  --->
 ### Selecting components
 This chart can install multiple istio components:
-- proxy side card (by default)
+- proxy side car (by default)
 - initializer
 - mixer
 - security (certificate authority)

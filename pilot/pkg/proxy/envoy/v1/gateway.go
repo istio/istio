@@ -162,7 +162,7 @@ func buildGatewayVirtualHosts(configStore model.IstioConfigStore, node model.Pro
 				for _, rh := range allRulesWithHosts {
 					rule := rh.Rule
 					routesForThisVirtualHost := BuildHTTPRoutes(configStore, rule, pseudoService,
-						pseudoServicePort, nil, node.Domain, BuildOutboundCluster)
+						pseudoServicePort, nil, node.Domain, false, BuildOutboundCluster)
 
 					for _, host := range rh.Hosts {
 						virtualHosts = append(virtualHosts, &VirtualHost{
