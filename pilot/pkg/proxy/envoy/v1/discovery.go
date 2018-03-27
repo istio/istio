@@ -737,8 +737,8 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
-		routeConfig, err := buildRDSRoute(ds.Mesh, svcNode, routeConfigName,
-			ds.ServiceDiscovery, ds.IstioConfigStore)
+		routeConfig, err := BuildRDSRoute(ds.Mesh, svcNode, routeConfigName,
+			ds.ServiceDiscovery, ds.IstioConfigStore, false)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
