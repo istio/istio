@@ -17,12 +17,14 @@ spec:
       labels:
         istio: sidecar-injector
     spec:
+      serviceAccountName: istio-sidecar-injector-service-account
       containers:
         - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}/sidecar_injector:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
-            - --tlsCertFile=/etc/istio/certs/cert.pem
+            - --caCertFile=/etc/istio/certs/root-cert.pem
+            - --tlsCertFile=/etc/istio/certs/cert-chain.pem
             - --tlsKeyFile=/etc/istio/certs/key.pem
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
@@ -64,7 +66,7 @@ spec:
           name: istio
       - name: certs
         secret:
-          secretName: sidecar-injector-certs
+          secretName: istio.istio-sidecar-injector-service-account
       - name: inject-config
         configMap:
           name: istio-sidecar-injector

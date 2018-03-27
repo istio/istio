@@ -24,6 +24,7 @@ spec:
           image: "{{ .Values.global.hub }}/istio-ca:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
+            - --append-dns-names=true
             - --grpc-port=8060
             - --grpc-hostname=istio-ca
             - --self-signed-ca=true
