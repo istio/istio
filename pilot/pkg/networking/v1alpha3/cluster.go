@@ -22,10 +22,11 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
+	"time"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"time"
 )
 
 const (

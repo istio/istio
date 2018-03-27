@@ -21,9 +21,10 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
+	"io/ioutil"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
-	"io/ioutil"
 )
 
 func connectCDS(url string, nodeID string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamClustersClient {
@@ -49,7 +50,7 @@ func connectCDS(url string, nodeID string, t *testing.T) xdsapi.ClusterDiscovery
 }
 
 func TestCDS(t *testing.T) {
-	initMocks()
+	initLocalPilotTestEnv()
 
 	cdsr := connectCDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)
 

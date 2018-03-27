@@ -84,7 +84,7 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 
 // Regression for envoy restart and overlapping connections
 func TestReconnectWithNonce(t *testing.T) {
-	server := initMocks()
+	server := initLocalPilotTestEnv()
 	edsstr := connect(t)
 	res, _ := edsstr.Recv()
 
@@ -100,7 +100,7 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	initMocks()
+	initLocalPilotTestEnv()
 	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
@@ -192,7 +192,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
-	initTest(t)
+	initEnvoyTestEnv(t)
 	server := util.EnsureTestServer()
 
 	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",

@@ -39,7 +39,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
 		ServiceAccounts:  s.MemRegistry,
-		Controller:       s.memSvcController,
+		Controller:       s.MemRegistry.controller,
 	})
 
 	mux.HandleFunc("/debug/edsz", EDSz)

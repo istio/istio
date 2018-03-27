@@ -62,7 +62,6 @@ type DiscoveryServer struct {
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry      *MemServiceDiscovery
-	memSvcController *memServiceController
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

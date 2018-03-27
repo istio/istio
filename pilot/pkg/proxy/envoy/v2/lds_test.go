@@ -51,7 +51,7 @@ func connectLDS(url, nodeID string, t *testing.T) xdsapi.ListenerDiscoveryServic
 
 // TestLDS is running LDSv2 tests.
 func TestLDS(t *testing.T) {
-	initMocks()
+	initLocalPilotTestEnv()
 
 	t.Run("sidecar", func(t *testing.T) {
 		ldsr := connectLDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)

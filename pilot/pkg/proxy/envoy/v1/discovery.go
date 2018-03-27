@@ -477,7 +477,9 @@ func (ds *DiscoveryService) clearCache() {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
 			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
+				clearCacheMutex.Lock()
 				clearCacheTimerSet = false
+				defer clearCacheMutex.Unlock()
 				ds.clearCache() // it's after time - so will clear the cache
 			})
 		}

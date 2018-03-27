@@ -26,6 +26,8 @@ import (
 
 	"fmt"
 
+	"sync"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -34,7 +36,9 @@ import (
 
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
-	testEnv *testenv.TestSetup
+	testEnv     *testenv.TestSetup
+	pilotServer *bootstrap.Server
+	initMutex   sync.Mutex
 
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
@@ -51,12 +55,16 @@ var (
 // One set of pilot/mixer/envoy is used for all tests, similar with the larger integration
 // tests in real docker/k8s environments
 
-// Common test environment for all tests.  Must be called - mixer setup requires a t param.
-func initTest(t *testing.T) {
+// Common test environment, including Mixer and Envoy. This is a singleton, the env will be
+// used for multiple tests, for local integration testing.
+func initEnvoyTestEnv(t *testing.T) {
+	initMutex.Lock()
+	defer initMutex.Unlock()
+
 	if testEnv != nil {
 		return
 	}
-	initMocks()
+	initLocalPilotTestEnv()
 
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
@@ -85,9 +93,16 @@ func ingressId() string {
 	return fmt.Sprintf("ingress~~istio-ingress-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local")
 }
 
-func initMocks() *bootstrap.Server {
+// initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
+// of common test configs. This is a singleton.
+func initLocalPilotTestEnv() *bootstrap.Server {
+	initMutex.Lock()
+	defer initMutex.Unlock()
+	if pilotServer != nil {
+		return pilotServer
+	}
 	server := util.EnsureTestServer()
-
+	pilotServer = server
 	hostname := "hello.default.svc.cluster.local"
 	svc := mock.MakeService(hostname, "10.1.0.0")
 	// The default service created by istio/test/util does not have a h2 port.
@@ -164,7 +179,7 @@ func testPorts(base int) []*model.Port {
 }
 
 func TestEnvoy(t *testing.T) {
-	initTest(t)
+	initEnvoyTestEnv(t)
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
@@ -172,12 +187,13 @@ func TestEnvoy(t *testing.T) {
 
 }
 
-
-
 func TestMain(m *testing.M) {
 	flag.Parse()
-
-	defer testEnv.TearDown()
+	defer func() {
+		if testEnv != nil {
+			testEnv.TearDown()
+		}
+	}()
 
 	// Run all tests.
 	os.Exit(m.Run())
