@@ -249,6 +249,7 @@ jobs:
             - HUB: docker.io/dnerepo
             - TAG: dontpush
             - SKIP_EGRESS: 1
+            - ISTIO_PROXY_IMAGE: proxyv2
     steps:
       - type: shell
         name: Initialize Working Directory

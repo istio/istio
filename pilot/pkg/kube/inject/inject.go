@@ -110,7 +110,12 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 	if debug {
 		return hub + "/proxy_debug:" + tag
 	}
-	return hub + "/proxy:" + tag
+	// Allow overriding the proxy image.
+	image := os.Getenv("ISTIO_PROXY_IMAGE")
+	if image == "" {
+		image = "proxy"
+	}
+	return hub + "/" + image + ":" + tag
 }
 
 // Params describes configurable parameters for injecting istio proxy
