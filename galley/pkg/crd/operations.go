@@ -16,26 +16,22 @@ package crd
 
 import (
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
+
+	"istio.io/istio/galley/pkg/machinery"
 
 	"istio.io/istio/pkg/log"
 )
 
 // GetAll returns all known CRDs
-func GetAll(config *rest.Config) ([]apiext.CustomResourceDefinition, error) {
+func GetAll(iface machinery.Interface) ([]apiext.CustomResourceDefinition, error) {
 
-	crdi, err := newCRDI(config)
-	if err != nil {
-		return nil, err
-	}
+	crdi := iface.CustomResourceDefinitionInterface()
 
 	var crds []apiext.CustomResourceDefinition
 	continuation := ""
 	for {
-		var list *apiext.CustomResourceDefinitionList
-		list, err = crdi.List(v1.ListOptions{Continue: continuation})
+		list, err := crdi.List(v1.ListOptions{Continue: continuation})
 		if err != nil {
 			return nil, err
 		}
@@ -52,13 +48,11 @@ func GetAll(config *rest.Config) ([]apiext.CustomResourceDefinition, error) {
 }
 
 // Purge deletes the destination CRDs as a synchronous operation.
-func Purge(config *rest.Config, mapping Mapping) error {
+func Purge(iface machinery.Interface, mapping Mapping) error {
+
+	crdi := iface.CustomResourceDefinitionInterface()
 
 	var err error
-	var crdi v1beta1.CustomResourceDefinitionInterface
-	if crdi, err = newCRDI(config); err != nil {
-		return err
-	}
 
 	var crds []apiext.CustomResourceDefinition
 	continuation := ""

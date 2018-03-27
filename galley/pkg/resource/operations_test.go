@@ -16,6 +16,7 @@ package resource
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -23,31 +24,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
-	kmock "istio.io/istio/galley/pkg/testing/kubernetes/mock"
+	"istio.io/istio/galley/pkg/testing/machinery/mock"
 )
 
 func TestDeleteAll_NewClientError(t *testing.T) {
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return nil, errors.New("newDynamicClient error")
+	i := mock.NewInterface()
+	i.DynamicFn = func(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+		return nil, fmt.Errorf("newDynamicClient error")
 	}
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(i, "foos", "foo", "fooList", schema.GroupVersion{}, []string{"ns1"})
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestDeleteAll_Basic(t *testing.T) {
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
+	i := mock.NewInterface()
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(i, "foos", "foo", "fooList", schema.GroupVersion{}, []string{"ns1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,30 +51,24 @@ func TestDeleteAll_Basic(t *testing.T) {
 	expected := `
 DeleteCollection
 `
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 }
 
 func TestDeleteAll_Error(t *testing.T) {
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
+	i := mock.NewInterface()
 
-	m.MockResource.ErrorResult = errors.New("some DeleteCollection error")
+	i.MockDynamic.MockResource.ErrorResult = errors.New("some DeleteCollection error")
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(i, "foos", "foo", "fooList", schema.GroupVersion{}, []string{"ns1"})
 	if err == nil || err.Error() != "some DeleteCollection error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestGetNamespaces(t *testing.T) {
-	m := kmock.NewClient()
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
+	i := mock.NewInterface()
 
-	m.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{
+	i.MockKubernetes.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{
 		Items: []v1.Namespace{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -89,7 +79,7 @@ func TestGetNamespaces(t *testing.T) {
 		},
 	}
 
-	ns, err := GetNamespaces(&rest.Config{})
+	ns, err := GetNamespaces(i)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,14 +90,11 @@ func TestGetNamespaces(t *testing.T) {
 }
 
 func TestGetNamespaces_Empty(t *testing.T) {
-	m := kmock.NewClient()
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
+	i := mock.NewInterface()
 
-	m.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{}
+	i.MockKubernetes.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{}
 
-	ns, err := GetNamespaces(&rest.Config{})
+	ns, err := GetNamespaces(i)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -117,26 +104,12 @@ func TestGetNamespaces_Empty(t *testing.T) {
 	}
 }
 
-func TestGetNamespaces_NewClientError(t *testing.T) {
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return nil, errors.New("newKubernetesClient error")
-	}
-
-	_, err := GetNamespaces(&rest.Config{})
-	if err == nil || err.Error() != "newKubernetesClient error" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestGetNamespaces_ListError(t *testing.T) {
-	m := kmock.NewClient()
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
+	i := mock.NewInterface()
 
-	m.MockCoreV1.MockNamespaces.ErrorResult = errors.New("some list error")
+	i.MockKubernetes.MockCoreV1.MockNamespaces.ErrorResult = errors.New("some list error")
 
-	_, err := GetNamespaces(&rest.Config{})
+	_, err := GetNamespaces(i)
 	if err == nil || err.Error() != "some list error" {
 		t.Fatalf("unexpected error: %v", err)
 	}

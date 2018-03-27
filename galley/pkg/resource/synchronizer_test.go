@@ -16,6 +16,7 @@ package resource
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -23,47 +24,49 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
-	wmock "istio.io/istio/galley/pkg/testing/mock"
+	wmock "istio.io/istio/galley/pkg/testing/crd/mock"
+	dmock "istio.io/istio/galley/pkg/testing/dynamic/mock"
+	"istio.io/istio/galley/pkg/testing/machinery/mock"
 )
 
-func TestSynchronizer_NewClientError(t *testing.T) {
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return nil, errors.New("newDynamicClient error")
+func TestSynchronizer_NewAccessorError1(t *testing.T) {
+	i := mock.NewInterface()
+	i.DynamicFn = func(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+		return nil, fmt.Errorf("some accessor startup error")
 	}
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind")
-	if err == nil || err.Error() != "newDynamicClient error" {
+	_, err := newSynchronizer(i, 0, "foo", sgv, dgv, "kind", "listkind", nil)
+	if err == nil || err.Error() != "some accessor startup error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
-func TestSynchronizer_NewClientError2(t *testing.T) {
-	callid := 0
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		if callid == 0 {
-			callid++
-			return m, nil
+func TestSynchronizer_NewAccessorError2(t *testing.T) {
+	i := mock.NewInterface()
+	counter := 0
+	i.DynamicFn = func(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+		if counter == 0 {
+			counter++
+			return i.MockDynamic, nil
 		}
-		return nil, errors.New("newDynamicClient error")
+		return nil, fmt.Errorf("some accessor startup error")
 	}
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
-	dgv := schema.GroupVersion{Group: "g1", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind")
-	if err == nil || err.Error() != "newDynamicClient error" {
+	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
+	_, err := newSynchronizer(i, 0, "foo", sgv, dgv, "kind", "listkind", nil)
+	if err == nil || err.Error() != "some accessor startup error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
 type testState struct {
-	m1           *mock.Client
-	m2           *mock.Client
+	i            *mock.Interface
+	m1           *dmock.Client
+	m2           *dmock.Client
 	w1           *wmock.Watch
 	w2           *wmock.Watch
 	synchronizer *Synchronizer
@@ -73,18 +76,20 @@ type testState struct {
 func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) *testState {
 	st := &testState{}
 
+	st.i = mock.NewInterface()
+
 	callid := 0
-	st.m1 = mock.NewClient()
+	st.m1 = dmock.NewClient()
 	st.w1 = wmock.NewWatch()
 	st.m1.MockResource.ListResult = &unstructured.UnstructuredList{Items: initial1}
 	st.m1.MockResource.WatchResult = st.w1
 
-	st.m2 = mock.NewClient()
+	st.m2 = dmock.NewClient()
 	st.w2 = wmock.NewWatch()
 	st.m2.MockResource.ListResult = &unstructured.UnstructuredList{Items: initial2}
 	st.m2.MockResource.WatchResult = st.w2
 
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+	st.i.DynamicFn = func(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
 		if callid == 0 {
 			callid++
 			return st.m1, nil
@@ -98,8 +103,7 @@ func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) 
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
-	s, err := newSynchronizer(
-		&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind", hookFn)
+	s, err := newSynchronizer(st.i, 0, "foo", sgv, dgv, "kind", "listkind", hookFn)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

@@ -23,24 +23,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/testing/machinery/mock"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/testing/common"
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
-	wmock "istio.io/istio/galley/pkg/testing/mock"
+	wmock "istio.io/istio/galley/pkg/testing/crd/mock"
 )
 
 func TestAccessor_NewClientError(t *testing.T) {
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorFn := func(c *change.Info) {}
 
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+	i := mock.NewInterface()
+	i.DynamicFn = func(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
 		return nil, errors.New("newDynamicClient error")
 	}
-
-	_, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	_, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -51,15 +51,11 @@ func TestAccessor_Basic(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,7 +65,7 @@ func TestAccessor_Basic(t *testing.T) {
 	expected := `
 List
 Watch`
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	check(t, processorLog.String(), "")
 }
@@ -79,15 +75,11 @@ func TestAccessor_DoubleStart(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,7 +92,7 @@ func TestAccessor_DoubleStart(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 	check(t, processorLog.String(), "")
 }
 
@@ -109,15 +101,11 @@ func TestAccessor_DoubleStop(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +117,7 @@ func TestAccessor_DoubleStop(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 	check(t, processorLog.String(), "")
 }
 
@@ -143,15 +131,11 @@ func TestAccessor_AddEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,7 +150,7 @@ func TestAccessor_AddEvent(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]`
@@ -184,18 +168,14 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +192,7 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -231,18 +211,14 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -258,7 +234,7 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -276,18 +252,14 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -304,7 +276,7 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -322,18 +294,14 @@ func TestAccessor_Tombstone(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -351,7 +319,7 @@ func TestAccessor_Tombstone(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -369,18 +337,14 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -396,7 +360,7 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -414,18 +378,14 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
-
+	i := mock.NewInterface()
 	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
+	i.MockDynamic.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 		*template.DeepCopy(),
 	}}
 
-	m.MockResource.WatchResult = w
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	i.MockDynamic.MockResource.WatchResult = w
+	a, err := newAccessor(i, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -442,7 +402,7 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 List
 Watch`
 
-	check(t, m.String(), expected)
+	check(t, i.MockDynamic.String(), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]

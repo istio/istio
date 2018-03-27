@@ -23,41 +23,25 @@ import (
 	"time"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
-	"istio.io/istio/galley/pkg/testing/mock"
-
-	"k8s.io/client-go/rest"
+	cmock "istio.io/istio/galley/pkg/testing/crd/mock"
+	"istio.io/istio/galley/pkg/testing/machinery/mock"
 )
 
-func TestSynchronizer_ClientSetError(t *testing.T) {
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return nil, errors.New("newForConfig error")
-	}
-
-	_, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
-	if err == nil || err.Error() != "newForConfig error" {
-		t.Fatalf("Expected error not found: %v", err)
-	}
-}
-
 func TestSynchronizer_DoubleStart(t *testing.T) {
-	iface := mock.NewInterface()
-	defer iface.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return iface, nil
-	}
+	i := mock.NewInterface()
+	defer i.MockCRDI.Close()
 
-	iface.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
-	w := mock.NewWatch()
-	iface.AddWatchResponse(w, nil)
+	i.MockCRDI.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
+	w := cmock.NewWatch()
+	i.MockCRDI.AddWatchResponse(w, nil)
 
-	synchronizer, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
+	synchronizer, err := NewSynchronizer(i, getMappingForSynchronizerTests(), 0, SyncListener{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -76,17 +60,14 @@ func TestSynchronizer_DoubleStart(t *testing.T) {
 }
 
 func TestSynchronizer_DoubleStop(t *testing.T) {
-	iface := mock.NewInterface()
-	defer iface.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return iface, nil
-	}
+	i := mock.NewInterface()
+	defer i.MockCRDI.Close()
 
-	iface.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
-	w := mock.NewWatch()
-	iface.AddWatchResponse(w, nil)
+	i.MockCRDI.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
+	w := cmock.NewWatch()
+	i.MockCRDI.AddWatchResponse(w, nil)
 
-	synchronizer, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
+	synchronizer, err := NewSynchronizer(i, getMappingForSynchronizerTests(), 0, SyncListener{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -538,8 +519,8 @@ ADD: foos.g1, foo, foolist
 }
 
 type testState struct {
-	iface        *mock.Interface
-	watch        *mock.Watch
+	iface        *cmock.Interface
+	watch        *cmock.Watch
 	synchronizer *Synchronizer
 	eventSync    *eventSynchronizer
 	listener     *loggingListener
@@ -563,20 +544,16 @@ var i2Template = rewrite(&i1Template, "g2", "v2")
 func newTestState(t *testing.T) *testState {
 	i := mock.NewInterface()
 	state := &testState{
-		iface:     i,
-		watch:     mock.NewWatch(),
+		iface:     i.MockCRDI,
+		watch:     cmock.NewWatch(),
 		eventSync: &eventSynchronizer{},
 		listener:  newLoggingListener(),
 	}
 
-	crdiFn := func(config *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
-
 	var err error
 	if state.synchronizer, err = newSynchronizer(
-		&rest.Config{}, getMappingForSynchronizerTests(), 0,
-		state.listener.listener, state.eventSync.hookFn, crdiFn); err != nil {
+		i, getMappingForSynchronizerTests(), 0,
+		state.listener.listener, state.eventSync.hookFn); err != nil {
 
 		t.Fatalf("Unexpected error during newSynchronizer call: %v", err)
 	}

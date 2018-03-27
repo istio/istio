@@ -23,9 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"istio.io/istio/galley/pkg/machinery"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/pkg/log"
@@ -57,16 +58,16 @@ type Synchronizer struct {
 type eventHookFn func(e interface{})
 
 // NewSynchronizer returns a new instance of a Synchronizer
-func NewSynchronizer(config *rest.Config, resyncPeriod time.Duration, name string, source schema.GroupVersion,
+func NewSynchronizer(k machinery.Interface, resyncPeriod time.Duration, name string, source schema.GroupVersion,
 	destination schema.GroupVersion, kind string, listKind string) (s *Synchronizer, err error) {
-	return newSynchronizer(config, resyncPeriod, name, source, destination, kind, listKind, nil)
+	return newSynchronizer(k, resyncPeriod, name, source, destination, kind, listKind, nil)
 }
 
 // NewSynchronizer returns a new instance of a Synchronizer that synchronizes the custom resource contents
 // from the accessor APIGroup/Version to the destination APIGroup/Version. The kind and listKind is used
 // when hydrating objects as unstructured.Unstructured.
 func newSynchronizer(
-	config *rest.Config, resyncPeriod time.Duration, name string, source schema.GroupVersion,
+	k machinery.Interface, resyncPeriod time.Duration, name string, source schema.GroupVersion,
 	destination schema.GroupVersion, kind string, listKind string, eventHook eventHookFn) (
 	s *Synchronizer, err error) {
 
@@ -74,14 +75,14 @@ func newSynchronizer(
 		eventHook: eventHook,
 	}
 
-	if s.source, err = newAccessor(config, resyncPeriod, name,
+	if s.source, err = newAccessor(k, resyncPeriod, name,
 		source, kind, listKind, s.handleInputEvent); err != nil {
 
 		s = nil
 		return
 	}
 
-	if s.destination, err = newAccessor(config, resyncPeriod, name,
+	if s.destination, err = newAccessor(k, resyncPeriod, name,
 		destination, kind, listKind, s.handleOutputEvent); err != nil {
 
 		s = nil
