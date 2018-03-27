@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
-	"encoding/json"
 )
 
 var (

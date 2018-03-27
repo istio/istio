@@ -134,7 +134,7 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
 		// envoy crashes if 0. Will go away once we move to v2
 		refresh = 5 * time.Second
 	}
-	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig {
+	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig{
 		ServiceName: cluster.Name,
 		EdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
