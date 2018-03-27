@@ -159,11 +159,10 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 }
 
 func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
-	out := make([]model.Config, 0)
 
 	gateway := &networking.Gateway{
 		Servers:  nil,
-		Selector: map[string]string{"istio":"ingress"}, // hardcoded
+		Selector: model.IstioIngressWorkloadLabels,
 	}
 
 	for _, tls := range ingress.Spec.TLS {
@@ -192,17 +191,31 @@ func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 	})
 
 
-
-	ingressPorts := []int{80, 443}
-	for _, p := range ingressPorts {
+	gatewayConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.Gateway.Type,
+			Group:           model.Gateway.Group,
+			Version:         model.Gateway.Version,
+			Name:            model.IstioIngressGatewayName,
+			Namespace:       model.IstioIngressNamespace,
+			Domain:domainSuffix,
+		},
+		Spec:gateway,
 	}
 
+	virtualService := &networking.VirtualService{
+		Hosts:    nil,
+		Gateways: []string{model.IstioIngressGatewayName},
+		Http:     nil,
+		Tcp:      nil,
+	}
 
-	//if ingress.Spec.Backend != nil {
-	//	name := EncodeIngressRuleName(ingress.Name, 0, 0)
-	//	ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
-	//	out = append(out, ingressRule)
-	//}
+	if ingress.Spec.Backend != nil {
+		backend := *ingress.Spec.Backend
+		backend.
+		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
+		out = append(out, ingressRule)
+	}
 
 	for i, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
