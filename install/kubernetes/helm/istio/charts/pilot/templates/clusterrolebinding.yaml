@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot
+  name: istio-pilot-{{ .Release.Namespace }}
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
