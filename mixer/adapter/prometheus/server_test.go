@@ -17,9 +17,8 @@ package prometheus
 import (
 	"fmt"
 	"net/http"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
