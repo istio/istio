@@ -26,9 +26,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -111,18 +108,6 @@ func convertGogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
-
-// convertDuration converts to golang duration and logs errors
-func convertProtoDurationToDuration(d *duration.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := ptypes.Duration(d)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}

@@ -78,7 +78,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-			defaultCluster := newCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -88,7 +88,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
-					subsetCluster := newCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
@@ -128,7 +128,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		localCluster := newCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
+		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		clusters = append(clusters, localCluster)
 	}
@@ -137,7 +137,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
 		address := buildAddress("127.0.0.1", uint32(port.Port))
-		mgmtCluster := newCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
+		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
 	}
@@ -313,19 +313,19 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	}
 }
 
-func newCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
+func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
 	hosts []*core.Address) *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:  name,
 		Type:  discoveryType,
 		Hosts: hosts,
 	}
-	defaultTrafficPolicy := newDefaultTrafficPolicy(env, discoveryType)
+	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(cluster, defaultTrafficPolicy)
 	return cluster
 }
 
-func newDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
+func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
 	lbPolicy := DefaultLbType
 	if discoveryType == v2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
