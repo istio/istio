@@ -179,6 +179,7 @@ func testPorts(base int) []*model.Port {
 		}}
 }
 
+// Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
 	initEnvoyTestEnv(t)
 	// Make sure tcp port is ready before starting the test.

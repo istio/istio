@@ -37,6 +37,9 @@ const (
 
 	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
 	defaultClusterConnectTimeout = 5 * time.Second
+
+	// Name used for the xds cluster.
+	xdsName = "xds-grpc"
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -95,6 +98,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				Type:  convertResolution(service.Resolution),
 				Hosts: hosts,
 			}
+			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -108,6 +112,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 						Type:  convertResolution(service.Resolution),
 						Hosts: hosts,
 					}
+					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
@@ -118,6 +123,29 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 	}
 
 	return clusters
+}
+
+func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
+	if cluster.Type != v2.Cluster_EDS {
+		return
+	}
+	refresh := time.Duration(env.Mesh.RdsRefreshDelay.Seconds) * time.Second
+	if refresh == 0 {
+		// envoy crashes if 0. Will go away once we move to v2
+		refresh = 5 * time.Second
+	}
+	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig {
+		ServiceName: serviceName,
+		EdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:      core.ApiConfigSource_GRPC,
+					ClusterNames: []string{xdsName},
+					RefreshDelay: &refresh,
+				},
+			},
+		},
+	}
 }
 
 func buildClusterHosts(env model.Environment, service *model.Service, port *model.Port) []*core.Address {
