@@ -406,6 +406,40 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	authnPolicy      *authn.Policy
 }
 
+/* // Enable only to compare with RDSv1 responses
+func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
+	if opts.rds != "" {
+		// Fetch V1 RDS response and stick it into the LDS response
+		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
+			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
+		rcBytes, _ := json.Marshal(rc)
+		routeConfigDeprecated := string(rcBytes)
+		return &xdsapi.Listener{
+			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+			Address: buildAddress(opts.ip, uint32(opts.port)),
+			FilterChains: []listener.FilterChain{
+				{
+					Filters: []listener.Filter{
+						{
+							Name: util.HTTPConnectionManager,
+							DeprecatedV1: &listener.Filter_DeprecatedV1{
+								Type: routeConfigDeprecated,
+							},
+						},
+					},
+				},
+			},
+			DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+				BindToPort: &google_protobuf.BoolValue{
+					Value: opts.bindToPort,
+				},
+			},
+		}
+	}
+	return nil
+}
+*/
+
 func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	mesh := opts.env.Mesh
 	filters := []*http_conn.HttpFilter{}
