@@ -43,11 +43,10 @@ import (
 const (
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
-	// HttpStatPrefix indicates envoy stat prefix for http listeners
-	HttpStatPrefix = "http"
-)
 
-const (
+	// HTTPStatPrefix indicates envoy stat prefix for http listeners
+	HTTPStatPrefix = "http"
+
 	// RDSName is the name of route-discovery-service (RDS) cluster
 	RDSName = "rds"
 
@@ -479,7 +478,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 			},
 		},
 		HttpFilters:      filters,
-		StatPrefix:       HttpStatPrefix,
+		StatPrefix:       HTTPStatPrefix,
 		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
