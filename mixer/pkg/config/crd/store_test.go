@@ -374,7 +374,7 @@ func TestStoreReadinessWithRetry(t *testing.T) {
 				{
 					GroupVersion: apiGroupVersion,
 					APIResources: []metav1.APIResource{
-						metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+						{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
 						{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
 					},
 				},
