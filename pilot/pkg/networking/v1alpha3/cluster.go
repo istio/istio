@@ -135,7 +135,7 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
 		refresh = 5 * time.Second
 	}
 	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig {
-		ServiceName: serviceName,
+		ServiceName: cluster.Name,
 		EdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{

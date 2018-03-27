@@ -144,17 +144,23 @@ func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResp
 // Get the ClusterLoadAssignment for a cluster.
 func (s *DiscoveryServer) clusterEndpoints(clusterName string) *types.Any {
 	c := s.getOrAddEdsCluster(clusterName)
-	if c.LoadAssignment == nil { // fresh cluster
+	l := loadAssignment(c)
+	if l == nil { // fresh cluster
 		updateCluster(clusterName, c)
+		l = loadAssignment(c)
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	// Previously computed load assignments. They are re-computed on cache invalidation or
 	// event, but don't have to be recomputed once for each sidecar.
-	clAssignmentRes, _ := types.MarshalAny(c.LoadAssignment)
+	clAssignmentRes, _ := types.MarshalAny(l)
 	return clAssignmentRes
+}
 
+// Return the load assignment. The field can be updated by another routine.
+func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.LoadAssignment
 }
 
 func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
@@ -190,16 +196,22 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	var hostname string
 	var ports model.PortList
 	var labels model.LabelsCollection
+	// Single port
+	var portName string
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
 	if strings.Index(clusterName, "outbound") == 0 { //new style cluster names
 		var p *model.Port
 		var subsetName string
-		_, hostname, subsetName, p = model.ParseSubsetKey(clusterName)
+		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
 		ports = []*model.Port{p}
+		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname, "")
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		if len(ports) > 0 {
+			portName = ports.GetNames()[0]
+		}
 	}
 
 	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
@@ -209,7 +221,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
 	if len(instances) == 0 && edsDebug {
-		log.Infoa("EDS: no instances ", clusterName, hostname, ports, labels)
+		log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be

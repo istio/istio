@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
+	"encoding/json"
 )
 
 var (
@@ -185,9 +186,24 @@ func TestEnvoy(t *testing.T) {
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
+	stats, err := testEnv.WaitForStatsUpdateAndGetStats(1)
+	if err != nil {
+		t.Fatal("Envoy not started")
+	}
+	t.Log("Envoy stats: ", stats)
 	//url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 }
+
+//func stats(stats string) map[string]int {
+//	s := struct{
+//		Stats []struct{
+//			Name string,
+//			Value int,
+//		}
+//	}
+//	json.Unmarshal([]byte(stats), &s)
+//}
 
 func TestMain(m *testing.M) {
 	flag.Parse()
