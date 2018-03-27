@@ -35,6 +35,11 @@ import (
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
 	testEnv *testenv.TestSetup
+
+	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
+	// local tests.
+
+	app3Ip = "10.2.0.1"
 )
 
 // Common code for the xds testing.
@@ -59,7 +64,7 @@ func initTest(t *testing.T) {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", "sidecar~1.2.3.4~test.default.cluster.local~", "--v2-config-only"}
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", sidecarId(app3Ip, "app3"), "--v2-config-only"}
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = util.IstioSrc
@@ -106,7 +111,7 @@ func initMocks() *bootstrap.Server {
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address: "10.2.0.1",
+			Address: app3Ip,
 			Port:    2080,
 			ServicePort: &model.Port{
 				Name:                 "http-main",
@@ -157,6 +162,17 @@ func testPorts(base int) []*model.Port {
 			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 		}}
 }
+
+func TestEnvoy(t *testing.T) {
+	initTest(t)
+	// Make sure tcp port is ready before starting the test.
+	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
+
+	//url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
+
+}
+
+
 
 func TestMain(m *testing.M) {
 	flag.Parse()

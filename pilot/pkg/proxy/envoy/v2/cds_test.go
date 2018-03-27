@@ -21,14 +21,13 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	testenv "istio.io/istio/mixer/test/client/env"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
+	"io/ioutil"
 )
 
-func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamClustersClient {
-	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+func connectCDS(url string, nodeID string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamClustersClient {
+	conn, err := grpc.Dial(url, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
 	}
@@ -40,7 +39,7 @@ func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamC
 	}
 	err = cdsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~10.1.10.1~b~c",
+			Id: nodeID,
 		},
 	})
 	if err != nil {
@@ -49,19 +48,10 @@ func connectCDS(url string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamC
 	return cdsstr
 }
 
-func TestEnvoyCDS(t *testing.T) {
-	initTest(t)
-	// Make sure tcp port is ready before starting the test.
-	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
-
-	//url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
-
-}
-
 func TestCDS(t *testing.T) {
 	initMocks()
 
-	cdsr := connectCDS(util.MockPilotGrpcAddr, t)
+	cdsr := connectCDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)
 
 	res, err := cdsr.Recv()
 	if err != nil {
@@ -70,6 +60,7 @@ func TestCDS(t *testing.T) {
 	}
 
 	strResponse, _ := model.ToJSONWithIndent(res, " ")
+	_ = ioutil.WriteFile(util.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	t.Log("CDS response", strResponse)
 	if len(res.Resources) == 0 {

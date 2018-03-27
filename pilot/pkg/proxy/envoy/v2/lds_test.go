@@ -54,7 +54,7 @@ func TestLDS(t *testing.T) {
 	initMocks()
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr := connectLDS(util.MockPilotGrpcAddr, sidecarId("10.2.0.1", "app3"), t)
+		ldsr := connectLDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)
 
 		res, err := ldsr.Recv()
 		if err != nil {

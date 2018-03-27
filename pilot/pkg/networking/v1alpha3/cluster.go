@@ -25,6 +25,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"time"
 )
 
 const (
@@ -32,6 +33,9 @@ const (
 	DefaultLbType = v2.Cluster_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
+
+	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
+	defaultClusterConnectTimeout = 5 * time.Second
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -218,6 +222,8 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
 			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
+		} else {
+			cluster.ConnectTimeout = defaultClusterConnectTimeout
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
