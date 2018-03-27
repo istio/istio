@@ -166,12 +166,12 @@ EOF
 
 
 # eventually this can be used on all of:
-# (istio/api istio/istio istio/mixerclient istio/proxy)
+# (istio/api istio/istio istio/proxy istio/vendor-istio)
 # but for now only istio and proxy are dictated by the repo xml
 # (the others come via bazel as cited in/via the WORKSPACE FILE)
 
 ORG_REPOS=(istio proxy)
-# ORG_REPOS=(api istio mixerclient proxy)
+# ORG_REPOS=(api istio proxy vendor-istio)
 
 for GITREPO in ${ORG_REPOS[@]}; do
   SHA=`grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \"`
