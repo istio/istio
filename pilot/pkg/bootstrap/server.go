@@ -566,7 +566,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case MockRegistry:
-			s.initMemoryRegistry(serviceControllers)
+			s.initMockRegistry(serviceControllers)
 		case KubernetesRegistry:
 			if err := s.initKubernetesRegistry(serviceControllers, args); err != nil {
 				return err
@@ -600,7 +600,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 	return nil
 }
-func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
+func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {
 	// ServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
@@ -670,7 +670,7 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 	}
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(r),
+			Name:             serviceregistry.ServiceRegistry(ConsulRegistry),
 			ServiceDiscovery: conctl,
 			ServiceAccounts:  conctl,
 			Controller:       conctl,
@@ -683,7 +683,7 @@ func (s *Server) initEurekaRegistry(serviceControllers *aggregate.Controller, ar
 	eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(r),
+			Name:             serviceregistry.ServiceRegistry(EurekaRegistry),
 			Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 			ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 			ServiceAccounts:  eureka.NewServiceAccounts(),
@@ -705,7 +705,7 @@ func (s *Server) initCloudFoundryRegistry(serviceControllers *aggregate.Controll
 		return multierror.Prefix(err, "creating cloud foundry client")
 	}
 	serviceControllers.AddRegistry(aggregate.Registry{
-		Name: serviceregistry.ServiceRegistry(r),
+		Name: serviceregistry.ServiceRegistry(CloudFoundryRegistry),
 		Controller: &cloudfoundry.Controller{
 			Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 			Client: client,
