@@ -324,19 +324,19 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*networking.VirtualService)
 	routes := make([]*HTTPRoute, 0)
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, buildCluster))
+			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, envoyv2, buildCluster))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, buildCluster))
+					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, envoyv2, buildCluster))
 					break
 				}
 			}
