@@ -597,7 +597,10 @@ generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG} 
 
 
-istio.yaml:
+$(HELM):
+	bin/init_helm.sh
+
+istio.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
@@ -609,7 +612,7 @@ istio.yaml:
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
 
-istio-one-namespace.yaml:
+istio-one-namespace.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
@@ -622,7 +625,7 @@ istio-one-namespace.yaml:
 				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace.yaml
 
 
-istio-auth.yaml:
+istio-auth.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
@@ -634,7 +637,7 @@ istio-auth.yaml:
                   --set prometheus.enabled=true \
 				install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml
 
-istio-one-namespace-auth.yaml:
+istio-one-namespace-auth.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 				  --namespace=istio-system \
                   --set global.hub=${HUB} \
@@ -648,7 +651,7 @@ istio-one-namespace-auth.yaml:
 
 
 
-deploy/all:
+deploy/all: $(HELM)
 	kubectl create ns istio-system > /dev/null || true
 	$(HELM) template --set global.tag=${TAG} \
 		          --namespace=istio-system \

@@ -110,6 +110,7 @@ ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}
 ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$ISTIO_ENVOY_RELEASE_NAME"}
 
+
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
     # Clear out any old versions of Envoy.
@@ -144,14 +145,7 @@ if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
 fi
 
-if [ ! -f ${ISTIO_OUT}/helm ] ; then
-    # Install helm. Please keep it in sync with .circleci
-    cd /tmp && \
-        curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
-        tar xfz helm.tgz && \
-        mv linux-amd64/helm ${ISTIO_OUT}/helm && \
-        rm -rf helm.tgz linux-amd64
-fi
+${ROOT}/bin/init_helm.sh
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
 # circleCI expects this in the bin directory
