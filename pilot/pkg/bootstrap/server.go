@@ -58,20 +58,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-// ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
-type ServiceRegistry string
-
 const (
-	// MockRegistry environment flag
-	MockRegistry ServiceRegistry = "Mock"
-	// KubernetesRegistry environment flag
-	KubernetesRegistry ServiceRegistry = "Kubernetes"
-	// ConsulRegistry environment flag
-	ConsulRegistry ServiceRegistry = "Consul"
-	// EurekaRegistry environment flag
-	EurekaRegistry ServiceRegistry = "Eureka"
-	// CloudFoundryRegistry environment flag
-	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 	// CopilotTimeout when to cancel remote gRPC call to copilot
@@ -393,13 +380,18 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	needToCreateClient := false
 	for _, r := range args.Service.Registries {
-		switch ServiceRegistry(r) {
-		case KubernetesRegistry:
+		switch serviceregistry.ServiceRegistry(r) {
+		case serviceregistry.KubernetesRegistry:
 			needToCreateClient = true
-		case ConsulRegistry:
+		case serviceregistry.ConsulRegistry:
 			needToCreateClient = true
-		case EurekaRegistry:
+		case serviceregistry.EurekaRegistry:
 			needToCreateClient = true
+		case serviceregistry.CloudFoundryRegistry:
+			needToCreateClient = true
+		}
+		if needToCreateClient {
+			break
 		}
 	}
 
@@ -523,7 +515,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+			Name:             serviceregistry.KubernetesRegistry,
 			ServiceDiscovery: kubectl,
 			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
@@ -544,7 +536,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			kubectl := kube.NewController(client, args.Config.ControllerOptions)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+					Name:             serviceregistry.KubernetesRegistry,
 					ClusterName:      clusterregistry.GetClusterName(cluster),
 					ServiceDiscovery: kubectl,
 					ServiceAccounts:  kubectl,
@@ -558,9 +550,9 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := aggregate.NewController()
-	registered := make(map[ServiceRegistry]bool)
+	registered := make(map[serviceregistry.ServiceRegistry]bool)
 	for _, r := range args.Service.Registries {
-		serviceRegistry := ServiceRegistry(r)
+		serviceRegistry := serviceregistry.ServiceRegistry(r)
 		if _, exists := registered[serviceRegistry]; exists {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
@@ -568,9 +560,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case MockRegistry:
+		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
-		case KubernetesRegistry:
+		case serviceregistry.KubernetesRegistry:
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
@@ -597,7 +589,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					})
 				}
 			}
-		case ConsulRegistry:
+		case serviceregistry.ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
 				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
@@ -606,23 +598,23 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			}
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
+					Name:             serviceRegistry,
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
 				})
-		case EurekaRegistry:
+		case serviceregistry.EurekaRegistry:
 			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
+					Name:             serviceRegistry,
 					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
 
-		case CloudFoundryRegistry:
+		case serviceregistry.CloudFoundryRegistry:
 			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
 			if err != nil {
 				return multierror.Prefix(err, "loading cloud foundry config")
@@ -636,7 +628,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
 			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceregistry.ServiceRegistry(r),
+				Name: serviceRegistry,
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
