@@ -59,7 +59,7 @@ func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsa
 		// TODO: TCP
 
 		// build physical listener
-		physicalListener := buildPhysicalGatewayListener(env, node, server)
+		physicalListener := buildGatewayListener(env, node, server)
 		if physicalListener == nil {
 			continue // TODO: add support for all protocols
 		}
@@ -70,7 +70,7 @@ func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsa
 	return normalizeListeners(listeners), nil
 }
 
-func buildPhysicalGatewayListener(
+func buildGatewayListener(
 	env model.Environment,
 	node model.Proxy,
 	server *networking.Server,

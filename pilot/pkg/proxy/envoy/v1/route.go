@@ -187,13 +187,13 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 
 // BuildHTTPRoutes translates a route rule to an Envoy route
 func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
+	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *networking.VirtualService:
-		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
+		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, buildCluster)
 	default:
 		panic("unsupported rule")
 	}
@@ -324,19 +324,19 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
 
 	rule := config.Spec.(*networking.VirtualService)
 	routes := make([]*HTTPRoute, 0)
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, envoyv2, buildCluster))
+			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, buildCluster))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, envoyv2, buildCluster))
+					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, buildCluster))
 					break
 				}
 			}
@@ -347,7 +347,7 @@ func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, servic
 }
 
 func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, envoyv2 bool, buildCluster BuildClusterFunc) *HTTPRoute {
+	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV3(match)
 	if http.Redirect != nil {
@@ -356,14 +356,9 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	} else {
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
-
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
-			v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
-			if envoyv2 {
-				cluster.Name = v2clusterName
-			}
 			route.Clusters = append(route.Clusters, cluster)
 			clusters = append(clusters,
 				&WeightedClusterEntry{
@@ -391,7 +386,6 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 
 	route.RetryPolicy = buildRetryPolicy(http.Retries)
 
-	// This won't work with ldsv2
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if http.Fault != nil {
 		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
@@ -405,11 +399,7 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	if http.Mirror != nil {
 		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
 		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
-		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, http.Mirror.Subset, fqdn, port)
 		cluster := buildCluster(fqdn, port, labels, false)
-		if envoyv2 {
-			cluster.Name = v2clusterName
-		}
 		route.Clusters = append(route.Clusters, cluster)
 		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
 	}

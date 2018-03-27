@@ -188,7 +188,7 @@ func buildExternalServiceVirtualHost(serviceName string, externalService *networ
 
 	// FIXME: clusters generated if the routing rule routes traffic to other services will be constructed incorrectly
 	// FIXME: similarly, routing rules for other services that route to this external service will be constructed incorrectly
-	routes := buildDestinationHTTPRoutes(node, service, port, proxyInstances, config, false, buildClusterFunc)
+	routes := buildDestinationHTTPRoutes(node, service, port, proxyInstances, config, buildClusterFunc)
 
 	// inject Mixer calls per route.
 	// every route here belongs to the same destination.service, ie serviceName

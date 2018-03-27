@@ -40,24 +40,27 @@ func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
 
 	cidrList := make([]*core.CidrRange, 0)
 	for _, addr := range addresses {
-		cidr := &core.CidrRange{
-			AddressPrefix: addr,
-			PrefixLen: &types.UInt32Value{
-				Value: 32,
-			},
-		}
-
-		if strings.Contains(addr, "/") {
-			parts := strings.Split(addr, "/")
-			cidr.AddressPrefix = parts[0]
-			prefix, _ := strconv.Atoi(parts[1])
-			cidr.PrefixLen.Value = uint32(prefix)
-		}
-		cidrList = append(cidrList, cidr)
+		cidrList = append(cidrList, convertAddressToCidr(addr))
 	}
 	return cidrList
 }
 
+func convertAddressToCidr(addr string) *core.CidrRange {
+	cidr := &core.CidrRange{
+		AddressPrefix: addr,
+		PrefixLen: &types.UInt32Value{
+			Value: 32,
+		},
+	}
+
+	if strings.Contains(addr, "/") {
+		parts := strings.Split(addr, "/")
+		cidr.AddressPrefix = parts[0]
+		prefix, _ := strconv.Atoi(parts[1])
+		cidr.PrefixLen.Value = uint32(prefix)
+	}
+	return cidr
+}
 // normalizeListeners sorts and de-duplicates listeners by address
 func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 	out := make([]*xdsapi.Listener, 0, len(listeners))
@@ -95,6 +98,18 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 		}
 	}
 	return nil
+}
+
+func lastElement(arr []string) string {
+	return arr[len(arr)-1]
+}
+
+func reverseString(s string) string {
+	r := []rune(s)
+	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+	return string(r)
 }
 
 func messageToStruct(msg proto.Message) *types.Struct {
