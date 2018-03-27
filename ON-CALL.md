@@ -21,7 +21,7 @@ and is performed during regular working hours for your time zone.
 * Check the schedule sheet to make sure the next on call is defined.
 * Build cop: monitor the builds, the presubmit automated tests, the postsubmit automated tests:
   * Familiarize yourself with the current [open issues affecting automated tests](https://github.com/istio/istio/issues?q=is%3Aopen+is%3Aissue+label%3Akind%2Ftest-failure).
-  * Monitor the [dashboard](http://k8s-testgrid.appspot.com/istio#Summary)
+  * Monitor the [dashboard](http://k8s-testgrid.appspot.com/istio#Summary) and [daily build status](https://prow.istio.io/?author=istio-release-robot)
   * If there are new failures, open issues and label them with kind/test-failure, with the appropriate area label, with "prow" or "circleci" label,
   and assign them either directly to an engineer or to the area lead.
   The issue must contain a link to the failed test log.
