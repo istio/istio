@@ -7,7 +7,7 @@ by a Google service account.
 
 - Run the following command to install python dependences.
 ```
-  pip install google-cloud
+  pip install google-auth
 ```
 
 - Create a service account or use an existing service account, and download the service account private key.
@@ -19,9 +19,6 @@ by a Google service account.
 
 ## Usage
 
-The script expects two arguments, the audience ("aud") and the service account key file ("service_account_file"). Optionally,
-you can also set the the issue name. By default, the issuer name and the "sub" claim are set to the service account email.
-
 Type the following command to see the help message.
 
 ```
@@ -30,32 +27,29 @@ Type the following command to see the help message.
 
 It outputs the following:
 ```
-usage: sa-jwt.py [-h] [-iss ISSUER] aud service_account_file
+usage: sa-jwt.py [-h] [-iss ISS] [-aud AUD] [-sub SUB] service_account_file
 
 Python script generates a JWT signed by a Google service account
 
 positional arguments:
-  aud                   Audience.
-  service_account_file  The path to your service account key file (in JSON format).
+  service_account_file  The path to your service account key file (in JSON
+                        format).
 
 optional arguments:
   -h, --help            show this help message and exit
-  -iss ISSUER, --issuer ISSUER
-                        iss claim. This will also be used for sub claim
-
+  -iss ISS, --iss ISS   iss claim. This should be your service account email.
+  -aud AUD, --aud AUD   aud claim
+  -sub SUB, --sub SUB   sub claim. If not provided, it is set to the same as
+                        iss claim.
 ```
 
 If you want to add custom claims to the JWT, you can edit sa-jwt.py, and add any claims to JWT payload
 (look for "Add any custom claims here" comment in the script).
 
-## Examples
+## Example
 
-1. Generate a JWT token.
+Here is an example of using sa-jwt.py to generate a JWT token.
 ```
-  python sa-jwt.py <YOUR-AUDIENCE> /path/to/service_account.json
+  python sa-jwt.py /path/to/service_account.json -iss <YOUR_SERVICE_ACCOUNT_EMAIL> -aud <YOUR_AUDIENCE>
 ```
 
-2. Generate a JWT token with custom "iss"/"sub" claim.
-```
-  python sa-jwt.py <YOUR-AUDIENCE> /path/to/service_account.json -iss <ISSUER>
-```

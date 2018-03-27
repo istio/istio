@@ -15,42 +15,52 @@
 """Python script generates a JWT signed by a Google service account"""
 import argparse
 import time
-import oauth2client.crypt
-from oauth2client.service_account import ServiceAccountCredentials
+
+import google.auth.crypt
+import google.auth.jwt
+
+
 def main(args):
-  """Generates a signed JSON Web Token using a Google API Service Account."""
-  credentials = ServiceAccountCredentials.from_json_keyfile_name(
-    args.service_account_file)
-  now = int(time.time())
-  payload = {
-    # MAX_TOKEN_LIFETIME_SECS is set to one hour by default.
-    "exp": now + credentials.MAX_TOKEN_LIFETIME_SECS,
-    "iat": now,
-    "aud": args.aud,
-    # Add any custom claims here.
-    # e.g.,
-    # "email": alice@yahoo.com
-  }
-  if args.issuer:
-    payload["iss"] = args.issuer
-    payload["sub"] = args.issuer
-  else:
-    payload["iss"] = credentials.service_account_email
-    payload["sub"] = credentials.service_account_email
-  signed_jwt = oauth2client.crypt.make_signed_jwt(
-    credentials._signer, payload, key_id=credentials._private_key_id)
-  return signed_jwt
+    """Generates a signed JSON Web Token using a Google API Service Account."""
+    signer = google.auth.crypt.RSASigner.from_service_account_file(
+        args.service_account_file)
+    now = int(time.time())
+    payload = {
+        # expire in one hour.
+        "exp": now + 3600,
+        "iat": now,
+        # Add any custom claims here.
+        # e.g.,
+        # "email": alice@yahoo.com
+    }
+    if args.iss:
+        payload["iss"] = args.iss
+
+    if args.sub:
+        payload["sub"] = args.sub
+    else:
+        payload["sub"] = args.iss
+
+    if args.aud:
+        payload["aud"] = args.aud
+
+    signed_jwt = google.auth.jwt.encode(signer, payload)
+    return signed_jwt
+
+
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(
-    description=__doc__,
-    formatter_class=argparse.RawDescriptionHelpFormatter)
-  # positional arguments
-  parser.add_argument(
-    'aud',
-    help='Audience.')
-  parser.add_argument(
-    'service_account_file',
-    help='The path to your service account key file (in JSON format).')
-  #optional arguments
-  parser.add_argument("-iss", "--issuer", help="iss claim. This will also be used for sub claim")
-  print main(parser.parse_args())
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    # positional arguments
+    parser.add_argument(
+        'service_account_file',
+        help='The path to your service account key file (in JSON format).')
+    # optional arguments
+    parser.add_argument("-iss", "--iss",
+                        help="iss claim. This should be your service account email.")
+    parser.add_argument("-aud", "--aud",
+                        help="aud claim")
+    parser.add_argument("-sub", "--sub",
+                        help="sub claim. If not provided, it is set to the same as iss claim.")
+    print main(parser.parse_args())
