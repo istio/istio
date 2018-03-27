@@ -65,6 +65,9 @@ type Synchronizer struct {
 
 	// Optional listener that receives notifications when destination CRDs get created/deleted.
 	listener SyncListener
+
+	// event hook that gets called after every completion of event processing loop. Useful for testing.
+	eventHook eventHookFn
 }
 
 // SyncListener defines an interface for a listener that will get notified as destination Crds are added/removed.
@@ -76,9 +79,18 @@ type SyncListener struct {
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
 func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) (s *Synchronizer, err error) {
+	return newSynchronizer(config, mapping, resyncPeriod, listener, nil, getCustomResourceDefinitionsInterface)
+}
+
+type eventHookFn func(e interface{})
+
+// NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
+// needs to be done explicitly using start()/Stop() methods.
+func newSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener,
+	eventHook eventHookFn, crdiFn getCrdiFn) (s *Synchronizer, err error) {
 
 	var crdi v1beta1.CustomResourceDefinitionInterface
-	if crdi, err = getCustomResourceDefinitionsInterface(config); err != nil {
+	if crdi, err = crdiFn(config); err != nil {
 		return nil, err
 	}
 
@@ -87,6 +99,7 @@ func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Dur
 		resyncPeriod: resyncPeriod,
 		listener:     listener,
 		crdi:         crdi,
+		eventHook:    eventHook,
 	}
 
 	return
@@ -208,6 +221,9 @@ func (s *Synchronizer) process() {
 		}
 
 		s.queue.Done(item)
+		if s.eventHook != nil {
+			s.eventHook(item)
+		}
 		log.Debugf("marked item as done: %v", item)
 	}
 }
@@ -345,11 +361,4 @@ func (s *Synchronizer) getCrd(name string) (*apiext.CustomResourceDefinition, er
 		name, reflect.TypeOf(resource))
 
 	return nil, err
-}
-
-// helper method for test purposes only. Spins until the work queue is quiesced.
-func (s *Synchronizer) waitForEventQueueDrain() {
-	for s.queue.Len() != 0 {
-		time.Sleep(time.Nanosecond * 100)
-	}
 }

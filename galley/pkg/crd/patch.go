@@ -20,10 +20,11 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var newForConfig = clientset.NewForConfig
+// type for the getCustomResourceDefinitionInterface. Testable code uses this to inject mocks.
+type getCrdiFn func(config *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error)
 
 var getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-	c, err := newForConfig(cfg)
+	c, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,6 @@ type Interface struct {
 	responses    chan response
 	callers      int32
 	shutdown     chan struct{}
-	quiesceGroup sync.WaitGroup
 
 	log     string
 	logLock sync.Mutex
@@ -55,6 +54,7 @@ type response struct {
 	watch2            error
 	patch1            *apiext.CustomResourceDefinition
 	patch2            error
+	panic             string
 }
 
 var _ v1beta1.CustomResourceDefinitionInterface = &Interface{}
@@ -139,20 +139,24 @@ func (m *Interface) dequeueResponse() (r response) {
 	case <-m.shutdown:
 		sh = true
 	case r = <-m.responses:
-		m.quiesceGroup.Done()
 	}
 
 	atomic.AddInt32(&m.callers, -1)
 
 	if sh {
 		m.appendToLog("!! Straggler found !!%v\n", string(debug.Stack()))
-		panic(m.log)
+		panic(m.String())
 	}
+
+	// Handle panic at this level. It applies to all external methods.
+	if r.panic != "" {
+		panic(r.panic)
+	}
+
 	return
 }
 
 func (m *Interface) enqueueResponse(r response) {
-	m.quiesceGroup.Add(1)
 	m.responses <- r
 }
 
@@ -195,14 +199,19 @@ func (m *Interface) AddWatchResponse(w watch.Interface, err error) {
 	})
 }
 
-// String returns the current inncoming request log as string.
-func (m *Interface) String() string {
-	return m.log
+// AddPanicResponse adds a response to the queue that causes a panic.
+func (m *Interface) AddPanicResponse(s string) {
+	m.enqueueResponse(response{
+		panic: s,
+	})
 }
 
-// WaitForResponseDelivery waits until all responses are exhausted.
-func (m *Interface) WaitForResponseDelivery() {
-	m.quiesceGroup.Wait()
+// String returns the current inncoming request log as string.
+func (m *Interface) String() string {
+	m.logLock.Lock()
+	defer m.logLock.Unlock()
+
+	return m.log
 }
 
 // Close the mock. If there are any pending events or listeners, there will be panic.
