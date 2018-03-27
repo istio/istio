@@ -28,14 +28,16 @@ type Envoy struct {
 	ports *Ports
 }
 
-// NewEnvoy creates a new Envoy struct.
-func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
+// NewEnvoy creates a new Envoy struct and starts envoy.
+func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
 	confVersion string) (*Envoy, error) {
 	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
+	// TODO: use util.IstioBin instead to reduce dependency on PATH
 	envoyPath := "envoy"
+	// TODO: use util.IstioOut, so generate config is saved
 	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
 	log.Printf("Envoy config: in %v\n", confPath)
-	if err := CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
+	if err := s.CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
 		return nil, err
 	}
 
@@ -47,7 +49,9 @@ func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, e
 	} else {
 		args = append(args, "-l", "debug", "--concurrency", "1")
 	}
-
+	if s.EnvoyParams != nil {
+		args = append(args, s.EnvoyParams...)
+	}
 	/* #nosec */
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr

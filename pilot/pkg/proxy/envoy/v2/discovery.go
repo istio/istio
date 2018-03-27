@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -54,19 +53,20 @@ const (
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
-	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
 	// env is the model environment.
 	env model.Environment
 
 	Connections map[string]*EdsConnection
+
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemRegistry *MemServiceDiscovery
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
-	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+	out := &DiscoveryServer{GrpcServer: grpcServer, env: env}
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)

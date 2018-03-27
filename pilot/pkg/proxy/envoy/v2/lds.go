@@ -124,6 +124,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			initialRequestReceived = true
 			node.ID = discReq.Node.Id
 			node.Type = nt.Type
+			node.IPAddress = nt.IPAddress
 
 			nodeID = nt.ID
 			addLdsCon(nodeID, con)
