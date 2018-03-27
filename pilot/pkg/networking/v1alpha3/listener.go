@@ -297,11 +297,9 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 					listenAddress = service.Address
 					addresses = []string{service.Address}
 				}
-				if false { // Temporary disabled, until deprecated config is resolved.
-					listener := buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-						listenAddress, uint32(servicePort.Port), servicePort.Protocol)
-					tcpListeners = append(tcpListeners, listener)
-				}
+				listener := buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
+					listenAddress, uint32(servicePort.Port), servicePort.Protocol)
+				tcpListeners = append(tcpListeners, listener)
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
 				operation := http_conn.EGRESS

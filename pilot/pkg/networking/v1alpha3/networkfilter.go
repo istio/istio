@@ -19,13 +19,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/model"
 
+	"bytes"
+
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -48,7 +54,7 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 
 func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {
 	route := &DeprecatedTCPRoute{
-		Cluster:    clusterName,
+		Cluster: clusterName,
 	}
 	sort.Sort(sort.StringSlice(addresses))
 	for _, addr := range addresses {
@@ -64,7 +70,6 @@ func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *Depr
 	return routeConfig
 }
 
-
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready
@@ -73,27 +78,50 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
 	filterConfig := &DeprecatedTCPProxyFilterConfig{
-		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
-		RouteConfig:buildDeprecatedTCPRouteConfig(clusterName, addresses),
+		StatPrefix:  fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
+		RouteConfig: buildDeprecatedTCPRouteConfig(clusterName, addresses),
 	}
 
-	deprecatedConfig := &DeprecatedFilterConfigInV2{
-		DeprecatedV1: true,
-		Value:filterConfig,
-	}
+	//deprecatedConfig := &DeprecatedFilterConfigInV2{
+	//	DeprecatedV1: true,
+	//	Value:filterConfig,
+	//}
 
 	//if len(addresses) > 0 {
 	//	sort.Sort(sort.StringSlice(addresses))
 	//	route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
 	//}
 
+	trueValue := types.Value{
+		Kind: &types.Value_BoolValue{
+			BoolValue: true,
+		},
+	}
+	data, err := json.Marshal(filterConfig)
+	if err != nil {
+		return nil
+	}
+	pbs := &types.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
+		return nil
+	}
+
+	structValue := types.Value{
+		Kind: &types.Value_StructValue{
+			StructValue: pbs,
+		},
+	}
+
 	// FIXME
 	tcpFilter := listener.Filter{
-		Name:   util.TCPProxy,
-		Config: &types.Struct{Fields:deprecatedConfig},
-		DeprecatedV1: &listener.Filter_DeprecatedV1{
-			Type: "",
-		},
+		Name: util.TCPProxy,
+		Config: &types.Struct{Fields: map[string]*types.Value{
+			"deprecated_v1": &trueValue,
+			"value":         &structValue,
+		}},
+		//DeprecatedV1: &listener.Filter_DeprecatedV1{
+		//	Type: "",
+		//},
 	}
 
 	filterstack := make([]listener.Filter, 0)
@@ -188,6 +216,6 @@ type DeprecatedTCPRouteConfig struct {
 
 // DeprecatedFilterConfigInV2 definition
 type DeprecatedFilterConfigInV2 struct {
-	DeprecatedV1 bool `json:"deprecated_v1"`
-	Value *DeprecatedTCPProxyFilterConfig `json:"value"`
+	DeprecatedV1 bool                            `json:"deprecated_v1"`
+	Value        *DeprecatedTCPProxyFilterConfig `json:"value"`
 }

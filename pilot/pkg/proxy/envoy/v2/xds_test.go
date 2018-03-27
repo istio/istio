@@ -28,12 +28,13 @@ import (
 
 	"sync"
 
+	"encoding/json"
+	"net/http"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
-	"encoding/json"
-	"net/http"
 )
 
 var (
@@ -224,13 +225,13 @@ func TestEnvoy(t *testing.T) {
 
 // EnvoyStat is used to parse envoy stats
 type EnvoyStat struct {
-	Name string `json:"name"`
-	Value int `json:"value"`
+	Name  string `json:"name"`
+	Value int    `json:"value"`
 }
 
 // stats2map parses envoy stats.
 func stats2map(stats []byte) map[string]int {
-	s := struct{
+	s := struct {
 		Stats []EnvoyStat `json:"stats"`
 	}{}
 	_ = json.Unmarshal(stats, &s)
