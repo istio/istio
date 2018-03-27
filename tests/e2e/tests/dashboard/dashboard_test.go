@@ -81,19 +81,21 @@ func TestDashboards(t *testing.T) {
 
 	t.Log("Validating prometheus in ready-state...")
 	if err := waitForMetricsInPrometheus(t); err != nil {
-		logMixerMetrics(t)
+		logMixerMetrics(t, "istio-telemetry", 42422)
 		t.Fatalf("Sentinel metrics never appeared in Prometheus: %v", err)
 	}
 	t.Log("Sentinel metrics found in prometheus.")
 
 	cases := []struct {
-		name      string
-		dashboard string
-		filter    func([]string) []string
+		name       string
+		dashboard  string
+		filter     func([]string) []string
+		metricHost string
+		metricPort int
 	}{
-		{"Istio", istioDashboard, func(queries []string) []string { return queries }},
-		{"Mixer", mixerDashboard, mixerQueryFilterFn},
-		{"Pilot", pilotDashboard, pilotQueryFilterFn},
+		{"Istio", istioDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -132,7 +134,7 @@ func TestDashboards(t *testing.T) {
 			}
 
 			if t.Failed() {
-				logMixerMetrics(t)
+				logMixerMetrics(t, testCase.metricHost, testCase.metricPort)
 			}
 		})
 	}
@@ -489,14 +491,14 @@ func getMetricValue(query string) (float64, error) {
 	return 0, fmt.Errorf("no known value for metric: '%s'", query)
 }
 
-func logMixerMetrics(t *testing.T) {
+func logMixerMetrics(t *testing.T, host string, port int) {
 	ns := tc.Kube.Namespace
 	pods, err := getPodList(ns, "app=echosrv")
 	if err != nil || len(pods) < 1 {
 		t.Logf("Failure getting mixer metrics: %v", err)
 		return
 	}
-	resp, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-mixer.%s:42422/metrics", ns, pods[0], ns)
+	resp, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], host, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
