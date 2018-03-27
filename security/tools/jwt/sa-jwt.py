@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +44,10 @@ def main(args):
         payload["sub"] = args.iss
 
     if args.aud:
-        payload["aud"] = args.aud
+        if "," in args.aud:
+            payload["aud"] = args.aud.split(",")
+        else:
+            payload["aud"] = args.aud
 
     signed_jwt = google.auth.jwt.encode(signer, payload)
     return signed_jwt
