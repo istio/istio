@@ -73,7 +73,7 @@ func (na *nodeAgentInternal) Start() error {
 				log.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false
 			} else {
-				if err := caclient.SaveKeyCert(na.config.CAClientConfig.KeyFile,
+				if err = caclient.SaveKeyCert(na.config.CAClientConfig.KeyFile,
 					na.config.CAClientConfig.CertChainFile,
 					privateKey, append(resp.SignedCert, resp.CertChain...)); err != nil {
 					return err

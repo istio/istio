@@ -36,7 +36,7 @@ type SecretServer interface {
 	Save(util.KeyCertBundle) error
 }
 
-// TODO: maybe put it back to config.go?
+// Config contains the SecretServer configuration.
 type Config struct {
 	// Mode specifies how the node agent communications to workload.
 	Mode SecretServerMode

@@ -110,6 +110,7 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundleIm
 	}, nil
 }
 
+// RetrieveID returns the service account from the KeyCertBundle.
 // TODO: implement this later as a KeyCertBundle's method.
 func RetrieveID(b KeyCertBundle) string {
 	return ""
