@@ -505,7 +505,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.routeConfig}
 	}
 
-	if rds == nil {
+	if connectionManager.RouteSpecifier == nil {
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{
 			RouteConfig: opts.routeConfig,
 		}
