@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
@@ -37,31 +36,45 @@ var (
 	// TODO - Add support for non-default proxy config locations
 	// TODO - Add support for non-kube istio deployments
 	configCmd = &cobra.Command{
-		Use:   "proxy-config <pod-name>",
-		Short: "Retrieves proxy configuration for the specified pod [kube only]",
+		Use:   "proxy-config <pod-name> [<configuration-type>]",
+		Short: "Retrieves local proxy configuration for the specified pod [kube only]",
 		Long: `
-Retrieves the static/bootstrap proxy configuration for the specified pod when running in Kubernetes.
-Support for other environments to follow.
+Retrieves the local proxy configuration for the specified pod when running in Kubernetes.
+
+Available configuration types:
+
+	[clusters listeners routes static]
+
 `,
-		Example: `# Retrieve config for productpage-v1-bb8d5cbc7-k7qbm pod
-istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm`,
+		Example: `# Retrieve all config for productpage-v1-bb8d5cbc7-k7qbm pod
+istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm
+
+# Retrieve cluster config for productpage-v1-bb8d5cbc7-k7qbm pod
+istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm clusters
+
+# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod
+istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm static`,
 		Aliases: []string{"pc"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			podName := args[0]
-			log.Infof("Retrieving proxy config for %q", podName)
+			var configType string
+			if len(args) > 1 {
+				configType = args[1]
+			} else {
+				configType = "all"
+			}
+			log.Infof("Retrieving %v proxy config for %q", configType, podName)
 
 			ns := namespace
 			if ns == v1.NamespaceAll {
 				ns = defaultNamespace
 			}
-			config, err := readConfigFile(podName, ns)
+			debug, err := callPilotAgentDebug(podName, ns, configType)
 			if err != nil {
 				return err
 			}
-
-			fmt.Println(config)
-
+			fmt.Println(debug)
 			return nil
 		},
 	}
@@ -90,26 +103,12 @@ func defaultRestConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func readConfigFile(podName, podNamespace string) (string, error) {
-	// Get filename to read from
-	var fileLocation string
-	cmd := []string{"ls", "-Art", "/etc/istio/proxy"}
+func callPilotAgentDebug(podName, podNamespace, configType string) (string, error) {
+	cmd := []string{"/usr/local/bin/pilot-agent", "debug", configType}
 	if stdout, stderr, err := podExec(podName, podNamespace, cmd); err != nil {
 		return "", err
 	} else if stderr.String() != "" {
-		return "", fmt.Errorf("unable to find config file: %v", stderr.String())
-	} else {
-		// Use the first file in the sorted ls
-		resp := strings.Fields(stdout.String())
-		fileLocation = fmt.Sprintf("/etc/istio/proxy/%v", resp[0])
-	}
-
-	// Cat the file
-	cmd = []string{"cat", fileLocation}
-	if stdout, stderr, err := podExec(podName, podNamespace, cmd); err != nil {
-		return "", err
-	} else if stderr.String() != "" {
-		return "", fmt.Errorf("unable to read config file: %v", stderr.String())
+		return "", fmt.Errorf("unable to call pilot-agent debug: %v", stderr.String())
 	} else {
 		return stdout.String(), nil
 	}
@@ -135,7 +134,6 @@ func podExec(podName, podNamespace string, command []string) (*bytes.Buffer, *by
 			Stderr:    true,
 			TTY:       false,
 		}, scheme.ParameterCodec)
-
 	config, err := defaultRestConfig()
 	if err != nil {
 		return nil, nil, err

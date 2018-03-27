@@ -103,14 +103,7 @@ See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := log.Configure(loggingOptions); err != nil {
-				return err
-			}
-			getRealKubeConfig(cmd, args)
-			defaultNamespace = getDefaultNamespace(kubeconfig)
-			return nil
-		},
+		PersistentPreRunE: istioPersistentPreRunE,
 	}
 
 	postCmd = &cobra.Command{
@@ -505,7 +498,16 @@ istioctl context-create --api-server http://127.0.0.1:8080
 
 const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
 
-func getRealKubeConfig(c *cobra.Command, args []string) {
+func istioPersistentPreRunE(c *cobra.Command, args []string) error {
+	if err := log.Configure(loggingOptions); err != nil {
+		return err
+	}
+	defaultNamespace = getDefaultNamespace(kubeconfig)
+	getRealKubeConfig()
+	return nil
+}
+
+func getRealKubeConfig() {
 	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
 	if kubeconfig == defaultKubeConfigText {
 		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")

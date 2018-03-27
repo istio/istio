@@ -25,10 +25,9 @@ import (
 
 var (
 	registerCmd = &cobra.Command{
-		Use:              "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
-		Short:            "Registers a service instance (e.g. VM) joining the mesh",
-		Args:             cobra.MinimumNArgs(3),
-		PersistentPreRun: getRealKubeConfig,
+		Use:   "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
+		Short: "Registers a service instance (e.g. VM) joining the mesh",
+		Args:  cobra.MinimumNArgs(3),
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]
