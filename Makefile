@@ -600,56 +600,15 @@ generate_yaml:
 $(HELM):
 	bin/init_helm.sh
 
-istio.yaml: $(HELM)
+
+# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
+# Ensure that values-$filename is present in install/kubernetes/helm/istio
+isti%.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
-				  --namespace=istio-system \
+		  --namespace=istio-system \
                   --set global.hub=${HUB} \
-                  --set global.controlPlaneSecurityEnabled=false \
-		  --set global.refreshInterval=1s \
-                  --set global.mtls.enabled=false \
-		  --set global.rbacEnabled=true \
-		  --set istiotesting.oneNamespace=false \
-                  --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio.yaml
-
-istio-one-namespace.yaml: $(HELM)
-	$(HELM) template --set global.tag=${TAG} \
-				  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-                  --set global.controlPlaneSecurityEnabled=false \
-		  --set global.refreshInterval=1s \
-                  --set global.mtls.enabled=false \
-		  --set global.rbacEnabled=true \
-		  --set istiotesting.oneNamespace=true \
-                  --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace.yaml
-
-
-istio-auth.yaml: $(HELM)
-	$(HELM) template --set global.tag=${TAG} \
-				  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-                  --set global.controlPlaneSecurityEnabled=true \
-		  --set global.refreshInterval=1s \
-                  --set global.mtls.enabled=true \
-		  --set global.rbacEnabled=true \
-		  --set istiotesting.oneNamespace=false \
-                  --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml
-
-istio-one-namespace-auth.yaml: $(HELM)
-	$(HELM) template --set global.tag=${TAG} \
-				  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-                  --set global.controlPlaneSecurityEnabled=true \
-		  --set global.refreshInterval=1s \
-                  --set global.mtls.enabled=true \
-		  --set global.rbacEnabled=true \
-		  --set istiotesting.oneNamespace=true \
-                  --set prometheus.enabled=true \
-				install/kubernetes/helm/istio > install/kubernetes/istio-one-namespace-auth.yaml
-
-
+		  --values install/kubernetes/helm/istio/values-$@ \
+		  install/kubernetes/helm/istio > install/kubernetes/$@
 
 deploy/all: $(HELM)
 	kubectl create ns istio-system > /dev/null || true
