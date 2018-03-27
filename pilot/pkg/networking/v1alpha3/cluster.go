@@ -29,7 +29,7 @@ import (
 
 const (
 	// DefaultLbType set to round robin
-	DefaultLbType = v2.Cluster_ROUND_ROBIN
+	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
 )
@@ -66,8 +66,6 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
-	// TODO add original dst cluster or workaround for routers
-
 	return clusters // TODO: normalize/dedup/order
 }
 
@@ -79,11 +77,8 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 			hosts := buildClusterHosts(env, service, port)
 
 			// create default cluster
-			defaultCluster := &v2.Cluster{
-				Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port),
-				Type:  convertResolution(service.Resolution),
-				Hosts: hosts,
-			}
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+			defaultCluster := newCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -92,11 +87,8 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
 
 				for _, subset := range destinationRule.Subsets {
-					subsetCluster := &v2.Cluster{
-						Name:  model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port),
-						Type:  convertResolution(service.Resolution),
-						Hosts: hosts,
-					}
+					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
+					subsetCluster := newCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
@@ -136,13 +128,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		localCluster := &v2.Cluster{
-			Name:           clusterName,
-			Type:           v2.Cluster_STATIC,
-			LbPolicy:       DefaultLbType,
-			ConnectTimeout: convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
-			Hosts:          []*core.Address{&address},
-		}
+		localCluster := newCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		clusters = append(clusters, localCluster)
 	}
@@ -151,13 +137,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
 		address := buildAddress("127.0.0.1", uint32(port.Port))
-		mgmtCluster := &v2.Cluster{
-			Name:           clusterName,
-			Type:           v2.Cluster_STATIC,
-			LbPolicy:       DefaultLbType,
-			ConnectTimeout: convertProtoDurationToDuration(env.Mesh.ConnectTimeout),
-			Hosts:          []*core.Address{&address},
-		}
+		mgmtCluster := newCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
 	}
@@ -330,5 +310,40 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 		if port.Protocol == model.ProtocolHTTP2 || port.Protocol == model.ProtocolGRPC {
 			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 		}
+	}
+}
+
+func newCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
+	hosts []*core.Address) *v2.Cluster {
+	cluster := &v2.Cluster{
+		Name:  name,
+		Type:  discoveryType,
+		Hosts: hosts,
+	}
+	defaultTrafficPolicy := newDefaultTrafficPolicy(env, discoveryType)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy)
+	return cluster
+}
+
+func newDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
+	lbPolicy := DefaultLbType
+	if discoveryType == v2.Cluster_ORIGINAL_DST {
+		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
+	}
+
+	return &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: lbPolicy,
+			},
+		},
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+				ConnectTimeout: &types.Duration{
+					Seconds: env.Mesh.ConnectTimeout.Seconds,
+					Nanos:   env.Mesh.ConnectTimeout.Nanos,
+				},
+			},
+		},
 	}
 }
