@@ -110,8 +110,7 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundleIm
 	}, nil
 }
 
-// TODO(incfly): temporarily workaround of interface adding methods.
-// TODO: implement this.
+// TODO: implement this later as a KeyCertBundle's method.
 func RetrieveID(b KeyCertBundle) string {
 	return ""
 }

@@ -51,8 +51,8 @@ type Server struct {
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint
-	// ss manages the secrets associated for different workload.
-	ss workload.SecretServer
+	// secretServer manages the secrets associated for different workload.
+	secretServer workload.SecretServer
 }
 
 // New creates an NodeAgent server.
@@ -84,7 +84,7 @@ func New(cfg *na.Config) (*Server, error) {
 		caClient:     cac,
 		config:       cfg,
 		pc:           pc,
-		ss:           ss,
+		secretServer: ss,
 	}, nil
 }
 
@@ -136,11 +136,18 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	uid := request.Attrs.Uid
 	sa := request.Attrs.Serviceaccount
 	ns := request.Attrs.Namespace
-	log.Infof("workload uid = %v, ns = %v, service account = %v added", uid, ns, sa)
+	wlstr := fmt.Sprintf("ns = %v, service account = %v, uid = %v", ns, sa, ns)
+	log.Infof("workload %v added", wlstr)
 	if _, ok := s.handlerMap[uid]; ok {
 		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
 		log.Infof("workload %v already exists", request)
 		return &pb.NodeAgentMgmtResponse{Status: status}, nil
+	}
+
+	logReturn := func(tmpl string, err error) error {
+		msg := fmt.Sprintf("%v for %v error %v", tmpl, wlstr, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
 	// Sends CSR request to CA.
@@ -154,20 +161,19 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
+		return nil, logReturn("failed to create csr", err)
 	}
 	resp, err := s.caGrpcClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
 	if err != nil {
-		return nil, fmt.Errorf("csr request failed for service %v %v", sa, err)
+		return nil, logReturn("csr request failed", err)
 	}
-	// TODO: get root somewhere?
 	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(resp.SignedCert, priv, resp.CertChain, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build key cert bundle")
+		return nil, logReturn("failed to build key cert buhndle", err)
 	}
 
-	if err := s.ss.Save(kb); err != nil {
-		return nil, fmt.Errorf("failed to save key cert %v, service account %v, uid %v", err, sa, uid)
+	if err := s.secretServer.Save(kb); err != nil {
+		return nil, logReturn("failed to save key cert", err)
 	}
 
 	s.handlerMap[uid] = handler.NewHandler(request, s.config.WorkloadOpts)

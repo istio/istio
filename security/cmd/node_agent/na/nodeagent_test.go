@@ -152,14 +152,6 @@ func TestStartWithArgs(t *testing.T) {
 			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
 				id, c.cAClient.Counter, c.sendTimes)
 		}
-		// TODO(incfly): add test back after we have Read/Load methods on SecretServer.
-		//	if c.fileContent != nil && !bytes.Equal(fakeFileUtil.WriteContent["cert_file"], c.fileContent) {
-		//			t.Errorf("Test case [%s]: cert file content incorrect: %s VS (expected) %s",
-		//						id, fakeFileUtil.WriteContent["cert_file"], c.fileContent)
-		//}
-		//if c.fileContent != nil && !bytes.Equal(fakeFileUtil.WriteContent["cert_file"], c.fileContent) {
-		//t.Errorf("Test case [%s]: cert file content incorrect: %s VS (expected) %s",
-		//id, fakeFileUtil.WriteContent["cert_file"], c.fileContent)
-		//}
+		// TODO(incfly): add check to compare fileContent equals to the saved secrets after we can read from SecretServer.
 	}
 }

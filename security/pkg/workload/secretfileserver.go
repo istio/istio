@@ -24,7 +24,7 @@ import (
 
 const (
 	// KeyFilePermission is the permission bits for private key file.
-	KeyFilePermission  = 0600
+	KeyFilePermission = 0600
 
 	// CertFilePermission is the permission bits for certificate file.
 	CertFilePermission = 0644
