@@ -80,11 +80,7 @@ func TestMain(m *testing.M) {
 func TestDashboards(t *testing.T) {
 	t.Log("Validating prometheus in ready-state...")
 	if err := waitForMetricsInPrometheus(t); err != nil {
-<<<<<<< HEAD
-		logMixerMetrics(t, "istio-telemetry", 42422)
-=======
-		logMixerInfo(t)
->>>>>>> Add better check for Mixer config health to dash test
+		logMixerInfo(t, "istio-telemetry", 42422)
 		t.Fatalf("Sentinel metrics never appeared in Prometheus: %v", err)
 	}
 	t.Log("Sentinel metrics found in prometheus.")
@@ -526,32 +522,24 @@ func metricValue(query string) (float64, error) {
 	return 0, fmt.Errorf("no known value for metric: '%s'", query)
 }
 
-
-func logMixerInfo(t *testing.T) {
-	logMixerMetrics(t)
+func logMixerInfo(t *testing.T, service string, port int) {
+	logMixerMetrics(t, service, port)
 	logMixerLogs(t)
 }
 
-func logMixerMetrics(t *testing.T) {
+func logMixerMetrics(t *testing.T, service string, port int) {
 	ns := tc.Kube.Namespace
 	pods, err := podList(ns, "app=echosrv")
 	if err != nil || len(pods) < 1 {
-		t.Logf("Failure getting mixer metrics: %v", err)
+		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-telemetry.%s:42422/metrics", ns, pods[0], ns)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, port, ns)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
 	}
-	t.Logf("GET http://istio-telemetry:42422/metrics:\n%v", resp)
-
-	resp, err = util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://istio-telemetry.%s:9093/metrics", ns, pods[0], ns)
-	if err != nil {
-		t.Logf("could not retrieve metrics: %v", err)
-		return
-	}
-	t.Logf("GET http://istio-telemetry:9093/metrics:\n%v", resp)
+	t.Logf("GET http://%s.%s:%d/metrics:\n%v", service, ns, port, resp)
 }
 
 type logger interface {
